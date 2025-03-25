@@ -3526,7 +3526,7 @@ useEffect(() => {
           {bulkInputVisible && (
             <div className="mt-3 p-4 border border-gray-300 rounded-md bg-gray-50">
               <p className="text-sm text-gray-600 mb-4">
-                Excel'den veya diğer kaynaklardan toplu veri ekleyebilirsiniz. "Hasır Tipi", "Uzunluk Boy", "Uzunluk En" ve "Hasır Sayısı" bilgilerini içeren verileri düzenleyip onaylayın.
+                Excel&apos;den veya diğer kaynaklardan toplu veri ekleyebilirsiniz. &quot;Hasır Tipi&quot;, &quot;Uzunluk Boy&quot;, &quot;Uzunluk En&quot; ve &quot;Hasır Sayısı&quot; bilgilerini içeren verileri düzenleyip onaylayın.
               </p>
 
               
@@ -3598,7 +3598,7 @@ useEffect(() => {
                     ) : (
                       <tr>
                         <td colSpan="6" className="border border-gray-300 p-4 text-center text-gray-500">
-                          Veri yok. Veri eklemek için dosya yükleyin, metin yapıştırın veya "Satır Ekle" düğmesini kullanın.
+                          Veri yok. Veri eklemek için dosya yükleyin, metin yapıştırın veya &quot;Satır Ekle&quot; düğmesini kullanın.
                         </td>
                       </tr>
                     )}
@@ -3691,7 +3691,7 @@ useEffect(() => {
               className="px-4 py-2 bg-green-600 text-white rounded-md flex items-center gap-2 hover:bg-green-700 transition-colors"
             >
               <Download size={18} />
-              Excel'e Aktar
+              Excel&apos;e Aktar
             </button>
             
             <button 
@@ -3745,7 +3745,7 @@ useEffect(() => {
               className={`px-2 py-1 ${!tableBackup ? 'bg-gray-300 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-600'} text-white rounded-md flex items-center gap-1 text-sm transition-colors`}
             >
               <ArrowDownToLine size={16} />
-              Backup'a Dön
+              Backup&apos;a Dön
             </button>
           </div>
 
@@ -4147,14 +4147,14 @@ useEffect(() => {
           <div className="mt-2 flex items-start gap-2 text-gray-700">
             <Info size={16} className="flex-shrink-0 mt-0.5 text-blue-500" />
             <p>
-              Önce 'Hasır Tipi', 'Uzunluk Boy', 'Uzunluk En' ve 'Hasır Sayısı' alanlarını doldurun. 
-              Diğer alanlar otomatik hesaplanacaktır. İyileştirme işlemi için 'İyileştir' düğmesini kullanabilirsiniz.
+              Önce &apos;Hasır Tipi&apos;, &apos;Uzunluk Boy&apos;, &apos;Uzunluk En&apos; ve &apos;Hasır Sayısı&apos; alanlarını doldurun. 
+              Diğer alanlar otomatik hesaplanacaktır. İyileştirme işlemi için &apos;İyileştir&apos; düğmesini kullanabilirsiniz.
               Kırmızı ile işaretlenen değerler otomatik olarak değiştirilmiş değerlerdir.
             </p>
           </div>
           
           <div className="mt-2 text-sm text-gray-500">
-            <p>Klavye Kısayolları: Alt+N = Yeni Satır Ekle, Alt+E = Excel'e Aktar, Alt+I = Hepsini İyileştir, Alt+B = Backup Oluştur, Alt+R = Backup'a Dön</p>
+            <p>Klavye Kısayolları: Alt+N = Yeni Satır Ekle, Alt+E = Excel&apos;e Aktar, Alt+I = Hepsini İyileştir, Alt+B = Backup Oluştur, Alt+R = Backup&apos;a Dön</p>
           </div>
         </div>
       </div>
