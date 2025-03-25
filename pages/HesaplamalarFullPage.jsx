@@ -1,9 +1,15 @@
 "use client";
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import MainLayout3 from '@/components/MainLayout3';
-import HesaplamalarPage from '@/pages/HesaplamalarPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
+
+// Dynamic import to prevent SSR
+const HesaplamalarPage = dynamic(
+  () => import('@/pages/HesaplamalarPage'),
+  { ssr: false }
+);
 
 const HesaplamalarFullPage = () => {
   return (
@@ -15,4 +21,5 @@ const HesaplamalarFullPage = () => {
   );
 };
 
-export default HesaplamalarFullPage;
+// Export with noSSR to disable server-side rendering
+export default dynamic(() => Promise.resolve(HesaplamalarFullPage), { ssr: false });
