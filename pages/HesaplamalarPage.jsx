@@ -1,34 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Link, Link2, Hammer, Calculator, Calendar, Activity } from 'lucide-react';
+import { Grid, Link, Link2, Hammer } from 'lucide-react';
 import PanelCitHesaplama from '@/components/PanelCitHesaplama';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import dynamic from 'next/dynamic';
 
-// Use dynamic import with SSR disabled to prevent server-side rendering
 const HesaplamalarPage = () => {
-
-  // Now we can safely use the auth context on client-side only
   const { hasPermission, user } = useAuth();
+
   // State to track if we're client-side
   const [isMounted, setIsMounted] = useState(false);
-  
-  // Set mounted state on client-side only
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
-  
-  // Don't render anything during SSR
-  if (!isMounted) {
-    return null; // or a loading indicator
-  }
-  
 
-  
-  // Aktif tab'ı takip et
-  const [activeTab, setActiveTab] = useState('panel-cit');
-  
   // Tab listesi with permissions
   const allTabs = [
     { id: 'panel-cit', name: 'Panel Çit', icon: <Grid size={16} />, permission: 'access:panel-cit' },
@@ -38,18 +25,20 @@ const HesaplamalarPage = () => {
     { id: 'civi', name: 'Çivi', icon: <Hammer size={16} />, permission: 'access:civi' },
     { id: 'zirhli-tel', name: 'Zırhlı Tel', icon: <Link size={16} />, permission: 'access:zirhli-tel' },
   ];
-  
-  // Filter tabs based on user permissions
-  const tabs = allTabs.filter(tab => hasPermission(tab.permission));
-  
-  // Set default active tab if user doesn't have permission for current tab
-useEffect(() => {
-  if (tabs.length > 0 && !tabs.find(tab => tab.id === activeTab)) {
-    setActiveTab(tabs[0].id);
-  }
-}, [tabs, activeTab]);
 
-  // If no tabs are accessible, show unauthorized message
+  const tabs = allTabs.filter(tab => hasPermission(tab.permission));
+  const defaultTabId = tabs.length > 0 ? tabs[0].id : null;
+
+  const [activeTab, setActiveTab] = useState(defaultTabId);
+
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.find(tab => tab.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
+
+  if (!isMounted) return null;
+
   if (tabs.length === 0) {
     return (
       <ClientAuthCheck>
@@ -71,7 +60,7 @@ useEffect(() => {
             Rol: <span className="font-medium">{user?.role}</span>
           </p>
         </div>
-        
+
         {/* Tab Navigation */}
         <div className="bg-white border-b">
           <nav className="-mb-px flex space-x-8 overflow-x-auto">
@@ -94,19 +83,13 @@ useEffect(() => {
 
         {/* Tab İçeriği */}
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          {activeTab === 'panel-cit' && (
-            <PanelCitHesaplama />
-          )}
-
-          {activeTab === 'celik-hasir' && (
-            <CelikHasirHesaplama />
-          )}
+          {activeTab === 'panel-cit' && <PanelCitHesaplama />}
+          {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
 
           {activeTab === 'galvanizli-tel' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Galvanizli Tel Maliyet Hesaplama</h3>
               <p className="text-gray-600">Galvanizli Tel için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-              {/* Galvanizli Tel içeriği buraya gelecek */}
             </div>
           )}
 
@@ -114,7 +97,6 @@ useEffect(() => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Tavlı Tel Maliyet Hesaplama</h3>
               <p className="text-gray-600">Tavlı Tel için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-              {/* Tavlı Tel içeriği buraya gelecek */}
             </div>
           )}
 
@@ -122,7 +104,6 @@ useEffect(() => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Çivi Maliyet Hesaplama</h3>
               <p className="text-gray-600">Çivi için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-              {/* Çivi içeriği buraya gelecek */}
             </div>
           )}
 
@@ -130,7 +111,6 @@ useEffect(() => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Zırhlı Tel Maliyet Hesaplama</h3>
               <p className="text-gray-600">Zırhlı Tel için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-              {/* Zırhlı Tel içeriği buraya gelecek */}
             </div>
           )}
         </div>
@@ -139,5 +119,5 @@ useEffect(() => {
   );
 };
 
-// Export with noSSR to disable server-side rendering for this component
+// Disable SSR
 export default dynamic(() => Promise.resolve(HesaplamalarPage), { ssr: false });
