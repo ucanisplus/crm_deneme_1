@@ -1423,7 +1423,7 @@ const updateOzelPanel = (id, field, value) => {
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
           >
             <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Excel'e Aktar
+            Excel&apos;e Aktar
           </button>
         )}
       </div>
@@ -2488,7 +2488,7 @@ const renderSpecialPanelEntry = () => (
           {ozelPanelList.length === 0 && (
             <tr>
               <td colSpan="15" className="px-3 py-4 text-center text-sm text-gray-500">
-                Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
+                Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki &quot;Yeni Panel Ekle&quot; düğmesini kullanın.
               </td>
             </tr>
           )}
@@ -2555,7 +2555,7 @@ const renderSpecialPanelEntry = () => (
               disabled={maliyetListesi.length === 0}
             >
               <FileSpreadsheet className="w-4 h-4 mr-1" />
-              Excel'e Aktar
+              Excel&apos;e Aktar
             </button>
           </div>
         </div>
