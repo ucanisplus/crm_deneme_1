@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
   Home, 
@@ -223,7 +224,13 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {/* Logo Alanı */}
         <div className="flex justify-between items-center p-4 border-b border-gray-800">
           <div className="flex items-center space-x-3">
-            <img src="/logo_sade.png" alt="Albayrak Logo" className="h-10 w-auto" />
+            <Image
+                src="/logo_sade.png"
+                alt="Albayrak Logo"
+                width={100}
+                height={40} 
+                className="h-10 w-auto"
+            />
             {navExpanded && (
               <div className="text-white font-semibold">Albayrak</div>
             )}
