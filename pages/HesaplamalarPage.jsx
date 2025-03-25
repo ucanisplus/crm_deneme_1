@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Grid, Link, Link2, Hammer, Calculator, Calendar, Activity } from 'lucide-react';
 import PanelCitHesaplama from '@/components/PanelCitHesaplama';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
+import dynamic from 'next/dynamic';
 
+// Use dynamic import with SSR disabled to prevent server-side rendering
 const HesaplamalarPage = () => {
-  // Get auth context
+  // State to track if we're client-side
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Set mounted state on client-side only
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Don't render anything during SSR
+  if (!isMounted) {
+    return null; // or a loading indicator
+  }
+  
+  // Now we can safely use the auth context on client-side only
   const { hasPermission, user } = useAuth();
   
   // Aktif tab'ı takip et
@@ -120,4 +135,5 @@ const HesaplamalarPage = () => {
   );
 };
 
-export default HesaplamalarPage;
+// Export with noSSR to disable server-side rendering for this component
+export default dynamic(() => Promise.resolve(HesaplamalarPage), { ssr: false });
