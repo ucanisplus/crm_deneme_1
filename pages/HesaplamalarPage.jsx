@@ -41,9 +41,11 @@ const HesaplamalarPage = () => {
   const tabs = allTabs.filter(tab => hasPermission(tab.permission));
   
   // Set default active tab if user doesn't have permission for current tab
+useEffect(() => {
   if (tabs.length > 0 && !tabs.find(tab => tab.id === activeTab)) {
     setActiveTab(tabs[0].id);
   }
+}, [tabs, activeTab]);
 
   // If no tabs are accessible, show unauthorized message
   if (tabs.length === 0) {
