@@ -8,6 +8,9 @@ import dynamic from 'next/dynamic';
 
 // Use dynamic import with SSR disabled to prevent server-side rendering
 const HesaplamalarPage = () => {
+
+  // Now we can safely use the auth context on client-side only
+  const { hasPermission, user } = useAuth();
   // State to track if we're client-side
   const [isMounted, setIsMounted] = useState(false);
   
@@ -21,8 +24,7 @@ const HesaplamalarPage = () => {
     return null; // or a loading indicator
   }
   
-  // Now we can safely use the auth context on client-side only
-  const { hasPermission, user } = useAuth();
+
   
   // Aktif tab'ı takip et
   const [activeTab, setActiveTab] = useState('panel-cit');
