@@ -1290,7 +1290,22 @@ const CelikHasirHesaplama = () => {
   const iyilestir = async (rowIndex) => {
     // Başlangıçta satırı yedekle
     backupRow(rowIndex);
+
+    // İlk degerleri koru
+    const previousModified = {...row.modified};
+    const previousAciklama = row.aciklama;
+    const previousUretilemez = row.uretilemez;
+
+    // İlke degerleri Koru
+    if (!previousAciklama) {
+      row.aciklama = '';
+    }
     
+    // Uretilemez i resetleyebilirsin
+    if (!previousUretilemez) {
+      row.uretilemez = false;
+    }
+
     // İyileştirme işleminin başladığını göster
     setProcessingRowIndex(rowIndex);
     
@@ -1331,16 +1346,16 @@ const CelikHasirHesaplama = () => {
     
     // Başlangıçta modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
     row.modified = {
-      uzunlukBoy: false,
-      uzunlukEn: false,
-      hasirSayisi: false,
-      cubukSayisiBoy: false,
-      cubukSayisiEn: false,
-      solFiliz: false,
-      sagFiliz: false,
-      onFiliz: false,
-      arkaFiliz: false,
-      hasirTuru: false
+      uzunlukBoy: previousModified.uzunlukBoy || false,
+      uzunlukEn: previousModified.uzunlukEn || false,
+      hasirSayisi: previousModified.hasirSayisi || false,
+      cubukSayisiBoy: previousModified.cubukSayisiBoy || false,
+      cubukSayisiEn: previousModified.cubukSayisiEn || false,
+      solFiliz: previousModified.solFiliz || false,
+      sagFiliz: previousModified.sagFiliz || false,
+      onFiliz: previousModified.onFiliz || false,
+      arkaFiliz: previousModified.arkaFiliz || false,
+      hasirTuru: previousModified.hasirTuru || false
     };
     
     row.aciklama = '';
@@ -1397,6 +1412,22 @@ const CelikHasirHesaplama = () => {
     // İşlemden önce tüm satırları yedekle
     backupAllRows();
     
+    // İlk degerleri koru
+    const previousModified = {...row.modified};
+    const previousAciklama = row.aciklama;
+    const previousUretilemez = row.uretilemez;
+
+    // İlke degerleri Koru
+    if (!previousAciklama) {
+      row.aciklama = '';
+    }
+    
+    // Uretilemez i resetleyebilirsin
+    if (!previousUretilemez) {
+      row.uretilemez = false;
+    }
+
+
     // Toplu işleme durumunu başlat
     setBatchProcessing(true);
     
@@ -1442,16 +1473,16 @@ const CelikHasirHesaplama = () => {
         
         // Modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
         row.modified = {
-          uzunlukBoy: false,
-          uzunlukEn: false,
-          hasirSayisi: false,
-          cubukSayisiBoy: false,
-          cubukSayisiEn: false,
-          solFiliz: false,
-          sagFiliz: false,
-          onFiliz: false,
-          arkaFiliz: false,
-          hasirTuru: false
+          uzunlukBoy: previousModified.uzunlukBoy || false,
+          uzunlukEn: previousModified.uzunlukEn || false,
+          hasirSayisi: previousModified.hasirSayisi || false,
+          cubukSayisiBoy: previousModified.cubukSayisiBoy || false,
+          cubukSayisiEn: previousModified.cubukSayisiEn || false,
+          solFiliz: previousModified.solFiliz || false,
+          sagFiliz: previousModified.sagFiliz || false,
+          onFiliz: previousModified.onFiliz || false,
+          arkaFiliz: previousModified.arkaFiliz || false,
+          hasirTuru: previousModified.hasirTuru || false
         };
         
         row.aciklama = '';
@@ -2946,7 +2977,9 @@ const processExtractedTextFromOCR = (extractedText) => {
     
     // Durumu güncelle
     setRows(finalRows);
-    
+    // backup olustur
+    backupTable();
+
     // Toplu veri girişi panelini kapat
     setBulkInputVisible(false);
     
@@ -2958,6 +2991,9 @@ const processExtractedTextFromOCR = (extractedText) => {
   const addRow = () => {
     const newRowId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
     setRows([...rows, createEmptyRow(newRowId)]);
+    // backup olustur
+    backupTable();
+
   };
 
   // Satır silme
@@ -3912,15 +3948,19 @@ useEffect(() => {
                       />
                     </td>
 
-                    {/* Hasır Türü */}
                     <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
+                      <select
                         className={`w-full p-1 border ${row.modified.hasirTuru ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={row.hasirTuru}
                         onChange={(e) => handleCellChange(rowIndex, 'hasirTuru', e.target.value)}
                         disabled={!isBasicFieldsFilled}
-                      />
+                      >
+                        <option value="">Seçiniz</option>
+                        <option value="Perde">Perde</option>
+                        <option value="DK Perde">DK Perde</option>
+                        <option value="Döşeme">Döşeme</option>
+                        <option value="Standart">Standart</option>
+                      </select>
                     </td>
 
                     {/* Diğer alanlar */}
