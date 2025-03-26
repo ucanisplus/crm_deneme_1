@@ -2977,12 +2977,10 @@ const processExtractedTextFromOCR = (extractedText) => {
     });
     
     // Durumu güncelle
-    setRows(finalRows, () => {
-      // Tablonun gunceleldiginden emin olduktan sonra backup olustur.
-      setTimeout(() => backupTable(), 100);
-      });
+    setRows(finalRows);
+    setTimeout(() => backupTable(), 100);
     setBulkInputVisible(false);
-    
+
     // Ön izleme tablosunu temizle
     setPreviewData([]);
   };
