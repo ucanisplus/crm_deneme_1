@@ -1287,254 +1287,255 @@ const CelikHasirHesaplama = () => {
   };
 
   // İyileştirme işlemlerini gerçekleştirme - Filiz değerlerini sıfırlama eklendi
-  const iyilestir = async (rowIndex) => {
-    // Başlangıçta satırı yedekle
-    backupRow(rowIndex);
-
-    // İlk degerleri koru
-    const previousModified = {...row.modified};
-    const previousAciklama = row.aciklama;
-    const previousUretilemez = row.uretilemez;
-
-    // İlke degerleri Koru
-    if (!previousAciklama) {
-      row.aciklama = '';
-    }
-    
-    // Uretilemez i resetleyebilirsin
-    if (!previousUretilemez) {
-      row.uretilemez = false;
-    }
-
-    // İyileştirme işleminin başladığını göster
-    setProcessingRowIndex(rowIndex);
-    
-    // İşlemin asenkron çalışması için setTimeout kullan (animasyon görünmesi için)
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const updatedRows = [...rows];
-    const row = updatedRows[rowIndex];
-    
-    // Temel değerler
-    const hasirTipi = row.hasirTipi;
-    const uzunlukBoy = parseFloat(row.uzunlukBoy);
-    const uzunlukEn = parseFloat(row.uzunlukEn);
-    const hasirSayisi = parseFloat(row.hasirSayisi);
-    
-    // Başlangıç değerlerini hatırla (İkinci kez çalıştırılırsa bozulmasın diye)
-    const originalValues = {
-      uzunlukBoy: uzunlukBoy,
-      uzunlukEn: uzunlukEn,
-      hasirSayisi: hasirSayisi
-    };
-    
-    // Eksik bilgi varsa işlem yapma
-    if (!hasirTipi || isNaN(uzunlukBoy) || isNaN(uzunlukEn) || isNaN(hasirSayisi)) {
-      alert('İyileştirme yapabilmek için tüm temel bilgileri (Hasır Tipi, Uzunluk Boy, Uzunluk En, Hasır Sayısı) girmelisiniz.');
-      setProcessingRowIndex(null);
-      return;
-    }
-    
-    // İyileştirme sırası:
-    // 0. Başlangıçta tüm değerleri hesapla (hiç hesaplanmamışsa)
-    // 1. Önce Q tipi için Boy/En değiştirmeyi dene
-    // 2. Limitin altındaki değerler için çarpma dene
-    // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
-    // 4. Hiçbiri işe yaramazsa "Üretilemez" olarak işaretle
-    
-    let isImproved = false;
-    
-    // Başlangıçta modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
-    row.modified = {
-      uzunlukBoy: previousModified.uzunlukBoy || false,
-      uzunlukEn: previousModified.uzunlukEn || false,
-      hasirSayisi: previousModified.hasirSayisi || false,
-      cubukSayisiBoy: previousModified.cubukSayisiBoy || false,
-      cubukSayisiEn: previousModified.cubukSayisiEn || false,
-      solFiliz: previousModified.solFiliz || false,
-      sagFiliz: previousModified.sagFiliz || false,
-      onFiliz: previousModified.onFiliz || false,
-      arkaFiliz: previousModified.arkaFiliz || false,
-      hasirTuru: previousModified.hasirTuru || false
-    };
-    
-    row.aciklama = '';
-    row.uretilemez = false;
-    
-    // 0. Tüm değerleri başlangıçta hesapla veya yeniden hesapla
-    if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
-      updateRowFromHasirTipi(updatedRows, rowIndex);
-    }
-    
-    // Nedendir bilinmez ama çubuk sayılarının hesaplanmasını sağla
-    initializeCubukSayisi(row);
-    
-    // Filiz değerlerini hesapla
-    calculateFilizValues(row);
+const iyilestir = async (rowIndex) => {
+  // Başlangıçta satırı yedekle
+  backupRow(rowIndex);
+  
+  // İyileştirme işleminin başladığını göster
+  setProcessingRowIndex(rowIndex);
+  
+  // İşlemin asenkron çalışması için setTimeout kullan (animasyon görünmesi için)
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  const updatedRows = [...rows];
+  const row = updatedRows[rowIndex];
+  
+  // Mevcut açıklamayı sakla
+  const previousAciklama = row.aciklama || '';
+  
+  // Temel değerler
+  const hasirTipi = row.hasirTipi;
+  const uzunlukBoy = parseFloat(row.uzunlukBoy);
+  const uzunlukEn = parseFloat(row.uzunlukEn);
+  const hasirSayisi = parseFloat(row.hasirSayisi);
+  
+  // Başlangıç değerlerini hatırla (İkinci kez çalıştırılırsa bozulmasın diye)
+  const originalValues = {
+    uzunlukBoy: uzunlukBoy,
+    uzunlukEn: uzunlukEn,
+    hasirSayisi: hasirSayisi
+  };
+  
+  // Eksik bilgi varsa işlem yapma
+  if (!hasirTipi || isNaN(uzunlukBoy) || isNaN(uzunlukEn) || isNaN(hasirSayisi)) {
+    alert('İyileştirme yapabilmek için tüm temel bilgileri (Hasır Tipi, Uzunluk Boy, Uzunluk En, Hasır Sayısı) girmelisiniz.');
+    setProcessingRowIndex(null);
+    return;
+  }
+  
+  // İyileştirme sırası:
+  // 0. Başlangıçta tüm değerleri hesapla (hiç hesaplanmamışsa)
+  // 1. Önce Q tipi için Boy/En değiştirmeyi dene
+  // 2. Limitin altındaki değerler için çarpma dene
+  // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
+  // 4. Hiçbiri işe yaramazsa "Üretilemez" olarak işaretle
+  
+  let isImproved = false;
+  
+  // Başlangıçta modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
+  row.modified = {
+    uzunlukBoy: false,
+    uzunlukEn: false,
+    hasirSayisi: false,
+    cubukSayisiBoy: false,
+    cubukSayisiEn: false,
+    solFiliz: false,
+    sagFiliz: false,
+    onFiliz: false,
+    arkaFiliz: false,
+    hasirTuru: false
+  };
+  
+  // Üretilemez durumunu sıfırla ama açıklamayı koruyalım
+  row.uretilemez = false;
+  let newAciklama = ''; // Yeni açıklamaları bir değişkende tutalım
+  
+  // 0. Tüm değerleri başlangıçta hesapla veya yeniden hesapla
+  if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
+    updateRowFromHasirTipi(updatedRows, rowIndex);
+  }
+  
+  // Nedendir bilinmez ama çubuk sayılarının hesaplanmasını sağla
+  initializeCubukSayisi(row);
+  
+  // Filiz değerlerini hesapla
+  calculateFilizValues(row);
+  
+  // Ağırlık hesapla
+  calculateWeight(row);
+  
+  // 1. Q tipi için Boy/En değiştirmeyi dene
+  if (hasirTipi.startsWith('Q')) {
+    isImproved = trySwapBoyEn(row);
+  }
+  
+  // 2. Limitin altındaki değerler için çarpma dene
+  if (!isImproved && !isMachineLimitsOk(row)) {
+    isImproved = tryMultiplyDimensions(row, originalValues);
+  }
+  
+  // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
+  if (!row.uretilemez) {
+    // Filiz değerlerini optimize et
+    optimizeFilizValues(row);
     
     // Ağırlık hesapla
     calculateWeight(row);
+  }
+  
+  // Eğer ürün üretilemez durumdaysa
+  if (row.uretilemez) {
+    newAciklama = 'ÜRETİLEMEZ! ' + newAciklama;
+  } else if (newAciklama === '') {
+    newAciklama = 'İyileştirme işlemi tamamlandı.';
+  }
+  
+  // Önceki açıklama ile yeni açıklamayı birleştir
+  if (previousAciklama) {
+    // Eğer önceki açıklama zaten "ÜRETİLEMEZ!" içeriyorsa ve şimdi de üretilemezse tekrar ekleme
+    if (row.uretilemez && previousAciklama.includes('ÜRETİLEMEZ!')) {
+      row.aciklama = previousAciklama + ' ' + newAciklama.replace('ÜRETİLEMEZ! ', '');
+    } else {
+      row.aciklama = previousAciklama + ' ' + newAciklama;
+    }
+  } else {
+    row.aciklama = newAciklama;
+  }
+  
+  // İşlem bittiğinde durumu güncelle ve görsel işareti kaldır
+  await new Promise(resolve => setTimeout(resolve, 500));
+  setProcessingRowIndex(null);
+  setRows(updatedRows);
+};
+
+// Tüm satırları iyileştir
+const iyilestirAll = async () => {
+  // İşlemden önce tüm satırları yedekle
+  backupAllRows();
+  
+  // Toplu işleme durumunu başlat
+  setBatchProcessing(true);
+  
+  try {
+    const updatedRows = [...rows];
     
-    // 1. Q tipi için Boy/En değiştirmeyi dene
-    if (hasirTipi.startsWith('Q')) {
-      isImproved = trySwapBoyEn(row);
+    // İyileştirilebilecek satırları bul (temel alanları dolu olanlar)
+    const eligibleRowIndexes = updatedRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => isRowFilled(row))
+      .map(({ index }) => index);
+    
+    if (eligibleRowIndexes.length === 0) {
+      alert('İyileştirilebilecek satır bulunamadı. Lütfen en az bir satırda temel bilgileri doldurun.');
+      setBatchProcessing(false);
+      return;
     }
     
-    // 2. Limitin altındaki değerler için çarpma dene
-    if (!isImproved && !isMachineLimitsOk(row)) {
-      isImproved = tryMultiplyDimensions(row, originalValues);
-    }
-    
-    // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
-    if (!row.uretilemez) {
-      // Filiz değerlerini optimize et
-      optimizeFilizValues(row);
+    // Her uygun satır için iyileştirme işlemini yap
+    for (const rowIndex of eligibleRowIndexes) {
+      setProcessingRowIndex(rowIndex);
       
-      // Ağırlık hesapla
-      calculateWeight(row);
-    }
-    
-    // Eğer ürün üretilemez durumdaysa
-    if (row.uretilemez) {
-      row.aciklama = 'ÜRETİLEMEZ! ' + row.aciklama;
-    } else if (!row.aciklama) {
-      row.aciklama = 'İyileştirme işlemi tamamlandı.';
-    }
-    
-    // İşlem bittiğinde durumu güncelle ve görsel işareti kaldır
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setProcessingRowIndex(null);
-    setRows(updatedRows);
-  };
-
-  // Tüm satırları iyileştir
-  const iyilestirAll = async () => {
-    // İşlemden önce tüm satırları yedekle
-    backupAllRows();
-    
-    // İlk degerleri koru
-    const previousModified = {...row.modified};
-    const previousAciklama = row.aciklama;
-    const previousUretilemez = row.uretilemez;
-
-    // İlke degerleri Koru
-    if (!previousAciklama) {
-      row.aciklama = '';
-    }
-    
-    // Uretilemez i resetleyebilirsin
-    if (!previousUretilemez) {
+      // İşlem için kısa bir bekletme
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // İyileştirme işlemini gerçekleştir
+      const row = updatedRows[rowIndex];
+      
+      // Mevcut açıklamayı sakla
+      const previousAciklama = row.aciklama || '';
+      
+      // Temel değerler
+      const hasirTipi = row.hasirTipi;
+      const uzunlukBoy = parseFloat(row.uzunlukBoy);
+      const uzunlukEn = parseFloat(row.uzunlukEn);
+      const hasirSayisi = parseFloat(row.hasirSayisi);
+      
+      // Başlangıç değerlerini hatırla
+      const originalValues = {
+        uzunlukBoy: uzunlukBoy,
+        uzunlukEn: uzunlukEn,
+        hasirSayisi: hasirSayisi
+      };
+      
+      let isImproved = false;
+      
+      // Modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
+      row.modified = {
+        uzunlukBoy: false,
+        uzunlukEn: false,
+        hasirSayisi: false,
+        cubukSayisiBoy: false,
+        cubukSayisiEn: false,
+        solFiliz: false,
+        sagFiliz: false,
+        onFiliz: false,
+        arkaFiliz: false,
+        hasirTuru: false
+      };
+      
+      // Üretilemez durumunu sıfırla ama açıklamayı koruyalım
       row.uretilemez = false;
-    }
-
-
-    // Toplu işleme durumunu başlat
-    setBatchProcessing(true);
-    
-    try {
-      const updatedRows = [...rows];
+      let newAciklama = ''; // Yeni açıklamaları bir değişkende tutalım
       
-      // İyileştirilebilecek satırları bul (temel alanları dolu olanlar)
-      const eligibleRowIndexes = updatedRows
-        .map((row, index) => ({ row, index }))
-        .filter(({ row }) => isRowFilled(row))
-        .map(({ index }) => index);
-      
-      if (eligibleRowIndexes.length === 0) {
-        alert('İyileştirilebilecek satır bulunamadı. Lütfen en az bir satırda temel bilgileri doldurun.');
-        setBatchProcessing(false);
-        return;
+      // Tüm değerleri hesapla
+      if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
+        updateRowFromHasirTipi(updatedRows, rowIndex);
       }
       
-      // Her uygun satır için iyileştirme işlemini yap
-      for (const rowIndex of eligibleRowIndexes) {
-        setProcessingRowIndex(rowIndex);
-        
-        // İşlem için kısa bir bekletme
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // İyileştirme işlemini gerçekleştir
-        const row = updatedRows[rowIndex];
-        
-        // Temel değerler
-        const hasirTipi = row.hasirTipi;
-        const uzunlukBoy = parseFloat(row.uzunlukBoy);
-        const uzunlukEn = parseFloat(row.uzunlukEn);
-        const hasirSayisi = parseFloat(row.hasirSayisi);
-        
-        // Başlangıç değerlerini hatırla
-        const originalValues = {
-          uzunlukBoy: uzunlukBoy,
-          uzunlukEn: uzunlukEn,
-          hasirSayisi: hasirSayisi
-        };
-        
-        let isImproved = false;
-        
-        // Modified durumlarını temizle - Tüm filiz değerleri için sıfırlama
-        row.modified = {
-          uzunlukBoy: previousModified.uzunlukBoy || false,
-          uzunlukEn: previousModified.uzunlukEn || false,
-          hasirSayisi: previousModified.hasirSayisi || false,
-          cubukSayisiBoy: previousModified.cubukSayisiBoy || false,
-          cubukSayisiEn: previousModified.cubukSayisiEn || false,
-          solFiliz: previousModified.solFiliz || false,
-          sagFiliz: previousModified.sagFiliz || false,
-          onFiliz: previousModified.onFiliz || false,
-          arkaFiliz: previousModified.arkaFiliz || false,
-          hasirTuru: previousModified.hasirTuru || false
-        };
-        
-        row.aciklama = '';
-        row.uretilemez = false;
-        
-        // Tüm değerleri hesapla
-        if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
-          updateRowFromHasirTipi(updatedRows, rowIndex);
-        }
-        
-        initializeCubukSayisi(row);
-        calculateFilizValues(row);
+      initializeCubukSayisi(row);
+      calculateFilizValues(row);
+      calculateWeight(row);
+      
+      // Q tipi için Boy/En değiştirmeyi dene
+      if (hasirTipi.startsWith('Q')) {
+        isImproved = trySwapBoyEn(row);
+      }
+      
+      // Limitin altındaki değerler için çarpma dene
+      if (!isImproved && !isMachineLimitsOk(row)) {
+        isImproved = tryMultiplyDimensions(row, originalValues);
+      }
+      
+      // Filiz değerlerini optimize et
+      if (!row.uretilemez) {
+        optimizeFilizValues(row);
         calculateWeight(row);
-        
-        // Q tipi için Boy/En değiştirmeyi dene
-        if (hasirTipi.startsWith('Q')) {
-          isImproved = trySwapBoyEn(row);
-        }
-        
-        // Limitin altındaki değerler için çarpma dene
-        if (!isImproved && !isMachineLimitsOk(row)) {
-          isImproved = tryMultiplyDimensions(row, originalValues);
-        }
-        
-        // Filiz değerlerini optimize et
-        if (!row.uretilemez) {
-          optimizeFilizValues(row);
-          calculateWeight(row);
-        }
-        
-        // Üretilemez durumunu işaretle
-        if (row.uretilemez) {
-          row.aciklama = 'ÜRETİLEMEZ! ' + row.aciklama;
-        } else if (!row.aciklama) {
-          row.aciklama = 'İyileştirme işlemi tamamlandı.';
-        }
       }
       
-      // İşlemi tamamla
-      setRows(updatedRows);
-      setProcessingRowIndex(null);
+      // Üretilemez durumunu işaretle
+      if (row.uretilemez) {
+        newAciklama = 'ÜRETİLEMEZ! ' + newAciklama;
+      } else if (newAciklama === '') {
+        newAciklama = 'İyileştirme işlemi tamamlandı.';
+      }
       
-      // Kısa bekletme
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-    } catch (error) {
-      console.error('Toplu iyileştirme hatası:', error);
-      alert('Toplu iyileştirme sırasında bir hata oluştu: ' + error.message);
+      // Önceki açıklama ile yeni açıklamayı birleştir
+      if (previousAciklama) {
+        // Eğer önceki açıklama zaten "ÜRETİLEMEZ!" içeriyorsa ve şimdi de üretilemezse tekrar ekleme
+        if (row.uretilemez && previousAciklama.includes('ÜRETİLEMEZ!')) {
+          row.aciklama = previousAciklama + ' ' + newAciklama.replace('ÜRETİLEMEZ! ', '');
+        } else {
+          row.aciklama = previousAciklama + ' ' + newAciklama;
+        }
+      } else {
+        row.aciklama = newAciklama;
+      }
     }
     
-    setBatchProcessing(false);
-  };
+    // İşlemi tamamla
+    setRows(updatedRows);
+    setProcessingRowIndex(null);
+    
+    // Kısa bekletme
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+  } catch (error) {
+    console.error('Toplu iyileştirme hatası:', error);
+    alert('Toplu iyileştirme sırasında bir hata oluştu: ' + error.message);
+  }
+  
+  setBatchProcessing(false);
+};
 
   // Makine limitlerine uygun mu kontrol et
   const isMachineLimitsOk = (row) => {
@@ -2976,11 +2977,10 @@ const processExtractedTextFromOCR = (extractedText) => {
     });
     
     // Durumu güncelle
-    setRows(finalRows);
-    // backup olustur
-    backupTable();
-
-    // Toplu veri girişi panelini kapat
+    setRows(finalRows, () => {
+      // Tablonun gunceleldiginden emin olduktan sonra backup olustur.
+      setTimeout(() => backupTable(), 100);
+      });
     setBulkInputVisible(false);
     
     // Ön izleme tablosunu temizle
@@ -3952,7 +3952,12 @@ useEffect(() => {
                       <select
                         className={`w-full p-1 border ${row.modified.hasirTuru ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={row.hasirTuru}
-                        onChange={(e) => handleCellChange(rowIndex, 'hasirTuru', e.target.value)}
+                        onChange={(e) => {
+                          const updatedRows = [...rows];
+                          updatedRows[rowIndex].hasirTuru = e.target.value;
+                          updatedRows[rowIndex].modified.hasirTuru = true;
+                          setRows(updatedRows);
+                        }}
                         disabled={!isBasicFieldsFilled}
                       >
                         <option value="">Seçiniz</option>
