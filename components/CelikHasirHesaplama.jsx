@@ -2978,7 +2978,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     
     // Durumu güncelle
     setRows(finalRows);
-    setTimeout(() => backupTable(), 100);
+    setTimeout(() => backupTable(), 500);
     setBulkInputVisible(false);
 
     // Ön izleme tablosunu temizle
