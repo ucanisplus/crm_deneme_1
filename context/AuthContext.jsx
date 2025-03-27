@@ -77,7 +77,7 @@ export function AuthProvider({ children }) {
   // Fetch profile picture
   const fetchProfilePicture = async (username) => {
     try {
-      const response = await fetch(`${API_URLS.getProfilePicture}?username=${username}`);
+      const response = await fetch(`https://crm-deneme-backend.vercel.app/api/user/profile-picture?username=${username}`);
       const data = await response.json();
       
       if (response.ok && data.pp_url) {
