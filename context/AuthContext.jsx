@@ -13,13 +13,13 @@ export function AuthProvider({ children }) {
   const [profilePicture, setProfilePicture] = useState(null);
   const router = useRouter();
 
-  // Load user from localStorage on initial render
+  // Load user from sessionStorage on initial render
   useEffect(() => {
-    // Need to handle that localStorage is not available during server-side rendering
+    // Need to handle that sessionStorage is not available during server-side rendering
     if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('user');
-      const storedPermissions = localStorage.getItem('permissions');
-      const storedProfilePicture = localStorage.getItem('profilePicture');
+      const storedUser = sessionStorage.getItem('user');
+      const storedPermissions = sessionStorage.getItem('permissions');
+      const storedProfilePicture = sessionStorage.getItem('profilePicture');
       
       if (storedUser) {
         setUser(JSON.parse(storedUser));
@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
     }
     
     setUser(data.user);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    sessionStorage.setItem('user', JSON.stringify(data.user));
     
     // Fetch user permissions
     await fetchPermissions(data.user.id);
@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
       
       if (response.ok) {
         setPermissions(data.permissions || []);
-        localStorage.setItem('permissions', JSON.stringify(data.permissions || []));
+        sessionStorage.setItem('permissions', JSON.stringify(data.permissions || []));
       }
     } catch (error) {
       console.error('Error fetching permissions:', error);
@@ -82,11 +82,11 @@ export function AuthProvider({ children }) {
       
       if (response.ok && data.pp_url) {
         setProfilePicture(data.pp_url);
-        localStorage.setItem('profilePicture', data.pp_url);
+        sessionStorage.setItem('profilePicture', data.pp_url);
       } else {
         // Set default profile picture if none found
         setProfilePicture(null);
-        localStorage.removeItem('profilePicture');
+        sessionStorage.removeItem('profilePicture');
       }
     } catch (error) {
       console.error('Error fetching profile picture:', error);
@@ -99,9 +99,9 @@ export function AuthProvider({ children }) {
     setUser(null);
     setPermissions([]);
     setProfilePicture(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('permissions');
-    localStorage.removeItem('profilePicture');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('permissions');
+    sessionStorage.removeItem('profilePicture');
     router.push('/login');
   };
 
