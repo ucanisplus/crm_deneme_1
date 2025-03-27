@@ -4418,7 +4418,7 @@ useEffect(() => {
             </button>
           </div>
           
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 ml-auto"> {/* Added ml-auto here */}
             <button
               onClick={iyilestirAll}
               title="Alt+I"
