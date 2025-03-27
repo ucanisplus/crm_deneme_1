@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Home, 
   Settings, 
@@ -33,10 +34,11 @@ import {
   Link as LinkIcon,
   Link2,
   Hammer,
-  Cpu
+  Cpu,
+  User
 } from 'lucide-react';
 
-// Define interfaces for our navigation structure
+// Interface definitions unchanged...
 interface SubItem {
   id: string;
   name: string;
@@ -66,24 +68,19 @@ interface Category {
 const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, logout, profilePicture } = useAuth();
   
-  // Navigasyon durumları
+  // Navigation states
   const [navExpanded, setNavExpanded] = useState(false);
   const [activeMainCategory, setActiveMainCategory] = useState<string | null>(null);
   const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
   const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({});
   
-  // Kullanıcı verisi (gerçek uygulamada API'den gelecek)
-  const [user, setUser] = useState({
-    name: "Ahmet Yılmaz",
-    role: "Üretim Müdürü",
-    avatar: "/api/placeholder/40/40"
-  });
-
-  // Rota değişikliklerini yakala
+  // Route tracking
   const [activeItem, setActiveItem] = useState<string | null>(null);
+  
   useEffect(() => {
-    // URL'den aktif menü öğelerini belirle
+    // URL-based active menu item determination
     const path = pathname || '';
     
     if (path.includes('/uretim')) {
@@ -109,18 +106,18 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         setActiveSubCategory('lead-kanban');
       } else if (path.includes('/musteriler')) {
         setActiveSubCategory('musteriler');
-      } // ... diğer CRM alt kategorileri
+      }
     } else if (path.includes('/diger')) {
       setActiveMainCategory('diger');
     }
   }, [pathname]);
 
-  // Navigasyonu genişlet/daralt
+  // Toggle navigation
   const toggleNav = () => {
     setNavExpanded(!navExpanded);
   };
 
-  // Ana kategori seçimi
+  // Main category selection
   const selectMainCategory = (category: string) => {
     if (activeMainCategory === category) {
       setActiveMainCategory(null);
@@ -131,12 +128,12 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
-  // Alt kategori seçimi
+  // Sub category selection
   const selectSubCategory = (category: string) => {
     setActiveSubCategory(category);
   };
 
-  // Alt kategori seçimi (açılıp kapanma özelliği)
+  // Toggle sub category (expand/collapse)
   const toggleSubCategory = (subCategoryId: string) => {
     setExpandedSubCategories(prev => ({
       ...prev,
@@ -144,15 +141,21 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }));
   };
 
-  // Ana menüye dön
+  // Back to main
   const backToMain = () => {
     router.push('/');
     setActiveMainCategory(null);
     setActiveSubCategory(null);
   };
 
-  // Navigasyon kategorileri ve ikonları
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Main navigation categories
   const mainCategories: Category[] = [
+    // Categories remain unchanged...
     { 
       id: 'uretim', 
       name: 'Üretim', 
@@ -209,19 +212,19 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { id: 'diger', name: 'Diğer', icon: <Settings size={20} />, path: '/diger', hasSubCategories: false },
   ];
 
-  // Aktif kategoriyi bul
+  // Active category
   const activeCategory = mainCategories.find(cat => cat.id === activeMainCategory);
   
-  // Aktif alt kategoriyi bul
+  // Active sub category
   const activeSubCategoryObject = activeCategory?.subCategories?.find(
     subCat => subCat.id === activeSubCategory
   );
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sol Navigasyon */}
+      {/* Left Navigation */}
       <div className={`bg-gray-900 text-white transition-all duration-300 flex flex-col ${navExpanded ? 'w-72' : 'w-20'} relative z-20`}>
-        {/* Logo Alanı */}
+        {/* Logo Area */}
         <div className="flex justify-between items-center p-4 border-b border-gray-800">
           <div className="flex items-center space-x-3">
             <Image
@@ -237,13 +240,13 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </div>
 
-        {/* Navigasyon Menüsü */}
+        {/* Navigation Menu */}
         <div className="flex-1 overflow-y-auto py-6 space-y-1">
+          {/* Navigation items remain the same... */}
           {mainCategories.map((category) => (
             <div key={category.id} className="px-3">
-              {/* Ana Kategori */}
+              {/* Main Category */}
               {category.hasSubCategories ? (
-                // Ana kategori butonları - sadece alt kategorileri göster
                 <button
                   onClick={() => selectMainCategory(category.id)}
                   className={`w-full flex items-center py-3 px-3 rounded-lg transition-colors ${
@@ -261,7 +264,6 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   )}
                 </button>
               ) : (
-                // Direkt sayfa bağlantıları
                 <Link
                   href={category.path}
                   className={`w-full flex items-center py-3 px-3 rounded-lg transition-colors ${
@@ -275,13 +277,13 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </Link>
               )}
 
-              {/* Alt Kategoriler - Direkt Ana Kategori Altında */}
+              {/* Sub Categories */}
               {activeMainCategory === category.id && category.subCategories && (
                 <div className={`mt-1 ml-2 space-y-1 ${navExpanded ? 'pl-8' : 'pl-2'}`}>
                   {category.subCategories.map((subCategory) => (
                     <div key={subCategory.id}>
+                      {/* Sub category items remain the same... */}
                       {subCategory.hasSubItems ? (
-                        // Alt kategori açılır menü tuşları
                         <button
                           onClick={() => {
                             selectSubCategory(subCategory.id);
@@ -302,7 +304,6 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                           )}
                         </button>
                       ) : (
-                        // Direkt sayfa bağlantıları
                         <Link 
                           href={subCategory.path}
                           className={`w-full flex items-center py-2 px-3 rounded-lg text-sm transition-colors ${
@@ -316,37 +317,22 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         </Link>
                       )}
 
-                      {/* Alt Kategori Öğeleri */}
+                      {/* Sub items remain the same... */}
                       {navExpanded && expandedSubCategories[subCategory.id] && subCategory.subItems && (
                         <div className="ml-6 mt-1 space-y-1 border-l-2 border-red-500/50 pl-2">
                           {subCategory.subItems.map((item) => (
-                            item.hasSubItems ? (
-                              // Alt kategori açılır menü tuşları - 3. seviye
-                              <button 
-                                key={item.id}
-                                onClick={() => {
-                                  // 3. seviye için gerekirse benzer mantık eklenebilir
-                                }}
-                                className="w-full flex items-center py-1.5 px-3 text-sm rounded-md text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-                              >
-                                <span className="mr-2 text-gray-500">{item.icon}</span>
-                                <span>{item.name}</span>
-                              </button>
-                            ) : (
-                              // Sayfa bağlantıları
-                              <Link 
-                                key={item.id}
-                                href={item.path}
-                                className={`w-full flex items-center py-1.5 px-3 text-sm rounded-md ${
-                                  activeItem === item.id 
-                                    ? 'bg-red-600/40 text-white' 
-                                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                                } transition-colors`}
-                              >
-                                <span className="mr-2 text-gray-500">{item.icon}</span>
-                                <span>{item.name}</span>
-                              </Link>
-                            )
+                            <Link 
+                              key={item.id}
+                              href={item.path}
+                              className={`w-full flex items-center py-1.5 px-3 text-sm rounded-md ${
+                                activeItem === item.id 
+                                  ? 'bg-red-600/40 text-white' 
+                                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                              } transition-colors`}
+                            >
+                              <span className="mr-2 text-gray-500">{item.icon}</span>
+                              <span>{item.name}</span>
+                            </Link>
                           ))}
                         </div>
                       )}
@@ -358,28 +344,37 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           ))}
         </div>
 
-        {/* Alt Kısım - Profil */}
+        {/* Profile Section - Updated to use Auth Context */}
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800 transition-colors">
-            <div className="w-10 h-10 bg-red-600 rounded-full overflow-hidden flex-shrink-0">
-              <img src={user.avatar} alt="Kullanıcı" className="w-full h-full object-cover" />
+            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-red-600">
+              {profilePicture ? (
+                <img src={profilePicture} alt={user?.username} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-700 text-white">
+                  <User size={24} />
+                </div>
+              )}
             </div>
             {navExpanded && (
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate">{user.name}</p>
-                <p className="text-gray-400 text-sm truncate">{user.role}</p>
+                <p className="text-white font-medium truncate">{user?.username}</p>
+                <p className="text-gray-400 text-sm truncate">{user?.role}</p>
               </div>
             )}
           </div>
 
-          <button className="w-full mt-3 flex items-center justify-center py-2 px-3 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="w-full mt-3 flex items-center justify-center py-2 px-3 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
+          >
             <LogOut size={18} className="mr-2" />
             {navExpanded && 'Çıkış Yap'}
           </button>
         </div>
       </div>
 
-      {/* Sidebar Toggle Button - Now more visible */}
+      {/* Sidebar Toggle Button */}
       <button 
         onClick={toggleNav}
         className="absolute left-0 top-20 bg-red-600 text-white p-2 rounded-r-md shadow-lg z-30 hover:bg-red-700 transition-colors"
@@ -388,7 +383,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {navExpanded ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
       </button>
 
-      {/* Gri Overlay - Mobil görünümde menü açıkken aktif olur */}
+      {/* Mobile overlay */}
       {navExpanded && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-10"
@@ -396,9 +391,9 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         ></div>
       )}
 
-      {/* Ana İçerik Alanı */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Üst Bar */}
+        {/* Top Bar */}
         <header className="bg-gradient-to-r from-gray-900 to-gray-800 shadow-lg z-10">
           {/* Curved red element */}
           <div className="absolute right-0 top-0 h-16 w-full overflow-hidden">
@@ -466,14 +461,12 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               )}
             </div>
             
-            {/* Sağ Taraf - Arama, Bildirimler */}
+            {/* Right Side - Search, Notifications */}
             <div className="flex items-center space-x-6">
-              {/* Arama butonu */}
               <button className="text-white p-2 rounded-full hover:bg-gray-700 transition-colors">
                 <Search size={20} />
               </button>
               
-              {/* Bildirimler */}
               <button className="text-white p-2 relative rounded-full hover:bg-gray-700 transition-colors">
                 <Bell size={20} />
                 <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
@@ -482,7 +475,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </header>
 
-        {/* İçerik */}
+        {/* Content */}
         <main className="flex-1 overflow-auto p-6 bg-gray-100">
           <div className="bg-white rounded-lg shadow-md p-6 min-h-full">
             {children}
