@@ -25,6 +25,11 @@ export const API_URLS = {
   // Helper functions
   getUrlWithId: (baseUrl, id) => `${baseUrl}/${id}`,
   getUserPermissions: (userId) => `https://crm-deneme-backend.vercel.app/api/user/permissions/${userId}`,
+
+ // New URLs for profile pictures
+  getProfilePicture: `https://crm-deneme-backend.vercel.app/api/user/permissions/api/user/profile-picture`,
+  updateProfilePicture: `https://crm-deneme-backend.vercel.app/api/user/permissions/api/user/profile-picture`,
+
 };
 
 // Helper function for authenticated fetch requests
