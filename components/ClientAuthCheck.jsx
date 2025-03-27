@@ -9,13 +9,13 @@ const ClientAuthCheck = ({ children }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // If not loading and no user, redirect to login
+    // Yuklenmiyorsa ve kullanıcı yoksa logine dön
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
 
-  // Show loading state
+  // Yuklenme durumunu göster
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen w-full bg-gray-100">
@@ -27,12 +27,12 @@ const ClientAuthCheck = ({ children }) => {
     );
   }
 
-  // If not authenticated, don't render children
+  // Auth olmadıysa children göstemre
   if (!user) {
     return null;
   }
 
-  // If authenticated, render children
+  // Auth olmadıysa children göster
   return children;
 };
 
