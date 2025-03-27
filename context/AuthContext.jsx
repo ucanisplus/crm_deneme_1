@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [profilePicture, setProfilePicture] = useState(null);
   const router = useRouter();
 
   // Load user from localStorage on initial render
@@ -18,10 +19,12 @@ export function AuthProvider({ children }) {
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('user');
       const storedPermissions = localStorage.getItem('permissions');
+      const storedProfilePicture = localStorage.getItem('profilePicture');
       
       if (storedUser) {
         setUser(JSON.parse(storedUser));
         setPermissions(storedPermissions ? JSON.parse(storedPermissions) : []);
+        setProfilePicture(storedProfilePicture || null);
       }
       
       setLoading(false);
@@ -50,6 +53,9 @@ export function AuthProvider({ children }) {
     // Fetch user permissions
     await fetchPermissions(data.user.id);
     
+    // Fetch profile picture
+    await fetchProfilePicture(data.user.username);
+    
     return data;
   };
 
@@ -68,12 +74,34 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Fetch profile picture
+  const fetchProfilePicture = async (username) => {
+    try {
+      const response = await fetch(`${API_URLS.getProfilePicture}?username=${username}`);
+      const data = await response.json();
+      
+      if (response.ok && data.pp_url) {
+        setProfilePicture(data.pp_url);
+        localStorage.setItem('profilePicture', data.pp_url);
+      } else {
+        // Set default profile picture if none found
+        setProfilePicture(null);
+        localStorage.removeItem('profilePicture');
+      }
+    } catch (error) {
+      console.error('Error fetching profile picture:', error);
+      setProfilePicture(null);
+    }
+  };
+
   // Logout function
   const logout = () => {
     setUser(null);
     setPermissions([]);
+    setProfilePicture(null);
     localStorage.removeItem('user');
     localStorage.removeItem('permissions');
+    localStorage.removeItem('profilePicture');
     router.push('/login');
   };
 
@@ -85,6 +113,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     permissions,
+    profilePicture,
     loading,
     login,
     logout,
