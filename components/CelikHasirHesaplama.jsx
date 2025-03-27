@@ -4405,50 +4405,54 @@ useEffect(() => {
           </table>
         </div>
         
-        {/* Alt butonlar ve açıklamalar - Layout düzeltildi */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-4">
-          <div>
-            <button
-              onClick={addRow}
-              title="Alt+N"
-              className="px-4 py-2 bg-green-500 text-white rounded-md flex items-center gap-2 hover:bg-green-600 transition-colors"
-            >
-              <Plus size={18} />
-              Yeni Satır Ekle
-            </button>
-          </div>
-          
-          <div className="flex flex-wrap gap-3 ml-auto"> {/* Added ml-auto here */}
-            <button
-              onClick={iyilestirAll}
-              title="Alt+I"
-              disabled={batchProcessing}
-              className="px-4 py-2 bg-blue-700 text-white rounded-md flex items-center gap-2 hover:bg-blue-800 transition-colors"
-            >
-              {batchProcessing ? (
-                <Loader size={18} className="animate-spin" />
-              ) : (
-                <RefreshCw size={18} />
-              )}
-              Hepsini İyileştir
-            </button>
+        {/* Alt butonlar ve açıklamalar - Tamamen yeniden düzenlendi */}
+        <div className="mt-4 w-full">
+          <div className="flex flex-col sm:flex-row w-full">
+            {/* Sol taraftaki buton */}
+            <div className="sm:w-1/3 mb-3 sm:mb-0">
+              <button
+                onClick={addRow}
+                title="Alt+N"
+                className="px-4 py-2 bg-green-500 text-white rounded-md flex items-center gap-2 hover:bg-green-600 transition-colors"
+              >
+                <Plus size={18} />
+                Yeni Satır Ekle
+              </button>
+            </div>
             
-            <button
-              onClick={restoreAllRows}
-              disabled={Object.keys(rowBackups).length === 0}
-              className="px-4 py-2 bg-orange-600 text-white rounded-md flex items-center gap-2 hover:bg-orange-700 transition-colors"
-            >
-              <Edit3 size={18} />
-              İyileştirmeleri Geri Al
-            </button>
-            
-            <button 
-              onClick={resetData}
-              className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors"
-            >
-              <AlertCircle size={18} />
-              Sıfırla
-            </button>
+            {/* Sağ taraftaki butonlar */}
+            <div className="sm:w-2/3 flex flex-wrap gap-3 justify-end">
+              <button
+                onClick={iyilestirAll}
+                title="Alt+I"
+                disabled={batchProcessing}
+                className="px-4 py-2 bg-blue-700 text-white rounded-md flex items-center gap-2 hover:bg-blue-800 transition-colors"
+              >
+                {batchProcessing ? (
+                  <Loader size={18} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={18} />
+                )}
+                Hepsini İyileştir
+              </button>
+              
+              <button
+                onClick={restoreAllRows}
+                disabled={Object.keys(rowBackups).length === 0}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md flex items-center gap-2 hover:bg-orange-700 transition-colors"
+              >
+                <Edit3 size={18} />
+                İyileştirmeleri Geri Al
+              </button>
+              
+              <button 
+                onClick={resetData}
+                className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors"
+              >
+                <AlertCircle size={18} />
+                Sıfırla
+              </button>
+            </div>
           </div>
         </div>
         
