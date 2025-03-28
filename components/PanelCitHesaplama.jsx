@@ -427,6 +427,9 @@ const PanelCitHesaplama = () => {
         return;
       }
       
+
+      console.log('🧮 Panels to calculate:', panelsToCalculate);
+
       // Boş alanları kontrol et
       const emptyFields = [];
       
@@ -471,10 +474,11 @@ const PanelCitHesaplama = () => {
       
       // Önce geçici hesaplar tablosunu temizle - Yeni endpoint ile
       await axios.delete(`${API_URLS.geciciHesaplar}/all`);
-      
+      console.log('✔️ Deleted gecici hesaplar');
+
       // Maliyet listesini temizle - Yeni endpoint ile
       await axios.delete(`${API_URLS.maliyetListesi}/all`);
-      
+      console.log('✔️ Deleted gecici hesaplar');
      
       // Güvenli float değerleri işleme yardımcı fonksiyonu
       const safeParseFloat = (value, defaultValue = 0) => {
@@ -508,6 +512,9 @@ const PanelCitHesaplama = () => {
       
       // Hesaplama sonuçlarını al
       const maliyetRes = await axios.get(API_URLS.maliyetListesi);
+
+      console.log('📊 Maliyet sonucu:', maliyetRes.data);
+
       setMaliyetListesi(maliyetRes.data);
       
       // Ara hesapları al
