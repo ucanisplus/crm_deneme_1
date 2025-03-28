@@ -503,11 +503,19 @@ const PanelCitHesaplama = () => {
       
       console.log("📦 Statik gönderilen:", statikDegiskenlerPayload);
 
-      // Statik değişkenleri kaydet
+      // Statik değişkenleri kaydet (only valid DB columns)
       await axios.post(API_URLS.statikDegiskenler, {
-        ...staticVars,
-        created_at: new Date().toISOString()
+        boya_kg_usd: genelDegiskenler.boya_kg_usd,
+        elektrik_kw_usd: genelDegiskenler.elektrik_kw_usd,
+        dogalgaz_m3_usd: genelDegiskenler.dogalgaz_m3_usd,
+        ort_isci_maasi_usd: genelDegiskenler.ort_isci_maasi_usd,
+        flans_usd: genelDegiskenler.flans_usd,
+        vida_usd: genelDegiskenler.vida_usd,
+        klips_usd: genelDegiskenler.klips_usd,
+        dubel_usd: genelDegiskenler.dubel_usd,
+        kapak_usd: genelDegiskenler.kapak_usd,
       });
+
       
       // Hesaplama algoritmasını çalıştır
       await performCalculation(panelsToCalculate, staticVars);
