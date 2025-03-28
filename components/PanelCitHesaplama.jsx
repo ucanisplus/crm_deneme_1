@@ -428,7 +428,7 @@ const PanelCitHesaplama = () => {
       }
       
 
-      console.log('🧮 Panels to calculate:', panelsToCalculate);
+
 
       // Boş alanları kontrol et
       const emptyFields = [];
@@ -474,11 +474,11 @@ const PanelCitHesaplama = () => {
       
       // Önce geçici hesaplar tablosunu temizle - Yeni endpoint ile
       await axios.delete(`${API_URLS.geciciHesaplar}/all`);
-      console.log('✔️ Deleted gecici hesaplar');
+      console.log('Gecici Hesaplar Silindi');
 
       // Maliyet listesini temizle - Yeni endpoint ile
       await axios.delete(`${API_URLS.maliyetListesi}/all`);
-      console.log('✔️ Deleted gecici hesaplar');
+      console.log('Gecici Hesaplar Silindi');
      
       // Güvenli float değerleri işleme yardımcı fonksiyonu
       const safeParseFloat = (value, defaultValue = 0) => {
@@ -505,16 +505,17 @@ const PanelCitHesaplama = () => {
 
       // Statik değişkenleri kaydet (only valid DB columns)
       await axios.post(API_URLS.statikDegiskenler, {
-        boya_kg_usd: genelDegiskenler.boya_kg_usd,
-        elektrik_kw_usd: genelDegiskenler.elektrik_kw_usd,
-        dogalgaz_m3_usd: genelDegiskenler.dogalgaz_m3_usd,
-        ort_isci_maasi_usd: genelDegiskenler.ort_isci_maasi_usd,
-        flans_usd: genelDegiskenler.flans_usd,
-        vida_usd: genelDegiskenler.vida_usd,
-        klips_usd: genelDegiskenler.klips_usd,
-        dubel_usd: genelDegiskenler.dubel_usd,
-        kapak_usd: genelDegiskenler.kapak_usd,
+      boya_kg_usd: Number(genelDegiskenler.boya_kg_usd || 0),
+      elektrik_kw_usd: Number(genelDegiskenler.elektrik_kw_usd || 0),
+      dogalgaz_m3_usd: Number(genelDegiskenler.dogalgaz_m3_usd || 0),
+      ort_isci_maasi_usd: Number(genelDegiskenler.ort_isci_maasi_usd || 0),
+      flans_usd: Number(genelDegiskenler.flans_usd || 0),
+      vida_usd: Number(genelDegiskenler.vida_usd || 0),
+      klips_usd: Number(genelDegiskenler.klips_usd || 0),
+      dubel_usd: Number(genelDegiskenler.dubel_usd || 0),
+      kapak_usd: Number(genelDegiskenler.kapak_usd || 0),
       });
+
 
       
       // Hesaplama algoritmasını çalıştır
