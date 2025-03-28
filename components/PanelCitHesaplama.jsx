@@ -501,6 +501,8 @@ const PanelCitHesaplama = () => {
         kapak_usd: safeParseFloat(profilDegiskenler.kapak_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1)
       };
       
+      console.log("📦 Statik gönderilen:", statikDegiskenlerPayload);
+
       // Statik değişkenleri kaydet
       await axios.post(API_URLS.statikDegiskenler, {
         ...staticVars,
