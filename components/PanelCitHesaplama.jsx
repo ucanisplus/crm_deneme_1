@@ -3141,17 +3141,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_adet_usd?.toFixed(5)}
+                        {typeof maliyet.ciplak_adet_usd === 'number' ? maliyet.ciplak_adet_usd.toFixed(5) : maliyet.ciplak_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_adet_eur?.toFixed(5)}
+                        {typeof maliyet.ciplak_adet_eur === 'number' ? maliyet.ciplak_adet_eur.toFixed(5) : maliyet.ciplak_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_adet_try?.toFixed(5)}
+                        {typeof maliyet.ciplak_adet_try === 'number' ? maliyet.ciplak_adet_try.toFixed(5) : maliyet.ciplak_adet_try}
                       </td>
                     )}
                   </>
@@ -3161,17 +3161,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_adet_usd?.toFixed(5)}
+                        {typeof maliyet.boyali_adet_usd === 'number' ? maliyet.boyali_adet_usd.toFixed(5) : maliyet.boyali_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_adet_eur?.toFixed(5)}
+                        {typeof maliyet.boyali_adet_eur === 'number' ? maliyet.boyali_adet_eur.toFixed(5) : maliyet.boyali_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_adet_try?.toFixed(5)}
+                        {typeof maliyet.boyali_adet_try === 'number' ? maliyet.boyali_adet_try.toFixed(5) : maliyet.boyali_adet_try}
                       </td>
                     )}
                   </>
@@ -3182,17 +3182,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_adet_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_adet_usd === 'number' ? maliyet.standart_setli_boyasiz_adet_usd.toFixed(5) : maliyet.standart_setli_boyasiz_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_adet_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_adet_eur === 'number' ? maliyet.standart_setli_boyasiz_adet_eur.toFixed(5) : maliyet.standart_setli_boyasiz_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_adet_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_adet_try === 'number' ? maliyet.standart_setli_boyasiz_adet_try.toFixed(5) : maliyet.standart_setli_boyasiz_adet_try}
                       </td>
                     )}
                   </>
@@ -3203,17 +3203,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_adet_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_adet_usd === 'number' ? maliyet.standart_setli_boyali_adet_usd.toFixed(5) : maliyet.standart_setli_boyali_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_adet_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_adet_eur === 'number' ? maliyet.standart_setli_boyali_adet_eur.toFixed(5) : maliyet.standart_setli_boyali_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_adet_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_adet_try === 'number' ? maliyet.standart_setli_boyali_adet_try.toFixed(5) : maliyet.standart_setli_boyali_adet_try}
                       </td>
                     )}
                   </>
@@ -3224,17 +3224,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_m2_usd?.toFixed(5)}
+                        {typeof maliyet.ciplak_m2_usd === 'number' ? maliyet.ciplak_m2_usd.toFixed(5) : maliyet.ciplak_m2_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_m2_eur?.toFixed(5)}
+                        {typeof maliyet.ciplak_m2_eur === 'number' ? maliyet.ciplak_m2_eur.toFixed(5) : maliyet.ciplak_m2_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_m2_try?.toFixed(5)}
+                        {typeof maliyet.ciplak_m2_try === 'number' ? maliyet.ciplak_m2_try.toFixed(5) : maliyet.ciplak_m2_try}
                       </td>
                     )}
                   </>
@@ -3244,17 +3244,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_m2_usd?.toFixed(5)}
+                        {typeof maliyet.boyali_m2_usd === 'number' ? maliyet.boyali_m2_usd.toFixed(5) : maliyet.boyali_m2_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_m2_eur?.toFixed(5)}
+                        {typeof maliyet.boyali_m2_eur === 'number' ? maliyet.boyali_m2_eur.toFixed(5) : maliyet.boyali_m2_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_m2_try?.toFixed(5)}
+                        {typeof maliyet.boyali_m2_try === 'number' ? maliyet.boyali_m2_try.toFixed(5) : maliyet.boyali_m2_try}
                       </td>
                     )}
                   </>
@@ -3264,17 +3264,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_m2_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_m2_usd === 'number' ? maliyet.standart_setli_boyasiz_m2_usd.toFixed(5) : maliyet.standart_setli_boyasiz_m2_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_m2_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_m2_eur === 'number' ? maliyet.standart_setli_boyasiz_m2_eur.toFixed(5) : maliyet.standart_setli_boyasiz_m2_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_m2_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_m2_try === 'number' ? maliyet.standart_setli_boyasiz_m2_try.toFixed(5) : maliyet.standart_setli_boyasiz_m2_try}
                       </td>
                     )}
                   </>
@@ -3284,17 +3284,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_m2_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_m2_usd === 'number' ? maliyet.standart_setli_boyali_m2_usd.toFixed(5) : maliyet.standart_setli_boyali_m2_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_m2_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_m2_eur === 'number' ? maliyet.standart_setli_boyali_m2_eur.toFixed(5) : maliyet.standart_setli_boyali_m2_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_m2_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_m2_try === 'number' ? maliyet.standart_setli_boyali_m2_try.toFixed(5) : maliyet.standart_setli_boyali_m2_try}
                       </td>
                     )}
                   </>
@@ -3305,17 +3305,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_kg_usd?.toFixed(5)}
+                        {typeof maliyet.ciplak_kg_usd === 'number' ? maliyet.ciplak_kg_usd.toFixed(5) : maliyet.ciplak_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_kg_eur?.toFixed(5)}
+                        {typeof maliyet.ciplak_kg_eur === 'number' ? maliyet.ciplak_kg_eur.toFixed(5) : maliyet.ciplak_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.ciplak_kg_try?.toFixed(5)}
+                        {typeof maliyet.ciplak_kg_try === 'number' ? maliyet.ciplak_kg_try.toFixed(5) : maliyet.ciplak_kg_try}
                       </td>
                     )}
                   </>
@@ -3325,17 +3325,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_kg_usd?.toFixed(5)}
+                        {typeof maliyet.boyali_kg_usd === 'number' ? maliyet.boyali_kg_usd.toFixed(5) : maliyet.boyali_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_kg_eur?.toFixed(5)}
+                        {typeof maliyet.boyali_kg_eur === 'number' ? maliyet.boyali_kg_eur.toFixed(5) : maliyet.boyali_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.boyali_kg_try?.toFixed(5)}
+                        {typeof maliyet.boyali_kg_try === 'number' ? maliyet.boyali_kg_try.toFixed(5) : maliyet.boyali_kg_try}
                       </td>
                     )}
                   </>
@@ -3345,17 +3345,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_kg_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_kg_usd === 'number' ? maliyet.standart_setli_boyasiz_kg_usd.toFixed(5) : maliyet.standart_setli_boyasiz_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_kg_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_kg_eur === 'number' ? maliyet.standart_setli_boyasiz_kg_eur.toFixed(5) : maliyet.standart_setli_boyasiz_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyasiz_kg_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyasiz_kg_try === 'number' ? maliyet.standart_setli_boyasiz_kg_try.toFixed(5) : maliyet.standart_setli_boyasiz_kg_try}
                       </td>
                     )}
                   </>
@@ -3365,17 +3365,17 @@ const renderSpecialPanelEntry = () => (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_kg_usd?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_kg_usd === 'number' ? maliyet.standart_setli_boyali_kg_usd.toFixed(5) : maliyet.standart_setli_boyali_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_kg_eur?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_kg_eur === 'number' ? maliyet.standart_setli_boyali_kg_eur.toFixed(5) : maliyet.standart_setli_boyali_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {maliyet.setli_boyali_kg_try?.toFixed(5)}
+                        {typeof maliyet.standart_setli_boyali_kg_try === 'number' ? maliyet.standart_setli_boyali_kg_try.toFixed(5) : maliyet.standart_setli_boyali_kg_try}
                       </td>
                     )}
                   </>
