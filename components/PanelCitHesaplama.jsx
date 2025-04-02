@@ -1394,7 +1394,7 @@ const PanelCitHesaplama = () => {
           profil_boya_tuketim: profilBoyaTuketimAdUSD,
           profil_elektrik_kesme_ad: profilElektrikKesmeAd,
           profil_elektrik_kaynak_ad: profilElektrikKaynakAd,
-          profil_isci_sayisi_ad: profilIsciUretimAd,
+          profil_isci_uretim_ad: profilIsciUretimAd,
           profil_hammadde_toplam: profilHammaddeToplamAd,
           galvanizsiz_profil_fiyat_kg: galvanizsizProfilFiyatKg,
           galvanizli_profil_fiyat_kg: galvanizliProfilFiyatKg,
@@ -1416,7 +1416,6 @@ const PanelCitHesaplama = () => {
           profil_saatlik_uretim: profilSaatlikUretimKapasitesi,
           panel_adet_m2: l1Metre,
           panel_adet_agirlik: weightKg,
-          created_at: new Date().toISOString()
         };
         
         // Geçici hesapları veritabanına kaydet
