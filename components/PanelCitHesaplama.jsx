@@ -1473,37 +1473,36 @@ const PanelCitHesaplama = () => {
           boyali_kg_eur: weightKg > 0 ? parseFloat(((boyaliAdetUSD / weightKg) / eurUsdKuru).toFixed(5)) : 0,
           boyali_kg_try: weightKg > 0 ? parseFloat(((boyaliAdetUSD / weightKg) * usdTlKuru).toFixed(5)) : 0,
           
-          // Setli + Boyasız Adet hesaplamaları
-          setli_boyasiz_adet_usd: parseFloat((adetUSD + SetUSD).toFixed(5)),
-          setli_boyasiz_adet_eur: parseFloat(((adetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
-          setli_boyasiz_adet_try: parseFloat(((adetUSD + SetUSD) * usdTlKuru).toFixed(5)),
-          
-          // Setli + Boyasız M2 hesaplamaları
-          setli_boyasiz_m2_usd: l1Metre > 0 ? parseFloat(((adetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
-          setli_boyasiz_m2_eur: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-          setli_boyasiz_m2_try: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
-          
-          // Setli + Boyasız Kg hesaplamaları
-          setli_boyasiz_kg_usd: weightKg > 0 ? parseFloat(((adetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
-          setli_boyasiz_kg_eur: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-          setli_boyasiz_kg_try: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
-          
-          // Setli + Boyalı Adet hesaplamaları
-          setli_boyali_adet_usd: parseFloat((boyaliAdetUSD + SetUSD).toFixed(5)),
-          setli_boyali_adet_eur: parseFloat(((boyaliAdetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
-          setli_boyali_adet_try: parseFloat(((boyaliAdetUSD + SetUSD) * usdTlKuru).toFixed(5)),
-          
-          // Setli + Boyalı M2 hesaplamaları
-          setli_boyali_m2_usd: l1Metre > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
-          setli_boyali_m2_eur: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-          setli_boyali_m2_try: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
-          
-          // Setli + Boyalı Kg hesaplamaları
-          setli_boyali_kg_usd: weightKg > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
-          setli_boyali_kg_eur: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-          setli_boyali_kg_try: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
-          
-          created_at: new Date().toISOString()
+        // Setli + Boyasız Adet hesaplamaları
+        standart_setli_boyasiz_adet_usd: parseFloat((adetUSD + SetUSD).toFixed(5)),
+        standart_setli_boyasiz_adet_eur: parseFloat(((adetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
+        standart_setli_boyasiz_adet_try: parseFloat(((adetUSD + SetUSD) * usdTlKuru).toFixed(5)),
+        
+        // Setli + Boyasız M2 hesaplamaları
+        standart_setli_boyasiz_m2_usd: l1Metre > 0 ? parseFloat(((adetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
+        standart_setli_boyasiz_m2_eur: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
+        standart_setli_boyasiz_m2_try: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
+        
+        // Setli + Boyasız Kg hesaplamaları
+        standart_setli_boyasiz_kg_usd: weightKg > 0 ? parseFloat(((adetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
+        standart_setli_boyasiz_kg_eur: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
+        standart_setli_boyasiz_kg_try: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
+        
+        // Setli + Boyalı Adet hesaplamaları
+        standart_setli_boyali_adet_usd: parseFloat((boyaliAdetUSD + SetUSD).toFixed(5)),
+        standart_setli_boyali_adet_eur: parseFloat(((boyaliAdetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
+        standart_setli_boyali_adet_try: parseFloat(((boyaliAdetUSD + SetUSD) * usdTlKuru).toFixed(5)),
+        
+        // Setli + Boyalı M2 hesaplamaları
+        standart_setli_boyali_m2_usd: l1Metre > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
+        standart_setli_boyali_m2_eur: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
+        standart_setli_boyali_m2_try: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
+        
+        // Setli + Boyalı Kg hesaplamaları
+        standart_setli_boyali_kg_usd: weightKg > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
+        standart_setli_boyali_kg_eur: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
+        standart_setli_boyali_kg_try: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
+
         };
         
         // Maliyet kalemini veritabanına kaydet
