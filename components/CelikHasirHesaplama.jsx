@@ -1197,56 +1197,51 @@ const CelikHasirHesaplama = () => {
       
     }
     
-    // On/Arka Filiz: (UZUNLUK BOY - ((ÇUBUK SAYISI EN - 1) * ARA EN)) / 2
-    if (!isNaN(uzunlukBoy) && !isNaN(cubukSayisiEn) && !isNaN(enAraligi) && cubukSayisiEn > 1) {
-      const onFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
+      // On/Arka Filiz: (UZUNLUK BOY - ((ÇUBUK SAYISI EN - 1) * ARA EN)) / 2
+      if (
+        !isNaN(uzunlukBoy) &&
+        !isNaN(cubukSayisiEn) &&
+        !isNaN(enAraligi) &&
+        cubukSayisiEn > 1
+      ) {
+        const baseFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
       
-      // Elle değiştirilmediyse değerleri güncelle
-
-        row.onFiliz = parseFloat(onFiliz.toFixed(5));
+        // Başlangıçta her iki filizi eşit olarak ata
+        row.onFiliz = parseFloat(baseFiliz.toFixed(5));
+        row.arkaFiliz = parseFloat(baseFiliz.toFixed(5));
       
-
-        row.arkaFiliz = parseFloat(onFiliz.toFixed(5));
+        // Perde ve DK Perde için özel filiz ayarlaması
+        if (
+          (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') &&
+          row.hasirTipi.startsWith('Q') &&
+          typeof row.onFiliz === 'number' &&
+          typeof row.arkaFiliz === 'number'
+        ) {
+          const filizToplam = row.onFiliz + row.arkaFiliz;
       
-
-      // Perde ve DK Perde için özel filiz ayarlaması - Elle değiştirilmediyse
-      if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
-    row.hasirTipi.startsWith('Q')) {
-
-        
-        // Arka filizi istenilen aralığa getir (65-75cm arası, 5'in katı olacak şekilde)
-        let arkaFiliz = 0;
-        
-        if (filizToplam >= 80) {
-          // Toplam 80'den büyükse, arka filizi 70 veya 75 olarak ayarla
-          arkaFiliz = filizToplam >= 85 ? 75 : 70;
-        } else {
-          // Toplam daha küçükse, 65'e ayarla
-          arkaFiliz = 65;
-        }
-        
-        // 5'in en yakın katına yuvarla
-        arkaFiliz = Math.round(arkaFiliz / 5) * 5;
-        
-        // Ön filizi hesapla
-        const onFiliz = filizToplam - arkaFiliz;
-        
-        // Ön filiz negatif olmamalı ve en az 2.5 olmalı
-        if (onFiliz >= 2.5) {
-          row.onFiliz = parseFloat(onFiliz.toFixed(5));
-          row.arkaFiliz = parseFloat(arkaFiliz.toFixed(5));
-          
-          // Değişiklik yapıldığını işaretle
-          row.modified.onFiliz = true;
-          row.modified.arkaFiliz = true;
-          
-          // Açıklamaya bilgi ekle
-          if (!row.aciklama.includes('Perde tipi filiz değerleri optimize edildi')) {
-            row.aciklama += `Perde tipi filiz değerleri optimize edildi (Ön: ${onFiliz.toFixed(2)}cm, Arka: ${arkaFiliz.toFixed(2)}cm). `;
+          // Arka filizi istenilen aralığa getir (65-75cm arası, 5'in katı)
+          let arkaFiliz = 0;
+      
+          if (filizToplam >= 80) {
+            arkaFiliz = filizToplam >= 85 ? 75 : 70;
+          } else {
+            arkaFiliz = 65;
+          }
+      
+          arkaFiliz = Math.round(arkaFiliz / 5) * 5;
+          const onFiliz = filizToplam - arkaFiliz;
+      
+          if (onFiliz >= 2.5) {
+            row.onFiliz = parseFloat(onFiliz.toFixed(5));
+            row.arkaFiliz = parseFloat(arkaFiliz.toFixed(5));
+      
+            // Açıklamaya bilgi ekle
+            if (!row.aciklama.includes('Perde tipi filiz değerleri optimize edildi')) {
+              row.aciklama += `Perde tipi filiz değerleri optimize edildi (Ön: ${onFiliz.toFixed(2)}cm, Arka: ${arkaFiliz.toFixed(2)}cm). `;
+            }
           }
         }
       }
-    }
   };
 
   // Ağırlık değerlerini hesaplama
