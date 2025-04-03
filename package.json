@@ -46,7 +46,8 @@
     "tailwindcss-animate": "^1.0.7",
     "tesseract.js": "^6.0.0",
     "typescript": "5.2.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
