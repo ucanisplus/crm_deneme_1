@@ -1209,6 +1209,8 @@ const CelikHasirHesaplama = () => {
         // Başlangıçta her iki filizi eşit olarak ata
         row.onFiliz = parseFloat(baseFiliz.toFixed(5));
         row.arkaFiliz = parseFloat(baseFiliz.toFixed(5));
+        row.modified.onFiliz = true;
+        row.modified.arkaFiliz = true;
       
         // Perde ve DK Perde için özel filiz ayarlaması
         if (
@@ -1234,6 +1236,8 @@ const CelikHasirHesaplama = () => {
           if (onFiliz >= 2.5) {
             row.onFiliz = parseFloat(onFiliz.toFixed(5));
             row.arkaFiliz = parseFloat(arkaFiliz.toFixed(5));
+            row.modified.onFiliz = true;
+            row.modified.arkaFiliz = true;
       
             // Açıklamaya bilgi ekle
             if (!row.aciklama.includes('Perde tipi filiz değerleri optimize edildi')) {
