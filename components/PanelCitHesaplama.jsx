@@ -1,19 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { API_URLS } from '@/config/api-config';
-import { 
-  Button, 
-  Table, 
-  Checkbox, 
-  Input, 
-  Spinner, 
-  Select,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter
-} from '@/components/ui';
+import { API_URLS } from '../api-config';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox'; 
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { 
   AlertCircle,
   Save, 
