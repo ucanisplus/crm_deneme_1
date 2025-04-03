@@ -902,10 +902,9 @@ const CelikHasirHesaplama = () => {
                 field === 'cubukSayisiBoy' || field === 'cubukSayisiEn' || 
                 field === 'boyAraligi' || field === 'enAraligi')) {
       // Temel değerler değiştiyse filiz değerlerini yeniden hesapla - Manuel değiştirilenler hariç
-      if (!row.modified.solFiliz && !row.modified.sagFiliz && 
-          !row.modified.onFiliz && !row.modified.arkaFiliz) {
+
         calculateFilizValues(row);
-      }
+      
       // Ağırlık hesapla
       calculateWeight(row);
     }
@@ -1087,11 +1086,8 @@ const CelikHasirHesaplama = () => {
     initializeCubukSayisi(row);
     
     // Filiz değerlerini hesapla - Eğer elle değiştirilmediyse
-    if (!row.modified.solFiliz && !row.modified.sagFiliz && 
-        !row.modified.onFiliz && !row.modified.arkaFiliz) {
       calculateFilizValues(row);
-    }
-    
+      
     // Ağırlık hesapla
     calculateWeight(row);
   };
@@ -1175,10 +1171,10 @@ const CelikHasirHesaplama = () => {
   // Filiz değerlerini hesaplama
   const calculateFilizValues = (row) => {
     // Eğer filiz değerleri elle değiştirildiyse hesaplama yapma
-    if (row.modified.solFiliz && row.modified.sagFiliz && 
-        row.modified.onFiliz && row.modified.arkaFiliz) {
-      return;
-    }
+   // if (row.modified.solFiliz && row.modified.sagFiliz && 
+   //     row.modified.onFiliz && row.modified.arkaFiliz) {
+   //   return;
+  //  }
     
     const uzunlukBoy = parseFloat(row.uzunlukBoy) || 0;
     const uzunlukEn = parseFloat(row.uzunlukEn) || 0;
@@ -1193,12 +1189,12 @@ const CelikHasirHesaplama = () => {
       const solFiliz = (uzunlukEn - ((cubukSayisiBoy - 1) * boyAraligi)) / 2;
       
       // Elle değiştirilmediyse değerleri güncelle
-      if (!row.modified.solFiliz) {
+
         row.solFiliz = parseFloat(solFiliz.toFixed(5));
-      }
-      if (!row.modified.sagFiliz) {
+      
+
         row.sagFiliz = parseFloat(solFiliz.toFixed(5));
-      }
+      
     }
     
     // On/Arka Filiz: (UZUNLUK BOY - ((ÇUBUK SAYISI EN - 1) * ARA EN)) / 2
@@ -1206,19 +1202,17 @@ const CelikHasirHesaplama = () => {
       const onFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
       
       // Elle değiştirilmediyse değerleri güncelle
-      if (!row.modified.onFiliz) {
+
         row.onFiliz = parseFloat(onFiliz.toFixed(5));
-      }
-      if (!row.modified.arkaFiliz) {
+      
+
         row.arkaFiliz = parseFloat(onFiliz.toFixed(5));
-      }
+      
 
       // Perde ve DK Perde için özel filiz ayarlaması - Elle değiştirilmediyse
       if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
-          row.hasirTipi.startsWith('Q') && 
-          !row.modified.onFiliz && !row.modified.arkaFiliz) {
-        // Ön ve Arka Filiz toplamını koru
-        const filizToplam = row.onFiliz + row.arkaFiliz;
+    row.hasirTipi.startsWith('Q')) {
+
         
         // Arka filizi istenilen aralığa getir (65-75cm arası, 5'in katı olacak şekilde)
         let arkaFiliz = 0;
