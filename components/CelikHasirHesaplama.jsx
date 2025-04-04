@@ -1605,24 +1605,48 @@ const iyilestirAll = async () => {
         const scoreFiliz = (row, filiz) => {
             const { on, arka } = filiz;
           
-            // Reject invalid
+            // Reject invalid values
             if (on < 2.5 || arka < 0) return -Infinity;
           
-            // Rule 1: Q type, Döşeme → prefer önFiliz = 22.5
+            // Rule 1: Q type, Döşeme → strongly prefer önFiliz = 22.5
             if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
-                return Math.abs(on - 22.5) < 1 ? 500 : (on > 15.5 ? 100 + on : on);
+                // Use a tighter threshold (0.5 instead of 1) and higher score (1000 instead of 500)
+                return Math.abs(on - 22.5) < 0.5 ? 1000 : 
+                       (Math.abs(on - 22.5) < 1 ? 500 : 
+                       (on > 15.5 ? 100 + on : on));
             }
           
             // Rule 2: Perde → prefer ön = 15, arka = 75
             if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
-                const onScore = Math.abs(on - 15) < 1 ? 500 : 0;
-                const arkaScore = Math.abs(arka - 75) < 1 ? 500 : 0;
-                return onScore + arkaScore;
+                // Use a tighter threshold for more precision and higher scores
+                const onScore = Math.abs(on - 15) < 0.5 ? 1000 : 
+                               (Math.abs(on - 15) < 1 ? 500 : 0);
+                const arkaScore = Math.abs(arka - 75) < 0.5 ? 1000 : 
+                                 (Math.abs(arka - 75) < 1 ? 500 : 0);
+                
+                // Special case: If arka is a multiple of 5, add bonus
+                const arkaBonus = Math.abs(arka % 5) < 0.1 ? 200 : 0;
+                
+                return onScore + arkaScore + arkaBonus;
+            }
+            
+            // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
+            if (row.hasirTipi.startsWith('Q')) {
+                // Still prefer önFiliz > 15.5 for other Q types
+                return on > 15.5 ? 100 + on : on;
             }
           
-            return 0; // fallback
+            // Rule 4: Non-Q types
+            // For other hasır types, use a basic score based on reasonable ranges
+            let score = 0;
+            
+            // Reasonable filiz ranges for other types
+            if (on >= 10 && on <= 25) score += 50;
+            if (arka >= 10 && arka <= 25) score += 50;
+            
+            return score;
         };
-        
+                
         const initialScore = scoreFiliz(row, initialFiliz);
         const optimizedScore = scoreFiliz(row, optimizedFiliz);
         
@@ -1650,8 +1674,8 @@ const iyilestirAll = async () => {
           
           // Q tipi için Döşeme hasır türü için özel mesaj
           if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme' && 
-              (row.onFiliz >= 15 && row.onFiliz <= 22)) {
-            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-22cm) getirildi. `;
+              (row.onFiliz >= 15 && row.onFiliz <= 23)) {
+            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-23cm) getirildi. `;
           }
           
           // Perde tipi için özel mesaj
@@ -1745,131 +1769,130 @@ const iyilestirAll = async () => {
     return false;
   };
 
-  const tryMultiplyDimensions = (row, originalValues) => {
-      const uzunlukBoy = parseFloat(originalValues.uzunlukBoy);
-      const uzunlukEn = parseFloat(originalValues.uzunlukEn);
-      const hasirSayisi = parseFloat(originalValues.hasirSayisi);
+// Replace the entire tryMultiplyDimensions function
+const tryMultiplyDimensions = (row, originalValues) => {
+  const uzunlukBoy = parseFloat(originalValues.uzunlukBoy);
+  const uzunlukEn = parseFloat(originalValues.uzunlukEn);
+  const hasirSayisi = parseFloat(originalValues.hasirSayisi);
+  
+  // STEP 1: First check if En exceeds maximum limit (250cm)
+  if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+    // Try swapping dimensions
+    if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
+      // Swap the dimensions
+      row.uzunlukBoy = uzunlukEn.toString();
+      row.uzunlukEn = uzunlukBoy.toString();
+      row.modified.uzunlukBoy = true;
+      row.modified.uzunlukEn = true;
       
-      // STEP 1: First check if En exceeds maximum limit (250cm)
-      if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-          console.log("En exceeds limit, trying to swap...");
+      row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için En/Boy değerleri değiştirildi. `;
+      
+      // Update hasır türü after swap
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      
+      // After swap, check if new En value needs adjustment
+      const newUzunlukEn = parseFloat(row.uzunlukEn);
+      
+      // If new En value is below minimum, try multiplication
+      if (newUzunlukEn < MACHINE_LIMITS.MIN_EN) {
+        for (let multiplier of [2, 3]) {
+          const multipliedEn = newUzunlukEn * multiplier;
           
-          // Try swapping dimensions
-          if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
-              // Swap the dimensions
-              row.uzunlukBoy = uzunlukEn.toString();
-              row.uzunlukEn = uzunlukBoy.toString();
-              row.modified.uzunlukBoy = true;
-              row.modified.uzunlukEn = true;
-              
-              row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için En/Boy değerleri değiştirildi. `;
-              
-              // Hasır türünü güncelle after swap
-              row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-              
-              // After swap, check if new En value needs adjustment
-              const newUzunlukEn = parseFloat(row.uzunlukEn);
-              
-              // If new En value is below minimum, try multiplication
-              if (newUzunlukEn < MACHINE_LIMITS.MIN_EN) {
-                  for (let multiplier of [2, 3]) {
-                      const multipliedEn = newUzunlukEn * multiplier;
-                      
-                      if (multipliedEn >= MACHINE_LIMITS.MIN_EN && multipliedEn <= MACHINE_LIMITS.MAX_EN) {
-                          row.uzunlukEn = multipliedEn.toString();
-                          row.hasirSayisi = (hasirSayisi / multiplier).toString();
-                          row.modified.uzunlukEn = true;
-                          row.modified.hasirSayisi = true;
-                          
-                          row.aciklama += `Değiştirme sonrası En ölçüsü ${multiplier} ile çarpılarak ${multipliedEn.toFixed(2)}cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-                          
-                          // Recalculate values after both swap and multiplication
-                          initializeCubukSayisi(row);
-                          calculateFilizValues(row);
-                          
-                          return true;
-                      }
-                  }
-              } else {
-                  // Just the swap was sufficient
-                  initializeCubukSayisi(row);
-                  calculateFilizValues(row);
-                  return true;
-              }
-          }
-      }
-      
-      // Original code for Boy multiplication
-      if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
-          // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-          for (let multiplier of [2, 3]) {
-              const newUzunlukBoy = uzunlukBoy * multiplier;
-              
-              if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
-                  row.uzunlukBoy = newUzunlukBoy.toString();
-                  row.hasirSayisi = (hasirSayisi / multiplier).toString();
-                  row.modified.uzunlukBoy = true;
-                  row.modified.hasirSayisi = true;
-                  
-                  row.aciklama += `Boy ölçüsü ${multiplier} ile çarpılarak ${newUzunlukBoy.toFixed(2)}cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-                  
-                  // Hasır türünü güncelle
-                  row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-                  
-                  // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-                  initializeCubukSayisi(row);
-                  calculateFilizValues(row);
-                  
-                  return true;
-              }
-          }
-      }
-      
-    // En için çarpma işlemi
-    if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-        // Önce 126-149 arası ise otomatik düzeltme yap
-        if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-            row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+          if (multipliedEn >= MACHINE_LIMITS.MIN_EN && multipliedEn <= MACHINE_LIMITS.MAX_EN) {
+            row.uzunlukEn = multipliedEn.toString();
+            row.hasirSayisi = (hasirSayisi / multiplier).toString();
             row.modified.uzunlukEn = true;
+            row.modified.hasirSayisi = true;
             
-            row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+            row.aciklama += `Değiştirme sonrası En ölçüsü ${multiplier} ile çarpılarak ${multipliedEn.toFixed(2)}cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
             
-            // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+            // Recalculate values after both swap and multiplication
             initializeCubukSayisi(row);
             calculateFilizValues(row);
             
             return true;
+          }
         }
+      } else {
+        // Just the swap was sufficient
+        initializeCubukSayisi(row);
+        calculateFilizValues(row);
+        return true;
+      }
+    }
+  }
+  
+  // Boy için çarpma işlemi
+  if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
+    // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+    for (let multiplier of [2, 3]) {
+      const newUzunlukBoy = uzunlukBoy * multiplier;
+      
+      if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
+        row.uzunlukBoy = newUzunlukBoy.toString();
+        row.hasirSayisi = (hasirSayisi / multiplier).toString();
+        row.modified.uzunlukBoy = true;
+        row.modified.hasirSayisi = true;
         
-        // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-        for (let multiplier of [2, 3]) {
-            const newUzunlukEn = uzunlukEn * multiplier;
-            
-            if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-                row.uzunlukEn = newUzunlukEn.toString();
-                row.hasirSayisi = (hasirSayisi / multiplier).toString();
-                row.modified.uzunlukEn = true;
-                row.modified.hasirSayisi = true;
-                
-                row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-                
-                // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-                initializeCubukSayisi(row);
-                calculateFilizValues(row);
-                
-                return true;
-            }
-        }
+        row.aciklama += `Boy ölçüsü ${multiplier} ile çarpılarak ${newUzunlukBoy.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+        
+        // Hasır türünü güncelle
+        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+        
+        // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+        initializeCubukSayisi(row);
+        calculateFilizValues(row);
+        
+        return true;
+      }
+    }
+  }
+    
+  // En için çarpma işlemi
+  if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
+    // Önce 126-149 arası ise otomatik düzeltme yap
+    if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
+      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+      row.modified.uzunlukEn = true;
+      
+      row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+      
+      // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+      initializeCubukSayisi(row);
+      calculateFilizValues(row);
+      
+      return true;
     }
     
-    // Hiçbir iyileştirme yapılamazsa
-    if (!isMachineLimitsOk(row)) {
-        row.uretilemez = true;
-        row.aciklama += 'Makine limitlerine uygun boyutlara getirilemedi. ';
-        return false;
+    // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+    for (let multiplier of [2, 3]) {
+      const newUzunlukEn = uzunlukEn * multiplier;
+      
+      if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
+        row.uzunlukEn = newUzunlukEn.toString();
+        row.hasirSayisi = (hasirSayisi / multiplier).toString();
+        row.modified.uzunlukEn = true;
+        row.modified.hasirSayisi = true;
+        
+        row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+        
+        // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+        initializeCubukSayisi(row);
+        calculateFilizValues(row);
+        
+        return true;
+      }
     }
-    
+  }
+  
+  // Hiçbir iyileştirme yapılamazsa
+  if (!isMachineLimitsOk(row)) {
+    row.uretilemez = true;
+    row.aciklama += 'Makine limitlerine uygun boyutlara getirilemedi. ';
     return false;
+  }
+  
+  return false;
 };
 
 // Filiz değerlerini optimize etme - Döşeme tipi için iyileştirildi
@@ -1887,10 +1910,10 @@ const optimizeFilizValues = (row) => {
   
   // Q tipi Döşeme hasırları için özel optimizasyon - İlk kontrolde hemen yap
   if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
-    // İdeal filiz değerleri (15-22 cm arasında)
+    // İdeal filiz değerleri (15-23 cm arasında)
     const targetFilizMin = 15;
     const targetFilizMax = 23;
-    const targal = 22.5;
+    const targetFilizOptimal = 22.5;
     
     // Mevcut değerler uygun mu? Değilse optimize et
     if (currentFilizValues.onFiliz < targetFilizMin || 
@@ -2038,10 +2061,10 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
-  // Hedef filiz aralığı (15-22 cm)
+ // Hedef filiz aralığı (15-23 cm)
   const targetMin = 15;
-  const targetMax = 22;
-  const targetOptimal = 18; // Optimum değer
+  const targetMax = 23; 
+  const targetOptimal = 22.5; 
   
   // Mevcut çubuk sayılarını al
   let currentBoyCount = parseInt(row.cubukSayisiBoy);
