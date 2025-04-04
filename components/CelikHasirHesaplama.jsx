@@ -854,6 +854,12 @@ const CelikHasirHesaplama = () => {
               setRows(updatedRows);
               return;
           }
+          //gerekirse sil
+        row[field] = value;
+    row.modified[field] = true;
+    setRows(updatedRows);
+    return; 
+        //gerekirse sil
       }
     // Kırmızı işaretleri kaldır - Filiz alanları hariç
     if (row.modified && row.modified[field] && 
