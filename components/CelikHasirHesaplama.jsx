@@ -1645,8 +1645,8 @@ const iyilestirAll = async () => {
           
           // Q tipi için Döşeme hasır türü için özel mesaj
           if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme' && 
-              (row.onFiliz >= 15 && row.onFiliz <= 22)) {
-            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-22cm) getirildi. `;
+              (row.onFiliz >= 15 && row.onFiliz <= 23)) {
+            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-23cm) getirildi. `;
           }
           
           // Perde tipi için özel mesaj
@@ -1827,8 +1827,7 @@ const optimizeFilizValues = (row) => {
     if (
       row.hasirTipi.startsWith('Q') &&
       row.hasirTuru !== 'Perde' &&
-      row.hasirTuru !== 'DK Perde' &&
-      row.hasirTuru !== 'Döşeme'
+      row.hasirTuru !== 'DK Perde'
     ) {
       const uzunlukBoy = parseFloat(row.uzunlukBoy);
       const enAraligi = parseFloat(row.enAraligi);
