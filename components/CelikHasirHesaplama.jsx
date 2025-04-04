@@ -1354,10 +1354,11 @@ const iyilestir = async (rowIndex) => {
   
   // İyileştirme sırası:
   // 0. Başlangıçta tüm değerleri hesapla (hiç hesaplanmamışsa)
-  // 1. Önce Q tipi için Boy/En değiştirmeyi dene
-  // 2. Limitin altındaki değerler için çarpma dene
-  // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
-  // 4. Hiçbiri işe yaramazsa "Üretilemez" olarak işaretle
+  // 1. En > MAX_EN kontrolü
+  // 2. Q tipi için Boy/En değiştirmeyi dene
+  // 3. Limitin altındaki değerler için çarpma dene
+  // 4. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
+  // 5. Hiçbiri işe yaramazsa "Üretilemez" olarak işaretle
   
   let isImproved = false;
   
@@ -1386,42 +1387,119 @@ const iyilestir = async (rowIndex) => {
   // Cubuk sayılarının hesaplanmasını sağla
   initializeCubukSayisi(row);
   
-  // Filiz değerlerini hesapla
+  // Başlangıç filiz değerlerini hesapla ve sakla
+  const oldFilizValues = {
+    solFiliz: row.solFiliz,
+    sagFiliz: row.sagFiliz,
+    onFiliz: row.onFiliz,
+    arkaFiliz: row.arkaFiliz
+  };
+  
   calculateFilizValues(row);
+  
+  // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
+  const initialFiliz = {
+    on: row.onFiliz,
+    arka: row.arkaFiliz
+  };
   
   // Ağırlık hesapla
   calculateWeight(row);
   
-  // 1. Q tipi için Boy/En değiştirmeyi dene
-  if (hasirTipi.startsWith('Q')) {
+  // 1. Öncelikle En > MAX_EN kontrolü - İyilestirAll ile uyumlu
+  const initialLimitsOk = isMachineLimitsOk(row);
+  if (!initialLimitsOk && uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+    isImproved = trySwapBoyEn(row);
+    if (isImproved) {
+      newAciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
+    }
+  }
+  // 2. Q tipi için Boy/En değiştirmeyi dene - Adım 1'de başarılı olunmadıysa
+  else if (!isImproved && hasirTipi.startsWith('Q')) {
     isImproved = trySwapBoyEn(row);
     if (isImproved) {
       newAciklama += 'Boy ve en değerleri değiştirildi. ';
     }
   }
   
-  // 2. Limitin altındaki değerler için çarpma dene
+  // 3. Limitin altındaki değerler için çarpma dene
   if (!isImproved && !isMachineLimitsOk(row)) {
     isImproved = tryMultiplyDimensions(row, originalValues);
     // tryMultiplyDimensions içinde açıklama güncellenir
   }
   
-  // 3. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
+  // 4. Çubuk sayılarını ayarlayarak filiz değerlerini optimize et
   if (!row.uretilemez) {
     // Filiz değerlerini optimize et - Bu kısım özellikle döşeme için geliştirildi
-    const oldFilizValues = {
-      solFiliz: row.solFiliz,
-      sagFiliz: row.sagFiliz,
-      onFiliz: row.onFiliz,
-      arkaFiliz: row.arkaFiliz
+    optimizeFilizValues(row);
+    
+    // Optimizasyon sonrası filiz değerlerini kaydet
+    const optimizedFiliz = {
+      on: row.onFiliz,
+      arka: row.arkaFiliz
     };
     
-    optimizeFilizValues(row);
+    // İyilestirAll'daki filiz skorlama mantığını uygula
+    const scoreFiliz = (row, filiz) => {
+      const { on, arka } = filiz;
+      
+      // Reject invalid values
+      if (on < 2.5 || arka < 0) return -Infinity;
+      
+      // Rule 1: Q type, Döşeme → strongly prefer önFiliz = 22.5
+      if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
+        // Use a tighter threshold (0.5 instead of 1) and higher score (1000 instead of 500)
+        return Math.abs(on - 22.5) < 0.5 ? 1000 : 
+               (Math.abs(on - 22.5) < 1 ? 500 : 
+               (on > 15.5 ? 100 + on : on));
+      }
+      
+      // Rule 2: Perde → prefer ön = 15, arka = 75
+      if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
+        // Use a tighter threshold for more precision and higher scores
+        const onScore = Math.abs(on - 15) < 0.5 ? 1000 : 
+                       (Math.abs(on - 15) < 1 ? 500 : 0);
+        const arkaScore = Math.abs(arka - 75) < 0.5 ? 1000 : 
+                         (Math.abs(arka - 75) < 1 ? 500 : 0);
+        
+        // Special case: If arka is a multiple of 5, add bonus
+        const arkaBonus = Math.abs(arka % 5) < 0.1 ? 200 : 0;
+        
+        return onScore + arkaScore + arkaBonus;
+      }
+      
+      // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
+      if (row.hasirTipi.startsWith('Q')) {
+        // Still prefer önFiliz > 15.5 for other Q types
+        return on > 15.5 ? 100 + on : on;
+      }
+      
+      // Rule 4: Non-Q types
+      // For other hasır types, use a basic score based on reasonable ranges
+      let score = 0;
+      
+      // Reasonable filiz ranges for other types
+      if (on >= 10 && on <= 25) score += 50;
+      if (arka >= 10 && arka <= 25) score += 50;
+      
+      return score;
+    };
+    
+    const initialScore = scoreFiliz(row, initialFiliz);
+    const optimizedScore = scoreFiliz(row, optimizedFiliz);
+    
+    // Keep better one - Use initial filiz values if they score better
+    if (initialScore > optimizedScore) {
+      row.onFiliz = initialFiliz.on;
+      row.arkaFiliz = initialFiliz.arka;
+      row.modified.onFiliz = true;
+      row.modified.arkaFiliz = true;
+    }
     
     // Ağırlık hesapla
     calculateWeight(row);
     
-    // Filiz değişiklikleri için açıklama ekle
+    // Filiz değişiklikleri için açıklama ekle - en iyi değerler artık kaydedilmiş durumda
     if (oldFilizValues.solFiliz !== row.solFiliz || 
         oldFilizValues.sagFiliz !== row.sagFiliz ||
         oldFilizValues.onFiliz !== row.onFiliz ||
