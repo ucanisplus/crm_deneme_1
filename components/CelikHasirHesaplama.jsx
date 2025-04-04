@@ -205,7 +205,7 @@ const CelikHasirHesaplama = () => {
   const FILIZ_LIMITS = {
     Q_DOSEME: {
       ON_ARKA_MIN: 15,
-      ON_ARKA_MAX: 23,
+      ON_ARKA_MAX: 22,
       SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 9
     },
@@ -1385,9 +1385,6 @@ const iyilestir = async (rowIndex) => {
     
     optimizeFilizValues(row);
     
-    // gecici
-    console.log("AFTER optimize", row.onFiliz, row.arkaFiliz);
-
     // Ağırlık hesapla
     calculateWeight(row);
     
@@ -1524,10 +1521,6 @@ const iyilestirAll = async () => {
       
       calculateFilizValues(row);
       
-
-      //gecici
-      console.log("BEFORE optimize", row.onFiliz, row.arkaFiliz);
-
       const initialFiliz = {
         on: row.onFiliz,
         arka: row.arkaFiliz
@@ -1645,8 +1638,8 @@ const iyilestirAll = async () => {
           
           // Q tipi için Döşeme hasır türü için özel mesaj
           if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme' && 
-              (row.onFiliz >= 15 && row.onFiliz <= 23)) {
-            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-23cm) getirildi. `;
+              (row.onFiliz >= 15 && row.onFiliz <= 22)) {
+            newAciklama += `Döşeme tipi Q hasır için filiz değerleri standart aralığa (15-22cm) getirildi. `;
           }
           
           // Perde tipi için özel mesaj
@@ -1823,50 +1816,7 @@ const iyilestirAll = async () => {
 const optimizeFilizValues = (row) => {
   // Hasır türüne göre filiz limitleri al
   const filizLimits = getFilizLimits(row.hasirTipi, row.hasirTuru);
-  // Q tipi ama Perde/DK Perde/Döşeme olmayanlar için özel önFiliz optimizasyonu
-    if (
-      row.hasirTipi.startsWith('Q') &&
-      row.hasirTuru !== 'Perde' &&
-      row.hasirTuru !== 'DK Perde'
-    ) {
-      const uzunlukBoy = parseFloat(row.uzunlukBoy);
-      const enAraligi = parseFloat(row.enAraligi);
-      const cubukSayisiEn = parseInt(row.cubukSayisiEn);
-    
-      const filizToplam = uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi);
-    
-      const candidateOnValues = [16, 17, 18, 19, 20, 21, 22, 22.5]; // All ≤ 23
-    
-      let best = null;
-      let bestScore = -Infinity;
-    
-      for (const onFiliz of candidateOnValues) {
-        const arkaFiliz = filizToplam - onFiliz;
-    
-        // Validation
-        if (onFiliz < 2.5 || arkaFiliz < 2.5) continue;
-        if (onFiliz > filizLimits.ON_ARKA_MAX || arkaFiliz > filizLimits.ON_ARKA_MAX) continue;
-    
-        const score = -Math.abs(onFiliz - 22.5); // Closer to 22.5 is better
-    
-        if (score > bestScore) {
-          bestScore = score;
-          best = { onFiliz, arkaFiliz };
-        }
-      }
-    
-      if (best) {
-        row.onFiliz = parseFloat(best.onFiliz.toFixed(5));
-        row.arkaFiliz = parseFloat(best.arkaFiliz.toFixed(5));
-        row.modified.onFiliz = true;
-        row.modified.arkaFiliz = true;
-    
-        row.aciklama += `Q tipi özel optimizasyon: Ön ${best.onFiliz} cm, Arka ${best.arkaFiliz} cm seçildi. `;
-      }
-    
-      return; // Stop further optimization — we already applied ours
-    }
-
+  
   // Mevcut filiz değerlerini kontrol et
   const currentFilizValues = {
     onFiliz: parseFloat(row.onFiliz),
