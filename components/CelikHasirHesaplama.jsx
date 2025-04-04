@@ -1385,6 +1385,9 @@ const iyilestir = async (rowIndex) => {
     
     optimizeFilizValues(row);
     
+    // gecici
+    console.log("AFTER optimize", row.onFiliz, row.arkaFiliz);
+
     // Ağırlık hesapla
     calculateWeight(row);
     
@@ -1521,6 +1524,10 @@ const iyilestirAll = async () => {
       
       calculateFilizValues(row);
       
+
+      //gecici
+      console.log("BEFORE optimize", row.onFiliz, row.arkaFiliz);
+
       const initialFiliz = {
         on: row.onFiliz,
         arka: row.arkaFiliz
