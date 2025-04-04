@@ -1763,62 +1763,89 @@ const iyilestirAll = async () => {
     );
   };
 
-  // Boy/En değerlerini değiştirmeyi dene (Sadece Q tipi için)
 // Boy/En değerlerini değiştirmeyi dene (Sadece Q tipi için)
 const trySwapBoyEn = (row) => {
-    const uzunlukBoy = parseFloat(row.uzunlukBoy);
-    const uzunlukEn = parseFloat(row.uzunlukEn);
-    
-    // CRITICAL: First explicitly check if En > MAX_EN (250cm)
-    if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-        console.log("En exceeds MAX_EN, attempting swap...", uzunlukEn, MACHINE_LIMITS.MAX_EN);
-        
-        // Check if swapping would help
-        if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
-            
-            // Boy and En değerlerini değiştir
-            [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
-            row.modified.uzunlukBoy = true;
-            row.modified.uzunlukEn = true;
-            
-            row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için Boy/En değerleri değiştirildi. `;
-            
-            // Hasır türünü güncelle
-            row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-            
-            // Çubuk ve filiz değerlerini yeniden hesapla
-            initializeCubukSayisi(row);
-            calculateFilizValues(row);
-            
-            return true;
-        }
-    }
-    
-    // Original code for Q-type
-    if (row.hasirTipi.startsWith('Q')) {
-        // Değiştirince makine limitlerini karşılıyor mu?
-        if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY &&
-            uzunlukBoy >= MACHINE_LIMITS.MIN_EN && uzunlukBoy <= MACHINE_LIMITS.MAX_EN) {
-            
-            // Boy ve En değerlerini değiştir
-            [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
-            row.modified.uzunlukBoy = true;
-            row.modified.uzunlukEn = true;
-            
-            row.aciklama += 'Boy ve en değerleri değiştirildi. ';
-            
-            // Hasır türünü güncelle
-            row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-            
-            // Çubuk ve filiz değerlerini yeniden hesapla
-            initializeCubukSayisi(row);
-            calculateFilizValues(row);
-            
-            return true;
-        }
-    }
-  
-    return false;
+   const uzunlukBoy = parseFloat(row.uzunlukBoy);
+   const uzunlukEn = parseFloat(row.uzunlukEn);
+   
+   // CRITICAL: İlk önce En > MAX_EN (250cm) durumunu kontrol et
+   if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+       console.log("En değeri MAX_EN'i aşıyor, takas deneniyor...", uzunlukEn, MACHINE_LIMITS.MAX_EN);
+       
+       // Durum 1: En > 250 fakat < 275 (doğrudan Boy olamaz)
+       if (uzunlukEn < MACHINE_LIMITS.MIN_BOY) {
+           // Takas + çarpma işlemini dene
+           const tempBoy = uzunlukEn;
+           const tempEn = uzunlukBoy;
+           
+           // Yeni En için çarpma işlemi yardımcı olacak mı kontrol et
+           for (let multiplier of [2, 3]) {
+               if (tempEn * multiplier >= MACHINE_LIMITS.MIN_EN && tempEn * multiplier <= MACHINE_LIMITS.MAX_EN) {
+                   // Takas ve çarpma işlemi uygulanabilir
+                   row.uzunlukBoy = tempBoy.toString();
+                   row.uzunlukEn = (tempEn * multiplier).toString();
+                   row.hasirSayisi = (parseFloat(row.hasirSayisi) / multiplier).toString();
+                   
+                   row.modified.uzunlukBoy = true;
+                   row.modified.uzunlukEn = true;
+                   row.modified.hasirSayisi = true;
+                   
+                   row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için En/Boy değiştirildi, yeni En değeri ${multiplier} ile çarpılarak ${(tempEn * multiplier).toFixed(2)}cm yapıldı. `;
+                   
+                   // Hasır türünü ve diğer değerleri güncelle
+                   row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+                   initializeCubukSayisi(row);
+                   calculateFilizValues(row);
+                   
+                   return true;
+               }
+           }
+       }
+       // Durum 2: En >= 275 (doğrudan Boy olabilir)
+       else if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
+           // Boy and En değerlerini değiştir
+           [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
+           row.modified.uzunlukBoy = true;
+           row.modified.uzunlukEn = true;
+           
+           row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için Boy/En değerleri değiştirildi. `;
+           
+           // Hasır türünü güncelle
+           row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+           
+           // Çubuk ve filiz değerlerini yeniden hesapla
+           initializeCubukSayisi(row);
+           calculateFilizValues(row);
+           
+           return true;
+       }
+   }
+   
+   // Q tipi için orijinal kod
+   if (row.hasirTipi.startsWith('Q')) {
+       // Değiştirince makine limitlerini karşılıyor mu?
+       if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY &&
+           uzunlukBoy >= MACHINE_LIMITS.MIN_EN && uzunlukBoy <= MACHINE_LIMITS.MAX_EN) {
+           
+           // Boy ve En değerlerini değiştir
+           [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
+           row.modified.uzunlukBoy = true;
+           row.modified.uzunlukEn = true;
+           
+           row.aciklama += 'Boy ve en değerleri değiştirildi. ';
+           
+           // Hasır türünü güncelle
+           row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+           
+           // Çubuk ve filiz değerlerini yeniden hesapla
+           initializeCubukSayisi(row);
+           calculateFilizValues(row);
+           
+           return true;
+       }
+   }
+ 
+   return false;
 };
 
 // Replace the entire tryMultiplyDimensions function
