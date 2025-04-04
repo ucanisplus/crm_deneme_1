@@ -205,7 +205,7 @@ const CelikHasirHesaplama = () => {
   const FILIZ_LIMITS = {
     Q_DOSEME: {
       ON_ARKA_MIN: 15,
-      ON_ARKA_MAX: 22,
+      ON_ARKA_MAX: 23,
       SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 9
     },
