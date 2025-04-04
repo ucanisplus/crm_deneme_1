@@ -294,29 +294,29 @@ const CelikHasirHesaplama = () => {
 
   // Sayıları ondalık nokta formatına çevirme - Türkçe formatı desteği geliştirildi
   const formatNumber = (value) => {
-    if (value === undefined || value === null || value === '') return '';
-    
-    // Sayı formatını belirle (Türkçe veya İngilizce)
-    const stringValue = String(value);
-    
-    // Türkçe formatı: 1.234,56 -> 1234.56
-    if (stringValue.includes(',') && (stringValue.includes('.') || /\d{1,3}(\.\d{3})+/.test(stringValue))) {
-      return stringValue
-        .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
-        .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
-    }
-    
-    // İngilizce formatı: 1,234.56 -> 1234.56
-    if (stringValue.includes('.') && stringValue.includes(',')) {
-      return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
-    }
-    
-    // Sadece virgül varsa ve ondalık ayırıcı olarak kullanılmışsa
-    if (stringValue.includes(',') && !stringValue.includes('.')) {
-      return stringValue.replace(',', '.'); // Virgülü noktaya çevir
-    }
-    
-    return stringValue;
+      if (value === undefined || value === null || value === '') return '';
+      
+      // Sayı formatını belirle (Türkçe veya İngilizce)
+      const stringValue = String(value);
+      
+      // Türkçe formatı: 1.234,56 -> 1234.56
+      if (stringValue.includes(',') && (stringValue.includes('.') || /\d{1,3}(\.\d{3})+/.test(stringValue))) {
+          return stringValue
+              .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
+              .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
+      }
+      
+      // İngilizce formatı: 1,234.56 -> 1234.56
+      if (stringValue.includes('.') && stringValue.includes(',')) {
+          return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
+      }
+      
+      // Sadece virgül varsa ve ondalık ayırıcı olarak kullanılmışsa
+      if (stringValue.includes(',') && !stringValue.includes('.')) {
+          return stringValue.replace(',', '.'); // Virgülü noktaya çevir
+      }
+      
+      return stringValue;
   };
 
   // Hasır tipini standartlaştırma
@@ -834,7 +834,7 @@ const CelikHasirHesaplama = () => {
     
     // Gerekiyorsa sayıyı formatla
     if (typeof value === 'string' && field !== 'hasirTipi' && field !== 'aciklama') {
-      value = formatNumber(value);
+        value = formatNumber(value);
     }
     
     if (field === 'hasirTipi') {
@@ -847,6 +847,14 @@ const CelikHasirHesaplama = () => {
     // Değeri güncelle
     row[field] = value;
     
+      if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
+          // Allow empty value for backspace to work
+          if (value === '') {
+              row[field] = '';
+              setRows(updatedRows);
+              return;
+          }
+      }
     // Kırmızı işaretleri kaldır - Filiz alanları hariç
     if (row.modified && row.modified[field] && 
         field !== 'solFiliz' && field !== 'sagFiliz' && 
@@ -1737,9 +1745,9 @@ const iyilestirAll = async () => {
     return false;
   };
 
-// Modify the existing tryMultiplyDimensions function
+// Modify the tryMultiplyDimensions function
 const tryMultiplyDimensions = (row, originalValues) => {
-    const uzunlukBoy = originalValues.uzunlukBoy;
+    const uzunlukBoy = originalValues.uzunlukBoy; // Kullanıcı girdiği orijinal değerleri kullan
     const uzunlukEn = originalValues.uzunlukEn;
     const hasirSayisi = originalValues.hasirSayisi;
     
@@ -1747,9 +1755,9 @@ const tryMultiplyDimensions = (row, originalValues) => {
     const isBoyOutOfLimits = uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY;
     const isEnOutOfLimits = uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN;
     
-    // NEW LOGIC: If both dimensions are problematic and En > 250, swap first
-    if (isBoyOutOfLimits && isEnOutOfLimits && uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-        // Try swapping dimensions first
+    // NEW LOGIC: If En > 250cm, try swapping first
+    if (isEnOutOfLimits && uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+        // Try swapping dimensions first (if it would help)
         if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY &&
             uzunlukBoy >= MACHINE_LIMITS.MIN_EN && uzunlukBoy <= MACHINE_LIMITS.MAX_EN) {
             
@@ -1761,10 +1769,10 @@ const tryMultiplyDimensions = (row, originalValues) => {
             
             row.aciklama += `En değeri (${uzunlukEn}) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
             
-            // Update hasır türü
+            // Hasır türünü güncelle
             row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
             
-            // Recalculate values
+            // Değerler değiştiğinde diğer hesaplamaları yeniden yap
             initializeCubukSayisi(row);
             calculateFilizValues(row);
             
@@ -1772,10 +1780,8 @@ const tryMultiplyDimensions = (row, originalValues) => {
         }
     }
     
-    // Handle single dimension multiplication first (more efficient approach)
-    
-    // Boy için çarpma işlemi (single dimension approach)
-    if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY) {
+    // Boy için çarpma işlemi
+    if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
         // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
         for (let multiplier of [2, 3]) {
             const newUzunlukBoy = uzunlukBoy * multiplier;
@@ -1800,8 +1806,8 @@ const tryMultiplyDimensions = (row, originalValues) => {
         }
     }
       
-    // En için çarpma işlemi (single dimension approach)
-    if (uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+    // En için çarpma işlemi
+    if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
         // Önce 126-149 arası ise otomatik düzeltme yap
         if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
             row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
