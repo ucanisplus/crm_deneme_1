@@ -1521,6 +1521,13 @@ const iyilestirAll = async () => {
       
       calculateFilizValues(row);
       
+      const initialFiliz = {
+        on: row.onFiliz,
+        arka: row.arkaFiliz
+      };
+    
+
+  
       if (oldFilizValues.solFiliz !== row.solFiliz || 
           oldFilizValues.sagFiliz !== row.sagFiliz ||
           oldFilizValues.onFiliz !== row.onFiliz ||
@@ -1582,6 +1589,40 @@ const iyilestirAll = async () => {
         // Filiz değerlerini optimize et
         optimizeFilizValues(row);
         
+        const optimizedFiliz = {
+          on: row.onFiliz,
+          arka: row.arkaFiliz
+        };
+        
+        const scoreFiliz = (row, filiz) => {
+          const { on, arka } = filiz;
+        
+          // Reject invalid
+          if (on < 2.5 || arka < 0) return -Infinity;
+        
+          // Rule 1: Q type, non-Perde → prefer önFiliz > 15.5
+          if (row.hasirTipi.startsWith('Q') && row.hasirTuru !== 'Perde' && row.hasirTuru !== 'DK Perde') {
+            return on > 15.5 ? 100 + on : on;  // boost good ones
+          }
+        
+          // Rule 2: Perde → prefer ön = 15, arka = 75
+          if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
+            return on === 15 ? 999 : 50 - Math.abs(on - 15);
+          }
+        
+          return 0; // fallback
+        };
+        
+        const initialScore = scoreFiliz(row, initialFiliz);
+        const optimizedScore = scoreFiliz(row, optimizedFiliz);
+        
+        // Keep better one
+        if (initialScore > optimizedScore) {
+          row.onFiliz = initialFiliz.on;
+          row.arkaFiliz = initialFiliz.arka;
+        }
+
+          
         // Değişiklik olmuşsa rapor et
         if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
           changesCount++;
