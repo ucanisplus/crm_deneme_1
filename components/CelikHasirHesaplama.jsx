@@ -1383,7 +1383,7 @@ const iyilestir = async (rowIndex) => {
     updateRowFromHasirTipi(updatedRows, rowIndex);
   }
   
-  // Nedendir bilinmez ama çubuk sayılarının hesaplanmasını sağla
+  // Cubuk sayılarının hesaplanmasını sağla
   initializeCubukSayisi(row);
   
   // Filiz değerlerini hesapla
@@ -1769,18 +1769,19 @@ const trySwapBoyEn = (row) => {
     const uzunlukBoy = parseFloat(row.uzunlukBoy);
     const uzunlukEn = parseFloat(row.uzunlukEn);
     
-    // Prioritize swapping when En > MAX_EN
+    // CRITICAL: First explicitly check if En > MAX_EN (250cm)
     if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+        console.log("En exceeds MAX_EN, attempting swap...", uzunlukEn, MACHINE_LIMITS.MAX_EN);
+        
         // Check if swapping would help
-        if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY &&
-            uzunlukBoy >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE) { // Only need to check minimum for Boy
+        if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
             
             // Boy and En değerlerini değiştir
             [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
             row.modified.uzunlukBoy = true;
             row.modified.uzunlukEn = true;
             
-            row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
+            row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için Boy/En değerleri değiştirildi. `;
             
             // Hasır türünü güncelle
             row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
