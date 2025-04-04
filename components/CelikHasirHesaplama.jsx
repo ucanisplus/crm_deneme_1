@@ -1595,33 +1595,37 @@ const iyilestirAll = async () => {
         };
         
         const scoreFiliz = (row, filiz) => {
-          const { on, arka } = filiz;
+            const { on, arka } = filiz;
         
-          // Reject invalid
-          if (on < 2.5 || arka < 0) return -Infinity;
+            // Reject invalid values
+            if (on < 2.5 || arka < 0) return -Infinity;
         
-          // Rule 1: Q type, non-Perde → prefer önFiliz > 15.5
-          if (row.hasirTipi.startsWith('Q') && row.hasirTuru !== 'Perde' && row.hasirTuru !== 'DK Perde') {
-            return on > 15.5 ? 100 + on : on;  // boost good ones
-          }
+            // Rule 1: Q type, non-Perde → prefer önFiliz > 15.5
+            if (row.hasirTipi.startsWith('Q') && row.hasirTuru !== 'Perde' && row.hasirTuru !== 'DK Perde') {
+                return on > 15.5 ? 100 + on : on;  // boost good ones
+            }
         
-          // Rule 2: Perde → prefer ön = 15, arka = 75
-          if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
-            return on === 15 ? 999 : 50 - Math.abs(on - 15);
-          }
+            // Rule 2: Perde → prefer ön = 15, arka = 75
+            if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
+                const onScore = 100 - Math.abs(on - 15) * 5;
+                const arkaScore = 100 - Math.abs(arka - 75) * 1;
+                return onScore + arkaScore;
+            }
         
-          return 0; // fallback
+            return 0; // fallback
         };
         
         const initialScore = scoreFiliz(row, initialFiliz);
         const optimizedScore = scoreFiliz(row, optimizedFiliz);
         
+        
         // Keep better one
         if (initialScore > optimizedScore) {
-          row.onFiliz = initialFiliz.on;
-          row.arkaFiliz = initialFiliz.arka;
+            row.onFiliz = initialFiliz.on;
+            row.arkaFiliz = initialFiliz.arka;
+            row.modified.onFiliz = true;
+            row.modified.arkaFiliz = true;
         }
-
           
         // Değişiklik olmuşsa rapor et
         if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
@@ -1733,84 +1737,115 @@ const iyilestirAll = async () => {
     return false;
   };
 
-  // Boyutları çarpıp Hasır Sayısını ayarlama
-  const tryMultiplyDimensions = (row, originalValues) => {
-    const uzunlukBoy = originalValues.uzunlukBoy; // Kullanıcı girdiği orijinal değerleri kullan
+// Modify the existing tryMultiplyDimensions function
+const tryMultiplyDimensions = (row, originalValues) => {
+    const uzunlukBoy = originalValues.uzunlukBoy;
     const uzunlukEn = originalValues.uzunlukEn;
     const hasirSayisi = originalValues.hasirSayisi;
     
-    // Boy için çarpma işlemi
-    if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
-      // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-      for (let multiplier of [2, 3]) {
-        const newUzunlukBoy = uzunlukBoy * multiplier;
-        
-        if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
-          row.uzunlukBoy = newUzunlukBoy.toString();
-          row.hasirSayisi = (hasirSayisi / multiplier).toString();
-          row.modified.uzunlukBoy = true;
-          row.modified.hasirSayisi = true;
-          
-          row.aciklama += `Boy ölçüsü ${multiplier} ile çarpılarak ${newUzunlukBoy.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-          
-          // Hasır türünü güncelle
-          row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-          
-          // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-          initializeCubukSayisi(row);
-          calculateFilizValues(row);
-          
-          return true;
+    // Check if both dimensions are outside machine limits
+    const isBoyOutOfLimits = uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY;
+    const isEnOutOfLimits = uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN;
+    
+    // NEW LOGIC: If both dimensions are problematic and En > 250, swap first
+    if (isBoyOutOfLimits && isEnOutOfLimits && uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+        // Try swapping dimensions first
+        if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY &&
+            uzunlukBoy >= MACHINE_LIMITS.MIN_EN && uzunlukBoy <= MACHINE_LIMITS.MAX_EN) {
+            
+            // Swap dimensions
+            row.uzunlukBoy = uzunlukEn.toString();
+            row.uzunlukEn = uzunlukBoy.toString();
+            row.modified.uzunlukBoy = true;
+            row.modified.uzunlukEn = true;
+            
+            row.aciklama += `En değeri (${uzunlukEn}) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
+            
+            // Update hasır türü
+            row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+            
+            // Recalculate values
+            initializeCubukSayisi(row);
+            calculateFilizValues(row);
+            
+            return true;
         }
-      }
+    }
+    
+    // Handle single dimension multiplication first (more efficient approach)
+    
+    // Boy için çarpma işlemi (single dimension approach)
+    if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY) {
+        // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+        for (let multiplier of [2, 3]) {
+            const newUzunlukBoy = uzunlukBoy * multiplier;
+            
+            if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
+                row.uzunlukBoy = newUzunlukBoy.toString();
+                row.hasirSayisi = (hasirSayisi / multiplier).toString();
+                row.modified.uzunlukBoy = true;
+                row.modified.hasirSayisi = true;
+                
+                row.aciklama += `Boy ölçüsü ${multiplier} ile çarpılarak ${newUzunlukBoy.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+                
+                // Hasır türünü güncelle
+                row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+                
+                // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+                initializeCubukSayisi(row);
+                calculateFilizValues(row);
+                
+                return true;
+            }
+        }
     }
       
-    // En için çarpma işlemi
-    if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-      // Önce 126-149 arası ise otomatik düzeltme yap
-      if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-        row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-        row.modified.uzunlukEn = true;
-        
-        row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
-        
-        // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-        initializeCubukSayisi(row);
-        calculateFilizValues(row);
-        
-        return true;
-      }
-      
-      // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-      for (let multiplier of [2, 3]) {
-        const newUzunlukEn = uzunlukEn * multiplier;
-        
-        if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-          row.uzunlukEn = newUzunlukEn.toString();
-          row.hasirSayisi = (hasirSayisi / multiplier).toString();
-          row.modified.uzunlukEn = true;
-          row.modified.hasirSayisi = true;
-          
-          row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-          
-          // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-          initializeCubukSayisi(row);
-          calculateFilizValues(row);
-          
-          return true;
+    // En için çarpma işlemi (single dimension approach)
+    if (uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+        // Önce 126-149 arası ise otomatik düzeltme yap
+        if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
+            row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+            row.modified.uzunlukEn = true;
+            
+            row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+            
+            // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+            initializeCubukSayisi(row);
+            calculateFilizValues(row);
+            
+            return true;
         }
-      }
+        
+        // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+        for (let multiplier of [2, 3]) {
+            const newUzunlukEn = uzunlukEn * multiplier;
+            
+            if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
+                row.uzunlukEn = newUzunlukEn.toString();
+                row.hasirSayisi = (hasirSayisi / multiplier).toString();
+                row.modified.uzunlukEn = true;
+                row.modified.hasirSayisi = true;
+                
+                row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+                
+                // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+                initializeCubukSayisi(row);
+                calculateFilizValues(row);
+                
+                return true;
+            }
+        }
     }
     
     // Hiçbir iyileştirme yapılamazsa
     if (!isMachineLimitsOk(row)) {
-      row.uretilemez = true;
-      row.aciklama += 'Makine limitlerine uygun boyutlara getirilemedi. ';
-      return false;
+        row.uretilemez = true;
+        row.aciklama += 'Makine limitlerine uygun boyutlara getirilemedi. ';
+        return false;
     }
     
     return false;
-  };
+};
 
 // Filiz değerlerini optimize etme - Döşeme tipi için iyileştirildi
 const optimizeFilizValues = (row) => {
@@ -2066,8 +2101,8 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
   }
 };
 
-  // Perde tipi hasırlar için filiz değerlerini optimize et
-  const optimizePerdeFilizValues = (row, filizLimits) => {
+// Perde tipi hasırlar için filiz değerlerini optimize et
+const optimizePerdeFilizValues = (row, filizLimits) => {
     const uzunlukBoy = parseFloat(row.uzunlukBoy);
     const enAraligi = parseFloat(row.enAraligi);
     
@@ -2077,15 +2112,19 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
     // Toplam filiz hesapla
     const totalFiliz = uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi);
     
-    // Arka filiz için hedef değer
-    let targetArkaFiliz;
+    // Arka filiz için hedef değer - NEW LOGIC: Prefer 75cm
+    let targetArkaFiliz = 75;
     
-    if (totalFiliz >= 145) {
-      targetArkaFiliz = 75;
-    } else if (totalFiliz >= 135) {
-      targetArkaFiliz = 70;
-    } else {
-      targetArkaFiliz = 65;
+    // Eğer toplam filiz yeterli değilse, düşürmeye başla
+    if (totalFiliz < 77.5) { // 2.5 (min on filiz) + 75 (target arka)
+        if (totalFiliz >= 72.5) {
+            targetArkaFiliz = 70;
+        } else if (totalFiliz >= 67.5) {
+            targetArkaFiliz = 65;
+        } else {
+            // Toplam filiz çok az, minimum değerlere düşür
+            targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
+        }
     }
     
     // Ön filiz hesapla
@@ -2093,15 +2132,15 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
     
     // Eğer ön filiz yeterli değilse (en az 2.5)
     if (onFiliz < 2.5) {
-      // Arka filizi azalt
-      targetArkaFiliz = totalFiliz - 2.5;
+        // Arka filizi azalt
+        targetArkaFiliz = totalFiliz - 2.5;
     }
     
     // Arka filizi 5'in en yakın katına yuvarla
     targetArkaFiliz = Math.round(targetArkaFiliz / 5) * 5;
     
-    // Son ön filiz değeri
-    const finalOnFiliz = totalFiliz - targetArkaFiliz;
+    // Son ön filiz değeri (target 15cm if possible)
+    let finalOnFiliz = totalFiliz - targetArkaFiliz;
     
     // Değerleri güncelle
     row.cubukSayisiEn = cubukSayisiEn;
@@ -2113,7 +2152,7 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
     
     // Açıklamaya bilgi ekle
     row.aciklama += `Perde tipi hasır için filiz değerleri optimize edildi: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${targetArkaFiliz}cm. `;
-  };
+};
 
   // Test edilecek filiz değerlerini hesapla
   const calculateTestFilizValues = (uzunlukBoy, uzunlukEn, boyCount, enCount, boyAraligi, enAraligi) => {
@@ -2167,32 +2206,40 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
 
   // Filiz değerleri için puan hesapla
   const calculateFilizScore = (filizValues, hasirTuru) => {
-    let score = 0;
-    const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
-    
-    // İdeal aralıklarda olması için puan ver
-    if (solFiliz >= 2 && solFiliz <= 8) score += 5;
-    if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
-    
-    if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
-      // Perde hasırı için ön filiz min 2.5 olmalı
-      if (onFiliz >= 2.5) score += 10;
+      let score = 0;
+      const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
       
-      // Perde hasırı için arka filiz min 65 olmalı
-      if (arkaFiliz >= 65) score += 15;
+      // İdeal aralıklarda olması için puan ver
+      if (solFiliz >= 2 && solFiliz <= 8) score += 5;
+      if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
       
-      // Perde hasırı için arka filiz 5'in katı olması tercih edilir
-      const remainder = arkaFiliz % 5;
-      if (remainder < 0.1 || remainder > 4.9) {
-        score += 20; // 5'in katı için yüksek puan
+      if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
+          // Perde hasırı için ön filiz min 2.5 olmalı
+          if (onFiliz >= 2.5) score += 10;
+          
+          // Perde hasırı için arka filiz min 65 olmalı
+          if (arkaFiliz >= 65) score += 15;
+          
+          // NEW LOGIC: Perde hasırı için ideal değer 15-75
+          if (Math.abs(onFiliz - 15) < 0.5) score += 30; // Ön filiz ~15 için bonus
+          if (Math.abs(arkaFiliz - 75) < 0.5) score += 30; // Arka filiz ~75 için bonus
+          
+          // Perde hasırı için arka filiz 5'in katı olması tercih edilir
+          const remainder = arkaFiliz % 5;
+          if (remainder < 0.1 || remainder > 4.9) {
+              score += 20; // 5'in katı için yüksek puan
+          }
+      } else {
+          // NEW LOGIC: Q-tip (Perde olmayan) için ön/arka filiz 15.5'ten büyük olmalı
+          if (onFiliz > 15.5) score += 30; // 15.5'ten büyük Ön filiz için bonus
+          if (arkaFiliz > 15.5) score += 30; // 15.5'ten büyük Arka filiz için bonus
+          
+          // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
+          if (onFiliz >= 15 && onFiliz <= 22) score += 10;
+          if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
       }
-    } else {
-      // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
-      if (onFiliz >= 15 && onFiliz <= 22) score += 10;
-      if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
-    }
-    
-    return score;
+      
+      return score;
   };
 
   // En yakın geçerli filiz değerlerini bul
