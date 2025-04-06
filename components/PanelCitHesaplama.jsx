@@ -1,5 +1,6 @@
 // PanelCitHesaplama.jsx
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
@@ -17,7 +18,11 @@ import {
   AlertCircle, 
   CheckCircle,
   Edit,
-  Search
+  Search,
+  Sparkles,
+  DollarSign,
+  Euro,
+  TrendingUp
 } from 'lucide-react';
 import { 
   Card, 
@@ -54,8 +59,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
-// Lookup tables for pallet weights
+// Palet ağırlıkları için referans tabloları
 const PALLET_WEIGHTS = {
   Single: {
     '250': {
@@ -81,19 +92,19 @@ const PALLET_WEIGHTS = {
   }
 };
 
-// Helper function to get closest height for pallet weight lookup
+// En yakın yükseklik değerini bulma yardımcı fonksiyonu
 const getClosestHeight = (height, panelType, widthStr) => {
   const lookupTable = PALLET_WEIGHTS[panelType]?.[widthStr];
   if (!lookupTable) return null;
   
   const heights = Object.keys(lookupTable).map(Number);
   
-  // Find exact match
+  // Tam eşleşme ara
   if (lookupTable[height.toString()]) {
     return height.toString();
   }
   
-  // Find closest match
+  // En yakın değeri bul
   const closestHeight = heights.reduce((prev, curr) => {
     return (Math.abs(curr - height) < Math.abs(prev - height) ? curr : prev);
   });
@@ -110,16 +121,19 @@ const safeParseFloat = (value, defaultValue = 0) => {
 };
 
 // Görüntüleme için format yardımcı fonksiyonu (gereksiz ondalık basamakları önler)
-const formatDisplayValue = (value, decimals = 5) => {
+const formatDisplayValue = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
+  
+  // Tam sayı ise, ondalık gösterme
   if (Number.isInteger(num)) return num.toString();
   
-  // Format with up to 5 decimals, removing trailing zeros
-  return parseFloat(num.toFixed(decimals)).toString().replace(/,/g, '.');
+  // Ondalıklı sayıysa, gereksiz sıfırları kaldır
+  return num.toString().replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.$/, '');
 };
 
+// Ana PanelCitHesaplama bileşeni
 const PanelCitHesaplama = () => {
   // State tanımlamaları
   const [loading, setLoading] = useState(false);
@@ -141,6 +155,7 @@ const PanelCitHesaplama = () => {
   const [ozelPanelList, setOzelPanelList] = useState([]);
   const [selectedPanelType, setSelectedPanelType] = useState('all');
   const [showResults, setShowResults] = useState(false);
+  const [showSalesView, setShowSalesView] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
   const [resultFilter, setResultFilter] = useState({
@@ -148,13 +163,27 @@ const PanelCitHesaplama = () => {
     unit: 'all',
     type: 'all'
   });
-
+  const [salesFilter, setSalesFilter] = useState({
+    currency: 'USD',
+    unit: 'adet'
+  });
+  const [salesMargins, setSalesMargins] = useState({
+    bronze: 10,
+    silver: 20,
+    gold: 30
+  });
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: 'ascending'
   });
+  
+  // Debounce için zamanlayıcı
+  const [debounceTimer, setDebounceTimer] = useState(null);
 
-  // Sayfa yüklendiğinde verileri çek
+
+// Part 2
+
+// Sayfa yüklendiğinde verileri çek
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -178,7 +207,11 @@ const PanelCitHesaplama = () => {
   
       // En son değişkenleri al - ID'ye göre azalan sıralama yaparak en son kaydı al
       const latestGenelDegisken = genelRes.data.sort((a, b) => b.id - a.id)[0] || {};
-      const latestPanelCitDegisken = panelCitRes.data.sort((a, b) => b.unique_key - a.unique_key)[0] || {};
+      const latestPanelCitDegisken = panelCitRes.data.sort((a, b) => {
+        // unique_key varsa ona göre sırala, yoksa id'ye göre sırala
+        if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
+        return b.id - a.id;
+      })[0] || {};
       const latestProfilDegisken = profilRes.data.sort((a, b) => b.id - a.id)[0] || {};
 
       // Ondalık noktası kullanmak için değerleri formatla
@@ -270,7 +303,10 @@ const PanelCitHesaplama = () => {
       // En son kaydı al (en yüksek ID'li kayıt)
       let latestRecord;
       if (section === 'panelCit') {
-        latestRecord = response.data.sort((a, b) => b.unique_key - a.unique_key)[0] || {};
+        latestRecord = response.data.sort((a, b) => {
+          if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
+          return b.id - a.id;
+        })[0] || {};
       } else {
         latestRecord = response.data.sort((a, b) => b.id - a.id)[0] || {};
       }
@@ -309,8 +345,8 @@ const PanelCitHesaplama = () => {
         // Çekilen değerlerle genelDegiskenler state'ini güncelle
         setGenelDegiskenler(prev => ({
           ...prev,
-          usd_tl: formatDisplayValue(usdTry, 5),
-          eur_usd: formatDisplayValue(eurUsd, 5)
+          usd_tl: formatDisplayValue(usdTry),
+          eur_usd: formatDisplayValue(eurUsd)
         }));
         
         console.log('Döviz kurları güncellendi:', { usdTry, eurUsd });
@@ -365,7 +401,9 @@ const PanelCitHesaplama = () => {
     setFilteredPanelList(filtered);
   };
 
-  // Excel benzeri sütun filtresi ayarlama
+//Part 3
+
+// Excel benzeri sütun filtresi ayarlama
   const handleColumnFilterChange = (column, value) => {
     setColumnFilters(prev => ({
       ...prev,
@@ -412,10 +450,42 @@ const PanelCitHesaplama = () => {
     filterPanelList();
   }, [panelSearch, selectedPanelType, columnFilters, panelList]);
 
-// Maliyet hesaplama fonksiyonu
+  // Maliyet tablosunu filtreleme
+  const filterMaliyetListesi = () => {
+    // Arama terimi varsa arama filtresini uygula
+    if (panelSearch && panelSearch.trim() !== '') {
+      const searchTerm = panelSearch.toLowerCase();
+      
+      return maliyetListesi.filter(item => {
+        const panelKodu = (item.panel_kodu || '').toLowerCase();
+        return panelKodu.includes(searchTerm);
+      });
+    }
+    
+    return maliyetListesi;
+  };
+
+  // Panel Kodu Oluşturma
+  const calculatePanelKodu = (panel) => {
+    if (!panel || !panel.panel_tipi) return '';
+    
+    const prefix = panel.panel_tipi === 'Single' 
+      ? 'SP' 
+      : (panel.panel_tipi === 'Guvenlik' ? 'GP' : 'DP');
+    
+    const capStr = `${panel.dikey_tel_capi || 0} * ${panel.yatay_tel_capi || 0}`;
+    const ebatStr = `${panel.panel_yuksekligi || 0} * ${panel.panel_genisligi || 0}`;
+    const gozStr = `${panel.yatay_goz_araligi || 0} * ${panel.dikey_goz_araligi || 0}`;
+    const bukumStr = `${panel.bukum_sayisi || 0}-1`; // Şimdilik sabit ikinci kısım
+    
+    return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
+  };
+
+  // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true) => {
     setCalculating(true);
     setShowResults(false);
+    setShowSalesView(false);
     
     try {
       // Önce hesaplanacak veri olup olmadığını kontrol et
@@ -426,9 +496,6 @@ const PanelCitHesaplama = () => {
         setCalculating(false);
         return;
       }
-      
-
-
 
       // Boş alanları kontrol et
       const emptyFields = [];
@@ -472,65 +539,30 @@ const PanelCitHesaplama = () => {
         }
       }
       
-      // Önce geçici hesaplar tablosunu temizle - Yeni endpoint ile
-      await axios.delete(`${API_URLS.geciciHesaplar}/all`);
-      console.log('Gecici Hesaplar Silindi');
-
-      // Maliyet listesini temizle - Yeni endpoint ile
-      await axios.delete(`${API_URLS.maliyetListesi}/all`);
-      console.log('Gecici Hesaplar Silindi');
-     
-      // Güvenli float değerleri işleme yardımcı fonksiyonu
-      const safeParseFloat = (value, defaultValue = 0) => {
-        if (value === null || value === undefined || value === '') return defaultValue;
-        if (typeof value === 'string') value = value.replace(',', '.');
-        const parsed = parseFloat(value);
-        return isNaN(parsed) ? defaultValue : parsed;
-      };
-
-      // Statik değişkenleri hazırla
-      const staticVars = {
-        boya_kg_usd: safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur) / safeParseFloat(genelDegiskenler.eur_usd, 1),
-        elektrik_kw_usd: safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        dogalgaz_m3_usd: safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        isci_maasi_usd: safeParseFloat(genelDegiskenler.ort_isci_maasi) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        flans_usd: safeParseFloat(profilDegiskenler.flans_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        vida_usd: safeParseFloat(profilDegiskenler.vida_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        klips_usd: safeParseFloat(profilDegiskenler.klips_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        dubel_usd: safeParseFloat(profilDegiskenler.dubel_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1),
-        kapak_usd: safeParseFloat(profilDegiskenler.kapak_ad_tl) / safeParseFloat(genelDegiskenler.usd_tl, 1)
-      };
+      // Performans iyileştirmesi: önce tüm hesaplamaları hafızada yap
+      // Sonuç olarak elde edilen değerleri birleştirip tek bir db işleminde kaydet
       
+      // Geçici hesaplar ve maliyet listesi içindeki veriler
+      const geciciHesaplarData = [];
+      const maliyetListesiData = [];
 
-
-      // Statik değişkenleri kaydet (only valid DB columns)
-      await axios.post(API_URLS.statikDegiskenler, {
-      boya_kg_usd: Number(genelDegiskenler.boya_kg_usd || 0),
-      elektrik_kw_usd: Number(genelDegiskenler.elektrik_kw_usd || 0),
-      dogalgaz_m3_usd: Number(genelDegiskenler.dogalgaz_m3_usd || 0),
-      ort_isci_maasi_usd: Number(genelDegiskenler.ort_isci_maasi_usd || 0),
-      flans_usd: Number(genelDegiskenler.flans_usd || 0),
-      vida_usd: Number(genelDegiskenler.vida_usd || 0),
-      klips_usd: Number(genelDegiskenler.klips_usd || 0),
-      dubel_usd: Number(genelDegiskenler.dubel_usd || 0),
-      kapak_usd: Number(genelDegiskenler.kapak_usd || 0),
-      });
-
-
+      // Hesaplamaları client-side olarak yap
+      const results = performClientSideCalculations(panelsToCalculate);
       
-      // Hesaplama algoritmasını çalıştır
-      await performCalculation(panelsToCalculate, staticVars);
+      geciciHesaplarData.push(...results.geciciHesaplar);
+      maliyetListesiData.push(...results.maliyetListesi);
       
-      // Hesaplama sonuçlarını al
-      const maliyetRes = await axios.get(API_URLS.maliyetListesi);
-
-      console.log('📊 Maliyet sonucu:', maliyetRes.data);
-
-      setMaliyetListesi(maliyetRes.data);
+      // Satış listesini oluştur
+      const satisListesiData = generateSalesList(maliyetListesiData);
       
-      // Ara hesapları al
-      const geciciRes = await axios.get(API_URLS.geciciHesaplar);
-      setGeciciHesaplar(geciciRes.data);
+      // Geçici hesapları ve maliyet listesini güncelle
+      setGeciciHesaplar(geciciHesaplarData);
+      setMaliyetListesi(maliyetListesiData);
+      setSatisListesi(satisListesiData);
+      
+      // Veritabanını temizle ve yeni verileri kaydet (opsiyonel)
+      // Bu kısmı asenkron olarak arkaplanda yapalım, UI bekletmeden sonuçları gösterelim
+      saveToDatabaseAsync(geciciHesaplarData, maliyetListesiData);
       
       // Sonuçlar sayfasına geç
       setShowResults(true);
@@ -543,599 +575,156 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Ondalık sayı formatını düzenleme
-  const formatDecimal = (value) => {
-    if (typeof value === 'string') {
-      return value.replace(/,/g, '.');
+//Part 4
+
+// Veritabanına asenkron kaydetme - kullanıcı arayüzünü bloke etmeden
+  const saveToDatabaseAsync = async (geciciHesaplarData, maliyetListesiData) => {
+    try {
+      // Önce geçici hesaplar tablosunu temizle
+      await axios.delete(`${API_URLS.geciciHesaplar}/all`);
+      console.log('Gecici Hesaplar Silindi');
+
+      // Maliyet listesini temizle
+      await axios.delete(`${API_URLS.maliyetListesi}/all`);
+      console.log('Maliyet Listesi Silindi');
+      
+      // Statik değişkenleri kaydet
+      const staticVars = calculateStaticVars();
+      await axios.post(API_URLS.statikDegiskenler, staticVars);
+      
+      // Her bir sonuç için veritabanına kaydetme işlemleri
+      // Burada veritabanı performansı için batch işlemler yapılabilir
+      
+      // Geçici hesapları kaydet
+      for (const hesap of geciciHesaplarData) {
+        await axios.post(API_URLS.geciciHesaplar, hesap);
+      }
+      
+      // Maliyet listesini kaydet
+      for (const maliyet of maliyetListesiData) {
+        await axios.post(API_URLS.maliyetListesi, maliyet);
+      }
+      
+      console.log('Tüm veriler veritabanına başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Veritabanına kaydetme hatası:', error);
+      // Hata olsa bile kullanıcı arayüzünü etkilememesi için burada hata göstermiyoruz
     }
-    return value;
   };
   
-  // Genel Değişkenleri Güncelleme
-  const updateGenelDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      Object.entries(genelDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        genel_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.genelDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Genel değişkenler başarıyla kaydedildi.');
-        fetchSectionData('genel'); // Sadece genel değişkenleri güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert('Değişkenler kaydedilirken hata oluştu: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  // Panel Çit Değişkenlerini Güncelleme
-  const updatePanelCitDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        panel_cit_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Panel çit değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert('Değişkenler kaydedilirken hata oluştu: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  // Profil Değişkenlerini Güncelleme
-  const updateProfilDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      Object.entries(profilDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        profil_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil'); // Sadece profil değişkenlerini güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert('Değişkenler kaydedilirken hata oluştu: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  // Panel Kodu Oluşturma
-  const calculatePanelKodu = (panel) => {
-    if (!panel.panel_tipi) return '';
+  // Statik değişkenleri hesapla
+  const calculateStaticVars = () => {
+    const usdTl = safeParseFloat(genelDegiskenler.usd_tl, 1);
+    const eurUsd = safeParseFloat(genelDegiskenler.eur_usd, 1);
     
-    const prefix = panel.panel_tipi === 'Single' 
-      ? 'SP' 
-      : (panel.panel_tipi === 'Guvenlik' ? 'GP' : 'DP');
+    const boyaFiyatiUSD = safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur) / eurUsd;
+    const elektrikFiyatiUSD = safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl) / usdTl;
+    const dogalgazFiyatiUSD = safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) / usdTl;
+    const ortalamaIsciMaasiUSD = safeParseFloat(genelDegiskenler.ort_isci_maasi) / usdTl;
     
-    const capStr = `${panel.dikey_tel_capi || 0} * ${panel.yatay_tel_capi || 0}`;
-    const ebatStr = `${panel.panel_yuksekligi || 0} * ${panel.panel_genisligi || 0}`;
-    const gozStr = `${panel.yatay_goz_araligi || 0} * ${panel.dikey_goz_araligi || 0}`;
-    const bukumStr = `${panel.bukum_sayisi || 0}-1`; // Şimdilik sabit ikinci kısım
+    // Profil fiyatları
+    const flansUSD = safeParseFloat(profilDegiskenler.flans_ad_tl) / usdTl;
+    const vidaUSD = safeParseFloat(profilDegiskenler.vida_ad_tl) / usdTl;
+    const klipsUSD = safeParseFloat(profilDegiskenler.klips_ad_tl) / usdTl;
+    const dubelUSD = safeParseFloat(profilDegiskenler.dubel_ad_tl) / usdTl;
+    const kapakUSD = safeParseFloat(profilDegiskenler.kapak_ad_tl) / usdTl;
     
-    return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
-  };
-  
-  // Özel panel ekleme 
-  const addOzelPanel = () => {
-    const newPanel = {
-      manual_order: '', 
-      panel_tipi: 'Single',
-      panel_kodu: '',
-      panel_yuksekligi: 200,  // Varsayılan değerler
-      panel_genisligi: 250,
-      dikey_tel_capi: 4.0,
-      yatay_tel_capi: 4.0,
-      dikey_goz_araligi: 20,
-      yatay_goz_araligi: 5,
-      dikey_cubuk_adet: 0,
-      yatay_cubuk_adet: 0,
-      adet_m2: 0,
-      agirlik: 0,
-      bukum_sayisi: 0,
-      bukumdeki_cubuk_sayisi: 1,
-      isNew: true,
-      id: Date.now(),
-      // Yeni palet bilgileri alanları
-      boyali_hali: 0,
-      boya_kg: 0,
-      m2_agirlik: 0,
-      paletteki_panel_sayisi: 0,
-      palet_bos_agirlik: 0,
-      paletsiz_toplam_agirlik: 0,
-      palet_dolu_agirlik: 0,
-      bos_palet_yuksekligi: 0,
-      adet_panel_yuksekligi: 0,
-      paletsiz_toplam_panel_yuksekligi: 0,
-      paletli_yukseklik: 0,
-      icube_code: '',
-      icube_code_adetli: ''
+    return {
+      boya_kg_usd: boyaFiyatiUSD,
+      elektrik_kw_usd: elektrikFiyatiUSD,
+      dogalgaz_m3_usd: dogalgazFiyatiUSD,
+      ort_isci_maasi_usd: ortalamaIsciMaasiUSD,
+      flans_usd: flansUSD,
+      vida_usd: vidaUSD,
+      klips_usd: klipsUSD,
+      dubel_usd: dubelUSD,
+      kapak_usd: kapakUSD
     };
-
-    // Otomatik hesaplamalar
-    const panel_yuksekligi = parseFloat(newPanel.panel_yuksekligi);
-    const panel_genisligi = parseFloat(newPanel.panel_genisligi);
-    
-    // Adet m2 hesaplama (Excel: =(B2*C2/10000)*H2) - H2 varsayılan olarak 1 olsun
-    newPanel.adet_m2 = (panel_yuksekligi * panel_genisligi / 10000);
-    
-    // Büküm sayısı hesaplama (Excel: =EĞER(VE(D2="Single";B2>=100);YUVARLA(B2/50;0);EĞER(VE(D2="Single";B2<100);TABANAYUVARLA((B2/50)+1;1);0)))
-    if (newPanel.panel_tipi === "Single" && panel_yuksekligi >= 100) {
-      newPanel.bukum_sayisi = Math.round(panel_yuksekligi / 50);
-    } else if (newPanel.panel_tipi === "Single" && panel_yuksekligi < 100) {
-      newPanel.bukum_sayisi = Math.floor((panel_yuksekligi / 50) + 1);
-    } else {
-      newPanel.bukum_sayisi = 0;
-    }
-    
-    const bukum_sayisi = parseFloat(newPanel.bukum_sayisi);
-    
-    // Dikey çubuk adet hesaplama (Excel: =EĞER(M2<5.5;TAVANAYUVARLA(C2/M2;1)+1;EĞER(M2<6;TAVANAYUVARLA(C2/M2;1);TAVANAYUVARLA(C2/M2;1)+1)))
-    const dikey_goz = parseFloat(newPanel.dikey_goz_araligi);
-    
-    if (dikey_goz < 5.5) {
-      newPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-    } else if (dikey_goz < 6) {
-      newPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz);
-    } else {
-      newPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-    }
-    
-    // Yatay çubuk adet hesaplama 
-    // Excel: =EĞER(D2="Double";(((B2-3)/L2)+1)*2;EĞER(VE(D2="Single";L2=20);((((B2-3)-(J2*10))/L2)+1)+(J2*2);EĞER(VE(D2="Single";L2=15;B2<200);YUVARLA(((B2/L2)+(J2*2));0);EĞER(VE(D2="Single";L2=15;B2>=200);TAVANAYUVARLA(((B2/L2)+(J2*2));1);"---"))))
-    const yatay_goz = parseFloat(newPanel.yatay_goz_araligi);
-    
-    if (newPanel.panel_tipi === "Double") {
-      newPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / yatay_goz) + 1) * 2;
-    } else if (newPanel.panel_tipi === "Single" && yatay_goz === 20) {
-      newPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / yatay_goz) + 1) + (bukum_sayisi * 2);
-    } else if (newPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi < 200) {
-      newPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-    } else if (newPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi >= 200) {
-      newPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-    }
-    
-    // Ağırlık hesaplama
-    // Excel: =EĞER(D2="Double";((E2*E2*7.85*Pİ()/4000)*((B2/100)*N2))+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2);EĞER(VE(D2="Single";L2=20);((E2*E2*7.85*Pİ()/4000)*((B2+(J2*2.1))/100)*N2+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2));EĞER(VE(D2="Single";L2=15);((E2*E2*7.85*Pİ()/4000)*((B2+(J2*2.6))/100)*N2+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2)))))
-    const dikey_tel = parseFloat(newPanel.dikey_tel_capi);
-    const yatay_tel = parseFloat(newPanel.yatay_tel_capi);
-    const dikey_cubuk = parseFloat(newPanel.dikey_cubuk_adet);
-    const yatay_cubuk = parseFloat(newPanel.yatay_cubuk_adet);
-
-    if (newPanel.panel_tipi === "Double") {
-      // Double panel ağırlık hesaplaması
-      newPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi / 100) * dikey_cubuk)) + 
-                        ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-    } 
-    else if (newPanel.panel_tipi === "Single") {
-      if (yatay_goz === 20) {
-        // Single panel 20 göz aralığı için ağırlık hesaplaması
-        newPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                          ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-      } 
-      else if (yatay_goz === 15) {
-        // Single panel 15 göz aralığı için ağırlık hesaplaması
-        newPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.6)) / 100) * dikey_cubuk) + 
-                          ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-      }
-      else {
-        // Diğer Single panel tipleri için varsayılan hesaplama
-        newPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                          ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-      }
-    }
-    else if (newPanel.panel_tipi === "Guvenlik") {
-      // Güvenlik panel ağırlık hesaplaması
-      newPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                        ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-    }
-    
-    // Yeni palet ile ilgili hesaplamalar
-    
-    // Boyalı Hali: =P2+R2 (agirlik + boya_kg)
-    newPanel.boya_kg = calculateBoyaKg(newPanel);
-    newPanel.boyali_hali = newPanel.agirlik + newPanel.boya_kg;
-    
-    // M²_Ağırlık: =Q2/I2 (boyali_hali / adet_m2)
-    newPanel.m2_agirlik = newPanel.adet_m2 > 0 ? newPanel.boyali_hali / newPanel.adet_m2 : 0;
-    
-    // Paletteki panel sayısı
-    newPanel.paletteki_panel_sayisi = calculatePalettekiPanelSayisi(newPanel);
-    
-    // Palet Boş Ağırlık
-    newPanel.palet_bos_agirlik = calculatePaletBosAgirlik(newPanel);
-    
-    // Paletsiz Toplam Ağırlık: =T2*Q2 (paletteki_panel_sayisi * boyali_hali)
-    newPanel.paletsiz_toplam_agirlik = newPanel.paletteki_panel_sayisi * newPanel.boyali_hali;
-    
-    // Palet Dolu Ağırlık: =V2+U2 (paletsiz_toplam_agirlik + palet_bos_agirlik)
-    newPanel.palet_dolu_agirlik = newPanel.paletsiz_toplam_agirlik + newPanel.palet_bos_agirlik;
-    
-    // Boş Palet Yüksekliği
-    newPanel.bos_palet_yuksekligi = newPanel.panel_tipi === "Double" ? 14 : (newPanel.panel_tipi === "Single" ? 17 : 0);
-    
-    // Adet Panel Yüksekliği
-    newPanel.adet_panel_yuksekligi = calculateAdetPanelYuksekligi(newPanel);
-    
-    // Paletsiz Toplam Panel Yüksekliği: =Y2*T2 (adet_panel_yuksekligi * paletteki_panel_sayisi)
-    newPanel.paletsiz_toplam_panel_yuksekligi = newPanel.adet_panel_yuksekligi * newPanel.paletteki_panel_sayisi;
-    
-    // Paletli Yükseklik: =Z2+X2 (paletsiz_toplam_panel_yuksekligi + bos_palet_yuksekligi)
-    newPanel.paletli_yukseklik = newPanel.paletsiz_toplam_panel_yuksekligi + newPanel.bos_palet_yuksekligi;
-    
-    // Icube-Code 
-    newPanel.icube_code = calculateIcubeCode(newPanel);
-    
-    // Icube-Code(Adetli): =AB2 & "_(" & T2 & "-Adet)" 
-    newPanel.icube_code_adetli = `${newPanel.icube_code}_(${newPanel.paletteki_panel_sayisi}-Adet)`;
-    
-    // Sayısal alanları yuvarlama
-    if (!isNaN(newPanel.adet_m2)) newPanel.adet_m2 = parseFloat(newPanel.adet_m2.toFixed(5));
-    if (!isNaN(newPanel.dikey_cubuk_adet)) newPanel.dikey_cubuk_adet = Math.round(newPanel.dikey_cubuk_adet);
-    if (!isNaN(newPanel.yatay_cubuk_adet)) newPanel.yatay_cubuk_adet = Math.round(newPanel.yatay_cubuk_adet);
-    if (!isNaN(newPanel.agirlik)) newPanel.agirlik = parseFloat(newPanel.agirlik.toFixed(5));
-    if (!isNaN(newPanel.boyali_hali)) newPanel.boyali_hali = parseFloat(newPanel.boyali_hali.toFixed(5));
-    if (!isNaN(newPanel.boya_kg)) newPanel.boya_kg = parseFloat(newPanel.boya_kg.toFixed(5));
-    if (!isNaN(newPanel.m2_agirlik)) newPanel.m2_agirlik = parseFloat(newPanel.m2_agirlik.toFixed(5));
-    if (!isNaN(newPanel.palet_bos_agirlik)) newPanel.palet_bos_agirlik = parseFloat(newPanel.palet_bos_agirlik.toFixed(5));
-    if (!isNaN(newPanel.paletsiz_toplam_agirlik)) newPanel.paletsiz_toplam_agirlik = parseFloat(newPanel.paletsiz_toplam_agirlik.toFixed(5));
-    if (!isNaN(newPanel.palet_dolu_agirlik)) newPanel.palet_dolu_agirlik = parseFloat(newPanel.palet_dolu_agirlik.toFixed(5));
-    if (!isNaN(newPanel.adet_panel_yuksekligi)) newPanel.adet_panel_yuksekligi = parseFloat(newPanel.adet_panel_yuksekligi.toFixed(5));
-    if (!isNaN(newPanel.paletsiz_toplam_panel_yuksekligi)) newPanel.paletsiz_toplam_panel_yuksekligi = parseFloat(newPanel.paletsiz_toplam_panel_yuksekligi.toFixed(5));
-    if (!isNaN(newPanel.paletli_yukseklik)) newPanel.paletli_yukseklik = parseFloat(newPanel.paletli_yukseklik.toFixed(5));
-    
-    // Panel kodu otomatik hesaplama
-    newPanel.panel_kodu = calculatePanelKodu(newPanel);
-    
-    setOzelPanelList(prev => [...prev, newPanel]);
-  };
-
-  // Özel panel silme
-  const removeOzelPanel = (id) => {
-    setOzelPanelList(prev => prev.filter(panel => panel.id !== id));
-  };
-
-  // Boya kilogram hesaplama
-  const calculateBoyaKg = (panel) => {
-    // Excel: =EĞER(G2=0;0;EĞER(D2="Double";I2*0.06;EĞER(D2="Single";I2*0.03;0)))
-    if (!panel || !panel.panel_tipi) return 0;
-    
-    const adetM2 = safeParseFloat(panel.adet_m2);
-    
-    if (panel.panel_tipi === "Double") {
-      return adetM2 * 0.06;
-    } else if (panel.panel_tipi === "Single") {
-      return adetM2 * 0.03;
-    } else {
-      return 0;
-    }
-  };
-
-  // Paletteki panel sayısı hesaplama
-  const calculatePalettekiPanelSayisi = (panel) => {
-    // Excel: =EĞER(VE(D2="Double";F2>=7);25;EĞER(VE(D2="Double";F2<7);30;EĞER(D2="Single";100;0)))
-    if (!panel || !panel.panel_tipi) return 0;
-    
-    const yatayTelCapi = safeParseFloat(panel.yatay_tel_capi);
-    
-    if (panel.panel_tipi === "Double") {
-      if (yatayTelCapi >= 7) {
-        return 25;
-      } else {
-        return 30;
-      }
-    } else if (panel.panel_tipi === "Single") {
-      return 100;
-    } else {
-      return 0;
-    }
-  };
-
-  // Palet boş ağırlık hesaplama
-  const calculatePaletBosAgirlik = (panel) => {
-    if (!panel || !panel.panel_tipi) return 0;
-    
-    const panelType = panel.panel_tipi;
-    const height = safeParseFloat(panel.panel_yuksekligi);
-    const width = safeParseFloat(panel.panel_genisligi);
-    
-    // Only handle the specific widths in our lookup tables
-    const widthStr = width === 250 ? '250' : (width === 200 ? '200' : null);
-    if (!widthStr) return 0;
-    
-    // Get the closest height for lookup
-    const closestHeight = getClosestHeight(height, panelType, widthStr);
-    if (!closestHeight) return 0;
-    
-    // Return the weight from the lookup table
-    return PALLET_WEIGHTS[panelType][widthStr][closestHeight] || 0;
-  };
-
-  // Adet panel yüksekliği hesaplama
-  const calculateAdetPanelYuksekligi = (panel) => {
-    // Excel formula for Adet_Panel_Yuksekligi
-    if (!panel || !panel.panel_tipi) return 0;
-    
-    const panelType = panel.panel_tipi;
-    const yatayTelCapi = safeParseFloat(panel.yatay_tel_capi);
-    
-    if (panelType === "Double") {
-      if (yatayTelCapi < 5) {
-        return 0.875;
-      } else if (yatayTelCapi > 8) {
-        return 1.33;
-      } else {
-        return 0.875 + ((yatayTelCapi - 5) / (8 - 5)) * (1.33 - 0.875);
-      }
-    } else if (panelType === "Single") {
-      if (yatayTelCapi < 3) {
-        return 0.769;
-      } else if (yatayTelCapi > 5.5) {
-        return 1;
-      } else {
-        return 0.769 + ((yatayTelCapi - 3) / (5.5 - 3)) * (1 - 0.769);
-      }
-    } else {
-      return 0;
-    }
-  };
-
-  // Icube-Code hesaplama
-  const calculateIcubeCode = (panel) => {
-    // Excel: =EĞER(D2="Double";"DP-"&B2&"/"&C2&"-"&E2&"/"&F2&EĞER(G2+0=6005;"-Ysl";EĞER(G2+0=7016;"-Antrst";EĞER(G2+0=0;"-Rnksz";"")));EĞER(D2="Single";"SP-"&B2&"/"&C2&"-"&E2&"/"&F2&EĞER(G2+0=6005;"-Ysl";EĞER(G2+0=7016;"-Antrst";EĞER(G2+0=0;"-Rnksz";"")));""))
-    if (!panel || !panel.panel_tipi) return '';
-    
-    const panelType = panel.panel_tipi;
-    const height = safeParseFloat(panel.panel_yuksekligi);
-    const width = safeParseFloat(panel.panel_genisligi);
-    const dikeyCap = safeParseFloat(panel.dikey_tel_capi);
-    const yatayCap = safeParseFloat(panel.yatay_tel_capi);
-    
-    // For simplicity, we'll just consider it as not colored
-    const colorSuffix = "-Rnksz";
-    
-    if (panelType === "Double") {
-      return `DP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
-    } else if (panelType === "Single") {
-      return `SP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
-    } else if (panelType === "Guvenlik") {
-      return `GP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
-    } else {
-      return '';
-    }
-  };
-
-  // Özel panel güncelleme
-  const updateOzelPanel = (id, field, value) => {
-    const updatedList = ozelPanelList.map(panel => {
-      if (panel.id === id) {
-        // Virgülleri noktalara dönüştür
-        const formattedValue = formatDecimal(value);
-        const updatedPanel = { ...panel, [field]: formattedValue };
-        
-        // Otomatik hesaplamalar - sadece bazı alanlar değiştiğinde
-        if (['panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi', 
-            'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi'].includes(field)) {
-          
-          // Panel kodu otomatik hesaplama
-          updatedPanel.panel_kodu = calculatePanelKodu(updatedPanel);
-          
-          // adet_m2 hesaplama
-          const panel_yuksekligi = safeParseFloat(updatedPanel.panel_yuksekligi);
-          const panel_genisligi = safeParseFloat(updatedPanel.panel_genisligi);
-          updatedPanel.adet_m2 = (panel_yuksekligi * panel_genisligi / 10000);
-          
-          // büküm sayısı hesaplama - sadece panel_tipi veya panel_yuksekligi değiştiğinde
-          if (['panel_tipi', 'panel_yuksekligi'].includes(field)) {
-            if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi >= 100) {
-              updatedPanel.bukum_sayisi = Math.round(panel_yuksekligi / 50);
-            } else if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi < 100) {
-              updatedPanel.bukum_sayisi = Math.floor((panel_yuksekligi / 50) + 1);
-            } else {
-              updatedPanel.bukum_sayisi = 0;
-            }
-          }
-          
-          const bukum_sayisi = safeParseFloat(updatedPanel.bukum_sayisi);
-          
-          // dikey_cubuk_adet hesaplama
-          const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
-          
-          if (dikey_goz < 5.5) {
-            updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-          } else if (dikey_goz < 6) {
-            updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz);
-          } else {
-            updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-          }
-          
-          // yatay_cubuk_adet hesaplama 
-          const panel_tipi = updatedPanel.panel_tipi;
-          const yatay_goz = safeParseFloat(updatedPanel.yatay_goz_araligi);
-          
-          if (panel_tipi === "Double") {
-            updatedPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / yatay_goz) + 1) * 2;
-          } else if (panel_tipi === "Single" && yatay_goz === 20) {
-            updatedPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / yatay_goz) + 1) + (bukum_sayisi * 2);
-          } else if (panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi < 200) {
-            updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-          } else if (panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi >= 200) {
-            updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-          }
-          
-          // ağırlık hesaplama
-          const dikey_tel = safeParseFloat(updatedPanel.dikey_tel_capi);
-          const yatay_tel = safeParseFloat(updatedPanel.yatay_tel_capi);
-          const dikey_cubuk = safeParseFloat(updatedPanel.dikey_cubuk_adet);
-          const yatay_cubuk = safeParseFloat(updatedPanel.yatay_cubuk_adet);
-
-          if (panel_tipi === "Double") {
-            // Double panel ağırlık hesaplaması
-            updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi / 100) * dikey_cubuk)) + 
-                                  ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-          } 
-          else if (panel_tipi === "Single") {
-            if (yatay_goz === 20) {
-              // Single panel 20 göz aralığı için ağırlık hesaplaması
-              updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                                    ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-            } 
-            else if (yatay_goz === 15) {
-              // Single panel 15 göz aralığı için ağırlık hesaplaması
-              updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.6)) / 100) * dikey_cubuk) + 
-                                    ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-            }
-            else {
-              // Diğer Single panel tipleri için varsayılan hesaplama
-              updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                                    ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-            }
-          }
-          else if (panel_tipi === "Guvenlik") {
-            // Güvenlik panel ağırlık hesaplaması
-            updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
-                                  ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-          }
-
-          // Palet hesaplamaları
-          updatedPanel.boya_kg = calculateBoyaKg(updatedPanel);
-          updatedPanel.boyali_hali = updatedPanel.agirlik + updatedPanel.boya_kg;
-          updatedPanel.m2_agirlik = updatedPanel.adet_m2 > 0 ? updatedPanel.boyali_hali / updatedPanel.adet_m2 : 0;
-          updatedPanel.paletteki_panel_sayisi = calculatePalettekiPanelSayisi(updatedPanel);
-          updatedPanel.palet_bos_agirlik = calculatePaletBosAgirlik(updatedPanel);
-          updatedPanel.paletsiz_toplam_agirlik = updatedPanel.paletteki_panel_sayisi * updatedPanel.boyali_hali;
-          updatedPanel.palet_dolu_agirlik = updatedPanel.paletsiz_toplam_agirlik + updatedPanel.palet_bos_agirlik;
-          updatedPanel.bos_palet_yuksekligi = updatedPanel.panel_tipi === "Double" ? 14 : (updatedPanel.panel_tipi === "Single" ? 17 : 0);
-          updatedPanel.adet_panel_yuksekligi = calculateAdetPanelYuksekligi(updatedPanel);
-          updatedPanel.paletsiz_toplam_panel_yuksekligi = updatedPanel.adet_panel_yuksekligi * updatedPanel.paletteki_panel_sayisi;
-          updatedPanel.paletli_yukseklik = updatedPanel.paletsiz_toplam_panel_yuksekligi + updatedPanel.bos_palet_yuksekligi;
-          updatedPanel.icube_code = calculateIcubeCode(updatedPanel);
-          updatedPanel.icube_code_adetli = `${updatedPanel.icube_code}_(${updatedPanel.paletteki_panel_sayisi}-Adet)`;
-          
-          // Sayısal alanları yuvarlama
-          if (!isNaN(updatedPanel.adet_m2)) updatedPanel.adet_m2 = parseFloat(updatedPanel.adet_m2.toFixed(5));
-          if (!isNaN(updatedPanel.dikey_cubuk_adet)) updatedPanel.dikey_cubuk_adet = Math.round(updatedPanel.dikey_cubuk_adet);
-          if (!isNaN(updatedPanel.yatay_cubuk_adet)) updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet);
-          if (!isNaN(updatedPanel.agirlik)) updatedPanel.agirlik = parseFloat(updatedPanel.agirlik.toFixed(5));
-          if (!isNaN(updatedPanel.boyali_hali)) updatedPanel.boyali_hali = parseFloat(updatedPanel.boyali_hali.toFixed(5));
-          if (!isNaN(updatedPanel.boya_kg)) updatedPanel.boya_kg = parseFloat(updatedPanel.boya_kg.toFixed(5));
-          if (!isNaN(updatedPanel.m2_agirlik)) updatedPanel.m2_agirlik = parseFloat(updatedPanel.m2_agirlik.toFixed(5));
-          if (!isNaN(updatedPanel.palet_bos_agirlik)) updatedPanel.palet_bos_agirlik = parseFloat(updatedPanel.palet_bos_agirlik.toFixed(5));
-          if (!isNaN(updatedPanel.paletsiz_toplam_agirlik)) updatedPanel.paletsiz_toplam_agirlik = parseFloat(updatedPanel.paletsiz_toplam_agirlik.toFixed(5));
-          if (!isNaN(updatedPanel.palet_dolu_agirlik)) updatedPanel.palet_dolu_agirlik = parseFloat(updatedPanel.palet_dolu_agirlik.toFixed(5));
-          if (!isNaN(updatedPanel.adet_panel_yuksekligi)) updatedPanel.adet_panel_yuksekligi = parseFloat(updatedPanel.adet_panel_yuksekligi.toFixed(5));
-          if (!isNaN(updatedPanel.paletsiz_toplam_panel_yuksekligi)) updatedPanel.paletsiz_toplam_panel_yuksekligi = parseFloat(updatedPanel.paletsiz_toplam_panel_yuksekligi.toFixed(5));
-          if (!isNaN(updatedPanel.paletli_yukseklik)) updatedPanel.paletli_yukseklik = parseFloat(updatedPanel.paletli_yukseklik.toFixed(5));
-        }
-        
-        return updatedPanel;
-      }
-      return panel;
-    });
-    
-    setOzelPanelList(updatedList);
   };
   
-  // Özel paneli veritabanına kaydetme
-  const saveOzelPanelToDatabase = async (panel) => {
-    try {
-      // Özel alanları temizle
-      const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
-              paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
-              palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
-              paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, ...panelData } = panel;
-      
-      // Veritabanına kaydet
-      const response = await axios.post(API_URLS.panelList, {
-        ...panelData,
-        kayit_tarihi: new Date().toISOString()
-      });
-      
-      if (response.status === 200 || response.status === 201) {
-        alert(`${panel.panel_kodu} kodlu panel başarıyla kaydedildi.`);
-        
-        // Mevcut panel listesini güncelle
-        fetchSectionData('panelList');
-        
-        // Özel panel listesinden kaldır
-        setOzelPanelList(ozelPanelList.filter(p => p.id !== panel.id));
-      }
-    } catch (error) {
-      console.error('Panel kaydetme hatası:', error);
-      alert('Panel kaydedilirken hata oluştu: ' + (error.response?.data?.message || error.message));
-    }
-  };
-
-  // Detaylı hesaplama algoritması
-  const performCalculation = async (panelsToCalculate, staticVars) => {
-    // Panel hesaplamaları için bir döngü
+  // Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
+  const performClientSideCalculations = (panelsToCalculate) => {
+    // Sonuç arrayleri
+    const geciciHesaplar = [];
+    const maliyetListesi = [];
+    
+    // Döviz kurları
+    const usdTl = safeParseFloat(genelDegiskenler.usd_tl, 1);
+    const eurUsd = safeParseFloat(genelDegiskenler.eur_usd, 1);
+    
+    // Genel değerler
+    const boyaFiyatiUSD = safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur) / eurUsd;
+    const elektrikFiyatiUSD = safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl) / usdTl;
+    const dogalgazFiyatiUSD = safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) / usdTl;
+    const amortismanUSD = safeParseFloat(genelDegiskenler.amortisman_diger_usd);
+    const ortalamaIsciMaasiUSD = safeParseFloat(genelDegiskenler.ort_isci_maasi) / usdTl;
+    
+    // Panel değerleri
+    const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
+    const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
+    const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
+    const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
+    const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
+    const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
+    const panelDogalgazTuketim = safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3);
+    const isciSayisiPanelKesme = safeParseFloat(panelCitDegiskenler.panel_kesme_isci_sayisi_ad);
+    const isciSayisiPanelKaynak = safeParseFloat(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad);
+    const isciSayisiPanelBoya = safeParseFloat(panelCitDegiskenler.panel_boya_isci_sayisi_ad);
+    const dpBoyaMetreKare = safeParseFloat(panelCitDegiskenler.dp_boya_tuketim_miktari);
+    const spBoyaMetreKare = safeParseFloat(panelCitDegiskenler.sp_boya_tuketim_miktari);
+    const guvenlikBoyaMetreKare = safeParseFloat(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr);
+    
+    // Profil değerleri
+    const profilEn1 = safeParseFloat(profilDegiskenler.profil_en1);
+    const profilEn2 = safeParseFloat(profilDegiskenler.profil_en2);
+    const profilBoyaTuketim = safeParseFloat(profilDegiskenler.profil_boya_tuketim);
+    const profilEtKalinligi = safeParseFloat(profilDegiskenler.profil_et_kalinligi);
+    const vardiyaProfil = safeParseFloat(profilDegiskenler.profil_vardiya);
+    const profilOrtalama = safeParseFloat(profilDegiskenler.profil_uretim_kapasitesi_m2_h);
+    const profilIsciSayisi = safeParseFloat(profilDegiskenler.profil_isci_sayisi_ad);
+    const profilDogalgazKullanim = safeParseFloat(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3);
+    const profilBoyaElektrikKullanim = safeParseFloat(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh);
+    const profilKaynakElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh);
+    const profilKesmeElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh);
+    
+    // Profil fiyatları
+    const flansUSD = safeParseFloat(profilDegiskenler.flans_ad_tl) / usdTl;
+    const vidaUSD = safeParseFloat(profilDegiskenler.vida_ad_tl) / usdTl;
+    const klipsUSD = safeParseFloat(profilDegiskenler.klips_ad_tl) / usdTl;
+    const dubelUSD = safeParseFloat(profilDegiskenler.dubel_ad_tl) / usdTl;
+    const kapakUSD = safeParseFloat(profilDegiskenler.kapak_ad_tl) / usdTl;
+    
+    // Profil fiyatları
+    const galvanizsizProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd) / 1000;
+    const galvanizliProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd) / 1000;
+    
+    // Sabit parça sayıları
+    const flansAdet = 1;
+    const dubelAdet = 4;
+    const kapakAdet = 1;
+    
+    // Her panel için hesaplama yap
     for (const panel of panelsToCalculate) {
       try {
-        // Panel değerlerini al
-        const materialHeight = parseFloat(panel.panel_yuksekligi);
-        const materialWidth = parseFloat(panel.panel_genisligi);
-        const weightKg = parseFloat(panel.agirlik);
+        // Panel verilerini al
+        const materialHeight = safeParseFloat(panel.panel_yuksekligi);
+        const materialWidth = safeParseFloat(panel.panel_genisligi);
+        const weightKg = safeParseFloat(panel.agirlik);
         const panelType = panel.panel_tipi || '';
         const panelKodu = panel.panel_kodu || '';
         const manualOrder = panel.manual_order || '';
         
         // Yüzey alanı hesapla
         const l1Metre = (materialHeight * materialWidth) / 10000;
+
+//Part 5
+
+const manualOrder = panel.manual_order || '';
         
-        // Panel kapasitesi hesapla
+        // Yüzey alanı hesapla
+        const l1Metre = (materialHeight * materialWidth) / 10000;
+        
+        // Panel Kapasite hesapla
         let panelKapasite = 0;
         if (panelType === "Single" || panelType === "Ozel") {
           if (materialHeight <= 70) panelKapasite = l1Metre * 125;
@@ -1171,7 +760,7 @@ const PanelCitHesaplama = () => {
           else panelKapasite = l1Metre * 25;
         }
         
-        // Boya kapasitesi hesapla
+        // Boya Kapasite hesapla
         let boyaKapasite = 0;
         if (panelType === "Single" || panelType === "Ozel") {
           if (materialHeight <= 70) boyaKapasite = 525;
@@ -1210,87 +799,46 @@ const PanelCitHesaplama = () => {
           else boyaKapasite = 1000;
         }
         
-        // Diğer değerleri al
-        const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
-        const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-        const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
-        const elektrikFiyatiUSD = safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl || 0) / safeParseFloat(genelDegiskenler.usd_tl || 1);
-        const dogalgazFiyatiUSD = safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl || 0) / safeParseFloat(genelDegiskenler.usd_tl || 1);
-        const amortismanUSD = safeParseFloat(genelDegiskenler.amortisman_diger_usd);
-        const ortalamaIsciMaasiUSD = safeParseFloat(genelDegiskenler.ort_isci_maasi || 0) / safeParseFloat(genelDegiskenler.usd_tl || 1);
-        
-        const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
-        const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
-        const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
-        const panelDogalgazTuketim = safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3);
-        
         // Kapasiteleri hesapla
+        // Google Sheets'teki formüllerle tam uyum için aşağıdaki formüller kullanılır:
         const yalnizPanelAylikKapasite = ((panelBoyaVardiya + panelKesmeVardiya) / 2) * 26 * 7 * panelKapasite;
         const boyaAylikKapasite = panelBoyaVardiya * 26 * 7 * boyaKapasite;
+        
+        // Profil kapasitesini hesapla
+        const profilKapasiteAd = profilOrtalama * 26 * 7 * vardiyaProfil;
+        const profilAylikKapasite = profilKapasiteAd;
         
         // Elektrik maliyetlerini hesapla
         const panelKaynakElektrikM2 = (elektrikFiyatiUSD * panelKaynakElektrik) / panelKapasite;
         const panelKesmeElektrikM2 = (elektrikFiyatiUSD * panelKesmeElektrik) / panelKapasite;
         const panelBoyaElektrikM2 = (elektrikFiyatiUSD * panelBoyaElektrik) / boyaKapasite;
         
-        // İşçilik ve doğalgaz maliyetlerini hesapla
-        const isciSayisiPanelKesme = safeParseFloat(panelCitDegiskenler.panel_kesme_isci_sayisi_ad);
-        const isciSayisiPanelKaynak = safeParseFloat(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad);
-        const isciSayisiPanelBoya = safeParseFloat(panelCitDegiskenler.panel_boya_isci_sayisi_ad);
-        
-        const yalnizPanelIsciM2 = (ortalamaIsciMaasiUSD * (isciSayisiPanelKesme + isciSayisiPanelKaynak)) / yalnizPanelAylikKapasite;
-        const panelBoyaIsciM2 = (ortalamaIsciMaasiUSD * isciSayisiPanelBoya) / boyaAylikKapasite;
         // Doğalgaz ve diğer maliyetleri hesapla
         const digerM2 = amortismanUSD / panelKapasite;
         const panelDogalgazM2 = (dogalgazFiyatiUSD * panelDogalgazTuketim) / panelKapasite;
+        
+        // İşçi maliyetlerini hesapla - Google Sheets'teki formüllere tam uygun
+        const yalnizPanelIsciM2 = (ortalamaIsciMaasiUSD * (isciSayisiPanelKesme + isciSayisiPanelKaynak)) / yalnizPanelAylikKapasite;
+        const panelBoyaIsciM2 = (ortalamaIsciMaasiUSD * isciSayisiPanelBoya) / boyaAylikKapasite;
         
         // Malzeme maliyetlerini hesapla
         const galvanizTelKg = galvanizliTel / 1000;
         
         // Boya maliyetlerini hesapla
-        const dpBoyaMetreKare = safeParseFloat(panelCitDegiskenler.dp_boya_tuketim_miktari);
-        const spBoyaMetreKare = safeParseFloat(panelCitDegiskenler.sp_boya_tuketim_miktari);
-        const guvenlikBoyaMetreKare = safeParseFloat(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr);
-        
-        const boyaFiyatiUSD = safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur || 0) / safeParseFloat(genelDegiskenler.eur_usd || 1);
-        
         const dpBoyaM2 = (boyaFiyatiUSD / 1000) * dpBoyaMetreKare;
         const spBoyaM2 = (boyaFiyatiUSD / 1000) * spBoyaMetreKare;
         const guvenlikBoyaM2 = (boyaFiyatiUSD / 1000) * guvenlikBoyaMetreKare;
         
-        // Profil hesaplamaları
-        const profilEn1 = safeParseFloat(profilDegiskenler.profil_en1);
-        const profilEn2 = safeParseFloat(profilDegiskenler.profil_en2);
-        const profilBoyaTuketim = safeParseFloat(profilDegiskenler.profil_boya_tuketim);
-        const profilEtKalinligi = safeParseFloat(profilDegiskenler.profil_et_kalinligi);
-        
-        // Profil boya maliyeti
+        // Profil maliyetlerini hesapla
         const profilBoyaTuketimAdUSD = ((2 * profilEn1 + 2 * profilEn2) * materialHeight / 10000) * 
-                                   profilBoyaTuketim * (boyaFiyatiUSD / 1000);
-        
-        // Profil elektrik maliyetleri
-        const profilKesmeElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh);
-        const profilKaynakElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh);
+                                     profilBoyaTuketim * (boyaFiyatiUSD / 1000);
         
         const profilElektrikKesmeAd = (profilKesmeElektrikTuketim / (1000 / 7)) * elektrikFiyatiUSD;
         const profilElektrikKaynakAd = (profilKaynakElektrikTuketim / (450 / 7)) * elektrikFiyatiUSD;
         
-        // Profil işçilik maliyeti
-        const profilIsciSayisi = safeParseFloat(profilDegiskenler.profil_isci_sayisi_ad);
-        const vardiyaProfil = safeParseFloat(profilDegiskenler.profil_vardiya);
-        const profilOrtalama = safeParseFloat(profilDegiskenler.profil_uretim_kapasitesi_m2_h);
-        
-        const profilKapasiteAd = profilOrtalama * 26 * 7 * vardiyaProfil;
-        const profilAylikKapasite = profilKapasiteAd;
-        
         const profilIsciUretimAd = (ortalamaIsciMaasiUSD * profilIsciSayisi) / profilAylikKapasite;
         
-        // Parça sayılarını hesapla
-        const flansAdet = 1;
-        const dubelAdet = 4;
-        const kapakAdet = 1;
-        
-        // Vida ve klips adetleri
+        // Vida/klips adetlerini hesapla
         let vidaAdet = 2;
         let klipsAdet = 2;
         
@@ -1303,20 +851,12 @@ const PanelCitHesaplama = () => {
         }
         
         // Hammadde maliyetini hesapla
-        const profilUSD = [
-          safeParseFloat(staticVars.flans_usd) || 0,
-          safeParseFloat(staticVars.vida_usd) || 0,
-          safeParseFloat(staticVars.klips_usd) || 0,
-          safeParseFloat(staticVars.dubel_usd) || 0,
-          safeParseFloat(staticVars.kapak_usd) || 0
-        ];
+        const profilHammaddeToplamAd = (flansAdet * flansUSD) + 
+                                     (vidaAdet * vidaUSD) + 
+                                     (klipsAdet * klipsUSD) + 
+                                     (dubelAdet * dubelUSD) + 
+                                     (kapakAdet * kapakUSD);
         
-        const profilHammaddeToplamAd = (flansAdet * profilUSD[0]) + 
-        (vidaAdet * profilUSD[1]) + 
-        (klipsAdet * profilUSD[2]) + 
-        (dubelAdet * profilUSD[3]) + 
-        (kapakAdet * profilUSD[4]);
-
         // Üretim kapasitesini hesapla
         let profilSaatlikUretimKapasitesi = 0;
         let roundedHeight = materialHeight;
@@ -1327,8 +867,8 @@ const PanelCitHesaplama = () => {
           roundedHeight = 220;
         } else {
           roundedHeight = (roundedHeight % 10 <= 5) ? 
-                        roundedHeight - (roundedHeight % 10) : 
-                        roundedHeight + (10 - (roundedHeight % 10));
+                         roundedHeight - (roundedHeight % 10) : 
+                         roundedHeight + (10 - (roundedHeight % 10));
         }
         
         const heightProductionMap = {
@@ -1340,28 +880,21 @@ const PanelCitHesaplama = () => {
         profilSaatlikUretimKapasitesi = heightProductionMap[roundedHeight] || 760;
         
         // Tüketim oranlarını hesapla
-        const profilDogalgazKullanim = safeParseFloat(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3);
-        const profilBoyaElektrikKullanim = safeParseFloat(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh);
-        
         const profilDogalgazTuketimOran = profilDogalgazKullanim / profilSaatlikUretimKapasitesi;
         const profilBoyaElektrikTuketimOran = profilBoyaElektrikKullanim / profilSaatlikUretimKapasitesi;
         
-        // Galvanizli/Galvanizsiz profil fiyatlarını hesapla
-        const galvanizsizProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd) / 1000;
-        const galvanizliProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd) / 1000;
-        
         // Adet maliyetlerini hesapla
         const adetUSD = (l1Metre * (yalnizPanelIsciM2 + panelKaynakElektrikM2 + panelKesmeElektrikM2 + digerM2)) + 
-                      (weightKg * galvanizTelKg);
+                       (weightKg * galvanizTelKg);
         
         // Boya maliyetlerini hesapla
         let boyam2;
         if (panelType === "Double") {
-            boyam2 = dpBoyaM2;
+          boyam2 = dpBoyaM2;
         } else if (panelType === "Guvenlik") {
-            boyam2 = guvenlikBoyaM2;
+          boyam2 = guvenlikBoyaM2;
         } else {
-            boyam2 = spBoyaM2; // Single ve Ozel için
+          boyam2 = spBoyaM2; // Single ve Özel için
         }
         
         const boyaAdetUSD = (boyam2 * l1Metre) + 
@@ -1373,7 +906,17 @@ const PanelCitHesaplama = () => {
         const boyaliAdetUSD = adetUSD + boyaAdetUSD;
         const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + 2 * materialHeight) * profilEtKalinligi * 7.85) / 1000;
         
-        // Geçici hesaplara kaydet
+        // SetUSD hesapla
+        const SetUSD = profilBoyaTuketimAdUSD +
+                     profilElektrikKesmeAd +
+                     profilElektrikKaynakAd +
+                     profilIsciUretimAd +
+                     profilHammaddeToplamAd +
+                     (galvanizsizProfilFiyatKg * profilAgirlik) +
+                     profilDogalgazTuketimOran +
+                     profilBoyaElektrikTuketimOran;
+        
+        // Geçici hesap verilerini hazırla
         const geciciHesap = {
           panel_kapasite: Number(panelKapasite || 0),
           yalniz_panel_aylik: Number(yalnizPanelAylikKapasite || 0),
@@ -1404,8 +947,8 @@ const PanelCitHesaplama = () => {
           boyam2: Number(boyam2 || 0),
           boya_adet_usd: Number(boyaAdetUSD || 0),
           boyali_adet_usd: Number(boyaliAdetUSD || 0),
-          manual_order: Number(manualOrder || 0),
-          panel_kodu: String(panelKodu || ''),
+          manual_order: manualOrder,
+          panel_kodu: panelKodu,
           profil_yukseklik: Number(materialHeight || 0),
           profil_agirlik: Number(profilAgirlik || 0),
           flans_adet: Number(flansAdet || 0),
@@ -1417,104 +960,655 @@ const PanelCitHesaplama = () => {
           panel_adet_m2: Number(l1Metre || 0),
           panel_adet_agirlik: Number(weightKg || 0),
         };
-
-
         
-        // Geçici hesapları veritabanına kaydet
-        await axios.post(API_URLS.geciciHesaplar, geciciHesap);
-        
-        // Maliyet hesaplamalarını yap
-        const usdTlKuru = safeParseFloat(genelDegiskenler.usd_tl) || 1;
-        const eurUsdKuru = safeParseFloat(genelDegiskenler.eur_usd) || 1;
-        
-        // SetUSD hesapla
-        const SetUSD = profilBoyaTuketimAdUSD +
-                      profilElektrikKesmeAd +
-                      profilElektrikKaynakAd +
-                      profilIsciUretimAd +
-                      profilHammaddeToplamAd +
-                      (galvanizsizProfilFiyatKg * profilAgirlik) +
-                      profilDogalgazTuketimOran +
-                      profilBoyaElektrikTuketimOran;
-                      
-        // Maliyet hesaplamaları
-        const maliyetKalemi = {
+        // Maliyetleri hesapla
+        const maliyet = {
           manual_order: manualOrder,
           panel_kodu: panelKodu,
           
           // Çıplak Adet hesaplamaları
-          ciplak_adet_usd: parseFloat((adetUSD).toFixed(5)),
-          ciplak_adet_eur: parseFloat((adetUSD / eurUsdKuru).toFixed(5)),
-          ciplak_adet_try: parseFloat((adetUSD * usdTlKuru).toFixed(5)),
+          ciplak_adet_usd: Number(adetUSD || 0),
+          ciplak_adet_eur: Number((adetUSD / eurUsd) || 0),
+          ciplak_adet_try: Number((adetUSD * usdTl) || 0),
           
           // Çıplak M2 hesaplamaları
-          ciplak_m2_usd: l1Metre > 0 ? parseFloat((adetUSD / l1Metre).toFixed(5)) : 0,
-          ciplak_m2_eur: l1Metre > 0 ? parseFloat(((adetUSD / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-          ciplak_m2_try: l1Metre > 0 ? parseFloat(((adetUSD / l1Metre) * usdTlKuru).toFixed(5)) : 0,
+          ciplak_m2_usd: l1Metre > 0 ? Number((adetUSD / l1Metre) || 0) : 0,
+          ciplak_m2_eur: l1Metre > 0 ? Number(((adetUSD / l1Metre) / eurUsd) || 0) : 0,
+          ciplak_m2_try: l1Metre > 0 ? Number(((adetUSD / l1Metre) * usdTl) || 0) : 0,
           
           // Çıplak Kg hesaplamaları
-          ciplak_kg_usd: weightKg > 0 ? parseFloat((adetUSD / weightKg).toFixed(5)) : 0,
-          ciplak_kg_eur: weightKg > 0 ? parseFloat(((adetUSD / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-          ciplak_kg_try: weightKg > 0 ? parseFloat(((adetUSD / weightKg) * usdTlKuru).toFixed(5)) : 0,
-        
+          ciplak_kg_usd: weightKg > 0 ? Number((adetUSD / weightKg) || 0) : 0,
+          ciplak_kg_eur: weightKg > 0 ? Number(((adetUSD / weightKg) / eurUsd) || 0) : 0,
+          ciplak_kg_try: weightKg > 0 ? Number(((adetUSD / weightKg) * usdTl) || 0) : 0,
           
           // Boyalı Adet hesaplamaları
-          boyali_adet_usd: parseFloat((boyaliAdetUSD).toFixed(5)),
-          boyali_adet_eur: parseFloat((boyaliAdetUSD / eurUsdKuru).toFixed(5)),
-          boyali_adet_try: parseFloat((boyaliAdetUSD * usdTlKuru).toFixed(5)),
+          boyali_adet_usd: Number(boyaliAdetUSD || 0),
+          boyali_adet_eur: Number((boyaliAdetUSD / eurUsd) || 0),
+          boyali_adet_try: Number((boyaliAdetUSD * usdTl) || 0),
           
           // Boyalı M2 hesaplamaları
-          boyali_m2_usd: l1Metre > 0 ? parseFloat((boyaliAdetUSD / l1Metre).toFixed(5)) : 0,
-          boyali_m2_eur: l1Metre > 0 ? parseFloat(((boyaliAdetUSD / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-          boyali_m2_try: l1Metre > 0 ? parseFloat(((boyaliAdetUSD / l1Metre) * usdTlKuru).toFixed(5)) : 0,
+          boyali_m2_usd: l1Metre > 0 ? Number((boyaliAdetUSD / l1Metre) || 0) : 0,
+          boyali_m2_eur: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) / eurUsd) || 0) : 0,
+          boyali_m2_try: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * usdTl) || 0) : 0,
           
           // Boyalı Kg hesaplamaları
-          boyali_kg_usd: weightKg > 0 ? parseFloat((boyaliAdetUSD / weightKg).toFixed(5)) : 0,
-          boyali_kg_eur: weightKg > 0 ? parseFloat(((boyaliAdetUSD / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-          boyali_kg_try: weightKg > 0 ? parseFloat(((boyaliAdetUSD / weightKg) * usdTlKuru).toFixed(5)) : 0,
+          boyali_kg_usd: weightKg > 0 ? Number((boyaliAdetUSD / weightKg) || 0) : 0,
+          boyali_kg_eur: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) / eurUsd) || 0) : 0,
+          boyali_kg_try: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * usdTl) || 0) : 0,
           
-        // Setli + Boyasız Adet hesaplamaları
-        standart_setli_boyasiz_adet_usd: parseFloat((adetUSD + SetUSD).toFixed(5)),
-        standart_setli_boyasiz_adet_eur: parseFloat(((adetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
-        standart_setli_boyasiz_adet_try: parseFloat(((adetUSD + SetUSD) * usdTlKuru).toFixed(5)),
-        
-        // Setli + Boyasız M2 hesaplamaları
-        standart_setli_boyasiz_m2_usd: l1Metre > 0 ? parseFloat(((adetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
-        standart_setli_boyasiz_m2_eur: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-        standart_setli_boyasiz_m2_try: l1Metre > 0 ? parseFloat((((adetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
-        
-        // Setli + Boyasız Kg hesaplamaları
-        standart_setli_boyasiz_kg_usd: weightKg > 0 ? parseFloat(((adetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
-        standart_setli_boyasiz_kg_eur: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-        standart_setli_boyasiz_kg_try: weightKg > 0 ? parseFloat((((adetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
-        
-        // Setli + Boyalı Adet hesaplamaları
-        standart_setli_boyali_adet_usd: parseFloat((boyaliAdetUSD + SetUSD).toFixed(5)),
-        standart_setli_boyali_adet_eur: parseFloat(((boyaliAdetUSD + SetUSD) / eurUsdKuru).toFixed(5)),
-        standart_setli_boyali_adet_try: parseFloat(((boyaliAdetUSD + SetUSD) * usdTlKuru).toFixed(5)),
-        
-        // Setli + Boyalı M2 hesaplamaları
-        standart_setli_boyali_m2_usd: l1Metre > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / l1Metre).toFixed(5)) : 0,
-        standart_setli_boyali_m2_eur: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsdKuru).toFixed(5)) : 0,
-        standart_setli_boyali_m2_try: l1Metre > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTlKuru).toFixed(5)) : 0,
-        
-        // Setli + Boyalı Kg hesaplamaları
-        standart_setli_boyali_kg_usd: weightKg > 0 ? parseFloat(((boyaliAdetUSD + SetUSD) / weightKg).toFixed(5)) : 0,
-        standart_setli_boyali_kg_eur: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsdKuru).toFixed(5)) : 0,
-        standart_setli_boyali_kg_try: weightKg > 0 ? parseFloat((((boyaliAdetUSD + SetUSD) / weightKg) * usdTlKuru).toFixed(5)) : 0,
-
+          // Standart Setli + Boyasız Adet hesaplamaları
+          standart_setli_boyasiz_adet_usd: Number((adetUSD + SetUSD) || 0),
+          standart_setli_boyasiz_adet_eur: Number(((adetUSD + SetUSD) / eurUsd) || 0),
+          standart_setli_boyasiz_adet_try: Number(((adetUSD + SetUSD) * usdTl) || 0),
+          
+          // Standart Setli + Boyasız M2 hesaplamaları
+          standart_setli_boyasiz_m2_usd: l1Metre > 0 ? Number(((adetUSD + SetUSD) / l1Metre) || 0) : 0,
+          standart_setli_boyasiz_m2_eur: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0,
+          standart_setli_boyasiz_m2_try: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
+          
+          // Standart Setli + Boyasız Kg hesaplamaları
+          standart_setli_boyasiz_kg_usd: weightKg > 0 ? Number(((adetUSD + SetUSD) / weightKg) || 0) : 0,
+          standart_setli_boyasiz_kg_eur: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0,
+          standart_setli_boyasiz_kg_try: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
+          
+          // Standart Setli + Boyalı Adet hesaplamaları
+          standart_setli_boyali_adet_usd: Number((boyaliAdetUSD + SetUSD) || 0),
+          standart_setli_boyali_adet_eur: Number(((boyaliAdetUSD + SetUSD) / eurUsd) || 0),
+          standart_setli_boyali_adet_try: Number(((boyaliAdetUSD + SetUSD) * usdTl) || 0),
+          
+          // Standart Setli + Boyalı M2 hesaplamaları
+          standart_setli_boyali_m2_usd: l1Metre > 0 ? Number(((boyaliAdetUSD + SetUSD) / l1Metre) || 0) : 0,
+          standart_setli_boyali_m2_eur: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0,
+          standart_setli_boyali_m2_try: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
+          
+          // Standart Setli + Boyalı Kg hesaplamaları
+          standart_setli_boyali_kg_usd: weightKg > 0 ? Number(((boyaliAdetUSD + SetUSD) / weightKg) || 0) : 0,
+          standart_setli_boyali_kg_eur: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0,
+          standart_setli_boyali_kg_try: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
+          
+          // Ek panel bilgileri
+          panel_tipi: panelType,
+          panel_yuksekligi: materialHeight,
+          panel_genisligi: materialWidth,
+          dikey_tel_capi: panel.dikey_tel_capi,
+          yatay_tel_capi: panel.yatay_tel_capi,
+          dikey_goz_araligi: panel.dikey_goz_araligi,
+          yatay_goz_araligi: panel.yatay_goz_araligi
         };
         
-        // Maliyet kalemini veritabanına kaydet
-        await axios.post(API_URLS.maliyetListesi, maliyetKalemi);
+        // Sonuçları arraylere ekle
+        geciciHesaplar.push(geciciHesap);
+        maliyetListesi.push(maliyet);
       } catch (error) {
         console.error(`Hesaplama hatası (${panel.panel_kodu}):`, error);
-        throw error;
+        // Tek bir panel hatası için tüm işlemi durdurmak yerine, devam et
       }
+    }
+    
+    return { geciciHesaplar, maliyetListesi };
+  }; 
+
+//Part 6
+  
+  // Satış listesi oluşturma fonksiyonu
+  const generateSalesList = (maliyetListesi) => {
+    const salesList = maliyetListesi.map(item => {
+      // Bronz, gümüş ve altın fiyatları hesapla
+      const bronzPrice = (item) => {
+        switch (salesFilter.unit) {
+          case 'adet':
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.bronze / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.bronze / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.bronze / 100)
+            };
+          case 'm2':
+            return {
+              usd: item.boyali_m2_usd * (1 + salesMargins.bronze / 100),
+              eur: item.boyali_m2_eur * (1 + salesMargins.bronze / 100),
+              try: item.boyali_m2_try * (1 + salesMargins.bronze / 100)
+            };
+          case 'kg':
+            return {
+              usd: item.boyali_kg_usd * (1 + salesMargins.bronze / 100),
+              eur: item.boyali_kg_eur * (1 + salesMargins.bronze / 100),
+              try: item.boyali_kg_try * (1 + salesMargins.bronze / 100)
+            };
+          default:
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.bronze / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.bronze / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.bronze / 100)
+            };
+        }
+      };
+      
+      const silverPrice = (item) => {
+        switch (salesFilter.unit) {
+          case 'adet':
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.silver / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.silver / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.silver / 100)
+            };
+          case 'm2':
+            return {
+              usd: item.boyali_m2_usd * (1 + salesMargins.silver / 100),
+              eur: item.boyali_m2_eur * (1 + salesMargins.silver / 100),
+              try: item.boyali_m2_try * (1 + salesMargins.silver / 100)
+            };
+          case 'kg':
+            return {
+              usd: item.boyali_kg_usd * (1 + salesMargins.silver / 100),
+              eur: item.boyali_kg_eur * (1 + salesMargins.silver / 100),
+              try: item.boyali_kg_try * (1 + salesMargins.silver / 100)
+            };
+          default:
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.silver / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.silver / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.silver / 100)
+            };
+        }
+      };
+      
+      const goldPrice = (item) => {
+        switch (salesFilter.unit) {
+          case 'adet':
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.gold / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.gold / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.gold / 100)
+            };
+          case 'm2':
+            return {
+              usd: item.boyali_m2_usd * (1 + salesMargins.gold / 100),
+              eur: item.boyali_m2_eur * (1 + salesMargins.gold / 100),
+              try: item.boyali_m2_try * (1 + salesMargins.gold / 100)
+            };
+          case 'kg':
+            return {
+              usd: item.boyali_kg_usd * (1 + salesMargins.gold / 100),
+              eur: item.boyali_kg_eur * (1 + salesMargins.gold / 100),
+              try: item.boyali_kg_try * (1 + salesMargins.gold / 100)
+            };
+          default:
+            return {
+              usd: item.boyali_adet_usd * (1 + salesMargins.gold / 100),
+              eur: item.boyali_adet_eur * (1 + salesMargins.gold / 100),
+              try: item.boyali_adet_try * (1 + salesMargins.gold / 100)
+            };
+        }
+      };
+      
+      const bronze = bronzPrice(item);
+      const silver = silverPrice(item);
+      const gold = goldPrice(item);
+      
+      return {
+        ...item,
+        bronze_usd: bronze.usd,
+        bronze_eur: bronze.eur,
+        bronze_try: bronze.try,
+        silver_usd: silver.usd,
+        silver_eur: silver.eur,
+        silver_try: silver.try,
+        gold_usd: gold.usd,
+        gold_eur: gold.eur,
+        gold_try: gold.try
+      };
+    });
+    
+    return salesList;
+  };
+
+  // Genel değişkenleri güncelleme
+  const updateGenelDegiskenler = async () => {
+    try {
+      // Veriyi kaydetmek için işle ve hazırla
+      const processedData = {};
+      Object.entries(genelDegiskenler).forEach(([key, value]) => {
+        // Boş string veya undefined değerleri işle
+        if (value === '' || value === undefined) {
+          processedData[key] = null;
+        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+          // Virgüllü string sayıları gerçek sayılara dönüştür
+          processedData[key] = parseFloat(value.replace(',', '.'));
+        } else {
+          processedData[key] = value;
+        }
+      });
+      
+      // Yeni bir zaman damgası ekle
+      const dataToSave = {
+        ...processedData,
+        genel_latest_update: new Date().toISOString()
+      };
+      
+      const response = await axios.post(API_URLS.genelDegiskenler, dataToSave);
+      if (response.status === 200 || response.status === 201) {
+        alert('Genel değişkenler başarıyla kaydedildi.');
+        fetchSectionData('genel'); // Sadece genel değişkenleri güncelle
+      }
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
     }
   };
 
-// Sonuç filtresini güncelleme
+  // Panel Çit Değişkenlerini Güncelleme
+  const updatePanelCitDegiskenler = async () => {
+    try {
+      // Veriyi kaydetmek için işle ve hazırla
+      const processedData = {};
+      Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
+        // Boş string veya undefined değerleri işle
+        if (value === '' || value === undefined) {
+          processedData[key] = null;
+        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+          // Virgüllü string sayıları gerçek sayılara dönüştür
+          processedData[key] = parseFloat(value.replace(',', '.'));
+        } else {
+          processedData[key] = value;
+        }
+      });
+      
+      // Yeni bir zaman damgası ekle
+      const dataToSave = {
+        ...processedData,
+        panel_cit_latest_update: new Date().toISOString()
+      };
+      
+      const response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
+      if (response.status === 200 || response.status === 201) {
+        alert('Panel çit değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini güncelle
+      }
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  // Profil Değişkenlerini Güncelleme
+  const updateProfilDegiskenler = async () => {
+    try {
+      // Veriyi kaydetmek için işle ve hazırla
+      const processedData = {};
+      Object.entries(profilDegiskenler).forEach(([key, value]) => {
+        // Boş string veya undefined değerleri işle
+        if (value === '' || value === undefined) {
+          processedData[key] = null;
+        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+          // Virgüllü string sayıları gerçek sayılara dönüştür
+          processedData[key] = parseFloat(value.replace(',', '.'));
+        } else {
+          processedData[key] = value;
+        }
+      });
+      
+      // Yeni bir zaman damgası ekle
+      const dataToSave = {
+        ...processedData,
+        profil_latest_update: new Date().toISOString()
+      };
+      
+      const response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
+      if (response.status === 200 || response.status === 201) {
+        alert('Profil değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('profil'); // Sadece profil değişkenlerini güncelle
+      }
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  // Özel panel ekleme 
+  const addOzelPanel = () => {
+    const newPanel = {
+      manual_order: '', 
+      panel_tipi: 'Single',
+      panel_kodu: '',
+      panel_yuksekligi: 200,  // Varsayılan değerler
+      panel_genisligi: 250,
+      dikey_tel_capi: 4.0,
+      yatay_tel_capi: 4.0,
+      dikey_goz_araligi: 20,
+      yatay_goz_araligi: 5,
+      dikey_cubuk_adet: 0,
+      yatay_cubuk_adet: 0,
+      adet_m2: 0,
+      agirlik: 0,
+      bukum_sayisi: 0,
+      bukumdeki_cubuk_sayisi: 1,
+      isNew: true,
+      id: Date.now(),
+      // Yeni palet bilgileri alanları
+      boyali_hali: 0,
+      boya_kg: 0,
+      m2_agirlik: 0,
+      paletteki_panel_sayisi: 0,
+      palet_bos_agirlik: 0,
+      paletsiz_toplam_agirlik: 0,
+      palet_dolu_agirlik: 0,
+      bos_palet_yuksekligi: 0,
+      adet_panel_yuksekligi: 0,
+      paletsiz_toplam_panel_yuksekligi: 0,
+      paletli_yukseklik: 0,
+      icube_code: '',
+      icube_code_adetli: ''
+    };
+
+    // Panel değerlerini hesapla ve güncelle
+    const updatedPanel = calculatePanelValues(newPanel);
+    
+    setOzelPanelList(prev => [...prev, updatedPanel]);
+  };
+
+  // Özel panel değerlerini hesaplama
+  const calculatePanelValues = (panel) => {
+    const updatedPanel = { ...panel };
+    
+    const panel_yuksekligi = safeParseFloat(updatedPanel.panel_yuksekligi);
+    const panel_genisligi = safeParseFloat(updatedPanel.panel_genisligi);
+    
+    // Adet m2 hesaplama
+    updatedPanel.adet_m2 = (panel_yuksekligi * panel_genisligi / 10000);
+    
+    // Büküm sayısı hesaplama
+    if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi >= 100) {
+      updatedPanel.bukum_sayisi = Math.round(panel_yuksekligi / 50);
+    } else if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi < 100) {
+      updatedPanel.bukum_sayisi = Math.floor((panel_yuksekligi / 50) + 1);
+    } else {
+      updatedPanel.bukum_sayisi = 0;
+    }
+    
+    const bukum_sayisi = safeParseFloat(updatedPanel.bukum_sayisi);
+    
+    // Dikey çubuk adet hesaplama
+    const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
+    
+    if (dikey_goz < 5.5) {
+      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
+    } else if (dikey_goz < 6) {
+      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz);
+    } else {
+      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
+    }
+    
+    // Yatay çubuk adet hesaplama
+    const yatay_goz = safeParseFloat(updatedPanel.yatay_goz_araligi);
+    
+    if (updatedPanel.panel_tipi === "Double") {
+      updatedPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / yatay_goz) + 1) * 2;
+    } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 20) {
+      updatedPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / yatay_goz) + 1) + (bukum_sayisi * 2);
+    } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi < 200) {
+      updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+    } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi >= 200) {
+      updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+    }
+    
+    // Ağırlık hesaplama
+    const dikey_tel = safeParseFloat(updatedPanel.dikey_tel_capi);
+    const yatay_tel = safeParseFloat(updatedPanel.yatay_tel_capi);
+    const dikey_cubuk = safeParseFloat(updatedPanel.dikey_cubuk_adet);
+    const yatay_cubuk = safeParseFloat(updatedPanel.yatay_cubuk_adet);
+
+    if (updatedPanel.panel_tipi === "Double") {
+      // Double panel ağırlık hesaplaması
+      updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi / 100) * dikey_cubuk)) + 
+                            ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+    } else if (updatedPanel.panel_tipi === "Single") {
+      if (yatay_goz === 20) {
+        // Single panel 20 göz aralığı için ağırlık hesaplaması
+        updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                              ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+      } else if (yatay_goz === 15) {
+        // Single panel 15 göz aralığı için ağırlık hesaplaması
+        updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.6)) / 100) * dikey_cubuk) + 
+                              ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+      } else {
+        // Diğer Single panel tipleri için varsayılan hesaplama
+        updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                              ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+      }
+    } else if (updatedPanel.panel_tipi === "Guvenlik") {
+      // Güvenlik panel ağırlık hesaplaması
+      updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                            ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+    }
+
+
+//Part 7
+
+    
+    // Boya kilogram hesaplama
+    updatedPanel.boya_kg = calculateBoyaKg(updatedPanel);
+    
+    // Boyalı Hali 
+    updatedPanel.boyali_hali = updatedPanel.agirlik + updatedPanel.boya_kg;
+    
+    // M² Ağırlık
+    updatedPanel.m2_agirlik = updatedPanel.adet_m2 > 0 ? updatedPanel.boyali_hali / updatedPanel.adet_m2 : 0;
+    
+    // Paletteki panel sayısı
+    updatedPanel.paletteki_panel_sayisi = calculatePalettekiPanelSayisi(updatedPanel);
+    
+    // Palet Boş Ağırlık
+    updatedPanel.palet_bos_agirlik = calculatePaletBosAgirlik(updatedPanel);
+    
+    // Paletsiz Toplam Ağırlık
+    updatedPanel.paletsiz_toplam_agirlik = updatedPanel.paletteki_panel_sayisi * updatedPanel.boyali_hali;
+    
+    // Palet Dolu Ağırlık
+    updatedPanel.palet_dolu_agirlik = updatedPanel.paletsiz_toplam_agirlik + updatedPanel.palet_bos_agirlik;
+    
+    // Boş Palet Yüksekliği
+    updatedPanel.bos_palet_yuksekligi = updatedPanel.panel_tipi === "Double" ? 14 : (updatedPanel.panel_tipi === "Single" ? 17 : 0);
+    
+    // Adet Panel Yüksekliği
+    updatedPanel.adet_panel_yuksekligi = calculateAdetPanelYuksekligi(updatedPanel);
+    
+    // Paletsiz Toplam Panel Yüksekliği
+    updatedPanel.paletsiz_toplam_panel_yuksekligi = updatedPanel.adet_panel_yuksekligi * updatedPanel.paletteki_panel_sayisi;
+    
+    // Paletli Yükseklik
+    updatedPanel.paletli_yukseklik = updatedPanel.paletsiz_toplam_panel_yuksekligi + updatedPanel.bos_palet_yuksekligi;
+    
+    // Icube-Code
+    updatedPanel.icube_code = calculateIcubeCode(updatedPanel);
+    
+    // Icube-Code Adetli
+    updatedPanel.icube_code_adetli = `${updatedPanel.icube_code}_(${updatedPanel.paletteki_panel_sayisi}-Adet)`;
+    
+    // Sayısal alanları yuvarlama
+    if (!isNaN(updatedPanel.adet_m2)) updatedPanel.adet_m2 = parseFloat(updatedPanel.adet_m2.toFixed(5));
+    if (!isNaN(updatedPanel.dikey_cubuk_adet)) updatedPanel.dikey_cubuk_adet = Math.round(updatedPanel.dikey_cubuk_adet);
+    if (!isNaN(updatedPanel.yatay_cubuk_adet)) updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet);
+    if (!isNaN(updatedPanel.agirlik)) updatedPanel.agirlik = parseFloat(updatedPanel.agirlik.toFixed(5));
+    if (!isNaN(updatedPanel.boyali_hali)) updatedPanel.boyali_hali = parseFloat(updatedPanel.boyali_hali.toFixed(5));
+    if (!isNaN(updatedPanel.boya_kg)) updatedPanel.boya_kg = parseFloat(updatedPanel.boya_kg.toFixed(5));
+    if (!isNaN(updatedPanel.m2_agirlik)) updatedPanel.m2_agirlik = parseFloat(updatedPanel.m2_agirlik.toFixed(5));
+    if (!isNaN(updatedPanel.palet_bos_agirlik)) updatedPanel.palet_bos_agirlik = parseFloat(updatedPanel.palet_bos_agirlik.toFixed(5));
+    if (!isNaN(updatedPanel.paletsiz_toplam_agirlik)) updatedPanel.paletsiz_toplam_agirlik = parseFloat(updatedPanel.paletsiz_toplam_agirlik.toFixed(5));
+    if (!isNaN(updatedPanel.palet_dolu_agirlik)) updatedPanel.palet_dolu_agirlik = parseFloat(updatedPanel.palet_dolu_agirlik.toFixed(5));
+    if (!isNaN(updatedPanel.adet_panel_yuksekligi)) updatedPanel.adet_panel_yuksekligi = parseFloat(updatedPanel.adet_panel_yuksekligi.toFixed(5));
+    if (!isNaN(updatedPanel.paletsiz_toplam_panel_yuksekligi)) updatedPanel.paletsiz_toplam_panel_yuksekligi = parseFloat(updatedPanel.paletsiz_toplam_panel_yuksekligi.toFixed(5));
+    if (!isNaN(updatedPanel.paletli_yukseklik)) updatedPanel.paletli_yukseklik = parseFloat(updatedPanel.paletli_yukseklik.toFixed(5));
+    
+    // Panel kodu oluştur
+    updatedPanel.panel_kodu = calculatePanelKodu(updatedPanel);
+    
+    return updatedPanel;
+  };
+
+  // Boya kilogram hesaplama
+  const calculateBoyaKg = (panel) => {
+    if (!panel || !panel.panel_tipi) return 0;
+    
+    const adetM2 = safeParseFloat(panel.adet_m2);
+    
+    if (panel.panel_tipi === "Double") {
+      return adetM2 * 0.06;
+    } else if (panel.panel_tipi === "Single") {
+      return adetM2 * 0.03;
+    } else {
+      return 0;
+    }
+  };
+
+  // Paletteki panel sayısı hesaplama
+  const calculatePalettekiPanelSayisi = (panel) => {
+    if (!panel || !panel.panel_tipi) return 0;
+    
+    const yatayTelCapi = safeParseFloat(panel.yatay_tel_capi);
+    
+    if (panel.panel_tipi === "Double") {
+      if (yatayTelCapi >= 7) {
+        return 25;
+      } else {
+        return 30;
+      }
+    } else if (panel.panel_tipi === "Single") {
+      return 100;
+    } else {
+      return 0;
+    }
+  };
+
+  // Palet boş ağırlık hesaplama - lookup tablosunu kullanma
+  const calculatePaletBosAgirlik = (panel) => {
+    if (!panel || !panel.panel_tipi) return 0;
+    
+    const panelType = panel.panel_tipi;
+    const height = safeParseFloat(panel.panel_yuksekligi);
+    const width = safeParseFloat(panel.panel_genisligi);
+    
+    // Spesifik genişlikleri kontrol et
+    const widthStr = width === 250 ? '250' : (width === 200 ? '200' : null);
+    if (!widthStr) return 0;
+    
+    // En yakın yüksekliği bul
+    const closestHeight = getClosestHeight(height, panelType, widthStr);
+    if (!closestHeight) return 0;
+    
+    // Lookup tablosundan ağırlığı al
+    return PALLET_WEIGHTS[panelType][widthStr][closestHeight] || 0;
+  };
+
+  // Adet panel yüksekliği hesaplama
+  const calculateAdetPanelYuksekligi = (panel) => {
+    if (!panel || !panel.panel_tipi) return 0;
+    
+    const panelType = panel.panel_tipi;
+    const yatayTelCapi = safeParseFloat(panel.yatay_tel_capi);
+    
+    if (panelType === "Double") {
+      if (yatayTelCapi < 5) {
+        return 0.875;
+      } else if (yatayTelCapi > 8) {
+        return 1.33;
+      } else {
+        return 0.875 + ((yatayTelCapi - 5) / (8 - 5)) * (1.33 - 0.875);
+      }
+    } else if (panelType === "Single") {
+      if (yatayTelCapi < 3) {
+        return 0.769;
+      } else if (yatayTelCapi > 5.5) {
+        return 1;
+      } else {
+        return 0.769 + ((yatayTelCapi - 3) / (5.5 - 3)) * (1 - 0.769);
+      }
+    } else {
+      return 0;
+    }
+  };
+
+  // Icube Code hesaplama
+  const calculateIcubeCode = (panel) => {
+    if (!panel || !panel.panel_tipi) return '';
+    
+    const panelType = panel.panel_tipi;
+    const height = safeParseFloat(panel.panel_yuksekligi);
+    const width = safeParseFloat(panel.panel_genisligi);
+    const dikeyCap = safeParseFloat(panel.dikey_tel_capi);
+    const yatayCap = safeParseFloat(panel.yatay_tel_capi);
+    
+    // Basitleştirilmiş renk eki
+    const colorSuffix = "-Rnksz";
+    
+    if (panelType === "Double") {
+      return `DP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
+    } else if (panelType === "Single") {
+      return `SP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
+    } else if (panelType === "Guvenlik") {
+      return `GP-${height}/${width}-${dikeyCap}/${yatayCap}${colorSuffix}`;
+    } else {
+      return '';
+    }
+  };
+
+  // Özel panel silme
+  const removeOzelPanel = (id) => {
+    setOzelPanelList(prev => prev.filter(panel => panel.id !== id));
+  };
+
+  // Özel panel güncelleme - değişikliklerden sonra tüm bağımlı alanları tekrar hesapla
+  const updateOzelPanel = (id, field, value) => {
+    setOzelPanelList(prev => prev.map(panel => {
+      if (panel.id === id) {
+        // Virgülleri noktalara dönüştür
+        const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
+        
+        // Değeri güncelle
+        const updatedPanel = { ...panel, [field]: formattedValue };
+        
+        // Bağımlı alanlardan herhangi biri değiştiyse, panel değerlerini yeniden hesapla
+        if (['panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi', 
+             'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi'].includes(field)) {
+          return calculatePanelValues(updatedPanel);
+        }
+        
+        return updatedPanel;
+      }
+      return panel;
+    }));
+  };
+
+  // Özel paneli veritabanına kaydetme
+  const saveOzelPanelToDatabase = async (panel) => {
+    try {
+      // Özel alanları temizle
+      const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
+              paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
+              palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
+              paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, ...panelData } = panel;
+      
+      // Veritabanına kaydet
+      const response = await axios.post(API_URLS.panelList, {
+        ...panelData,
+        kayit_tarihi: new Date().toISOString()
+      });
+      
+      if (response.status === 200 || response.status === 201) {
+        alert(`${panel.panel_kodu} kodlu panel başarıyla kaydedildi.`);
+        
+        // Mevcut panel listesini güncelle
+        fetchSectionData('panelList');
+        
+        // Özel panel listesinden kaldır
+        setOzelPanelList(ozelPanelList.filter(p => p.id !== panel.id));
+      }
+    } catch (error) {
+      console.error('Panel kaydetme hatası:', error);
+      alert(`Panel kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  // Sonuç filtresini güncelleme
   const handleResultFilterChange = (type, value) => {
     setResultFilter({
       ...resultFilter,
@@ -1522,101 +1616,49 @@ const PanelCitHesaplama = () => {
     });
   };
 
+  // Satış filtresi güncelleme
+  const handleSalesFilterChange = (type, value) => {
+    setSalesFilter({
+      ...salesFilter,
+      [type]: value
+    });
+    
+    // Satış listesini yeniden hesapla
+    setSatisListesi(generateSalesList(maliyetListesi));
+  };
+
+  // Satış marjlarını güncelleme
+  const handleSalesMarginChange = (type, value) => {
+    setSalesMargins({
+      ...salesMargins,
+      [type]: safeParseFloat(value)
+    });
+    
+    // Satış listesini yeniden hesapla
+    setSatisListesi(generateSalesList(maliyetListesi));
+  };
+
   // Excel'e aktarma
-  const exportToExcel = () => {
-    if (!maliyetListesi.length) {
+  const exportToExcel = (listType = 'maliyet') => {
+    const dataToExport = listType === 'maliyet' ? maliyetListesi : satisListesi;
+    
+    if (!dataToExport.length) {
       alert('Dışa aktarılacak veri bulunamadı!');
       return;
     }
     
     // Filtrelere göre sütunları belirle
-    let dataToExport = [...maliyetListesi];
-    let columnsToInclude = [];
-    
-    // Her zaman dahil edilecek sütunlar
-    columnsToInclude.push('manual_order', 'panel_kodu');
-    
-    // Birim bazında filtreleme
-    if (resultFilter.unit === 'adet' || resultFilter.unit === 'all') {
-      if (resultFilter.type === 'ciplak' || resultFilter.type === 'all') {
-        columnsToInclude.push('ciplak_adet_usd', 'ciplak_adet_eur', 'ciplak_adet_try');
-      }
-      if (resultFilter.type === 'boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('boyali_adet_usd', 'boyali_adet_eur', 'boyali_adet_try');
-      }
-      if (resultFilter.type === 'setli_boyasiz' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyasiz_adet_usd', 'setli_boyasiz_adet_eur', 'setli_boyasiz_adet_try');
-      }
-      if (resultFilter.type === 'setli_boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyali_adet_usd', 'setli_boyali_adet_eur', 'setli_boyali_adet_try');
-      }
-    }
-    
-    if (resultFilter.unit === 'm2' || resultFilter.unit === 'all') {
-      if (resultFilter.type === 'ciplak' || resultFilter.type === 'all') {
-        columnsToInclude.push('ciplak_m2_usd', 'ciplak_m2_eur', 'ciplak_m2_try');
-      }
-      if (resultFilter.type === 'boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('boyali_m2_usd', 'boyali_m2_eur', 'boyali_m2_try');
-      }
-      if (resultFilter.type === 'setli_boyasiz' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyasiz_m2_usd', 'setli_boyasiz_m2_eur', 'setli_boyasiz_m2_try');
-      }
-      if (resultFilter.type === 'setli_boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyali_m2_usd', 'setli_boyali_m2_eur', 'setli_boyali_m2_try');
-      }
-    }
-    
-    if (resultFilter.unit === 'kg' || resultFilter.unit === 'all') {
-      if (resultFilter.type === 'ciplak' || resultFilter.type === 'all') {
-        columnsToInclude.push('ciplak_kg_usd', 'ciplak_kg_eur', 'ciplak_kg_try');
-      }
-      if (resultFilter.type === 'boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('boyali_kg_usd', 'boyali_kg_eur', 'boyali_kg_try');
-      }
-      if (resultFilter.type === 'setli_boyasiz' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyasiz_kg_usd', 'setli_boyasiz_kg_eur', 'setli_boyasiz_kg_try');
-      }
-      if (resultFilter.type === 'setli_boyali' || resultFilter.type === 'all') {
-        columnsToInclude.push('setli_boyali_kg_usd', 'setli_boyali_kg_eur', 'setli_boyali_kg_try');
-      }
-    }
-    
-    // Para birimi bazında filtreleme
-    if (resultFilter.currency !== 'all') {
-      dataToExport = dataToExport.map(item => {
-        const filteredItem = { manual_order: item.manual_order, panel_kodu: item.panel_kodu };
-        
-        Object.keys(item).forEach(key => {
-          if (key.includes(resultFilter.currency.toLowerCase()) && columnsToInclude.includes(key)) {
-            filteredItem[key] = item[key];
-          }
-        });
-        
-        return filteredItem;
-      });
-    }
-    
-    const filteredData = dataToExport.map(item => {
-      const newItem = {};
-      columnsToInclude.forEach(col => {
-        if (resultFilter.currency === 'all' || col.includes(resultFilter.currency.toLowerCase()) || 
-            col === 'manual_order' || col === 'panel_kodu') {
-          newItem[col] = item[col];
-        }
-      });
-      return newItem;
-    });
+    const exportData = [...dataToExport];
     
     // Worksheet oluştur
-    const worksheet = XLSX.utils.json_to_sheet(filteredData);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
     
     // Workbook oluştur
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Maliyet Listesi');
+    XLSX.utils.book_append_sheet(workbook, worksheet, listType === 'maliyet' ? 'Maliyet Listesi' : 'Satış Listesi');
     
     // Excel dosyasını indir
-    XLSX.writeFile(workbook, 'Panel_Cit_Maliyet_Listesi.xlsx');
+    XLSX.writeFile(workbook, listType === 'maliyet' ? 'Panel_Cit_Maliyet_Listesi.xlsx' : 'Panel_Cit_Satis_Listesi.xlsx');
   };
 
   // Genel değişkenleri güncelleme
@@ -1649,732 +1691,10 @@ const PanelCitHesaplama = () => {
     });
   };
 
-  // Üst Kısım - Sekmeler
-  const renderTabButtons = () => (
-    <div className="flex flex-wrap gap-2 justify-between items-center bg-white p-4 rounded-lg border shadow-sm">
-      <div className="flex gap-2 flex-wrap">
-        <button 
-          onClick={() => setActiveTab('main-panel')} 
-          className={`flex items-center px-4 py-2 rounded-md ${activeTab === 'main-panel' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          <Filter className="w-5 h-5 mr-2" />
-          Panel Çit Listesi
-        </button>
-        <button 
-          onClick={() => setActiveTab('special-panel')} 
-          className={`flex items-center px-4 py-2 rounded-md ${activeTab === 'special-panel' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Özel Panel & Palet Bilgileri Hesaplama
-        </button>
-        {showResults && (
-          <button 
-            onClick={() => setActiveTab('results')} 
-            className={`flex items-center px-4 py-2 rounded-md ${activeTab === 'results' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            <Calculator className="w-5 h-5 mr-2" />
-            Sonuçlar
-          </button>
-        )}
-        {showResults && (
-          <button 
-            onClick={() => setActiveTab('temp-calculations')} 
-            className={`flex items-center px-4 py-2 rounded-md ${activeTab === 'temp-calculations' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-          >
-            <Edit className="w-5 h-5 mr-2" />
-            Geçici Hesaplar
-          </button>
-        )}
-      </div>
-      <div className="flex gap-2">
-        {activeTab === 'results' && showResults && (
-          <button 
-            onClick={() => exportToExcel()}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            <FileSpreadsheet className="w-5 h-5 mr-2" />
-            Excel&apos;e Aktar
-          </button>
-        )}
-      </div>
-    </div>
-  );
-// Değişkenler Akordiyon
-  const renderDegiskenlerAccordion = () => (
-    <Accordion type="single" collapsible className="bg-white rounded-lg border shadow-sm">
-      {/* Genel Değişkenler Akordiyon Öğesi */}
-      <AccordionItem value="genel-degiskenler">
-        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 mr-3">
-              <RefreshCw size={18} />
-            </div>
-            <span className="font-semibold text-lg">Kur ve Genel Değişkenler</span>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="px-4 py-4 border-t">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-            {/* Kur Bilgileri */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex items-center mb-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
-                  <RefreshCw size={20} />
-                </div>
-                <h4 className="font-medium">KUR</h4>
-              </div>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">USD/TL</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.usd_tl || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('usd_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">EUR/USD</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.eur_usd || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('eur_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Genel Değişkenler */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex items-center mb-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">
-                  <Calculator size={20} />
-                </div>
-                <h4 className="font-medium">Genel Değişkenler</h4>
-              </div>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Boya Fiyatı (kg) (€)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.boya_fiyati_kg_eur || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('boya_fiyati_kg_eur', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Elektrik Fiyatı (kW) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.elektrik_fiyati_kw_tl || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('elektrik_fiyati_kw_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Doğalgaz Fiyatı (Stn.m³) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.dogalgaz_fiyati_stn_m3_tl || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('dogalgaz_fiyati_stn_m3_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Amortisman & Diğer ($)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.amortisman_diger_usd || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('amortisman_diger_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.00001"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">KAR Oranı (Toplama Ek %)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.kar_toplama_ek_percent || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('kar_toplama_ek_percent', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Ort. İşçi Maaşı (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.ort_isci_maasi || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('ort_isci_maasi', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Save & Refresh Section at the Bottom */}
-          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
-            <div className="text-sm text-gray-600 flex items-center">
-              <span>Son Güncelleme:</span>
-              <span className="ml-1 font-medium">
-                {genelDegiskenler.genel_latest_update ? 
-                  new Date(genelDegiskenler.genel_latest_update).toLocaleString('tr-TR') : 
-                  'Bilinmiyor'}
-              </span>
-              <button 
-                onClick={() => fetchSectionData('genel')} 
-                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
-                title="Yenile"
-                disabled={sectionLoading.genel}
-              >
-                <RefreshCw size={16} className={sectionLoading.genel ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <button
-              onClick={() => updateGenelDegiskenler()}
-              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
-              disabled={sectionLoading.genel}
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              Kur ve Genel Değişkenleri Kaydet
-            </button>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-      
-      {/* Panel Çit Değişkenleri Akordiyon Öğesi */}
-      <AccordionItem value="panel-cit-degiskenler">
-        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
-              <Filter size={18} />
-            </div>
-            <span className="font-semibold text-lg">Panel Çit Değişkenleri</span>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="px-4 py-4 border-t">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-            {/* İşçi Sayıları ve Vardiyalar */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">İşçi Sayıları ve Vardiyalar</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Boya İşçi Sayısı (ad)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_boya_isci_sayisi_ad || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_isci_sayisi_ad', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Boya Vardiya</label>
-                  <select
-                    value={panelCitDegiskenler.panel_boya_vardiya || ''}
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_vardiya', e.target.value)}
-                    className="border rounded p-2"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Kaynak İşçi Sayısı (ad)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_kaynak_isci_sayisi_ad || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_isci_sayisi_ad', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Kaynak Vardiya</label>
-                  <select
-                    value={panelCitDegiskenler.panel_kaynak_vardiya || ''}
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_vardiya', e.target.value)}
-                    className="border rounded p-2"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Kesme İşçi Sayısı (ad)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_kesme_isci_sayisi_ad || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_isci_sayisi_ad', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Kesme Vardiya</label>
-                  <select
-                    value={panelCitDegiskenler.panel_kesme_vardiya || ''}
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_vardiya', e.target.value)}
-                    className="border rounded p-2"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Palet İşçi Sayısı (ad)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_palet_isci_sayisi_ad || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_isci_sayisi_ad', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Palet Vardiya</label>
-                  <select
-                    value={panelCitDegiskenler.panel_palet_vardiya || ''}
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_vardiya', e.target.value)}
-                    className="border rounded p-2"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
 
-            {/* Tüketim ve Malzeme */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Tüketim ve Malzeme</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Kaynak Elektrik Tüketim (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Kesme Elektrik Tüketim (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Boya Elektrik Tüketim (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Panel Doğalgaz Tüketim (Stn.m³/h)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3 || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_dogalgaz_tuketim_stn_m3', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Galvanizli Tel (Ton) ($)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.galvanizli_tel_ton_usd || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('galvanizli_tel_ton_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Hurda (Ton) ($)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.hurda_ton_usd || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('hurda_ton_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Boya ve Üretim Kapasitesi */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Boya ve Üretim Kapasitesi</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">SP Boya Tüketim Miktarı (gr/m²)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.sp_boya_tuketim_miktari || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('sp_boya_tuketim_miktari', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">DP Boya Tüketim Miktarı (gr/m²)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.dp_boya_tuketim_miktari || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('dp_boya_tuketim_miktari', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">GP Boya Tüketim Miktarı (gr/m²)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('guvenlik_boya_tuketim_miktari_gr', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Ort. Panel Ürt. Kapasitesi (m²/Ay)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.uretim_kapasite || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('uretim_kapasite', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Ortalama Saatlik Üretim (m²/h)</label>
-                  <input 
-                    type="text" 
-                    value={panelCitDegiskenler.saatlik_uretim || ''} 
-                    onChange={(e) => handlePanelCitDegiskenlerChange('saatlik_uretim', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                    disabled
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Save & Refresh Section at the Bottom */}
-          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
-            <div className="text-sm text-gray-600 flex items-center">
-              <span>Son Güncelleme:</span>
-              <span className="ml-1 font-medium">
-                {panelCitDegiskenler.panel_cit_latest_update ? 
-                  new Date(panelCitDegiskenler.panel_cit_latest_update).toLocaleString('tr-TR') : 
-                  'Bilinmiyor'}
-              </span>
-              <button 
-                onClick={() => fetchSectionData('panelCit')} 
-                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
-                title="Yenile"
-                disabled={sectionLoading.panelCit}
-              >
-                <RefreshCw size={16} className={sectionLoading.panelCit ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <button
-              onClick={() => updatePanelCitDegiskenler()}
-              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
-              disabled={sectionLoading.panelCit}
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              Panel Çit Değişkenlerini Kaydet
-            </button>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
+//Part 8
 
-{/* Profil Değişkenleri Akordiyon Öğesi */}
-      <AccordionItem value="profil-degiskenler">
-        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-3">
-              <Filter size={18} />
-            </div>
-            <span className="font-semibold text-lg">Profil Değişkenleri</span>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="px-4 py-4 border-t">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-            {/* Profil Fiyatları */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Profil Fiyatları</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Galvanizli Profil (Ton) ($)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.galvanizli_profil_kg_usd || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('galvanizli_profil_kg_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Galvanizsiz Profil (Ton) ($)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.galvanizsiz_profil_kg_usd || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('galvanizsiz_profil_kg_usd', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Üretim Kapasitesi ve İşçilik */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Üretim Kapasitesi ve İşçilik</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Min. Ürt. Kapasitesi (ad/h)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_uretim_kapasitesi_m2_h || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_uretim_kapasitesi_m2_h', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">profil_vardiya</label>
-                  <select
-                    value={profilDegiskenler.profil_vardiya || ''}
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_vardiya', e.target.value)}
-                    className="border rounded p-2"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil İşçi Sayısı (ad)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_isci_sayisi_ad || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_isci_sayisi_ad', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-              </div>
-            </div>
-            {/* Elektrik Tüketimi */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Elektrik Tüketimi</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Kaynak Makinesi Elektrik Tüketim Miktarı (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Kesme Makinesi Elektrik Tüketim Miktarı (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_kesme_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_kesme_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Boya Makinesi Elektrik Tüketim Miktarı (kWh)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-          
-            {/* Doğalgaz ve Boya Tüketimi */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Doğalgaz ve Boya Tüketimi</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Doğalgaz Tüketim Miktarı (Stn.m³/h)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_dogalgaz_tuketim_stn_m3 || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_dogalgaz_tuketim_stn_m3', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Boya Tüketim Miktarı (gr/m²)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_boya_tuketim || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_boya_tuketim', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Fiziksel Özellikler */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Fiziksel Özellikler</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil En 1</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_en1 || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_en1', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil En 2</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_en2 || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_en2', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Profil Et Kalınlığı</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.profil_et_kalinligi || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('profil_et_kalinligi', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Aksam Fiyatları */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h4 className="font-medium mb-3">Aksam Fiyatları</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Flans Fyt (ad) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.flans_ad_tl || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('flans_ad_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Vida Fyt (ad) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.vida_ad_tl || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('vida_ad_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Klips Fyt (ad) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.klips_ad_tl || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('klips_ad_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Dubel Fyt (ad) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.dubel_ad_tl || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('dubel_ad_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Kapak Fyt (ad) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={profilDegiskenler.kapak_ad_tl || ''} 
-                    onChange={(e) => handleProfilDegiskenlerChange('kapak_ad_tl', e.target.value)}
-                    className="border rounded p-2"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Save & Refresh Section at the Bottom */}
-          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
-            <div className="text-sm text-gray-600 flex items-center">
-              <span>Son Güncelleme:</span>
-              <span className="ml-1 font-medium">
-                {profilDegiskenler.profil_latest_update ? 
-                  new Date(profilDegiskenler.profil_latest_update).toLocaleString('tr-TR') : 
-                  'Bilinmiyor'}
-              </span>
-              <button 
-                onClick={() => fetchSectionData('profil')} 
-                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
-                title="Yenile"
-                disabled={sectionLoading.profil}
-              >
-                <RefreshCw size={16} className={sectionLoading.profil ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            <button
-              onClick={() => updateProfilDegiskenler()}
-              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
-              disabled={sectionLoading.profil}
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              Profil Değişkenlerini Kaydet
-            </button>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
-  );
-
-  // Panel Listesi Gösterimi
+// Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
   const renderPanelList = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -2509,8 +1829,8 @@ const PanelCitHesaplama = () => {
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.yatay_goz_araligi}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukum_sayisi}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukumdeki_cubuk_sayisi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.adet_m2 === 'number' ? panel.adet_m2.toFixed(4) : panel.adet_m2}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.agirlik === 'number' ? panel.agirlik.toFixed(4) : panel.agirlik}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.adet_m2 === 'number' ? formatDisplayValue(panel.adet_m2) : panel.adet_m2}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.agirlik === 'number' ? formatDisplayValue(panel.agirlik) : panel.agirlik}</td>
               </tr>
             ))}
             {filteredPanelList.length === 0 && (
@@ -2526,276 +1846,961 @@ const PanelCitHesaplama = () => {
     </div>
   );
 
-// Özel Panel Girişi
-const renderSpecialPanelEntry = () => (
-  <div className="bg-white rounded-lg border shadow-sm">
-    <div className="p-4 border-b">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Özel Panel & Palet Bilgileri Hesaplama</h3>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={addOzelPanel}
-            className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Yeni Panel Ekle
-          </button>
-          <button 
-            onClick={() => calculateCosts(false)}
-            disabled={calculating || ozelPanelList.length === 0}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 text-sm"
-          >
-            {calculating ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-                Hesaplanıyor...
-              </>
-            ) : (
-              <>
-                <Calculator className="w-4 h-4 mr-1.5" />
-                Hesapla
-              </>
-            )}
-          </button>
+  // Değişkenler Akordiyon
+  const renderDegiskenlerAccordion = () => (
+    <Accordion type="single" collapsible className="bg-white rounded-lg border shadow-sm">
+      {/* Genel Değişkenler Akordiyon Öğesi */}
+      <AccordionItem value="genel-degiskenler">
+        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 mr-3">
+              <RefreshCw size={18} />
+            </div>
+            <span className="font-semibold text-lg">Kur ve Genel Değişkenler</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 py-4 border-t">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            {/* Kur Bilgileri */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+                  <RefreshCw size={20} />
+                </div>
+                <h4 className="font-medium">KUR</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">USD/TL</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.usd_tl || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('usd_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">EUR/USD</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.eur_usd || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('eur_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Genel Değişkenler */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">
+                  <Calculator size={20} />
+                </div>
+                <h4 className="font-medium">Genel Değişkenler</h4>
+              </div>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Boya Fiyatı (kg) (€)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.boya_fiyati_kg_eur || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('boya_fiyati_kg_eur', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Elektrik Fiyatı (kW) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.elektrik_fiyati_kw_tl || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('elektrik_fiyati_kw_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Doğalgaz Fiyatı (Stn.m³) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.dogalgaz_fiyati_stn_m3_tl || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('dogalgaz_fiyati_stn_m3_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Amortisman & Diğer ($)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.amortisman_diger_usd || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('amortisman_diger_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">KAR Oranı (Toplama Ek %)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.kar_toplama_ek_percent || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('kar_toplama_ek_percent', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Ort. İşçi Maaşı (₺)</label>
+                  <input 
+                    type="text" 
+                    value={genelDegiskenler.ort_isci_maasi || ''} 
+                    onChange={(e) => handleGenelDegiskenlerChange('ort_isci_maasi', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Satış Marjları (Yeni Eklendi) */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
+            <div className="flex items-center mb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mr-3">
+                <TrendingUp size={20} />
+              </div>
+              <h4 className="font-medium">Satış Marjları</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-500 mb-1">Bronz Marjı (%)</label>
+                <input 
+                  type="text"
+                  value={salesMargins.bronze || 10}
+                  onChange={(e) => handleSalesMarginChange('bronze', e.target.value)}
+                  className="border rounded p-2"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-500 mb-1">Gümüş Marjı (%)</label>
+                <input 
+                  type="text"
+                  value={salesMargins.silver || 20}
+                  onChange={(e) => handleSalesMarginChange('silver', e.target.value)}
+                  className="border rounded p-2"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-500 mb-1">Altın Marjı (%)</label>
+                <input 
+                  type="text"
+                  value={salesMargins.gold || 30}
+                  onChange={(e) => handleSalesMarginChange('gold', e.target.value)}
+                  className="border rounded p-2"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Save & Refresh Section at the Bottom */}
+          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
+            <div className="text-sm text-gray-600 flex items-center">
+              <span>Son Güncelleme:</span>
+              <span className="ml-1 font-medium">
+                {genelDegiskenler.genel_latest_update ? 
+                  new Date(genelDegiskenler.genel_latest_update).toLocaleString('tr-TR') : 
+                  'Bilinmiyor'}
+              </span>
+              <button 
+                onClick={() => fetchSectionData('genel')} 
+                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+                title="Yenile"
+                disabled={sectionLoading.genel}
+              >
+                <RefreshCw size={16} className={sectionLoading.genel ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            <button
+              onClick={() => updateGenelDegiskenler()}
+              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+              disabled={sectionLoading.genel}
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Kur ve Genel Değişkenleri Kaydet
+            </button>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+      
+      {/* Panel Çit Değişkenleri Akordiyon Öğesi */}
+      <AccordionItem value="panel-cit-degiskenler">
+        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+              <Filter size={18} />
+            </div>
+            <span className="font-semibold text-lg">Panel Çit Değişkenleri</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 py-4 border-t">
+
+
+// Part 9
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+            {/* İşçi Sayıları ve Vardiyalar */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">İşçi Sayıları ve Vardiyalar</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Boya İşçi Sayısı (ad)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_boya_isci_sayisi_ad || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_isci_sayisi_ad', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Boya Vardiya</label>
+                  <select
+                    value={panelCitDegiskenler.panel_boya_vardiya || ''}
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_vardiya', e.target.value)}
+                    className="border rounded p-2"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Kaynak İşçi Sayısı (ad)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_kaynak_isci_sayisi_ad || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_isci_sayisi_ad', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Kaynak Vardiya</label>
+                  <select
+                    value={panelCitDegiskenler.panel_kaynak_vardiya || ''}
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_vardiya', e.target.value)}
+                    className="border rounded p-2"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Kesme İşçi Sayısı (ad)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_kesme_isci_sayisi_ad || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_isci_sayisi_ad', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Kesme Vardiya</label>
+                  <select
+                    value={panelCitDegiskenler.panel_kesme_vardiya || ''}
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_vardiya', e.target.value)}
+                    className="border rounded p-2"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Palet İşçi Sayısı (ad)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_palet_isci_sayisi_ad || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_isci_sayisi_ad', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Palet Vardiya</label>
+                  <select
+                    value={panelCitDegiskenler.panel_palet_vardiya || ''}
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_vardiya', e.target.value)}
+                    className="border rounded p-2"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Tüketim ve Malzeme */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Tüketim ve Malzeme</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Kaynak Elektrik Tüketim (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Kesme Elektrik Tüketim (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Boya Elektrik Tüketim (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Panel Doğalgaz Tüketim (Stn.m³/h)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3 || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('panel_dogalgaz_tuketim_stn_m3', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Galvanizli Tel (Ton) ($)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.galvanizli_tel_ton_usd || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('galvanizli_tel_ton_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Hurda (Ton) ($)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.hurda_ton_usd || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('hurda_ton_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Boya ve Üretim Kapasitesi */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Boya ve Üretim Kapasitesi</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">SP Boya Tüketim Miktarı (gr/m²)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.sp_boya_tuketim_miktari || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('sp_boya_tuketim_miktari', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">DP Boya Tüketim Miktarı (gr/m²)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.dp_boya_tuketim_miktari || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('dp_boya_tuketim_miktari', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">GP Boya Tüketim Miktarı (gr/m²)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('guvenlik_boya_tuketim_miktari_gr', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Ort. Panel Ürt. Kapasitesi (m²/Ay)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.uretim_kapasite || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('uretim_kapasite', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Ortalama Saatlik Üretim (m²/h)</label>
+                  <input 
+                    type="text" 
+                    value={panelCitDegiskenler.saatlik_uretim || ''} 
+                    onChange={(e) => handlePanelCitDegiskenlerChange('saatlik_uretim', e.target.value)}
+                    className="border rounded p-2"
+                    disabled
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Save & Refresh Section at the Bottom */}
+          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
+            <div className="text-sm text-gray-600 flex items-center">
+              <span>Son Güncelleme:</span>
+              <span className="ml-1 font-medium">
+                {panelCitDegiskenler.panel_cit_latest_update ? 
+                  new Date(panelCitDegiskenler.panel_cit_latest_update).toLocaleString('tr-TR') : 
+                  'Bilinmiyor'}
+              </span>
+              <button 
+                onClick={() => fetchSectionData('panelCit')} 
+                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+                title="Yenile"
+                disabled={sectionLoading.panelCit}
+              >
+                <RefreshCw size={16} className={sectionLoading.panelCit ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            <button
+              onClick={() => updatePanelCitDegiskenler()}
+              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+              disabled={sectionLoading.panelCit}
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Panel Çit Değişkenlerini Kaydet
+            </button>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* Profil Değişkenleri Akordiyon Öğesi */}
+      <AccordionItem value="profil-degiskenler">
+        <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-3">
+              <Filter size={18} />
+            </div>
+            <span className="font-semibold text-lg">Profil Değişkenleri</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 py-4 border-t">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+            {/* Profil Fiyatları */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Profil Fiyatları</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Galvanizli Profil (Ton) ($)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.galvanizli_profil_kg_usd || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('galvanizli_profil_kg_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Galvanizsiz Profil (Ton) ($)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.galvanizsiz_profil_kg_usd || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('galvanizsiz_profil_kg_usd', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Üretim Kapasitesi ve İşçilik */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Üretim Kapasitesi ve İşçilik</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Min. Ürt. Kapasitesi (ad/h)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_uretim_kapasitesi_m2_h || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_uretim_kapasitesi_m2_h', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Vardiya</label>
+                  <select
+                    value={profilDegiskenler.profil_vardiya || ''}
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_vardiya', e.target.value)}
+                    className="border rounded p-2"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil İşçi Sayısı (ad)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_isci_sayisi_ad || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_isci_sayisi_ad', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Elektrik Tüketimi */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Elektrik Tüketimi</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Kaynak Makinesi Elektrik Tüketim Miktarı (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Kesme Makinesi Elektrik Tüketim Miktarı (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_kesme_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_kesme_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Boya Makinesi Elektrik Tüketim Miktarı (kWh)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+
+//Part 10
+
+
+{/* Doğalgaz ve Boya Tüketimi */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Doğalgaz ve Boya Tüketimi</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Doğalgaz Tüketim Miktarı (Stn.m³/h)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_dogalgaz_tuketim_stn_m3 || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_dogalgaz_tuketim_stn_m3', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Boya Tüketim Miktarı (gr/m²)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_boya_tuketim || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_boya_tuketim', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Fiziksel Özellikler */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Fiziksel Özellikler</h4>
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil En 1</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_en1 || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_en1', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil En 2</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_en2 || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_en2', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Profil Et Kalınlığı</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.profil_et_kalinligi || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('profil_et_kalinligi', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Aksam Fiyatları */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h4 className="font-medium mb-3">Aksam Fiyatları</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Flans Fyt (ad) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.flans_ad_tl || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('flans_ad_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Vida Fyt (ad) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.vida_ad_tl || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('vida_ad_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Klips Fyt (ad) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.klips_ad_tl || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('klips_ad_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Dubel Fyt (ad) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.dubel_ad_tl || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('dubel_ad_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm text-gray-500 mb-1">Kapak Fyt (ad) (₺)</label>
+                  <input 
+                    type="text" 
+                    value={profilDegiskenler.kapak_ad_tl || ''} 
+                    onChange={(e) => handleProfilDegiskenlerChange('kapak_ad_tl', e.target.value)}
+                    className="border rounded p-2"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Save & Refresh Section at the Bottom */}
+          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center">
+            <div className="text-sm text-gray-600 flex items-center">
+              <span>Son Güncelleme:</span>
+              <span className="ml-1 font-medium">
+                {profilDegiskenler.profil_latest_update ? 
+                  new Date(profilDegiskenler.profil_latest_update).toLocaleString('tr-TR') : 
+                  'Bilinmiyor'}
+              </span>
+              <button 
+                onClick={() => fetchSectionData('profil')} 
+                className="ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+                title="Yenile"
+                disabled={sectionLoading.profil}
+              >
+                <RefreshCw size={16} className={sectionLoading.profil ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            <button
+              onClick={() => updateProfilDegiskenler()}
+              className="px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+              disabled={sectionLoading.profil}
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Profil Değişkenlerini Kaydet
+            </button>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+
+  // Özel Panel & Palet Bilgileri Hesaplama
+  const renderSpecialPanelEntry = () => (
+    <div className="bg-white rounded-lg border shadow-sm">
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Özel Panel & Palet Bilgileri Hesaplama</h3>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={addOzelPanel}
+              className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Yeni Panel Ekle
+            </button>
+            <button 
+              onClick={() => calculateCosts(false)}
+              disabled={calculating || ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 text-sm"
+            >
+              {calculating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                  Hesaplanıyor...
+                </>
+              ) : (
+                <>
+                  <Calculator className="w-4 h-4 mr-1.5" />
+                  Hesapla
+                </>
+              )}
+            </button>
+          </div>
         </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          Özel panel bilgilerini girin ve hesaplamaları yapın. Daha sonra isterseniz panelleri veritabanına kaydedebilirsiniz.
+        </p>
       </div>
       
-      <p className="text-sm text-gray-600 mb-4">
-        Özel panel bilgilerini girin ve hesaplamaları yapın. Daha sonra isterseniz panelleri veritabanına kaydedebilirsiniz.
-      </p>
-    </div>
-    
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Panel Tipi
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Yükseklik
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Genişlik
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Dikey Tel Çapı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Yatay Tel Çapı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Dikey Göz Aralığı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Yatay Göz Aralığı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Büküm Sayısı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Dikey Çubuk Adedi
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Yatay Çubuk Adedi
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Adet M²
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Ağırlık
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Boya Kg
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Boyalı Hali
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Panel Kodu
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Paletteki Panel Sayısı
-            </th>
-            <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              İşlemler
-            </th>
-          </tr>
-        </thead>
-
-        <tbody className="bg-white divide-y divide-gray-200">
-          {ozelPanelList.map((panel) => (
-            <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <select
-                  value={panel.panel_tipi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'panel_tipi', e.target.value)}
-                  className="w-full border rounded p-1 text-sm"
-                >
-                  <option value="Single">Single</option>
-                  <option value="Double">Double</option>
-                  <option value="Guvenlik">Güvenlik</option>
-                </select>
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.panel_yuksekligi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.panel_genisligi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.dikey_tel_capi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.yatay_tel_capi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.dikey_goz_araligi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.yatay_goz_araligi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.bukum_sayisi || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.dikey_cubuk_adet || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.yatay_cubuk_adet || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
-                  className="w-16 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={typeof panel.adet_m2 === 'number' ? panel.adet_m2.toFixed(5) : panel.adet_m2 || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
-                  className="w-20 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={typeof panel.agirlik === 'number' ? panel.agirlik.toFixed(5) : panel.agirlik || ''}
-                  onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
-                  className="w-20 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={typeof panel.boya_kg === 'number' ? panel.boya_kg.toFixed(5) : panel.boya_kg || ''}
-                  className="w-20 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={typeof panel.boyali_hali === 'number' ? panel.boyali_hali.toFixed(5) : panel.boyali_hali || ''}
-                  className="w-20 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.panel_kodu || ''}
-                  className="w-48 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <input
-                  type="text"
-                  value={panel.paletteki_panel_sayisi || ''}
-                  className="w-20 border rounded p-1 text-sm"
-                  readOnly
-                />
-              </td>
-              <td className="px-3 py-2 whitespace-nowrap">
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => saveOzelPanelToDatabase(panel)}
-                    className="text-green-600 hover:text-green-800"
-                    title="Veritabanına Kaydet"
-                  >
-                    <Save size={16} />
-                  </button>
-                  <button
-                    onClick={() => removeOzelPanel(panel.id)}
-                    className="text-red-600 hover:text-red-800"
-                    title="Sil"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {ozelPanelList.length === 0 && (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
             <tr>
-              <td colSpan="17" className="px-3 py-4 text-center text-sm text-gray-500">
-                Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki &quot;Yeni Panel Ekle&quot; düğmesini kullanın.
-              </td>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Tipi
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yükseklik
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Genişlik
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Dikey Tel Çapı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yatay Tel Çapı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Dikey Göz Aralığı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yatay Göz Aralığı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Büküm Sayısı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Dikey Çubuk Adedi
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yatay Çubuk Adedi
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Adet M²
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ağırlık
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boya Kg
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boyalı Hali
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Kodu
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Paletteki Panel Sayısı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                İşlemler
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+          </thead>
 
-// Sonuçlar Tablosu
+          <tbody className="bg-white divide-y divide-gray-200">
+            {ozelPanelList.map((panel) => (
+              <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <select
+                    value={panel.panel_tipi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_tipi', e.target.value)}
+                    className="w-full border rounded p-1 text-sm"
+                  >
+                    <option value="Single">Single</option>
+                    <option value="Double">Double</option>
+                    <option value="Guvenlik">Güvenlik</option>
+                  </select>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.panel_yuksekligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.panel_genisligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.dikey_tel_capi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.yatay_tel_capi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.dikey_goz_araligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.yatay_goz_araligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
+                    className="w-16 border rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.bukum_sayisi || ''}
+                    className="w-16 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.dikey_cubuk_adet || ''}
+                    className="w-16 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.yatay_cubuk_adet || ''}
+                    className="w-16 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={typeof panel.adet_m2 === 'number' ? formatDisplayValue(panel.adet_m2) : panel.adet_m2 || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={typeof panel.agirlik === 'number' ? formatDisplayValue(panel.agirlik) : panel.agirlik || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={typeof panel.boya_kg === 'number' ? formatDisplayValue(panel.boya_kg) : panel.boya_kg || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={typeof panel.boyali_hali === 'number' ? formatDisplayValue(panel.boyali_hali) : panel.boyali_hali || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.panel_kodu || ''}
+                    className="w-48 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.paletteki_panel_sayisi || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => saveOzelPanelToDatabase(panel)}
+                      className="text-green-600 hover:text-green-800"
+                      title="Veritabanına Kaydet"
+                    >
+                      <Save size={16} />
+                    </button>
+                    <button
+                      onClick={() => removeOzelPanel(panel.id)}
+                      className="text-red-600 hover:text-red-800"
+                      title="Sil"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {ozelPanelList.length === 0 && (
+              <tr>
+                <td colSpan="17" className="px-3 py-4 text-center text-sm text-gray-500">
+                  Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+
+// Part 11
+
+// Sonuçlar (Maliyet Listesi) Tablosu
   const renderResults = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -2847,12 +2852,21 @@ const renderSpecialPanelEntry = () => (
             </div>
             
             <button 
-              onClick={() => exportToExcel()}
+              onClick={() => exportToExcel('maliyet')}
               className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
               disabled={maliyetListesi.length === 0}
             >
               <FileSpreadsheet className="w-4 h-4 mr-1" />
               Excel&apos;e Aktar
+            </button>
+            
+            <button 
+              onClick={() => setShowSalesView(true)}
+              className="flex items-center px-3 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-sm"
+              disabled={maliyetListesi.length === 0}
+            >
+              <TrendingUp className="w-4 h-4 mr-1" />
+              Satış Listesi
             </button>
           </div>
         </div>
@@ -2879,250 +2893,281 @@ const renderSpecialPanelEntry = () => (
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 whitespace-nowrap">
+                ID (Manual Order)
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-10 bg-gray-50 z-10 whitespace-nowrap">
                 Panel Kodu
               </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Tipi
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Yüksekliği
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Genişliği
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Dikey Tel Çapı
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Yatay Tel Çapı
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Dikey Göz Aralığı
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Yatay Göz Aralığı
+              </th>
               
-              {/* Dinamik olarak sütunları oluştur */}
+              {/* Çıplak Adet */}
               {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Çıplak Adet USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Çıplak Adet EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Çıplak Adet TRY
                     </th>
                   )}
                 </>
               )}
               
+              {/* Çıplak M2 */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak M2 USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak M2 EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak M2 TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Çıplak Kg */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak Kg USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak Kg EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Çıplak Kg TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Boyalı Adet */}
               {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Boyalı Adet USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Boyalı Adet EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       Boyalı Adet TRY
                     </th>
                   )}
                 </>
               )}
               
-              {/* Setli + Boyasız Adet */}
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız Adet USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız Adet EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız Adet TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {/* Setli + Boyalı Adet */}
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı Adet USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı Adet EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı Adet TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {/* M2 hesaplamaları */}
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak M² USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak M² EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak M² TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
+              {/* Boyalı M2 */}
               {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı M² USD
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı M2 USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı M² EUR
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı M2 EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı M² TRY
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı M2 TRY
                     </th>
                   )}
                 </>
               )}
               
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız M² USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız M² EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız M² TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı M² USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı M² EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı M² TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
-              {/* KG hesaplamaları */}
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
-                <>
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak KG USD
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak KG EUR
-                    </th>
-                  )}
-                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Çıplak KG TRY
-                    </th>
-                  )}
-                </>
-              )}
-              
+              {/* Boyalı Kg */}
               {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı KG USD
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı Kg USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı KG EUR
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı Kg EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Boyalı KG TRY
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Boyalı Kg TRY
                     </th>
                   )}
                 </>
               )}
               
+              {/* Standart Setli + Boyasız Adet */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Adet USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Adet EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Adet TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Standart Setli + Boyasız M2 */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız M2 USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız M2 EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız M2 TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Standart Setli + Boyasız Kg */}
               {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız KG USD
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Kg USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız KG EUR
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Kg EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyasız KG TRY
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyasız Kg TRY
                     </th>
                   )}
                 </>
               )}
               
-              {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+              {/* Standart Setli + Boyalı Adet */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
                 <>
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı KG USD
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Adet USD
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı KG EUR
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Adet EUR
                     </th>
                   )}
                   {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Setli + Boyalı KG TRY
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Adet TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Standart Setli + Boyalı M2 */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı M2 USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı M2 EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı M2 TRY
+                    </th>
+                  )}
+                </>
+              )}
+              
+              {/* Standart Setli + Boyalı Kg */}
+              {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+                <>
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Kg USD
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Kg EUR
+                    </th>
+                  )}
+                  {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      Standart Setli + Boyalı Kg TRY
                     </th>
                   )}
                 </>
@@ -3130,252 +3175,288 @@ const renderSpecialPanelEntry = () => (
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {maliyetListesi.map((maliyet, index) => (
+
+
+// Part 12
+
+
+{filterMaliyetListesi().map((maliyet, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-0 bg-white">
+                  {maliyet.manual_order}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-10 bg-white">
                   {maliyet.panel_kodu}
                 </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.panel_tipi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.panel_yuksekligi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.panel_genisligi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.dikey_tel_capi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.yatay_tel_capi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.dikey_goz_araligi}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {maliyet.yatay_goz_araligi}
+                </td>
                 
-                {/* Dinamik olarak hücreleri oluştur - Adet */}
+                {/* Çıplak Adet */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_usd === 'number' ? maliyet.ciplak_adet_usd.toFixed(5) : maliyet.ciplak_adet_usd}
+                        {typeof maliyet.ciplak_adet_usd === 'number' ? formatDisplayValue(maliyet.ciplak_adet_usd) : maliyet.ciplak_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_eur === 'number' ? maliyet.ciplak_adet_eur.toFixed(5) : maliyet.ciplak_adet_eur}
+                        {typeof maliyet.ciplak_adet_eur === 'number' ? formatDisplayValue(maliyet.ciplak_adet_eur) : maliyet.ciplak_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_try === 'number' ? maliyet.ciplak_adet_try.toFixed(5) : maliyet.ciplak_adet_try}
+                        {typeof maliyet.ciplak_adet_try === 'number' ? formatDisplayValue(maliyet.ciplak_adet_try) : maliyet.ciplak_adet_try}
                       </td>
                     )}
                   </>
                 )}
                 
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_usd === 'number' ? maliyet.boyali_adet_usd.toFixed(5) : maliyet.boyali_adet_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_eur === 'number' ? maliyet.boyali_adet_eur.toFixed(5) : maliyet.boyali_adet_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_try === 'number' ? maliyet.boyali_adet_try.toFixed(5) : maliyet.boyali_adet_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {/* Setli + Boyasız */}
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_usd === 'number' ? maliyet.standart_setli_boyasiz_adet_usd.toFixed(5) : maliyet.standart_setli_boyasiz_adet_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_eur === 'number' ? maliyet.standart_setli_boyasiz_adet_eur.toFixed(5) : maliyet.standart_setli_boyasiz_adet_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_try === 'number' ? maliyet.standart_setli_boyasiz_adet_try.toFixed(5) : maliyet.standart_setli_boyasiz_adet_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {/* Setli + Boyalı */}
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_usd === 'number' ? maliyet.standart_setli_boyali_adet_usd.toFixed(5) : maliyet.standart_setli_boyali_adet_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_eur === 'number' ? maliyet.standart_setli_boyali_adet_eur.toFixed(5) : maliyet.standart_setli_boyali_adet_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_try === 'number' ? maliyet.standart_setli_boyali_adet_try.toFixed(5) : maliyet.standart_setli_boyali_adet_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {/* M2 hesaplamaları */}
+                {/* Çıplak M2 */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_usd === 'number' ? maliyet.ciplak_m2_usd.toFixed(5) : maliyet.ciplak_m2_usd}
+                        {typeof maliyet.ciplak_m2_usd === 'number' ? formatDisplayValue(maliyet.ciplak_m2_usd) : maliyet.ciplak_m2_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_eur === 'number' ? maliyet.ciplak_m2_eur.toFixed(5) : maliyet.ciplak_m2_eur}
+                        {typeof maliyet.ciplak_m2_eur === 'number' ? formatDisplayValue(maliyet.ciplak_m2_eur) : maliyet.ciplak_m2_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_try === 'number' ? maliyet.ciplak_m2_try.toFixed(5) : maliyet.ciplak_m2_try}
+                        {typeof maliyet.ciplak_m2_try === 'number' ? formatDisplayValue(maliyet.ciplak_m2_try) : maliyet.ciplak_m2_try}
                       </td>
                     )}
                   </>
                 )}
                 
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_usd === 'number' ? maliyet.boyali_m2_usd.toFixed(5) : maliyet.boyali_m2_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_eur === 'number' ? maliyet.boyali_m2_eur.toFixed(5) : maliyet.boyali_m2_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_try === 'number' ? maliyet.boyali_m2_try.toFixed(5) : maliyet.boyali_m2_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_usd === 'number' ? maliyet.standart_setli_boyasiz_m2_usd.toFixed(5) : maliyet.standart_setli_boyasiz_m2_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_eur === 'number' ? maliyet.standart_setli_boyasiz_m2_eur.toFixed(5) : maliyet.standart_setli_boyasiz_m2_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_try === 'number' ? maliyet.standart_setli_boyasiz_m2_try.toFixed(5) : maliyet.standart_setli_boyasiz_m2_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
-                  <>
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_usd === 'number' ? maliyet.standart_setli_boyali_m2_usd.toFixed(5) : maliyet.standart_setli_boyali_m2_usd}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_eur === 'number' ? maliyet.standart_setli_boyali_m2_eur.toFixed(5) : maliyet.standart_setli_boyali_m2_eur}
-                      </td>
-                    )}
-                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_try === 'number' ? maliyet.standart_setli_boyali_m2_try.toFixed(5) : maliyet.standart_setli_boyali_m2_try}
-                      </td>
-                    )}
-                  </>
-                )}
-                
-                {/* KG hesaplamaları */}
+                {/* Çıplak Kg */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_usd === 'number' ? maliyet.ciplak_kg_usd.toFixed(5) : maliyet.ciplak_kg_usd}
+                        {typeof maliyet.ciplak_kg_usd === 'number' ? formatDisplayValue(maliyet.ciplak_kg_usd) : maliyet.ciplak_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_eur === 'number' ? maliyet.ciplak_kg_eur.toFixed(5) : maliyet.ciplak_kg_eur}
+                        {typeof maliyet.ciplak_kg_eur === 'number' ? formatDisplayValue(maliyet.ciplak_kg_eur) : maliyet.ciplak_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_try === 'number' ? maliyet.ciplak_kg_try.toFixed(5) : maliyet.ciplak_kg_try}
+                        {typeof maliyet.ciplak_kg_try === 'number' ? formatDisplayValue(maliyet.ciplak_kg_try) : maliyet.ciplak_kg_try}
                       </td>
                     )}
                   </>
                 )}
                 
+                {/* Boyalı Adet */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_adet_usd === 'number' ? formatDisplayValue(maliyet.boyali_adet_usd) : maliyet.boyali_adet_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_adet_eur === 'number' ? formatDisplayValue(maliyet.boyali_adet_eur) : maliyet.boyali_adet_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_adet_try === 'number' ? formatDisplayValue(maliyet.boyali_adet_try) : maliyet.boyali_adet_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Boyalı M2 */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_m2_usd === 'number' ? formatDisplayValue(maliyet.boyali_m2_usd) : maliyet.boyali_m2_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_m2_eur === 'number' ? formatDisplayValue(maliyet.boyali_m2_eur) : maliyet.boyali_m2_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.boyali_m2_try === 'number' ? formatDisplayValue(maliyet.boyali_m2_try) : maliyet.boyali_m2_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Boyalı Kg */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'boyali') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_usd === 'number' ? maliyet.boyali_kg_usd.toFixed(5) : maliyet.boyali_kg_usd}
+                        {typeof maliyet.boyali_kg_usd === 'number' ? formatDisplayValue(maliyet.boyali_kg_usd) : maliyet.boyali_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_eur === 'number' ? maliyet.boyali_kg_eur.toFixed(5) : maliyet.boyali_kg_eur}
+                        {typeof maliyet.boyali_kg_eur === 'number' ? formatDisplayValue(maliyet.boyali_kg_eur) : maliyet.boyali_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_try === 'number' ? maliyet.boyali_kg_try.toFixed(5) : maliyet.boyali_kg_try}
+                        {typeof maliyet.boyali_kg_try === 'number' ? formatDisplayValue(maliyet.boyali_kg_try) : maliyet.boyali_kg_try}
                       </td>
                     )}
                   </>
                 )}
                 
+                {/* Standart Setli + Boyasız Adet */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_adet_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_usd) : maliyet.standart_setli_boyasiz_adet_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_adet_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_eur) : maliyet.standart_setli_boyasiz_adet_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_adet_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_try) : maliyet.standart_setli_boyasiz_adet_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Standart Setli + Boyasız M2 */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_m2_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_usd) : maliyet.standart_setli_boyasiz_m2_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_m2_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_eur) : maliyet.standart_setli_boyasiz_m2_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyasiz_m2_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_try) : maliyet.standart_setli_boyasiz_m2_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Standart Setli + Boyasız Kg */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_usd === 'number' ? maliyet.standart_setli_boyasiz_kg_usd.toFixed(5) : maliyet.standart_setli_boyasiz_kg_usd}
+                        {typeof maliyet.standart_setli_boyasiz_kg_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_usd) : maliyet.standart_setli_boyasiz_kg_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_eur === 'number' ? maliyet.standart_setli_boyasiz_kg_eur.toFixed(5) : maliyet.standart_setli_boyasiz_kg_eur}
+                        {typeof maliyet.standart_setli_boyasiz_kg_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_eur) : maliyet.standart_setli_boyasiz_kg_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_try === 'number' ? maliyet.standart_setli_boyasiz_kg_try.toFixed(5) : maliyet.standart_setli_boyasiz_kg_try}
+                        {typeof maliyet.standart_setli_boyasiz_kg_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_try) : maliyet.standart_setli_boyasiz_kg_try}
                       </td>
                     )}
                   </>
                 )}
                 
-                {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+                {/* Standart Setli + Boyalı Adet */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_usd === 'number' ? maliyet.standart_setli_boyali_kg_usd.toFixed(5) : maliyet.standart_setli_boyali_kg_usd}
+                        {typeof maliyet.standart_setli_boyali_adet_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_usd) : maliyet.standart_setli_boyali_adet_usd}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_eur === 'number' ? maliyet.standart_setli_boyali_kg_eur.toFixed(5) : maliyet.standart_setli_boyali_kg_eur}
+                        {typeof maliyet.standart_setli_boyali_adet_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_eur) : maliyet.standart_setli_boyali_adet_eur}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_try === 'number' ? maliyet.standart_setli_boyali_kg_try.toFixed(5) : maliyet.standart_setli_boyali_kg_try}
+                        {typeof maliyet.standart_setli_boyali_adet_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_try) : maliyet.standart_setli_boyali_adet_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Standart Setli + Boyalı M2 */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'm2') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_m2_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_usd) : maliyet.standart_setli_boyali_m2_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_m2_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_eur) : maliyet.standart_setli_boyali_m2_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_m2_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_try) : maliyet.standart_setli_boyali_m2_try}
+                      </td>
+                    )}
+                  </>
+                )}
+                
+                {/* Standart Setli + Boyalı Kg */}
+                {(resultFilter.unit === 'all' || resultFilter.unit === 'kg') && (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali') && (
+                  <>
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_kg_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_usd) : maliyet.standart_setli_boyali_kg_usd}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_kg_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_eur) : maliyet.standart_setli_boyali_kg_eur}
+                      </td>
+                    )}
+                    {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {typeof maliyet.standart_setli_boyali_kg_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_try) : maliyet.standart_setli_boyali_kg_try}
                       </td>
                     )}
                   </>
@@ -3383,7 +3464,7 @@ const renderSpecialPanelEntry = () => (
               </tr>
             ))}
             
-            {maliyetListesi.length === 0 && (
+            {filterMaliyetListesi().length === 0 && (
               <tr>
                 <td colSpan="100%" className="px-4 py-4 text-center text-sm text-gray-500">
                   Hesaplama yapılmamış veya sonuçlar bulunamadı.
@@ -3396,104 +3477,196 @@ const renderSpecialPanelEntry = () => (
     </div>
   );
 
-  // Geçici Hesaplar Görünümü
-  const renderTempCalculations = () => (
+  // Satış Listesi Tablosu (Yeni)
+  const renderSalesView = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Geçici Hesaplar</h3>
-          <div className="text-sm text-gray-500">
-            <span className="font-semibold">{geciciHesaplar.length}</span> adet hesaplama
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 className="text-lg font-semibold flex items-center">
+            <Sparkles className="mr-2 text-amber-500" size={20} />
+            Satış Fiyat Listesi
+          </h3>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500">Para Birimi:</span>
+              <select
+                value={salesFilter.currency}
+                onChange={(e) => handleSalesFilterChange('currency', e.target.value)}
+                className="border rounded p-1 text-sm"
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="TRY">TRY</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-gray-500">Birim:</span>
+              <select
+                value={salesFilter.unit}
+                onChange={(e) => handleSalesFilterChange('unit', e.target.value)}
+                className="border rounded p-1 text-sm"
+              >
+                <option value="adet">Adet</option>
+                <option value="m2">m²</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+            
+            <button 
+              onClick={() => exportToExcel('satis')}
+              className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+              disabled={satisListesi.length === 0}
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1" />
+              Excel&apos;e Aktar
+            </button>
+            
+            <button 
+              onClick={() => setShowSalesView(false)}
+              className="flex items-center px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+            >
+              <Calculator className="w-4 h-4 mr-1" />
+              Maliyet Listesi
+            </button>
           </div>
         </div>
         
-        <p className="text-sm text-gray-600">
-          Bu tablo, maliyet hesaplamalarında kullanılan ara değerleri göstermektedir. Sadece referans amaçlıdır.
-        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Panel kodu ara..." 
+              value={panelSearch} 
+              onChange={(e) => setPanelSearch(e.target.value)}
+              className="pl-10 pr-4 py-2 border rounded-md w-full"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Toplam:</span>
+            <span className="font-semibold">{satisListesi.length} sonuç</span>
+          </div>
+        </div>
       </div>
       
       <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 whitespace-nowrap">
                 Panel Kodu
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Panel Kapasite
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Tipi
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Panel Kaynak Elektrik m²
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Yüksekliği
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Panel Kesme Elektrik m²
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Panel Genişliği
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Panel İşçi m²
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Dikey Tel Çapı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Galvaniz Tel Kg
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Yatay Tel Çapı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Boya Kapasite
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Dikey Göz Aralığı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Boya Elektrik m²
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                Yatay Göz Aralığı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Boya İşçi m²
+              
+              {/* Bronz Fiyat */}
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-amber-50 text-amber-700 uppercase tracking-wider whitespace-nowrap">
+                Bronz Fiyat ({salesFilter.currency})
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Adet USD
+              
+              {/* Gümüş Fiyat */}
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                Gümüş Fiyat ({salesFilter.currency})
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Boyalı Adet USD
+              
+              {/* Altın Fiyat */}
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                Altın Fiyat ({salesFilter.currency})
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {geciciHesaplar.map((hesap, index) => (
-              <tr key={index} className="hover:bg-gray-50">
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-0 bg-white">
-                  {hesap.panel_kodu}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.panel_kapasite === 'number' ? hesap.panel_kapasite.toFixed(3) : hesap.panel_kapasite}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.panel_kaynak_elektrik === 'number' ? hesap.panel_kaynak_elektrik.toFixed(5) : hesap.panel_kaynak_elektrik}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.panel_kesme_elektrik === 'number' ? hesap.panel_kesme_elektrik.toFixed(5) : hesap.panel_kesme_elektrik}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.yalniz_panel_isci_m2 === 'number' ? hesap.yalniz_panel_isci_m2.toFixed(5) : hesap.yalniz_panel_isci_m2}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.galvaniz_tel_kg === 'number' ? hesap.galvaniz_tel_kg.toFixed(5) : hesap.galvaniz_tel_kg}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.boya_kapasite === 'number' ? hesap.boya_kapasite.toFixed(3) : hesap.boya_kapasite}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.panel_boya_elektrik === 'number' ? hesap.panel_boya_elektrik.toFixed(5) : hesap.panel_boya_elektrik}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.panel_boya_isci_m2 === 'number' ? hesap.panel_boya_isci_m2.toFixed(5) : hesap.panel_boya_isci_m2}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.adet_usd === 'number' ? hesap.adet_usd.toFixed(5) : hesap.adet_usd}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {typeof hesap.boyali_adet_usd === 'number' ? hesap.boyali_adet_usd.toFixed(5) : hesap.boyali_adet_usd}
-                </td>
-              </tr>
-            ))}
+//Part 13
+{filterMaliyetListesi().map((maliyet, index) => {
+              // Get prices appropriate for the current filter selection
+              const currentCurrency = salesFilter.currency.toLowerCase();
+              const currentUnit = salesFilter.unit;
+              
+              // Base price to calculate from (always use boyali prices)
+              let basePrice;
+              if (currentUnit === 'adet') {
+                basePrice = maliyet[`boyali_adet_${currentCurrency}`];
+              } else if (currentUnit === 'm2') {
+                basePrice = maliyet[`boyali_m2_${currentCurrency}`];
+              } else {
+                basePrice = maliyet[`boyali_kg_${currentCurrency}`];
+              }
+              
+              // Calculate tiered prices
+              const bronzePrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.bronze / 100) : 0;
+              const silverPrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.silver / 100) : 0;
+              const goldPrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.gold / 100) : 0;
+              
+              return (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                    {maliyet.panel_kodu}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_tipi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_yuksekligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_genisligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.dikey_tel_capi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.yatay_tel_capi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.dikey_goz_araligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.yatay_goz_araligi}
+                  </td>
+                  
+                  {/* Bronze Price */}
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+                    {formatDisplayValue(bronzePrice)}
+                  </td>
+                  
+                  {/* Silver Price */}
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+                    {formatDisplayValue(silverPrice)}
+                  </td>
+                  
+                  {/* Gold Price */}
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                    {formatDisplayValue(goldPrice)}
+                  </td>
+                </tr>
+              );
+            })}
             
-            {geciciHesaplar.length === 0 && (
+            {maliyetListesi.length === 0 && (
               <tr>
-                <td colSpan="11" className="px-3 py-4 text-center text-sm text-gray-500">
-                  Hesaplama yapılmamış veya geçici hesaplar bulunamadı.
+                <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
+                  Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
                 </td>
               </tr>
             )}
@@ -3503,6 +3676,38 @@ const renderSpecialPanelEntry = () => (
     </div>
   );
 
+  // Update state variables when sale margin changes (to update calculations)
+  useEffect(() => {
+    if (maliyetListesi.length > 0 && showSalesView) {
+      // Generate new sales prices when margins change
+      const updatedSales = generateSalesList(maliyetListesi);
+      setSatisListesi(updatedSales);
+    }
+  }, [salesMargins, salesFilter]);
+
+  // Helper to filter maliyet results based on search
+  const filterMaliyetListesi = () => {
+    // Apply search filter if present
+    if (panelSearch && panelSearch.trim() !== '') {
+      const searchTerm = panelSearch.toLowerCase();
+      
+      return maliyetListesi.filter(item => {
+        // Search in panel code
+        const panelKodu = (item.panel_kodu || '').toLowerCase();
+        // Search in panel type
+        const panelTipi = (item.panel_tipi || '').toLowerCase();
+        // Search in dimensions
+        const dimensions = `${item.panel_yuksekligi || ''}x${item.panel_genisligi || ''}`;
+        
+        return panelKodu.includes(searchTerm) || 
+               panelTipi.includes(searchTerm) || 
+               dimensions.includes(searchTerm);
+      });
+    }
+    
+    return maliyetListesi;
+  };
+
   // Aktif tab içeriğini gösterme
   const renderActiveTabContent = () => {
     switch (activeTab) {
@@ -3511,7 +3716,7 @@ const renderSpecialPanelEntry = () => (
       case 'special-panel':
         return renderSpecialPanelEntry();
       case 'results':
-        return renderResults();
+        return showSalesView ? renderSalesView() : renderResults();
       case 'temp-calculations':
         return renderTempCalculations();
       default:
