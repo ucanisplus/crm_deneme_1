@@ -3594,116 +3594,79 @@ const PanelCitHesaplama = () => {
           <tbody className="bg-white divide-y divide-gray-200">
 //Part 13
 {filterMaliyetListesi().map((maliyet, index) => {
-              // Get prices appropriate for the current filter selection
-              const currentCurrency = salesFilter.currency.toLowerCase();
-              const currentUnit = salesFilter.unit;
-              
-              // Base price to calculate from (always use boyali prices)
-              let basePrice;
-              if (currentUnit === 'adet') {
-                basePrice = maliyet[`boyali_adet_${currentCurrency}`];
-              } else if (currentUnit === 'm2') {
-                basePrice = maliyet[`boyali_m2_${currentCurrency}`];
-              } else {
-                basePrice = maliyet[`boyali_kg_${currentCurrency}`];
-              }
-              
-              // Calculate tiered prices
-              const bronzePrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.bronze / 100) : 0;
-              const silverPrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.silver / 100) : 0;
-              const goldPrice = typeof basePrice === 'number' ? basePrice * (1 + salesMargins.gold / 100) : 0;
-              
-              return (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                    {maliyet.panel_kodu}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_tipi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_yuksekligi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_genisligi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.dikey_tel_capi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.yatay_tel_capi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.dikey_goz_araligi}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.yatay_goz_araligi}
-                  </td>
-                  
-                  {/* Bronze Price */}
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
-                    {formatDisplayValue(bronzePrice)}
-                  </td>
-                  
-                  {/* Silver Price */}
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
-                    {formatDisplayValue(silverPrice)}
-                  </td>
-                  
-                  {/* Gold Price */}
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
-                    {formatDisplayValue(goldPrice)}
-                  </td>
-                </tr>
-              );
-            })}
-            
-            {maliyetListesi.length === 0 && (
-              <tr>
-                <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
-                  Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
-                </td>
-              </tr>
-            )}
+              // Bu satırdan devam ediyoruz: {filterMaliyetListesi().map((maliyet, index) => {
+  // Güncel döviz ve birim değerlerini al
+  const currentCurrency = salesFilter.currency.toLowerCase();
+  const basePrice = currentUnit === 'adet' 
+    ? maliyet[`boyali_adet_${currentCurrency}`] 
+    : currentUnit === 'm2' 
+      ? maliyet[`boyali_m2_${currentCurrency}`]
+      : maliyet[`boyali_kg_${currentCurrency}`];
+  
+  // Bronz, gümüş ve altın fiyatlarını hesapla
+  const bronzePrice = basePrice * (1 + salesMargins.bronze / 100);
+  const silverPrice = basePrice * (1 + salesMargins.silver / 100);
+  const goldPrice = basePrice * (1 + salesMargins.gold / 100);
+  
+  return (
+    <tr key={index} className="hover:bg-gray-50">
+      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+        {maliyet.panel_kodu}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.panel_tipi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.panel_yuksekligi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.panel_genisligi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.dikey_tel_capi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.yatay_tel_capi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.dikey_goz_araligi}
+      </td>
+      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+        {maliyet.yatay_goz_araligi}
+      </td>
+      
+      {/* Bronz Fiyat */}
+      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+        {formatDisplayValue(bronzePrice)}
+      </td>
+      
+      {/* Gümüş Fiyat */}
+      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+        {formatDisplayValue(silverPrice)}
+      </td>
+      
+      {/* Altın Fiyat */}
+      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+        {formatDisplayValue(goldPrice)}
+      </td>
+    </tr>
+  );
+})}
+
+{maliyetListesi.length === 0 && (
+  <tr>
+    <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
+      Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
+    </td>
+  </tr>
+)}
           </tbody>
         </table>
       </div>
     </div>
   );
 
-  // Update state variables when sale margin changes (to update calculations)
-  useEffect(() => {
-    if (maliyetListesi.length > 0 && showSalesView) {
-      // Generate new sales prices when margins change
-      const updatedSales = generateSalesList(maliyetListesi);
-      setSatisListesi(updatedSales);
-    }
-  }, [salesMargins, salesFilter]);
-
-  // Helper to filter maliyet results based on search
-  const filterMaliyetListesi = () => {
-    // Apply search filter if present
-    if (panelSearch && panelSearch.trim() !== '') {
-      const searchTerm = panelSearch.toLowerCase();
-      
-      return maliyetListesi.filter(item => {
-        // Search in panel code
-        const panelKodu = (item.panel_kodu || '').toLowerCase();
-        // Search in panel type
-        const panelTipi = (item.panel_tipi || '').toLowerCase();
-        // Search in dimensions
-        const dimensions = `${item.panel_yuksekligi || ''}x${item.panel_genisligi || ''}`;
-        
-        return panelKodu.includes(searchTerm) || 
-               panelTipi.includes(searchTerm) || 
-               dimensions.includes(searchTerm);
-      });
-    }
-    
-    return maliyetListesi;
-  };
-
-  // Aktif tab içeriğini gösterme
+  // Aktif sekme içeriğini gösterme
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'main-panel':
@@ -3719,7 +3682,7 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Loading göstergesi
+  // Yükleniyor göstergesi
   const renderLoading = () => (
     <div className="flex items-center justify-center h-64">
       <div className="flex flex-col items-center">
@@ -3729,7 +3692,7 @@ const PanelCitHesaplama = () => {
     </div>
   );
 
-  // Main component return
+  // Ana bileşen return
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Panel Çit Maliyet Hesaplama</h2>
