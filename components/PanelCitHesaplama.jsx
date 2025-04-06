@@ -718,11 +718,6 @@ const PanelCitHesaplama = () => {
         const l1Metre = (materialHeight * materialWidth) / 10000;
 
 //Part 5
-
-const manualOrder = panel.manual_order || '';
-        
-        // Yüzey alanı hesapla
-        const l1Metre = (materialHeight * materialWidth) / 10000;
         
         // Panel Kapasite hesapla
         let panelKapasite = 0;
