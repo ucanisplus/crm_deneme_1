@@ -4202,6 +4202,6 @@ const PanelCitHesaplama = () => {
       {loading ? renderLoading() : renderActiveTabContent()}
     </div>
   );
-};
+}
 
 export default PanelCitHesaplama;
