@@ -3662,50 +3662,50 @@ const PanelCitHesaplama = () => {
               );
 
               // Sekme butonlarını render eden fonksiyon
-              const renderTabButtons = () => (
-                  <div className="flex space-x-2 bg-[#1a1a1a] p-2 rounded-xl border border-red-600 shadow-sm">
-                    <button
-                      onClick={() => setActiveTab('main-panel')}
-                      className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                        activeTab === 'main-panel'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                      }`}
-                    >
-                      Ana Panel Listesi
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('special-panel')}
-                      className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                        activeTab === 'special-panel'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                      }`}
-                    >
-                      Özel Panel Girişi
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('results')}
-                      className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                        activeTab === 'results'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                      }`}
-                    >
-                      Hesap Sonuçları
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('temp-calculations')}
-                      className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                        activeTab === 'temp-calculations'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                      }`}
-                    >
-                      Geçici Hesaplamalar
-                    </button>
-                  </div>
-                );
+             const renderTabButtons = () => (
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setActiveTab('main-panel')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+                    activeTab === 'main-panel'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+                  }`}
+                >
+                  Ana Panel Listesi
+                </button>
+                <button
+                  onClick={() => setActiveTab('special-panel')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+                    activeTab === 'special-panel'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+                  }`}
+                >
+                  Özel Panel Girişi
+                </button>
+                <button
+                  onClick={() => setActiveTab('results')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+                    activeTab === 'results'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+                  }`}
+                >
+                  Hesap Sonuçları
+                </button>
+                <button
+                  onClick={() => setActiveTab('temp-calculations')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+                    activeTab === 'temp-calculations'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+                  }`}
+                >
+                  Geçici Hesaplamalar
+                </button>
+              </div>
+            );
 
 
               // Sekme içeriklerini gösteren fonksiyon
