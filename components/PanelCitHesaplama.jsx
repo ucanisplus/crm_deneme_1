@@ -92,6 +92,8 @@ const PALLET_WEIGHTS = {
   }
 };
 
+const [satisListesi, setSatisListesi] = useState([]);
+
 // En yakın yükseklik değerini bulma yardımcı fonksiyonu
 const getClosestHeight = (height, panelType, widthStr) => {
   const lookupTable = PALLET_WEIGHTS[panelType]?.[widthStr];
