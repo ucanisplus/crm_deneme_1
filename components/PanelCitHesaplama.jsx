@@ -183,7 +183,7 @@ const PanelCitHesaplama = () => {
   const [debounceTimer, setDebounceTimer] = useState(null);
 
 
-// Part 2
+
 
 // Sayfa yüklendiğinde verileri çek
   useEffect(() => {
@@ -403,7 +403,7 @@ const PanelCitHesaplama = () => {
     setFilteredPanelList(filtered);
   };
 
-//Part 3
+
 
 // Excel benzeri sütun filtresi ayarlama
   const handleColumnFilterChange = (column, value) => {
@@ -577,7 +577,7 @@ const PanelCitHesaplama = () => {
     }
   };
 
-//Part 4
+
 
 // Veritabanına asenkron kaydetme - kullanıcı arayüzünü bloke etmeden
   const saveToDatabaseAsync = async (geciciHesaplarData, maliyetListesiData) => {
@@ -719,7 +719,7 @@ const PanelCitHesaplama = () => {
         // Yüzey alanı hesapla
         const l1Metre = (materialHeight * materialWidth) / 10000;
 
-//Part 5
+
         
         // Panel Kapasite hesapla
         let panelKapasite = 0;
@@ -1045,7 +1045,7 @@ const PanelCitHesaplama = () => {
     return { geciciHesaplar, maliyetListesi };
   }; 
 
-//Part 6
+
   
   // Satış listesi oluşturma fonksiyonu
   const generateSalesList = (maliyetListesi) => {
@@ -1379,7 +1379,7 @@ const PanelCitHesaplama = () => {
     }
 
 
-//Part 7
+
 
     
     // Boya kilogram hesaplama
@@ -1689,7 +1689,7 @@ const PanelCitHesaplama = () => {
   };
 
 
-//Part 8
+
 
 // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
   const renderPanelList = () => (
@@ -2037,9 +2037,9 @@ const PanelCitHesaplama = () => {
         <AccordionContent className="px-4 py-4 border-t">
 
 
-// Part 9
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
             {/* İşçi Sayıları ve Vardiyalar */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
               <h4 className="font-medium mb-3">İşçi Sayıları ve Vardiyalar</h4>
@@ -2383,10 +2383,10 @@ const PanelCitHesaplama = () => {
               </div>
             </div>
 
-//Part 10
 
 
-{/* Doğalgaz ve Boya Tüketimi */}
+
+        {/* Doğalgaz ve Boya Tüketimi */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
               <h4 className="font-medium mb-3">Doğalgaz ve Boya Tüketimi</h4>
               <div className="space-y-3">
@@ -2795,7 +2795,7 @@ const PanelCitHesaplama = () => {
   );
 
 
-// Part 11
+
 
 // Sonuçlar (Maliyet Listesi) Tablosu
   const renderResults = () => (
@@ -3174,7 +3174,7 @@ const PanelCitHesaplama = () => {
           <tbody className="bg-white divide-y divide-gray-200">
 
 
-// Part 12
+
 
 
 {filterMaliyetListesi().map((maliyet, index) => (
@@ -3594,132 +3594,132 @@ const PanelCitHesaplama = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-//Part 13
-{filterMaliyetListesi().map((maliyet, index) => {
-  const currentCurrency = salesFilter.currency.toLowerCase();
-  const currentUnit = 'adet'; // Varsayilan birim
-  const basePrice =
-    currentUnit === 'adet'
-      ? maliyet[`boyali_adet_${currentCurrency}`]
-      : currentUnit === 'm2'
-      ? maliyet[`boyali_m2_${currentCurrency}`]
-      : maliyet[`boyali_kg_${currentCurrency}`];
+            //Sonradan Eklenen Part
+            {filterMaliyetListesi().map((maliyet, index) => {
+              const currentCurrency = salesFilter.currency.toLowerCase();
+              const currentUnit = 'adet'; // Varsayilan birim
+              const basePrice =
+                currentUnit === 'adet'
+                  ? maliyet[`boyali_adet_${currentCurrency}`]
+                  : currentUnit === 'm2'
+                  ? maliyet[`boyali_m2_${currentCurrency}`]
+                  : maliyet[`boyali_kg_${currentCurrency}`];
 
-  const bronzePrice = basePrice * (1 + salesMargins.bronze / 100);
-  const silverPrice = basePrice * (1 + salesMargins.silver / 100);
-  const goldPrice = basePrice * (1 + salesMargins.gold / 100);
+              const bronzePrice = basePrice * (1 + salesMargins.bronze / 100);
+              const silverPrice = basePrice * (1 + salesMargins.silver / 100);
+              const goldPrice = basePrice * (1 + salesMargins.gold / 100);
 
-  return (
-    <tr key={index} className="hover:bg-gray-50">
-      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-        {maliyet.panel_kodu}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.panel_tipi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.panel_yuksekligi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.panel_genisligi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.dikey_tel_capi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.yatay_tel_capi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.dikey_goz_araligi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-        {maliyet.yatay_goz_araligi}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
-        {formatDisplayValue(bronzePrice)}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
-        {formatDisplayValue(silverPrice)}
-      </td>
-      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
-        {formatDisplayValue(goldPrice)}
-      </td>
-    </tr>
-  );
-})}
+              return (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                    {maliyet.panel_kodu}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_tipi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_yuksekligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.panel_genisligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.dikey_tel_capi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.yatay_tel_capi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.dikey_goz_araligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {maliyet.yatay_goz_araligi}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+                    {formatDisplayValue(bronzePrice)}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+                    {formatDisplayValue(silverPrice)}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                    {formatDisplayValue(goldPrice)}
+                  </td>
+                </tr>
+              );
+            })}
 
-{maliyetListesi.length === 0 && (
-  <tr>
-    <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
-      Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
-    </td>
-  </tr>
-)}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+            {maliyetListesi.length === 0 && (
+              <tr>
+                <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
+                  Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
+                </td>
+              </tr>
+            )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
 
-  // Sekme butonlarını render eden fonksiyon
-  const renderTabButtons = () => (
-    <div className="flex space-x-2">
-      <button onClick={() => setActiveTab('main-panel')} className={activeTab === 'main-panel' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
-        Ana Panel Listesi
-      </button>
-      <button onClick={() => setActiveTab('special-panel')} className={activeTab === 'special-panel' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
-        Özel Panel Girişi
-      </button>
-      <button onClick={() => setActiveTab('results')} className={activeTab === 'results' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
-        Hesap Sonuçları
-      </button>
-      <button onClick={() => setActiveTab('temp-calculations')} className={activeTab === 'temp-calculations' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
-        Geçici Hesaplamalar
-      </button>
-    </div>
-  );
+              // Sekme butonlarını render eden fonksiyon
+              const renderTabButtons = () => (
+                <div className="flex space-x-2">
+                  <button onClick={() => setActiveTab('main-panel')} className={activeTab === 'main-panel' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
+                    Ana Panel Listesi
+                  </button>
+                  <button onClick={() => setActiveTab('special-panel')} className={activeTab === 'special-panel' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
+                    Özel Panel Girişi
+                  </button>
+                  <button onClick={() => setActiveTab('results')} className={activeTab === 'results' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
+                    Hesap Sonuçları
+                  </button>
+                  <button onClick={() => setActiveTab('temp-calculations')} className={activeTab === 'temp-calculations' ? 'bg-blue-500 text-white' : 'bg-gray-200'}>
+                    Geçici Hesaplamalar
+                  </button>
+                </div>
+              );
 
-  // Sekme içeriklerini gösteren fonksiyon
-  const renderActiveTabContent = () => {
-    switch (activeTab) {
-      case 'main-panel':
-        return renderPanelList();
-      case 'special-panel':
-        return renderSpecialPanelEntry();
-      case 'results':
-        return showSalesView ? renderSalesView() : renderResults();
-      case 'temp-calculations':
-        return renderTempCalculations();
-      default:
-        return renderPanelList();
-    }
-  };
+              // Sekme içeriklerini gösteren fonksiyon
+              const renderActiveTabContent = () => {
+                switch (activeTab) {
+                  case 'main-panel':
+                    return renderPanelList();
+                  case 'special-panel':
+                    return renderSpecialPanelEntry();
+                  case 'results':
+                    return showSalesView ? renderSalesView() : renderResults();
+                  case 'temp-calculations':
+                    return renderTempCalculations();
+                  default:
+                    return renderPanelList();
+                }
+              };
 
-  // Geçici hesaplamaların görüntülenmesi
-  const renderTempCalculations = () => (
-    <div className="p-4 bg-gray-50 rounded shadow">
-      <p className="text-gray-700">Geçici hesaplama verileri burada görüntülenecek...</p>
-    </div>
-  );
+              // Geçici hesaplamaların görüntülenmesi
+              const renderTempCalculations = () => (
+                <div className="p-4 bg-gray-50 rounded shadow">
+                  <p className="text-gray-700">Geçici hesaplama verileri burada görüntülenecek...</p>
+                </div>
+              );
 
-  // Yükleme animasyonu
-  const renderLoading = () => (
-    <div className="flex items-center justify-center h-64">
-      <div className="flex flex-col items-center">
-        <RefreshCw className="animate-spin text-red-600 mb-4" size={40} />
-        <p className="text-gray-600">Veriler yükleniyor, lütfen bekleyin...</p>
-      </div>
-    </div>
-  );
+              // Yükleme animasyonu
+              const renderLoading = () => (
+                <div className="flex items-center justify-center h-64">
+                  <div className="flex flex-col items-center">
+                    <RefreshCw className="animate-spin text-red-600 mb-4" size={40} />
+                    <p className="text-gray-600">Veriler yükleniyor, lütfen bekleyin...</p>
+                  </div>
+                </div>
+              );
 
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Panel Çit Maliyet Hesaplama</h2>
-      {renderTabButtons()}
-      {renderDegiskenlerAccordion()}
-      {loading ? renderLoading() : renderActiveTabContent()}
-    </div>
-  );
-};
+              return (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold">Panel Çit Maliyet Hesaplama</h2>
+                  {renderTabButtons()}
+                  {renderDegiskenlerAccordion()}
+                  {loading ? renderLoading() : renderActiveTabContent()}
+                </div>
+              );
+            };
 
-export default PanelCitHesaplama;
+            export default PanelCitHesaplama;
