@@ -127,11 +127,10 @@ const formatDisplayValue = (value) => {
   
   const num = parseFloat(value);
   
-  // Tam sayı ise, ondalık gösterme
   if (Number.isInteger(num)) return num.toString();
   
-  // Ondalıklı sayıysa, gereksiz sıfırları kaldır
-  return num.toString().replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.$/, '');
+  const rounded = parseFloat(num.toFixed(5));
+  return rounded.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 };
 
 // Ana PanelCitHesaplama bileşeni
@@ -1166,6 +1165,11 @@ const PanelCitHesaplama = () => {
       const processedData = {};
       Object.entries(genelDegiskenler).forEach(([key, value]) => {
         // Boş string veya undefined değerleri işle
+        if (key === 'usd_tl' || key === 'eur_usd') {
+          return;
+        }
+        
+
         if (value === '' || value === undefined) {
           processedData[key] = null;
         } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
@@ -1185,81 +1189,101 @@ const PanelCitHesaplama = () => {
       const response = await axios.post(API_URLS.genelDegiskenler, dataToSave);
       if (response.status === 200 || response.status === 201) {
         alert('Genel değişkenler başarıyla kaydedildi.');
-        fetchSectionData('genel'); // Sadece genel değişkenleri güncelle
+        fetchSectionData('genel'); // Only refresh general variables
       }
     } catch (error) {
       console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // Panel Çit Değişkenlerini Güncelleme
-  const updatePanelCitDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        panel_cit_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Panel çit değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini güncelle
+// Panel Çit değişkenlerini güncelleyen fonksiyon - artık duplicate key hatasını düzgün yönetiyor
+const updatePanelCitDegiskenler = async () => {
+  try {
+    // Kaydedilecek veriyi işleme
+    const processedData = {};
+    Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
+      // Boş ya da tanımsız değerleri null yap
+      if (value === '' || value === undefined) {
+        processedData[key] = null;
+      } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+        // Virgüllü sayı stringlerini gerçek sayıya çevir
+        processedData[key] = parseFloat(value.replace(',', '.'));
+      } else {
+        processedData[key] = value;
       }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
-    }
-  };
+    });
 
-  // Profil Değişkenlerini Güncelleme
-  const updateProfilDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      Object.entries(profilDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        profil_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil'); // Sadece profil değişkenlerini güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+    // Zaman damgası ekle
+    const dataToSave = {
+      ...processedData,
+      panel_cit_latest_update: new Date().toISOString()
+    };
+
+    // Eğer elimizde unique_key varsa PUT metodunu kullan (duplicate key hatasını önlemek için)
+    let response;
+    if (panelCitDegiskenler.unique_key) {
+      response = await axios.put(`${API_URLS.panelCitDegiskenler}/${panelCitDegiskenler.unique_key}`, dataToSave);
+    } else {
+      response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
     }
-  };
+
+    // Başarılı cevap durumunda kullanıcıyı bilgilendir ve sadece panel çit verilerini yenile
+    if (response.status === 200 || response.status === 201) {
+      alert('Panel çit değişkenleri başarıyla kaydedildi.');
+      fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini yenile
+    }
+  } catch (error) {
+    // Hata durumunda konsola yazdır ve kullanıcıyı bilgilendir
+    console.error('Kaydetme hatası:', error);
+    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  }
+};
+
+
+// Profil değişkenlerini güncelleyen fonksiyon - artık duplicate key hatasını düzgün yönetiyor
+const updateProfilDegiskenler = async () => {
+  try {
+    // Kaydedilecek veriyi işleme
+    const processedData = {};
+    Object.entries(profilDegiskenler).forEach(([key, value]) => {
+      // Boş ya da tanımsız değerleri null yap
+      if (value === '' || value === undefined) {
+        processedData[key] = null;
+      } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+        // Virgüllü sayı stringlerini gerçek sayıya çevir
+        processedData[key] = parseFloat(value.replace(',', '.'));
+      } else {
+        processedData[key] = value;
+      }
+    });
+
+    // Zaman damgası ekle
+    const dataToSave = {
+      ...processedData,
+      profil_latest_update: new Date().toISOString()
+    };
+
+    // Eğer elimizde id varsa PUT metodunu kullan (duplicate key hatasını önlemek için)
+    let response;
+    if (profilDegiskenler.id) {
+      response = await axios.put(`${API_URLS.profilDegiskenler}/${profilDegiskenler.id}`, dataToSave);
+    } else {
+      response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
+    }
+
+    // Başarılı cevap durumunda kullanıcıyı bilgilendir ve sadece profil verilerini yenile
+    if (response.status === 200 || response.status === 201) {
+      alert('Profil değişkenleri başarıyla kaydedildi.');
+      fetchSectionData('profil'); // Sadece profil değişkenlerini yenile
+    }
+  } catch (error) {
+    // Hata durumunda konsola yazdır ve kullanıcıyı bilgilendir
+    console.error('Kaydetme hatası:', error);
+    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  }
+};
+
 
   // Özel panel ekleme 
   const addOzelPanel = () => {
@@ -1635,28 +1659,98 @@ const PanelCitHesaplama = () => {
     setSatisListesi(generateSalesList(maliyetListesi));
   };
 
-  // Excel'e aktarma
+  // Geliştirilmiş Excel dışa aktarımı – filtreleme ve formatlama ile birlikte
   const exportToExcel = (listType = 'maliyet') => {
-    const dataToExport = listType === 'maliyet' ? maliyetListesi : satisListesi;
-    
+    let dataToExport = [];
+    let filename = '';
+    let sheetName = '';
+  
+    // Aktarılacak veriyi belirle (görünüme ve filtreye göre)
+    if (listType === 'maliyet') {
+      dataToExport = filterMaliyetListesi(); // Şu anki filtrelenmiş verileri al
+      filename = 'Panel_Cit_Maliyet_Listesi.xlsx';
+      sheetName = 'Maliyet Listesi';
+    } else if (listType === 'satis') {
+      // Satış verileri için maliyet verilerini satış fiyatına göre dönüştür
+      dataToExport = filterMaliyetListesi().map(item => {
+        const bronzePrice = calculateSalesPrice(item, 'bronze');
+        const silverPrice = calculateSalesPrice(item, 'silver');
+        const goldPrice = calculateSalesPrice(item, 'gold');
+  
+        return {
+          panel_kodu: item.panel_kodu,
+          panel_tipi: item.panel_tipi,
+          panel_yuksekligi: item.panel_yuksekligi,
+          panel_genisligi: item.panel_genisligi,
+          dikey_tel_capi: item.dikey_tel_capi,
+          yatay_tel_capi: item.yatay_tel_capi,
+          dikey_goz_araligi: item.dikey_goz_araligi,
+          yatay_goz_araligi: item.yatay_goz_araligi,
+          [`Bronz Fiyat (${salesFilter.currency})`]: bronzePrice,
+          [`Gümüş Fiyat (${salesFilter.currency})`]: silverPrice,
+          [`Altın Fiyat (${salesFilter.currency})`]: goldPrice
+        };
+      });
+      filename = 'Panel_Cit_Satis_Listesi.xlsx';
+      sheetName = 'Satış Listesi';
+    } else if (listType === 'ozel') {
+      // Özel panel verilerini dışa aktar
+      dataToExport = ozelPanelList;
+      filename = 'Panel_Cit_Ozel_Panel_Listesi.xlsx';
+      sheetName = 'Özel Panel Listesi';
+    }
+  
+    // Dışa aktarılacak veri yoksa kullanıcıyı bilgilendir
     if (!dataToExport.length) {
       alert('Dışa aktarılacak veri bulunamadı!');
       return;
     }
-    
-    // Filtrelere göre sütunları belirle
-    const exportData = [...dataToExport];
-    
-    // Worksheet oluştur
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    
-    // Workbook oluştur
+  
+    // Excel çalışma sayfasını oluştur
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+  
+    // Başlıklara temel stil uygulaması
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    const headerCellStyle = {
+      font: { bold: true },
+      alignment: { horizontal: 'center' },
+      fill: { fgColor: { rgb: "EEEEEE" } }
+    };
+  
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r: 0, c: C })];
+      if (!cell) continue;
+      cell.s = headerCellStyle;
+    }
+  
+    // Excel dosyasını oluştur ve çalışma sayfasını ekle
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, listType === 'maliyet' ? 'Maliyet Listesi' : 'Satış Listesi');
-    
-    // Excel dosyasını indir
-    XLSX.writeFile(workbook, listType === 'maliyet' ? 'Panel_Cit_Maliyet_Listesi.xlsx' : 'Panel_Cit_Satis_Listesi.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  
+    // Excel dosyasını dışa aktar
+    XLSX.writeFile(workbook, filename);
   };
+  
+  // Satış fiyatını hesaplayan yardımcı fonksiyon
+  const calculateSalesPrice = (item, priceType) => {
+    const margin = salesMargins[priceType] / 100;
+    const currency = salesFilter.currency.toLowerCase();
+    const unit = salesFilter.unit;
+  
+    // Seçilen birim ve para birimine göre baz fiyatı al
+    let basePrice = 0;
+    if (unit === 'adet') {
+      basePrice = item[`boyali_adet_${currency}`];
+    } else if (unit === 'm2') {
+      basePrice = item[`boyali_m2_${currency}`];
+    } else if (unit === 'kg') {
+      basePrice = item[`boyali_kg_${currency}`];
+    }
+  
+    // Kar marjı uygula ve 5 ondalığa yuvarla
+    return parseFloat((basePrice * (1 + margin)).toFixed(5));
+  };
+
 
   // Genel değişkenleri güncelleme
   const handleGenelDegiskenlerChange = (field, value) => {
