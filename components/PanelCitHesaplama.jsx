@@ -1095,8 +1095,8 @@ const PanelCitHesaplama = () => {
   };
 
   // Marjlı fiyat hesaplama yardımcı fonksiyonu
-  const calculatePricesWithMargin = (item, priceType) => {
-    const margin = salesMargins[priceType] / 100;
+ // const calculatePricesWithMargin = (item, priceType) => {
+  //  const margin = salesMargins[priceType] / 100;
     
     // Seçili birime göre temel fiyatları al
     const getBasePrices = (unit) => {
