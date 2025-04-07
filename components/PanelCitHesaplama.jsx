@@ -1078,44 +1078,23 @@ const PanelCitHesaplama = () => {
       const goldPrices = calculatePricesWithMargin(item, 'gold');
       
       return {
-      ...item,
-      bronze_usd: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'usd'),
-      bronze_eur: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'eur'),
-      bronze_try: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'try'),
-      silver_usd: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'usd'),
-      silver_eur: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'eur'),
-      silver_try: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'try'),
-      gold_usd: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'usd'),
-      gold_eur: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'eur'),
-      gold_try: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'try')
-    };
-  });
-  
-  return salesList;
-};
-
-By making this change and removing the first implementation of the function, you'll resolve the duplicate function definition error while maintaining the same functionality.
-
-
-
+        ...item,
+        bronze_usd: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'usd'),
+        bronze_eur: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'eur'),
+        bronze_try: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'try'),
+        silver_usd: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'usd'),
+        silver_eur: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'eur'),
+        silver_try: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'try'),
+        gold_usd: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'usd'),
+        gold_eur: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'eur'),
+        gold_try: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'try')
+      };
+    });
     
     return salesList;
   };
 
-  // Marjlı fiyat hesaplama yardımcı fonksiyonu
-  const calculatePricesWithMargin = (item, priceType) => {
-    const margin = salesMargins[priceType] / 100;
 
-    
-    const basePrices = getBasePrices(salesFilter.unit);
-    
-    // Marjları uygula ve 5 ondalığa yuvarla
-    return {
-      usd: parseFloat((basePrices.usd * (1 + margin)).toFixed(5)),
-      eur: parseFloat((basePrices.eur * (1 + margin)).toFixed(5)),
-      try: parseFloat((basePrices.try * (1 + margin)).toFixed(5))
-    };
-  };
 
   // Genel değişkenleri güncelleme - kur değerlerini veritabanına kaydetme hatası düzeltildi
   const updateGenelDegiskenler = async () => {
