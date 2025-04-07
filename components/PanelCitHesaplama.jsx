@@ -1078,18 +1078,26 @@ const PanelCitHesaplama = () => {
       const goldPrices = calculatePricesWithMargin(item, 'gold');
       
       return {
-        ...item,
-        bronze_usd: bronzePrices.usd,
-        bronze_eur: bronzePrices.eur,
-        bronze_try: bronzePrices.try,
-        silver_usd: silverPrices.usd,
-        silver_eur: silverPrices.eur,
-        silver_try: silverPrices.try,
-        gold_usd: goldPrices.usd,
-        gold_eur: goldPrices.eur,
-        gold_try: goldPrices.try
-      };
-    });
+      ...item,
+      bronze_usd: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'usd'),
+      bronze_eur: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'eur'),
+      bronze_try: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'try'),
+      silver_usd: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'usd'),
+      silver_eur: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'eur'),
+      silver_try: calculatePricesWithMargin(item, 'silver', salesFilter.unit, 'try'),
+      gold_usd: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'usd'),
+      gold_eur: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'eur'),
+      gold_try: calculatePricesWithMargin(item, 'gold', salesFilter.unit, 'try')
+    };
+  });
+  
+  return salesList;
+};
+
+By making this change and removing the first implementation of the function, you'll resolve the duplicate function definition error while maintaining the same functionality.
+
+
+
     
     return salesList;
   };
@@ -1097,36 +1105,7 @@ const PanelCitHesaplama = () => {
   // Marjlı fiyat hesaplama yardımcı fonksiyonu
   const calculatePricesWithMargin = (item, priceType) => {
     const margin = salesMargins[priceType] / 100;
-    
-    // Seçili birime göre temel fiyatları al
-    const getBasePrices = (unit) => {
-      switch (unit) {
-        case 'adet':
-          return {
-            usd: item.boyali_adet_usd,
-            eur: item.boyali_adet_eur,
-            try: item.boyali_adet_try
-          };
-        case 'm2':
-          return {
-            usd: item.boyali_m2_usd,
-            eur: item.boyali_m2_eur,
-            try: item.boyali_m2_try
-          };
-        case 'kg':
-          return {
-            usd: item.boyali_kg_usd,
-            eur: item.boyali_kg_eur,
-            try: item.boyali_kg_try
-          };
-        default:
-          return {
-            usd: item.boyali_adet_usd,
-            eur: item.boyali_adet_eur,
-            try: item.boyali_adet_try
-          };
-      }
-    };
+
     
     const basePrices = getBasePrices(salesFilter.unit);
     
