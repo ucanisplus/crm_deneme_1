@@ -92,7 +92,6 @@ const PALLET_WEIGHTS = {
   }
 };
 
-const [satisListesi, setSatisListesi] = useState([]);
 
 // En yakın yükseklik değerini bulma yardımcı fonksiyonu
 const getClosestHeight = (height, panelType, widthStr) => {
@@ -138,6 +137,7 @@ const formatDisplayValue = (value) => {
 // Ana PanelCitHesaplama bileşeni
 const PanelCitHesaplama = () => {
   // State tanımlamaları
+  const [satisListesi, setSatisListesi] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sectionLoading, setSectionLoading] = useState({
     genel: false,
