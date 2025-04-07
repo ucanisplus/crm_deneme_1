@@ -121,16 +121,48 @@ const safeParseFloat = (value, defaultValue = 0) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-// Görüntüleme için format yardımcı fonksiyonu (gereksiz ondalık basamakları önler)
+// İyileştirilmiş görüntüleme formatı - gereksiz ondalık sıfırları kaldırır
 const formatDisplayValue = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
   
+  // Tam sayı ise, ondalık gösterme
   if (Number.isInteger(num)) return num.toString();
   
-  const rounded = parseFloat(num.toFixed(5));
-  return rounded.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  // Küçük ölçümler için (tel çapı, göz aralığı gibi)
+  if (num < 100 && (num % 1 !== 0)) {
+    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+  
+  // Fiyatlar için 5 ondalık
+  if (num > 100 || String(value).includes('fiyat') || String(value).includes('price')) {
+    return num.toFixed(5);
+  }
+  
+  // Diğer ondalıklı sayılar için gereksiz sıfırları kaldır
+  return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+};
+
+// Tablo hücreleri için özel formatlama yardımcı fonksiyonu
+const formatTableValue = (value, columnType) => {
+  if (value === null || value === undefined || isNaN(value)) return '';
+  
+  const num = parseFloat(value);
+  
+  if (columnType === 'tel_capi' || columnType === 'goz_araligi') {
+    // Ölçümler için gereksiz sıfırları kaldır ama önemli ondalıkları koru
+    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  } else if (columnType === 'price') {
+    // Fiyatlar için tam 5 ondalık göster
+    return num.toFixed(5);
+  } else if (Number.isInteger(num)) {
+    // Tam sayılar için ondalık gösterme
+    return num.toString();
+  } else {
+    // Diğer ondalıklı sayılar için gereksiz sıfırları kaldır
+    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
 };
 
 // Ana PanelCitHesaplama bileşeni
@@ -166,7 +198,7 @@ const PanelCitHesaplama = () => {
   });
   const [salesFilter, setSalesFilter] = useState({
     currency: 'USD',
-    unit: 'adet'
+    unit: 'all'
   });
   const [salesMargins, setSalesMargins] = useState({
     bronze: 10,
@@ -181,10 +213,7 @@ const PanelCitHesaplama = () => {
   // Debounce için zamanlayıcı
   const [debounceTimer, setDebounceTimer] = useState(null);
 
-
-
-
-// Sayfa yüklendiğinde verileri çek
+  // Sayfa yüklendiğinde verileri çek
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -402,9 +431,7 @@ const PanelCitHesaplama = () => {
     setFilteredPanelList(filtered);
   };
 
-
-
-// Excel benzeri sütun filtresi ayarlama
+  // Excel benzeri sütun filtresi ayarlama
   const handleColumnFilterChange = (column, value) => {
     setColumnFilters(prev => ({
       ...prev,
@@ -453,17 +480,19 @@ const PanelCitHesaplama = () => {
 
   // Maliyet tablosunu filtreleme
   const filterMaliyetListesi = () => {
-    // Arama terimi varsa arama filtresini uygula
+    // Önce temel filtreleme - arama terimi
+    let filtered = [...maliyetListesi];
+    
     if (panelSearch && panelSearch.trim() !== '') {
       const searchTerm = panelSearch.toLowerCase();
-      
-      return maliyetListesi.filter(item => {
+      filtered = filtered.filter(item => {
         const panelKodu = (item.panel_kodu || '').toLowerCase();
-        return panelKodu.includes(searchTerm);
+        const manualOrder = (item.manual_order || '').toLowerCase();
+        return panelKodu.includes(searchTerm) || manualOrder.includes(searchTerm);
       });
     }
     
-    return maliyetListesi;
+    return filtered;
   };
 
   // Panel Kodu Oluşturma
@@ -576,9 +605,7 @@ const PanelCitHesaplama = () => {
     }
   };
 
-
-
-// Veritabanına asenkron kaydetme - kullanıcı arayüzünü bloke etmeden
+  // Veritabanına asenkron kaydetme - kullanıcı arayüzünü bloke etmeden
   const saveToDatabaseAsync = async (geciciHesaplarData, maliyetListesiData) => {
     try {
       // Önce geçici hesaplar tablosunu temizle
@@ -718,8 +745,6 @@ const PanelCitHesaplama = () => {
         // Yüzey alanı hesapla
         const l1Metre = (materialHeight * materialWidth) / 10000;
 
-
-        
         // Panel Kapasite hesapla
         let panelKapasite = 0;
         if (panelType === "Single" || panelType === "Ozel") {
@@ -1043,133 +1068,88 @@ const PanelCitHesaplama = () => {
     
     return { geciciHesaplar, maliyetListesi };
   }; 
-
-
   
-  // Satış listesi oluşturma fonksiyonu
+  // Satış listesi oluşturma fonksiyonu - güncellenmiş versiyon
   const generateSalesList = (maliyetListesi) => {
     const salesList = maliyetListesi.map(item => {
-      // Bronz, gümüş ve altın fiyatları hesapla
-      const bronzPrice = (item) => {
-        switch (salesFilter.unit) {
-          case 'adet':
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.bronze / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.bronze / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.bronze / 100)
-            };
-          case 'm2':
-            return {
-              usd: item.boyali_m2_usd * (1 + salesMargins.bronze / 100),
-              eur: item.boyali_m2_eur * (1 + salesMargins.bronze / 100),
-              try: item.boyali_m2_try * (1 + salesMargins.bronze / 100)
-            };
-          case 'kg':
-            return {
-              usd: item.boyali_kg_usd * (1 + salesMargins.bronze / 100),
-              eur: item.boyali_kg_eur * (1 + salesMargins.bronze / 100),
-              try: item.boyali_kg_try * (1 + salesMargins.bronze / 100)
-            };
-          default:
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.bronze / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.bronze / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.bronze / 100)
-            };
-        }
-      };
-      
-      const silverPrice = (item) => {
-        switch (salesFilter.unit) {
-          case 'adet':
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.silver / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.silver / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.silver / 100)
-            };
-          case 'm2':
-            return {
-              usd: item.boyali_m2_usd * (1 + salesMargins.silver / 100),
-              eur: item.boyali_m2_eur * (1 + salesMargins.silver / 100),
-              try: item.boyali_m2_try * (1 + salesMargins.silver / 100)
-            };
-          case 'kg':
-            return {
-              usd: item.boyali_kg_usd * (1 + salesMargins.silver / 100),
-              eur: item.boyali_kg_eur * (1 + salesMargins.silver / 100),
-              try: item.boyali_kg_try * (1 + salesMargins.silver / 100)
-            };
-          default:
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.silver / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.silver / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.silver / 100)
-            };
-        }
-      };
-      
-      const goldPrice = (item) => {
-        switch (salesFilter.unit) {
-          case 'adet':
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.gold / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.gold / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.gold / 100)
-            };
-          case 'm2':
-            return {
-              usd: item.boyali_m2_usd * (1 + salesMargins.gold / 100),
-              eur: item.boyali_m2_eur * (1 + salesMargins.gold / 100),
-              try: item.boyali_m2_try * (1 + salesMargins.gold / 100)
-            };
-          case 'kg':
-            return {
-              usd: item.boyali_kg_usd * (1 + salesMargins.gold / 100),
-              eur: item.boyali_kg_eur * (1 + salesMargins.gold / 100),
-              try: item.boyali_kg_try * (1 + salesMargins.gold / 100)
-            };
-          default:
-            return {
-              usd: item.boyali_adet_usd * (1 + salesMargins.gold / 100),
-              eur: item.boyali_adet_eur * (1 + salesMargins.gold / 100),
-              try: item.boyali_adet_try * (1 + salesMargins.gold / 100)
-            };
-        }
-      };
-      
-      const bronze = bronzPrice(item);
-      const silver = silverPrice(item);
-      const gold = goldPrice(item);
+      // Her bir fiyat tipi için hesaplama yap
+      const bronzePrices = calculatePricesWithMargin(item, 'bronze');
+      const silverPrices = calculatePricesWithMargin(item, 'silver');
+      const goldPrices = calculatePricesWithMargin(item, 'gold');
       
       return {
         ...item,
-        bronze_usd: bronze.usd,
-        bronze_eur: bronze.eur,
-        bronze_try: bronze.try,
-        silver_usd: silver.usd,
-        silver_eur: silver.eur,
-        silver_try: silver.try,
-        gold_usd: gold.usd,
-        gold_eur: gold.eur,
-        gold_try: gold.try
+        bronze_usd: bronzePrices.usd,
+        bronze_eur: bronzePrices.eur,
+        bronze_try: bronzePrices.try,
+        silver_usd: silverPrices.usd,
+        silver_eur: silverPrices.eur,
+        silver_try: silverPrices.try,
+        gold_usd: goldPrices.usd,
+        gold_eur: goldPrices.eur,
+        gold_try: goldPrices.try
       };
     });
     
     return salesList;
   };
 
-  // Genel değişkenleri güncelleme
+  // Marjlı fiyat hesaplama yardımcı fonksiyonu
+  const calculatePricesWithMargin = (item, priceType) => {
+    const margin = salesMargins[priceType] / 100;
+    
+    // Seçili birime göre temel fiyatları al
+    const getBasePrices = (unit) => {
+      switch (unit) {
+        case 'adet':
+          return {
+            usd: item.boyali_adet_usd,
+            eur: item.boyali_adet_eur,
+            try: item.boyali_adet_try
+          };
+        case 'm2':
+          return {
+            usd: item.boyali_m2_usd,
+            eur: item.boyali_m2_eur,
+            try: item.boyali_m2_try
+          };
+        case 'kg':
+          return {
+            usd: item.boyali_kg_usd,
+            eur: item.boyali_kg_eur,
+            try: item.boyali_kg_try
+          };
+        default:
+          return {
+            usd: item.boyali_adet_usd,
+            eur: item.boyali_adet_eur,
+            try: item.boyali_adet_try
+          };
+      }
+    };
+    
+    const basePrices = getBasePrices(salesFilter.unit);
+    
+    // Marjları uygula ve 5 ondalığa yuvarla
+    return {
+      usd: parseFloat((basePrices.usd * (1 + margin)).toFixed(5)),
+      eur: parseFloat((basePrices.eur * (1 + margin)).toFixed(5)),
+      try: parseFloat((basePrices.try * (1 + margin)).toFixed(5))
+    };
+  };
+
+  // Genel değişkenleri güncelleme - kur değerlerini veritabanına kaydetme hatası düzeltildi
   const updateGenelDegiskenler = async () => {
     try {
-      // Veriyi kaydetmek için işle ve hazırla
+      // Veriyi kaydetmek için işle ve hazırla - kur değerlerini (usd_tl, eur_usd) hariç tut
       const processedData = {};
       Object.entries(genelDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
+        // Kur değerlerini veritabanına kaydetme
         if (key === 'usd_tl' || key === 'eur_usd') {
           return;
         }
         
-
+        // Boş string veya undefined değerleri işle
         if (value === '' || value === undefined) {
           processedData[key] = null;
         } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
@@ -1189,7 +1169,7 @@ const PanelCitHesaplama = () => {
       const response = await axios.post(API_URLS.genelDegiskenler, dataToSave);
       if (response.status === 200 || response.status === 201) {
         alert('Genel değişkenler başarıyla kaydedildi.');
-        fetchSectionData('genel'); // Only refresh general variables
+        fetchSectionData('genel'); // Sadece genel değişkenleri güncelle
       }
     } catch (error) {
       console.error('Kaydetme hatası:', error);
@@ -1197,101 +1177,97 @@ const PanelCitHesaplama = () => {
     }
   };
 
-// Panel Çit değişkenlerini güncelleyen fonksiyon - artık duplicate key hatasını düzgün yönetiyor
-const updatePanelCitDegiskenler = async () => {
-  try {
-    // Kaydedilecek veriyi işleme
-    const processedData = {};
-    Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
-      // Boş ya da tanımsız değerleri null yap
-      if (value === '' || value === undefined) {
-        processedData[key] = null;
-      } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-        // Virgüllü sayı stringlerini gerçek sayıya çevir
-        processedData[key] = parseFloat(value.replace(',', '.'));
+  // Panel Çit Değişkenlerini Güncelleme - dublicate key hatası düzeltildi
+  const updatePanelCitDegiskenler = async () => {
+    try {
+      // Veriyi kaydetmek için işle ve hazırla
+      const processedData = {};
+      Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
+        // Boş string veya undefined değerleri işle
+        if (value === '' || value === undefined) {
+          processedData[key] = null;
+        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+          // Virgüllü string sayıları gerçek sayılara dönüştür
+          processedData[key] = parseFloat(value.replace(',', '.'));
+        } else {
+          processedData[key] = value;
+        }
+      });
+      
+      // Yeni bir zaman damgası ekle
+      const dataToSave = {
+        ...processedData,
+        panel_cit_latest_update: new Date().toISOString()
+      };
+      
+      let response;
+      
+      // Eğer kayıt zaten varsa PUT, yoksa POST kullan (duplicate key hatasını önler)
+      if (panelCitDegiskenler.unique_key) {
+        response = await axios.put(`${API_URLS.panelCitDegiskenler}/${panelCitDegiskenler.unique_key}`, dataToSave);
       } else {
-        processedData[key] = value;
+        response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
       }
-    });
-
-    // Zaman damgası ekle
-    const dataToSave = {
-      ...processedData,
-      panel_cit_latest_update: new Date().toISOString()
-    };
-
-    // Eğer elimizde unique_key varsa PUT metodunu kullan (duplicate key hatasını önlemek için)
-    let response;
-    if (panelCitDegiskenler.unique_key) {
-      response = await axios.put(`${API_URLS.panelCitDegiskenler}/${panelCitDegiskenler.unique_key}`, dataToSave);
-    } else {
-      response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
+      
+      if (response.status === 200 || response.status === 201) {
+        alert('Panel çit değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini güncelle
+      }
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
     }
+  };
 
-    // Başarılı cevap durumunda kullanıcıyı bilgilendir ve sadece panel çit verilerini yenile
-    if (response.status === 200 || response.status === 201) {
-      alert('Panel çit değişkenleri başarıyla kaydedildi.');
-      fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini yenile
-    }
-  } catch (error) {
-    // Hata durumunda konsola yazdır ve kullanıcıyı bilgilendir
-    console.error('Kaydetme hatası:', error);
-    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
-  }
-};
-
-
-// Profil değişkenlerini güncelleyen fonksiyon - artık duplicate key hatasını düzgün yönetiyor
-const updateProfilDegiskenler = async () => {
-  try {
-    // Kaydedilecek veriyi işleme
-    const processedData = {};
-    Object.entries(profilDegiskenler).forEach(([key, value]) => {
-      // Boş ya da tanımsız değerleri null yap
-      if (value === '' || value === undefined) {
-        processedData[key] = null;
-      } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-        // Virgüllü sayı stringlerini gerçek sayıya çevir
-        processedData[key] = parseFloat(value.replace(',', '.'));
+  // Profil Değişkenlerini Güncelleme - dublicate key hatası düzeltildi
+  const updateProfilDegiskenler = async () => {
+    try {
+      // Veriyi kaydetmek için işle ve hazırla
+      const processedData = {};
+      Object.entries(profilDegiskenler).forEach(([key, value]) => {
+        // Boş string veya undefined değerleri işle
+        if (value === '' || value === undefined) {
+          processedData[key] = null;
+        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
+          // Virgüllü string sayıları gerçek sayılara dönüştür
+          processedData[key] = parseFloat(value.replace(',', '.'));
+        } else {
+          processedData[key] = value;
+        }
+      });
+      
+      // Yeni bir zaman damgası ekle
+      const dataToSave = {
+        ...processedData,
+        profil_latest_update: new Date().toISOString()
+      };
+      
+      let response;
+      
+      // Eğer kayıt zaten varsa PUT, yoksa POST kullan (duplicate key hatasını önler)
+      if (profilDegiskenler.id) {
+        response = await axios.put(`${API_URLS.profilDegiskenler}/${profilDegiskenler.id}`, dataToSave);
       } else {
-        processedData[key] = value;
+        response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
       }
-    });
-
-    // Zaman damgası ekle
-    const dataToSave = {
-      ...processedData,
-      profil_latest_update: new Date().toISOString()
-    };
-
-    // Eğer elimizde id varsa PUT metodunu kullan (duplicate key hatasını önlemek için)
-    let response;
-    if (profilDegiskenler.id) {
-      response = await axios.put(`${API_URLS.profilDegiskenler}/${profilDegiskenler.id}`, dataToSave);
-    } else {
-      response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
+      
+      if (response.status === 200 || response.status === 201) {
+        alert('Profil değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('profil'); // Sadece profil değişkenlerini güncelle
+      }
+    } catch (error) {
+      console.error('Kaydetme hatası:', error);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
     }
+  };
 
-    // Başarılı cevap durumunda kullanıcıyı bilgilendir ve sadece profil verilerini yenile
-    if (response.status === 200 || response.status === 201) {
-      alert('Profil değişkenleri başarıyla kaydedildi.');
-      fetchSectionData('profil'); // Sadece profil değişkenlerini yenile
-    }
-  } catch (error) {
-    // Hata durumunda konsola yazdır ve kullanıcıyı bilgilendir
-    console.error('Kaydetme hatası:', error);
-    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
-  }
-};
-
-
-  // Özel panel ekleme 
+  // Özel panel ekleme - formüller iyileştirildi
   const addOzelPanel = () => {
     const newPanel = {
       manual_order: '', 
       panel_tipi: 'Single',
       panel_kodu: '',
-      panel_yuksekligi: 200,  // Varsayılan değerler
+      panel_yuksekligi: 200,
       panel_genisligi: 250,
       dikey_tel_capi: 4.0,
       yatay_tel_capi: 4.0,
@@ -1327,21 +1303,24 @@ const updateProfilDegiskenler = async () => {
     setOzelPanelList(prev => [...prev, updatedPanel]);
   };
 
-  // Özel panel değerlerini hesaplama
+  // Özel panel değerlerini hesaplama - Excel formülleri tam implementasyonu
   const calculatePanelValues = (panel) => {
     const updatedPanel = { ...panel };
     
     const panel_yuksekligi = safeParseFloat(updatedPanel.panel_yuksekligi);
     const panel_genisligi = safeParseFloat(updatedPanel.panel_genisligi);
     
-    // Adet m2 hesaplama
+    // Adet m2 hesaplama: =(B2*C2/10000)
     updatedPanel.adet_m2 = (panel_yuksekligi * panel_genisligi / 10000);
     
     // Büküm sayısı hesaplama
-    if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi >= 100) {
-      updatedPanel.bukum_sayisi = Math.round(panel_yuksekligi / 50);
-    } else if (updatedPanel.panel_tipi === "Single" && panel_yuksekligi < 100) {
-      updatedPanel.bukum_sayisi = Math.floor((panel_yuksekligi / 50) + 1);
+    // =EĞER(VE(D2="Single";B2>=100);YUVARLA(B2/50;0);EĞER(VE(D2="Single";B2<100);TABANAYUVARLA((B2/50)+1;1);0))
+    if (updatedPanel.panel_tipi === "Single") {
+      if (panel_yuksekligi >= 100) {
+        updatedPanel.bukum_sayisi = Math.round(panel_yuksekligi / 50);
+      } else {
+        updatedPanel.bukum_sayisi = Math.floor((panel_yuksekligi / 50) + 1);
+      }
     } else {
       updatedPanel.bukum_sayisi = 0;
     }
@@ -1349,6 +1328,7 @@ const updateProfilDegiskenler = async () => {
     const bukum_sayisi = safeParseFloat(updatedPanel.bukum_sayisi);
     
     // Dikey çubuk adet hesaplama
+    // =EĞER(M2<5.5;TAVANAYUVARLA(C2/M2;1)+1;EĞER(M2<6;TAVANAYUVARLA(C2/M2;1);TAVANAYUVARLA(C2/M2;1)+1))
     const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
     
     if (dikey_goz < 5.5) {
@@ -1360,6 +1340,7 @@ const updateProfilDegiskenler = async () => {
     }
     
     // Yatay çubuk adet hesaplama
+    // =EĞER(D2="Double";(((B2-3)/L2)+1)*2;EĞER(VE(D2="Single";L2=20);((((B2-3)-(J2*10))/L2)+1)+(J2*2);EĞER(VE(D2="Single";L2=15;B2<200);YUVARLA(((B2/L2)+(J2*2));0);EĞER(VE(D2="Single";L2=15;B2>=200);TAVANAYUVARLA(((B2/L2)+(J2*2));1);---))))
     const yatay_goz = safeParseFloat(updatedPanel.yatay_goz_araligi);
     
     if (updatedPanel.panel_tipi === "Double") {
@@ -1373,6 +1354,7 @@ const updateProfilDegiskenler = async () => {
     }
     
     // Ağırlık hesaplama
+    // =EĞER(D2="Double";((E2*E2*7.85*Pİ()/4000)*((B2/100)*N2))+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2);EĞER(VE(D2="Single";L2=20);((E2*E2*7.85*Pİ()/4000)*((B2+(J2*2.1))/100)*N2)+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2);EĞER(VE(D2="Single";L2=15);((E2*E2*7.85*Pİ()/4000)*((B2+(J2*2.6))/100)*N2)+((F2*F2*7.85*Pİ()/4000)*((C2+0.6)/100)*O2))))
     const dikey_tel = safeParseFloat(updatedPanel.dikey_tel_capi);
     const yatay_tel = safeParseFloat(updatedPanel.yatay_tel_capi);
     const dikey_cubuk = safeParseFloat(updatedPanel.dikey_cubuk_adet);
@@ -1401,48 +1383,56 @@ const updateProfilDegiskenler = async () => {
       updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
                             ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
     }
-
-
-
-
     
     // Boya kilogram hesaplama
+    // =EĞER(G2=0;0;EĞER(D2="Double";I2*0.06;EĞER(D2="Single";I2*0.03;0)))
     updatedPanel.boya_kg = calculateBoyaKg(updatedPanel);
     
     // Boyalı Hali 
+    // =P2+R2
     updatedPanel.boyali_hali = updatedPanel.agirlik + updatedPanel.boya_kg;
     
     // M² Ağırlık
+    // =Q2/I2
     updatedPanel.m2_agirlik = updatedPanel.adet_m2 > 0 ? updatedPanel.boyali_hali / updatedPanel.adet_m2 : 0;
     
     // Paletteki panel sayısı
+    // =EĞER(VE(D2="Double";F2>=7);25;EĞER(VE(D2="Double";F2<7);30;EĞER(D2="Single";100;0)))
     updatedPanel.paletteki_panel_sayisi = calculatePalettekiPanelSayisi(updatedPanel);
     
-    // Palet Boş Ağırlık
+    // Palet Boş Ağırlık - lookup table kullanımı
     updatedPanel.palet_bos_agirlik = calculatePaletBosAgirlik(updatedPanel);
     
     // Paletsiz Toplam Ağırlık
+    // =T2*Q2
     updatedPanel.paletsiz_toplam_agirlik = updatedPanel.paletteki_panel_sayisi * updatedPanel.boyali_hali;
     
     // Palet Dolu Ağırlık
+    // =V2+U2
     updatedPanel.palet_dolu_agirlik = updatedPanel.paletsiz_toplam_agirlik + updatedPanel.palet_bos_agirlik;
     
     // Boş Palet Yüksekliği
+    // =EĞER(D2="Double";14;EĞER(D2="Single";17;0))
     updatedPanel.bos_palet_yuksekligi = updatedPanel.panel_tipi === "Double" ? 14 : (updatedPanel.panel_tipi === "Single" ? 17 : 0);
     
     // Adet Panel Yüksekliği
+    // =EĞER(D2="Double";EĞER(F2<5; 0.875; EĞER(F2>8; 1.33; 0.875+((F2-5)/(8-5))*(1.33-0.875)));EĞER(D2="Single";EĞER(F2<3; 0.769; EĞER(F2>5.5; 1; 0.769+((F2-3)/(5.5-3))*(1-0.769)));0))
     updatedPanel.adet_panel_yuksekligi = calculateAdetPanelYuksekligi(updatedPanel);
     
     // Paletsiz Toplam Panel Yüksekliği
+    // =Y2*T2
     updatedPanel.paletsiz_toplam_panel_yuksekligi = updatedPanel.adet_panel_yuksekligi * updatedPanel.paletteki_panel_sayisi;
     
     // Paletli Yükseklik
+    // =Z2+X2
     updatedPanel.paletli_yukseklik = updatedPanel.paletsiz_toplam_panel_yuksekligi + updatedPanel.bos_palet_yuksekligi;
     
     // Icube-Code
+    // =EĞER(D2="Double";"DP-"&B2&"/"&C2&"-"&E2&"/"&F2&EĞER(G2+0=6005;"-Ysl";EĞER(G2+0=7016;"-Antrst";EĞER(G2+0=0;"-Rnksz";""))));EĞER(D2="Single";"SP-"&B2&"/"&C2&"-"&E2&"/"&F2&EĞER(G2+0=6005;"-Ysl";EĞER(G2+0=7016;"-Antrst";EĞER(G2+0=0;"-Rnksz";"")));""))
     updatedPanel.icube_code = calculateIcubeCode(updatedPanel);
     
     // Icube-Code Adetli
+    // =AB2 & "_(" & T2 & "-Adet)"
     updatedPanel.icube_code_adetli = `${updatedPanel.icube_code}_(${updatedPanel.paletteki_panel_sayisi}-Adet)`;
     
     // Sayısal alanları yuvarlama
@@ -1462,6 +1452,10 @@ const updateProfilDegiskenler = async () => {
     
     // Panel kodu oluştur
     updatedPanel.panel_kodu = calculatePanelKodu(updatedPanel);
+    
+    // STOK_KODU formülü - sonradan ekleneceğini belirten placeholder
+    // Stok Kodu Formülü Buraya Gelecek
+    updatedPanel.stok_kodu = `${updatedPanel.icube_code}-STOK`;
     
     return updatedPanel;
   };
@@ -1606,7 +1600,7 @@ const updateProfilDegiskenler = async () => {
       const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
               paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
               palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
-              paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, ...panelData } = panel;
+              paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
       
       // Veritabanına kaydet
       const response = await axios.post(API_URLS.panelList, {
@@ -1627,6 +1621,113 @@ const updateProfilDegiskenler = async () => {
       console.error('Panel kaydetme hatası:', error);
       alert(`Panel kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
     }
+  };
+
+  // Tüm özel panelleri veritabanına kaydet
+  const saveAllOzelPanelsToDatabase = async () => {
+    if (ozelPanelList.length === 0) {
+      alert('Kaydedilecek özel panel bulunamadı.');
+      return;
+    }
+    
+    const confirmSave = window.confirm(`${ozelPanelList.length} adet özel paneli veritabanına kaydetmek istiyor musunuz?`);
+    if (!confirmSave) return;
+    
+    let savedCount = 0;
+    let errorCount = 0;
+    
+    // Her bir paneli tek tek kaydet
+    for (const panel of ozelPanelList) {
+      try {
+        // Özel alanları temizle
+        const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
+                paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
+                palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
+                paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
+        
+        // Veritabanına kaydet
+        const response = await axios.post(API_URLS.panelList, {
+          ...panelData,
+          kayit_tarihi: new Date().toISOString()
+        });
+        
+        if (response.status === 200 || response.status === 201) {
+          savedCount++;
+        }
+      } catch (error) {
+        console.error(`Panel kaydetme hatası (${panel.panel_kodu}):`, error);
+        errorCount++;
+      }
+    }
+    
+    // Sonucu bildir
+    if (errorCount === 0) {
+      alert(`Tüm paneller (${savedCount} adet) başarıyla kaydedildi.`);
+      
+      // Mevcut panel listesini güncelle
+      fetchSectionData('panelList');
+      
+      // Özel panel listesini temizle
+      setOzelPanelList([]);
+    } else {
+      alert(`${savedCount} panel başarıyla kaydedildi, ${errorCount} panel kaydedilemedi.`);
+      
+      // Mevcut panel listesini güncelle
+      fetchSectionData('panelList');
+      
+      // Başarıyla kaydedilen panelleri listeden kaldır
+      // NOT: Hangi panellerin kaydedildiğini tam olarak bilemeyeceğimiz için
+      // bu kısım şimdilik atlandı, kullanıcı manuel olarak kaldırabilir
+    }
+  };
+
+  // Ana panel listesinden özel paneller oluştur
+  const createOzelPanelsFromFiltered = () => {
+    if (filteredPanelList.length === 0) {
+      alert('Filtrelenmiş panel listesi boş. Lütfen en az bir panel seçin.');
+      return;
+    }
+    
+    const confirmCreate = window.confirm(`Filtrelenmiş listeden (${filteredPanelList.length} adet) özel panel oluşturmak istiyor musunuz?`);
+    if (!confirmCreate) return;
+    
+    // Filtrelenmiş panelleri özel panel listesine ekle
+    const newOzelPanels = filteredPanelList.map(panel => {
+      // Panel verilerini kopyala ve özel formatla
+      const newPanel = {
+        ...panel,
+        isNew: true,
+        id: Date.now() + Math.random(), // Benzersiz ID oluştur
+        // Aşağıdaki alanları hesapla (calculatePanelValues fonksiyonu ile)
+        bukum_sayisi: 0,
+        bukumdeki_cubuk_sayisi: 1,
+        boyali_hali: 0,
+        boya_kg: 0,
+        m2_agirlik: 0,
+        paletteki_panel_sayisi: 0,
+        palet_bos_agirlik: 0,
+        paletsiz_toplam_agirlik: 0,
+        palet_dolu_agirlik: 0,
+        bos_palet_yuksekligi: 0,
+        adet_panel_yuksekligi: 0,
+        paletsiz_toplam_panel_yuksekligi: 0,
+        paletli_yukseklik: 0,
+        icube_code: '',
+        icube_code_adetli: '',
+        stok_kodu: ''
+      };
+      
+      // Panel değerlerini hesapla
+      return calculatePanelValues(newPanel);
+    });
+    
+    // Özel panel listesine ekle
+    setOzelPanelList(prev => [...prev, ...newOzelPanels]);
+    
+    // Özel panel sekmesine geç
+    setActiveTab('special-panel');
+    
+    alert(`${newOzelPanels.length} adet panel özel panel listesine eklendi.`);
   };
 
   // Sonuç filtresini güncelleme
@@ -1659,33 +1760,38 @@ const updateProfilDegiskenler = async () => {
     setSatisListesi(generateSalesList(maliyetListesi));
   };
 
-  // Geliştirilmiş Excel dışa aktarımı – filtreleme ve formatlama ile birlikte
+  // Excel'e aktarma - güncellenmiş versiyon, filtreleri destekler
   const exportToExcel = (listType = 'maliyet') => {
+    // Hangi listenin dışa aktarılacağını belirle
     let dataToExport = [];
     let filename = '';
     let sheetName = '';
-  
-    // Aktarılacak veriyi belirle (görünüme ve filtreye göre)
+    
+    // Sonuç tipine göre veri hazırla
     if (listType === 'maliyet') {
-      dataToExport = filterMaliyetListesi(); // Şu anki filtrelenmiş verileri al
+      dataToExport = filterMaliyetListesi();
       filename = 'Panel_Cit_Maliyet_Listesi.xlsx';
       sheetName = 'Maliyet Listesi';
     } else if (listType === 'satis') {
-      // Satış verileri için maliyet verilerini satış fiyatına göre dönüştür
+      // Mevcut filtrelerle satış verilerini hazırla
       dataToExport = filterMaliyetListesi().map(item => {
-        const bronzePrice = calculateSalesPrice(item, 'bronze');
-        const silverPrice = calculateSalesPrice(item, 'silver');
-        const goldPrice = calculateSalesPrice(item, 'gold');
-  
+        const currency = salesFilter.currency.toLowerCase();
+        const unit = salesFilter.unit;
+        
+        // Uygun fiyatları hesapla
+        const bronzePrice = calculatePricesWithMargin(item, 'bronze', unit, currency);
+        const silverPrice = calculatePricesWithMargin(item, 'silver', unit, currency);
+        const goldPrice = calculatePricesWithMargin(item, 'gold', unit, currency);
+        
         return {
-          panel_kodu: item.panel_kodu,
-          panel_tipi: item.panel_tipi,
-          panel_yuksekligi: item.panel_yuksekligi,
-          panel_genisligi: item.panel_genisligi,
-          dikey_tel_capi: item.dikey_tel_capi,
-          yatay_tel_capi: item.yatay_tel_capi,
-          dikey_goz_araligi: item.dikey_goz_araligi,
-          yatay_goz_araligi: item.yatay_goz_araligi,
+          "Panel Kodu": item.panel_kodu,
+          "Panel Tipi": item.panel_tipi,
+          "Panel Yüksekliği": item.panel_yuksekligi,
+          "Panel Genişliği": item.panel_genisligi,
+          "Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
+          "Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
+          "Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
+          "Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi'),
           [`Bronz Fiyat (${salesFilter.currency})`]: bronzePrice,
           [`Gümüş Fiyat (${salesFilter.currency})`]: silverPrice,
           [`Altın Fiyat (${salesFilter.currency})`]: goldPrice
@@ -1694,63 +1800,101 @@ const updateProfilDegiskenler = async () => {
       filename = 'Panel_Cit_Satis_Listesi.xlsx';
       sheetName = 'Satış Listesi';
     } else if (listType === 'ozel') {
-      // Özel panel verilerini dışa aktar
-      dataToExport = ozelPanelList;
+      // Özel paneller için 
+      dataToExport = ozelPanelList.map(panel => ({
+        "Panel Kodu": panel.panel_kodu,
+        "Panel Tipi": panel.panel_tipi,
+        "Panel Yüksekliği": panel.panel_yuksekligi,
+        "Panel Genişliği": panel.panel_genisligi,
+        "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi'),
+        "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi'),
+        "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi'),
+        "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi'),
+        "Büküm Sayısı": panel.bukum_sayisi,
+        "Adet M²": formatTableValue(panel.adet_m2, 'decimal'),
+        "Ağırlık": formatTableValue(panel.agirlik, 'decimal'),
+        "Boya Kg": formatTableValue(panel.boya_kg, 'decimal'),
+        "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal'),
+        "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal'),
+        "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi,
+        "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal'),
+        "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal'),
+        "Icube Code": panel.icube_code,
+        "Stok Kodu": panel.stok_kodu
+      }));
       filename = 'Panel_Cit_Ozel_Panel_Listesi.xlsx';
       sheetName = 'Özel Panel Listesi';
     }
-  
-    // Dışa aktarılacak veri yoksa kullanıcıyı bilgilendir
-    if (!dataToExport.length) {
+    
+    if (dataToExport.length === 0) {
       alert('Dışa aktarılacak veri bulunamadı!');
       return;
     }
-  
-    // Excel çalışma sayfasını oluştur
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-  
-    // Başlıklara temel stil uygulaması
-    const range = XLSX.utils.decode_range(worksheet['!ref']);
-    const headerCellStyle = {
-      font: { bold: true },
-      alignment: { horizontal: 'center' },
-      fill: { fgColor: { rgb: "EEEEEE" } }
-    };
-  
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const cell = worksheet[XLSX.utils.encode_cell({ r: 0, c: C })];
-      if (!cell) continue;
-      cell.s = headerCellStyle;
+    
+    try {
+      // XLSX worksheet oluştur
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      
+      // Başlıklar için stil tanımla
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const address = XLSX.utils.encode_cell({ r: 0, c: C });
+        
+        // Mevcut hücre yapılandırmasını al veya yeni oluştur
+        if (!worksheet[address]) {
+          worksheet[address] = { t: 's', v: '' };
+        }
+        
+        // Başlıklar için stil
+        if (!worksheet[address].s) {
+          worksheet[address].s = {};
+        }
+        
+        // Kalın stilini uygula
+        worksheet[address].s.font = { bold: true };
+        worksheet[address].s.fill = { fgColor: { rgb: "E6E6E6" } };
+      }
+      
+      // Workbook oluştur ve worksheet ekle
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      
+      // Excel dosyasını indir
+      XLSX.writeFile(workbook, filename);
+    } catch (error) {
+      console.error('Excel dışa aktarma hatası:', error);
+      alert('Dışa aktarma sırasında bir hata oluştu.');
     }
-  
-    // Excel dosyasını oluştur ve çalışma sayfasını ekle
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  
-    // Excel dosyasını dışa aktar
-    XLSX.writeFile(workbook, filename);
-  };
-  
-  // Satış fiyatını hesaplayan yardımcı fonksiyon
-  const calculateSalesPrice = (item, priceType) => {
-    const margin = salesMargins[priceType] / 100;
-    const currency = salesFilter.currency.toLowerCase();
-    const unit = salesFilter.unit;
-  
-    // Seçilen birim ve para birimine göre baz fiyatı al
-    let basePrice = 0;
-    if (unit === 'adet') {
-      basePrice = item[`boyali_adet_${currency}`];
-    } else if (unit === 'm2') {
-      basePrice = item[`boyali_m2_${currency}`];
-    } else if (unit === 'kg') {
-      basePrice = item[`boyali_kg_${currency}`];
-    }
-  
-    // Kar marjı uygula ve 5 ondalığa yuvarla
-    return parseFloat((basePrice * (1 + margin)).toFixed(5));
   };
 
+  // Özel marj hesaplama için yardımcı fonksiyon
+  const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
+    const margin = salesMargins[priceType] / 100;
+    
+    // Birim ve para birimine göre temel fiyatı al
+    let basePrice = 0;
+    
+    switch (unit) {
+      case 'adet':
+        basePrice = item[`boyali_adet_${currency}`];
+        break;
+      case 'm2':
+        basePrice = item[`boyali_m2_${currency}`];
+        break;
+      case 'kg':
+        basePrice = item[`boyali_kg_${currency}`];
+        break;
+      case 'all':
+        // Varsayılan olarak adet fiyatını kullan
+        basePrice = item[`boyali_adet_${currency}`];
+        break;
+      default:
+        basePrice = item[`boyali_adet_${currency}`];
+    }
+    
+    // Marjı uygula ve 5 ondalık basamakla yuvarla
+    return parseFloat((basePrice * (1 + margin)).toFixed(5));
+  };
 
   // Genel değişkenleri güncelleme
   const handleGenelDegiskenlerChange = (field, value) => {
@@ -1781,11 +1925,8 @@ const updateProfilDegiskenler = async () => {
       [field]: formattedValue
     });
   };
-
-
-
-
-// Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
+  
+  // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
   const renderPanelList = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -1858,6 +1999,15 @@ const updateProfilDegiskenler = async () => {
               </>
             )}
           </button>
+          
+          <button 
+            onClick={() => createOzelPanelsFromFiltered()}
+            disabled={filteredPanelList.length === 0}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Özel Panellere Ekle
+          </button>
         </div>
       </div>
       
@@ -1914,14 +2064,14 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_tipi}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_yuksekligi}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_genisligi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.dikey_tel_capi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.yatay_tel_capi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.dikey_goz_araligi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.yatay_goz_araligi}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_tel_capi, 'tel_capi')}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_tel_capi, 'tel_capi')}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_goz_araligi, 'goz_araligi')}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_goz_araligi, 'goz_araligi')}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukum_sayisi}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukumdeki_cubuk_sayisi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.adet_m2 === 'number' ? formatDisplayValue(panel.adet_m2) : panel.adet_m2}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{typeof panel.agirlik === 'number' ? formatDisplayValue(panel.agirlik) : panel.agirlik}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.adet_m2, 'decimal')}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.agirlik, 'decimal')}</td>
               </tr>
             ))}
             {filteredPanelList.length === 0 && (
@@ -2049,7 +2199,7 @@ const updateProfilDegiskenler = async () => {
             </div>
           </div>
           
-          {/* Satış Marjları (Yeni Eklendi) */}
+          {/* Satış Marjları */}
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
             <div className="flex items-center mb-3">
               <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mr-3">
@@ -2129,11 +2279,7 @@ const updateProfilDegiskenler = async () => {
           </div>
         </AccordionTrigger>
         <AccordionContent className="px-4 py-4 border-t">
-
-
-
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
             {/* İşçi Sayıları ve Vardiyalar */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
               <h4 className="font-medium mb-3">İşçi Sayıları ve Vardiyalar</h4>
@@ -2477,10 +2623,7 @@ const updateProfilDegiskenler = async () => {
               </div>
             </div>
 
-
-
-
-        {/* Doğalgaz ve Boya Tüketimi */}
+            {/* Doğalgaz ve Boya Tüketimi */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
               <h4 className="font-medium mb-3">Doğalgaz ve Boya Tüketimi</h4>
               <div className="space-y-3">
@@ -2624,7 +2767,7 @@ const updateProfilDegiskenler = async () => {
     </Accordion>
   );
 
-  // Özel Panel & Palet Bilgileri Hesaplama
+  // Özel Panel & Palet Bilgileri Hesaplama - Tamamlanmış Excel Formülleri
   const renderSpecialPanelEntry = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -2654,6 +2797,22 @@ const updateProfilDegiskenler = async () => {
                   Hesapla
                 </>
               )}
+            </button>
+            <button 
+              onClick={() => saveAllOzelPanelsToDatabase()}
+              disabled={ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-300 text-sm"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Tümünü Kaydet
+            </button>
+            <button 
+              onClick={() => exportToExcel('ozel')}
+              disabled={ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300 text-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+              Excel'e Aktar
             </button>
           </div>
         </div>
@@ -2710,10 +2869,16 @@ const updateProfilDegiskenler = async () => {
                 Boyalı Hali
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Panel Kodu
+                M² Ağırlık
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Paletteki Panel Sayısı
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Palet Boş Ağırlık
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Kodu
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 İşlemler
@@ -2754,7 +2919,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={panel.dikey_tel_capi || ''}
+                    value={formatTableValue(panel.dikey_tel_capi, 'tel_capi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm"
                   />
@@ -2762,7 +2927,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={panel.yatay_tel_capi || ''}
+                    value={formatTableValue(panel.yatay_tel_capi, 'tel_capi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm"
                   />
@@ -2770,7 +2935,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={panel.dikey_goz_araligi || ''}
+                    value={formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm"
                   />
@@ -2778,7 +2943,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={panel.yatay_goz_araligi || ''}
+                    value={formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm"
                   />
@@ -2810,7 +2975,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={typeof panel.adet_m2 === 'number' ? formatDisplayValue(panel.adet_m2) : panel.adet_m2 || ''}
+                    value={formatTableValue(panel.adet_m2, 'decimal') || ''}
                     className="w-20 border rounded p-1 text-sm"
                     readOnly
                   />
@@ -2818,7 +2983,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={typeof panel.agirlik === 'number' ? formatDisplayValue(panel.agirlik) : panel.agirlik || ''}
+                    value={formatTableValue(panel.agirlik, 'decimal') || ''}
                     className="w-20 border rounded p-1 text-sm"
                     readOnly
                   />
@@ -2826,7 +2991,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={typeof panel.boya_kg === 'number' ? formatDisplayValue(panel.boya_kg) : panel.boya_kg || ''}
+                    value={formatTableValue(panel.boya_kg, 'decimal') || ''}
                     className="w-20 border rounded p-1 text-sm"
                     readOnly
                   />
@@ -2834,7 +2999,7 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={typeof panel.boyali_hali === 'number' ? formatDisplayValue(panel.boyali_hali) : panel.boyali_hali || ''}
+                    value={formatTableValue(panel.boyali_hali, 'decimal') || ''}
                     className="w-20 border rounded p-1 text-sm"
                     readOnly
                   />
@@ -2842,8 +3007,8 @@ const updateProfilDegiskenler = async () => {
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
-                    value={panel.panel_kodu || ''}
-                    className="w-48 border rounded p-1 text-sm"
+                    value={formatTableValue(panel.m2_agirlik, 'decimal') || ''}
+                    className="w-20 border rounded p-1 text-sm"
                     readOnly
                   />
                 </td>
@@ -2852,6 +3017,22 @@ const updateProfilDegiskenler = async () => {
                     type="text"
                     value={panel.paletteki_panel_sayisi || ''}
                     className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
+                    className="w-20 border rounded p-1 text-sm"
+                    readOnly
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.panel_kodu || ''}
+                    className="w-56 border rounded p-1 text-sm"
                     readOnly
                   />
                 </td>
@@ -2877,7 +3058,7 @@ const updateProfilDegiskenler = async () => {
             ))}
             {ozelPanelList.length === 0 && (
               <tr>
-                <td colSpan="17" className="px-3 py-4 text-center text-sm text-gray-500">
+                <td colSpan="19" className="px-3 py-4 text-center text-sm text-gray-500">
                   Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
                 </td>
               </tr>
@@ -2888,10 +3069,7 @@ const updateProfilDegiskenler = async () => {
     </div>
   );
 
-
-
-
-// Sonuçlar (Maliyet Listesi) Tablosu
+  // Sonuçlar (Maliyet Listesi) Tablosu
   const renderResults = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -3266,12 +3444,7 @@ const updateProfilDegiskenler = async () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-
-
-
-
-
-{filterMaliyetListesi().map((maliyet, index) => (
+            {filterMaliyetListesi().map((maliyet, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-0 bg-white">
                   {maliyet.manual_order}
@@ -3289,16 +3462,16 @@ const updateProfilDegiskenler = async () => {
                   {maliyet.panel_genisligi}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.dikey_tel_capi}
+                  {formatTableValue(maliyet.dikey_tel_capi, 'tel_capi')}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.yatay_tel_capi}
+                  {formatTableValue(maliyet.yatay_tel_capi, 'tel_capi')}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.dikey_goz_araligi}
+                  {formatTableValue(maliyet.dikey_goz_araligi, 'goz_araligi')}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.yatay_goz_araligi}
+                  {formatTableValue(maliyet.yatay_goz_araligi, 'goz_araligi')}
                 </td>
                 
                 {/* Çıplak Adet */}
@@ -3306,17 +3479,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_usd === 'number' ? formatDisplayValue(maliyet.ciplak_adet_usd) : maliyet.ciplak_adet_usd}
+                        {formatTableValue(maliyet.ciplak_adet_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_eur === 'number' ? formatDisplayValue(maliyet.ciplak_adet_eur) : maliyet.ciplak_adet_eur}
+                        {formatTableValue(maliyet.ciplak_adet_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_adet_try === 'number' ? formatDisplayValue(maliyet.ciplak_adet_try) : maliyet.ciplak_adet_try}
+                        {formatTableValue(maliyet.ciplak_adet_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3327,17 +3500,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_usd === 'number' ? formatDisplayValue(maliyet.ciplak_m2_usd) : maliyet.ciplak_m2_usd}
+                        {formatTableValue(maliyet.ciplak_m2_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_eur === 'number' ? formatDisplayValue(maliyet.ciplak_m2_eur) : maliyet.ciplak_m2_eur}
+                        {formatTableValue(maliyet.ciplak_m2_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_m2_try === 'number' ? formatDisplayValue(maliyet.ciplak_m2_try) : maliyet.ciplak_m2_try}
+                        {formatTableValue(maliyet.ciplak_m2_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3348,17 +3521,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_usd === 'number' ? formatDisplayValue(maliyet.ciplak_kg_usd) : maliyet.ciplak_kg_usd}
+                        {formatTableValue(maliyet.ciplak_kg_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_eur === 'number' ? formatDisplayValue(maliyet.ciplak_kg_eur) : maliyet.ciplak_kg_eur}
+                        {formatTableValue(maliyet.ciplak_kg_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.ciplak_kg_try === 'number' ? formatDisplayValue(maliyet.ciplak_kg_try) : maliyet.ciplak_kg_try}
+                        {formatTableValue(maliyet.ciplak_kg_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3369,17 +3542,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_usd === 'number' ? formatDisplayValue(maliyet.boyali_adet_usd) : maliyet.boyali_adet_usd}
+                        {formatTableValue(maliyet.boyali_adet_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_eur === 'number' ? formatDisplayValue(maliyet.boyali_adet_eur) : maliyet.boyali_adet_eur}
+                        {formatTableValue(maliyet.boyali_adet_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_adet_try === 'number' ? formatDisplayValue(maliyet.boyali_adet_try) : maliyet.boyali_adet_try}
+                        {formatTableValue(maliyet.boyali_adet_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3390,17 +3563,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_usd === 'number' ? formatDisplayValue(maliyet.boyali_m2_usd) : maliyet.boyali_m2_usd}
+                        {formatTableValue(maliyet.boyali_m2_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_eur === 'number' ? formatDisplayValue(maliyet.boyali_m2_eur) : maliyet.boyali_m2_eur}
+                        {formatTableValue(maliyet.boyali_m2_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_m2_try === 'number' ? formatDisplayValue(maliyet.boyali_m2_try) : maliyet.boyali_m2_try}
+                        {formatTableValue(maliyet.boyali_m2_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3411,17 +3584,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_usd === 'number' ? formatDisplayValue(maliyet.boyali_kg_usd) : maliyet.boyali_kg_usd}
+                        {formatTableValue(maliyet.boyali_kg_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_eur === 'number' ? formatDisplayValue(maliyet.boyali_kg_eur) : maliyet.boyali_kg_eur}
+                        {formatTableValue(maliyet.boyali_kg_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.boyali_kg_try === 'number' ? formatDisplayValue(maliyet.boyali_kg_try) : maliyet.boyali_kg_try}
+                        {formatTableValue(maliyet.boyali_kg_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3432,17 +3605,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_usd) : maliyet.standart_setli_boyasiz_adet_usd}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_adet_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_eur) : maliyet.standart_setli_boyasiz_adet_eur}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_adet_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_adet_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_adet_try) : maliyet.standart_setli_boyasiz_adet_try}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_adet_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3453,17 +3626,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_usd) : maliyet.standart_setli_boyasiz_m2_usd}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_m2_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_eur) : maliyet.standart_setli_boyasiz_m2_eur}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_m2_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_m2_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_m2_try) : maliyet.standart_setli_boyasiz_m2_try}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_m2_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3474,17 +3647,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_usd) : maliyet.standart_setli_boyasiz_kg_usd}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_kg_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_eur) : maliyet.standart_setli_boyasiz_kg_eur}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_kg_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyasiz_kg_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyasiz_kg_try) : maliyet.standart_setli_boyasiz_kg_try}
+                        {formatTableValue(maliyet.standart_setli_boyasiz_kg_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3495,17 +3668,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_usd) : maliyet.standart_setli_boyali_adet_usd}
+                        {formatTableValue(maliyet.standart_setli_boyali_adet_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_eur) : maliyet.standart_setli_boyali_adet_eur}
+                        {formatTableValue(maliyet.standart_setli_boyali_adet_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_adet_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_adet_try) : maliyet.standart_setli_boyali_adet_try}
+                        {formatTableValue(maliyet.standart_setli_boyali_adet_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3516,17 +3689,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_usd) : maliyet.standart_setli_boyali_m2_usd}
+                        {formatTableValue(maliyet.standart_setli_boyali_m2_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_eur) : maliyet.standart_setli_boyali_m2_eur}
+                        {formatTableValue(maliyet.standart_setli_boyali_m2_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_m2_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_m2_try) : maliyet.standart_setli_boyali_m2_try}
+                        {formatTableValue(maliyet.standart_setli_boyali_m2_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3537,17 +3710,17 @@ const updateProfilDegiskenler = async () => {
                   <>
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'USD') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_usd === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_usd) : maliyet.standart_setli_boyali_kg_usd}
+                        {formatTableValue(maliyet.standart_setli_boyali_kg_usd, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'EUR') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_eur === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_eur) : maliyet.standart_setli_boyali_kg_eur}
+                        {formatTableValue(maliyet.standart_setli_boyali_kg_eur, 'price')}
                       </td>
                     )}
                     {(resultFilter.currency === 'all' || resultFilter.currency === 'TRY') && (
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                        {typeof maliyet.standart_setli_boyali_kg_try === 'number' ? formatDisplayValue(maliyet.standart_setli_boyali_kg_try) : maliyet.standart_setli_boyali_kg_try}
+                        {formatTableValue(maliyet.standart_setli_boyali_kg_try, 'price')}
                       </td>
                     )}
                   </>
@@ -3568,7 +3741,7 @@ const updateProfilDegiskenler = async () => {
     </div>
   );
 
-  // Satış Listesi Tablosu (Yeni)
+  // Satış Listesi Tablosu - Geliştirilmiş versiyon
   const renderSalesView = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -3599,6 +3772,7 @@ const updateProfilDegiskenler = async () => {
                 onChange={(e) => handleSalesFilterChange('unit', e.target.value)}
                 className="border rounded p-1 text-sm"
               >
+                <option value="all">Tümü</option>
                 <option value="adet">Adet</option>
                 <option value="m2">m²</option>
                 <option value="kg">kg</option>
@@ -3671,178 +3845,363 @@ const updateProfilDegiskenler = async () => {
                 Yatay Göz Aralığı
               </th>
               
-              {/* Bronz Fiyat */}
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-amber-50 text-amber-700 uppercase tracking-wider whitespace-nowrap">
-                Bronz Fiyat ({salesFilter.currency})
-              </th>
+              {/* Özel birim filtrelemeyi destekler */}
+              {salesFilter.unit === 'all' || salesFilter.unit === 'adet' ? (
+                <>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-amber-50 text-amber-700 uppercase tracking-wider whitespace-nowrap">
+                    Bronz Fiyat - Adet ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    Gümüş Fiyat - Adet ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                    Altın Fiyat - Adet ({salesFilter.currency})
+                  </th>
+                </>
+              ) : null}
               
-              {/* Gümüş Fiyat */}
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Gümüş Fiyat ({salesFilter.currency})
-              </th>
+              {salesFilter.unit === 'all' || salesFilter.unit === 'm2' ? (
+                <>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-amber-50 text-amber-700 uppercase tracking-wider whitespace-nowrap">
+                    Bronz Fiyat - m² ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    Gümüş Fiyat - m² ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                    Altın Fiyat - m² ({salesFilter.currency})
+                  </th>
+                </>
+              ) : null}
               
-              {/* Altın Fiyat */}
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
-                Altın Fiyat ({salesFilter.currency})
-              </th>
+              {salesFilter.unit === 'all' || salesFilter.unit === 'kg' ? (
+                <>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-amber-50 text-amber-700 uppercase tracking-wider whitespace-nowrap">
+                    Bronz Fiyat - kg ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    Gümüş Fiyat - kg ({salesFilter.currency})
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                    Altın Fiyat - kg ({salesFilter.currency})
+                  </th>
+                </>
+              ) : null}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            //Sonradan Eklenen Part
-            {filterMaliyetListesi().map((maliyet, index) => {
-              const currentCurrency = salesFilter.currency.toLowerCase();
-              const currentUnit = 'adet'; // Varsayilan birim
-              const basePrice =
-                currentUnit === 'adet'
-                  ? maliyet[`boyali_adet_${currentCurrency}`]
-                  : currentUnit === 'm2'
-                  ? maliyet[`boyali_m2_${currentCurrency}`]
-                  : maliyet[`boyali_kg_${currentCurrency}`];
-
-              const bronzePrice = basePrice * (1 + salesMargins.bronze / 100);
-              const silverPrice = basePrice * (1 + salesMargins.silver / 100);
-              const goldPrice = basePrice * (1 + salesMargins.gold / 100);
-
+            {filterMaliyetListesi().map((item, index) => {
+              const currency = salesFilter.currency.toLowerCase();
+              
               return (
                 <tr key={index} className="hover:bg-gray-50">
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                    {maliyet.panel_kodu}
+                    {item.panel_kodu}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_tipi}
+                    {item.panel_tipi}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_yuksekligi}
+                    {item.panel_yuksekligi}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.panel_genisligi}
+                    {item.panel_genisligi}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.dikey_tel_capi}
+                    {formatTableValue(item.dikey_tel_capi, 'tel_capi')}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.yatay_tel_capi}
+                    {formatTableValue(item.yatay_tel_capi, 'tel_capi')}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.dikey_goz_araligi}
+                    {formatTableValue(item.dikey_goz_araligi, 'goz_araligi')}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {maliyet.yatay_goz_araligi}
+                    {formatTableValue(item.yatay_goz_araligi, 'goz_araligi')}
                   </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
-                    {formatDisplayValue(bronzePrice)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
-                    {formatDisplayValue(silverPrice)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
-                    {formatDisplayValue(goldPrice)}
-                  </td>
+                  
+                  {/* Fiyatlar - Adet */}
+                  {salesFilter.unit === 'all' || salesFilter.unit === 'adet' ? (
+                    <>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'bronze', 'adet', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'silver', 'adet', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'gold', 'adet', currency), 'price')}
+                      </td>
+                    </>
+                  ) : null}
+                  
+                  {/* Fiyatlar - m² */}
+                  {salesFilter.unit === 'all' || salesFilter.unit === 'm2' ? (
+                    <>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'bronze', 'm2', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'silver', 'm2', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'gold', 'm2', currency), 'price')}
+                      </td>
+                    </>
+                  ) : null}
+                  
+                  {/* Fiyatlar - kg */}
+                  {salesFilter.unit === 'all' || salesFilter.unit === 'kg' ? (
+                    <>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-amber-50 text-amber-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'bronze', 'kg', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'silver', 'kg', currency), 'price')}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                        {formatTableValue(calculatePricesWithMargin(item, 'gold', 'kg', currency), 'price')}
+                      </td>
+                    </>
+                  ) : null}
                 </tr>
               );
             })}
 
             {maliyetListesi.length === 0 && (
               <tr>
-                <td colSpan="11" className="px-4 py-4 text-center text-sm text-gray-500">
+                <td colSpan="20" className="px-4 py-4 text-center text-sm text-gray-500">
                   Satış fiyat listesi bulunamadı veya hiç hesaplama yapılmadı.
                 </td>
               </tr>
             )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
-              // Sekme butonlarını render eden fonksiyon
-             const renderTabButtons = () => (
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setActiveTab('main-panel')}
-                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                    activeTab === 'main-panel'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                  }`}
-                >
-                  Ana Panel Listesi
-                </button>
-                <button
-                  onClick={() => setActiveTab('special-panel')}
-                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                    activeTab === 'special-panel'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                  }`}
-                >
-                  Özel Panel Girişi
-                </button>
-                <button
-                  onClick={() => setActiveTab('results')}
-                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                    activeTab === 'results'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                  }`}
-                >
-                  Hesap Sonuçları
-                </button>
-                <button
-                  onClick={() => setActiveTab('temp-calculations')}
-                  className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
-                    activeTab === 'temp-calculations'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
-                  }`}
-                >
-                  Geçici Hesaplamalar
-                </button>
-              </div>
-            );
+  // Geçici Hesaplamalar tablosunu göster - daha ayrıntılı bilgilerle
+  const renderTempCalculations = () => (
+    <div className="bg-white rounded-lg border shadow-sm">
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Geçici Hesaplamalar</h3>
+          <button 
+            onClick={() => exportToExcel('gecici')}
+            className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+            disabled={geciciHesaplar.length === 0}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1" />
+            Excel'e Aktar
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Bu sayfada, maliyet hesaplarken kullanılan ara hesaplamalar görüntülenir. 
+          Bu veriler, hesaplamaların doğruluğunu kontrol etmek ve detaylı analiz yapmak için kullanılabilir.
+        </p>
+      </div>
+      
+      <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50 sticky top-0">
+            <tr>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+                Panel Kodu
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Kapasite
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yalnız Panel Aylık Kapasite
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Kaynak Elektrik (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Kesme Elektrik (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Diğer (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Yalnız Panel İşçi (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Boya İşçi (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Galvaniz Tel (kg)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boya Kapasite
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boya Aylık Kapasite
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Boya Elektrik (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Panel Doğalgaz (m²)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Adet USD
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boya Adet USD
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boyalı Adet USD
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {geciciHesaplar.map((hesap, index) => (
+              <tr key={index} className="hover:bg-gray-50">
+                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                  {hesap.panel_kodu}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_kapasite, 'decimal')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.yalniz_panel_aylik, 'decimal')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_kaynak_elektrik, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_kesme_elektrik, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.diger_m2, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.yalniz_panel_isci_m2, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_boya_isci_m2, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.galvaniz_tel_kg, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.boya_kapasite, 'decimal')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.boya_aylik_kapasite, 'decimal')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_boya_elektrik, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.panel_dogalgaz_m2, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.adet_usd, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.boya_adet_usd, 'price')}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                  {formatTableValue(hesap.boyali_adet_usd, 'price')}
+                </td>
+              </tr>
+            ))}
+            {geciciHesaplar.length === 0 && (
+              <tr>
+                <td colSpan="16" className="px-3 py-4 text-center text-sm text-gray-500">
+                  Henüz hesaplama yapılmamış. Hesaplama yapmak için önce panelleri seçin ve "Hesapla" düğmesine tıklayın.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
+  // Sekme butonlarını render eden fonksiyon
+  const renderTabButtons = () => (
+    <div className="flex gap-2 mb-4">
+      <button
+        onClick={() => setActiveTab('main-panel')}
+        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+          activeTab === 'main-panel'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+        }`}
+      >
+        Ana Panel Listesi
+      </button>
+      <button
+        onClick={() => setActiveTab('special-panel')}
+        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+          activeTab === 'special-panel'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+        }`}
+      >
+        Özel Panel Girişi
+      </button>
+      <button
+        onClick={() => setActiveTab('results')}
+        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+          activeTab === 'results'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+        }`}
+      >
+        Hesap Sonuçları
+      </button>
+      <button
+        onClick={() => setActiveTab('temp-calculations')}
+        className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
+          activeTab === 'temp-calculations'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white'
+        }`}
+      >
+        Geçici Hesaplamalar
+      </button>
+    </div>
+  );
 
-              // Sekme içeriklerini gösteren fonksiyon
-              const renderActiveTabContent = () => {
-                switch (activeTab) {
-                  case 'main-panel':
-                    return renderPanelList();
-                  case 'special-panel':
-                    return renderSpecialPanelEntry();
-                  case 'results':
-                    return showSalesView ? renderSalesView() : renderResults();
-                  case 'temp-calculations':
-                    return renderTempCalculations();
-                  default:
-                    return renderPanelList();
-                }
-              };
+  // Sekme içeriklerini gösteren fonksiyon
+  const renderActiveTabContent = () => {
+    switch (activeTab) {
+      case 'main-panel':
+        return renderPanelList();
+      case 'special-panel':
+        return renderSpecialPanelEntry();
+      case 'results':
+        return showSalesView ? renderSalesView() : renderResults();
+      case 'temp-calculations':
+        return renderTempCalculations();
+      default:
+        return renderPanelList();
+    }
+  };
 
-              // Geçici hesaplamaların görüntülenmesi
-              const renderTempCalculations = () => (
-                <div className="p-4 bg-gray-50 rounded shadow">
-                  <p className="text-gray-700">Geçici hesaplama verileri burada görüntülenecek...</p>
-                </div>
-              );
+  // Yükleme animasyonu
+  const renderLoading = () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center">
+        <RefreshCw className="animate-spin text-red-600 mb-4" size={40} />
+        <p className="text-gray-600">Veriler yükleniyor, lütfen bekleyin...</p>
+      </div>
+    </div>
+  );
 
-              // Yükleme animasyonu
-              const renderLoading = () => (
-                <div className="flex items-center justify-center h-64">
-                  <div className="flex flex-col items-center">
-                    <RefreshCw className="animate-spin text-red-600 mb-4" size={40} />
-                    <p className="text-gray-600">Veriler yükleniyor, lütfen bekleyin...</p>
-                  </div>
-                </div>
-              );
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold">Panel Çit Maliyet Hesaplama</h2>
+      {renderTabButtons()}
+      {renderDegiskenlerAccordion()}
+      {loading ? renderLoading() : renderActiveTabContent()}
+    </div>
+  );
+};
 
-              return (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold">Panel Çit Maliyet Hesaplama</h2>
-                  {renderTabButtons()}
-                  {renderDegiskenlerAccordion()}
-                  {loading ? renderLoading() : renderActiveTabContent()}
-                </div>
-              );
-            };
-
-            export default PanelCitHesaplama;
+export default PanelCitHesaplama;
