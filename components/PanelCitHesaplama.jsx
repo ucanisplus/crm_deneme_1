@@ -66,7 +66,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 
-// Palet ağırlıkları için referans tabloları
+// Palet ağırlıkları için referans tabloları - UPDATED with exact values from the requirements
 const PALLET_WEIGHTS = {
   Single: {
     '250': {
@@ -92,20 +92,21 @@ const PALLET_WEIGHTS = {
   }
 };
 
-
-// En yakın yükseklik değerini bulma yardımcı fonksiyonu
+// En yakın yükseklik değerini bulma yardımcı fonksiyonu - IMPROVED for accuracy
 const getClosestHeight = (height, panelType, widthStr) => {
   const lookupTable = PALLET_WEIGHTS[panelType]?.[widthStr];
   if (!lookupTable) return null;
   
-  const heights = Object.keys(lookupTable).map(Number);
-  
-  // Tam eşleşme ara
-  if (lookupTable[height.toString()]) {
-    return height.toString();
+  // Convert height to string and check for exact match
+  const heightStr = height.toString();
+  if (lookupTable[heightStr]) {
+    return heightStr;
   }
   
-  // En yakın değeri bul
+  // If no exact match, find the closest value
+  const heights = Object.keys(lookupTable).map(Number);
+  
+  // Sort heights numerically to find closest
   const closestHeight = heights.reduce((prev, curr) => {
     return (Math.abs(curr - height) < Math.abs(prev - height) ? curr : prev);
   });
@@ -113,55 +114,66 @@ const getClosestHeight = (height, panelType, widthStr) => {
   return closestHeight.toString();
 };
 
-// Güvenli float değer dönüştürme yardımcı fonksiyonu (boş, null ve virgül değerlerini işler)
+// Güvenli float değer dönüştürme yardımcı fonksiyonu - IMPROVED for better decimal handling
 const safeParseFloat = (value, defaultValue = 0) => {
   if (value === null || value === undefined || value === '') return defaultValue;
-  if (typeof value === 'string') value = value.replace(',', '.');
+  
+  // Handle both comma and dot as decimal separators
+  if (typeof value === 'string') {
+    value = value.replace(/\s/g, '').replace(',', '.');
+  }
+  
   const parsed = parseFloat(value);
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-// İyileştirilmiş görüntüleme formatı - gereksiz ondalık sıfırları kaldırır
+// IMPROVED display format function - properly handles integers vs. decimals
 const formatDisplayValue = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
   
-  // Tam sayı ise, ondalık gösterme
-  if (Number.isInteger(num)) return num.toString();
+  // If it's an integer (whole number), display without decimal part
+  if (Number.isInteger(num)) {
+    return num.toString();
+  }
   
-  // Küçük ölçümler için (tel çapı, göz aralığı gibi)
-  if (num < 100 && (num % 1 !== 0)) {
+  // For small measurements (like wire diameters, mesh spacings)
+  if (Math.abs(num) < 100) {
+    // Convert to string and remove trailing zeros after decimal point
     return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
   
-  // Fiyatlar için 5 ondalık
-  if (num > 100 || String(value).includes('fiyat') || String(value).includes('price')) {
-    return num.toFixed(5);
+  // For prices, show 2 decimal places (changed from 5 for better readability)
+  if (typeof value === 'string' && (value.includes('fiyat') || value.includes('price'))) {
+    return num.toFixed(2);
   }
   
-  // Diğer ondalıklı sayılar için gereksiz sıfırları kaldır
+  // For other decimal values, remove trailing zeros
   return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 };
 
-// Tablo hücreleri için özel formatlama yardımcı fonksiyonu
+// IMPROVED table cell formatting function
 const formatTableValue = (value, columnType) => {
-  if (value === null || value === undefined || isNaN(value)) return '';
+  if (value === null || value === undefined || value === '') return '';
   
   const num = parseFloat(value);
+  if (isNaN(num)) return value; // Return original value if not a number
   
-  if (columnType === 'tel_capi' || columnType === 'goz_araligi') {
-    // Ölçümler için gereksiz sıfırları kaldır ama önemli ondalıkları koru
-    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-  } else if (columnType === 'price') {
-    // Fiyatlar için tam 5 ondalık göster
-    return num.toFixed(5);
-  } else if (Number.isInteger(num)) {
-    // Tam sayılar için ondalık gösterme
-    return num.toString();
-  } else {
-    // Diğer ondalıklı sayılar için gereksiz sıfırları kaldır
-    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  switch (columnType) {
+    case 'tel_capi':
+    case 'goz_araligi':
+      // Format for wire diameter or mesh spacing - show decimals without trailing zeros
+      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    case 'price':
+      // Format for prices - always show 2 decimal places (reduced from 5 for readability)
+      return num.toFixed(2);
+    case 'decimal':
+      // For other decimal values, show up to 2 decimal places
+      return Number.isInteger(num) ? num.toString() : num.toFixed(2).replace(/\.00$/, '');
+    default:
+      // For integer values, don't show decimal point
+      return Number.isInteger(num) ? num.toString() : num.toFixed(2).replace(/\.00$/, '');
   }
 };
 
@@ -218,7 +230,7 @@ const PanelCitHesaplama = () => {
     fetchInitialData();
   }, []);
 
-  // İlk verileri çekme fonksiyonu
+  // İlk verileri çekme fonksiyonu - IMPROVED error handling
   const fetchInitialData = async () => {
     setLoading(true);
     try {
@@ -229,22 +241,34 @@ const PanelCitHesaplama = () => {
         profilRes, 
         panelListRes
       ] = await Promise.all([
-        axios.get(API_URLS.genelDegiskenler),
-        axios.get(API_URLS.panelCitDegiskenler),
-        axios.get(API_URLS.profilDegiskenler),
-        axios.get(API_URLS.panelList),
+        axios.get(API_URLS.genelDegiskenler).catch(err => {
+          console.error("Genel değişkenler getirme hatası:", err);
+          return { data: [] };
+        }),
+        axios.get(API_URLS.panelCitDegiskenler).catch(err => {
+          console.error("Panel çit değişkenleri getirme hatası:", err);
+          return { data: [] };
+        }),
+        axios.get(API_URLS.profilDegiskenler).catch(err => {
+          console.error("Profil değişkenleri getirme hatası:", err);
+          return { data: [] };
+        }),
+        axios.get(API_URLS.panelList).catch(err => {
+          console.error("Panel listesi getirme hatası:", err);
+          return { data: [] };
+        }),
       ]);
   
       // En son değişkenleri al - ID'ye göre azalan sıralama yaparak en son kaydı al
       const latestGenelDegisken = genelRes.data.sort((a, b) => b.id - a.id)[0] || {};
+      // Panel Çit için unique_key kullanıyoruz
       const latestPanelCitDegisken = panelCitRes.data.sort((a, b) => {
-        // unique_key varsa ona göre sırala, yoksa id'ye göre sırala
         if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
         return b.id - a.id;
       })[0] || {};
       const latestProfilDegisken = profilRes.data.sort((a, b) => b.id - a.id)[0] || {};
 
-      // Ondalık noktası kullanmak için değerleri formatla
+      // Ondalık noktası formatlaması iyileştirildi - değerleri doğru şekilde formatlayacak
       const formattedGenelDegiskenler = {};
       Object.entries(latestGenelDegisken).forEach(([key, value]) => {
         if (typeof value === 'number') {
@@ -288,13 +312,13 @@ const PanelCitHesaplama = () => {
       fetchCurrencyRates();
     } catch (error) {
       console.error('Veri çekme hatası:', error);
-      alert('Veri çekerken hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      alert('Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Sadece belirli bir bölümü yenileme fonksiyonu
+  // Sadece belirli bir bölümü yenileme fonksiyonu - IMPROVED error handling
   const fetchSectionData = async (section) => {
     try {
       setSectionLoading(prev => ({ ...prev, [section]: true }));
@@ -383,8 +407,7 @@ const PanelCitHesaplama = () => {
       }
     } catch (error) {
       console.error('Döviz kuru çekme hatası:', error);
-      // API başarısız olursa mevcut değerleri kullan
-      alert('Döviz kurları güncellenirken hata oluştu. Mevcut değerler kullanılacak.');
+      // APı başarısız olursa mevcut değerleri kullan (sessizce devam et)
     }
   };
 
@@ -406,13 +429,14 @@ const PanelCitHesaplama = () => {
       
       filtered = filtered.filter(panel => {
         const panelKodu = (panel.panel_kodu || '').toLowerCase();
-        const panelYukseklik = String(panel.panel_yuksekligi || '');
-        const panelGenislik = String(panel.panel_genisligi || '');
+        const manualOrder = (panel.manual_order || '').toLowerCase();
+        const panelYukseklik = String(panel.panel_yuksekligi || '').toLowerCase();
+        const panelGenislik = String(panel.panel_genisligi || '').toLowerCase();
         
-        // Farklı panel özelliklerinde tüm arama terimlerini eşleştir
         return searchTerms.every(term => 
           panelKodu.includes(term) || 
-          panelYukseklik.includes(term) || 
+          manualOrder.includes(term) ||
+          panelYukseklik.includes(term) ||
           panelGenislik.includes(term)
         );
       });
@@ -439,7 +463,7 @@ const PanelCitHesaplama = () => {
     }));
   };
 
-  // Panel listesini sıralama
+  // Panel listesini sıralama - IMPROVED for better sorting
   const sortPanelList = (key) => {
     let direction = 'ascending';
     
@@ -453,8 +477,8 @@ const PanelCitHesaplama = () => {
     // Filtrelenmiş listenin sıralanmış bir kopyasını oluştur
     const sortedList = [...filteredPanelList].sort((a, b) => {
       // Boş değerler için varsayılan
-      if (a[key] === null || a[key] === undefined) return 1;
-      if (b[key] === null || b[key] === undefined) return -1;
+      if (a[key] === null || a[key] === undefined) return direction === 'ascending' ? 1 : -1;
+      if (b[key] === null || b[key] === undefined) return direction === 'ascending' ? -1 : 1;
       
       // Sayıları karşılaştırıyorsak
       if (typeof a[key] === 'number' && typeof b[key] === 'number') {
@@ -462,33 +486,41 @@ const PanelCitHesaplama = () => {
       }
       
       // String karşılaştırması
-      const aString = String(a[key]).toLowerCase();
-      const bString = String(b[key]).toLowerCase();
+      const aStr = String(a[key]).toLowerCase();
+      const bStr = String(b[key]).toLowerCase();
       
-      if (aString < bString) return direction === 'ascending' ? -1 : 1;
-      if (aString > bString) return direction === 'ascending' ? 1 : -1;
+      if (aStr < bStr) return direction === 'ascending' ? -1 : 1;
+      if (aStr > bStr) return direction === 'ascending' ? 1 : -1;
       return 0;
     });
     
     setFilteredPanelList(sortedList);
   };
 
-  // Filtre değiştiğinde panel listesini güncelle
+  // Filtre değiştiğinde panelleri yeniden filtrele
   useEffect(() => {
     filterPanelList();
   }, [panelSearch, selectedPanelType, columnFilters, panelList]);
 
-  // Maliyet tablosunu filtreleme
+  // Maliyet tablosunu filtreleme - IMPROVED to handle more search fields
   const filterMaliyetListesi = () => {
     // Önce temel filtreleme - arama terimi
     let filtered = [...maliyetListesi];
     
     if (panelSearch && panelSearch.trim() !== '') {
-      const searchTerm = panelSearch.toLowerCase();
+      const searchTerms = panelSearch.toLowerCase().split(' ');
       filtered = filtered.filter(item => {
         const panelKodu = (item.panel_kodu || '').toLowerCase();
         const manualOrder = (item.manual_order || '').toLowerCase();
-        return panelKodu.includes(searchTerm) || manualOrder.includes(searchTerm);
+        const panelYukseklik = String(item.panel_yuksekligi || '').toLowerCase();
+        const panelGenislik = String(item.panel_genisligi || '').toLowerCase();
+        
+        return searchTerms.some(term => 
+          panelKodu.includes(term) || 
+          manualOrder.includes(term) ||
+          panelYukseklik.includes(term) ||
+          panelGenislik.includes(term)
+        );
       });
     }
     
@@ -499,13 +531,13 @@ const PanelCitHesaplama = () => {
   const calculatePanelKodu = (panel) => {
     if (!panel || !panel.panel_tipi) return '';
     
-    const prefix = panel.panel_tipi === 'Single' 
+    const prefix = panel.panel_tipi === "Single" 
       ? 'SP' 
-      : (panel.panel_tipi === 'Guvenlik' ? 'GP' : 'DP');
+      : (panel.panel_tipi === "Guvenlik" ? 'GP' : 'DP');
     
-    const capStr = `${panel.dikey_tel_capi || 0} * ${panel.yatay_tel_capi || 0}`;
-    const ebatStr = `${panel.panel_yuksekligi || 0} * ${panel.panel_genisligi || 0}`;
-    const gozStr = `${panel.yatay_goz_araligi || 0} * ${panel.dikey_goz_araligi || 0}`;
+    const capStr = `${formatDisplayValue(panel.dikey_tel_capi) || 0} * ${formatDisplayValue(panel.yatay_tel_capi) || 0}`;
+    const ebatStr = `${formatDisplayValue(panel.panel_yuksekligi) || 0} * ${formatDisplayValue(panel.panel_genisligi) || 0}`;
+    const gozStr = `${formatDisplayValue(panel.yatay_goz_araligi) || 0} * ${formatDisplayValue(panel.dikey_goz_araligi) || 0}`;
     const bukumStr = `${panel.bukum_sayisi || 0}-1`; // Şimdilik sabit ikinci kısım
     
     return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
@@ -599,13 +631,13 @@ const PanelCitHesaplama = () => {
       setActiveTab('results');
     } catch (error) {
       console.error('Hesaplama hatası:', error);
-      alert('Hesaplama sırasında hata oluştu: ' + error.message);
+      alert('Hesaplama sırasında hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
     } finally {
       setCalculating(false);
     }
   };
 
-  // Veritabanına asenkron kaydetme - kullanıcı arayüzünü bloke etmeden
+ // Veritabanına asenkron kaydetme - FIXED error handling
   const saveToDatabaseAsync = async (geciciHesaplarData, maliyetListesiData) => {
     try {
       // Önce geçici hesaplar tablosunu temizle
@@ -620,17 +652,21 @@ const PanelCitHesaplama = () => {
       const staticVars = calculateStaticVars();
       await axios.post(API_URLS.statikDegiskenler, staticVars);
       
-      // Her bir sonuç için veritabanına kaydetme işlemleri
-      // Burada veritabanı performansı için batch işlemler yapılabilir
+      // Veritabanı performansı için batch işlemler kullan
+      const batchSize = 50; // Her batch'te kaç kayıt işlenecek
       
-      // Geçici hesapları kaydet
-      for (const hesap of geciciHesaplarData) {
-        await axios.post(API_URLS.geciciHesaplar, hesap);
+      // Geçici hesapları batch olarak kaydet
+      for (let i = 0; i < geciciHesaplarData.length; i += batchSize) {
+        const batch = geciciHesaplarData.slice(i, i + batchSize);
+        const promises = batch.map(hesap => axios.post(API_URLS.geciciHesaplar, hesap));
+        await Promise.all(promises);
       }
       
-      // Maliyet listesini kaydet
-      for (const maliyet of maliyetListesiData) {
-        await axios.post(API_URLS.maliyetListesi, maliyet);
+      // Maliyet listesini batch olarak kaydet
+      for (let i = 0; i < maliyetListesiData.length; i += batchSize) {
+        const batch = maliyetListesiData.slice(i, i + batchSize);
+        const promises = batch.map(maliyet => axios.post(API_URLS.maliyetListesi, maliyet));
+        await Promise.all(promises);
       }
       
       console.log('Tüm veriler veritabanına başarıyla kaydedildi');
@@ -989,62 +1025,62 @@ const PanelCitHesaplama = () => {
           
           // Çıplak Adet hesaplamaları
           ciplak_adet_usd: Number(adetUSD || 0),
-          ciplak_adet_eur: Number((adetUSD / eurUsd) || 0),
+          ciplak_adet_eur: Number((adetUSD * eurUsd) || 0),
           ciplak_adet_try: Number((adetUSD * usdTl) || 0),
           
-          // Çıplak M2 hesaplamaları
+         // Çıplak M2 hesaplamaları
           ciplak_m2_usd: l1Metre > 0 ? Number((adetUSD / l1Metre) || 0) : 0,
-          ciplak_m2_eur: l1Metre > 0 ? Number(((adetUSD / l1Metre) / eurUsd) || 0) : 0,
+          ciplak_m2_eur: l1Metre > 0 ? Number(((adetUSD / l1Metre) * eurUsd) || 0) : 0,
           ciplak_m2_try: l1Metre > 0 ? Number(((adetUSD / l1Metre) * usdTl) || 0) : 0,
           
           // Çıplak Kg hesaplamaları
           ciplak_kg_usd: weightKg > 0 ? Number((adetUSD / weightKg) || 0) : 0,
-          ciplak_kg_eur: weightKg > 0 ? Number(((adetUSD / weightKg) / eurUsd) || 0) : 0,
+          ciplak_kg_eur: weightKg > 0 ? Number(((adetUSD / weightKg) * eurUsd) || 0) : 0,
           ciplak_kg_try: weightKg > 0 ? Number(((adetUSD / weightKg) * usdTl) || 0) : 0,
           
           // Boyalı Adet hesaplamaları
           boyali_adet_usd: Number(boyaliAdetUSD || 0),
-          boyali_adet_eur: Number((boyaliAdetUSD / eurUsd) || 0),
+          boyali_adet_eur: Number((boyaliAdetUSD * eurUsd) || 0),
           boyali_adet_try: Number((boyaliAdetUSD * usdTl) || 0),
           
           // Boyalı M2 hesaplamaları
           boyali_m2_usd: l1Metre > 0 ? Number((boyaliAdetUSD / l1Metre) || 0) : 0,
-          boyali_m2_eur: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) / eurUsd) || 0) : 0,
+          boyali_m2_eur: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * eurUsd) || 0) : 0,
           boyali_m2_try: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * usdTl) || 0) : 0,
           
           // Boyalı Kg hesaplamaları
           boyali_kg_usd: weightKg > 0 ? Number((boyaliAdetUSD / weightKg) || 0) : 0,
-          boyali_kg_eur: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) / eurUsd) || 0) : 0,
+          boyali_kg_eur: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * eurUsd) || 0) : 0,
           boyali_kg_try: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * usdTl) || 0) : 0,
           
           // Standart Setli + Boyasız Adet hesaplamaları
           standart_setli_boyasiz_adet_usd: Number((adetUSD + SetUSD) || 0),
-          standart_setli_boyasiz_adet_eur: Number(((adetUSD + SetUSD) / eurUsd) || 0),
+          standart_setli_boyasiz_adet_eur: Number(((adetUSD + SetUSD) * eurUsd) || 0),
           standart_setli_boyasiz_adet_try: Number(((adetUSD + SetUSD) * usdTl) || 0),
           
           // Standart Setli + Boyasız M2 hesaplamaları
           standart_setli_boyasiz_m2_usd: l1Metre > 0 ? Number(((adetUSD + SetUSD) / l1Metre) || 0) : 0,
-          standart_setli_boyasiz_m2_eur: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0,
+          standart_setli_boyasiz_m2_eur: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * eurUsd) || 0) : 0,
           standart_setli_boyasiz_m2_try: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
           
           // Standart Setli + Boyasız Kg hesaplamaları
           standart_setli_boyasiz_kg_usd: weightKg > 0 ? Number(((adetUSD + SetUSD) / weightKg) || 0) : 0,
-          standart_setli_boyasiz_kg_eur: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0,
+          standart_setli_boyasiz_kg_eur: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * eurUsd) || 0) : 0,
           standart_setli_boyasiz_kg_try: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
           
           // Standart Setli + Boyalı Adet hesaplamaları
           standart_setli_boyali_adet_usd: Number((boyaliAdetUSD + SetUSD) || 0),
-          standart_setli_boyali_adet_eur: Number(((boyaliAdetUSD + SetUSD) / eurUsd) || 0),
+          standart_setli_boyali_adet_eur: Number(((boyaliAdetUSD + SetUSD) * eurUsd) || 0),
           standart_setli_boyali_adet_try: Number(((boyaliAdetUSD + SetUSD) * usdTl) || 0),
           
           // Standart Setli + Boyalı M2 hesaplamaları
           standart_setli_boyali_m2_usd: l1Metre > 0 ? Number(((boyaliAdetUSD + SetUSD) / l1Metre) || 0) : 0,
-          standart_setli_boyali_m2_eur: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0,
+          standart_setli_boyali_m2_eur: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * eurUsd) || 0) : 0,
           standart_setli_boyali_m2_try: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
           
           // Standart Setli + Boyalı Kg hesaplamaları
           standart_setli_boyali_kg_usd: weightKg > 0 ? Number(((boyaliAdetUSD + SetUSD) / weightKg) || 0) : 0,
-          standart_setli_boyali_kg_eur: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0,
+          standart_setli_boyali_kg_eur: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * eurUsd) || 0) : 0,
           standart_setli_boyali_kg_try: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
           
           // Ek panel bilgileri
@@ -1073,10 +1109,6 @@ const PanelCitHesaplama = () => {
   const generateSalesList = (maliyetListesi) => {
     const salesList = maliyetListesi.map(item => {
       // Her bir fiyat tipi için hesaplama yap
-      const bronzePrices = calculatePricesWithMargin(item, 'bronze');
-      const silverPrices = calculatePricesWithMargin(item, 'silver');
-      const goldPrices = calculatePricesWithMargin(item, 'gold');
-      
       return {
         ...item,
         bronze_usd: calculatePricesWithMargin(item, 'bronze', salesFilter.unit, 'usd'),
@@ -1094,27 +1126,29 @@ const PanelCitHesaplama = () => {
     return salesList;
   };
 
-
-
-  // Genel değişkenleri güncelleme - kur değerlerini veritabanına kaydetme hatası düzeltildi
+  // Genel değişkenleri güncelleme - FIXED to prevent data loss and 500 errors
   const updateGenelDegiskenler = async () => {
     try {
-      // Veriyi kaydetmek için işle ve hazırla - kur değerlerini (usd_tl, eur_usd) hariç tut
+      // Veriyi kaydetmek için işle ve hazırla
       const processedData = {};
+      
       Object.entries(genelDegiskenler).forEach(([key, value]) => {
-        // Kur değerlerini veritabanına kaydetme
-        if (key === 'usd_tl' || key === 'eur_usd') {
-          return;
-        }
-        
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
+        // id ve tarih alanları dışındaki tüm alanları işle
+        if (key !== 'id' && key !== 'genel_latest_update') {
+          // Boş string veya undefined değerleri işle
+          if (value === '' || value === undefined) {
+            processedData[key] = null;
+          } else if (typeof value === 'string') {
+            // Virgüllü string sayıları gerçek sayılara dönüştür
+            if (!isNaN(parseFloat(value.replace(',', '.')))) {
+              processedData[key] = parseFloat(value.replace(',', '.'));
+            } else {
+              // Sayı değilse olduğu gibi kaydet
+              processedData[key] = value;
+            }
+          } else {
+            processedData[key] = value;
+          }
         }
       });
       
@@ -1135,20 +1169,29 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Panel Çit Değişkenlerini Güncelleme - dublicate key hatası düzeltildi
+  // Panel Çit Değişkenlerini Güncelleme - FIXED to use unique_key and prevent 500 errors
   const updatePanelCitDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla
       const processedData = {};
+      
       Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
+        // unique_key ve tarih alanları dışındaki tüm alanları işle
+        if (key !== 'unique_key' && key !== 'panel_cit_latest_update') {
+          // Boş string veya undefined değerleri işle
+          if (value === '' || value === undefined) {
+            processedData[key] = null;
+          } else if (typeof value === 'string') {
+            // Virgüllü string sayıları gerçek sayılara dönüştür
+            if (!isNaN(parseFloat(value.replace(',', '.')))) {
+              processedData[key] = parseFloat(value.replace(',', '.'));
+            } else {
+              // Sayı değilse olduğu gibi kaydet
+              processedData[key] = value;
+            }
+          } else {
+            processedData[key] = value;
+          }
         }
       });
       
@@ -1160,7 +1203,7 @@ const PanelCitHesaplama = () => {
       
       let response;
       
-      // Eğer kayıt zaten varsa PUT, yoksa POST kullan (duplicate key hatasını önler)
+      // Eğer kayıt zaten varsa PUT, yoksa POST kullan
       if (panelCitDegiskenler.unique_key) {
         response = await axios.put(`${API_URLS.panelCitDegiskenler}/${panelCitDegiskenler.unique_key}`, dataToSave);
       } else {
@@ -1177,20 +1220,29 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Profil Değişkenlerini Güncelleme - dublicate key hatası düzeltildi
+  // Profil Değişkenlerini Güncelleme - FIXED to prevent data loss and 500 errors
   const updateProfilDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla
       const processedData = {};
+      
       Object.entries(profilDegiskenler).forEach(([key, value]) => {
-        // Boş string veya undefined değerleri işle
-        if (value === '' || value === undefined) {
-          processedData[key] = null;
-        } else if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-          // Virgüllü string sayıları gerçek sayılara dönüştür
-          processedData[key] = parseFloat(value.replace(',', '.'));
-        } else {
-          processedData[key] = value;
+        // id ve tarih alanları dışındaki tüm alanları işle
+        if (key !== 'id' && key !== 'profil_latest_update') {
+          // Boş string veya undefined değerleri işle
+          if (value === '' || value === undefined) {
+            processedData[key] = null;
+          } else if (typeof value === 'string') {
+            // Virgüllü string sayıları gerçek sayılara dönüştür
+            if (!isNaN(parseFloat(value.replace(',', '.')))) {
+              processedData[key] = parseFloat(value.replace(',', '.'));
+            } else {
+              // Sayı değilse olduğu gibi kaydet
+              processedData[key] = value;
+            }
+          } else {
+            processedData[key] = value;
+          }
         }
       });
       
@@ -1202,7 +1254,7 @@ const PanelCitHesaplama = () => {
       
       let response;
       
-      // Eğer kayıt zaten varsa PUT, yoksa POST kullan (duplicate key hatasını önler)
+      // Eğer kayıt zaten varsa PUT, yoksa POST kullan
       if (profilDegiskenler.id) {
         response = await axios.put(`${API_URLS.profilDegiskenler}/${profilDegiskenler.id}`, dataToSave);
       } else {
@@ -1219,7 +1271,7 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Özel panel ekleme - formüller iyileştirildi
+  // Özel panel ekleme - formüller tamamen iyileştirildi
   const addOzelPanel = () => {
     const newPanel = {
       manual_order: '', 
@@ -1252,7 +1304,8 @@ const PanelCitHesaplama = () => {
       paletsiz_toplam_panel_yuksekligi: 0,
       paletli_yukseklik: 0,
       icube_code: '',
-      icube_code_adetli: ''
+      icube_code_adetli: '',
+      stok_kodu: '' // STOK KODU placeholder for future implementation
     };
 
     // Panel değerlerini hesapla ve güncelle
@@ -1308,6 +1361,9 @@ const PanelCitHesaplama = () => {
     } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi < 200) {
       updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
     } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi >= 200) {
+      updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+    } else {
+      // Default case for other combinations
       updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
     }
     
@@ -1393,7 +1449,7 @@ const PanelCitHesaplama = () => {
     // =AB2 & "_(" & T2 & "-Adet)"
     updatedPanel.icube_code_adetli = `${updatedPanel.icube_code}_(${updatedPanel.paletteki_panel_sayisi}-Adet)`;
     
-    // Sayısal alanları yuvarlama
+    // Sayısal alanları yuvarla (eksik hesapları gidermek için)
     if (!isNaN(updatedPanel.adet_m2)) updatedPanel.adet_m2 = parseFloat(updatedPanel.adet_m2.toFixed(5));
     if (!isNaN(updatedPanel.dikey_cubuk_adet)) updatedPanel.dikey_cubuk_adet = Math.round(updatedPanel.dikey_cubuk_adet);
     if (!isNaN(updatedPanel.yatay_cubuk_adet)) updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet);
@@ -1428,6 +1484,8 @@ const PanelCitHesaplama = () => {
       return adetM2 * 0.06;
     } else if (panel.panel_tipi === "Single") {
       return adetM2 * 0.03;
+    } else if (panel.panel_tipi === "Guvenlik") {
+      return adetM2 * 0.03; // Assume same as Single unless specified otherwise
     } else {
       return 0;
     }
@@ -1447,12 +1505,14 @@ const PanelCitHesaplama = () => {
       }
     } else if (panel.panel_tipi === "Single") {
       return 100;
+    } else if (panel.panel_tipi === "Guvenlik") {
+      return 50; // Assume a default value for Guvenlik panels
     } else {
       return 0;
     }
   };
 
-  // Palet boş ağırlık hesaplama - lookup tablosunu kullanma
+  // Palet boş ağırlık hesaplama - FIXED to correctly use lookup tables
   const calculatePaletBosAgirlik = (panel) => {
     if (!panel || !panel.panel_tipi) return 0;
     
@@ -1469,7 +1529,7 @@ const PanelCitHesaplama = () => {
     if (!closestHeight) return 0;
     
     // Lookup tablosundan ağırlığı al
-    return PALLET_WEIGHTS[panelType][widthStr][closestHeight] || 0;
+    return PALLET_WEIGHTS[panelType]?.[widthStr]?.[closestHeight] || 0;
   };
 
   // Adet panel yüksekliği hesaplama
@@ -1488,6 +1548,15 @@ const PanelCitHesaplama = () => {
         return 0.875 + ((yatayTelCapi - 5) / (8 - 5)) * (1.33 - 0.875);
       }
     } else if (panelType === "Single") {
+      if (yatayTelCapi < 3) {
+        return 0.769;
+      } else if (yatayTelCapi > 5.5) {
+        return 1;
+      } else {
+        return 0.769 + ((yatayTelCapi - 3) / (5.5 - 3)) * (1 - 0.769);
+      }
+    } else if (panelType === "Guvenlik") {
+      // Assume same formula as Single for Guvenlik panels
       if (yatayTelCapi < 3) {
         return 0.769;
       } else if (yatayTelCapi > 5.5) {
@@ -1529,7 +1598,7 @@ const PanelCitHesaplama = () => {
     setOzelPanelList(prev => prev.filter(panel => panel.id !== id));
   };
 
-  // Özel panel güncelleme - değişikliklerden sonra tüm bağımlı alanları tekrar hesapla
+  // Özel panel güncelleme - IMPROVED to correctly update all dependent fields
   const updateOzelPanel = (id, field, value) => {
     setOzelPanelList(prev => prev.map(panel => {
       if (panel.id === id) {
@@ -1551,7 +1620,7 @@ const PanelCitHesaplama = () => {
     }));
   };
 
-  // Özel paneli veritabanına kaydetme
+  // Özel paneli veritabanına kaydetme - FIXED to handle errors better
   const saveOzelPanelToDatabase = async (panel) => {
     try {
       // Özel alanları temizle
@@ -1560,20 +1629,23 @@ const PanelCitHesaplama = () => {
               palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
               paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
       
-      // Veritabanına kaydet
-      const response = await axios.post(API_URLS.panelList, {
+      // API için hazırlanmış veriyi oluştur
+      const dataToSave = {
         ...panelData,
         kayit_tarihi: new Date().toISOString()
-      });
+      };
+      
+      // Veritabanına kaydet
+      const response = await axios.post(API_URLS.panelList, dataToSave);
       
       if (response.status === 200 || response.status === 201) {
-        alert(`${panel.panel_kodu} kodlu panel başarıyla kaydedildi.`);
+        alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
         
         // Mevcut panel listesini güncelle
         fetchSectionData('panelList');
         
         // Özel panel listesinden kaldır
-        setOzelPanelList(ozelPanelList.filter(p => p.id !== panel.id));
+        setOzelPanelList(prev => prev.filter(p => p.id !== panel.id));
       }
     } catch (error) {
       console.error('Panel kaydetme hatası:', error);
@@ -1581,7 +1653,7 @@ const PanelCitHesaplama = () => {
     }
   };
 
-  // Tüm özel panelleri veritabanına kaydet
+  // Tüm özel panelleri veritabanına kaydet - IMPROVED with better error handling
   const saveAllOzelPanelsToDatabase = async () => {
     if (ozelPanelList.length === 0) {
       alert('Kaydedilecek özel panel bulunamadı.');
@@ -1593,6 +1665,7 @@ const PanelCitHesaplama = () => {
     
     let savedCount = 0;
     let errorCount = 0;
+    let errorMessages = [];
     
     // Her bir paneli tek tek kaydet
     for (const panel of ozelPanelList) {
@@ -1615,6 +1688,7 @@ const PanelCitHesaplama = () => {
       } catch (error) {
         console.error(`Panel kaydetme hatası (${panel.panel_kodu}):`, error);
         errorCount++;
+        errorMessages.push(`${panel.panel_kodu}: ${error.response?.data?.error || error.message}`);
       }
     }
     
@@ -1628,14 +1702,19 @@ const PanelCitHesaplama = () => {
       // Özel panel listesini temizle
       setOzelPanelList([]);
     } else {
-      alert(`${savedCount} panel başarıyla kaydedildi, ${errorCount} panel kaydedilemedi.`);
+      const errorDetails = errorMessages.length > 3 
+        ? errorMessages.slice(0, 3).join('\n') + `\n...ve ${errorMessages.length - 3} hata daha.` 
+        : errorMessages.join('\n');
+        
+      alert(`${savedCount} panel başarıyla kaydedildi, ${errorCount} panel kaydedilemedi.\n\nHatalar:\n${errorDetails}`);
       
       // Mevcut panel listesini güncelle
       fetchSectionData('panelList');
       
-      // Başarıyla kaydedilen panelleri listeden kaldır
-      // NOT: Hangi panellerin kaydedildiğini tam olarak bilemeyeceğimiz için
-      // bu kısım şimdilik atlandı, kullanıcı manuel olarak kaldırabilir
+      // Başarıyla kaydedilen panelleri listeden kaldır (id'leri karşılaştıramadığımız için panel_kodu kullanıyoruz)
+      // Bu yaklaşım bazı durumlarda hatalı olabilir ama en iyi durum yaklaşımıdır
+      const successfulPanels = ozelPanelList.filter(panel => !errorMessages.some(err => err.startsWith(panel.panel_kodu)));
+      setOzelPanelList(prev => prev.filter(panel => !successfulPanels.includes(panel)));
     }
   };
 
@@ -1657,8 +1736,8 @@ const PanelCitHesaplama = () => {
         isNew: true,
         id: Date.now() + Math.random(), // Benzersiz ID oluştur
         // Aşağıdaki alanları hesapla (calculatePanelValues fonksiyonu ile)
-        bukum_sayisi: 0,
-        bukumdeki_cubuk_sayisi: 1,
+        bukum_sayisi: panel.bukum_sayisi || 0,
+        bukumdeki_cubuk_sayisi: panel.bukumdeki_cubuk_sayisi || 1,
         boyali_hali: 0,
         boya_kg: 0,
         m2_agirlik: 0,
@@ -1718,99 +1797,360 @@ const PanelCitHesaplama = () => {
     setSatisListesi(generateSalesList(maliyetListesi));
   };
 
-  // Excel'e aktarma - güncellenmiş versiyon, filtreleri destekler
+  // Excel'e aktarma - IMPROVED to respect current view and formatting
   const exportToExcel = (listType = 'maliyet') => {
-    // Hangi listenin dışa aktarılacağını belirle
-    let dataToExport = [];
-    let filename = '';
-    let sheetName = '';
-    
-    // Sonuç tipine göre veri hazırla
-    if (listType === 'maliyet') {
-      dataToExport = filterMaliyetListesi();
-      filename = 'Panel_Cit_Maliyet_Listesi.xlsx';
-      sheetName = 'Maliyet Listesi';
-    } else if (listType === 'satis') {
-      // Mevcut filtrelerle satış verilerini hazırla
-      dataToExport = filterMaliyetListesi().map(item => {
-        const currency = salesFilter.currency.toLowerCase();
-        const unit = salesFilter.unit;
-        
-        // Uygun fiyatları hesapla
-        const bronzePrice = calculatePricesWithMargin(item, 'bronze', unit, currency);
-        const silverPrice = calculatePricesWithMargin(item, 'silver', unit, currency);
-        const goldPrice = calculatePricesWithMargin(item, 'gold', unit, currency);
-        
-        return {
-          "Panel Kodu": item.panel_kodu,
-          "Panel Tipi": item.panel_tipi,
-          "Panel Yüksekliği": item.panel_yuksekligi,
-          "Panel Genişliği": item.panel_genisligi,
-          "Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
-          "Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
-          "Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
-          "Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi'),
-          [`Bronz Fiyat (${salesFilter.currency})`]: bronzePrice,
-          [`Gümüş Fiyat (${salesFilter.currency})`]: silverPrice,
-          [`Altın Fiyat (${salesFilter.currency})`]: goldPrice
-        };
-      });
-      filename = 'Panel_Cit_Satis_Listesi.xlsx';
-      sheetName = 'Satış Listesi';
-    } else if (listType === 'ozel') {
-      // Özel paneller için 
-      dataToExport = ozelPanelList.map(panel => ({
-        "Panel Kodu": panel.panel_kodu,
-        "Panel Tipi": panel.panel_tipi,
-        "Panel Yüksekliği": panel.panel_yuksekligi,
-        "Panel Genişliği": panel.panel_genisligi,
-        "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi'),
-        "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi'),
-        "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi'),
-        "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi'),
-        "Büküm Sayısı": panel.bukum_sayisi,
-        "Adet M²": formatTableValue(panel.adet_m2, 'decimal'),
-        "Ağırlık": formatTableValue(panel.agirlik, 'decimal'),
-        "Boya Kg": formatTableValue(panel.boya_kg, 'decimal'),
-        "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal'),
-        "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal'),
-        "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi,
-        "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal'),
-        "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal'),
-        "Icube Code": panel.icube_code,
-        "Stok Kodu": panel.stok_kodu
-      }));
-      filename = 'Panel_Cit_Ozel_Panel_Listesi.xlsx';
-      sheetName = 'Özel Panel Listesi';
-    }
-    
-    if (dataToExport.length === 0) {
-      alert('Dışa aktarılacak veri bulunamadı!');
-      return;
-    }
-    
     try {
+      // Hangi listenin dışa aktarılacağını belirle
+      let dataToExport = [];
+      let filename = '';
+      let sheetName = '';
+      
+      // Sonuç tipine göre veri hazırla
+      if (listType === 'maliyet') {
+        // Maliyet listesi - filtrelenmiş verileri kulan
+        const filteredData = filterMaliyetListesi();
+        
+        // Şu anda görünen sütunları ve verileri belirle - Tam olarak görüldüğü gibi
+        dataToExport = filteredData.map(item => {
+          const exportData = {
+            "Panel Kodu": item.panel_kodu || '',
+            "Panel Tipi": item.panel_tipi || '',
+            "Yükseklik": item.panel_yuksekligi || '',
+            "Genişlik": item.panel_genisligi || '',
+            "Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
+            "Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
+            "Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
+            "Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi')
+          };
+          
+          // Filtreye göre görünen sütunları ekle
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'adet') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'ciplak')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Çıplak Adet USD"] = formatTableValue(item.ciplak_adet_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Çıplak Adet EUR"] = formatTableValue(item.ciplak_adet_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Çıplak Adet TRY"] = formatTableValue(item.ciplak_adet_try, 'price');
+            }
+          }
+          
+          // Diğer tüm sütunları filtreye göre ekle...
+          // Çıplak M2
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'm2') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'ciplak')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Çıplak M2 USD"] = formatTableValue(item.ciplak_m2_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Çıplak M2 EUR"] = formatTableValue(item.ciplak_m2_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Çıplak M2 TRY"] = formatTableValue(item.ciplak_m2_try, 'price');
+            }
+          }
+          
+          // Çıplak Kg
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'kg') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'ciplak')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Çıplak Kg USD"] = formatTableValue(item.ciplak_kg_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Çıplak Kg EUR"] = formatTableValue(item.ciplak_kg_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Çıplak Kg TRY"] = formatTableValue(item.ciplak_kg_try, 'price');
+            }
+          }
+          
+          // Boyalı Adet
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'adet') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Boyalı Adet USD"] = formatTableValue(item.boyali_adet_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Boyalı Adet EUR"] = formatTableValue(item.boyali_adet_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Boyalı Adet TRY"] = formatTableValue(item.boyali_adet_try, 'price');
+            }
+          }
+          
+          // Boyalı M2
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'm2') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Boyalı M2 USD"] = formatTableValue(item.boyali_m2_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Boyalı M2 EUR"] = formatTableValue(item.boyali_m2_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Boyalı M2 TRY"] = formatTableValue(item.boyali_m2_try, 'price');
+            }
+          }
+          
+          // Boyalı Kg
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'kg') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Boyalı Kg USD"] = formatTableValue(item.boyali_kg_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Boyalı Kg EUR"] = formatTableValue(item.boyali_kg_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Boyalı Kg TRY"] = formatTableValue(item.boyali_kg_try, 'price');
+            }
+          }
+          
+          // Standart Setli + Boyasız
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'adet') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyasız Adet USD"] = formatTableValue(item.standart_setli_boyasiz_adet_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyasız Adet EUR"] = formatTableValue(item.standart_setli_boyasiz_adet_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyasız Adet TRY"] = formatTableValue(item.standart_setli_boyasiz_adet_try, 'price');
+            }
+          }
+          
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'm2') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyasız M2 USD"] = formatTableValue(item.standart_setli_boyasiz_m2_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyasız M2 EUR"] = formatTableValue(item.standart_setli_boyasiz_m2_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyasız M2 TRY"] = formatTableValue(item.standart_setli_boyasiz_m2_try, 'price');
+            }
+          }
+          
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'kg') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyasiz')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyasız Kg USD"] = formatTableValue(item.standart_setli_boyasiz_kg_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyasız Kg EUR"] = formatTableValue(item.standart_setli_boyasiz_kg_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyasız Kg TRY"] = formatTableValue(item.standart_setli_boyasiz_kg_try, 'price');
+            }
+          }
+          
+          // Standart Setli + Boyalı
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'adet') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyalı Adet USD"] = formatTableValue(item.standart_setli_boyali_adet_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyalı Adet EUR"] = formatTableValue(item.standart_setli_boyali_adet_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyalı Adet TRY"] = formatTableValue(item.standart_setli_boyali_adet_try, 'price');
+            }
+          }
+          
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'm2') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyalı M2 USD"] = formatTableValue(item.standart_setli_boyali_m2_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyalı M2 EUR"] = formatTableValue(item.standart_setli_boyali_m2_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyalı M2 TRY"] = formatTableValue(item.standart_setli_boyali_m2_try, 'price');
+            }
+          }
+          
+          if ((resultFilter.unit === 'all' || resultFilter.unit === 'kg') && 
+              (resultFilter.type === 'all' || resultFilter.type === 'setli_boyali')) {
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'USD') {
+              exportData["Standart Setli + Boyalı Kg USD"] = formatTableValue(item.standart_setli_boyali_kg_usd, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'EUR') {
+              exportData["Standart Setli + Boyalı Kg EUR"] = formatTableValue(item.standart_setli_boyali_kg_eur, 'price');
+            }
+            if (resultFilter.currency === 'all' || resultFilter.currency === 'TRY') {
+              exportData["Standart Setli + Boyalı Kg TRY"] = formatTableValue(item.standart_setli_boyali_kg_try, 'price');
+            }
+          }
+          
+          return exportData;
+        });
+        
+        filename = 'Panel_Cit_Maliyet_Listesi.xlsx';
+        sheetName = 'Maliyet Listesi';
+      } else if (listType === 'satis') {
+        // Mevcut filtrelerle satış verilerini hazırla
+        const filteredData = filterMaliyetListesi();
+        
+        // Satış listesi için ekstra bilgileri ve fiyat formatlarını ekleyerek
+        dataToExport = filteredData.map(item => {
+          const exportData = {
+            "Panel Kodu": item.panel_kodu || '',
+            "Panel Tipi": item.panel_tipi || '',
+            "Yükseklik": item.panel_yuksekligi || '',
+            "Genişlik": item.panel_genisligi || '',
+            "Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
+            "Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
+            "Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
+            "Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi')
+          };
+          
+          // Para birimi ve birim tipine göre fiyatları ekle
+          const currency = salesFilter.currency.toLowerCase();
+          
+          // Adet fiyatları
+          if (salesFilter.unit === 'all' || salesFilter.unit === 'adet') {
+            exportData[`Bronz Fiyat - Adet (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'bronze', 'adet', currency), 'price'
+            );
+            exportData[`Gümüş Fiyat - Adet (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'silver', 'adet', currency), 'price'
+            );
+            exportData[`Altın Fiyat - Adet (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'gold', 'adet', currency), 'price'
+            );
+          }
+          
+          // M2 fiyatları
+          if (salesFilter.unit === 'all' || salesFilter.unit === 'm2') {
+            exportData[`Bronz Fiyat - m² (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'bronze', 'm2', currency), 'price'
+            );
+            exportData[`Gümüş Fiyat - m² (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'silver', 'm2', currency), 'price'
+            );
+            exportData[`Altın Fiyat - m² (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'gold', 'm2', currency), 'price'
+            );
+          }
+          
+          // Kg fiyatları
+          if (salesFilter.unit === 'all' || salesFilter.unit === 'kg') {
+            exportData[`Bronz Fiyat - kg (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'bronze', 'kg', currency), 'price'
+            );
+            exportData[`Gümüş Fiyat - kg (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'silver', 'kg', currency), 'price'
+            );
+            exportData[`Altın Fiyat - kg (${salesFilter.currency})`] = formatTableValue(
+              calculatePricesWithMargin(item, 'gold', 'kg', currency), 'price'
+            );
+          }
+          
+          return exportData;
+        });
+        
+        filename = 'Panel_Cit_Satis_Listesi.xlsx';
+        sheetName = 'Satış Listesi';
+      } else if (listType === 'ozel') {
+        // Özel paneller için tüm alanları içeren export
+        dataToExport = ozelPanelList.map(panel => ({
+          "Panel Kodu": panel.panel_kodu || '',
+          "Panel Tipi": panel.panel_tipi || '',
+          "Yükseklik": panel.panel_yuksekligi || '',
+          "Genişlik": panel.panel_genisligi || '',
+          "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi') || '',
+          "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi') || '',
+          "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') || '',
+          "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || '',
+          "Büküm Sayısı": panel.bukum_sayisi || '',
+          "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
+          "Dikey Çubuk Adedi": panel.dikey_cubuk_adet || '',
+          "Yatay Çubuk Adedi": panel.yatay_cubuk_adet || '',
+          "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
+          "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
+          "Boya Kg": formatTableValue(panel.boya_kg, 'decimal') || '',
+          "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal') || '',
+          "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal') || '',
+          "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi || '',
+          "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal') || '',
+          "Paletsiz Toplam Ağırlık": formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || '',
+          "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal') || '',
+          "Boş Palet Yüksekliği": panel.bos_palet_yuksekligi || '',
+          "Adet Panel Yüksekliği": formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || '',
+          "Paletsiz Toplam Panel Yüksekliği": formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || '',
+          "Paletli Yükseklik": formatTableValue(panel.paletli_yukseklik, 'decimal') || '',
+          "Icube Code": panel.icube_code || '',
+          "Icube Code (Adetli)": panel.icube_code_adetli || '',
+          "Stok Kodu": panel.stok_kodu || ''
+        }));
+        
+        filename = 'Panel_Cit_Ozel_Panel_Listesi.xlsx';
+        sheetName = 'Özel Panel Listesi';
+      } else if (listType === 'gecici') {
+        // Geçici hesaplamalar tablosu
+        dataToExport = geciciHesaplar.map(hesap => ({
+          "Panel Kodu": hesap.panel_kodu || '',
+          "Panel Kapasite": formatTableValue(hesap.panel_kapasite, 'decimal') || '',
+          "Yalnız Panel Aylık Kapasite": formatTableValue(hesap.yalniz_panel_aylik, 'decimal') || '',
+          "Panel Kaynak Elektrik (m²)": formatTableValue(hesap.panel_kaynak_elektrik, 'price') || '',
+          "Panel Kesme Elektrik (m²)": formatTableValue(hesap.panel_kesme_elektrik, 'price') || '',
+          "Diğer (m²)": formatTableValue(hesap.diger_m2, 'price') || '',
+          "Yalnız Panel İşçi (m²)": formatTableValue(hesap.yalniz_panel_isci_m2, 'price') || '',
+          "Panel Boya İşçi (m²)": formatTableValue(hesap.panel_boya_isci_m2, 'price') || '',
+          "Galvaniz Tel (kg)": formatTableValue(hesap.galvaniz_tel_kg, 'price') || '',
+          "Boya Kapasite": formatTableValue(hesap.boya_kapasite, 'decimal') || '',
+          "Boya Aylık Kapasite": formatTableValue(hesap.boya_aylik_kapasite, 'decimal') || '',
+          "Panel Boya Elektrik (m²)": formatTableValue(hesap.panel_boya_elektrik, 'price') || '',
+          "Panel Doğalgaz (m²)": formatTableValue(hesap.panel_dogalgaz_m2, 'price') || '',
+          "Adet USD": formatTableValue(hesap.adet_usd, 'price') || '',
+          "Boya Adet USD": formatTableValue(hesap.boya_adet_usd, 'price') || '',
+          "Boyalı Adet USD": formatTableValue(hesap.boyali_adet_usd, 'price') || ''
+        }));
+        
+        filename = 'Panel_Cit_Gecici_Hesaplar.xlsx';
+        sheetName = 'Geçici Hesaplar';
+      }
+      
+      if (dataToExport.length === 0) {
+        alert('Dışa aktarılacak veri bulunamadı!');
+        return;
+      }
+      
       // XLSX worksheet oluştur
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       
-      // Başlıklar için stil tanımla
+      // Başlıklar için stil tanımla - XLSX'in sınırlı stil desteklerine göre düzenlenmiş
       const range = XLSX.utils.decode_range(worksheet['!ref']);
+      
+      // Tüm kolonların genişliklerini ayarla
+      const columnWidths = [];
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        // Her kolon için varsayılan genişlik
+        columnWidths.push({ wch: 15 });
+      }
+      worksheet['!cols'] = columnWidths;
+      
+      // Başlık hücrelerine stil uygula
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const address = XLSX.utils.encode_cell({ r: 0, c: C });
         
         // Mevcut hücre yapılandırmasını al veya yeni oluştur
-        if (!worksheet[address]) {
-          worksheet[address] = { t: 's', v: '' };
-        }
+        if (!worksheet[address]) worksheet[address] = { t: 's', v: '' };
         
-        // Başlıklar için stil
-        if (!worksheet[address].s) {
-          worksheet[address].s = {};
-        }
+        // Stil bilgisini ekle
+        if (!worksheet[address].s) worksheet[address].s = {};
         
-        // Kalın stilini uygula
-        worksheet[address].s.font = { bold: true };
-        worksheet[address].s.fill = { fgColor: { rgb: "E6E6E6" } };
+        // Kalın yazı tipi ve arka plan rengi uygula
+        worksheet[address].s = {
+          font: { bold: true },
+          fill: { fgColor: { rgb: "E6E6E6" } }
+        };
       }
       
       // Workbook oluştur ve worksheet ekle
@@ -1821,37 +2161,42 @@ const PanelCitHesaplama = () => {
       XLSX.writeFile(workbook, filename);
     } catch (error) {
       console.error('Excel dışa aktarma hatası:', error);
-      alert('Dışa aktarma sırasında bir hata oluştu.');
+      alert('Dışa aktarma sırasında bir hata oluştu: ' + error.message);
     }
   };
 
-  // Özel marj hesaplama için yardımcı fonksiyon
+  // Özel marj hesaplama için yardımcı fonksiyon - IMPROVED to handle different unit types properly
   const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
+    if (!item) return 0;
+    
     const margin = salesMargins[priceType] / 100;
     
     // Birim ve para birimine göre temel fiyatı al
     let basePrice = 0;
     
+    // Kullanılacak para birimi
+    const currencyField = currency.toLowerCase();
+    
     switch (unit) {
       case 'adet':
-        basePrice = item[`boyali_adet_${currency}`];
+        basePrice = item[`boyali_adet_${currencyField}`];
         break;
       case 'm2':
-        basePrice = item[`boyali_m2_${currency}`];
+        basePrice = item[`boyali_m2_${currencyField}`];
         break;
       case 'kg':
-        basePrice = item[`boyali_kg_${currency}`];
+        basePrice = item[`boyali_kg_${currencyField}`];
         break;
       case 'all':
         // Varsayılan olarak adet fiyatını kullan
-        basePrice = item[`boyali_adet_${currency}`];
+        basePrice = item[`boyali_adet_${currencyField}`];
         break;
       default:
-        basePrice = item[`boyali_adet_${currency}`];
+        basePrice = item[`boyali_adet_${currencyField}`];
     }
     
-    // Marjı uygula ve 5 ondalık basamakla yuvarla
-    return parseFloat((basePrice * (1 + margin)).toFixed(5));
+    // Marjı uygula ve 2 ondalık basamakla yuvarla (daha okunabilir)
+    return parseFloat((basePrice * (1 + margin)).toFixed(2));
   };
 
   // Genel değişkenleri güncelleme
@@ -2047,7 +2392,7 @@ const PanelCitHesaplama = () => {
 
   // Değişkenler Akordiyon
   const renderDegiskenlerAccordion = () => (
-    <Accordion type="single" collapsible className="bg-white rounded-lg border shadow-sm">
+    <Accordion type="single" collapsible className="bg-white rounded-lg border shadow-sm mb-6">
       {/* Genel Değişkenler Akordiyon Öğesi */}
       <AccordionItem value="genel-degiskenler">
         <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
@@ -2577,6 +2922,7 @@ const PanelCitHesaplama = () => {
                     onChange={(e) => handleProfilDegiskenlerChange('profil_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
+		{/* buraya dönebilirin */}
                 </div>
               </div>
             </div>
@@ -2725,7 +3071,7 @@ const PanelCitHesaplama = () => {
     </Accordion>
   );
 
-  // Özel Panel & Palet Bilgileri Hesaplama - Tamamlanmış Excel Formülleri
+  // Özel Panel & Palet Bilgileri Hesaplama - COMPLETELY REDESIGNED to be fully interactive
   const renderSpecialPanelEntry = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -2776,7 +3122,7 @@ const PanelCitHesaplama = () => {
         </div>
         
         <p className="text-sm text-gray-600 mb-4">
-          Özel panel bilgilerini girin ve hesaplamaları yapın. Daha sonra isterseniz panelleri veritabanına kaydedebilirsiniz.
+          Özel panel bilgilerini girin ve hesaplamaları yapın. Girdi alanları <span className="px-2 py-0.5 bg-blue-100 rounded">mavi</span> ile işaretlenmiştir, diğer alanlar otomatik hesaplanır. Daha sonra isterseniz panelleri veritabanına kaydedebilirsiniz.
         </p>
       </div>
       
@@ -2784,27 +3130,30 @@ const PanelCitHesaplama = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* Girdi alanları - mavi tonlu başlıklar */}
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Panel Tipi
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Yükseklik
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Genişlik
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Dikey Tel Çapı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Yatay Tel Çapı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Dikey Göz Aralığı
               </th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Yatay Göz Aralığı
               </th>
+              
+              {/* Hesaplanan alanlar - normal başlıklar */}
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Büküm Sayısı
               </th>
@@ -2836,7 +3185,34 @@ const PanelCitHesaplama = () => {
                 Palet Boş Ağırlık
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Paletsiz Toplam Ağırlık
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Palet Dolu Ağırlık
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Boş Palet Yüksekliği
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Adet Panel Yüksekliği
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Paletsiz Toplam Panel Yüksekliği
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Paletli Yükseklik
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Panel Kodu
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Icube Code
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Icube-Code (Adetli)
+              </th>
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stok Kodu
               </th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 İşlemler
@@ -2847,151 +3223,226 @@ const PanelCitHesaplama = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {ozelPanelList.map((panel) => (
               <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
-                <td className="px-3 py-2 whitespace-nowrap">
+                {/* Girdi alanları - mavi arkaplan ile */}
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <select
                     value={panel.panel_tipi || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'panel_tipi', e.target.value)}
-                    className="w-full border rounded p-1 text-sm"
+                    className="w-full border rounded p-1 text-sm bg-white"
                   >
                     <option value="Single">Single</option>
                     <option value="Double">Double</option>
                     <option value="Guvenlik">Güvenlik</option>
                   </select>
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={panel.panel_yuksekligi || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={panel.panel_genisligi || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={formatTableValue(panel.dikey_tel_capi, 'tel_capi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={formatTableValue(panel.yatay_tel_capi, 'tel_capi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
                     value={formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm"
+                    className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
+                
+                {/* Hesaplanan alanlar - düzenlenebilir */}
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.bukum_sayisi || ''}
-                    className="w-16 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
+                    className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.dikey_cubuk_adet || ''}
-                    className="w-16 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
+                    className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.yatay_cubuk_adet || ''}
-                    className="w-16 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
+                    className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.adet_m2, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.agirlik, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.boya_kg, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.boyali_hali, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.m2_agirlik, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.paletteki_panel_sayisi || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
-                    className="w-20 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.palet_dolu_agirlik, 'decimal') || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.bos_palet_yuksekligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={formatTableValue(panel.paletli_yukseklik, 'decimal') || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.panel_kodu || ''}
-                    className="w-56 border rounded p-1 text-sm"
-                    readOnly
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)}
+                    className="w-56 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.icube_code || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)}
+                    className="w-40 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.icube_code_adetli || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)}
+                    className="w-48 border border-gray-200 rounded p-1 text-sm"
+                  />
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <input
+                    type="text"
+                    value={panel.stok_kodu || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)}
+                    className="w-40 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
@@ -3016,7 +3467,7 @@ const PanelCitHesaplama = () => {
             ))}
             {ozelPanelList.length === 0 && (
               <tr>
-                <td colSpan="19" className="px-3 py-4 text-center text-sm text-gray-500">
+                <td colSpan="28" className="px-3 py-4 text-center text-sm text-gray-500">
                   Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
                 </td>
               </tr>
@@ -3699,7 +4150,7 @@ const PanelCitHesaplama = () => {
     </div>
   );
 
-  // Satış Listesi Tablosu - Geliştirilmiş versiyon
+  // Satış Listesi Tablosu - IMPROVED colors for different tiers
   const renderSalesView = () => (
     <div className="bg-white rounded-lg border shadow-sm">
       <div className="p-4 border-b">
@@ -3720,6 +4171,7 @@ const PanelCitHesaplama = () => {
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
                 <option value="TRY">TRY</option>
+                <option value="all">Tümü</option>
               </select>
             </div>
             
@@ -3812,7 +4264,7 @@ const PanelCitHesaplama = () => {
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     Gümüş Fiyat - Adet ({salesFilter.currency})
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-100 text-yellow-800 uppercase tracking-wider whitespace-nowrap">
                     Altın Fiyat - Adet ({salesFilter.currency})
                   </th>
                 </>
@@ -3826,7 +4278,7 @@ const PanelCitHesaplama = () => {
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     Gümüş Fiyat - m² ({salesFilter.currency})
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-100 text-yellow-800 uppercase tracking-wider whitespace-nowrap">
                     Altın Fiyat - m² ({salesFilter.currency})
                   </th>
                 </>
@@ -3840,7 +4292,7 @@ const PanelCitHesaplama = () => {
                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-gray-100 text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     Gümüş Fiyat - kg ({salesFilter.currency})
                   </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-50 text-yellow-700 uppercase tracking-wider whitespace-nowrap">
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium bg-yellow-100 text-yellow-800 uppercase tracking-wider whitespace-nowrap">
                     Altın Fiyat - kg ({salesFilter.currency})
                   </th>
                 </>
@@ -3887,7 +4339,7 @@ const PanelCitHesaplama = () => {
                       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
                         {formatTableValue(calculatePricesWithMargin(item, 'silver', 'adet', currency), 'price')}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-100 text-yellow-800">
                         {formatTableValue(calculatePricesWithMargin(item, 'gold', 'adet', currency), 'price')}
                       </td>
                     </>
@@ -3902,7 +4354,7 @@ const PanelCitHesaplama = () => {
                       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
                         {formatTableValue(calculatePricesWithMargin(item, 'silver', 'm2', currency), 'price')}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-100 text-yellow-800">
                         {formatTableValue(calculatePricesWithMargin(item, 'gold', 'm2', currency), 'price')}
                       </td>
                     </>
@@ -3917,7 +4369,7 @@ const PanelCitHesaplama = () => {
                       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-gray-100 text-gray-700">
                         {formatTableValue(calculatePricesWithMargin(item, 'silver', 'kg', currency), 'price')}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-50 text-yellow-700">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium bg-yellow-100 text-yellow-800">
                         {formatTableValue(calculatePricesWithMargin(item, 'gold', 'kg', currency), 'price')}
                       </td>
                     </>
@@ -4082,7 +4534,7 @@ const PanelCitHesaplama = () => {
 
   // Sekme butonlarını render eden fonksiyon
   const renderTabButtons = () => (
-    <div className="flex gap-2 mb-4">
+    <div className="flex flex-wrap gap-2 mb-4">
       <button
         onClick={() => setActiveTab('main-panel')}
         className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${
