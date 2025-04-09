@@ -3412,7 +3412,7 @@ const saveAllOzelPanelsToDatabase = async () => {
 		<td className="px-3 py-2 whitespace-nowrap bg-blue-50">
 		  <input
 		    type="text"
-		    value={panel.bukumdeki_cubuk_sayisi || ''}
+		    value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi || ''}
 		    onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
 		    className="w-16 border rounded p-1 text-sm bg-white"
 		  />
@@ -3982,6 +3982,12 @@ const saveAllOzelPanelsToDatabase = async () => {
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-0 bg-white">
                   {maliyet.manual_order}
                 </td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 sticky left-10 bg-white">
+		  {maliyet.panel_kodu}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {maliyet.panel_tipi}
+		 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
 		  {formatTableValue(maliyet.panel_yuksekligi, 'decimal')}
 		</td>
@@ -4701,20 +4707,35 @@ const saveAllOzelPanelsToDatabase = async () => {
   );
 
   // Sekme içeriklerini gösteren fonksiyon
-  const renderActiveTabContent = () => {
-    switch (activeTab) {
-      case 'main-panel':
-        return renderPanelList();
-      case 'special-panel':
-        return renderSpecialPanelEntry();
-      case 'results':
-        return showSalesView ? renderSalesView() : renderResults();
-      case 'temp-calculations':
-        return renderTempCalculations();
-      default:
-        return renderPanelList();
-    }
-  };
+const renderActiveTabContent = () => {
+  return (
+    <>
+      {activeTab === 'main-panel' && (
+        <div key="main-panel-content" className="tab-panel">
+          {renderPanelList()}
+        </div>
+      )}
+      
+      {activeTab === 'special-panel' && (
+        <div key="special-panel-content" className="tab-panel">
+          {renderSpecialPanelEntry()}
+        </div>
+      )}
+      
+      {activeTab === 'results' && (
+        <div key="results-content" className="tab-panel">
+          {showSalesView ? renderSalesView() : renderResults()}
+        </div>
+      )}
+      
+      {activeTab === 'temp-calculations' && (
+        <div key="temp-calculations-content" className="tab-panel">
+          {renderTempCalculations()}
+        </div>
+      )}
+    </>
+  );
+};
 
   // Yükleme animasyonu
   const renderLoading = () => (
