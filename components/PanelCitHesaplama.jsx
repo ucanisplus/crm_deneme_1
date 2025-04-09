@@ -1126,8 +1126,6 @@ const updateGenelDegiskenler = async () => {
       amortisman_diger_usd: safeParseFloat(genelDegiskenler.amortisman_diger_usd),
       kar_toplama_ek_percent: safeParseFloat(genelDegiskenler.kar_toplama_ek_percent),
       ort_isci_maasi: safeParseFloat(genelDegiskenler.ort_isci_maasi),
-      usd_tl: safeParseFloat(genelDegiskenler.usd_tl),
-      eur_usd: safeParseFloat(genelDegiskenler.eur_usd),
       genel_latest_update: new Date().toISOString()
     };
     
