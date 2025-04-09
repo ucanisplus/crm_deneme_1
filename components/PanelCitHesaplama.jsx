@@ -2583,7 +2583,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Boya İşçi Sayısı (ad)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_boya_isci_sayisi_ad || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_boya_isci_sayisi_ad) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_isci_sayisi_ad', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2591,7 +2591,7 @@ const updateProfilDegiskenler = async () => {
                 <div className="flex flex-col">
                   <label className="text-sm text-gray-500 mb-1">Boya Vardiya</label>
                   <select
-                    value={panelCitDegiskenler.panel_boya_vardiya || ''}
+                    value={formatDisplayValue(panelCitDegiskenler.panel_boya_vardiya) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_vardiya', e.target.value)}
                     className="border rounded p-2"
                   >
@@ -2604,7 +2604,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Kaynak İşçi Sayısı (ad)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_kaynak_isci_sayisi_ad || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_isci_sayisi_ad', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2612,7 +2612,7 @@ const updateProfilDegiskenler = async () => {
                 <div className="flex flex-col">
                   <label className="text-sm text-gray-500 mb-1">Kaynak Vardiya</label>
                   <select
-                    value={panelCitDegiskenler.panel_kaynak_vardiya || ''}
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kaynak_vardiya) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_vardiya', e.target.value)}
                     className="border rounded p-2"
                   >
@@ -2625,7 +2625,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Kesme İşçi Sayısı (ad)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_kesme_isci_sayisi_ad || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kesme_isci_sayisi_ad) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_isci_sayisi_ad', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2633,7 +2633,7 @@ const updateProfilDegiskenler = async () => {
                 <div className="flex flex-col">
                   <label className="text-sm text-gray-500 mb-1">Kesme Vardiya</label>
                   <select
-                    value={panelCitDegiskenler.panel_kesme_vardiya || ''}
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kesme_vardiya) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_vardiya', e.target.value)}
                     className="border rounded p-2"
                   >
@@ -2646,7 +2646,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Palet İşçi Sayısı (ad)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_palet_isci_sayisi_ad || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_palet_isci_sayisi_ad) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_isci_sayisi_ad', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2654,7 +2654,7 @@ const updateProfilDegiskenler = async () => {
                 <div className="flex flex-col">
                   <label className="text-sm text-gray-500 mb-1">Palet Vardiya</label>
                   <select
-                    value={panelCitDegiskenler.panel_palet_vardiya || ''}
+                    value={formatDisplayValue(panelCitDegiskenler.panel_palet_vardiya) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_palet_vardiya', e.target.value)}
                     className="border rounded p-2"
                   >
@@ -2674,7 +2674,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Kaynak Elektrik Tüketim (kWh)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2683,7 +2683,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Kesme Elektrik Tüketim (kWh)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_kesme_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2692,7 +2692,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Boya Elektrik Tüketim (kWh)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2701,7 +2701,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Panel Doğalgaz Tüketim (Stn.m³/h)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3 || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('panel_dogalgaz_tuketim_stn_m3', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2710,7 +2710,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Galvanizli Tel (Ton) ($)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.galvanizli_tel_ton_usd || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.galvanizli_tel_ton_usd) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('galvanizli_tel_ton_usd', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2719,7 +2719,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Hurda (Ton) ($)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.hurda_ton_usd || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.hurda_ton_usd) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('hurda_ton_usd', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2735,7 +2735,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">SP Boya Tüketim Miktarı (gr/m²)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.sp_boya_tuketim_miktari || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.sp_boya_tuketim_miktari) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('sp_boya_tuketim_miktari', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2744,7 +2744,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">DP Boya Tüketim Miktarı (gr/m²)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.dp_boya_tuketim_miktari || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.dp_boya_tuketim_miktari) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('dp_boya_tuketim_miktari', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2753,7 +2753,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">GP Boya Tüketim Miktarı (gr/m²)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('guvenlik_boya_tuketim_miktari_gr', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2762,7 +2762,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Ort. Panel Ürt. Kapasitesi (m²/Ay)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.uretim_kapasite || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.uretim_kapasite) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('uretim_kapasite', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2771,7 +2771,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Ortalama Saatlik Üretim (m²/h)</label>
                   <input 
                     type="text" 
-                    value={panelCitDegiskenler.saatlik_uretim || ''} 
+                    value={formatDisplayValue(panelCitDegiskenler.saatlik_uretim) || ''}
                     onChange={(e) => handlePanelCitDegiskenlerChange('saatlik_uretim', e.target.value)}
                     className="border rounded p-2"
                     disabled
@@ -2831,7 +2831,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Galvanizli Profil (Ton) ($)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.galvanizli_profil_kg_usd || ''} 
+                    value={formatDisplayValue(profilDegiskenler.galvanizli_profil_kg_usd) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('galvanizli_profil_kg_usd', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2840,7 +2840,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Galvanizsiz Profil (Ton) ($)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.galvanizsiz_profil_kg_usd || ''} 
+                    value={formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('galvanizsiz_profil_kg_usd', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2856,7 +2856,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Min. Ürt. Kapasitesi (ad/h)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_uretim_kapasitesi_m2_h || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_uretim_kapasitesi_m2_h) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_uretim_kapasitesi_m2_h', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2864,7 +2864,7 @@ const updateProfilDegiskenler = async () => {
                 <div className="flex flex-col">
                   <label className="text-sm text-gray-500 mb-1">Profil Vardiya</label>
                   <select
-                    value={profilDegiskenler.profil_vardiya || ''}
+                    value={formatDisplayValue(profilDegiskenler.profil_isci_sayisi_ad) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_vardiya', e.target.value)}
                     className="border rounded p-2"
                   >
@@ -2877,7 +2877,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil İşçi Sayısı (ad)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_isci_sayisi_ad || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_vardiya) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_isci_sayisi_ad', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2892,7 +2892,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Kaynak Makinesi Elektrik Tüketim Miktarı (kWh)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2901,7 +2901,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Kesme Makinesi Elektrik Tüketim Miktarı (kWh)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_kesme_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_kesme_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2910,7 +2910,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Boya Makinesi Elektrik Tüketim Miktarı (kWh)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2927,7 +2927,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Doğalgaz Tüketim Miktarı (Stn.m³/h)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_dogalgaz_tuketim_stn_m3 || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_dogalgaz_tuketim_stn_m3', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2936,7 +2936,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Boya Tüketim Miktarı (gr/m²)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_boya_tuketim || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_boya_tuketim) || ''} 
                     onChange={(e) => handleProfilDegiskenlerChange('profil_boya_tuketim', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2952,7 +2952,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil En 1</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_en1 || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_en1) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_en1', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2961,7 +2961,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil En 2</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_en2 || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_en2) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_en2', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2970,7 +2970,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Profil Et Kalınlığı</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.profil_et_kalinligi || ''} 
+                    value={formatDisplayValue(profilDegiskenler.profil_et_kalinligi) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('profil_et_kalinligi', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2986,7 +2986,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Flans Fyt (ad) (₺)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.flans_ad_tl || ''} 
+                    value={formatDisplayValue(profilDegiskenler.flans_ad_tl) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('flans_ad_tl', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -2995,7 +2995,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Vida Fyt (ad) (₺)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.vida_ad_tl || ''} 
+                    value={formatDisplayValue(profilDegiskenler.vida_ad_tl) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('vida_ad_tl', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -3004,7 +3004,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Klips Fyt (ad) (₺)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.klips_ad_tl || ''} 
+                    value={formatDisplayValue(profilDegiskenler.klips_ad_tl) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('klips_ad_tl', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -3013,7 +3013,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Dubel Fyt (ad) (₺)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.dubel_ad_tl || ''} 
+                    value={formatDisplayValue(profilDegiskenler.dubel_ad_tl) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('dubel_ad_tl', e.target.value)}
                     className="border rounded p-2"
                   />
@@ -3022,7 +3022,7 @@ const updateProfilDegiskenler = async () => {
                   <label className="text-sm text-gray-500 mb-1">Kapak Fyt (ad) (₺)</label>
                   <input 
                     type="text" 
-                    value={profilDegiskenler.kapak_ad_tl || ''} 
+                    value={formatDisplayValue(profilDegiskenler.kapak_ad_tl) || ''}
                     onChange={(e) => handleProfilDegiskenlerChange('kapak_ad_tl', e.target.value)}
                     className="border rounded p-2"
                   />
