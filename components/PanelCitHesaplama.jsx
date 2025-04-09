@@ -150,10 +150,6 @@ const formatDisplayValue = (value) => {
   // For all decimal values, remove trailing zeros
   return num.toString().replace(/\.?0+$/, '');
 };
-  
-  // For all decimal values, remove trailing zeros
-  return num.toString().replace(/\.?0+$/, '');
-};
 
 // For table cell formatting - handles different column types
 const formatTableValue = (value, columnType) => {
