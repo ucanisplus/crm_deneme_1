@@ -153,16 +153,17 @@ const formatTableValue = (value, columnType) => {
     case 'tel_capi':
     case 'goz_araligi':
       // Format for wire diameter or mesh spacing - show decimals without trailing zeros
-      return num.toString().replace(/\.?0+$/, '');
+      // Only remove trailing zeros after a decimal point
+      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     case 'price':
       // Format for prices - always show 5 decimal places for tables
       return num.toFixed(5);
     case 'decimal':
       // For other decimal values, show without trailing zeros
-      return num.toString().replace(/\.?0+$/, '');
+      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     default:
       // For integer values, don't show decimal point
-      return Number.isInteger(num) ? num.toString() : num.toString().replace(/\.?0+$/, '');
+      return Number.isInteger(num) ? num.toString() : num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
 };
 
@@ -783,6 +784,8 @@ const fetchSectionData = async (section) => {
         const panelKodu = panel.panel_kodu || '';
         const manualOrder = panel.manual_order || '';
         
+
+	
         // Yüzey alanı hesapla
         const l1Metre = (materialHeight * materialWidth) / 10000;
 
