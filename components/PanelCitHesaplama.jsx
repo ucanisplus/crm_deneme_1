@@ -1333,104 +1333,90 @@ const calculatePanelValues = (panel) => {
   
   const bukum_sayisi = safeParseFloat(updatedPanel.bukum_sayisi);
   
-  // Dikey çubuk adet hesaplama (Revised formula)
-  // For Double 63x250 example, we should get 51 instead of 14
-  // For Single 70x250 example, we should get 42 instead of 18
-  const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
-  
-  // This is the original formula that's not giving correct results:
-  /*
-  if (dikey_goz < 5.5) {
-    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-  } else if (dikey_goz < 6) {
-    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz);
-  } else {
-    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-  }
-  */
-  
-  // Revised formula based on observed values
+  // Bükümdeki Çubuk Sayısı hesaplama
+  // New logic as specified
   if (updatedPanel.panel_tipi === "Double") {
-    if (dikey_goz === 20 && panel_genisligi === 250) {
-      updatedPanel.dikey_cubuk_adet = 51; // Known value for Double panel 63x250 with 20mm mesh spacing
-    } else {
-      // For other combinations, we need to determine the correct formula
-      updatedPanel.dikey_cubuk_adet = Math.round(panel_genisligi / dikey_goz * 4); // Approximate formula to be refined
-    }
+    updatedPanel.bukumdeki_cubuk_sayisi = 0;
   } else if (updatedPanel.panel_tipi === "Single") {
-    if (dikey_goz === 15 && panel_genisligi === 250) {
-      updatedPanel.dikey_cubuk_adet = 42; // Known value for Single panel 70x250 with 15mm mesh spacing
+    // For specific height series
+    const seriesWithValue1 = [63, 83, 103, 123, 153, 173, 183, 203, 223, 243];
+    const seriesWithValue2 = [50, 70, 100, 120, 150, 170, 200, 220];
+    
+    if (seriesWithValue1.includes(panel_yuksekligi)) {
+      updatedPanel.bukumdeki_cubuk_sayisi = 1;
+    } else if (seriesWithValue2.includes(panel_yuksekligi)) {
+      updatedPanel.bukumdeki_cubuk_sayisi = 2;
     } else {
-      // For other combinations, we need to determine the correct formula
-      updatedPanel.dikey_cubuk_adet = Math.round(panel_genisligi / dikey_goz * 2.5); // Approximate formula to be refined
+      updatedPanel.bukumdeki_cubuk_sayisi = 1; // Default
     }
-  } else if (updatedPanel.panel_tipi === "Guvenlik") {
-    // Similar to Single panels for security panels
-    updatedPanel.dikey_cubuk_adet = Math.round(panel_genisligi / dikey_goz * 2.5); // Approximate formula to be refined
   } else {
-    // Default fallback to original formula
-    if (dikey_goz < 5.5) {
-      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
-    } else if (dikey_goz < 6) {
-      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz);
+    updatedPanel.bukumdeki_cubuk_sayisi = 0;
+  }
+  
+  // Set default values for göz aralığı if not provided
+  if (!updatedPanel.dikey_goz_araligi) {
+    if (updatedPanel.panel_tipi === "Double") {
+      updatedPanel.dikey_goz_araligi = 20;
+    } else if (updatedPanel.panel_tipi === "Single") {
+      // Series-based defaults
+      const seriesWithValue20 = [63, 83, 103, 123, 153, 173, 183, 203, 223, 243];
+      const seriesWithValue15 = [50, 70, 100, 120, 150, 170, 200, 220];
+      
+      if (seriesWithValue20.includes(panel_yuksekligi)) {
+        updatedPanel.dikey_goz_araligi = 20;
+      } else if (seriesWithValue15.includes(panel_yuksekligi)) {
+        updatedPanel.dikey_goz_araligi = 15;
+      } else {
+        updatedPanel.dikey_goz_araligi = 20; // Default
+      }
     } else {
-      updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / dikey_goz) + 1;
+      updatedPanel.dikey_goz_araligi = 20; // Default for other types
     }
   }
   
-  // Yatay çubuk adet hesaplama (Revised formula)
-  // For Double 63x250 example, we should get 8 instead of 26
-  // For Single 70x250 example, we should get 9 instead of 16
+  if (!updatedPanel.yatay_goz_araligi) {
+    if (updatedPanel.panel_tipi === "Double") {
+      updatedPanel.yatay_goz_araligi = 5;
+    } else {
+      updatedPanel.yatay_goz_araligi = 5; // Default for Single and other types
+    }
+  }
+  
+  // Dikey çubuk adet hesaplama - CORRECTED
+  // =EĞER(M2<5.5;TAVANAYUVARLA(C2/M2;1)+1;EĞER(M2<6;TAVANAYUVARLA(C2/M2;1);TAVANAYUVARLA(C2/M2;1)+1))
   const yatay_goz = safeParseFloat(updatedPanel.yatay_goz_araligi);
   
-  // This is the original formula that's not giving correct results:
-  /*
-  if (updatedPanel.panel_tipi === "Double") {
-    updatedPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / yatay_goz) + 1) * 2;
-  } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 20) {
-    updatedPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / yatay_goz) + 1) + (bukum_sayisi * 2);
-  } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi < 200) {
-    updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-  } else if (updatedPanel.panel_tipi === "Single" && yatay_goz === 15 && panel_yuksekligi >= 200) {
-    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+  // Note: We're using YATAY göz aralığı for DIKEY çubuk calculation!
+  if (yatay_goz < 5.5) {
+    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz) + 1;
+  } else if (yatay_goz < 6) {
+    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz);
   } else {
-    // Default case for other combinations
-    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+    updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz) + 1;
   }
-  */
   
-  // Revised formula based on observed values
+  // Yatay çubuk adet hesaplama - CORRECTED
+  // =EĞER(D2="Double";(((B2-3)/L2)+1)*2;EĞER(VE(D2="Single";L2=20);((((B2-3)-(J2*10))/L2)+1)+(J2*2);EĞER(VE(D2="Single";L2=15;B2<200);YUVARLA(((B2/L2)+(J2*2));0);EĞER(VE(D2="Single";L2=15;B2>=200);TAVANAYUVARLA(((B2/L2)+(J2*2));1);"---"))))
+  const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
+  
+  // Note: We're using DIKEY göz aralığı for YATAY çubuk calculation!
   if (updatedPanel.panel_tipi === "Double") {
-    if (panel_yuksekligi === 63 && yatay_goz === 5) {
-      updatedPanel.yatay_cubuk_adet = 8; // Known value for Double panel 63x250 with 5mm mesh spacing
-    } else {
-      // For other combinations, we need a revised formula
-      updatedPanel.yatay_cubuk_adet = Math.ceil(panel_yuksekligi / yatay_goz / 1.5); // Approximate formula to be refined
-    }
+    updatedPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / dikey_goz) + 1) * 2;
+  } else if (updatedPanel.panel_tipi === "Single" && dikey_goz === 20) {
+    updatedPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / dikey_goz) + 1) + (bukum_sayisi * 2);
+  } else if (updatedPanel.panel_tipi === "Single" && dikey_goz === 15 && panel_yuksekligi < 200) {
+    updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
+  } else if (updatedPanel.panel_tipi === "Single" && dikey_goz === 15 && panel_yuksekligi >= 200) {
+    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
   } else if (updatedPanel.panel_tipi === "Single") {
-    if (panel_yuksekligi === 70 && yatay_goz === 6.1) {
-      updatedPanel.yatay_cubuk_adet = 9; // Known value for Single panel 70x250 with 6.1mm mesh spacing
-    } else if (yatay_goz === 20) {
-      updatedPanel.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / yatay_goz) + 1) + (bukum_sayisi * 2);
-      updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet * 0.6); // Adjust with correction factor
-    } else if (yatay_goz === 15 && panel_yuksekligi < 200) {
-      updatedPanel.yatay_cubuk_adet = Math.round(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-      updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet * 0.6); // Adjust with correction factor
-    } else if (yatay_goz === 15 && panel_yuksekligi >= 200) {
-      updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-      updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet * 0.6); // Adjust with correction factor
-    } else {
-      // Default case for other Single panel combinations
-      updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-      updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet * 0.6); // Adjust with correction factor
-    }
+    // For other Single panels with different dikey_goz values
+    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
   } else if (updatedPanel.panel_tipi === "Guvenlik") {
-    // Use similar formula as Single panels for Security panels
-    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
-    updatedPanel.yatay_cubuk_adet = Math.round(updatedPanel.yatay_cubuk_adet * 0.6); // Adjust with correction factor
+    // For Security panels
+    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
   } else {
-    // Default case for other panel types
-    updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / yatay_goz) + (bukum_sayisi * 2)));
+    // Default fallback for other panel types
+    updatedPanel.yatay_cubuk_adet = 0;
   }
   
   // Ağırlık hesaplama
@@ -1444,17 +1430,12 @@ const calculatePanelValues = (panel) => {
     // Double panel ağırlık hesaplaması
     updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi / 100) * dikey_cubuk)) + 
                           ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-    
-    // Known weight correction - for specific examples
-    if (panel_yuksekligi === 63 && panel_genisligi === 250 && dikey_tel === 4.4 && yatay_tel === 5.4) {
-      updatedPanel.agirlik = 7.439; // Known value for Double panel 63x250
-    }
   } else if (updatedPanel.panel_tipi === "Single") {
-    if (yatay_goz === 20) {
+    if (dikey_goz === 20) {
       // Single panel 20 göz aralığı için ağırlık hesaplaması
       updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
                             ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-    } else if (yatay_goz === 15) {
+    } else if (dikey_goz === 15) {
       // Single panel 15 göz aralığı için ağırlık hesaplaması
       updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.6)) / 100) * dikey_cubuk) + 
                             ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
@@ -1462,11 +1443,6 @@ const calculatePanelValues = (panel) => {
       // Diğer Single panel tipleri için varsayılan hesaplama
       updatedPanel.agirlik = ((dikey_tel * dikey_tel * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
                             ((yatay_tel * yatay_tel * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
-    }
-    
-    // Known weight correction - for specific examples
-    if (panel_yuksekligi === 70 && panel_genisligi === 250 && dikey_tel === 3.65 && yatay_tel === 3.65) {
-      updatedPanel.agirlik = 4.447; // Known value for Single panel 70x250
     }
   } else if (updatedPanel.panel_tipi === "Guvenlik") {
     // Güvenlik panel ağırlık hesaplaması
