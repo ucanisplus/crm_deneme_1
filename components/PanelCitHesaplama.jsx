@@ -223,6 +223,11 @@ const PanelCitHesaplama = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
+	// Inside fetchInitialData:
+	console.log("Raw genel data:", genelRes.data);
+	console.log("Raw panel cit data:", panelCitRes.data);
+	console.log("Latest genel record:", latestGenelDegisken);
+	console.log("Latest panel cit record:", latestPanelCitDegisken);
       // Verileri paralel olarak çek
       const [
         genelRes, 
@@ -310,6 +315,8 @@ const PanelCitHesaplama = () => {
   // Sadece belirli bir bölümü yenileme fonksiyonu - IMPROVED error handling
   const fetchSectionData = async (section) => {
     try {
+	console.log(`Raw ${section} data:`, response.data);
+	console.log(`Latest ${section} record:`, latestRecord);
       setSectionLoading(prev => ({ ...prev, [section]: true }));
       
       let endpoint = '';
