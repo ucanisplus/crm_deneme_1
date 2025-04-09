@@ -128,10 +128,14 @@ const safeParseFloat = (value, defaultValue = 0) => {
 };
 
 // For display in input fields - removes all trailing zeros
+// For display in input fields - removes all trailing zeros
 const formatDisplayValue = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
+  
+  // Special case for zero - always return "0"
+  if (num === 0) return '0';
   
   // If it's an integer, return without decimal part
   if (Number.isInteger(num)) {
@@ -148,7 +152,10 @@ const formatTableValue = (value, columnType) => {
   
   const num = parseFloat(value);
   if (isNaN(num)) return value; // Return original value if not a number
-  
+
+   // Special case for zero
+  if (num === 0) return '0';
+
   switch (columnType) {
     case 'tel_capi':
     case 'goz_araligi':
@@ -3397,7 +3404,7 @@ const saveAllOzelPanelsToDatabase = async () => {
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
 		  <input
 		    type="text"
-		    value={panel.bukum_sayisi || ''}
+		    value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi || ''}
 		    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
 		    className="w-16 border rounded p-1 text-sm bg-white"
 		  />
