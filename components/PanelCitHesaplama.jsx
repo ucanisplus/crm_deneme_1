@@ -1131,9 +1131,12 @@ const fetchSectionData = async (section) => {
     return salesList;
   };
 
-  // Genel değişkenleri güncelleme - FIXED to always add new row and fetch latest
+// Genel değişkenleri güncelleme - FIXED with better error handling
 const updateGenelDegiskenler = async () => {
   try {
+    // Log the current state to see what we're working with
+    console.log("Current genelDegiskenler state:", genelDegiskenler);
+    
     // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
     const processedData = {
       boya_fiyati_kg_eur: safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur),
@@ -1145,6 +1148,21 @@ const updateGenelDegiskenler = async () => {
       genel_latest_update: new Date().toISOString()
     };
     
+    console.log('Kaydedilecek genel veriler:', processedData);
+    
+    // Replace any NaN values with null to avoid server errors
+    Object.keys(processedData).forEach(key => {
+      if (key !== 'genel_latest_update' && (
+          processedData[key] === undefined || 
+          processedData[key] === '' || 
+          Number.isNaN(processedData[key])
+        )) {
+        processedData[key] = null;
+      }
+    });
+    
+    console.log('NaN değerleri temizlenmiş veri:', processedData);
+    
     // Her zaman yeni bir kayıt oluştur
     const response = await axios.post(API_URLS.genelDegiskenler, processedData);
     
@@ -1155,6 +1173,14 @@ const updateGenelDegiskenler = async () => {
     }
   } catch (error) {
     console.error('Kaydetme hatası:', error);
+    
+    // More detailed error logging
+    if (error.response) {
+      console.error('Server response data:', error.response.data);
+      console.error('Server response status:', error.response.status);
+      console.error('Server response headers:', error.response.headers);
+    }
+    
     alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
   }
 };
