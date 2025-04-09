@@ -1126,151 +1126,114 @@ const PanelCitHesaplama = () => {
     return salesList;
   };
 
-  // Genel değişkenleri güncelleme - FIXED to prevent data loss and 500 errors
-  const updateGenelDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      
-      Object.entries(genelDegiskenler).forEach(([key, value]) => {
-        // id ve tarih alanları dışındaki tüm alanları işle
-        if (key !== 'id' && key !== 'genel_latest_update') {
-          // Boş string veya undefined değerleri işle
-          if (value === '' || value === undefined) {
-            processedData[key] = null;
-          } else if (typeof value === 'string') {
-            // Virgüllü string sayıları gerçek sayılara dönüştür
-            if (!isNaN(parseFloat(value.replace(',', '.')))) {
-              processedData[key] = parseFloat(value.replace(',', '.'));
-            } else {
-              // Sayı değilse olduğu gibi kaydet
-              processedData[key] = value;
-            }
-          } else {
-            processedData[key] = value;
-          }
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        genel_latest_update: new Date().toISOString()
-      };
-      
-      const response = await axios.post(API_URLS.genelDegiskenler, dataToSave);
-      if (response.status === 200 || response.status === 201) {
-        alert('Genel değişkenler başarıyla kaydedildi.');
-        fetchSectionData('genel'); // Sadece genel değişkenleri güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  // Genel değişkenleri güncelleme - FIXED to always add new row and fetch latest
+const updateGenelDegiskenler = async () => {
+  try {
+    // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
+    const processedData = {
+      boya_fiyati_kg_eur: safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur),
+      elektrik_fiyati_kw_tl: safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl),
+      dogalgaz_fiyati_stn_m3_tl: safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl),
+      amortisman_diger_usd: safeParseFloat(genelDegiskenler.amortisman_diger_usd),
+      kar_toplama_ek_percent: safeParseFloat(genelDegiskenler.kar_toplama_ek_percent),
+      ort_isci_maasi: safeParseFloat(genelDegiskenler.ort_isci_maasi),
+      usd_tl: safeParseFloat(genelDegiskenler.usd_tl),
+      eur_usd: safeParseFloat(genelDegiskenler.eur_usd),
+      genel_latest_update: new Date().toISOString()
+    };
+    
+    // Her zaman yeni bir kayıt oluştur
+    const response = await axios.post(API_URLS.genelDegiskenler, processedData);
+    
+    if (response.status === 200 || response.status === 201) {
+      alert('Genel değişkenler başarıyla kaydedildi.');
+      // En son kaydı getirmek için verileri yeniden çek
+      fetchSectionData('genel');
     }
-  };
+  } catch (error) {
+    console.error('Kaydetme hatası:', error);
+    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  }
+};
 
-  // Panel Çit Değişkenlerini Güncelleme - FIXED to use unique_key and prevent 500 errors
-  const updatePanelCitDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      
-      Object.entries(panelCitDegiskenler).forEach(([key, value]) => {
-        // unique_key ve tarih alanları dışındaki tüm alanları işle
-        if (key !== 'unique_key' && key !== 'panel_cit_latest_update') {
-          // Boş string veya undefined değerleri işle
-          if (value === '' || value === undefined) {
-            processedData[key] = null;
-          } else if (typeof value === 'string') {
-            // Virgüllü string sayıları gerçek sayılara dönüştür
-            if (!isNaN(parseFloat(value.replace(',', '.')))) {
-              processedData[key] = parseFloat(value.replace(',', '.'));
-            } else {
-              // Sayı değilse olduğu gibi kaydet
-              processedData[key] = value;
-            }
-          } else {
-            processedData[key] = value;
-          }
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        panel_cit_latest_update: new Date().toISOString()
-      };
-      
-      let response;
-      
-      // Eğer kayıt zaten varsa PUT, yoksa POST kullan
-      if (panelCitDegiskenler.unique_key) {
-        response = await axios.put(`${API_URLS.panelCitDegiskenler}/${panelCitDegiskenler.unique_key}`, dataToSave);
-      } else {
-        response = await axios.post(API_URLS.panelCitDegiskenler, dataToSave);
-      }
-      
-      if (response.status === 200 || response.status === 201) {
-        alert('Panel çit değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('panelCit'); // Sadece panel çit değişkenlerini güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+// Panel Çit Değişkenlerini Güncelleme - FIXED to always add new row and fetch latest
+const updatePanelCitDegiskenler = async () => {
+  try {
+    // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
+    const processedData = {
+      galvanizli_tel_ton_usd: safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd),
+      hurda_ton_usd: safeParseFloat(panelCitDegiskenler.hurda_ton_usd),
+      panel_boya_isci_sayisi_ad: safeParseFloat(panelCitDegiskenler.panel_boya_isci_sayisi_ad),
+      panel_boya_vardiya: safeParseFloat(panelCitDegiskenler.panel_boya_vardiya),
+      panel_kaynak_isci_sayisi_ad: safeParseFloat(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad),
+      panel_kaynak_vardiya: safeParseFloat(panelCitDegiskenler.panel_kaynak_vardiya),
+      panel_kesme_isci_sayisi_ad: safeParseFloat(panelCitDegiskenler.panel_kesme_isci_sayisi_ad),
+      panel_kesme_vardiya: safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya),
+      panel_palet_isci_sayisi_ad: safeParseFloat(panelCitDegiskenler.panel_palet_isci_sayisi_ad),
+      panel_palet_vardiya: safeParseFloat(panelCitDegiskenler.panel_palet_vardiya),
+      sp_boya_tuketim_miktari: safeParseFloat(panelCitDegiskenler.sp_boya_tuketim_miktari),
+      dp_boya_tuketim_miktari: safeParseFloat(panelCitDegiskenler.dp_boya_tuketim_miktari),
+      guvenlik_boya_tuketim_miktari_gr: safeParseFloat(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr),
+      panel_kaynak_makinesi_elektrik_tuketim_kwh: safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh),
+      panel_kesme_elektrik_tuketim_kwh: safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh),
+      panel_boya_makinesi_elektrik_tuketim_kwh: safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh),
+      panel_dogalgaz_tuketim_stn_m3: safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3),
+      panel_cit_latest_update: new Date().toISOString()
+    };
+    
+    // Her zaman yeni bir kayıt oluştur (unique_key gönderme)
+    const response = await axios.post(API_URLS.panelCitDegiskenler, processedData);
+    
+    if (response.status === 200 || response.status === 201) {
+      alert('Panel çit değişkenleri başarıyla kaydedildi.');
+      // En son kaydı getirmek için verileri yeniden çek
+      fetchSectionData('panelCit');
     }
-  };
+  } catch (error) {
+    console.error('Kaydetme hatası:', error);
+    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  }
+};
 
-  // Profil Değişkenlerini Güncelleme - FIXED to prevent data loss and 500 errors
-  const updateProfilDegiskenler = async () => {
-    try {
-      // Veriyi kaydetmek için işle ve hazırla
-      const processedData = {};
-      
-      Object.entries(profilDegiskenler).forEach(([key, value]) => {
-        // id ve tarih alanları dışındaki tüm alanları işle
-        if (key !== 'id' && key !== 'profil_latest_update') {
-          // Boş string veya undefined değerleri işle
-          if (value === '' || value === undefined) {
-            processedData[key] = null;
-          } else if (typeof value === 'string') {
-            // Virgüllü string sayıları gerçek sayılara dönüştür
-            if (!isNaN(parseFloat(value.replace(',', '.')))) {
-              processedData[key] = parseFloat(value.replace(',', '.'));
-            } else {
-              // Sayı değilse olduğu gibi kaydet
-              processedData[key] = value;
-            }
-          } else {
-            processedData[key] = value;
-          }
-        }
-      });
-      
-      // Yeni bir zaman damgası ekle
-      const dataToSave = {
-        ...processedData,
-        profil_latest_update: new Date().toISOString()
-      };
-      
-      let response;
-      
-      // Eğer kayıt zaten varsa PUT, yoksa POST kullan
-      if (profilDegiskenler.id) {
-        response = await axios.put(`${API_URLS.profilDegiskenler}/${profilDegiskenler.id}`, dataToSave);
-      } else {
-        response = await axios.post(API_URLS.profilDegiskenler, dataToSave);
-      }
-      
-      if (response.status === 200 || response.status === 201) {
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil'); // Sadece profil değişkenlerini güncelle
-      }
-    } catch (error) {
-      console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+// Profil Değişkenlerini Güncelleme - FIXED to always add new row and fetch latest
+const updateProfilDegiskenler = async () => {
+  try {
+    // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
+    const processedData = {
+      galvanizli_profil_kg_usd: safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd),
+      galvanizsiz_profil_kg_usd: safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd),
+      profil_uretim_kapasitesi_m2_h: safeParseFloat(profilDegiskenler.profil_uretim_kapasitesi_m2_h),
+      profil_isci_sayisi_ad: safeParseFloat(profilDegiskenler.profil_isci_sayisi_ad),
+      profil_vardiya: safeParseFloat(profilDegiskenler.profil_vardiya),
+      profil_kaynak_makinesi_elektrik_tuketim_kwh: safeParseFloat(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh),
+      profil_kesme_elektrik_tuketim_kwh: safeParseFloat(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh),
+      profil_boya_makinesi_elektrik_tuketim_kwh: safeParseFloat(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh),
+      profil_dogalgaz_tuketim_stn_m3: safeParseFloat(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3),
+      profil_boya_tuketim: safeParseFloat(profilDegiskenler.profil_boya_tuketim),
+      flans_ad_tl: safeParseFloat(profilDegiskenler.flans_ad_tl),
+      vida_ad_tl: safeParseFloat(profilDegiskenler.vida_ad_tl),
+      klips_ad_tl: safeParseFloat(profilDegiskenler.klips_ad_tl),
+      dubel_ad_tl: safeParseFloat(profilDegiskenler.dubel_ad_tl),
+      kapak_ad_tl: safeParseFloat(profilDegiskenler.kapak_ad_tl),
+      profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
+      profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
+      profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
+      profil_latest_update: new Date().toISOString()
+    };
+    
+    // Her zaman yeni bir kayıt oluştur (id gönderme)
+    const response = await axios.post(API_URLS.profilDegiskenler, processedData);
+    
+    if (response.status === 200 || response.status === 201) {
+      alert('Profil değişkenleri başarıyla kaydedildi.');
+      // En son kaydı getirmek için verileri yeniden çek
+      fetchSectionData('profil');
     }
-  };
-
+  } catch (error) {
+    console.error('Kaydetme hatası:', error);
+    alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+  }
+};
   // Özel panel ekleme - formüller tamamen iyileştirildi
   const addOzelPanel = () => {
     const newPanel = {
