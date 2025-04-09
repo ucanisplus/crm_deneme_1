@@ -2357,8 +2357,8 @@ const updateProfilDegiskenler = async () => {
               <tr key={panel.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{panel.panel_kodu}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_tipi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_yuksekligi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_genisligi}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDisplayValue(panel.panel_yuksekligi)}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDisplayValue(panel.panel_genisligi)}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_tel_capi, 'tel_capi')}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_tel_capi, 'tel_capi')}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_goz_araligi, 'goz_araligi')}</td>
@@ -2435,62 +2435,62 @@ const updateProfilDegiskenler = async () => {
                 </div>
                 <h4 className="font-medium">Genel Değişkenler</h4>
               </div>
-              <div className="space-y-3">
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Boya Fiyatı (kg) (€)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.boya_fiyati_kg_eur || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('boya_fiyati_kg_eur', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Elektrik Fiyatı (kW) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.elektrik_fiyati_kw_tl || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('elektrik_fiyati_kw_tl', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Doğalgaz Fiyatı (Stn.m³) (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.dogalgaz_fiyati_stn_m3_tl || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('dogalgaz_fiyati_stn_m3_tl', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Amortisman & Diğer ($)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.amortisman_diger_usd || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('amortisman_diger_usd', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">KAR Oranı (Toplama Ek %)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.kar_toplama_ek_percent || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('kar_toplama_ek_percent', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm text-gray-500 mb-1">Ort. İşçi Maaşı (₺)</label>
-                  <input 
-                    type="text" 
-                    value={genelDegiskenler.ort_isci_maasi || ''} 
-                    onChange={(e) => handleGenelDegiskenlerChange('ort_isci_maasi', e.target.value)}
-                    className="border rounded p-2"
-                  />
-                </div>
-              </div>
+		<div className="space-y-3">
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">Boya Fiyatı (kg) (€)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.boya_fiyati_kg_eur) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('boya_fiyati_kg_eur', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">Elektrik Fiyatı (kW) (₺)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.elektrik_fiyati_kw_tl) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('elektrik_fiyati_kw_tl', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">Doğalgaz Fiyatı (Stn.m³) (₺)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('dogalgaz_fiyati_stn_m3_tl', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">Amortisman & Diğer ($)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.amortisman_diger_usd) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('amortisman_diger_usd', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">KAR Oranı (Toplama Ek %)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.kar_toplama_ek_percent) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('kar_toplama_ek_percent', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		  <div className="flex flex-col">
+		    <label className="text-sm text-gray-500 mb-1">Ort. İşçi Maaşı (₺)</label>
+		    <input 
+		      type="text" 
+		      value={formatDisplayValue(genelDegiskenler.ort_isci_maasi) || ''} 
+		      onChange={(e) => handleGenelDegiskenlerChange('ort_isci_maasi', e.target.value)}
+		      className="border rounded p-2"
+		    />
+		  </div>
+		</div>
             </div>
           </div>
           
