@@ -133,24 +133,24 @@ const formatDisplayValue = (value) => {
   
   const num = parseFloat(value);
   
-  // Eğer tam sayı ise, ondalık kısmı olmadan göster
+  // If it's an integer (whole number), display without decimal part
   if (Number.isInteger(num)) {
     return num.toString();
   }
   
-  // Küçük ölçümler için (tel çapları, göz aralıkları gibi)
+  // For small measurements (like wire diameters, mesh spacings)
   if (Math.abs(num) < 100) {
-    // Ondalık kısmın sonundaki sıfırları temizle
-    return num.toString().replace(/\.?0+$/, '');
+    // Convert to string and remove trailing zeros after decimal point
+    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
   
-  // Fiyatlar için 2 ondalık basamak göster (daha iyi okunabilirlik için 5'ten değiştirildi)
+  // For prices, show 2 decimal places (changed from 5 for better readability)
   if (typeof value === 'string' && (value.includes('fiyat') || value.includes('price'))) {
     return num.toFixed(2);
   }
   
-  // Diğer ondalık değerler için sondaki sıfırları temizle
-  return num.toString().replace(/\.?0+$/, '');
+  // For other decimal values, remove trailing zeros
+  return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 };
 
 // IMPROVED table cell formatting function
