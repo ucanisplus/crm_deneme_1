@@ -561,6 +561,11 @@ const fetchSectionData = async (section) => {
     setCalculating(true);
     setShowResults(false);
     setShowSalesView(false);
+    setResultFilter({
+      currency: 'all',
+      unit: 'all',
+      type: 'all'
+     });
     
     try {
       // Önce hesaplanacak veri olup olmadığını kontrol et
@@ -3992,12 +3997,6 @@ const saveAllOzelPanelsToDatabase = async () => {
 		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
 		  {formatTableValue(maliyet.panel_genisligi, 'decimal')}
 		</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.panel_yuksekligi}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.panel_genisligi}
-                </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                   {formatTableValue(maliyet.dikey_tel_capi, 'tel_capi')}
                 </td>
