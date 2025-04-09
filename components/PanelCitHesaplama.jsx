@@ -719,406 +719,404 @@ const fetchSectionData = async (section) => {
     };
   };
   
-  // Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
-  const performClientSideCalculations = (panelsToCalculate) => {
-    // Sonuç arrayleri
-    const geciciHesaplar = [];
-    const maliyetListesi = [];
-    
-    // Döviz kurları
-    const usdTl = safeParseFloat(genelDegiskenler.usd_tl, 1);
-    const eurUsd = safeParseFloat(genelDegiskenler.eur_usd, 1);
-    
-    // Genel değerler
-    const boyaFiyatiUSD = safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur) / eurUsd;
-    const elektrikFiyatiUSD = safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl) / usdTl;
-    const dogalgazFiyatiUSD = safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) / usdTl;
-    const amortismanUSD = safeParseFloat(genelDegiskenler.amortisman_diger_usd);
-    const ortalamaIsciMaasiUSD = safeParseFloat(genelDegiskenler.ort_isci_maasi) / usdTl;
-    
-    // Panel değerleri
-    const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
-    const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-    const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
-    const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
-    const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
-    const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
-    const panelDogalgazTuketim = safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3);
-    const isciSayisiPanelKesme = safeParseFloat(panelCitDegiskenler.panel_kesme_isci_sayisi_ad);
-    const isciSayisiPanelKaynak = safeParseFloat(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad);
-    const isciSayisiPanelBoya = safeParseFloat(panelCitDegiskenler.panel_boya_isci_sayisi_ad);
-    const dpBoyaMetreKare = safeParseFloat(panelCitDegiskenler.dp_boya_tuketim_miktari);
-    const spBoyaMetreKare = safeParseFloat(panelCitDegiskenler.sp_boya_tuketim_miktari);
-    const guvenlikBoyaMetreKare = safeParseFloat(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr);
-    
-    // Profil değerleri
-    const profilEn1 = safeParseFloat(profilDegiskenler.profil_en1);
-    const profilEn2 = safeParseFloat(profilDegiskenler.profil_en2);
-    const profilBoyaTuketim = safeParseFloat(profilDegiskenler.profil_boya_tuketim);
-    const profilEtKalinligi = safeParseFloat(profilDegiskenler.profil_et_kalinligi);
-    const vardiyaProfil = safeParseFloat(profilDegiskenler.profil_vardiya);
-    const profilOrtalama = safeParseFloat(profilDegiskenler.profil_uretim_kapasitesi_m2_h);
-    const profilIsciSayisi = safeParseFloat(profilDegiskenler.profil_isci_sayisi_ad);
-    const profilDogalgazKullanim = safeParseFloat(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3);
-    const profilBoyaElektrikKullanim = safeParseFloat(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh);
-    const profilKaynakElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh);
-    const profilKesmeElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh);
-    
-    // Profil fiyatları
-    const flansUSD = safeParseFloat(profilDegiskenler.flans_ad_tl) / usdTl;
-    const vidaUSD = safeParseFloat(profilDegiskenler.vida_ad_tl) / usdTl;
-    const klipsUSD = safeParseFloat(profilDegiskenler.klips_ad_tl) / usdTl;
-    const dubelUSD = safeParseFloat(profilDegiskenler.dubel_ad_tl) / usdTl;
-    const kapakUSD = safeParseFloat(profilDegiskenler.kapak_ad_tl) / usdTl;
-    
-    // Profil fiyatları
-    const galvanizsizProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd) / 1000;
-    const galvanizliProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd) / 1000;
-    
-    // Sabit parça sayıları
-    const flansAdet = 1;
-    const dubelAdet = 4;
-    const kapakAdet = 1;
-    
-    // Her panel için hesaplama yap
-    for (const panel of panelsToCalculate) {
-      try {
-        // Panel verilerini al
-        const materialHeight = safeParseFloat(panel.panel_yuksekligi);
-        const materialWidth = safeParseFloat(panel.panel_genisligi);
-        const weightKg = safeParseFloat(panel.agirlik);
-        const panelType = panel.panel_tipi || '';
-        const panelKodu = panel.panel_kodu || '';
-        const manualOrder = panel.manual_order || '';
-        
+// Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
+const performClientSideCalculations = (panelsToCalculate) => {
+  // Sonuç arrayleri
+  const geciciHesaplar = [];
+  const maliyetListesi = [];
+  
+  // Döviz kurları
+  const usdTl = safeParseFloat(genelDegiskenler.usd_tl, 1);
+  const eurUsd = safeParseFloat(genelDegiskenler.eur_usd, 1);
+  
+  // Genel değerler
+  const boyaFiyatiUSD = safeParseFloat(genelDegiskenler.boya_fiyati_kg_eur) / eurUsd;
+  const elektrikFiyatiUSD = safeParseFloat(genelDegiskenler.elektrik_fiyati_kw_tl) / usdTl;
+  const dogalgazFiyatiUSD = safeParseFloat(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) / usdTl;
+  const amortismanUSD = safeParseFloat(genelDegiskenler.amortisman_diger_usd);
+  const ortalamaIsciMaasiUSD = safeParseFloat(genelDegiskenler.ort_isci_maasi) / usdTl;
+  
+  // Panel değerleri
+  const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
+  const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
+  const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
+  const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
+  const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
+  const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
+  const panelDogalgazTuketim = safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3);
+  const isciSayisiPanelKesme = safeParseFloat(panelCitDegiskenler.panel_kesme_isci_sayisi_ad);
+  const isciSayisiPanelKaynak = safeParseFloat(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad);
+  const isciSayisiPanelBoya = safeParseFloat(panelCitDegiskenler.panel_boya_isci_sayisi_ad);
+  const dpBoyaMetreKare = safeParseFloat(panelCitDegiskenler.dp_boya_tuketim_miktari);
+  const spBoyaMetreKare = safeParseFloat(panelCitDegiskenler.sp_boya_tuketim_miktari);
+  const guvenlikBoyaMetreKare = safeParseFloat(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr);
+  
+  // Profil değerleri
+  const profilEn1 = safeParseFloat(profilDegiskenler.profil_en1);
+  const profilEn2 = safeParseFloat(profilDegiskenler.profil_en2);
+  const profilBoyaTuketim = safeParseFloat(profilDegiskenler.profil_boya_tuketim);
+  const profilEtKalinligi = safeParseFloat(profilDegiskenler.profil_et_kalinligi);
+  const vardiyaProfil = safeParseFloat(profilDegiskenler.profil_vardiya);
+  const profilOrtalama = safeParseFloat(profilDegiskenler.profil_uretim_kapasitesi_m2_h);
+  const profilIsciSayisi = safeParseFloat(profilDegiskenler.profil_isci_sayisi_ad);
+  const profilDogalgazKullanim = safeParseFloat(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3);
+  const profilBoyaElektrikKullanim = safeParseFloat(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh);
+  const profilKaynakElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh);
+  const profilKesmeElektrikTuketim = safeParseFloat(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh);
+  
+  // Profil fiyatları
+  const flansUSD = safeParseFloat(profilDegiskenler.flans_ad_tl) / usdTl;
+  const vidaUSD = safeParseFloat(profilDegiskenler.vida_ad_tl) / usdTl;
+  const klipsUSD = safeParseFloat(profilDegiskenler.klips_ad_tl) / usdTl;
+  const dubelUSD = safeParseFloat(profilDegiskenler.dubel_ad_tl) / usdTl;
+  const kapakUSD = safeParseFloat(profilDegiskenler.kapak_ad_tl) / usdTl;
+  
+  // Profil fiyatları
+  const galvanizsizProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd) / 1000;
+  const galvanizliProfilFiyatKg = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd) / 1000;
+  
+  // Sabit parça sayıları
+  const flansAdet = 1;
+  const dubelAdet = 4;
+  const kapakAdet = 1;
+  
+  // Her panel için hesaplama yap
+  for (const panel of panelsToCalculate) {
+    try {
+      // Panel verilerini al
+      const materialHeight = safeParseFloat(panel.panel_yuksekligi);
+      const materialWidth = safeParseFloat(panel.panel_genisligi);
+      const weightKg = safeParseFloat(panel.agirlik);
+      const panelType = panel.panel_tipi || '';
+      const panelKodu = panel.panel_kodu || '';
+      const manualOrder = panel.manual_order || '';
+      
+      // Yüzey alanı hesapla
+      const l1Metre = (materialHeight * materialWidth) / 10000;
 
-	
-        // Yüzey alanı hesapla
-        const l1Metre = (materialHeight * materialWidth) / 10000;
-
-        // Panel Kapasite hesapla
-        let panelKapasite = 0;
-        if (panelType === "Single" || panelType === "Ozel") {
-          if (materialHeight <= 70) panelKapasite = l1Metre * 125;
-          else if (materialHeight <= 100) panelKapasite = l1Metre * 125;
-          else if (materialHeight <= 120) panelKapasite = l1Metre * 110;
-          else if (materialHeight <= 150) panelKapasite = l1Metre * 100;
-          else if (materialHeight <= 170) panelKapasite = l1Metre * 100;
-          else if (materialHeight <= 200) panelKapasite = l1Metre * 90;
-          else panelKapasite = l1Metre * 80;
-        } else if (panelType === "Double") {
-          if (materialHeight <= 63) panelKapasite = l1Metre * 30;
-          else if (materialHeight <= 83) panelKapasite = l1Metre * 35;
-          else if (materialHeight <= 103) panelKapasite = l1Metre * 60;
-          else if (materialHeight <= 123) panelKapasite = l1Metre * 60;
-          else if (materialHeight <= 143) panelKapasite = l1Metre * 50;
-          else if (materialHeight <= 163) panelKapasite = l1Metre * 50;
-          else if (materialHeight <= 183) panelKapasite = l1Metre * 45;
-          else if (materialHeight <= 203) panelKapasite = l1Metre * 45;
-          else if (materialHeight <= 223) panelKapasite = l1Metre * 40;
-          else if (materialHeight <= 243) panelKapasite = l1Metre * 40;
-          else panelKapasite = l1Metre * 35;
-        } else if (panelType === "Guvenlik") {
-          if (materialHeight <= 63) panelKapasite = l1Metre * 20;
-          else if (materialHeight <= 83) panelKapasite = l1Metre * 25;
-          else if (materialHeight <= 103) panelKapasite = l1Metre * 30;
-          else if (materialHeight <= 123) panelKapasite = l1Metre * 35;
-          else if (materialHeight <= 143) panelKapasite = l1Metre * 40;
-          else if (materialHeight <= 163) panelKapasite = l1Metre * 45;
-          else if (materialHeight <= 183) panelKapasite = l1Metre * 40;
-          else if (materialHeight <= 203) panelKapasite = l1Metre * 35;
-          else if (materialHeight <= 223) panelKapasite = l1Metre * 30;
-          else if (materialHeight <= 243) panelKapasite = l1Metre * 25;
-          else panelKapasite = l1Metre * 25;
-        }
-        
-        // Boya Kapasite hesapla
-        let boyaKapasite = 0;
-        if (panelType === "Single" || panelType === "Ozel") {
-          if (materialHeight <= 70) boyaKapasite = 525;
-          else if (materialHeight <= 100) boyaKapasite = 750;
-          else if (materialHeight <= 120) boyaKapasite = 600;
-          else if (materialHeight <= 150) boyaKapasite = 750;
-          else if (materialHeight <= 170) boyaKapasite = 850;
-          else if (materialHeight <= 200) boyaKapasite = 750;
-          else boyaKapasite = 600;
-        } else if (panelType === "Double") {
-          if (materialHeight <= 63) boyaKapasite = 709;
-          else if (materialHeight <= 83) boyaKapasite = 934;
-          else if (materialHeight <= 103) boyaKapasite = 1159;
-          else if (materialHeight <= 123) boyaKapasite = 923;
-          else if (materialHeight <= 143) boyaKapasite = 1073;
-          else if (materialHeight <= 163) boyaKapasite = 1223;
-          else if (materialHeight <= 183) boyaKapasite = 1052;
-          else if (materialHeight <= 203) boyaKapasite = 1167;
-          else if (materialHeight <= 223) boyaKapasite = 1115;
-          else if (materialHeight <= 243) boyaKapasite = 1215;
-          else boyaKapasite = 1000;
-        } else if (panelType === "Guvenlik") {
-          if (materialHeight <= 63) boyaKapasite = 709;
-          else if (materialHeight <= 83) boyaKapasite = 934;
-          else if (materialHeight <= 103) boyaKapasite = 1159;
-          else if (materialHeight <= 123) boyaKapasite = 923;
-          else if (materialHeight <= 143) boyaKapasite = 1073;
-          else if (materialHeight <= 163) boyaKapasite = 1223;
-          else if (materialHeight <= 183) boyaKapasite = 1052;
-          else if (materialHeight <= 203) boyaKapasite = 1167;
-          else if (materialHeight <= 223) boyaKapasite = 1115;
-          else if (materialHeight <= 243) boyaKapasite = 1215;
-          else if (materialHeight <= 263) boyaKapasite = 1115;
-          else if (materialHeight <= 283) boyaKapasite = 1015;
-          else if (materialHeight <= 303) boyaKapasite = 915;
-          else boyaKapasite = 1000;
-        }
-        
-        // Kapasiteleri hesapla
-        // Google Sheets'teki formüllerle tam uyum için aşağıdaki formüller kullanılır:
-        const yalnizPanelAylikKapasite = ((panelBoyaVardiya + panelKesmeVardiya) / 2) * 26 * 7 * panelKapasite;
-        const boyaAylikKapasite = panelBoyaVardiya * 26 * 7 * boyaKapasite;
-        
-        // Profil kapasitesini hesapla
-        const profilKapasiteAd = profilOrtalama * 26 * 7 * vardiyaProfil;
-        const profilAylikKapasite = profilKapasiteAd;
-        
-        // Elektrik maliyetlerini hesapla
-        const panelKaynakElektrikM2 = (elektrikFiyatiUSD * panelKaynakElektrik) / panelKapasite;
-        const panelKesmeElektrikM2 = (elektrikFiyatiUSD * panelKesmeElektrik) / panelKapasite;
-        const panelBoyaElektrikM2 = (elektrikFiyatiUSD * panelBoyaElektrik) / boyaKapasite;
-        
-        // Doğalgaz ve diğer maliyetleri hesapla
-        const digerM2 = amortismanUSD / panelKapasite;
-        const panelDogalgazM2 = (dogalgazFiyatiUSD * panelDogalgazTuketim) / panelKapasite;
-        
-        // İşçi maliyetlerini hesapla - Google Sheets'teki formüllere tam uygun
-        const yalnizPanelIsciM2 = (ortalamaIsciMaasiUSD * (isciSayisiPanelKesme + isciSayisiPanelKaynak)) / yalnizPanelAylikKapasite;
-        const panelBoyaIsciM2 = (ortalamaIsciMaasiUSD * isciSayisiPanelBoya) / boyaAylikKapasite;
-        
-        // Malzeme maliyetlerini hesapla
-        const galvanizTelKg = galvanizliTel / 1000;
-        
-        // Boya maliyetlerini hesapla
-        const dpBoyaM2 = (boyaFiyatiUSD / 1000) * dpBoyaMetreKare;
-        const spBoyaM2 = (boyaFiyatiUSD / 1000) * spBoyaMetreKare;
-        const guvenlikBoyaM2 = (boyaFiyatiUSD / 1000) * guvenlikBoyaMetreKare;
-        
-        // Profil maliyetlerini hesapla
-        const profilBoyaTuketimAdUSD = ((2 * profilEn1 + 2 * profilEn2) * materialHeight / 10000) * 
-                                     profilBoyaTuketim * (boyaFiyatiUSD / 1000);
-        
-        const profilElektrikKesmeAd = (profilKesmeElektrikTuketim / (1000 / 7)) * elektrikFiyatiUSD;
-        const profilElektrikKaynakAd = (profilKaynakElektrikTuketim / (450 / 7)) * elektrikFiyatiUSD;
-        
-        const profilIsciUretimAd = (ortalamaIsciMaasiUSD * profilIsciSayisi) / profilAylikKapasite;
-        
-        // Vida/klips adetlerini hesapla
-        let vidaAdet = 2;
-        let klipsAdet = 2;
-        
-        const adjustedHeight = Math.min(200, Math.max(60, Math.round(materialHeight / 10) * 10));
-        
-        if (adjustedHeight > 100) {
-          vidaAdet = klipsAdet = 3;
-        } else if (adjustedHeight > 150) {
-          vidaAdet = klipsAdet = 4;
-        }
-        
-        // Hammadde maliyetini hesapla
-        const profilHammaddeToplamAd = (flansAdet * flansUSD) + 
-                                     (vidaAdet * vidaUSD) + 
-                                     (klipsAdet * klipsUSD) + 
-                                     (dubelAdet * dubelUSD) + 
-                                     (kapakAdet * kapakUSD);
-        
-        // Üretim kapasitesini hesapla
-        let profilSaatlikUretimKapasitesi = 0;
-        let roundedHeight = materialHeight;
-        
-        if (roundedHeight <= 40) {
-          roundedHeight = 40;
-        } else if (roundedHeight > 220) {
-          roundedHeight = 220;
-        } else {
-          roundedHeight = (roundedHeight % 10 <= 5) ? 
-                         roundedHeight - (roundedHeight % 10) : 
-                         roundedHeight + (10 - (roundedHeight % 10));
-        }
-        
-        const heightProductionMap = {
-          40: 2280, 50: 2280, 60: 2280,
-          70: 1520, 100: 1520,
-          120: 760, 150: 760, 170: 760, 200: 760, 220: 760
-        };
-        
-        profilSaatlikUretimKapasitesi = heightProductionMap[roundedHeight] || 760;
-        
-        // Tüketim oranlarını hesapla
-        const profilDogalgazTuketimOran = profilDogalgazKullanim / profilSaatlikUretimKapasitesi;
-        const profilBoyaElektrikTuketimOran = profilBoyaElektrikKullanim / profilSaatlikUretimKapasitesi;
-        
-        // Adet maliyetlerini hesapla
-        const adetUSD = (l1Metre * (yalnizPanelIsciM2 + panelKaynakElektrikM2 + panelKesmeElektrikM2 + digerM2)) + 
-                       (weightKg * galvanizTelKg);
-        
-        // Boya maliyetlerini hesapla
-        let boyam2;
-        if (panelType === "Double") {
-          boyam2 = dpBoyaM2;
-        } else if (panelType === "Guvenlik") {
-          boyam2 = guvenlikBoyaM2;
-        } else {
-          boyam2 = spBoyaM2; // Single ve Özel için
-        }
-        
-        const boyaAdetUSD = (boyam2 * l1Metre) + 
-                          (panelBoyaElektrikM2 * l1Metre) + 
-                          (panelDogalgazM2 * l1Metre) + 
-                          (panelBoyaIsciM2 * l1Metre);
-        
-        // Son maliyetleri hesapla
-        const boyaliAdetUSD = adetUSD + boyaAdetUSD;
-        const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + 2 * materialHeight) * profilEtKalinligi * 7.85) / 1000;
-        
-        // SetUSD hesapla
-        const SetUSD = profilBoyaTuketimAdUSD +
-                     profilElektrikKesmeAd +
-                     profilElektrikKaynakAd +
-                     profilIsciUretimAd +
-                     profilHammaddeToplamAd +
-                     (galvanizsizProfilFiyatKg * profilAgirlik) +
-                     profilDogalgazTuketimOran +
-                     profilBoyaElektrikTuketimOran;
-        
-        // Geçici hesap verilerini hazırla
-        const geciciHesap = {
-          panel_kapasite: Number(panelKapasite || 0),
-          yalniz_panel_aylik: Number(yalnizPanelAylikKapasite || 0),
-          panel_kaynak_elektrik: Number(panelKaynakElektrikM2 || 0),
-          panel_kesme_elektrik: Number(panelKesmeElektrikM2 || 0),
-          diger_m2: Number(digerM2 || 0),
-          yalniz_panel_isci_m2: Number(yalnizPanelIsciM2 || 0),
-          galvaniz_tel_kg: Number(galvanizTelKg || 0),
-          boya_kapasite: Number(boyaKapasite || 0),
-          boya_aylik_kapasite: Number(boyaAylikKapasite || 0),
-          panel_boya_elektrik: Number(panelBoyaElektrikM2 || 0),
-          panel_dogalgaz_m2: Number(panelDogalgazM2 || 0),
-          panel_boya_isci_m2: Number(panelBoyaIsciM2 || 0),
-          dp_boya_m2: Number(dpBoyaM2 || 0),
-          sp_boya_m2: Number(spBoyaM2 || 0),
-          profil_kapasite_ad: Number(profilKapasiteAd || 0),
-          profil_aylik_kapasite: Number(profilAylikKapasite || 0),
-          profil_boya_tuketim: Number(profilBoyaTuketimAdUSD || 0),
-          profil_elektrik_kesme_ad: Number(profilElektrikKesmeAd || 0),
-          profil_elektrik_kaynak_ad: Number(profilElektrikKaynakAd || 0),
-          profil_isci_uretim_ad: Number(profilIsciUretimAd || 0),
-          profil_hammadde_toplam: Number(profilHammaddeToplamAd || 0),
-          galvanizsiz_profil_fiyat_kg: Number(galvanizsizProfilFiyatKg || 0),
-          galvanizli_profil_fiyat_kg: Number(galvanizliProfilFiyatKg || 0),
-          profil_dogalgaz_tuketim: Number(profilDogalgazTuketimOran || 0),
-          profil_boya_elk_tuketim: Number(profilBoyaElektrikTuketimOran || 0),
-          adet_usd: Number(adetUSD || 0),
-          boyam2: Number(boyam2 || 0),
-          boya_adet_usd: Number(boyaAdetUSD || 0),
-          boyali_adet_usd: Number(boyaliAdetUSD || 0),
-          manual_order: manualOrder,
-          panel_kodu: panelKodu,
-          profil_yukseklik: Number(materialHeight || 0),
-          profil_agirlik: Number(profilAgirlik || 0),
-          flans_adet: Number(flansAdet || 0),
-          vida_adet: Number(vidaAdet || 0),
-          klips_adet: Number(klipsAdet || 0),
-          dubel_adet: Number(dubelAdet || 0),
-          kapak_adet: Number(kapakAdet || 0),
-          profil_saatlik_uretim: Number(profilSaatlikUretimKapasitesi || 0),
-          panel_adet_m2: Number(l1Metre || 0),
-          panel_adet_agirlik: Number(weightKg || 0),
-        };
-        
-        // Maliyetleri hesapla
-        const maliyet = {
-          manual_order: manualOrder,
-          panel_kodu: panelKodu,
-          
-          // Çıplak Adet hesaplamaları
-          ciplak_adet_usd: Number(adetUSD || 0),
-          ciplak_adet_eur: Number((adetUSD * eurUsd) || 0),
-          ciplak_adet_try: Number((adetUSD * usdTl) || 0),
-          
-         // Çıplak M2 hesaplamaları
-          ciplak_m2_usd: l1Metre > 0 ? Number((adetUSD / l1Metre) || 0) : 0,
-          ciplak_m2_eur: l1Metre > 0 ? Number(((adetUSD / l1Metre) * eurUsd) || 0) : 0,
-          ciplak_m2_try: l1Metre > 0 ? Number(((adetUSD / l1Metre) * usdTl) || 0) : 0,
-          
-          // Çıplak Kg hesaplamaları
-          ciplak_kg_usd: weightKg > 0 ? Number((adetUSD / weightKg) || 0) : 0,
-          ciplak_kg_eur: weightKg > 0 ? Number(((adetUSD / weightKg) * eurUsd) || 0) : 0,
-          ciplak_kg_try: weightKg > 0 ? Number(((adetUSD / weightKg) * usdTl) || 0) : 0,
-          
-          // Boyalı Adet hesaplamaları
-          boyali_adet_usd: Number(boyaliAdetUSD || 0),
-          boyali_adet_eur: Number((boyaliAdetUSD * eurUsd) || 0),
-          boyali_adet_try: Number((boyaliAdetUSD * usdTl) || 0),
-          
-          // Boyalı M2 hesaplamaları
-          boyali_m2_usd: l1Metre > 0 ? Number((boyaliAdetUSD / l1Metre) || 0) : 0,
-          boyali_m2_eur: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * eurUsd) || 0) : 0,
-          boyali_m2_try: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * usdTl) || 0) : 0,
-          
-          // Boyalı Kg hesaplamaları
-          boyali_kg_usd: weightKg > 0 ? Number((boyaliAdetUSD / weightKg) || 0) : 0,
-          boyali_kg_eur: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * eurUsd) || 0) : 0,
-          boyali_kg_try: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * usdTl) || 0) : 0,
-          
-          // Standart Setli + Boyasız Adet hesaplamaları
-          standart_setli_boyasiz_adet_usd: Number((adetUSD + SetUSD) || 0),
-          standart_setli_boyasiz_adet_eur: Number(((adetUSD + SetUSD) * eurUsd) || 0),
-          standart_setli_boyasiz_adet_try: Number(((adetUSD + SetUSD) * usdTl) || 0),
-          
-          // Standart Setli + Boyasız M2 hesaplamaları
-          standart_setli_boyasiz_m2_usd: l1Metre > 0 ? Number(((adetUSD + SetUSD) / l1Metre) || 0) : 0,
-          standart_setli_boyasiz_m2_eur: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * eurUsd) || 0) : 0,
-          standart_setli_boyasiz_m2_try: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
-          
-          // Standart Setli + Boyasız Kg hesaplamaları
-          standart_setli_boyasiz_kg_usd: weightKg > 0 ? Number(((adetUSD + SetUSD) / weightKg) || 0) : 0,
-          standart_setli_boyasiz_kg_eur: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * eurUsd) || 0) : 0,
-          standart_setli_boyasiz_kg_try: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
-          
-          // Standart Setli + Boyalı Adet hesaplamaları
-          standart_setli_boyali_adet_usd: Number((boyaliAdetUSD + SetUSD) || 0),
-          standart_setli_boyali_adet_eur: Number(((boyaliAdetUSD + SetUSD) * eurUsd) || 0),
-          standart_setli_boyali_adet_try: Number(((boyaliAdetUSD + SetUSD) * usdTl) || 0),
-          
-          // Standart Setli + Boyalı M2 hesaplamaları
-          standart_setli_boyali_m2_usd: l1Metre > 0 ? Number(((boyaliAdetUSD + SetUSD) / l1Metre) || 0) : 0,
-          standart_setli_boyali_m2_eur: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * eurUsd) || 0) : 0,
-          standart_setli_boyali_m2_try: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
-          
-          // Standart Setli + Boyalı Kg hesaplamaları
-          standart_setli_boyali_kg_usd: weightKg > 0 ? Number(((boyaliAdetUSD + SetUSD) / weightKg) || 0) : 0,
-          standart_setli_boyali_kg_eur: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * eurUsd) || 0) : 0,
-          standart_setli_boyali_kg_try: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
-          
-          // Ek panel bilgileri
-          panel_tipi: panelType,
-          panel_yuksekligi: materialHeight,
-          panel_genisligi: materialWidth,
-          dikey_tel_capi: panel.dikey_tel_capi,
-          yatay_tel_capi: panel.yatay_tel_capi,
-          dikey_goz_araligi: panel.dikey_goz_araligi,
-          yatay_goz_araligi: panel.yatay_goz_araligi
-        };
-        
-        // Sonuçları arraylere ekle
-        geciciHesaplar.push(geciciHesap);
-        maliyetListesi.push(maliyet);
-      } catch (error) {
-        console.error(`Hesaplama hatası (${panel.panel_kodu}):`, error);
-        // Tek bir panel hatası için tüm işlemi durdurmak yerine, devam et
+      // Panel Kapasite hesapla
+      let panelKapasite = 0;
+      if (panelType === "Single" || panelType === "Ozel") {
+        if (materialHeight <= 70) panelKapasite = l1Metre * 125;
+        else if (materialHeight <= 100) panelKapasite = l1Metre * 125;
+        else if (materialHeight <= 120) panelKapasite = l1Metre * 110;
+        else if (materialHeight <= 150) panelKapasite = l1Metre * 100;
+        else if (materialHeight <= 170) panelKapasite = l1Metre * 100;
+        else if (materialHeight <= 200) panelKapasite = l1Metre * 90;
+        else panelKapasite = l1Metre * 80;
+      } else if (panelType === "Double") {
+        if (materialHeight <= 63) panelKapasite = l1Metre * 30;
+        else if (materialHeight <= 83) panelKapasite = l1Metre * 35;
+        else if (materialHeight <= 103) panelKapasite = l1Metre * 60;
+        else if (materialHeight <= 123) panelKapasite = l1Metre * 60;
+        else if (materialHeight <= 143) panelKapasite = l1Metre * 50;
+        else if (materialHeight <= 163) panelKapasite = l1Metre * 50;
+        else if (materialHeight <= 183) panelKapasite = l1Metre * 45;
+        else if (materialHeight <= 203) panelKapasite = l1Metre * 45;
+        else if (materialHeight <= 223) panelKapasite = l1Metre * 40;
+        else if (materialHeight <= 243) panelKapasite = l1Metre * 40;
+        else panelKapasite = l1Metre * 35;
+      } else if (panelType === "Guvenlik") {
+        if (materialHeight <= 63) panelKapasite = l1Metre * 20;
+        else if (materialHeight <= 83) panelKapasite = l1Metre * 25;
+        else if (materialHeight <= 103) panelKapasite = l1Metre * 30;
+        else if (materialHeight <= 123) panelKapasite = l1Metre * 35;
+        else if (materialHeight <= 143) panelKapasite = l1Metre * 40;
+        else if (materialHeight <= 163) panelKapasite = l1Metre * 45;
+        else if (materialHeight <= 183) panelKapasite = l1Metre * 40;
+        else if (materialHeight <= 203) panelKapasite = l1Metre * 35;
+        else if (materialHeight <= 223) panelKapasite = l1Metre * 30;
+        else if (materialHeight <= 243) panelKapasite = l1Metre * 25;
+        else panelKapasite = l1Metre * 25;
       }
-    }
-    
-    return { geciciHesaplar, maliyetListesi };
-  }; 
+      
+      // Boya Kapasite hesapla
+      let boyaKapasite = 0;
+      if (panelType === "Single" || panelType === "Ozel") {
+        if (materialHeight <= 70) boyaKapasite = 525;
+        else if (materialHeight <= 100) boyaKapasite = 750;
+        else if (materialHeight <= 120) boyaKapasite = 600;
+        else if (materialHeight <= 150) boyaKapasite = 750;
+        else if (materialHeight <= 170) boyaKapasite = 850;
+        else if (materialHeight <= 200) boyaKapasite = 750;
+        else boyaKapasite = 600;
+      } else if (panelType === "Double") {
+        if (materialHeight <= 63) boyaKapasite = 709;
+        else if (materialHeight <= 83) boyaKapasite = 934;
+        else if (materialHeight <= 103) boyaKapasite = 1159;
+        else if (materialHeight <= 123) boyaKapasite = 923;
+        else if (materialHeight <= 143) boyaKapasite = 1073;
+        else if (materialHeight <= 163) boyaKapasite = 1223;
+        else if (materialHeight <= 183) boyaKapasite = 1052;
+        else if (materialHeight <= 203) boyaKapasite = 1167;
+        else if (materialHeight <= 223) boyaKapasite = 1115;
+        else if (materialHeight <= 243) boyaKapasite = 1215;
+        else boyaKapasite = 1000;
+      } else if (panelType === "Guvenlik") {
+        if (materialHeight <= 63) boyaKapasite = 709;
+        else if (materialHeight <= 83) boyaKapasite = 934;
+        else if (materialHeight <= 103) boyaKapasite = 1159;
+        else if (materialHeight <= 123) boyaKapasite = 923;
+        else if (materialHeight <= 143) boyaKapasite = 1073;
+        else if (materialHeight <= 163) boyaKapasite = 1223;
+        else if (materialHeight <= 183) boyaKapasite = 1052;
+        else if (materialHeight <= 203) boyaKapasite = 1167;
+        else if (materialHeight <= 223) boyaKapasite = 1115;
+        else if (materialHeight <= 243) boyaKapasite = 1215;
+        else if (materialHeight <= 263) boyaKapasite = 1115;
+        else if (materialHeight <= 283) boyaKapasite = 1015;
+        else if (materialHeight <= 303) boyaKapasite = 915;
+        else boyaKapasite = 1000;
+      }
+      
+      // Kapasiteleri hesapla
+      // Google Sheets'teki formüllerle tam uyum için aşağıdaki formüller kullanılır:
+      const yalnizPanelAylikKapasite = ((panelBoyaVardiya + panelKesmeVardiya) / 2) * 26 * 7 * panelKapasite;
+      const boyaAylikKapasite = panelBoyaVardiya * 26 * 7 * boyaKapasite;
+      
+      // Profil kapasitesini hesapla
+      const profilKapasiteAd = profilOrtalama * 26 * 7 * vardiyaProfil;
+      const profilAylikKapasite = profilKapasiteAd;
+      
+      // Elektrik maliyetlerini hesapla
+      const panelKaynakElektrikM2 = (elektrikFiyatiUSD * panelKaynakElektrik) / panelKapasite;
+      const panelKesmeElektrikM2 = (elektrikFiyatiUSD * panelKesmeElektrik) / panelKapasite;
+      const panelBoyaElektrikM2 = (elektrikFiyatiUSD * panelBoyaElektrik) / boyaKapasite;
+      
+      // Doğalgaz ve diğer maliyetleri hesapla
+      const digerM2 = amortismanUSD / panelKapasite;
+      const panelDogalgazM2 = (dogalgazFiyatiUSD * panelDogalgazTuketim) / panelKapasite;
+      
+      // İşçi maliyetlerini hesapla - Google Sheets'teki formüllere tam uygun
+      const yalnizPanelIsciM2 = (ortalamaIsciMaasiUSD * (isciSayisiPanelKesme + isciSayisiPanelKaynak)) / yalnizPanelAylikKapasite;
+      const panelBoyaIsciM2 = (ortalamaIsciMaasiUSD * isciSayisiPanelBoya) / boyaAylikKapasite;
+      
+      // Malzeme maliyetlerini hesapla
+      const galvanizTelKg = galvanizliTel / 1000;
+      
+      // Boya maliyetlerini hesapla
+      const dpBoyaM2 = (boyaFiyatiUSD / 1000) * dpBoyaMetreKare;
+      const spBoyaM2 = (boyaFiyatiUSD / 1000) * spBoyaMetreKare;
+      const guvenlikBoyaM2 = (boyaFiyatiUSD / 1000) * guvenlikBoyaMetreKare;
+      
+      // Profil maliyetlerini hesapla
+      const profilBoyaTuketimAdUSD = ((2 * profilEn1 + 2 * profilEn2) * materialHeight / 10000) * 
+                                   profilBoyaTuketim * (boyaFiyatiUSD / 1000);
+      
+      const profilElektrikKesmeAd = (profilKesmeElektrikTuketim / (1000 / 7)) * elektrikFiyatiUSD;
+      const profilElektrikKaynakAd = (profilKaynakElektrikTuketim / (450 / 7)) * elektrikFiyatiUSD;
+      
+      const profilIsciUretimAd = (ortalamaIsciMaasiUSD * profilIsciSayisi) / profilAylikKapasite;
+      
+      // Vida/klips adetlerini hesapla
+      let vidaAdet = 2;
+      let klipsAdet = 2;
+      
+      const adjustedHeight = Math.min(200, Math.max(60, Math.round(materialHeight / 10) * 10));
+      
+      if (adjustedHeight > 100) {
+        vidaAdet = klipsAdet = 3;
+      } else if (adjustedHeight > 150) {
+        vidaAdet = klipsAdet = 4;
+      }
+      
+      // Hammadde maliyetini hesapla
+      const profilHammaddeToplamAd = (flansAdet * flansUSD) + 
+                                   (vidaAdet * vidaUSD) + 
+                                   (klipsAdet * klipsUSD) + 
+                                   (dubelAdet * dubelUSD) + 
+                                   (kapakAdet * kapakUSD);
+      
+      // Üretim kapasitesini hesapla
+      let profilSaatlikUretimKapasitesi = 0;
+      let roundedHeight = materialHeight;
+      
+      if (roundedHeight <= 40) {
+        roundedHeight = 40;
+      } else if (roundedHeight > 220) {
+        roundedHeight = 220;
+      } else {
+        roundedHeight = (roundedHeight % 10 <= 5) ? 
+                       roundedHeight - (roundedHeight % 10) : 
+                       roundedHeight + (10 - (roundedHeight % 10));
+      }
+      
+      const heightProductionMap = {
+        40: 2280, 50: 2280, 60: 2280,
+        70: 1520, 100: 1520,
+        120: 760, 150: 760, 170: 760, 200: 760, 220: 760
+      };
+      
+      profilSaatlikUretimKapasitesi = heightProductionMap[roundedHeight] || 760;
+      
+      // Tüketim oranlarını hesapla
+      const profilDogalgazTuketimOran = profilDogalgazKullanim / profilSaatlikUretimKapasitesi;
+      const profilBoyaElektrikTuketimOran = profilBoyaElektrikKullanim / profilSaatlikUretimKapasitesi;
+      
+      // Adet maliyetlerini hesapla
+      const adetUSD = (l1Metre * (yalnizPanelIsciM2 + panelKaynakElektrikM2 + panelKesmeElektrikM2 + digerM2)) + 
+                     (weightKg * galvanizTelKg);
+      
+      // Boya maliyetlerini hesapla
+      let boyam2;
+      if (panelType === "Double") {
+        boyam2 = dpBoyaM2;
+      } else if (panelType === "Guvenlik") {
+        boyam2 = guvenlikBoyaM2;
+      } else {
+        boyam2 = spBoyaM2; // Single ve Özel için
+      }
+      
+      const boyaAdetUSD = (boyam2 * l1Metre) + 
+                        (panelBoyaElektrikM2 * l1Metre) + 
+                        (panelDogalgazM2 * l1Metre) + 
+                        (panelBoyaIsciM2 * l1Metre);
+      
+      // Son maliyetleri hesapla
+      const boyaliAdetUSD = adetUSD + boyaAdetUSD;
+      const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + 2 * materialHeight) * profilEtKalinligi * 7.85) / 1000;
+      
+      // SetUSD hesapla
+      const SetUSD = profilBoyaTuketimAdUSD +
+                   profilElektrikKesmeAd +
+                   profilElektrikKaynakAd +
+                   profilIsciUretimAd +
+                   profilHammaddeToplamAd +
+                   (galvanizsizProfilFiyatKg * profilAgirlik) +
+                   profilDogalgazTuketimOran +
+                   profilBoyaElektrikTuketimOran;
+      
+      // Geçici hesap verilerini hazırla
+      const geciciHesap = {
+        panel_kapasite: Number(panelKapasite || 0),
+        yalniz_panel_aylik: Number(yalnizPanelAylikKapasite || 0),
+        panel_kaynak_elektrik: Number(panelKaynakElektrikM2 || 0),
+        panel_kesme_elektrik: Number(panelKesmeElektrikM2 || 0),
+        diger_m2: Number(digerM2 || 0),
+        yalniz_panel_isci_m2: Number(yalnizPanelIsciM2 || 0),
+        galvaniz_tel_kg: Number(galvanizTelKg || 0),
+        boya_kapasite: Number(boyaKapasite || 0),
+        boya_aylik_kapasite: Number(boyaAylikKapasite || 0),
+        panel_boya_elektrik: Number(panelBoyaElektrikM2 || 0),
+        panel_dogalgaz_m2: Number(panelDogalgazM2 || 0),
+        panel_boya_isci_m2: Number(panelBoyaIsciM2 || 0),
+        dp_boya_m2: Number(dpBoyaM2 || 0),
+        sp_boya_m2: Number(spBoyaM2 || 0),
+        profil_kapasite_ad: Number(profilKapasiteAd || 0),
+        profil_aylik_kapasite: Number(profilAylikKapasite || 0),
+        profil_boya_tuketim: Number(profilBoyaTuketimAdUSD || 0),
+        profil_elektrik_kesme_ad: Number(profilElektrikKesmeAd || 0),
+        profil_elektrik_kaynak_ad: Number(profilElektrikKaynakAd || 0),
+        profil_isci_uretim_ad: Number(profilIsciUretimAd || 0),
+        profil_hammadde_toplam: Number(profilHammaddeToplamAd || 0),
+        galvanizsiz_profil_fiyat_kg: Number(galvanizsizProfilFiyatKg || 0),
+        galvanizli_profil_fiyat_kg: Number(galvanizliProfilFiyatKg || 0),
+        profil_dogalgaz_tuketim: Number(profilDogalgazTuketimOran || 0),
+        profil_boya_elk_tuketim: Number(profilBoyaElektrikTuketimOran || 0),
+        adet_usd: Number(adetUSD || 0),
+        boyam2: Number(boyam2 || 0),
+        boya_adet_usd: Number(boyaAdetUSD || 0),
+        boyali_adet_usd: Number(boyaliAdetUSD || 0),
+        manual_order: manualOrder,
+        panel_kodu: panelKodu,
+        profil_yukseklik: Number(materialHeight || 0),
+        profil_agirlik: Number(profilAgirlik || 0),
+        flans_adet: Number(flansAdet || 0),
+        vida_adet: Number(vidaAdet || 0),
+        klips_adet: Number(klipsAdet || 0),
+        dubel_adet: Number(dubelAdet || 0),
+        kapak_adet: Number(kapakAdet || 0),
+        profil_saatlik_uretim: Number(profilSaatlikUretimKapasitesi || 0),
+        panel_adet_m2: Number(l1Metre || 0),
+        panel_adet_agirlik: Number(weightKg || 0),
+      };
+      
+      // Maliyetleri hesapla
+      const maliyet = {
+        manual_order: manualOrder,
+        panel_kodu: panelKodu,
+        
+        // Çıplak Adet hesaplamaları
+        ciplak_adet_usd: Number(adetUSD || 0),
+        ciplak_adet_eur: Number((adetUSD / eurUsd) || 0), // FIXED: * to /
+        ciplak_adet_try: Number((adetUSD * usdTl) || 0),
+        
+        // Çıplak M2 hesaplamaları
+        ciplak_m2_usd: l1Metre > 0 ? Number((adetUSD / l1Metre) || 0) : 0,
+        ciplak_m2_eur: l1Metre > 0 ? Number(((adetUSD / l1Metre) / eurUsd) || 0) : 0, // FIXED: * to /
+        ciplak_m2_try: l1Metre > 0 ? Number(((adetUSD / l1Metre) * usdTl) || 0) : 0,
+        
+        // Çıplak Kg hesaplamaları
+        ciplak_kg_usd: weightKg > 0 ? Number((adetUSD / weightKg) || 0) : 0,
+        ciplak_kg_eur: weightKg > 0 ? Number(((adetUSD / weightKg) / eurUsd) || 0) : 0, // FIXED: * to /
+        ciplak_kg_try: weightKg > 0 ? Number(((adetUSD / weightKg) * usdTl) || 0) : 0,
+        
+        // Boyalı Adet hesaplamaları
+        boyali_adet_usd: Number(boyaliAdetUSD || 0),
+        boyali_adet_eur: Number((boyaliAdetUSD / eurUsd) || 0), // FIXED: * to /
+        boyali_adet_try: Number((boyaliAdetUSD * usdTl) || 0),
+        
+        // Boyalı M2 hesaplamaları
+        boyali_m2_usd: l1Metre > 0 ? Number((boyaliAdetUSD / l1Metre) || 0) : 0,
+        boyali_m2_eur: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) / eurUsd) || 0) : 0, // FIXED: * to /
+        boyali_m2_try: l1Metre > 0 ? Number(((boyaliAdetUSD / l1Metre) * usdTl) || 0) : 0,
+        
+        // Boyalı Kg hesaplamaları
+        boyali_kg_usd: weightKg > 0 ? Number((boyaliAdetUSD / weightKg) || 0) : 0,
+        boyali_kg_eur: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) / eurUsd) || 0) : 0, // FIXED: * to /
+        boyali_kg_try: weightKg > 0 ? Number(((boyaliAdetUSD / weightKg) * usdTl) || 0) : 0,
+        
+        // Standart Setli + Boyasız Adet hesaplamaları
+        standart_setli_boyasiz_adet_usd: Number((adetUSD + SetUSD) || 0),
+        standart_setli_boyasiz_adet_eur: Number(((adetUSD + SetUSD) / eurUsd) || 0), // FIXED: * to /
+        standart_setli_boyasiz_adet_try: Number(((adetUSD + SetUSD) * usdTl) || 0),
+        
+        // Standart Setli + Boyasız M2 hesaplamaları
+        standart_setli_boyasiz_m2_usd: l1Metre > 0 ? Number(((adetUSD + SetUSD) / l1Metre) || 0) : 0,
+        standart_setli_boyasiz_m2_eur: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0, // FIXED: * to /
+        standart_setli_boyasiz_m2_try: l1Metre > 0 ? Number((((adetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
+        
+        // Standart Setli + Boyasız Kg hesaplamaları
+        standart_setli_boyasiz_kg_usd: weightKg > 0 ? Number(((adetUSD + SetUSD) / weightKg) || 0) : 0,
+        standart_setli_boyasiz_kg_eur: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0, // FIXED: * to /
+        standart_setli_boyasiz_kg_try: weightKg > 0 ? Number((((adetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
+        
+        // Standart Setli + Boyalı Adet hesaplamaları
+        standart_setli_boyali_adet_usd: Number((boyaliAdetUSD + SetUSD) || 0),
+        standart_setli_boyali_adet_eur: Number(((boyaliAdetUSD + SetUSD) / eurUsd) || 0), // FIXED: * to /
+        standart_setli_boyali_adet_try: Number(((boyaliAdetUSD + SetUSD) * usdTl) || 0),
+
+	// Standart Setli + Boyalı M2 hesaplamaları
+       standart_setli_boyali_m2_usd: l1Metre > 0 ? Number(((boyaliAdetUSD + SetUSD) / l1Metre) || 0) : 0,
+       standart_setli_boyali_m2_eur: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) / eurUsd) || 0) : 0, // FIXED: * to /
+       standart_setli_boyali_m2_try: l1Metre > 0 ? Number((((boyaliAdetUSD + SetUSD) / l1Metre) * usdTl) || 0) : 0,
+       
+       // Standart Setli + Boyalı Kg hesaplamaları
+       standart_setli_boyali_kg_usd: weightKg > 0 ? Number(((boyaliAdetUSD + SetUSD) / weightKg) || 0) : 0,
+       standart_setli_boyali_kg_eur: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) / eurUsd) || 0) : 0, // FIXED: * to /
+       standart_setli_boyali_kg_try: weightKg > 0 ? Number((((boyaliAdetUSD + SetUSD) / weightKg) * usdTl) || 0) : 0,
+       
+       // Ek panel bilgileri
+       panel_tipi: panelType,
+       panel_yuksekligi: materialHeight,
+       panel_genisligi: materialWidth,
+       dikey_tel_capi: panel.dikey_tel_capi,
+       yatay_tel_capi: panel.yatay_tel_capi,
+       dikey_goz_araligi: panel.dikey_goz_araligi,
+       yatay_goz_araligi: panel.yatay_goz_araligi
+     };
+     
+     // Sonuçları arraylere ekle
+     geciciHesaplar.push(geciciHesap);
+     maliyetListesi.push(maliyet);
+   } catch (error) {
+     console.error(`Hesaplama hatası (${panel.panel_kodu}):`, error);
+     // Tek bir panel hatası için tüm işlemi durdurmak yerine, devam et
+   }
+ }
+ 
+ return { geciciHesaplar, maliyetListesi };
+};
   
   // Satış listesi oluşturma fonksiyonu - güncellenmiş versiyon
   const generateSalesList = (maliyetListesi) => {
@@ -3221,7 +3219,7 @@ const saveAllOzelPanelsToDatabase = async () => {
               className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-300 text-sm"
             >
               <Save className="w-4 h-4 mr-1.5" />
-              Tümünü Kaydet
+              Veritabanına Kaydet
             </button>
             <button 
               onClick={() => exportToExcel('ozel')}
