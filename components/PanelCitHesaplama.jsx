@@ -165,29 +165,6 @@ const formatTableValue = (value, columnType) => {
       return Number.isInteger(num) ? num.toString() : num.toString().replace(/\.?0+$/, '');
   }
 };
-// IMPROVED table cell formatting function
-const formatTableValue = (value, columnType) => {
-  if (value === null || value === undefined || value === '') return '';
-  
-  const num = parseFloat(value);
-  if (isNaN(num)) return value; // Return original value if not a number
-  
-  switch (columnType) {
-    case 'tel_capi':
-    case 'goz_araligi':
-      // Format for wire diameter or mesh spacing - show decimals without trailing zeros
-      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-    case 'price':
-      // Format for prices - always show 2 decimal places (reduced from 5 for readability)
-      return num.toFixed(2);
-    case 'decimal':
-      // For other decimal values, show up to 2 decimal places
-      return Number.isInteger(num) ? num.toString() : num.toFixed(2).replace(/\.00$/, '');
-    default:
-      // For integer values, don't show decimal point
-      return Number.isInteger(num) ? num.toString() : num.toFixed(2).replace(/\.00$/, '');
-  }
-};
 
 // Ana PanelCitHesaplama bileşeni
 const PanelCitHesaplama = () => {
