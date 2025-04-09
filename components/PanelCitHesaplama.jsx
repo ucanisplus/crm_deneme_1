@@ -127,32 +127,44 @@ const safeParseFloat = (value, defaultValue = 0) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-// IMPROVED display format function - properly handles integers vs. decimals
+// For display in input fields - removes all trailing zeros
 const formatDisplayValue = (value) => {
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
   
-  // If it's an integer (whole number), display without decimal part
+  // If it's an integer, return without decimal part
   if (Number.isInteger(num)) {
     return num.toString();
   }
   
-  // For small measurements (like wire diameters, mesh spacings)
-  if (Math.abs(num) < 100) {
-    // Convert to string and remove trailing zeros after decimal point
-    return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-  }
-  
-  // For prices, show 2 decimal places (changed from 5 for better readability)
-  if (typeof value === 'string' && (value.includes('fiyat') || value.includes('price'))) {
-    return num.toFixed(2);
-  }
-  
-  // For other decimal values, remove trailing zeros
-  return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  // For all decimal values, remove trailing zeros
+  return num.toString().replace(/\.?0+$/, '');
 };
 
+// For table cell formatting - handles different column types
+const formatTableValue = (value, columnType) => {
+  if (value === null || value === undefined || value === '') return '';
+  
+  const num = parseFloat(value);
+  if (isNaN(num)) return value; // Return original value if not a number
+  
+  switch (columnType) {
+    case 'tel_capi':
+    case 'goz_araligi':
+      // Format for wire diameter or mesh spacing - show decimals without trailing zeros
+      return num.toString().replace(/\.?0+$/, '');
+    case 'price':
+      // Format for prices - always show 5 decimal places for tables
+      return num.toFixed(5);
+    case 'decimal':
+      // For other decimal values, show without trailing zeros
+      return num.toString().replace(/\.?0+$/, '');
+    default:
+      // For integer values, don't show decimal point
+      return Number.isInteger(num) ? num.toString() : num.toString().replace(/\.?0+$/, '');
+  }
+};
 // IMPROVED table cell formatting function
 const formatTableValue = (value, columnType) => {
   if (value === null || value === undefined || value === '') return '';
