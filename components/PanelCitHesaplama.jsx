@@ -195,7 +195,7 @@ const PanelCitHesaplama = () => {
   const [resultFilter, setResultFilter] = useState({
     currency: 'all',
     unit: 'all',
-    type: 'all'
+    type: 'adet'
   });
   const [salesFilter, setSalesFilter] = useState({
     currency: 'USD',
@@ -1613,51 +1613,87 @@ const updateProfilDegiskenler = async () => {
   };
 
   // Özel paneli veritabanına kaydetme - FIXED to handle errors better
-  const saveOzelPanelToDatabase = async (panel) => {
-    try {
-      // Özel alanları temizle
-      const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
-              paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
-              palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
-              paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
-      
-      // API için hazırlanmış veriyi oluştur
-      const dataToSave = {
-        ...panelData,
-        kayit_tarihi: new Date().toISOString()
-      };
-      
-      // Veritabanına kaydet
-      const response = await axios.post(API_URLS.panelList, dataToSave);
-      
-      if (response.status === 200 || response.status === 201) {
-        alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
-        
-        // Mevcut panel listesini güncelle
-        fetchSectionData('panelList');
-        
-        // Özel panel listesinden kaldır
-        setOzelPanelList(prev => prev.filter(p => p.id !== panel.id));
-      }
-    } catch (error) {
-      console.error('Panel kaydetme hatası:', error);
-      alert(`Panel kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
-    }
-  };
+	const saveOzelPanelToDatabase = async (panel) => {
+	  try {
+	    // Özel alanları temizle
+	    const { isNew, id, icube_code, icube_code_adetli, boya_kg, boyali_hali, m2_agirlik, 
+	            paletteki_panel_sayisi, palet_bos_agirlik, paletsiz_toplam_agirlik, 
+	            palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
+	            paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
+	    
+	    // Get the highest existing manual_order
+	    const panelListRes = await axios.get(API_URLS.panelList).catch(error => {
+	      console.error("Panel listesi getirme hatası:", error);
+	      return { data: [] };
+	    });
+	    
+	    // Find highest manual_order starting with 4 (for 400+)
+	    const highestManualOrder = panelListRes.data
+	      .filter(p => p.manual_order && p.manual_order.toString().startsWith('4'))
+	      .reduce((max, p) => {
+	        const order = parseInt(p.manual_order);
+	        return order > max ? order : max;
+	      }, 400);
+	    
+	    // Set the new manual_order
+	    const newManualOrder = (highestManualOrder + 1).toString();
+	    
+	    // API için hazırlanmış veriyi oluştur
+	    const dataToSave = {
+	      ...panelData,
+	      manual_order: newManualOrder,
+	      kayit_tarihi: new Date().toISOString()
+	    };
+	    
+	    // Veritabanına kaydet
+	    const response = await axios.post(API_URLS.panelList, dataToSave);
+	    
+	    if (response.status === 200 || response.status === 201) {
+	      alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
+	      
+	      // Mevcut panel listesini güncelle
+	      fetchSectionData('panelList');
+	      
+	      // Don't remove from özel panel list
+	      // Just show a success message
+	    } else {
+	      alert('Kayıt işlemi başarısız oldu.');
+	    }
+	  } catch (error) {
+	    console.error('Panel kaydetme hatası:', error);
+	    alert(`Panel kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+	  }
+	};
 
-  // Tüm özel panelleri veritabanına kaydet - IMPROVED with better error handling
-  const saveAllOzelPanelsToDatabase = async () => {
-    if (ozelPanelList.length === 0) {
-      alert('Kaydedilecek özel panel bulunamadı.');
-      return;
-    }
+// Tüm özel panelleri veritabanına kaydet - IMPROVED with automatic manual_order assignment
+const saveAllOzelPanelsToDatabase = async () => {
+  if (ozelPanelList.length === 0) {
+    alert('Kaydedilecek özel panel bulunamadı.');
+    return;
+  }
+  
+  const confirmSave = window.confirm(`${ozelPanelList.length} adet özel paneli veritabanına kaydetmek istiyor musunuz?`);
+  if (!confirmSave) return;
+  
+  try {
+    // Mevcut panelleri getir ve en yüksek manual_order değerini bul (400+ ile başlayanlar için)
+    const panelListRes = await axios.get(API_URLS.panelList).catch(error => {
+      console.error("Panel listesi getirme hatası:", error);
+      return { data: [] };
+    });
     
-    const confirmSave = window.confirm(`${ozelPanelList.length} adet özel paneli veritabanına kaydetmek istiyor musunuz?`);
-    if (!confirmSave) return;
+    // 400 ile başlayan manual_order değerlerini filtrele ve en yükseğini bul
+    const highestManualOrder = panelListRes.data
+      .filter(p => p.manual_order && p.manual_order.toString().startsWith('4'))
+      .reduce((max, p) => {
+        const order = parseInt(p.manual_order);
+        return order > max ? order : max;
+      }, 400 - 1); // 399 ile başla ki ilk eklenen 400 olsun (eğer hiç 400+ panel yoksa)
     
     let savedCount = 0;
     let errorCount = 0;
     let errorMessages = [];
+    let nextManualOrder = highestManualOrder + 1;
     
     // Her bir paneli tek tek kaydet
     for (const panel of ozelPanelList) {
@@ -1668,9 +1704,14 @@ const updateProfilDegiskenler = async () => {
                 palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi, 
                 paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
         
+        // Her panel için yeni bir manual_order değeri ata
+        const manualOrderToUse = nextManualOrder.toString();
+        nextManualOrder++; // Sonraki panel için arttır
+        
         // Veritabanına kaydet
         const response = await axios.post(API_URLS.panelList, {
           ...panelData,
+          manual_order: manualOrderToUse, // Yeni manual_order değerini kullan
           kayit_tarihi: new Date().toISOString()
         });
         
@@ -1691,8 +1732,11 @@ const updateProfilDegiskenler = async () => {
       // Mevcut panel listesini güncelle
       fetchSectionData('panelList');
       
-      // Özel panel listesini temizle
-      setOzelPanelList([]);
+      // Özel panel listesini temizlemeyi kullanıcıya sor
+      const shouldClearList = window.confirm('Özel panel listesini temizlemek ister misiniz?');
+      if (shouldClearList) {
+        setOzelPanelList([]);
+      }
     } else {
       const errorDetails = errorMessages.length > 3 
         ? errorMessages.slice(0, 3).join('\n') + `\n...ve ${errorMessages.length - 3} hata daha.` 
@@ -1703,12 +1747,22 @@ const updateProfilDegiskenler = async () => {
       // Mevcut panel listesini güncelle
       fetchSectionData('panelList');
       
-      // Başarıyla kaydedilen panelleri listeden kaldır (id'leri karşılaştıramadığımız için panel_kodu kullanıyoruz)
-      // Bu yaklaşım bazı durumlarda hatalı olabilir ama en iyi durum yaklaşımıdır
-      const successfulPanels = ozelPanelList.filter(panel => !errorMessages.some(err => err.startsWith(panel.panel_kodu)));
-      setOzelPanelList(prev => prev.filter(panel => !successfulPanels.includes(panel)));
+      // Başarıyla kaydedilen panelleri listeden kaldırmayı kullanıcıya sor
+      const shouldRemoveSaved = window.confirm('Başarıyla kaydedilen panelleri listeden kaldırmak ister misiniz?');
+      if (shouldRemoveSaved) {
+        // Hata almayan panelleri bul ve listeden kaldır
+        const successfulPanelIds = ozelPanelList
+          .filter(panel => !errorMessages.some(err => err.startsWith(panel.panel_kodu)))
+          .map(panel => panel.id);
+        
+        setOzelPanelList(prev => prev.filter(panel => !successfulPanelIds.includes(panel.id)));
+      }
     }
-  };
+  } catch (error) {
+    console.error('Toplu panel kaydetme hatası:', error);
+    alert(`Toplu panel kaydı sırasında beklenmeyen bir hata oluştu: ${error.message}`);
+  }
+};
 
   // Ana panel listesinden özel paneller oluştur
   const createOzelPanelsFromFiltered = () => {
@@ -3149,6 +3203,9 @@ const updateProfilDegiskenler = async () => {
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Büküm Sayısı
               </th>
+		<th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+		  Bükümdeki Çubuk Sayısı
+		</th>
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Dikey Çubuk Adedi
               </th>
@@ -3285,6 +3342,14 @@ const updateProfilDegiskenler = async () => {
                     className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
+		<td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+		  <input
+		    type="text"
+		    value={panel.bukumdeki_cubuk_sayisi || ''}
+		    onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
+		    className="w-16 border rounded p-1 text-sm bg-white"
+		  />
+		</td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
@@ -4163,7 +4228,6 @@ const updateProfilDegiskenler = async () => {
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
                 <option value="TRY">TRY</option>
-                <option value="all">Tümü</option>
               </select>
             </div>
             
@@ -4174,7 +4238,6 @@ const updateProfilDegiskenler = async () => {
                 onChange={(e) => handleSalesFilterChange('unit', e.target.value)}
                 className="border rounded p-1 text-sm"
               >
-                <option value="all">Tümü</option>
                 <option value="adet">Adet</option>
                 <option value="m2">m²</option>
                 <option value="kg">kg</option>
