@@ -196,7 +196,7 @@ const PanelCitHesaplama = () => {
   const [resultFilter, setResultFilter] = useState({
     currency: 'all',
     unit: 'all',
-    type: 'adet'
+    type: 'all'
   });
   const [salesFilter, setSalesFilter] = useState({
     currency: 'USD',
@@ -3258,14 +3258,14 @@ const saveAllOzelPanelsToDatabase = async () => {
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Yatay Göz Aralığı
               </th>
-              
-              {/* Hesaplanan alanlar - normal başlıklar */}
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
                 Büküm Sayısı
               </th>
-		<th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+		<th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">
 		  Bükümdeki Çubuk Sayısı
 		</th>
+
+ 		{/* Hesaplanan alanlar - normal başlıklar */}
               <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Dikey Çubuk Adedi
               </th>
@@ -3384,24 +3384,24 @@ const saveAllOzelPanelsToDatabase = async () => {
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
+                <td className="px-3 py-2 whitespace-nowrap bg-orange-50">
+		  <input
+		    type="text"
+		    value={formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || ''}
+		    onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
+		    className="w-16 border rounded p-1 text-sm bg-white"
+		  />
+		</td>
                 
                 {/* Hesaplanan alanlar - düzenlenebilir */}
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.bukum_sayisi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
-                    className="w-16 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
+                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+		  <input
+		    type="text"
+		    value={panel.bukum_sayisi || ''}
+		    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
+		    className="w-16 border rounded p-1 text-sm bg-white"
+		  />
+		</td>
 		<td className="px-3 py-2 whitespace-nowrap bg-blue-50">
 		  <input
 		    type="text"
