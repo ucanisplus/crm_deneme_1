@@ -219,170 +219,179 @@ const PanelCitHesaplama = () => {
     fetchInitialData();
   }, []);
 
-  // İlk verileri çekme fonksiyonu - IMPROVED error handling
-  const fetchInitialData = async () => {
-    setLoading(true);
-    try {
-	// Inside fetchInitialData:
-	console.log("Raw genel data:", genelRes.data);
-	console.log("Raw panel cit data:", panelCitRes.data);
-	console.log("Latest genel record:", latestGenelDegisken);
-	console.log("Latest panel cit record:", latestPanelCitDegisken);
-      // Verileri paralel olarak çek
-      const [
-        genelRes, 
-        panelCitRes, 
-        profilRes, 
-        panelListRes
-      ] = await Promise.all([
-        axios.get(API_URLS.genelDegiskenler).catch(err => {
-          console.error("Genel değişkenler getirme hatası:", err);
-          return { data: [] };
-        }),
-        axios.get(API_URLS.panelCitDegiskenler).catch(err => {
-          console.error("Panel çit değişkenleri getirme hatası:", err);
-          return { data: [] };
-        }),
-        axios.get(API_URLS.profilDegiskenler).catch(err => {
-          console.error("Profil değişkenleri getirme hatası:", err);
-          return { data: [] };
-        }),
-        axios.get(API_URLS.panelList).catch(err => {
-          console.error("Panel listesi getirme hatası:", err);
-          return { data: [] };
-        }),
-      ]);
-  
-      // En son değişkenleri al - ID'ye göre azalan sıralama yaparak en son kaydı al
-      const latestGenelDegisken = genelRes.data.sort((a, b) => b.id - a.id)[0] || {};
-      // Panel Çit için unique_key kullanıyoruz
-      const latestPanelCitDegisken = panelCitRes.data.sort((a, b) => {
+// İlk verileri çekme fonksiyonu - FIXED with proper variable scoping
+const fetchInitialData = async () => {
+  setLoading(true);
+  try {
+    // Verileri sırayla çek - Promise.all yerine
+    const genelRes = await axios.get(API_URLS.genelDegiskenler).catch(error => {
+      console.error("Genel değişkenler getirme hatası:", error);
+      return { data: [] };
+    });
+    
+    const panelCitRes = await axios.get(API_URLS.panelCitDegiskenler).catch(error => {
+      console.error("Panel çit değişkenleri getirme hatası:", error);
+      return { data: [] };
+    });
+    
+    const profilRes = await axios.get(API_URLS.profilDegiskenler).catch(error => {
+      console.error("Profil değişkenleri getirme hatası:", error);
+      return { data: [] };
+    });
+    
+    const panelListRes = await axios.get(API_URLS.panelList).catch(error => {
+      console.error("Panel listesi getirme hatası:", error);
+      return { data: [] };
+    });
+
+    console.log("Genel değişkenler veri:", genelRes.data);
+    console.log("Panel çit değişkenler veri:", panelCitRes.data);
+
+    // En son değişkenleri al
+    const latestGenelDegisken = genelRes.data.length > 0 ? 
+      genelRes.data.sort((a, b) => b.id - a.id)[0] : {};
+      
+    // Panel Çit için unique_key kullanıyoruz
+    const latestPanelCitDegisken = panelCitRes.data.length > 0 ? 
+      panelCitRes.data.sort((a, b) => {
+        if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
+        return b.id - a.id;
+      })[0] : {};
+      
+    const latestProfilDegisken = profilRes.data.length > 0 ? 
+      profilRes.data.sort((a, b) => b.id - a.id)[0] : {};
+
+    // Ondalık noktası formatlaması
+    const formattedGenelDegiskenler = {};
+    Object.entries(latestGenelDegisken).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        formattedGenelDegiskenler[key] = formatDisplayValue(value);
+      } else {
+        formattedGenelDegiskenler[key] = value;
+      }
+    });
+
+    const formattedPanelCitDegiskenler = {};
+    Object.entries(latestPanelCitDegisken).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        formattedPanelCitDegiskenler[key] = formatDisplayValue(value);
+      } else {
+        formattedPanelCitDegiskenler[key] = value;
+      }
+    });
+
+    const formattedProfilDegiskenler = {};
+    Object.entries(latestProfilDegisken).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        formattedProfilDegiskenler[key] = formatDisplayValue(value);
+      } else {
+        formattedProfilDegiskenler[key] = value;
+      }
+    });
+
+    // Formatlanmış verileri state'e kaydet
+    setGenelDegiskenler(formattedGenelDegiskenler);
+    setPanelCitDegiskenler(formattedPanelCitDegiskenler);
+    setProfilDegiskenler(formattedProfilDegiskenler);
+    setPanelList(panelListRes.data);
+    setFilteredPanelList(panelListRes.data);
+    
+    // Döviz kurlarını çek
+    fetchCurrencyRates();
+  } catch (error) {
+    console.error('Veri çekme hatası:', error);
+    alert('Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Sadece belirli bir bölümü yenileme fonksiyonu - FIXED with proper error handling
+const fetchSectionData = async (section) => {
+  try {
+    setSectionLoading(prev => ({ ...prev, [section]: true }));
+    
+    let endpoint = '';
+    let setter = null;
+    
+    switch(section) {
+      case 'genel':
+        endpoint = API_URLS.genelDegiskenler;
+        setter = setGenelDegiskenler;
+        break;
+      case 'panelCit':
+        endpoint = API_URLS.panelCitDegiskenler;
+        setter = setPanelCitDegiskenler;
+        break;
+      case 'profil':
+        endpoint = API_URLS.profilDegiskenler;
+        setter = setProfilDegiskenler;
+        break;
+      case 'panelList':
+        endpoint = API_URLS.panelList;
+        const response = await axios.get(endpoint);
+        console.log(`${section} veri:`, response.data);
+        setPanelList(response.data);
+        setFilteredPanelList(response.data);
+        setSectionLoading(prev => ({ ...prev, [section]: false }));
+        return;
+      default:
+        console.error('Geçersiz bölüm:', section);
+        setSectionLoading(prev => ({ ...prev, [section]: false }));
+        return;
+    }
+    
+    const response = await axios.get(endpoint);
+    console.log(`${section} veri:`, response.data);
+    
+    // Check if data exists
+    if (!response.data || response.data.length === 0) {
+      console.warn(`${section} için veri bulunamadı`);
+      setSectionLoading(prev => ({ ...prev, [section]: false }));
+      return;
+    }
+    
+    // En son kaydı al (en yüksek ID'li kayıt)
+    let latestRecord;
+    if (section === 'panelCit') {
+      latestRecord = response.data.sort((a, b) => {
         if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
         return b.id - a.id;
       })[0] || {};
-      const latestProfilDegisken = profilRes.data.sort((a, b) => b.id - a.id)[0] || {};
-
-      // Ondalık noktası formatlaması iyileştirildi - değerleri doğru şekilde formatlayacak
-      const formattedGenelDegiskenler = {};
-      Object.entries(latestGenelDegisken).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          formattedGenelDegiskenler[key] = formatDisplayValue(value);
-        } else {
-          formattedGenelDegiskenler[key] = value;
-        }
-      });
-
-      const formattedPanelCitDegiskenler = {};
-      Object.entries(latestPanelCitDegisken).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          formattedPanelCitDegiskenler[key] = formatDisplayValue(value);
-        } else {
-          formattedPanelCitDegiskenler[key] = value;
-        }
-      });
-
-      const formattedProfilDegiskenler = {};
-      Object.entries(latestProfilDegisken).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          formattedProfilDegiskenler[key] = formatDisplayValue(value);
-        } else {
-          formattedProfilDegiskenler[key] = value;
-        }
-      });
-
-      // Formatlanmış verileri state'e kaydet
-      setGenelDegiskenler(formattedGenelDegiskenler);
-      setPanelCitDegiskenler(formattedPanelCitDegiskenler);
-      setProfilDegiskenler(formattedProfilDegiskenler);
-      setPanelList(panelListRes.data);
-      setFilteredPanelList(panelListRes.data);
-      
-      // Nelerin alındığını log'a yaz (hata ayıklama için)
-      console.log('En son genel değişkenler:', latestGenelDegisken);
-      console.log('En son panel çit değişkenler:', latestPanelCitDegisken);
-      console.log('En son profil değişkenler:', latestProfilDegisken);
-      
-      // Döviz kurlarını çek
-      fetchCurrencyRates();
-    } catch (error) {
-      console.error('Veri çekme hatası:', error);
-      alert('Veriler yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin ve tekrar deneyin.');
-    } finally {
-      setLoading(false);
+    } else {
+      latestRecord = response.data.sort((a, b) => b.id - a.id)[0] || {};
     }
-  };
+    
+    console.log(`En son ${section} kaydı:`, latestRecord);
 
-  // Sadece belirli bir bölümü yenileme fonksiyonu - IMPROVED error handling
-  const fetchSectionData = async (section) => {
-    try {
-	console.log(`Raw ${section} data:`, response.data);
-	console.log(`Latest ${section} record:`, latestRecord);
-      setSectionLoading(prev => ({ ...prev, [section]: true }));
-      
-      let endpoint = '';
-      let setter = null;
-      
-      switch(section) {
-        case 'genel':
-          endpoint = API_URLS.genelDegiskenler;
-          setter = setGenelDegiskenler;
-          break;
-        case 'panelCit':
-          endpoint = API_URLS.panelCitDegiskenler;
-          setter = setPanelCitDegiskenler;
-          break;
-        case 'profil':
-          endpoint = API_URLS.profilDegiskenler;
-          setter = setProfilDegiskenler;
-          break;
-        case 'panelList':
-          endpoint = API_URLS.panelList;
-          const response = await axios.get(endpoint);
-          setPanelList(response.data);
-          setFilteredPanelList(response.data);
-          setSectionLoading(prev => ({ ...prev, [section]: false }));
-          return;
-        default:
-          console.error('Geçersiz bölüm:', section);
-          setSectionLoading(prev => ({ ...prev, [section]: false }));
-          return;
-      }
-      
-      const response = await axios.get(endpoint);
-      
-      // En son kaydı al (en yüksek ID'li kayıt)
-      let latestRecord;
-      if (section === 'panelCit') {
-        latestRecord = response.data.sort((a, b) => {
-          if (a.unique_key && b.unique_key) return b.unique_key - a.unique_key;
-          return b.id - a.id;
-        })[0] || {};
+    // Formatlamadan önce değerleri işle
+    const formattedRecord = {};
+    Object.entries(latestRecord).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        formattedRecord[key] = formatDisplayValue(value);
       } else {
-        latestRecord = response.data.sort((a, b) => b.id - a.id)[0] || {};
+        formattedRecord[key] = value;
       }
-
-      // Formatlamadan önce değerleri işle
-      const formattedRecord = {};
-      Object.entries(latestRecord).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          formattedRecord[key] = formatDisplayValue(value);
-        } else {
-          formattedRecord[key] = value;
-        }
-      });
-
-      setter(formattedRecord);
-      
-      if (section === 'genel') {
-        fetchCurrencyRates();
-      }
-    } catch (error) {
-      console.error(`${section} verileri çekme hatası:`, error);
-      alert(`${section} verileri çekilirken hata oluştu. Lütfen daha sonra tekrar deneyin.`);
-    } finally {
-      setSectionLoading(prev => ({ ...prev, [section]: false }));
+    });
+    
+    // Add missing fields for genel section if needed
+    if (section === 'genel') {
+      if (!formattedRecord.usd_tl) formattedRecord.usd_tl = '';
+      if (!formattedRecord.eur_usd) formattedRecord.eur_usd = '';
     }
-  };
+
+    setter(formattedRecord);
+    
+    if (section === 'genel') {
+      fetchCurrencyRates();
+    }
+  } catch (error) {
+    console.error(`${section} verileri çekme hatası:`, error);
+    alert(`${section} verileri çekilirken hata oluştu. Lütfen daha sonra tekrar deneyin.`);
+  } finally {
+    setSectionLoading(prev => ({ ...prev, [section]: false }));
+  }
+};
   
   // Döviz kurlarını çekme fonksiyonu
   const fetchCurrencyRates = async () => {
