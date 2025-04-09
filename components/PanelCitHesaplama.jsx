@@ -4014,17 +4014,12 @@ const saveAllOzelPanelsToDatabase = async () => {
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                   {formatTableValue(maliyet.yatay_tel_capi, 'tel_capi')}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-		  {(() => {
-		    console.log('Raw value:', maliyet.dikey_goz_araligi);
-		    const formatted = formatTableValue(maliyet.dikey_goz_araligi, 'goz_araligi');
-		    console.log('Formatted value:', formatted);
-		    return formatted;
-		  })()}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {formatTableValue(maliyet.yatay_goz_araligi, 'goz_araligi')}
-                </td>
+               <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {maliyet.dikey_goz_araligi}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {maliyet.yatay_goz_araligi}
+		</td>
                 
                 {/* Çıplak Adet */}
                 {(resultFilter.unit === 'all' || resultFilter.unit === 'adet') && (resultFilter.type === 'all' || resultFilter.type === 'ciplak') && (
