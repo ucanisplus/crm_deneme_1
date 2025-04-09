@@ -3996,12 +3996,12 @@ const saveAllOzelPanelsToDatabase = async () => {
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-0 bg-white">
                   {maliyet.manual_order}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 sticky left-10 bg-white">
-                  {maliyet.panel_kodu}
-                </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {maliyet.panel_tipi}
-                </td>
+		  {formatTableValue(maliyet.panel_yuksekligi, 'decimal')}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {formatTableValue(maliyet.panel_genisligi, 'decimal')}
+		</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                   {maliyet.panel_yuksekligi}
                 </td>
