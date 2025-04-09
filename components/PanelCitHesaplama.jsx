@@ -127,9 +127,14 @@ const safeParseFloat = (value, defaultValue = 0) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-// For display in input fields - removes all trailing zeros
-// For display in input fields - removes all trailing zeros
+// For display in input fields - allows both comma and period input
 const formatDisplayValue = (value) => {
+  // If it's a string with comma or period during user input, return as is
+  if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
+    return value;
+  }
+  
+  // Handle null/undefined/NaN cases
   if (value === null || value === undefined || isNaN(value)) return '';
   
   const num = parseFloat(value);
@@ -141,6 +146,10 @@ const formatDisplayValue = (value) => {
   if (Number.isInteger(num)) {
     return num.toString();
   }
+  
+  // For all decimal values, remove trailing zeros
+  return num.toString().replace(/\.?0+$/, '');
+};
   
   // For all decimal values, remove trailing zeros
   return num.toString().replace(/\.?0+$/, '');
@@ -2316,34 +2325,28 @@ const saveAllOzelPanelsToDatabase = async () => {
   };
 
   // Genel değişkenleri güncelleme
-  const handleGenelDegiskenlerChange = (field, value) => {
-    // Virgülleri noktalara dönüştür
-    const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
-    setGenelDegiskenler({
-      ...genelDegiskenler,
-      [field]: formattedValue
-    });
-  };
+const handleGenelDegiskenlerChange = (field, value) => {
+  setGenelDegiskenler({
+    ...genelDegiskenler,
+    [field]: value
+  });
+};
 
-  // Panel çit değişkenlerini güncelleme
-  const handlePanelCitDegiskenlerChange = (field, value) => {
-    // Virgülleri noktalara dönüştür
-    const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
-    setPanelCitDegiskenler({
-      ...panelCitDegiskenler,
-      [field]: formattedValue
-    });
-  };
+// Panel çit değişkenlerini güncelleme
+const handlePanelCitDegiskenlerChange = (field, value) => {
+  setPanelCitDegiskenler({
+    ...panelCitDegiskenler,
+    [field]: value
+  });
+};
 
-  // Profil değişkenlerini güncelleme
-  const handleProfilDegiskenlerChange = (field, value) => {
-    // Virgülleri noktalara dönüştür
-    const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
-    setProfilDegiskenler({
-      ...profilDegiskenler,
-      [field]: formattedValue
-    });
-  };
+// Profil değişkenlerini güncelleme
+const handleProfilDegiskenlerChange = (field, value) => {
+  setProfilDegiskenler({
+    ...profilDegiskenler,
+    [field]: value
+  });
+};
   
   // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
   const renderPanelList = () => (
