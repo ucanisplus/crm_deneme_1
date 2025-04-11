@@ -148,26 +148,50 @@ const formatDisplayValue = (value) => {
 
 };
 
-// For table cell formatting - uses fixed decimal places
+
+// Tablo hücreleri için biçimlendirme - sabit ondalık basamak sayısı kullanır
 const formatTableValue = (value, columnType) => {
+  // Null, undefined veya boş değerler için boş string döndür
   if (value === null || value === undefined || value === '') return '';
   
+  // Değeri sayıya çevir
   const num = parseFloat(value);
-  if (isNaN(num)) return value; // Return original value if not a number
+  
+  // Eğer sayı değilse, orijinal değeri döndür
+  if (isNaN(num)) return value;
 
+  // Özel durum: Sıfır için
+  if (num === 0) return '0';
+
+  // Sütun tipine göre biçimlendirme yap
   switch (columnType) {
     case 'tel_capi':
+      // Tel çapı değerleri (Dikey Tel Çapı, Yatay Tel Çapı) - 2 ondalık basamak
+      return num.toFixed(2);
+    
     case 'goz_araligi':
-      // Display with 2 decimal places
-      return num.toFixed(2);
+      // Göz aralığı değerleri (Dikey Göz Aralığı, Yatay Göz Aralığı) - 1 ondalık basamak
+      return num.toFixed(1);
+    
+    case 'yukseklik_genislik':
+      // Yükseklik ve Genişlik değerleri - 1 ondalık basamak
+      return num.toFixed(1);
+    
+    case 'tam_sayi':
+      // Büküm Sayısı, Bükümdeki Çubuk Sayısı, Dikey Çubuk Adedi, Yatay Çubuk Adedi, Paletteki Panel Sayısı
+      // gibi tam sayı değerleri - 0 ondalık basamak (tam sayı)
+      return Math.round(num).toString();
+    
     case 'price':
-      // Format for prices - always show 5 decimal places for tables
+      // Fiyat değerleri - her zaman 5 ondalık basamak göster
       return num.toFixed(5);
+    
     case 'decimal':
-      // For other decimal values, show 2 decimal places
-      return num.toFixed(2);
+      // Diğer ondalık değerler - 5 ondalık basamak
+      return num.toFixed(5);
+    
     default:
-      // For integer values, don't show decimal point
+      // Varsayılan davranış - tam sayılar için ondalık kısmı gösterme, diğerleri için 2 ondalık
       return Number.isInteger(num) ? num.toString() : num.toFixed(2);
   }
 };
@@ -1934,12 +1958,12 @@ const saveAllOzelPanelsToDatabase = async () => {
           const exportData = {
             "Panel Kodu": item.panel_kodu || '',
             "Panel Tipi": item.panel_tipi || '',
-            "Yükseklik": item.panel_yuksekligi || '',
-            "Genişlik": item.panel_genisligi || '',
-            "Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
-            "Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
-            "Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
-            "Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi')
+		"Yükseklik": formatTableValue(item.panel_yuksekligi, 'yukseklik_genislik'),
+		"Genişlik": formatTableValue(item.panel_genisligi, 'yukseklik_genislik'),
+		"Dikey Tel Çapı": formatTableValue(item.dikey_tel_capi, 'tel_capi'),
+		"Yatay Tel Çapı": formatTableValue(item.yatay_tel_capi, 'tel_capi'),
+		"Dikey Göz Aralığı": formatTableValue(item.dikey_goz_araligi, 'goz_araligi'),
+		"Yatay Göz Aralığı": formatTableValue(item.yatay_goz_araligi, 'goz_araligi')
           };
           
           // Filtreye göre görünen sütunları ekle
@@ -2320,6 +2344,7 @@ const saveAllOzelPanelsToDatabase = async () => {
 
   // Genel değişkenleri güncelleme
 const handleGenelDegiskenlerChange = (field, value) => {
+	const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
   setGenelDegiskenler({
     ...genelDegiskenler,
     [field]: value
@@ -2328,6 +2353,7 @@ const handleGenelDegiskenlerChange = (field, value) => {
 
 // Panel çit değişkenlerini güncelleme
 const handlePanelCitDegiskenlerChange = (field, value) => {
+	const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
   setPanelCitDegiskenler({
     ...panelCitDegiskenler,
     [field]: value
@@ -2336,6 +2362,7 @@ const handlePanelCitDegiskenlerChange = (field, value) => {
 
 // Profil değişkenlerini güncelleme
 const handleProfilDegiskenlerChange = (field, value) => {
+	const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
   setProfilDegiskenler({
     ...profilDegiskenler,
     [field]: value
@@ -2478,16 +2505,18 @@ const handleProfilDegiskenlerChange = (field, value) => {
               <tr key={panel.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{panel.panel_kodu}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_tipi}</td>
-		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDisplayValue(panel.panel_yuksekligi)}</td>
-		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDisplayValue(panel.panel_genisligi)}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_tel_capi, 'tel_capi')}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_tel_capi, 'tel_capi')}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_goz_araligi, 'goz_araligi')}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_goz_araligi, 'goz_araligi')}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukum_sayisi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukumdeki_cubuk_sayisi}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.adet_m2, 'decimal')}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.agirlik, 'decimal')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.panel_yuksekligi, 'yukseklik_genislik')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.panel_genisligi, 'yukseklik_genislik')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_tel_capi, 'tel_capi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_tel_capi, 'tel_capi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_goz_araligi, 'goz_araligi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_goz_araligi, 'goz_araligi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.bukum_sayisi, 'tam_sayi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.bukumdeki_cubuk_sayisi, 'tam_sayi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_cubuk_adet, 'tam_sayi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_cubuk_adet, 'tam_sayi')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.adet_m2, 'decimal')}</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.agirlik, 'decimal')}</td>
               </tr>
             ))}
             {filteredPanelList.length === 0 && (
@@ -3989,22 +4018,22 @@ const handleProfilDegiskenlerChange = (field, value) => {
 		  {maliyet.panel_tipi}
 		 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-		  {formatTableValue(maliyet.panel_yuksekligi, 'decimal')}
+		  {formatTableValue(maliyet.panel_yuksekligi, 'yukseklik_genislik')}
 		</td>
 		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-		  {formatTableValue(maliyet.panel_genisligi, 'decimal')}
-		</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {formatTableValue(maliyet.dikey_tel_capi, 'tel_capi')}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                  {formatTableValue(maliyet.yatay_tel_capi, 'tel_capi')}
-                </td>
-               <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-		  {maliyet.dikey_goz_araligi}
+		  {formatTableValue(maliyet.panel_genisligi, 'yukseklik_genislik')}
 		</td>
 		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-		  {maliyet.yatay_goz_araligi}
+		  {formatTableValue(maliyet.dikey_tel_capi, 'tel_capi')}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {formatTableValue(maliyet.yatay_tel_capi, 'tel_capi')}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {formatTableValue(maliyet.dikey_goz_araligi, 'goz_araligi')}
+		</td>
+		<td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+		  {formatTableValue(maliyet.yatay_goz_araligi, 'goz_araligi')}
 		</td>
                 
                 {/* Çıplak Adet */}
