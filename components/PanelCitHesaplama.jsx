@@ -129,7 +129,6 @@ const safeParseFloat = (value, defaultValue = 0) => {
 
 // For display in input fields - allows both comma and period input
 const formatDisplayValue = (value) => {
-  // If it's a string with comma or period during user input, return as is
   if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
     return value;
   }
@@ -146,36 +145,30 @@ const formatDisplayValue = (value) => {
   if (Number.isInteger(num)) {
     return num.toString();
   }
-  
-  // For all decimal values, remove trailing zeros
-  return num.toString().replace(/\.?0+$/, '');
+
 };
 
-// For table cell formatting - handles different column types
+// For table cell formatting - uses fixed decimal places
 const formatTableValue = (value, columnType) => {
   if (value === null || value === undefined || value === '') return '';
   
   const num = parseFloat(value);
   if (isNaN(num)) return value; // Return original value if not a number
 
-   // Special case for zero
-  if (num === 0) return '0';
-
   switch (columnType) {
     case 'tel_capi':
     case 'goz_araligi':
-      // Format for wire diameter or mesh spacing - show decimals without trailing zeros
-      // Only remove trailing zeros after a decimal point
-      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+      // Display with 2 decimal places
+      return num.toFixed(2);
     case 'price':
       // Format for prices - always show 5 decimal places for tables
       return num.toFixed(5);
     case 'decimal':
-      // For other decimal values, show without trailing zeros
-      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+      // For other decimal values, show 2 decimal places
+      return num.toFixed(2);
     default:
       // For integer values, don't show decimal point
-      return Number.isInteger(num) ? num.toString() : num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+      return Number.isInteger(num) ? num.toString() : num.toFixed(2);
   }
 };
 
@@ -1666,26 +1659,31 @@ const calculatePanelValues = (panel) => {
   };
 
   // Özel panel güncelleme - IMPROVED to correctly update all dependent fields
-  const updateOzelPanel = (id, field, value) => {
-    setOzelPanelList(prev => prev.map(panel => {
-      if (panel.id === id) {
-        // Virgülleri noktalara dönüştür
-        const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
-        
-        // Değeri güncelle
-        const updatedPanel = { ...panel, [field]: formattedValue };
-        
-        // Bağımlı alanlardan herhangi biri değiştiyse, panel değerlerini yeniden hesapla
-        if (['panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi', 
-             'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi'].includes(field)) {
-          return calculatePanelValues(updatedPanel);
-        }
-        
-        return updatedPanel;
+const updateOzelPanel = (id, field, value) => {
+  setOzelPanelList(prev => prev.map(panel => {
+    if (panel.id === id) {
+      // virgulden noktaya donustur
+      const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
+      
+      // paneli yeni degerlerle guncelle
+      const updatedPanel = { ...panel, [field]: formattedValue };
+      
+
+      const recalculationFields = [
+        'panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi', 
+        'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi', 'bukumdeki_cubuk_sayisi',
+        'dikey_cubuk_adet', 'yatay_cubuk_adet', 'adet_m2', 'agirlik', 'boya_kg'
+      ];
+      
+      if (recalculationFields.includes(field)) {
+        return calculatePanelValues(updatedPanel);
       }
-      return panel;
-    }));
-  };
+      
+      return updatedPanel;
+    }
+    return panel;
+  }));
+};
 
   // Özel paneli veritabanına kaydetme - FIXED to handle errors better
 	const saveOzelPanelToDatabase = async (panel) => {
