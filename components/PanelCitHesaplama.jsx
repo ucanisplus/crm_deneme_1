@@ -3372,7 +3372,7 @@ const handleProfilDegiskenlerChange = (field, value) => {
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
                   <input
                     type="text"
-                    value={formatTableValue(panel.dikey_tel_capi, 'tel_capi') || ''}
+                    value={panel.dikey_tel_capi || ''}
                     onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
