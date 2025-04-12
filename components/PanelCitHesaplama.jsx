@@ -3535,54 +3535,60 @@ const renderSpecialPanelEntry = () => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Özel Panel & Palet Bilgileri Hesaplama</h3>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={addOzelPanel}
-              className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Yeni Panel Ekle
-            </button>
-            <button 
-              onClick={resetOzelPanelList}
-              disabled={ozelPanelList.length === 0}
-              className="flex items-center px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 text-sm"
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Sıfırla
-            </button>
-            <button
-              onClick={() => calculateCosts(false)}
-              disabled={calculating || ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 text-sm"
-            >
-              {calculating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-                  Hesaplanıyor...
-                </>
-              ) : (
-                <>
-                  <Calculator className="w-4 h-4 mr-1.5" />
-                  Hesapla
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => saveAllOzelPanelsToDatabase()}
-              disabled={ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-300 text-sm"
-            >
-              <Save className="w-4 h-4 mr-1.5" />
-              Veritabanına Kaydet
-            </button>
-            <button
-              onClick={() => exportToExcel('ozel')}
-              disabled={ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300 text-sm"
-            >
-              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-              Excel'e Aktar
-            </button>
+		<button 
+		  onClick={addOzelPanel}
+		  className="flex items-center px-4 py-2 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
+		>
+		  <Plus className="w-4 h-4 mr-1" />
+		  Yeni Panel Ekle
+		</button>
+		
+		<button 
+		  onClick={resetOzelPanelList}
+		  disabled={ozelPanelList.length === 0}
+		  className="flex items-center px-4 py-2 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
+		>
+		  <Trash2 className="w-4 h-4 mr-1" />
+		  Sıfırla
+		</button>
+		
+		<button
+		  onClick={() => calculateCosts(false)}
+		  disabled={calculating || ozelPanelList.length === 0}
+		  className="flex items-center px-4 py-2 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
+		>
+		  {calculating ? (
+		    <>
+		      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+		      Hesaplanıyor...
+		    </>
+		  ) : (
+		    <>
+		      <Calculator className="w-4 h-4 mr-1.5" />
+		      Hesapla
+		    </>
+		  )}
+		</button>
+		
+		<button
+		  onClick={() => saveAllOzelPanelsToDatabase()}
+		  disabled={ozelPanelList.length === 0}
+		  className="flex items-center px-4 py-2 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
+		>
+		  <Save className="w-4 h-4 mr-1.5" />
+		  Veritabanına Kaydet
+		</button>
+		
+		<button
+		  onClick={() => exportToExcel('ozel')}
+		  disabled={ozelPanelList.length === 0}
+		  className="flex items-center px-4 py-2 text-white rounded-md disabled:opacity-50 text-sm"
+		  style={{ backgroundColor: "#217346" }}
+		>
+		  <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+		  Excel'e Aktar
+		</button>
+
           </div>
         </div>
 
@@ -3961,7 +3967,7 @@ className = "flex items-center px-3 py-1 bg-green-600 text-white rounded-md hove
 disabled = { maliyetListesi.length === 0 }
   >
   <FileSpreadsheet className="w-4 h-4 mr-1" />
-    Excel & apos;e Aktar
+    Excel'e Aktar
       </button>
 
       < button
