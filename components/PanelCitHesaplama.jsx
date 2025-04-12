@@ -453,23 +453,16 @@ const PanelCitHesaplama = () => {
     }
 
     // Arama terimi varsa arama filtresini uygula
-    if (panelSearch && panelSearch.trim() !== '') {
-      const searchTerms = panelSearch.toLowerCase().split(' ');
-
-      filtered = filtered.filter(panel => {
-        const panelKodu = (panel.panel_kodu || '').toLowerCase();
-        const manualOrder = (panel.manual_order || '').toLowerCase();
-        const panelYukseklik = String(panel.panel_yuksekligi || '').toLowerCase();
-        const panelGenislik = String(panel.panel_genisligi || '').toLowerCase();
-
-        return searchTerms.every(term =>
-          panelKodu.includes(term) ||
-          manualOrder.includes(term) ||
-          panelYukseklik.includes(term) ||
-          panelGenislik.includes(term)
-        );
-      });
-    }
+	if (panelSearch && panelSearch.trim() !== '') {
+	  const searchTerms = panelSearch.toLowerCase().split(' ');
+	  
+	  filtered = filtered.filter(panel => {
+	    // Sadece Panel Kodu'nu ara, diğer alanları değil
+	    const panelKodu = String(panel.panel_kodu || '').toLowerCase();
+	    
+	    return searchTerms.every(term => panelKodu.includes(term));
+	  });
+	}
 
     // Sütun filtrelerini uygula (Excel benzeri filtreleme)
     Object.entries(columnFilters).forEach(([column, filterValue]) => {
