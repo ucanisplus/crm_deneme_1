@@ -247,6 +247,19 @@ const PanelCitHesaplama = () => {
     fetchInitialData();
   }, []);
 
+	useEffect(() => {
+	  // Sync top scrollbar with main table scroll
+	  const topScrollbar = document.querySelector("#ozelPanelTableContainer").previousSibling;
+	  if (topScrollbar) {
+	    topScrollbar.addEventListener('scroll', (e) => {
+	      const mainTable = document.querySelector("#ozelPanelTableContainer");
+	      if (mainTable) {
+	        mainTable.scrollLeft = e.target.scrollLeft;
+	      }
+	    });
+	  }
+	}, [activeTab]);
+
   // İlk verileri çekme fonksiyonu - FIXED with proper variable scoping
   const fetchInitialData = async () => {
     setLoading(true);
@@ -3675,14 +3688,28 @@ const renderSpecialPanelEntry = () => {
         </p>
       </div>
 
-      <div 
-        className="overflow-x-scroll" 
-        style={{ 
-          minWidth: "100%", 
-          paddingBottom: "8px",  // Kaydırma çubuğu için alan
-          marginBottom: "12px"
-        }}
-      >
+      <div className="flex flex-col">
+	  {/* Top scrollbar */}
+	  <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
+	    <div style={{ width: "3000px", height: "1px" }}></div>
+	  </div>
+	  
+	  {/* Main table with synchronized scrolling */}
+	  <div 
+	    className="overflow-x-scroll" 
+	    id="ozelPanelTableContainer"
+	    style={{ 
+	      minWidth: "100%", 
+	      paddingBottom: "8px",
+	      marginBottom: "12px"
+	    }}
+	    onScroll={(e) => {
+	      const topScrollbar = e.target.previousSibling;
+	      if (topScrollbar) {
+	        topScrollbar.scrollLeft = e.target.scrollLeft;
+	      }
+	    }}
+	  >
         <table className="min-w-max divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
