@@ -1674,18 +1674,18 @@ const PanelCitHesaplama = () => {
   };
 
 // Özel panel güncelleme - düzeltilmiş fonksiyon
-// Özel panel güncelleme - düzeltilmiş fonksiyon
 const updateOzelPanel = (id, field, value) => {
   setOzelPanelList(prev => prev.map(panel => {
     if (panel.id === id) {
       // Virgülleri noktalara dönüştür
       const formattedValue = typeof value === 'string' ? value.replace(',', '.') : value;
       
-      // Önce değeri güncelle
-      const updatedPanel = { ...panel, [field]: formattedValue };
-      
-      // Tüm hesaplamaları yeniden yap - calculatePanelValues fonksiyonu tüm bağımlı alanları hesaplar
-      return calculatePanelValues(updatedPanel);
+      // Sadece değeri güncelle ve diğer hesaplamaları yapma!
+      // Diğer hesaplamalar kullanıcı girişini engelliyor
+      return {
+        ...panel,
+        [field]: formattedValue
+      };
     }
     return panel;
   }));
@@ -3871,24 +3871,37 @@ const renderSpecialPanelEntry = () => {
                     className="w-40 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => saveOzelPanelToDatabase(panel)}
-                      className="text-green-600 hover:text-green-800"
-                      title="Veritabanına Kaydet"
-                    >
-                      <Save size={16} />
-                    </button>
-                    <button
-                      onClick={() => removeOzelPanel(panel.id)}
-                      className="text-red-600 hover:text-red-800"
-                      title="Sil"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
+		<td className="px-3 py-2 whitespace-nowrap">
+		  <div className="flex items-center space-x-2">
+		    <button
+		      onClick={() => {
+		        // Sadece bu satırı hesapla
+		        const recalculated = calculatePanelValues({...panel});
+		        setOzelPanelList(prev => prev.map(p => 
+		          p.id === panel.id ? recalculated : p
+		        ));
+		      }}
+		      className="text-blue-600 hover:text-blue-800"
+		      title="Hesapla"
+		    >
+		      <Calculator size={16} />
+		    </button>
+		    <button
+		      onClick={() => saveOzelPanelToDatabase(panel)}
+		      className="text-green-600 hover:text-green-800"
+		      title="Veritabanına Kaydet"
+		    >
+		      <Save size={16} />
+		    </button>
+		    <button
+		      onClick={() => removeOzelPanel(panel.id)}
+		      className="text-red-600 hover:text-red-800"
+		      title="Sil"
+		    >
+		      <Trash2 size={16} />
+		    </button>
+		  </div>
+		</td>
               </tr>
             ))}
             {ozelPanelList.length === 0 && (
