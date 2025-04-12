@@ -3351,8 +3351,15 @@ const handleProfilDegiskenlerChange = (field, value) => {
         </p>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div 
+	  className="overflow-x-scroll" 
+	  style={{ 
+	    minWidth: "100%", 
+	    paddingBottom: "8px",  // Ensure space for scrollbar
+	    marginBottom: "12px"
+	  }}
+	>
+  	<table className="min-w-max divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               {/* Girdi alanları - mavi tonlu başlıklar */}
