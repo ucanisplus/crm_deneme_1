@@ -116,6 +116,7 @@ const getClosestHeight = (height, panelType, widthStr) => {
 
 // Güvenli float değer dönüştürme yardımcı fonksiyonu - DÜZELTILDI
 // Bu fonksiyon virgül ve nokta kullanımını düzgün şekilde işleyecek
+// Ondalık sayı inputları için güvenli çevirme fonksiyonu
 const safeParseFloat = (value, defaultValue = 0) => {
   if (value === null || value === undefined || value === '') return defaultValue;
   
@@ -1672,7 +1673,8 @@ const PanelCitHesaplama = () => {
     setOzelPanelList(prev => prev.filter(panel => panel.id !== id));
   };
 
-// Özel panel güncelleme - TAMAMEN DÜZELTILDI tüm bağımlı alanları doğru hesaplamak için
+// Özel panel güncelleme - düzeltilmiş fonksiyon
+// Özel panel güncelleme - düzeltilmiş fonksiyon
 const updateOzelPanel = (id, field, value) => {
   setOzelPanelList(prev => prev.map(panel => {
     if (panel.id === id) {
@@ -1682,20 +1684,13 @@ const updateOzelPanel = (id, field, value) => {
       // Önce değeri güncelle
       const updatedPanel = { ...panel, [field]: formattedValue };
       
-      // Panel kodu ve benzeri hesaplanmayan alanlar için erken dönüş yok
-      // Tüm alanlar için hesaplama yapılacak
-      
-      // Tüm hesaplamaları yeniden yap - bağımsız değişken değiştiğinde
-      const recalculated = recalculateAllFields(updatedPanel);
-      
-      // Kullanıcının değiştirdiği alanı koru - kullanıcı deneyimi için önemli
-      recalculated[field] = formattedValue;
-      
-      return recalculated;
+      // Tüm hesaplamaları yeniden yap - calculatePanelValues fonksiyonu tüm bağımlı alanları hesaplar
+      return calculatePanelValues(updatedPanel);
     }
     return panel;
   }));
 };
+
 
 // Tüm bağımlı alanları hesapla - özel panel için tüm hesaplamalar - DÜZELTILDI 
 const recalculateAllFields = (panel) => {
@@ -3643,7 +3638,7 @@ const renderSpecialPanelEntry = () => {
             </tr>
           </thead>
           
-          <tbody className="bg-white divide-y divide-gray-200">
+<tbody className="bg-white divide-y divide-gray-200">
             {ozelPanelList.map((panel) => (
               <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
                 {/* Girdi alanları - mavi arkaplan ile */}
@@ -3659,229 +3654,221 @@ const renderSpecialPanelEntry = () => {
                   </select>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput 
-                    value={panel.panel_yuksekligi}
-                    onChange={updateOzelPanel}
-                    fieldName="panel_yuksekligi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.panel_yuksekligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.panel_genisligi}
-                    onChange={updateOzelPanel}
-                    fieldName="panel_genisligi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.panel_genisligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.dikey_tel_capi}
-                    onChange={updateOzelPanel}
-                    fieldName="dikey_tel_capi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.dikey_tel_capi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.yatay_tel_capi}
-                    onChange={updateOzelPanel}
-                    fieldName="yatay_tel_capi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.yatay_tel_capi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.dikey_goz_araligi}
-                    onChange={updateOzelPanel}
-                    fieldName="dikey_goz_araligi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.dikey_goz_araligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.yatay_goz_araligi}
-                    onChange={updateOzelPanel}
-                    fieldName="yatay_goz_araligi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.yatay_goz_araligi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi}
-                    onChange={updateOzelPanel}
-                    fieldName="bukum_sayisi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <NumberInput
-                    value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi}
-                    onChange={updateOzelPanel}
-                    fieldName="bukumdeki_cubuk_sayisi"
-                    panelId={panel.id}
+                  <input
+                    type="text"
+                    value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi || ''}
+                    onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
                     className="w-16 border rounded p-1 text-sm bg-white"
                   />
                 </td>
 
-                {/* Hesaplanan alanlar */}
+                {/* Hesaplanan alanlar - artık düzenlenebilir */}
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.dikey_cubuk_adet || ''}
-                    disabled
-                    className="w-16 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
+                    className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.yatay_cubuk_adet || ''}
-                    disabled
-                    className="w-16 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
+                    className="w-16 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.adet_m2, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.agirlik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.boya_kg, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.boyali_hali, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.m2_agirlik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.paletteki_panel_sayisi || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.palet_dolu_agirlik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.bos_palet_yuksekligi || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={formatTableValue(panel.paletli_yukseklik, 'decimal') || ''}
-                    disabled
-                    className="w-20 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)}
+                    className="w-20 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.panel_kodu || ''}
-                    disabled
-                    className="w-56 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)}
+                    className="w-56 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.icube_code || ''}
-                    disabled
-                    className="w-40 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)}
+                    className="w-40 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.icube_code_adetli || ''}
-                    disabled
-                    className="w-48 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)}
+                    className="w-48 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <input
                     type="text"
                     value={panel.stok_kodu || ''}
-                    disabled
-                    className="w-40 border border-gray-200 rounded p-1 text-sm bg-gray-50"
+                    onChange={(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)}
+                    className="w-40 border border-gray-200 rounded p-1 text-sm"
                   />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
