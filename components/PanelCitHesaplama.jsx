@@ -581,21 +581,35 @@ useEffect(() => {
     return filtered;
   };
 
-  // Panel Kodu Oluşturma
-  const calculatePanelKodu = (panel) => {
-    if (!panel || !panel.panel_tipi) return '';
 
-    const prefix = panel.panel_tipi === "Single"
-      ? 'SP'
-      : (panel.panel_tipi === "Guvenlik" ? 'GP' : 'DP');
+// Panel Kodu Oluşturma
+const calculatePanelKodu = (panel) => {
+  if (!panel || !panel.panel_tipi) return '';
 
-    const capStr = `${formatDisplayValue(panel.dikey_tel_capi) || 0} * ${formatDisplayValue(panel.yatay_tel_capi) || 0}`;
-    const ebatStr = `${formatDisplayValue(panel.panel_yuksekligi) || 0} * ${formatDisplayValue(panel.panel_genisligi) || 0}`;
-    const gozStr = `${formatDisplayValue(panel.yatay_goz_araligi) || 0} * ${formatDisplayValue(panel.dikey_goz_araligi) || 0}`;
-    const bukumStr = `${panel.bukum_sayisi || 0}-1`; // Şimdilik sabit ikinci kısım
+  const prefix = panel.panel_tipi === "Single"
+    ? 'SP'
+    : (panel.panel_tipi === "Guvenlik" ? 'GP' : 'DP');
 
-    return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
-  };
+  // Tel çapı değerlerini düzgün formatlama
+  const dikeyCap = parseFloat(panel.dikey_tel_capi) || 0;
+  const yatayCap = parseFloat(panel.yatay_tel_capi) || 0;
+  const capStr = `${dikeyCap.toString().replace(/\.0+$/, '')} * ${yatayCap.toString().replace(/\.0+$/, '')}`;
+  
+  // Ebat değerlerini düzgün formatlama
+  const yukseklik = parseFloat(panel.panel_yuksekligi) || 0;
+  const genislik = parseFloat(panel.panel_genisligi) || 0;
+  const ebatStr = `${yukseklik.toString().replace(/\.0+$/, '')} * ${genislik.toString().replace(/\.0+$/, '')}`;
+  
+  // Göz aralığı değerlerini düzgün formatlama
+  const yatayGoz = parseFloat(panel.yatay_goz_araligi) || 0;
+  const dikeyGoz = parseFloat(panel.dikey_goz_araligi) || 0;
+  const gozStr = `${yatayGoz.toString().replace(/\.0+$/, '')} * ${dikeyGoz.toString().replace(/\.0+$/, '')}`;
+  
+  // Büküm değeri
+  const bukumStr = `${panel.bukum_sayisi || 0}-${panel.bukumdeki_cubuk_sayisi || 1}`;
+
+  return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
+};
 
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true) => {
@@ -1318,10 +1332,12 @@ useEffect(() => {
     }
   };
 
+// Panel listesini Excel'e aktarma
 const exportPanelListToExcel = () => {
   try {
     // Filtrelenmiş panel listesini al
     const dataToExport = filteredPanelList.map(panel => ({
+      "Manual Order": panel.manual_order || '',
       "Panel Kodu": panel.panel_kodu || '',
       "Panel Tipi": panel.panel_tipi || '',
       "Yükseklik": panel.panel_yuksekligi || '',
@@ -1332,9 +1348,25 @@ const exportPanelListToExcel = () => {
       "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi'),
       "Büküm Sayısı": panel.bukum_sayisi || '',
       "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
+      "Dikey Çubuk Adedi": panel.dikey_cubuk_adet || '',
+      "Yatay Çubuk Adedi": panel.yatay_cubuk_adet || '',
       "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
       "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
-      "Manual Order": panel.manual_order || ''
+      "Boya Kg": formatTableValue(panel.boya_kg, 'decimal') || '',
+      "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal') || '',
+      "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal') || '',
+      "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi || '',
+      "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal') || '',
+      "Paletsiz Toplam Ağırlık": formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || '',
+      "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal') || '',
+      "Boş Palet Yüksekliği": panel.bos_palet_yuksekligi || '',
+      "Adet Panel Yüksekliği": formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || '',
+      "Paletsiz Toplam Panel Yüksekliği": formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || '',
+      "Paletli Yükseklik": formatTableValue(panel.paletli_yukseklik, 'decimal') || '',
+      "Icube Code": panel.icube_code || '',
+      "Icube Code (Adetli)": panel.icube_code_adetli || '',
+      "Stok Kodu": panel.stok_kodu || '',
+      "Kayıt Tarihi": panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : ''
     }));
 
     if (dataToExport.length === 0) {
@@ -2692,37 +2724,37 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
 
   // Özel marj hesaplama için yardımcı fonksiyon - IMPROVED to handle different unit types properly
   const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
-    if (!item) return 0;
+  if (!item) return 0;
 
-    const margin = salesMargins[priceType] / 100;
+  const margin = salesMargins[priceType] / 100;
 
-    // Birim ve para birimine göre temel fiyatı al
-    let basePrice = 0;
+  // Birim ve para birimine göre temel fiyatı al
+  let basePrice = 0;
 
-    // Kullanılacak para birimi
-    const currencyField = currency.toLowerCase();
+  // Kullanılacak para birimi
+  const currencyField = currency.toLowerCase();
 
-    switch (unit) {
-      case 'adet':
-        basePrice = item[`boyali_adet_${currencyField}`];
-        break;
-      case 'm2':
-        basePrice = item[`boyali_m2_${currencyField}`];
-        break;
-      case 'kg':
-        basePrice = item[`boyali_kg_${currencyField}`];
-        break;
-      case 'all':
-        // Varsayılan olarak adet fiyatını kullan
-        basePrice = item[`boyali_adet_${currencyField}`];
-        break;
-      default:
-        basePrice = item[`boyali_adet_${currencyField}`];
-    }
+  switch (unit) {
+    case 'adet':
+      basePrice = item[`boyali_adet_${currencyField}`];
+      break;
+    case 'm2':
+      basePrice = item[`boyali_m2_${currencyField}`];
+      break;
+    case 'kg':
+      basePrice = item[`boyali_kg_${currencyField}`];
+      break;
+    case 'all':
+      // Varsayılan olarak adet fiyatını kullan
+      basePrice = item[`boyali_adet_${currencyField}`];
+      break;
+    default:
+      basePrice = item[`boyali_adet_${currencyField}`];
+  }
 
-    // Marjı uygula ve 2 ondalık basamakla yuvarla (daha okunabilir)
-    return parseFloat((basePrice * (1 + margin)).toFixed(2));
-  };
+  // Marjı uygula ve tam değeri hesapla (yuvarlamadan)
+  return basePrice * (1 + margin);
+};
 
   // Genel değişkenleri güncelleme
 
