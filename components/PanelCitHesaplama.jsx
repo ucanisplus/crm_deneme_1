@@ -2785,9 +2785,8 @@ className = "mt-1 px-1 py-0.5 border border-gray-300 rounded text-xs w-full"
       <tr key= { panel.id } className = "hover:bg-gray-50" >
       <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900" > { panel.panel_kodu } </td>
     < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { panel.panel_tipi } </td>
-    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatDisplayValue(panel.panel_yuksekligi)
-  } </td>
-    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatDisplayValue(panel.panel_genisligi) } </td>
+    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.panel_yuksekligi, 'decimal') } </td>
+    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.panel_genisligi, 'decimal') } </td>
       < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.dikey_tel_capi, 'tel_capi') } </td>
         < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.yatay_tel_capi, 'tel_capi') } </td>
           < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') } </td>
