@@ -3703,26 +3703,14 @@ const renderSpecialPanelEntry = () => {
         </p>
       </div>
 
-	<div className="flex flex-col">
-	  <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
-	    <div style={{ width: "3000px", height: "1px" }}></div>
-	  </div>
-	  
-	  <div 
-	    className="overflow-x-scroll" 
-	    id="ozelPanelTableContainer"
-	    style={{ 
-	      minWidth: "100%", 
-	      paddingBottom: "8px",
-	      marginBottom: "12px"
-	    }}
-	    onScroll={(e) => {
-	      const topScrollbar = e.target.previousSibling;
-	      if (topScrollbar) {
-	        topScrollbar.scrollLeft = e.target.scrollLeft;
-	      }
-	    }}
-	  >
+	<div 
+	   className="overflow-x-scroll" 
+	   style={{ 
+		minWidth: "100%", 
+		paddingBottom: "8px",  // Kaydırma çubuğu için alan
+		marginBottom: "12px"
+	  }}
+	>
 
         <table className="min-w-max divide-y divide-gray-200">
           <thead className="bg-gray-50">
