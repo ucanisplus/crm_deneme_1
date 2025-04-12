@@ -1556,24 +1556,27 @@ const PanelCitHesaplama = () => {
 
   // Özel panel güncelleme - IMPROVED to correctly update all dependent fields
   const updateOzelPanel = (id, field, value) => {
-    setOzelPanelList(prev => prev.map(panel => {
+  setOzelPanelList(prev =>
+    prev.map(panel => {
       if (panel.id === id) {
-        // Virgülleri noktalara dönüştür
         const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
 
-        // Değeri güncelle
-        const updatedPanel = { ...panel, [field]: formattedValue };
+        let updatedPanel = {
+          ...panel,
+          [field]: formattedValue,
+          __userEditedFields: [...(panel.__userEditedFields || []), field],
+        };
 
-	updatedPanel.__userEditedFields = [...(panel.__userEditedFields || []), field];
-
-          return calculatePanelValues(updatedPanel);
-        
+        // Always recalculate
+        updatedPanel = calculatePanelValues(updatedPanel);
 
         return updatedPanel;
       }
       return panel;
-    }));
-  };
+    })
+  );
+};
+
 
   // Özel paneli veritabanına kaydetme - FIXED to handle errors better
   const saveOzelPanelToDatabase = async (panel) => {
