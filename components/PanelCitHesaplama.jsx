@@ -147,7 +147,7 @@ const formatDisplayValue = (value) => {
 };
 
 const handleInputChange = (value, setter, field) => {
-  virgulden noktaya
+  //virgulden noktaya
   let processedValue = value;
   if (typeof value === 'string') {
     processedValue = value.replace(',', '.');
