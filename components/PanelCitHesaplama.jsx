@@ -4086,7 +4086,7 @@ className = "border rounded p-1 text-sm"
 
             < button
 onClick = {() => exportToExcel('maliyet')}
-className = "flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+className = "flex items-center px-3 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
 disabled = { maliyetListesi.length === 0 }
   >
   <FileSpreadsheet className="w-4 h-4 mr-1" />
@@ -4095,7 +4095,7 @@ disabled = { maliyetListesi.length === 0 }
 
       < button
 onClick = {() => setShowSalesView(true)}
-className = "flex items-center px-3 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-sm"
+className = "flex items-center px-3 py-3 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-sm"
 disabled = { maliyetListesi.length === 0 }
   >
   <TrendingUp className="w-4 h-4 mr-1" />
@@ -4892,7 +4892,7 @@ className = "border rounded p-1 text-sm"
 
         < button
 onClick = {() => exportToExcel('satis')}
-className = "flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+className = "flex items-center px-3 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
 disabled = { satisListesi.length === 0 }
   >
   <FileSpreadsheet className="w-4 h-4 mr-1" />
