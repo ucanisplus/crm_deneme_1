@@ -1244,6 +1244,86 @@ const updatePanelCitDegiskenler = async () => {
   }
 };
 
+const exportFullPanelToExcel = () => {
+  try {
+    // Export the complete panel list, not just filtered ones
+    const dataToExport = panelList.map(panel => {
+      // Include ALL fields from the database
+      return {
+        "ID": panel.id || '',
+        "Manual Order": panel.manual_order || '',
+        "Panel Kodu": panel.panel_kodu || '',
+        "Panel Tipi": panel.panel_tipi || '',
+        "Panel Yüksekliği": panel.panel_yuksekligi || '',
+        "Panel Genişliği": panel.panel_genisligi || '',
+        "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi') || '',
+        "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi') || '',
+        "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') || '',
+        "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || '',
+        "Büküm Sayısı": panel.bukum_sayisi || '',
+        "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
+        "Dikey Çubuk Adet": panel.dikey_cubuk_adet || '',
+        "Yatay Çubuk Adet": panel.yatay_cubuk_adet || '',
+        "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
+        "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
+        "Kayıt Tarihi": panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : '',
+        "M2 Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal') || '',
+        "Boya Kg": formatTableValue(panel.boya_kg, 'decimal') || '',
+        "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal') || '',
+        "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi || '',
+        "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal') || '',
+        "Paletsiz Toplam Ağırlık": formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || '',
+        "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal') || '',
+        "Boş Palet Yüksekliği": panel.bos_palet_yuksekligi || '',
+        "Adet Panel Yüksekliği": formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || '',
+        "Paletsiz Toplam Panel Yüksekliği": formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || '',
+        "Paletli Yükseklik": formatTableValue(panel.paletli_yukseklik, 'decimal') || '',
+        "ICube Code": panel.icube_code || '',
+        "ICube Code Adetli": panel.icube_code_adetli || '',
+        "Stok Kodu": panel.stok_kodu || ''
+      };
+    });
+    
+    if (dataToExport.length === 0) {
+      alert('Dışa aktarılacak veri bulunamadı!');
+      return;
+    }
+    
+    // XLSX worksheet oluştur
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Tüm kolonların genişliklerini ayarla
+    const columnWidths = [];
+    for (let i = 0; i < Object.keys(dataToExport[0]).length; i++) {
+      // Her kolon için varsayılan genişlik
+      columnWidths.push({ wch: 15 });
+    }
+    worksheet['!cols'] = columnWidths;
+    
+    // Başlık satırı için özel stil tanımla
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!worksheet[address]) worksheet[address] = { t: 's', v: '' };
+      worksheet[address].s = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "E6E6E6" } }
+      };
+    }
+    
+    // Workbook oluştur ve worksheet ekle
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Panel Listesi');
+    
+    // Excel dosyasını indir
+    XLSX.writeFile(workbook, 'Panel_Cit_Tam_Liste.xlsx');
+  } catch (error) {
+    console.error('Excel dışa aktarma hatası:', error);
+    alert('Dışa aktarma sırasında bir hata oluştu: ' + error.message);
+  }
+};
+
+
 // Profil Değişkenlerini Güncelleme - FIXED to always add new row and fetch latest
 const updateProfilDegiskenler = async () => {
   try {
@@ -2405,6 +2485,13 @@ const saveAllOzelPanelsToDatabase = async () => {
     }
   };
 
+	const resetOzelPanelList = () => {
+	  // Onayla
+	  const confirmReset = window.confirm('Özel panel listesini sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.');
+	  if (confirmReset) {
+	    setOzelPanelList([]);
+	  }
+	};
   // Özel marj hesaplama için yardımcı fonksiyon - IMPROVED to handle different unit types properly
   const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
     if (!item) return 0;
@@ -2510,6 +2597,15 @@ const handleProfilDegiskenlerChange = (field, value) => {
             <span className="font-semibold">{filteredPanelList.length} panel</span>
           </div>
           
+	   <button 
+	      onClick={exportFullPanelToExcel}
+	      disabled={panelList.length === 0}
+	      className="flex items-center px-4 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300 text-sm"
+	    >
+	      <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+	      Tam Listeyi Excel'e Aktar
+	   </button>
+
           <button 
             onClick={() => calculateCosts(true)}
             disabled={calculating || filteredPanelList.length === 0}
@@ -3310,6 +3406,14 @@ const handleProfilDegiskenlerChange = (field, value) => {
               <Plus className="w-4 h-4 mr-1" />
               Yeni Panel Ekle
             </button>
+	    <button 
+		onClick={resetOzelPanelList}
+		disabled={ozelPanelList.length === 0}
+		className="flex items-center px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 text-sm"
+	     >
+		<Trash2 className="w-4 h-4 mr-1" />
+		Sıfırla
+	    </button>
             <button 
               onClick={() => calculateCosts(false)}
               disabled={calculating || ozelPanelList.length === 0}
