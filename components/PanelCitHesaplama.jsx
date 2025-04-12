@@ -3706,8 +3706,8 @@ const renderSpecialPanelEntry = () => {
       {/* Çift yatay kaydırma çubuğu implementasyonu - üstte ve altta senkronize */}
       <div className="flex flex-col">
         {/* Üst kaydırma çubuğu - kullanıcıların yatay kaydırmayı yukarıdan da yapabilmesi için */}
-        <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
-          <div style={{ width: "3000px", height: "1px" }}></div>
+        <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "24px" }}>
+          <div style={{ width: "5000px", height: "1px" }}></div>
         </div>
         
         {/* Ana tablo container - senkronize kaydırma için ID eklenmiş */}
