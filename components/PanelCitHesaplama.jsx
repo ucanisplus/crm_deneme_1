@@ -3641,59 +3641,59 @@ const renderSpecialPanelEntry = () => {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Özel Panel & Palet Bilgileri Hesaplama</h3>
           <div className="flex items-center gap-2">
-		<button 
-		  onClick={addOzelPanel}
-		  className="flex items-center px-4 py-2 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
-		>
-		  <Plus className="w-4 h-4 mr-1" />
-		  Yeni Panel Ekle
-		</button>
-		
-		<button 
-		  onClick={resetOzelPanelList}
-		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
-		>
-		  <Trash2 className="w-4 h-4 mr-1" />
-		  Sıfırla
-		</button>
-		
-		<button
-		  onClick={() => calculateCosts(false)}
-		  disabled={calculating || ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
-		>
-		  {calculating ? (
-		    <>
-		      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-		      Hesaplanıyor...
-		    </>
-		  ) : (
-		    <>
-		      <Calculator className="w-4 h-4 mr-1.5" />
-		      Hesapla
-		    </>
-		  )}
-		</button>
-		
-		<button
-		  onClick={() => saveAllOzelPanelsToDatabase()}
-		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
-		>
-		  <Save className="w-4 h-4 mr-1.5" />
-		  Veritabanına Kaydet
-		</button>
-		
-		<button
-		  onClick={() => exportToExcel('ozel')}
-		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 text-white rounded-md disabled:opacity-50 text-sm"
-		  style={{ backgroundColor: "#217346" }}
-		>
-		  <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-		  Excel'e Aktar
-		</button>
+            <button 
+              onClick={addOzelPanel}
+              className="flex items-center px-4 py-2 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Yeni Panel Ekle
+            </button>
+            
+            <button 
+              onClick={resetOzelPanelList}
+              disabled={ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Sıfırla
+            </button>
+            
+            <button
+              onClick={() => calculateCosts(false)}
+              disabled={calculating || ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
+            >
+              {calculating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                  Hesaplanıyor...
+                </>
+              ) : (
+                <>
+                  <Calculator className="w-4 h-4 mr-1.5" />
+                  Hesapla
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={() => saveAllOzelPanelsToDatabase()}
+              disabled={ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Veritabanına Kaydet
+            </button>
+            
+            <button
+              onClick={() => exportToExcel('ozel')}
+              disabled={ozelPanelList.length === 0}
+              className="flex items-center px-4 py-2 text-white rounded-md disabled:opacity-50 text-sm"
+              style={{ backgroundColor: "#217346" }}
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+              Excel'e Aktar
+            </button>
 
           </div>
         </div>
@@ -3703,315 +3703,331 @@ const renderSpecialPanelEntry = () => {
         </p>
       </div>
 
-	<div 
-	   className="overflow-x-scroll" 
-	   style={{ 
-		minWidth: "100%", 
-		paddingBottom: "8px",  // Kaydırma çubuğu için alan
-		marginBottom: "12px"
-	  }}
-	>
-
-        <table className="min-w-max divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {/* Girdi alanları - mavi tonlu başlıklar */}
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Panel Tipi</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yükseklik</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Genişlik</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Dikey Tel Çapı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yatay Tel Çapı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Dikey Göz Aralığı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yatay Göz Aralığı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Büküm Sayısı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Bükümdeki Çubuk Sayısı</th>
-
-              {/* Hesaplanan alanlar - normal başlıklar */}
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dikey Çubuk Adedi</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yatay Çubuk Adedi</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adet M²</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boya Kg</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boyalı Hali</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M² Ağırlık</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletteki Panel Sayısı</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Palet Boş Ağırlık</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletsiz Toplam Ağırlık</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Palet Dolu Ağırlık</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boş Palet Yüksekliği</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adet Panel Yüksekliği</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletsiz Toplam Panel Yüksekliği</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletli Yükseklik</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panel Kodu</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icube Code</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icube-Code(Adetli)</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
-              <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-            </tr>
-          </thead>
-          
-<tbody className="bg-white divide-y divide-gray-200">
-            {ozelPanelList.map((panel) => (
-              <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
-                {/* Girdi alanları - mavi arkaplan ile */}
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <select
-                    value={panel.panel_tipi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'panel_tipi', e.target.value)}
-                    className="w-full border rounded p-1 text-sm bg-white"
-                  >
-                    <option value="Single">Single</option>
-                    <option value="Double">Double</option>
-                    <option value="Guvenlik">Güvenlik</option>
-                  </select>
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.panel_yuksekligi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.panel_genisligi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.dikey_tel_capi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.yatay_tel_capi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.dikey_goz_araligi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.yatay_goz_araligi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
-                  <input
-                    type="text"
-                    value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
-                    className="w-16 border rounded p-1 text-sm bg-white"
-                  />
-                </td>
-
-                {/* Hesaplanan alanlar - artık düzenlenebilir */}
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.dikey_cubuk_adet || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
-                    className="w-16 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.yatay_cubuk_adet || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
-                    className="w-16 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.adet_m2, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.agirlik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.boya_kg, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.boyali_hali, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.m2_agirlik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.paletteki_panel_sayisi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.palet_dolu_agirlik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.bos_palet_yuksekligi || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={formatTableValue(panel.paletli_yukseklik, 'decimal') || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)}
-                    className="w-20 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.panel_kodu || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)}
-                    className="w-56 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.icube_code || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)}
-                    className="w-40 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.icube_code_adetli || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)}
-                    className="w-48 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <input
-                    type="text"
-                    value={panel.stok_kodu || ''}
-                    onChange={(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)}
-                    className="w-40 border border-gray-200 rounded p-1 text-sm"
-                  />
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => saveOzelPanelToDatabase(panel)}
-                      className="text-green-600 hover:text-green-800"
-                      title="Veritabanına Kaydet"
-                    >
-                      <Save size={16} />
-                    </button>
-                    <button
-                      onClick={() => removeOzelPanel(panel.id)}
-                      className="text-red-600 hover:text-red-800"
-                      title="Sil"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {ozelPanelList.length === 0 && (
+      {/* Çift yatay kaydırma çubuğu implementasyonu - üstte ve altta senkronize */}
+      <div className="flex flex-col">
+        {/* Üst kaydırma çubuğu - kullanıcıların yatay kaydırmayı yukarıdan da yapabilmesi için */}
+        <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
+          <div style={{ width: "3000px", height: "1px" }}></div>
+        </div>
+        
+        {/* Ana tablo container - senkronize kaydırma için ID eklenmiş */}
+        <div 
+          className="overflow-x-scroll" 
+          id="ozelPanelTableContainer"
+          style={{ 
+            minWidth: "100%", 
+            paddingBottom: "8px",
+            marginBottom: "12px"
+          }}
+          onScroll={(e) => {
+            // Ana tablodan üst kaydırma çubuğuna senkronizasyon
+            const topScrollbar = e.target.previousSibling;
+            if (topScrollbar) {
+              topScrollbar.scrollLeft = e.target.scrollLeft;
+            }
+          }}
+        >
+          <table className="min-w-max divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan="28" className="px-3 py-4 text-center text-sm text-gray-500">
-                  Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
-                </td>
+                {/* Girdi alanları - mavi tonlu başlıklar */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Panel Tipi</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yükseklik</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Genişlik</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Dikey Tel Çapı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yatay Tel Çapı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Dikey Göz Aralığı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Yatay Göz Aralığı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Büküm Sayısı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium bg-blue-50 text-blue-800 uppercase tracking-wider">Bükümdeki Çubuk Sayısı</th>
+
+                {/* Hesaplanan alanlar - normal başlıklar */}
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dikey Çubuk Adedi</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yatay Çubuk Adedi</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adet M²</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boya Kg</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boyalı Hali</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M² Ağırlık</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletteki Panel Sayısı</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Palet Boş Ağırlık</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletsiz Toplam Ağırlık</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Palet Dolu Ağırlık</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boş Palet Yüksekliği</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adet Panel Yüksekliği</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletsiz Toplam Panel Yüksekliği</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletli Yükseklik</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panel Kodu</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icube Code</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icube-Code(Adetli)</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            
+            <tbody className="bg-white divide-y divide-gray-200">
+              {ozelPanelList.map((panel) => (
+                <tr key={panel.id} className={panel.isNew ? 'bg-green-50' : ''}>
+                  {/* Girdi alanları - mavi arkaplan ile */}
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <select
+                      value={panel.panel_tipi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'panel_tipi', e.target.value)}
+                      className="w-full border rounded p-1 text-sm bg-white"
+                    >
+                      <option value="Single">Single</option>
+                      <option value="Double">Double</option>
+                      <option value="Guvenlik">Güvenlik</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.panel_yuksekligi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'panel_yuksekligi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.panel_genisligi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'panel_genisligi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.dikey_tel_capi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'dikey_tel_capi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.yatay_tel_capi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'yatay_tel_capi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.dikey_goz_araligi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'dikey_goz_araligi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.yatay_goz_araligi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'yatay_goz_araligi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+                    <input
+                      type="text"
+                      value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
+                      className="w-16 border rounded p-1 text-sm bg-white"
+                    />
+                  </td>
+
+                  {/* Hesaplanan alanlar - artık düzenlenebilir */}
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.dikey_cubuk_adet || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
+                      className="w-16 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.yatay_cubuk_adet || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
+                      className="w-16 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.adet_m2, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.agirlik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.boya_kg, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.boyali_hali, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.m2_agirlik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.paletteki_panel_sayisi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.palet_dolu_agirlik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.bos_palet_yuksekligi || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={formatTableValue(panel.paletli_yukseklik, 'decimal') || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)}
+                      className="w-20 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.panel_kodu || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)}
+                      className="w-56 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.icube_code || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)}
+                      className="w-40 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.icube_code_adetli || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)}
+                      className="w-48 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <input
+                      type="text"
+                      value={panel.stok_kodu || ''}
+                      onChange={(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)}
+                      className="w-40 border border-gray-200 rounded p-1 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => saveOzelPanelToDatabase(panel)}
+                        className="text-green-600 hover:text-green-800"
+                        title="Veritabanına Kaydet"
+                      >
+                        <Save size={16} />
+                      </button>
+                      <button
+                        onClick={() => removeOzelPanel(panel.id)}
+                        className="text-red-600 hover:text-red-800"
+                        title="Sil"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {ozelPanelList.length === 0 && (
+                <tr>
+                  <td colSpan="28" className="px-3 py-4 text-center text-sm text-gray-500">
+                    Henüz özel panel eklenmemiş. Yeni panel eklemek için yukarıdaki "Yeni Panel Ekle" düğmesini kullanın.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
