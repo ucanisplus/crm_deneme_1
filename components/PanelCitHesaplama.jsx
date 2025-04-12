@@ -247,6 +247,30 @@ const PanelCitHesaplama = () => {
     fetchInitialData();
   }, []);
 
+	useEffect(() => {
+	  // This needs to run after the component renders when activeTab is 'special-panel'
+	  if (activeTab === 'special-panel') {
+	    // Using setTimeout to ensure the DOM elements are fully rendered
+	    setTimeout(() => {
+	      const tableContainer = document.getElementById('ozelPanelTableContainer');
+	      if (tableContainer) {
+	        const topScrollbar = tableContainer.previousSibling;
+	        if (topScrollbar) {
+	          // Set up the scroll event listener on the top scrollbar
+	          topScrollbar.addEventListener('scroll', (e) => {
+	            tableContainer.scrollLeft = e.target.scrollLeft;
+	          });
+	          
+	          // Set up the scroll event listener on the main table container
+	          tableContainer.addEventListener('scroll', (e) => {
+	            topScrollbar.scrollLeft = e.target.scrollLeft;
+	          });
+	        }
+	      }
+	    }, 100);
+	  }
+	}, [activeTab, ozelPanelList.length]);
+
   // İlk verileri çekme fonksiyonu - FIXED with proper variable scoping
   const fetchInitialData = async () => {
     setLoading(true);
@@ -554,20 +578,33 @@ const PanelCitHesaplama = () => {
   };
 
   // Panel Kodu Oluşturma
-  const calculatePanelKodu = (panel) => {
-    if (!panel || !panel.panel_tipi) return '';
+const calculatePanelKodu = (panel) => {
+  if (!panel || !panel.panel_tipi) return '';
 
-    const prefix = panel.panel_tipi === "Single"
-      ? 'SP'
-      : (panel.panel_tipi === "Guvenlik" ? 'GP' : 'DP');
+  const prefix = panel.panel_tipi === "Single"
+    ? 'SP'
+    : (panel.panel_tipi === "Guvenlik" ? 'GP' : 'DP');
 
-    const capStr = `${formatDisplayValue(panel.dikey_tel_capi) || 0} * ${formatDisplayValue(panel.yatay_tel_capi) || 0}`;
-    const ebatStr = `${formatDisplayValue(panel.panel_yuksekligi) || 0} * ${formatDisplayValue(panel.panel_genisligi) || 0}`;
-    const gozStr = `${formatDisplayValue(panel.yatay_goz_araligi) || 0} * ${formatDisplayValue(panel.dikey_goz_araligi) || 0}`;
-    const bukumStr = `${panel.bukum_sayisi || 0}-1`; // Şimdilik sabit ikinci kısım
+  // Tel çapı değerlerini düzgün formatlama
+  const dikeyCap = parseFloat(panel.dikey_tel_capi) || 0;
+  const yatayCap = parseFloat(panel.yatay_tel_capi) || 0;
+  const capStr = `${dikeyCap.toString().replace(/\.0+$/, '')} * ${yatayCap.toString().replace(/\.0+$/, '')}`;
+  
+  // Ebat değerlerini düzgün formatlama
+  const yukseklik = parseFloat(panel.panel_yuksekligi) || 0;
+  const genislik = parseFloat(panel.panel_genisligi) || 0;
+  const ebatStr = `${yukseklik.toString().replace(/\.0+$/, '')} * ${genislik.toString().replace(/\.0+$/, '')}`;
+  
+  // Göz aralığı değerlerini düzgün formatlama
+  const yatayGoz = parseFloat(panel.yatay_goz_araligi) || 0;
+  const dikeyGoz = parseFloat(panel.dikey_goz_araligi) || 0;
+  const gozStr = `${yatayGoz.toString().replace(/\.0+$/, '')} * ${dikeyGoz.toString().replace(/\.0+$/, '')}`;
+  
+  // Büküm değeri
+  const bukumStr = `${panel.bukum_sayisi || 0}-${panel.bukumdeki_cubuk_sayisi || 1}`;
 
-    return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
-  };
+  return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
+};
 
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true) => {
@@ -1887,6 +1924,91 @@ const recalculateAllFields = (panel) => {
   return result;
 };
 
+//Panel listesi excel exportu
+const exportPanelListToExcel = () => {
+  try {
+    // Filtrelenmiş panel listesini al
+    const dataToExport = filteredPanelList.map(panel => ({
+      "Manual Order": panel.manual_order || '',
+      "Panel Kodu": panel.panel_kodu || '',
+      "Panel Tipi": panel.panel_tipi || '',
+      "Yükseklik": panel.panel_yuksekligi || '',
+      "Genişlik": panel.panel_genisligi || '',
+      "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi'),
+      "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi'),
+      "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi'),
+      "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi'),
+      "Büküm Sayısı": panel.bukum_sayisi || '',
+      "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
+      "Dikey Çubuk Adedi": panel.dikey_cubuk_adet || '',
+      "Yatay Çubuk Adedi": panel.yatay_cubuk_adet || '',
+      "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
+      "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
+      "Boya Kg": formatTableValue(panel.boya_kg, 'decimal') || '',
+      "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal') || '',
+      "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal') || '',
+      "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi || '',
+      "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal') || '',
+      "Paletsiz Toplam Ağırlık": formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || '',
+      "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal') || '',
+      "Boş Palet Yüksekliği": panel.bos_palet_yuksekligi || '',
+      "Adet Panel Yüksekliği": formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || '',
+      "Paletsiz Toplam Panel Yüksekliği": formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || '',
+      "Paletli Yükseklik": formatTableValue(panel.paletli_yukseklik, 'decimal') || '',
+      "Icube Code": panel.icube_code || '',
+      "Icube Code (Adetli)": panel.icube_code_adetli || '',
+      "Stok Kodu": panel.stok_kodu || '',
+      "Kayıt Tarihi": panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : ''
+    }));
+
+    if (dataToExport.length === 0) {
+      alert('Dışa aktarılacak veri bulunamadı!');
+      return;
+    }
+
+    // XLSX worksheet oluştur
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+
+    // Başlıklar için stil tanımla
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+    // Tüm kolonların genişliklerini ayarla
+    const columnWidths = [];
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      // Her kolon için varsayılan genişlik
+      columnWidths.push({ wch: 15 });
+    }
+    worksheet['!cols'] = columnWidths;
+
+    // Başlık hücrelerine stil uygula
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: 0, c: C });
+
+      // Mevcut hücre yapılandırmasını al veya yeni oluştur
+      if (!worksheet[address]) worksheet[address] = { t: 's', v: '' };
+
+      // Stil bilgisini ekle
+      if (!worksheet[address].s) worksheet[address].s = {};
+
+      // Kalın yazı tipi ve arka plan rengi uygula
+      worksheet[address].s = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "E6E6E6" } }
+      };
+    }
+
+    // Workbook oluştur ve worksheet ekle
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Panel Listesi");
+
+    // Excel dosyasını indir
+    XLSX.writeFile(workbook, "Panel_Listesi.xlsx");
+  } catch (error) {
+    console.error('Excel dışa aktarma hatası:', error);
+    alert('Dışa aktarma sırasında bir hata oluştu: ' + error.message);
+  }
+};
+
   // Özel paneli veritabanına kaydetme - FIXED to handle errors better
   const saveOzelPanelToDatabase = async (panel) => {
     try {
@@ -2593,39 +2715,39 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
     }
   };
 
-  // Özel marj hesaplama için yardımcı fonksiyon - IMPROVED to handle different unit types properly
-  const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
-    if (!item) return 0;
 
-    const margin = salesMargins[priceType] / 100;
+const calculatePricesWithMargin = (item, priceType, unit = 'adet', currency = 'usd') => {
+  if (!item) return 0;
 
-    // Birim ve para birimine göre temel fiyatı al
-    let basePrice = 0;
+  const margin = salesMargins[priceType] / 100;
 
-    // Kullanılacak para birimi
-    const currencyField = currency.toLowerCase();
+  // Birim ve para birimine göre temel fiyatı al
+  let basePrice = 0;
 
-    switch (unit) {
-      case 'adet':
-        basePrice = item[`boyali_adet_${currencyField}`];
-        break;
-      case 'm2':
-        basePrice = item[`boyali_m2_${currencyField}`];
-        break;
-      case 'kg':
-        basePrice = item[`boyali_kg_${currencyField}`];
-        break;
-      case 'all':
-        // Varsayılan olarak adet fiyatını kullan
-        basePrice = item[`boyali_adet_${currencyField}`];
-        break;
-      default:
-        basePrice = item[`boyali_adet_${currencyField}`];
-    }
+  // Kullanılacak para birimi
+  const currencyField = currency.toLowerCase();
 
-    // Marjı uygula ve 2 ondalık basamakla yuvarla (daha okunabilir)
-    return parseFloat((basePrice * (1 + margin)).toFixed(2));
-  };
+  switch (unit) {
+    case 'adet':
+      basePrice = item[`boyali_adet_${currencyField}`];
+      break;
+    case 'm2':
+      basePrice = item[`boyali_m2_${currencyField}`];
+      break;
+    case 'kg':
+      basePrice = item[`boyali_kg_${currencyField}`];
+      break;
+    case 'all':
+      // Varsayılan olarak adet fiyatını kullan
+      basePrice = item[`boyali_adet_${currencyField}`];
+      break;
+    default:
+      basePrice = item[`boyali_adet_${currencyField}`];
+  }
+
+  // Marjı uygula ve tam değeri hesapla (yuvarlamadan)
+  return basePrice * (1 + margin);
+};
 
   // Genel değişkenleri güncelleme
 
@@ -2717,6 +2839,15 @@ className = "flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover
   Hesapla
   </>
             )}
+</button>
+
+<button
+  onClick={() => exportPanelListToExcel()}
+  disabled={filteredPanelList.length === 0}
+  className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300"
+>
+  <FileSpreadsheet className="w-5 h-5 mr-2" />
+  Excel'e Aktar
 </button>
 
   < button
@@ -3537,7 +3668,7 @@ const renderSpecialPanelEntry = () => {
           <div className="flex items-center gap-2">
 		<button 
 		  onClick={addOzelPanel}
-		  className="flex items-center px-4 py-2 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
+		  className="flex items-center px-4 py-2.5 bg-yellow-400 text-gray-800 rounded-md hover:bg-yellow-500 text-sm"
 		>
 		  <Plus className="w-4 h-4 mr-1" />
 		  Yeni Panel Ekle
@@ -3546,7 +3677,7 @@ const renderSpecialPanelEntry = () => {
 		<button 
 		  onClick={resetOzelPanelList}
 		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
+		  className="flex items-center px-4 py-2.5 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
 		>
 		  <Trash2 className="w-4 h-4 mr-1" />
 		  Sıfırla
@@ -3555,7 +3686,7 @@ const renderSpecialPanelEntry = () => {
 		<button
 		  onClick={() => calculateCosts(false)}
 		  disabled={calculating || ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
+		  className="flex items-center px-4 py-2.5 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
 		>
 		  {calculating ? (
 		    <>
@@ -3573,7 +3704,7 @@ const renderSpecialPanelEntry = () => {
 		<button
 		  onClick={() => saveAllOzelPanelsToDatabase()}
 		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
+		  className="flex items-center px-4 py-2.5 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
 		>
 		  <Save className="w-4 h-4 mr-1.5" />
 		  Veritabanına Kaydet
@@ -3582,12 +3713,13 @@ const renderSpecialPanelEntry = () => {
 		<button
 		  onClick={() => exportToExcel('ozel')}
 		  disabled={ozelPanelList.length === 0}
-		  className="flex items-center px-4 py-2 text-white rounded-md disabled:opacity-50 text-sm"
-		  style={{ backgroundColor: "#217346" }}
+		  className="flex items-center px-4 py-2.5 text-white rounded-md disabled:opacity-50 text-sm"
+		  style={{ backgroundColor: "#1e6b3b", color: "#ffffff" }}
 		>
 		  <FileSpreadsheet className="w-4 h-4 mr-1.5" />
 		  Excel'e Aktar
 		</button>
+
 
           </div>
         </div>
@@ -3597,14 +3729,28 @@ const renderSpecialPanelEntry = () => {
         </p>
       </div>
 
-      <div 
-        className="overflow-x-scroll" 
-        style={{ 
-          minWidth: "100%", 
-          paddingBottom: "8px",  // Kaydırma çubuğu için alan
-          marginBottom: "12px"
-        }}
-      >
+	      <div className="flex flex-col">
+	  {/* Top scrollbar */}
+	  <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
+	    <div style={{ width: "3000px", height: "1px" }}></div>
+	  </div>
+	  
+	  {/* Main table with synchronized scrolling */}
+	  <div 
+	    className="overflow-x-scroll" 
+	    id="ozelPanelTableContainer"
+	    style={{ 
+	      minWidth: "100%", 
+	      paddingBottom: "8px",
+	      marginBottom: "12px"
+	    }}
+	    onScroll={(e) => {
+	      const topScrollbar = e.target.previousSibling;
+	      if (topScrollbar) {
+	        topScrollbar.scrollLeft = e.target.scrollLeft;
+	      }
+	    }}
+	  >
         <table className="min-w-max divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
