@@ -1668,26 +1668,143 @@ const calculatePanelValues = (panel) => {
   };
 
   // Özel panel güncelleme - IMPROVED to correctly update all dependent fields
-  const updateOzelPanel = (id, field, value) => {
-    setOzelPanelList(prev => prev.map(panel => {
-      if (panel.id === id) {
-        // Virgülleri noktalara dönüştür
-        const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
-        
-        // Değeri güncelle
-        const updatedPanel = { ...panel, [field]: formattedValue };
-        
-        // Bağımlı alanlardan herhangi biri değiştiyse, panel değerlerini yeniden hesapla
-        if (['panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi', 
-             'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi'].includes(field)) {
-          return calculatePanelValues(updatedPanel);
-        }
-        
+  // Özel panel güncelleme - fully interactive with all dependencies
+const updateOzelPanel = (id, field, value) => {
+  setOzelPanelList(prev => prev.map(panel => {
+    if (panel.id === id) {
+      // Virgülleri noktalara dönüştür
+      const formattedValue = typeof value === 'string' ? value.replace(/,/g, '.') : value;
+      
+      // Önce değeri güncelle
+      const updatedPanel = { ...panel, [field]: formattedValue };
+      
+      // Panel kodu değiştiyse sadece o alanı güncelle
+      if (field === 'panel_kodu' || field === 'icube_code' || field === 'icube_code_adetli' || field === 'stok_kodu') {
         return updatedPanel;
       }
-      return panel;
-    }));
-  };
+      
+      // Tüm hesaplamaları yeniden yap
+      const recalculated = recalculateAllFields(updatedPanel);
+      
+      // Kullanıcının değiştirdiği alanı koru
+      recalculated[field] = formattedValue;
+      
+      return recalculated;
+    }
+    return panel;
+  }));
+};
+
+// Tüm bağımlı alanları hesapla - özel panel için tüm hesaplamalar
+const recalculateAllFields = (panel) => {
+  const result = { ...panel };
+  
+  // Temel değerleri al
+  const panel_yuksekligi = safeParseFloat(panel.panel_yuksekligi);
+  const panel_genisligi = safeParseFloat(panel.panel_genisligi);
+  const dikey_tel_capi = safeParseFloat(panel.dikey_tel_capi);
+  const yatay_tel_capi = safeParseFloat(panel.yatay_tel_capi);
+  const dikey_goz_araligi = safeParseFloat(panel.dikey_goz_araligi);
+  const yatay_goz_araligi = safeParseFloat(panel.yatay_goz_araligi);
+  const bukum_sayisi = safeParseFloat(panel.bukum_sayisi);
+  
+  // Adet m2 hesapla
+  result.adet_m2 = (panel_yuksekligi * panel_genisligi / 10000);
+  
+  // Dikey çubuk adet hesapla
+  if (yatay_goz_araligi < 5.5) {
+    result.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz_araligi) + 1;
+  } else if (yatay_goz_araligi < 6) {
+    result.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz_araligi);
+  } else {
+    result.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz_araligi) + 1;
+  }
+  
+  // Yatay çubuk adet hesapla
+  if (panel.panel_tipi === "Double") {
+    result.yatay_cubuk_adet = (((panel_yuksekligi - 3) / dikey_goz_araligi) + 1) * 2;
+  } else if (panel.panel_tipi === "Single" && dikey_goz_araligi === 20) {
+    result.yatay_cubuk_adet = ((((panel_yuksekligi - 3) - (bukum_sayisi * 10)) / dikey_goz_araligi) + 1) + (bukum_sayisi * 2);
+  } else if (panel.panel_tipi === "Single" && dikey_goz_araligi === 15 && panel_yuksekligi < 200) {
+    result.yatay_cubuk_adet = Math.round(((panel_yuksekligi / dikey_goz_araligi) + (bukum_sayisi * 2)));
+  } else if (panel.panel_tipi === "Single" && dikey_goz_araligi === 15 && panel_yuksekligi >= 200) {
+    result.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz_araligi) + (bukum_sayisi * 2)));
+  } else if (panel.panel_tipi === "Single") {
+    result.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz_araligi) + (bukum_sayisi * 2)));
+  } else if (panel.panel_tipi === "Guvenlik") {
+    result.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz_araligi) + (bukum_sayisi * 2)));
+  }
+  
+  // Ağırlık hesapla
+  const dikey_cubuk = safeParseFloat(result.dikey_cubuk_adet);
+  const yatay_cubuk = safeParseFloat(result.yatay_cubuk_adet);
+  
+  if (panel.panel_tipi === "Double") {
+    result.agirlik = ((dikey_tel_capi * dikey_tel_capi * 7.85 * Math.PI / 4000) * ((panel_yuksekligi / 100) * dikey_cubuk)) + 
+                     ((yatay_tel_capi * yatay_tel_capi * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+  } else if (panel.panel_tipi === "Single") {
+    if (dikey_goz_araligi === 20) {
+      result.agirlik = ((dikey_tel_capi * dikey_tel_capi * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                       ((yatay_tel_capi * yatay_tel_capi * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+    } else if (dikey_goz_araligi === 15) {
+      result.agirlik = ((dikey_tel_capi * dikey_tel_capi * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.6)) / 100) * dikey_cubuk) + 
+                       ((yatay_tel_capi * yatay_tel_capi * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+    } else {
+      result.agirlik = ((dikey_tel_capi * dikey_tel_capi * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                       ((yatay_tel_capi * yatay_tel_capi * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+    }
+  } else if (panel.panel_tipi === "Guvenlik") {
+    result.agirlik = ((dikey_tel_capi * dikey_tel_capi * 7.85 * Math.PI / 4000) * ((panel_yuksekligi + (bukum_sayisi * 2.1)) / 100) * dikey_cubuk) + 
+                     ((yatay_tel_capi * yatay_tel_capi * 7.85 * Math.PI / 4000) * ((panel_genisligi + 0.6) / 100) * yatay_cubuk);
+  }
+  
+  // Boya kilogram hesapla
+  result.boya_kg = calculateBoyaKg(result);
+  
+  // Boyalı Hali 
+  result.boyali_hali = safeParseFloat(result.agirlik) + safeParseFloat(result.boya_kg);
+  
+  // M² Ağırlık
+  result.m2_agirlik = result.adet_m2 > 0 ? result.boyali_hali / result.adet_m2 : 0;
+  
+  // Paletteki panel sayısı
+  result.paletteki_panel_sayisi = calculatePalettekiPanelSayisi(result);
+  
+  // Palet Boş Ağırlık
+  result.palet_bos_agirlik = calculatePaletBosAgirlik(result);
+  
+  // Paletsiz Toplam Ağırlık
+  result.paletsiz_toplam_agirlik = result.paletteki_panel_sayisi * result.boyali_hali;
+  
+  // Palet Dolu Ağırlık
+  result.palet_dolu_agirlik = result.paletsiz_toplam_agirlik + result.palet_bos_agirlik;
+  
+  // Boş Palet Yüksekliği
+  result.bos_palet_yuksekligi = result.panel_tipi === "Double" ? 14 : (result.panel_tipi === "Single" ? 17 : 0);
+  
+  // Adet Panel Yüksekliği
+  result.adet_panel_yuksekligi = calculateAdetPanelYuksekligi(result);
+  
+  // Paletsiz Toplam Panel Yüksekliği
+  result.paletsiz_toplam_panel_yuksekligi = result.adet_panel_yuksekligi * result.paletteki_panel_sayisi;
+  
+  // Paletli Yükseklik
+  result.paletli_yukseklik = result.paletsiz_toplam_panel_yuksekligi + result.bos_palet_yuksekligi;
+  
+  // Icube-Code
+  result.icube_code = calculateIcubeCode(result);
+  
+  // Icube-Code Adetli
+  result.icube_code_adetli = `${result.icube_code}_(${result.paletteki_panel_sayisi}-Adet)`;
+  
+  // Panel kodu oluştur
+  result.panel_kodu = calculatePanelKodu(result);
+  
+  // STOK_KODU
+  result.stok_kodu = `${result.icube_code}-STOK`;
+  
+  return result;
+};
 
   // Özel paneli veritabanına kaydetme - FIXED to handle errors better
 	const saveOzelPanelToDatabase = async (panel) => {
