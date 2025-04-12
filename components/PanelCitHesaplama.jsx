@@ -247,6 +247,34 @@ const PanelCitHesaplama = () => {
     fetchInitialData();
   }, []);
 
+useEffect(() => {
+  if (activeTab === 'special-panel') {
+    setTimeout(() => {
+      const tableContainer = document.getElementById('ozelPanelTableContainer');
+      if (tableContainer) {
+        const topScrollbar = tableContainer.previousSibling;
+        if (topScrollbar) {
+          const handleTopScroll = (e) => {
+            tableContainer.scrollLeft = e.target.scrollLeft;
+          };
+          
+          const handleMainScroll = (e) => {
+            topScrollbar.scrollLeft = e.target.scrollLeft;
+          };
+          
+          // Remove existing listeners to prevent duplicates
+          topScrollbar.removeEventListener('scroll', handleTopScroll);
+          tableContainer.removeEventListener('scroll', handleMainScroll);
+          
+          // Add new listeners
+          topScrollbar.addEventListener('scroll', handleTopScroll);
+          tableContainer.addEventListener('scroll', handleMainScroll);
+        }
+      }
+    }, 100);
+  }
+}, [activeTab, ozelPanelList.length]);
+
   // İlk verileri çekme fonksiyonu - FIXED with proper variable scoping
   const fetchInitialData = async () => {
     setLoading(true);
@@ -3676,12 +3704,10 @@ const renderSpecialPanelEntry = () => {
       </div>
 
 	<div className="flex flex-col">
-	  {/* Top scrollbar */}
 	  <div className="overflow-x-scroll overflow-y-hidden" style={{ height: "20px" }}>
 	    <div style={{ width: "3000px", height: "1px" }}></div>
 	  </div>
 	  
-	  {/* Main table with synchronized scrolling */}
 	  <div 
 	    className="overflow-x-scroll" 
 	    id="ozelPanelTableContainer"
@@ -3697,6 +3723,7 @@ const renderSpecialPanelEntry = () => {
 	      }
 	    }}
 	  >
+
         <table className="min-w-max divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
