@@ -1929,6 +1929,14 @@ const PanelCitHesaplama = () => {
     setSatisListesi(generateSalesList(maliyetListesi));
   };
 
+	const resetOzelPanelList = () => {
+	  // Confirm before clearing
+	  const confirmReset = window.confirm('Özel panel listesini sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.');
+	  if (confirmReset) {
+	    setOzelPanelList([]);
+	  }
+	};
+
   // Excel'e aktarma - IMPROVED to respect current view and formatting
   const exportToExcel = (listType = 'maliyet') => {
     try {
@@ -3228,6 +3236,14 @@ className = "flex items-center px-3 py-1 bg-green-600 text-white rounded-md hove
   <Plus className="w-4 h-4 mr-1" />
     Yeni Panel Ekle
       </button>
+      <button 
+	    onClick={resetOzelPanelList}
+	    disabled={ozelPanelList.length === 0}
+	    className="flex items-center px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-300 text-sm"
+	  >
+	    <Trash2 className="w-4 h-4 mr-1" />
+	    Sıfırla
+      </button>
       < button
 onClick = {() => calculateCosts(false)}
 disabled = { calculating || ozelPanelList.length === 0}
@@ -3270,8 +3286,15 @@ className = "flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hove
           </p>
           </div>
 
-          < div className = "overflow-x-auto" >
-            <table className="min-w-full divide-y divide-gray-200" >
+          <div 
+ 		 className="overflow-x-scroll" 
+ 		 style={{ 
+   		 minWidth: "100%", 
+   		 paddingBottom: "8px",  // Ensure space for scrollbar
+  		  marginBottom: "12px"
+  		}}
+		>
+ 	     <table className="min-w-max divide-y divide-gray-200">
               <thead className="bg-gray-50" >
                 <tr>
                 {/* Girdi alanları - mavi tonlu başlıklar */ }
