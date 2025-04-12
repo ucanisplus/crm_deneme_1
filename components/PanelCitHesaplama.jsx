@@ -432,48 +432,42 @@ const fetchSectionData = async (section) => {
   };
 
   // Panel listesini filtreleme
-  const filterPanelList = () => {
-    let filtered = [...panelList];
-    
-    // Eğer 'all' değilse panel tipi filtresini uygula
-    if (selectedPanelType !== 'all') {
-      filtered = filtered.filter(panel => {
-        const panelKodu = (panel.panel_kodu || '').toUpperCase();
-        return panelKodu.startsWith(selectedPanelType.toUpperCase());
-      });
-    }
-    
-    // Arama terimi varsa arama filtresini uygula
-    if (panelSearch && panelSearch.trim() !== '') {
-      const searchTerms = panelSearch.toLowerCase().split(' ');
-      
-      filtered = filtered.filter(panel => {
-        const panelKodu = (panel.panel_kodu || '').toLowerCase();
-        const manualOrder = (panel.manual_order || '').toLowerCase();
-        const panelYukseklik = String(panel.panel_yuksekligi || '').toLowerCase();
-        const panelGenislik = String(panel.panel_genisligi || '').toLowerCase();
-        
-        return searchTerms.every(term => 
-          panelKodu.includes(term) || 
-          manualOrder.includes(term) ||
-          panelYukseklik.includes(term) ||
-          panelGenislik.includes(term)
-        );
-      });
-    }
-    
-    // Sütun filtrelerini uygula (Excel benzeri filtreleme)
-    Object.entries(columnFilters).forEach(([column, filterValue]) => {
-      if (filterValue && filterValue.trim() !== '') {
-        filtered = filtered.filter(panel => {
-          const value = String(panel[column] || '').toLowerCase();
-          return value.includes(filterValue.toLowerCase());
-        });
-      }
+const filterPanelList = () => {
+  let filtered = [...panelList];
+  
+  // Eğer 'all' değilse panel tipi filtresini uygula
+  if (selectedPanelType !== 'all') {
+    filtered = filtered.filter(panel => {
+      const panelKodu = (panel.panel_kodu || '').toUpperCase();
+      return panelKodu.startsWith(selectedPanelType.toUpperCase());
     });
+  }
+  
+// Arama terimi varsa arama filtresini uygula (Sadece Panel Kodu için)
+if (panelSearch && panelSearch.trim() !== '') {
+  const searchTerms = panelSearch.toLowerCase().split(' ');
+  
+  filtered = filtered.filter(panel => {
+    const panelKodu = String(panel.panel_kodu || '').toLowerCase();
     
-    setFilteredPanelList(filtered);
-  };
+    return searchTerms.every(term => panelKodu.includes(term));
+  });
+}
+  
+  // Sütun filtrelerini uygula (Excel benzeri filtreleme)
+  Object.entries(columnFilters).forEach(([column, filterValue]) => {
+    if (filterValue && filterValue.trim() !== '') {
+      filtered = filtered.filter(panel => {
+        // Tüm değerler için güvenli string dönüşümü
+        const value = panel[column] !== null && panel[column] !== undefined ? 
+                     String(panel[column]).toLowerCase() : '';
+        return value.includes(filterValue.toLowerCase());
+      });
+    }
+  });
+  
+  setFilteredPanelList(filtered);
+};
 
   // Excel benzeri sütun filtresi ayarlama
   const handleColumnFilterChange = (column, value) => {
