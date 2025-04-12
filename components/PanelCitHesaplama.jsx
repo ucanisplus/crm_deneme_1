@@ -152,32 +152,31 @@ const formatDisplayValue = (value) => {
 };
 
 // For table cell formatting - handles different column types
-const formatTableValue = (value, columnType) => {
+const formatTableValue = (value, columnType, raw = false) => {
   if (value === null || value === undefined || value === '') return '';
 
   const num = parseFloat(value);
-  if (isNaN(num)) return value; // Return original value if not a number
+  if (isNaN(num)) return value;
 
-  // Special case for zero
+  if (raw) return value; // NEW: just return the unformatted value for inputs
+
+  // Existing formatting logic (unchanged)
   if (num === 0) return '0';
 
   switch (columnType) {
     case 'tel_capi':
     case 'goz_araligi':
-      // Format for wire diameter or mesh spacing - show decimals without trailing zeros
-      // Only remove trailing zeros after a decimal point
+    case 'decimal':
       return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     case 'price':
-      // Format for prices - always show 5 decimal places for tables
       return num.toFixed(5);
-    case 'decimal':
-      // For other decimal values, show without trailing zeros
-      return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     default:
-      // For integer values, don't show decimal point
-      return Number.isInteger(num) ? num.toString() : num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+      return Number.isInteger(num) 
+        ? num.toString() 
+        : num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
   }
 };
+
 
 // Ana PanelCitHesaplama bileşeni
 const PanelCitHesaplama = () => {
@@ -3427,175 +3426,70 @@ className = "w-16 border rounded p-1 text-sm bg-white"
   />
   </td>
 
-{/* Hesaplanan alanlar - düzenlenebilir */ }
-<td className="px-3 py-2 whitespace-nowrap bg-blue-50" >
-  <input
-		    type="text"
-value = { panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)}
-className = "w-16 border rounded p-1 text-sm bg-white"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap bg-blue-50" >
-    <input
-		    type="text"
-value = { panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)}
-className = "w-16 border rounded p-1 text-sm bg-white"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.dikey_cubuk_adet || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)}
-className = "w-16 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.yatay_cubuk_adet || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)}
-className = "w-16 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.adet_m2, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.agirlik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.boya_kg, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.boyali_hali, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.m2_agirlik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.paletteki_panel_sayisi || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.palet_bos_agirlik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.palet_dolu_agirlik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.bos_palet_yuksekligi || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { formatTableValue(panel.paletli_yukseklik, 'decimal') || ''}
-onChange = {(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)}
-className = "w-20 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.panel_kodu || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)}
-className = "w-56 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.icube_code || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)}
-className = "w-40 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.icube_code_adetli || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)}
-className = "w-48 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
-  < td className = "px-3 py-2 whitespace-nowrap" >
-    <input
-                    type="text"
-value = { panel.stok_kodu || '' }
-onChange = {(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)}
-className = "w-40 border border-gray-200 rounded p-1 text-sm"
-  />
-  </td>
+{/* Hesaplanan alanlar - düzenlenebilir */}
+<td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+  <input type="text" value={panel.bukum_sayisi === 0 ? '0' : panel.bukum_sayisi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'bukum_sayisi', e.target.value)} className="w-16 border rounded p-1 text-sm bg-white" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap bg-blue-50">
+  <input type="text" value={panel.bukumdeki_cubuk_sayisi === 0 ? '0' : panel.bukumdeki_cubuk_sayisi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'bukumdeki_cubuk_sayisi', e.target.value)} className="w-16 border rounded p-1 text-sm bg-white" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.dikey_cubuk_adet ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'dikey_cubuk_adet', e.target.value)} className="w-16 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.yatay_cubuk_adet ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'yatay_cubuk_adet', e.target.value)} className="w-16 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.adet_m2 ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'adet_m2', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.agirlik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'agirlik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.boya_kg ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'boya_kg', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.boyali_hali ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'boyali_hali', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.m2_agirlik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'm2_agirlik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.paletteki_panel_sayisi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'paletteki_panel_sayisi', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.palet_bos_agirlik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'palet_bos_agirlik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.paletsiz_toplam_agirlik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_agirlik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.palet_dolu_agirlik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'palet_dolu_agirlik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.bos_palet_yuksekligi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'bos_palet_yuksekligi', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.adet_panel_yuksekligi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'adet_panel_yuksekligi', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.paletsiz_toplam_panel_yuksekligi ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'paletsiz_toplam_panel_yuksekligi', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.paletli_yukseklik ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'paletli_yukseklik', e.target.value)} className="w-20 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.panel_kodu ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'panel_kodu', e.target.value)} className="w-56 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.icube_code ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'icube_code', e.target.value)} className="w-40 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.icube_code_adetli ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'icube_code_adetli', e.target.value)} className="w-48 border border-gray-200 rounded p-1 text-sm" />
+</td>
+<td className="px-3 py-2 whitespace-nowrap">
+  <input type="text" value={panel.stok_kodu ?? ''} onChange={(e) => updateOzelPanel(panel.id, 'stok_kodu', e.target.value)} className="w-40 border border-gray-200 rounded p-1 text-sm" />
+</td>
   < td className = "px-3 py-2 whitespace-nowrap" >
     <div className="flex items-center space-x-2" >
       <button
