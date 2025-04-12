@@ -129,27 +129,29 @@ const safeParseFloat = (value, defaultValue = 0) => {
 
 // For display in input fields - allows both comma and period input
 const formatDisplayValue = (value) => {
-  // If it's a string with comma or period during user input, return as is
-  if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
-    return value;
-  }
-  
-  // Handle null/undefined/NaN cases
+  // nıllar
   if (value === null || value === undefined || isNaN(value)) return '';
+  
+  // deneme
+  if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
+    return value.replace(',', '.'); // Ensure periods for decimal
+  }
   
   const num = parseFloat(value);
   
-  // Special case for zero - always return "0"
+  // 0 icin ozel "0"
   if (num === 0) return '0';
   
-  // If it's an integer, return without decimal part
-  if (Number.isInteger(num)) {
-    return num.toString();
-  }
-  
-  // For all decimal values, remove trailing zeros
-  return num.toString().replace(/\.?0+$/, '');
+  // degeri aynen goster
+  return num.toString();
 };
+
+const handleInputChange = (value, setter, field) => {
+  virgulden noktaya
+  let processedValue = value;
+  if (typeof value === 'string') {
+    processedValue = value.replace(',', '.');
+  }
 
 // For table cell formatting - handles different column types
 const formatTableValue = (value, columnType) => {
@@ -2322,26 +2324,17 @@ const saveAllOzelPanelsToDatabase = async () => {
 
   // Genel değişkenleri güncelleme
 const handleGenelDegiskenlerChange = (field, value) => {
-  setGenelDegiskenler({
-    ...genelDegiskenler,
-    [field]: value
-  });
+   handleInputChange(value, setGenelDegiskenler, field);
 };
 
 // Panel çit değişkenlerini güncelleme
 const handlePanelCitDegiskenlerChange = (field, value) => {
-  setPanelCitDegiskenler({
-    ...panelCitDegiskenler,
-    [field]: value
-  });
+   handleInputChange(value, setPanelCitDegiskenler, field);
 };
 
 // Profil değişkenlerini güncelleme
 const handleProfilDegiskenlerChange = (field, value) => {
-  setProfilDegiskenler({
-    ...profilDegiskenler,
-    [field]: value
-  });
+  handleInputChange(value, setProfilDegiskenler, field);
 };
   
   // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
