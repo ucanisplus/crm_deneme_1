@@ -115,40 +115,51 @@ const getClosestHeight = (height, panelType, widthStr) => {
 };
 
 // Güvenli float değer dönüştürme yardımcı fonksiyonu - IMPROVED for better decimal handling
+// Replace the current safeParseFloat function with this enhanced version
 const safeParseFloat = (value, defaultValue = 0) => {
   if (value === null || value === undefined || value === '') return defaultValue;
-
+  
   // Handle both comma and dot as decimal separators
   if (typeof value === 'string') {
     value = value.replace(/\s/g, '').replace(',', '.');
   }
-
+  
   const parsed = parseFloat(value);
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-// For display in input fields - allows both comma and period input
+// Replace formatDisplayValue with this version that preserves exact values
 const formatDisplayValue = (value) => {
-  // If it's a string with comma or period during user input, return as is
-  if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
-    return value;
-  }
-
   // Handle null/undefined/NaN cases
   if (value === null || value === undefined || isNaN(value)) return '';
-
+  
+  // If it's a string with comma or period during user input, return as is
+  if (typeof value === 'string' && (value.includes(',') || value.includes('.'))) {
+    return value.replace(',', '.'); // Ensure periods for decimal
+  }
+  
   const num = parseFloat(value);
-
+  
   // Special case for zero - always return "0"
   if (num === 0) return '0';
+  
+  // Return the value as-is without modifying precision or removing trailing zeros
+  return num.toString();
+};
 
-  // If it's an integer, return without decimal part
-  if (Number.isInteger(num)) {
-    return num.toString();
+// Add a new helper function to handle input changes consistently across the app
+const handleInputChange = (value, setter, field) => {
+  // Convert commas to periods for decimal input
+  let processedValue = value;
+  if (typeof value === 'string') {
+    processedValue = value.replace(',', '.');
   }
-
-  // For all decimal values, remove trailing zeros
-  return num.toString().replace(/\.?0+$/, '');
+  
+  // Update the state with the processed value
+  setter(prev => ({
+    ...prev,
+    [field]: processedValue
+  }));
 };
 
 // For table cell formatting - handles different column types
@@ -2321,28 +2332,20 @@ const PanelCitHesaplama = () => {
   };
 
   // Genel değişkenleri güncelleme
-  const handleGenelDegiskenlerChange = (field, value) => {
-    setGenelDegiskenler({
-      ...genelDegiskenler,
-      [field]: value
-    });
-  };
 
-  // Panel çit değişkenlerini güncelleme
-  const handlePanelCitDegiskenlerChange = (field, value) => {
-    setPanelCitDegiskenler({
-      ...panelCitDegiskenler,
-      [field]: value
-    });
-  };
-
-  // Profil değişkenlerini güncelleme
-  const handleProfilDegiskenlerChange = (field, value) => {
-    setProfilDegiskenler({
-      ...profilDegiskenler,
-      [field]: value
-    });
-  };
+	const handleGenelDegiskenlerChange = (field, value) => {
+	  handleInputChange(value, setGenelDegiskenler, field);
+	};
+	
+	// For Panel Çit Değişkenler
+	const handlePanelCitDegiskenlerChange = (field, value) => {
+	  handleInputChange(value, setPanelCitDegiskenler, field);
+	};
+	
+	// For Profil Değişkenler
+	const handleProfilDegiskenlerChange = (field, value) => {
+	  handleInputChange(value, setProfilDegiskenler, field);
+	};
 
   // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
   const renderPanelList = () => (
