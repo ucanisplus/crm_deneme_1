@@ -1675,11 +1675,9 @@ const PanelCitHesaplama = () => {
         // Değeri güncelle
         const updatedPanel = { ...panel, [field]: formattedValue };
 
-        // Bağımlı alanlardan herhangi biri değiştiyse, panel değerlerini yeniden hesapla
-        if (['panel_yuksekligi', 'panel_genisligi', 'dikey_goz_araligi', 'yatay_goz_araligi',
-          'dikey_tel_capi', 'yatay_tel_capi', 'panel_tipi', 'bukum_sayisi'].includes(field)) {
+
           return calculatePanelValues(updatedPanel);
-        }
+        
 
         return updatedPanel;
       }
