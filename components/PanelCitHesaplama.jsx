@@ -3673,7 +3673,7 @@ const renderSpecialPanelEntry = () => {
           <div className="flex items-center gap-2">
             <button 
               onClick={addOzelPanel}
-              className="flex items-center px-4 py-2 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
+              className="flex items-center px-4 py-3 bg-yellow-100 text-gray-800 rounded-md hover:bg-yellow-200 text-sm"
             >
               <Plus className="w-4 h-4 mr-1" />
               Yeni Panel Ekle
@@ -3682,7 +3682,7 @@ const renderSpecialPanelEntry = () => {
             <button 
               onClick={resetOzelPanelList}
               disabled={ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
+              className="flex items-center px-4 py-3 bg-red-200 text-gray-800 rounded-md hover:bg-red-300 disabled:bg-red-100 text-sm"
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Sıfırla
@@ -3691,7 +3691,7 @@ const renderSpecialPanelEntry = () => {
             <button
               onClick={() => calculateCosts(false)}
               disabled={calculating || ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
+              className="flex items-center px-4 py-3 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
             >
               {calculating ? (
                 <>
@@ -3709,7 +3709,7 @@ const renderSpecialPanelEntry = () => {
             <button
               onClick={() => saveAllOzelPanelsToDatabase()}
               disabled={ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
+              className="flex items-center px-4 py-3 bg-green-200 text-gray-800 rounded-md hover:bg-green-300 disabled:bg-green-100 text-sm"
             >
               <Save className="w-4 h-4 mr-1.5" />
               Veritabanına Kaydet
