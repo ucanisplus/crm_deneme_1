@@ -847,15 +847,13 @@ const CelikHasirHesaplama = () => {
     // Değeri güncelle
     row[field] = value;
     
-      if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
-          // Allow empty value for backspace to work
-          if (value === '') {
-              row[field] = '';
-              setRows(updatedRows);
-              return;
-          }
-         
-      }
+     if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
+    // bosluga izin ver
+    if (value === '') {
+        row[field] = '';
+        // DÜZELTME: Early return kaldırıldı, işlem devam etmeli
+    }
+}
     // Kırmızı işaretleri kaldır - Filiz alanları hariç
     if (row.modified && row.modified[field] && 
         field !== 'solFiliz' && field !== 'sagFiliz' && 
