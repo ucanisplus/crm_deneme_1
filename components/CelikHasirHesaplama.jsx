@@ -2315,18 +2315,27 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     // Toplam filiz hesapla
     const totalFiliz = uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi);
     
-    // Arka filiz için hedef değer - NEW LOGIC: Prefer 75cm
-    let targetArkaFiliz = 75;
+    // DÜZELTME: Arka filiz için hedef değer 70cm olarak değiştirildi (önceki 75cm)
+    let targetArkaFiliz = 70;
     
     // Eğer toplam filiz yeterli değilse, düşürmeye başla
-    if (totalFiliz < 77.5) { // 2.5 (min on filiz) + 75 (target arka)
-        if (totalFiliz >= 72.5) {
-            targetArkaFiliz = 70;
-        } else if (totalFiliz >= 67.5) {
+    if (totalFiliz < 72.5) { // 2.5 (min on filiz) + 70 (target arka)
+        if (totalFiliz >= 67.5) {
             targetArkaFiliz = 65;
         } else {
             // Toplam filiz çok az, minimum değerlere düşür
             targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
+        }
+    } else if (totalFiliz >= 80) { 
+        // DÜZELTME: Eğer fazla filiz varsa, 11-70 ölçülerini korumak için ekstra kontrol
+        const onFilizWith70 = totalFiliz - 70;
+        
+        // Hedeflenen ön filiz değeri 11cm'den büyük olacaksa, 70cm'de kal
+        if (onFilizWith70 >= 11) {
+            targetArkaFiliz = 70;
+        } else {
+            // Aksi takdirde 75cm'i düşün
+            targetArkaFiliz = 75;
         }
     }
     
@@ -2342,7 +2351,7 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     // Arka filizi 5'in en yakın katına yuvarla
     targetArkaFiliz = Math.round(targetArkaFiliz / 5) * 5;
     
-    // Son ön filiz değeri (target 15cm if possible)
+    // Son ön filiz değeri
     let finalOnFiliz = totalFiliz - targetArkaFiliz;
     
     // Değerleri güncelle
