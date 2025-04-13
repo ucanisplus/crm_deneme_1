@@ -827,97 +827,98 @@ const CelikHasirHesaplama = () => {
     return value.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
   };
 
-  // Bireysel hücre değişikliklerini işleme - Filiz değerleri için güçlü işaretleme eklendi
-  const handleCellChange = (rowIndex, field, value) => {
-    const updatedRows = [...rows];
-    const row = updatedRows[rowIndex];
-    
-    // Gerekiyorsa sayıyı formatla
-    if (typeof value === 'string' && field !== 'hasirTipi' && field !== 'aciklama') {
-        value = formatNumber(value);
-    }
-    
-    if (field === 'hasirTipi') {
-      value = standardizeHasirTipi(value);
-    }
-    
-    // Önceki değeri sakla
-    const previousValue = row[field];
-    
-    // Değeri güncelle
-    row[field] = value;
-    
-     if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
-    // bosluga izin ver
+// Bireysel hücre değişikliklerini işleme - Filiz değerleri için güçlü işaretleme eklendi
+const handleCellChange = (rowIndex, field, value) => {
+  const updatedRows = [...rows];
+  const row = updatedRows[rowIndex];
+  
+  // Gerekiyorsa sayıyı formatla
+  if (typeof value === 'string' && field !== 'hasirTipi' && field !== 'aciklama') {
+      value = formatNumber(value);
+  }
+  
+  if (field === 'hasirTipi') {
+    value = standardizeHasirTipi(value);
+  }
+  
+  // Önceki değeri sakla
+  const previousValue = row[field];
+  
+  // Değeri güncelle
+  row[field] = value;
+  
+  // DÜZELTME: cubukSayisiBoy ve cubukSayisiEn için early return kaldırıldı
+  if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
+    // Boş değere izin ver ama early return yapma
     if (value === '') {
-        row[field] = '';
-        // DÜZELTME: Early return kaldırıldı, işlem devam etmeli
+      row[field] = '';
+      // DÜZELTME: Return kaldırıldı, işlem devam ediyor
     }
-}
-    // Kırmızı işaretleri kaldır - Filiz alanları hariç
-    if (row.modified && row.modified[field] && 
-        field !== 'solFiliz' && field !== 'sagFiliz' && 
-        field !== 'onFiliz' && field !== 'arkaFiliz') {
-      row.modified[field] = false;
-    }
-    
-    // Filiz değerlerinin değişimi için özel kontrol - Güçlü işaretleme
-    if (field === 'solFiliz' || field === 'sagFiliz' || field === 'onFiliz' || field === 'arkaFiliz') {
-      if (previousValue !== value) {
-        row.modified[field] = true;
-        
-        // Açıklamaya filiz değişikliği notu ekle - Eğer zaten yoksa
-        if (!row.aciklama.includes('!Dikkat: Filiz Değerleri Elle Değiştirildi')) {
-          row.aciklama += '!Dikkat: Filiz Değerleri Elle Değiştirildi. ';
-        }
-      }
-    }
-    
-    // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
-    if (field === 'hasirTipi') {
-      updateRowFromHasirTipi(updatedRows, rowIndex);
-    }
-    
-    // En değerini otomatik düzelt (126-149 cm aralığındakileri 150 cm'e tamamla)
-    if (field === 'uzunlukEn') {
-      const enValue = parseFloat(value);
-      if (!isNaN(enValue) && enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && enValue < MACHINE_LIMITS.MIN_EN) {
-        row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-        row.modified.uzunlukEn = true;
-        
-        if (row.aciklama && !row.aciklama.includes('En ölçüsü otomatik olarak 150 cm\'e ayarlandı')) {
-          row.aciklama += 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
-        } else if (!row.aciklama) {
-          row.aciklama = 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
-        }
-      }
-    }
-    
-    // Uzunluk Boy değiştiğinde hasır türünü güncelle
-    if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
-      const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      row.hasirTuru = hasirTuru;
-    }
-    
-    // Herhangi bir alan değiştiyse, eğer temel alanlar doluysa yeniden hesaplama yap
-    if (isRowFilled(row) && 
-        field !== 'solFiliz' && field !== 'sagFiliz' && field !== 'onFiliz' && field !== 'arkaFiliz') {
-      // Hesaplama fonksiyonlarını çağır (filiz değerleri hariç)
-      calculateBasicValues(updatedRows, rowIndex);
-    } else if (isRowFilled(row) && 
-               (field === 'uzunlukBoy' || field === 'uzunlukEn' || 
-                field === 'cubukSayisiBoy' || field === 'cubukSayisiEn' || 
-                field === 'boyAraligi' || field === 'enAraligi')) {
-      // Temel değerler değiştiyse filiz değerlerini yeniden hesapla - Manuel değiştirilenler hariç
-
-        calculateFilizValues(row);
+  }
+  
+  // Kırmızı işaretleri kaldır - Filiz alanları hariç
+  if (row.modified && row.modified[field] && 
+      field !== 'solFiliz' && field !== 'sagFiliz' && 
+      field !== 'onFiliz' && field !== 'arkaFiliz') {
+    row.modified[field] = false;
+  }
+  
+  // Filiz değerlerinin değişimi için özel kontrol - Güçlü işaretleme
+  if (field === 'solFiliz' || field === 'sagFiliz' || field === 'onFiliz' || field === 'arkaFiliz') {
+    if (previousValue !== value) {
+      row.modified[field] = true;
       
-      // Ağırlık hesapla
-      calculateWeight(row);
+      // Açıklamaya filiz değişikliği notu ekle - Eğer zaten yoksa
+      if (!row.aciklama.includes('!Dikkat: Filiz Değerleri Elle Değiştirildi')) {
+        row.aciklama += '!Dikkat: Filiz Değerleri Elle Değiştirildi. ';
+      }
     }
+  }
+  
+  // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
+  if (field === 'hasirTipi') {
+    updateRowFromHasirTipi(updatedRows, rowIndex);
+  }
+  
+  // En değerini otomatik düzelt (126-149 cm aralığındakileri 150 cm'e tamamla)
+  if (field === 'uzunlukEn') {
+    const enValue = parseFloat(value);
+    if (!isNaN(enValue) && enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && enValue < MACHINE_LIMITS.MIN_EN) {
+      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+      row.modified.uzunlukEn = true;
+      
+      if (row.aciklama && !row.aciklama.includes('En ölçüsü otomatik olarak 150 cm\'e ayarlandı')) {
+        row.aciklama += 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
+      } else if (!row.aciklama) {
+        row.aciklama = 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
+      }
+    }
+  }
+  
+  // Uzunluk Boy değiştiğinde hasır türünü güncelle
+  if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
+    const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+    row.hasirTuru = hasirTuru;
+  }
+  
+  // Herhangi bir alan değiştiyse, eğer temel alanlar doluysa yeniden hesaplama yap
+  if (isRowFilled(row) && 
+      field !== 'solFiliz' && field !== 'sagFiliz' && field !== 'onFiliz' && field !== 'arkaFiliz') {
+    // Hesaplama fonksiyonlarını çağır (filiz değerleri hariç)
+    calculateBasicValues(updatedRows, rowIndex);
+  } else if (isRowFilled(row) && 
+             (field === 'uzunlukBoy' || field === 'uzunlukEn' || 
+              field === 'cubukSayisiBoy' || field === 'cubukSayisiEn' || 
+              field === 'boyAraligi' || field === 'enAraligi')) {
+    // Temel değerler değiştiyse filiz değerlerini yeniden hesapla - Manuel değiştirilenler hariç
+    calculateFilizValues(row);
     
-    setRows(updatedRows);
-  };
+    // Ağırlık hesapla
+    calculateWeight(row);
+  }
+  
+  setRows(updatedRows);
+};
 
   // Ön izleme tablosundaki hücreleri değiştirme
   const handlePreviewCellChange = (rowIndex, field, value) => {
