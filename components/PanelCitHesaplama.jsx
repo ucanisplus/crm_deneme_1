@@ -1332,42 +1332,33 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-// Panel listesini Excel'e aktarma
+// Panel listesini Excel'e aktarma - Veritabanı tablosundaki kolonlara göre düzenlenmiş versiyon
 const exportPanelListToExcel = () => {
   try {
     // Filtrelenmiş panel listesini al
-    const dataToExport = filteredPanelList.map(panel => ({
-      "Manual Order": panel.manual_order || '',
-      "Panel Kodu": panel.panel_kodu || '',
-      "Panel Tipi": panel.panel_tipi || '',
-      "Yükseklik": panel.panel_yuksekligi || '',
-      "Genişlik": panel.panel_genisligi || '',
-      "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi'),
-      "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi'),
-      "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi'),
-      "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi'),
-      "Büküm Sayısı": panel.bukum_sayisi || '',
-      "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
-      "Dikey Çubuk Adedi": panel.dikey_cubuk_adet || '',
-      "Yatay Çubuk Adedi": panel.yatay_cubuk_adet || '',
-      "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
-      "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
-      "Boya Kg": formatTableValue(panel.boya_kg, 'decimal') || '',
-      "Boyalı Hali": formatTableValue(panel.boyali_hali, 'decimal') || '',
-      "M² Ağırlık": formatTableValue(panel.m2_agirlik, 'decimal') || '',
-      "Paletteki Panel Sayısı": panel.paletteki_panel_sayisi || '',
-      "Palet Boş Ağırlık": formatTableValue(panel.palet_bos_agirlik, 'decimal') || '',
-      "Paletsiz Toplam Ağırlık": formatTableValue(panel.paletsiz_toplam_agirlik, 'decimal') || '',
-      "Palet Dolu Ağırlık": formatTableValue(panel.palet_dolu_agirlik, 'decimal') || '',
-      "Boş Palet Yüksekliği": panel.bos_palet_yuksekligi || '',
-      "Adet Panel Yüksekliği": formatTableValue(panel.adet_panel_yuksekligi, 'decimal') || '',
-      "Paletsiz Toplam Panel Yüksekliği": formatTableValue(panel.paletsiz_toplam_panel_yuksekligi, 'decimal') || '',
-      "Paletli Yükseklik": formatTableValue(panel.paletli_yukseklik, 'decimal') || '',
-      "Icube Code": panel.icube_code || '',
-      "Icube Code (Adetli)": panel.icube_code_adetli || '',
-      "Stok Kodu": panel.stok_kodu || '',
-      "Kayıt Tarihi": panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : ''
-    }));
+    const dataToExport = filteredPanelList.map(panel => {
+      // Tam olarak veritabanı yapısına göre tüm panel özelliklerini dahil et
+      return {
+        "ID": panel.id || '',
+        "Manual Order": panel.manual_order || '',
+        "Panel Tipi": panel.panel_tipi || '',
+        "Panel Kodu": panel.panel_kodu || '',
+        "Yükseklik": formatTableValue(panel.panel_yuksekligi, 'decimal') || '',
+        "Genişlik": formatTableValue(panel.panel_genisligi, 'decimal') || '',
+        "Dikey Tel Çapı": formatTableValue(panel.dikey_tel_capi, 'tel_capi') || '',
+        "Yatay Tel Çapı": formatTableValue(panel.yatay_tel_capi, 'tel_capi') || '',
+        "Dikey Göz Aralığı": formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') || '',
+        "Yatay Göz Aralığı": formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') || '',
+        "Adet M²": formatTableValue(panel.adet_m2, 'decimal') || '',
+        "Dikey Çubuk Adedi": panel.dikey_cubuk_adet || '',
+        "Yatay Çubuk Adedi": panel.yatay_cubuk_adet || '',
+        "Büküm Sayısı": panel.bukum_sayisi || '',
+        "Bükümdeki Çubuk Sayısı": panel.bukumdeki_cubuk_sayisi || '',
+        "Ağırlık": formatTableValue(panel.agirlik, 'decimal') || '',
+        "Stok Kodu": panel.stok_kodu || '',
+        "Kayıt Tarihi": panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : ''
+      };
+    });
 
     if (dataToExport.length === 0) {
       alert('Dışa aktarılacak veri bulunamadı!');
@@ -1383,8 +1374,9 @@ const exportPanelListToExcel = () => {
     // Tüm kolonların genişliklerini ayarla
     const columnWidths = [];
     for (let C = range.s.c; C <= range.e.c; ++C) {
-      // Her kolon için varsayılan genişlik
-      columnWidths.push({ wch: 15 });
+      // Her kolon için uygun genişlik
+      const columnWidth = C === 0 || C === 1 ? 20 : 15; // Panel Kodu ve Manual Order için daha geniş
+      columnWidths.push({ wch: columnWidth });
     }
     worksheet['!cols'] = columnWidths;
 
@@ -2354,7 +2346,7 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
 	  }
 	};
 
-  // Excel'e aktarma - IMPROVED to respect current view and formatting
+  // Excel'e aktarma
   const exportToExcel = (listType = 'maliyet') => {
     try {
       // Hangi listenin dışa aktarılacağını belirle
@@ -2772,183 +2764,189 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
 	  handleInputChange(value, setProfilDegiskenler, field);
 	};
 
-  // Bu bileşen, filtered ve sorted panel listesini ve filtre durumunu hesaplar
-  const renderPanelList = () => (
-    <div className= "bg-white rounded-lg border shadow-sm" >
-    <div className="p-4 border-b" >
-      <div className="flex items-center justify-between mb-4" >
-        <h3 className="text-lg font-semibold" > Panel Çit Listesi </h3>
-          < div className = "flex items-center gap-2" >
-            <button 
-              onClick={ () => setSelectedPanelType('all') }
-  className = {`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'all' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`
-}
-            >
-  Tümü
-  </button>
-  < button
-onClick = {() => setSelectedPanelType('SP')}
-className = {`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'SP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-  SP
-  </button>
-  < button
-onClick = {() => setSelectedPanelType('DP')}
-className = {`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'DP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-  DP
-  </button>
-  < button
-onClick = {() => setSelectedPanelType('GP')}
-className = {`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'GP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-  GP
-  </button>
-  < button
-onClick = {() => setSelectedPanelType('OP')}
-className = {`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'OP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-  OP
-  </button>
-  </div>
-  </div>
-
-  < div className = "flex items-center gap-2 mb-4" >
-    <div className="relative flex-1" >
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size = { 18} />
-        <input 
-              type="text"
-placeholder = "Panel kodu veya tanımı ara..."
-value = { panelSearch }
-onChange = {(e) => setPanelSearch(e.target.value)}
-className = "pl-10 pr-4 py-2 border rounded-md w-full"
-  />
-  </div>
-  < div className = "flex items-center gap-2" >
-    <span className="text-sm text-gray-500" > Toplam: </span>
-      < span className = "font-semibold" > { filteredPanelList.length } panel </span>
+// Ana paneller tablosu - tüm kolonları gösterecek şekilde güncellenmiş
+const renderPanelList = () => (
+  <div className="bg-white rounded-lg border shadow-sm">
+    <div className="p-4 border-b">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Panel Çit Listesi</h3>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setSelectedPanelType('all')}
+            className={`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'all' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            Tümü
+          </button>
+          <button
+            onClick={() => setSelectedPanelType('SP')}
+            className={`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'SP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            SP
+          </button>
+          <button
+            onClick={() => setSelectedPanelType('DP')}
+            className={`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'DP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            DP
+          </button>
+          <button
+            onClick={() => setSelectedPanelType('GP')}
+            className={`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'GP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            GP
+          </button>
+          <button
+            onClick={() => setSelectedPanelType('OP')}
+            className={`px-3 py-1 rounded-md text-sm ${selectedPanelType === 'OP' ? 'bg-red-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+          >
+            OP
+          </button>
         </div>
-	
-	<button
-	  onClick={() => exportPanelListToExcel()}
-	  disabled={filteredPanelList.length === 0}
-	  className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300"
-	>
-	  <FileSpreadsheet className="w-5 h-5 mr-2" />
-	  Excel'e Aktar
-	</button>
-
-        < button
-onClick = {() => calculateCosts(true)}
-disabled = { calculating || filteredPanelList.length === 0}
-className = "flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
-  >
-{
-  calculating?(
-              <>
-  <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-    Hesaplanıyor...
-</>
-            ) : (
-  <>
-  <Calculator className= "w-5 h-5 mr-2" />
-  Hesapla
-  </>
-            )}
-</button>
-
-  < button
-onClick = {() => createOzelPanelsFromFiltered()}
-disabled = { filteredPanelList.length === 0 }
-className = "flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
-  >
-  <Plus className="w-5 h-5 mr-2" />
-    Özel Panellere Ekle
-      </button>
-      </div>
       </div>
 
-      < div className = "overflow-x-auto max-h-[500px] overflow-y-auto" >
-        <table className="min-w-full divide-y divide-gray-200" >
-          <thead className="bg-gray-50 sticky top-0" >
-            <tr>
-            {
-              [
-              { key: 'panel_kodu', label: 'Panel Kodu' },
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18}/>
+          <input 
+            type="text"
+            placeholder="Panel kodu veya tanımı ara..."
+            value={panelSearch}
+            onChange={(e) => setPanelSearch(e.target.value)}
+            className="pl-10 pr-4 py-2 border rounded-md w-full"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Toplam:</span>
+          <span className="font-semibold">{filteredPanelList.length} panel</span>
+        </div>
+        
+        <button
+          onClick={() => exportPanelListToExcel()}
+          disabled={filteredPanelList.length === 0}
+          className="flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:bg-amber-300"
+        >
+          <FileSpreadsheet className="w-5 h-5 mr-2" />
+          Excel'e Aktar
+        </button>
+
+        <button
+          onClick={() => calculateCosts(true)}
+          disabled={calculating || filteredPanelList.length === 0}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+        >
+          {calculating ? (
+            <>
+              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+              Hesaplanıyor...
+            </>
+          ) : (
+            <>
+              <Calculator className="w-5 h-5 mr-2" />
+              Hesapla
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={() => createOzelPanelsFromFiltered()}
+          disabled={filteredPanelList.length === 0}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-300"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Özel Panellere Ekle
+        </button>
+      </div>
+    </div>
+
+    <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50 sticky top-0">
+          <tr>
+            {[
+              { key: 'id', label: 'ID' },
+              { key: 'manual_order', label: 'Manual Order' },
               { key: 'panel_tipi', label: 'Panel Tipi' },
+              { key: 'panel_kodu', label: 'Panel Kodu' },
               { key: 'panel_yuksekligi', label: 'Yükseklik' },
               { key: 'panel_genisligi', label: 'Genişlik' },
               { key: 'dikey_tel_capi', label: 'Dikey Tel Çapı' },
               { key: 'yatay_tel_capi', label: 'Yatay Tel Çapı' },
               { key: 'dikey_goz_araligi', label: 'Dikey Göz Aralığı' },
               { key: 'yatay_goz_araligi', label: 'Yatay Göz Aralığı' },
+              { key: 'adet_m2', label: 'Adet M²' },
+              { key: 'dikey_cubuk_adet', label: 'Dikey Çubuk Adedi' },
+              { key: 'yatay_cubuk_adet', label: 'Yatay Çubuk Adedi' },
               { key: 'bukum_sayisi', label: 'Büküm Sayısı' },
               { key: 'bukumdeki_cubuk_sayisi', label: 'Bükümdeki Çubuk Sayısı' },
-              { key: 'adet_m2', label: 'Adet M²' },
-              { key: 'agirlik', label: 'Ağırlık' }
-              ].map(column => (
-                <th 
-                  key= { column.key } 
-                  scope = "col" 
-                  className = "px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick = {() => sortPanelList(column.key)}
-            >
-            <div className="flex flex-col" >
-              <div className="flex items-center" >
-                { column.label }
-{
-  sortConfig.key === column.key && (
-    <span className="ml-1" >
-      { sortConfig.direction === 'ascending' ? '↑' : '↓' }
-      </span>
-                      )
-}
-</div>
-  < input
-type = "text"
-placeholder = "Filtrele..."
-value = { columnFilters[column.key] || '' }
-onChange = {(e) => handleColumnFilterChange(column.key, e.target.value)}
-onClick = {(e) => e.stopPropagation()}
-className = "mt-1 px-1 py-0.5 border border-gray-300 rounded text-xs w-full"
-  />
-  </div>
-  </th>
-              ))}
-</tr>
-  </thead>
-  < tbody className = "bg-white divide-y divide-gray-200" >
-  {
-    filteredPanelList.map((panel) => (
-      <tr key= { panel.id } className = "hover:bg-gray-50" >
-      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900" > { panel.panel_kodu } </td>
-    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { panel.panel_tipi } </td>
-    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.panel_yuksekligi, 'decimal') } </td>
-    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.panel_genisligi, 'decimal') } </td>
-      < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.dikey_tel_capi, 'tel_capi') } </td>
-        < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.yatay_tel_capi, 'tel_capi') } </td>
-          < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.dikey_goz_araligi, 'goz_araligi') } </td>
-            < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.yatay_goz_araligi, 'goz_araligi') } </td>
-              < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { panel.bukum_sayisi } </td>
-                < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { panel.bukumdeki_cubuk_sayisi } </td>
-                  < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.adet_m2, 'decimal') } </td>
-                    < td className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500" > { formatTableValue(panel.agirlik, 'decimal') } </td>
-                      </tr>
+              { key: 'agirlik', label: 'Ağırlık' },
+              { key: 'stok_kodu', label: 'Stok Kodu' },
+              { key: 'kayit_tarihi', label: 'Kayıt Tarihi' }
+            ].map(column => (
+              <th 
+                key={column.key} 
+                scope="col" 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => sortPanelList(column.key)}
+              >
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    {column.label}
+                    {sortConfig.key === column.key && (
+                      <span className="ml-1">
+                        {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filtrele..."
+                    value={columnFilters[column.key] || ''}
+                    onChange={(e) => handleColumnFilterChange(column.key, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 px-1 py-0.5 border border-gray-300 rounded text-xs w-full"
+                  />
+                </div>
+              </th>
             ))}
-{
-  filteredPanelList.length === 0 && (
-    <tr>
-    <td colSpan="12" className = "px-4 py-4 text-center text-sm text-gray-500" >
-      { loading? 'Yükleniyor...': 'Eşleşen panel bulunamadı. Lütfen filtrelerinizi kontrol edin.' }
-      </td>
-      </tr>
-            )
-}
-</tbody>
-  </table>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {filteredPanelList.map((panel) => (
+            <tr key={panel.id} className="hover:bg-gray-50">
+              <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{panel.id}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{panel.manual_order}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_tipi}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.panel_kodu}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.panel_yuksekligi, 'decimal')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.panel_genisligi, 'decimal')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_tel_capi, 'tel_capi')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_tel_capi, 'tel_capi')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.dikey_goz_araligi, 'goz_araligi')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.yatay_goz_araligi, 'goz_araligi')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.adet_m2, 'decimal')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.dikey_cubuk_adet}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.yatay_cubuk_adet}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukum_sayisi}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.bukumdeki_cubuk_sayisi}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatTableValue(panel.agirlik, 'decimal')}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{panel.stok_kodu}</td>
+              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                {panel.kayit_tarihi ? new Date(panel.kayit_tarihi).toLocaleString('tr-TR') : ''}
+              </td>
+            </tr>
+          ))}
+          {filteredPanelList.length === 0 && (
+            <tr>
+              <td colSpan="18" className="px-4 py-4 text-center text-sm text-gray-500">
+                {loading ? 'Yükleniyor...' : 'Eşleşen panel bulunamadı. Lütfen filtrelerinizi kontrol edin.'}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   </div>
-  </div>
-  );
+);
 
 // Değişkenler Akordiyon
 const renderDegiskenlerAccordion = () => (
@@ -3720,7 +3718,7 @@ const renderSpecialPanelEntry = () => {
             <button
               onClick={() => exportToExcel('ozel')}
               disabled={ozelPanelList.length === 0}
-              className="flex items-center px-4 py-2 text-white rounded-md disabled:opacity-50 text-sm"
+              className="flex items-center px-4 py-3 text-white rounded-md disabled:opacity-50 text-sm"
               style={{ backgroundColor: "#217346" }}
             >
               <FileSpreadsheet className="w-4 h-4 mr-1.5" />
@@ -4933,7 +4931,7 @@ disabled = { satisListesi.length === 0 }
 
       < button
 onClick = {() => setShowSalesView(false)}
-className = "flex items-center px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+className = "flex items-center px-3 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
   >
   <Calculator className="w-4 h-4 mr-1" />
     Maliyet Listesi
@@ -5148,7 +5146,7 @@ const renderTempCalculations = () => (
       <h3 className="text-lg font-semibold" > Geçici Hesaplamalar </h3>
         < button
 onClick = {() => exportToExcel('gecici')}
-className = "flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+className = "flex items-center px-3 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
 disabled = { geciciHesaplar.length === 0 }
   >
   <FileSpreadsheet className="w-4 h-4 mr-1" />
