@@ -1441,50 +1441,64 @@ const iyilestir = async (rowIndex) => {
     };
     
     // İyilestirAll'daki filiz skorlama mantığını uygula
-    const scoreFiliz = (row, filiz) => {
-      const { on, arka } = filiz;
-      
-      // Reject invalid values
-      if (on < 2.5 || arka < 0) return -Infinity;
-      
-      // Rule 1: Q type, Döşeme → strongly prefer önFiliz = 22.5
-      if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
-        // Use a tighter threshold (0.5 instead of 1) and higher score (1000 instead of 500)
-        return Math.abs(on - 22.5) < 0.5 ? 1000 : 
-               (Math.abs(on - 22.5) < 1 ? 500 : 
-               (on > 15.5 ? 100 + on : on));
+const scoreFiliz = (row, filiz) => {
+  const { on, arka } = filiz;
+  
+  // Reject invalid values
+  if (on < 2.5 || arka < 0) return -Infinity;
+  
+  // Rule 1: Q type, Döşeme → strictly enforce 15-22 range
+  if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
+      // İdeal aralık 15-22
+      if (on < 15 || on > 22 || arka < 15 || arka > 22) {
+          return -100; // Aralık dışındaysa büyük ceza
       }
       
-      // Rule 2: Perde → prefer ön = 15, arka = 75
-      if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
-        // Use a tighter threshold for more precision and higher scores
-        const onScore = Math.abs(on - 15) < 0.5 ? 1000 : 
-                       (Math.abs(on - 15) < 1 ? 500 : 0);
-        const arkaScore = Math.abs(arka - 75) < 0.5 ? 1000 : 
-                         (Math.abs(arka - 75) < 1 ? 500 : 0);
-        
-        // Special case: If arka is a multiple of 5, add bonus
-        const arkaBonus = Math.abs(arka % 5) < 0.1 ? 200 : 0;
-        
-        return onScore + arkaScore + arkaBonus;
-      }
+      // İdeal değerlere verilen bonus
+      let idealBonus = 0;
       
-      // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
-      if (row.hasirTipi.startsWith('Q')) {
-        // Still prefer önFiliz > 15.5 for other Q types
-        return on > 15.5 ? 100 + on : on;
-      }
+      // Değer 17.5'e yakın mı?
+      if (Math.abs(on - 17.5) < 1) idealBonus += 50;
+      if (Math.abs(arka - 17.5) < 1) idealBonus += 50;
       
-      // Rule 4: Non-Q types
-      // For other hasır types, use a basic score based on reasonable ranges
+      return 500 + idealBonus;
+  }
+  
+  // Rule 2: Perde → prefer ön < 16, arka = 70
+  if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
       let score = 0;
       
-      // Reasonable filiz ranges for other types
-      if (on >= 10 && on <= 25) score += 50;
-      if (arka >= 10 && arka <= 25) score += 50;
+      // Ön filiz için puan (15'e yakın ve 16'dan küçük olmalı)
+      if (on < 16) score += 100;
+      if (Math.abs(on - 15) < 1) score += 50;
+      
+      // Arka filiz puanlaması (70 > 75 > 65)
+      if (Math.abs(arka - 70) < 1) score += 150;
+      else if (Math.abs(arka - 75) < 1) score += 100;
+      else if (Math.abs(arka - 65) < 1) score += 50;
+      
+      // 5'in katı artık daha az önemli
+      if (Math.abs(arka % 5) < 0.1) score += 10;
       
       return score;
-    };
+  }
+  
+  // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
+  if (row.hasirTipi.startsWith('Q')) {
+      // Still prefer önFiliz > 15.5 for other Q types
+      return on > 15.5 ? 100 + on : on;
+  }
+  
+  // Rule 4: Non-Q types
+  // For other hasır types, use a basic score based on reasonable ranges
+  let score = 0;
+  
+  // Reasonable filiz ranges for other types
+  if (on >= 10 && on <= 25) score += 50;
+  if (arka >= 10 && arka <= 25) score += 50;
+  
+  return score;
+}
     
     const initialScore = scoreFiliz(row, initialFiliz);
     const optimizedScore = scoreFiliz(row, optimizedFiliz);
@@ -1706,50 +1720,64 @@ const iyilestirAll = async () => {
           arka: row.arkaFiliz
         };
         
-        const scoreFiliz = (row, filiz) => {
-            const { on, arka } = filiz;
-          
-            // Reject invalid values
-            if (on < 2.5 || arka < 0) return -Infinity;
-          
-            // Rule 1: Q type, Döşeme → strongly prefer önFiliz = 22.5
-            if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
-                // Use a tighter threshold (0.5 instead of 1) and higher score (1000 instead of 500)
-                return Math.abs(on - 22.5) < 0.5 ? 1000 : 
-                       (Math.abs(on - 22.5) < 1 ? 500 : 
-                       (on > 15.5 ? 100 + on : on));
-            }
-          
-            // Rule 2: Perde → prefer ön = 15, arka = 75
-            if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
-                // Use a tighter threshold for more precision and higher scores
-                const onScore = Math.abs(on - 15) < 0.5 ? 1000 : 
-                               (Math.abs(on - 15) < 1 ? 500 : 0);
-                const arkaScore = Math.abs(arka - 75) < 0.5 ? 1000 : 
-                                 (Math.abs(arka - 75) < 1 ? 500 : 0);
-                
-                // Special case: If arka is a multiple of 5, add bonus
-                const arkaBonus = Math.abs(arka % 5) < 0.1 ? 200 : 0;
-                
-                return onScore + arkaScore + arkaBonus;
-            }
-            
-            // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
-            if (row.hasirTipi.startsWith('Q')) {
-                // Still prefer önFiliz > 15.5 for other Q types
-                return on > 15.5 ? 100 + on : on;
-            }
-          
-            // Rule 4: Non-Q types
-            // For other hasır types, use a basic score based on reasonable ranges
-            let score = 0;
-            
-            // Reasonable filiz ranges for other types
-            if (on >= 10 && on <= 25) score += 50;
-            if (arka >= 10 && arka <= 25) score += 50;
-            
-            return score;
-        };
+const scoreFiliz = (row, filiz) => {
+  const { on, arka } = filiz;
+  
+  // Reject invalid values
+  if (on < 2.5 || arka < 0) return -Infinity;
+  
+  // Rule 1: Q type, Döşeme → strictly enforce 15-22 range
+  if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
+      // İdeal aralık 15-22
+      if (on < 15 || on > 22 || arka < 15 || arka > 22) {
+          return -100; // Aralık dışındaysa büyük ceza
+      }
+      
+      // İdeal değerlere verilen bonus
+      let idealBonus = 0;
+      
+      // Değer 17.5'e yakın mı?
+      if (Math.abs(on - 17.5) < 1) idealBonus += 50;
+      if (Math.abs(arka - 17.5) < 1) idealBonus += 50;
+      
+      return 500 + idealBonus;
+  }
+  
+  // Rule 2: Perde → prefer ön < 16, arka = 70
+  if (row.hasirTipi.startsWith('Q') && (row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde')) {
+      let score = 0;
+      
+      // Ön filiz için puan (15'e yakın ve 16'dan küçük olmalı)
+      if (on < 16) score += 100;
+      if (Math.abs(on - 15) < 1) score += 50;
+      
+      // Arka filiz puanlaması (70 > 75 > 65)
+      if (Math.abs(arka - 70) < 1) score += 150;
+      else if (Math.abs(arka - 75) < 1) score += 100;
+      else if (Math.abs(arka - 65) < 1) score += 50;
+      
+      // 5'in katı artık daha az önemli
+      if (Math.abs(arka % 5) < 0.1) score += 10;
+      
+      return score;
+  }
+  
+  // Rule 3: Other Q types (not Perde/DK Perde and not Döşeme)
+  if (row.hasirTipi.startsWith('Q')) {
+      // Still prefer önFiliz > 15.5 for other Q types
+      return on > 15.5 ? 100 + on : on;
+  }
+  
+  // Rule 4: Non-Q types
+  // For other hasır types, use a basic score based on reasonable ranges
+  let score = 0;
+  
+  // Reasonable filiz ranges for other types
+  if (on >= 10 && on <= 25) score += 50;
+  if (arka >= 10 && arka <= 25) score += 50;
+  
+  return score;
+}
                 
         const initialScore = scoreFiliz(row, initialFiliz);
         const optimizedScore = scoreFiliz(row, optimizedFiliz);
@@ -2307,6 +2335,7 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
 };
 
 // Perde tipi hasırlar için filiz değerlerini optimize et
+
 const optimizePerdeFilizValues = (row, filizLimits) => {
     const uzunlukBoy = parseFloat(row.uzunlukBoy);
     const enAraligi = parseFloat(row.enAraligi);
@@ -2317,34 +2346,99 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     // Toplam filiz hesapla
     const totalFiliz = uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi);
     
-    // Arka filiz için hedef değer - NEW LOGIC: Prefer 75cm
-    let targetArkaFiliz = 75;
+    // Arka filiz için hedef değer - Artık 70cm öncelikli
+    let targetArkaFiliz = 70;
     
-    // Eğer toplam filiz yeterli değilse, düşürmeye başla
-    if (totalFiliz < 77.5) { // 2.5 (min on filiz) + 75 (target arka)
-        if (totalFiliz >= 72.5) {
-            targetArkaFiliz = 70;
-        } else if (totalFiliz >= 67.5) {
-            targetArkaFiliz = 65;
-        } else {
-            // Toplam filiz çok az, minimum değerlere düşür
-            targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
+    // Filiz kombinasyonlarını dene ve en uygun olanı seç
+    const possibleCombinations = [];
+    
+    // 1. Hedef: Arka=70, Ön<16
+    if (totalFiliz >= 72.5) { // 2.5 (min on filiz) + 70 (target arka)
+        possibleCombinations.push({
+            arkaFiliz: 70,
+            onFiliz: totalFiliz - 70,
+            score: 200 // Yüksek başlangıç puanı
+        });
+    }
+    
+    // 2. Hedef: Arka=75, Ön<16
+    if (totalFiliz >= 77.5) { // 2.5 (min on filiz) + 75 (target arka)
+        possibleCombinations.push({
+            arkaFiliz: 75,
+            onFiliz: totalFiliz - 75,
+            score: 150 // İkinci en yüksek puan
+        });
+    }
+    
+    // 3. Hedef: Arka=65, Ön<16
+    if (totalFiliz >= 67.5) { // 2.5 (min on filiz) + 65 (target arka)
+        possibleCombinations.push({
+            arkaFiliz: 65,
+            onFiliz: totalFiliz - 65,
+            score: 100 // Üçüncü en yüksek puan
+        });
+    }
+    
+    // 4. Son çare: Minimum ön filiz ile mümkün olan en yüksek arka filiz
+    possibleCombinations.push({
+        arkaFiliz: Math.max(65, totalFiliz - 2.5),
+        onFiliz: Math.min(totalFiliz - 65, 2.5),
+        score: 50 // En düşük puan
+    });
+    
+    // Tüm kombinasyonlar için puanları hesapla
+    for (const combo of possibleCombinations) {
+        // Ön filiz < 16 ise bonus puan
+        if (combo.onFiliz < 16) {
+            combo.score += 50;
+        }
+        
+        // Ön filiz ~15 ise bonus puan
+        if (Math.abs(combo.onFiliz - 15) < 1) {
+            combo.score += 30;
+        }
+        
+        // Ön filiz minimum değerin üstünde mi?
+        if (combo.onFiliz < 2.5) {
+            combo.score = -100; // Çok düşük puan
         }
     }
     
-    // Ön filiz hesapla
-    const onFiliz = totalFiliz - targetArkaFiliz;
+    // En yüksek puanlı kombinasyonu bul
+    possibleCombinations.sort((a, b) => b.score - a.score);
+    const bestCombo = possibleCombinations[0];
     
-    // Eğer ön filiz yeterli değilse (en az 2.5)
-    if (onFiliz < 2.5) {
-        // Arka filizi azalt
-        targetArkaFiliz = totalFiliz - 2.5;
+    // En iyi kombinasyon geçerli mi?
+    if (bestCombo && bestCombo.score > 0) {
+        // Arka filizi 5'in en yakın katına yuvarla
+        const roundedArkaFiliz = Math.round(bestCombo.arkaFiliz / 5) * 5;
+        
+        // Yuvarlama sonrası ön filizi yeniden hesapla
+        const finalOnFiliz = totalFiliz - roundedArkaFiliz;
+        
+        // Ön filiz minimum değerin üstünde mi kontrol et
+        if (finalOnFiliz >= 2.5) {
+            // Değerleri güncelle
+            row.cubukSayisiEn = cubukSayisiEn;
+            row.onFiliz = parseFloat(finalOnFiliz.toFixed(5));
+            row.arkaFiliz = parseFloat(roundedArkaFiliz.toFixed(5));
+            
+            // Değişiklik yapıldığını işaretle
+            row.modified.cubukSayisiEn = true;
+            
+            // Açıklamaya bilgi ekle
+            row.aciklama += `Perde tipi hasır için filiz değerleri optimize edildi: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${roundedArkaFiliz}cm. `;
+            
+            return;
+        }
     }
     
-    // Arka filizi 5'in en yakın katına yuvarla
+    // Buraya kadar geldiyse, standart yöntem kullan
+    // Arka filiz için hedef değer
+    targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
     targetArkaFiliz = Math.round(targetArkaFiliz / 5) * 5;
     
-    // Son ön filiz değeri (target 15cm if possible)
+    // Son ön filiz değeri
     let finalOnFiliz = totalFiliz - targetArkaFiliz;
     
     // Değerleri güncelle
@@ -2356,8 +2450,8 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     row.modified.cubukSayisiEn = true;
     
     // Açıklamaya bilgi ekle
-    row.aciklama += `Perde tipi hasır için filiz değerleri optimize edildi: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${targetArkaFiliz}cm. `;
-};
+    row.aciklama += `Perde tipi hasır için minimum filiz değerleri kullanıldı: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${targetArkaFiliz}cm. `;
+}
 
   // Test edilecek filiz değerlerini hesapla
   const calculateTestFilizValues = (uzunlukBoy, uzunlukEn, boyCount, enCount, boyAraligi, enAraligi) => {
@@ -2409,49 +2503,67 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     return isSolValid && isSagValid && isOnValid && isArkaValid;
   };
 
-  // Filiz değerleri için puan hesapla
-   const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
-      let score = 0;
-      const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
+const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
+  let score = 0;
+  const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
+  
+  // İdeal aralıklarda olması için puan ver
+  if (solFiliz >= 2 && solFiliz <= 8) score += 5;
+  if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
+  
+  if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
+      // Perde hasırı için ön filiz min 2.5 olmalı
+      if (onFiliz >= 2.5) score += 10;
       
-      // İdeal aralıklarda olması için puan ver
-      if (solFiliz >= 2 && solFiliz <= 8) score += 5;
-      if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
+      // Perde hasırı için arka filiz min 65 olmalı
+      if (arkaFiliz >= 65) score += 15;
       
-      if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
-          // Perde hasırı için ön filiz min 2.5 olmalı
-          if (onFiliz >= 2.5) score += 10;
-          
-          // Perde hasırı için arka filiz min 65 olmalı
-          if (arkaFiliz >= 65) score += 15;
-          
-          // IMPORTANT: Perde hasırı için ideal değerler (15-75)
-          if (Math.abs(onFiliz - 15) < 1) score += 100; // Ön filiz ~15 için çok yüksek bonus
-          if (Math.abs(arkaFiliz - 75) < 1) score += 100; // Arka filiz ~75 için çok yüksek bonus
-          
-          // Perde hasırı için arka filiz 5'in katı olması tercih edilir
-          const remainder = arkaFiliz % 5;
-          if (remainder < 0.1 || remainder > 4.9) {
-              score += 20; // 5'in katı için yüksek puan
-          }
-      } else if (hasirTipi?.startsWith('Q') && hasirTuru === 'Döşeme') {
-          // Q tipi Döşeme için ideal değer 22.5
-          if (Math.abs(onFiliz - 22.5) < 1) score += 100; // Ön filiz ~22.5 için çok yüksek bonus
-          if (Math.abs(arkaFiliz - 22.5) < 1) score += 100; // Arka filiz ~22.5 için çok yüksek bonus
-          
-          // Genel puan
-          if (onFiliz > 15.5) score += 30; // 15.5'den büyük için bonus
-          if (arkaFiliz > 15.5) score += 30;
-          if (onFiliz >= 15 && onFiliz <= 23) score += 10;
-          if (arkaFiliz >= 15 && arkaFiliz <= 23) score += 10;
-      } else {
-          // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
-          if (onFiliz >= 15 && onFiliz <= 22) score += 10;
-          if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
+      // IMPORTANT: Perde hasırı için düzenlendi - Artık 70cm tercih ediliyor
+      if (Math.abs(onFiliz - 15) < 1) score += 50; // Ön filiz ~15 için bonus
+      
+      // Ön filiz < 16 için ekstra bonus (gerekliliğe göre)
+      if (onFiliz < 16) score += 50;
+      
+      // Arka filiz 70 değeri için en yüksek bonus
+      if (Math.abs(arkaFiliz - 70) < 1) score += 150; // Arka filiz ~70 için çok yüksek bonus
+      
+      // Arka filiz 75 değeri için ikincil bonus (70'ten daha düşük)
+      if (Math.abs(arkaFiliz - 75) < 1) score += 100; // Arka filiz ~75 için bonus
+      
+      // Arka filiz 65 değeri için üçüncül bonus (75'ten daha düşük)
+      if (Math.abs(arkaFiliz - 65) < 1) score += 50; // Arka filiz ~65 için bonus
+      
+      // Arka filiz 5'in katı olması artık daha az önemli
+      const remainder = arkaFiliz % 5;
+      if (remainder < 0.1 || remainder > 4.9) {
+          score += 10; // 5'in katı için puan azaltıldı
       }
+  } else if (hasirTipi?.startsWith('Q') && hasirTuru === 'Döşeme') {
+      // Q tipi Döşeme için daha katı kurallar (15-22 aralığında)
       
-      return score;
+      // İdeal aralıkta mı? (15-22)
+      const isInIdealRange = onFiliz >= 15 && onFiliz <= 22 && arkaFiliz >= 15 && arkaFiliz <= 22;
+      if (isInIdealRange) score += 200; // İdeal aralık için yüksek bonus
+      
+      // 15-22 aralığı dışında ise büyük ceza
+      if (onFiliz < 15 || onFiliz > 22) score -= 300;
+      if (arkaFiliz < 15 || arkaFiliz > 22) score -= 300;
+      
+      // İdeal değer 22.5'e yakın olması için hafif bonus
+      if (Math.abs(onFiliz - 22.5) < 1) score += 20;
+      if (Math.abs(arkaFiliz - 22.5) < 1) score += 20;
+      
+      // İdeal değer 17.5'e yakın olması için de bonus
+      if (Math.abs(onFiliz - 17.5) < 1) score += 20;
+      if (Math.abs(arkaFiliz - 17.5) < 1) score += 20;
+  } else {
+      // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
+      if (onFiliz >= 15 && onFiliz <= 22) score += 10;
+      if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
   }
+  
+  return score;
+}
 
   // En yakın geçerli filiz değerlerini bul
   const findBestApproximateFilizValues = (row, filizLimits) => {
