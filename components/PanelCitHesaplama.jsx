@@ -1034,7 +1034,7 @@ const calculatePanelKodu = (panel) => {
 
         // Son maliyetleri hesapla
         const boyaliAdetUSD = adetUSD + boyaAdetUSD;
-        const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2) * materialHeight * profilEtKalinligi * 7.85) / 1000;
+        const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + materialHeight) * profilEtKalinligi * 7.85) / 1000;
 
         // SetUSD hesapla
         const SetUSD = profilBoyaTuketimAdUSD +
