@@ -3417,7 +3417,7 @@ className = "border rounded p-2"
   />
   </div>
   < div className = "flex flex-col" >
-    <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
+    <label className="text-sm text-gray-500 mb-1" > (Simdilik sadece bu alanı kullanın.) Galvanizsiz Profil(Ton)($) </label>
       < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
