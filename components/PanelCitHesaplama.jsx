@@ -606,7 +606,7 @@ const calculatePanelKodu = (panel) => {
   const gozStr = `${yatayGoz.toString().replace(/\.0+$/, '')} * ${dikeyGoz.toString().replace(/\.0+$/, '')}`;
   
   // Büküm değeri
-  const bukumStr = `${panel.bukum_sayisi || 0}-${panel.bukumdeki_cubuk_sayisi || 1}`;
+  const bukumStr = `${panel.bukum_sayisi ?? 0}-${panel.bukumdeki_cubuk_sayisi ?? 0}`;
 
   return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
 };
