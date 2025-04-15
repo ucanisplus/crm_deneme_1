@@ -27,7 +27,7 @@ const HesaplamalarPage = () => {
   ];
 
   // Kullanıcının erişebileceği sekmeler
-  const tabs = allTabs.filter(tab => hasPermission(tab.permission));
+  const tabs = allTabs;
   const [activeTab, setActiveTab] = useState(null);
 
   // Eğer kullanıcı erişimi olmayan bir sekmeye giderse sıfırla
@@ -40,7 +40,8 @@ const HesaplamalarPage = () => {
   if (!isMounted) return null;
 
   // Kullanıcının hiçbir izni yoksa
-  if (tabs.length === 0) {
+  const allowedTabs = allTabs.filter(tab => hasPermission(tab.permission));
+  if (allowedTabs.length === 0) {
     return (
       <ClientAuthCheck>
         <div className="flex flex-col items-center justify-center h-64 bg-white p-6 rounded-lg shadow-sm">
