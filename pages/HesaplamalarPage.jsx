@@ -27,15 +27,21 @@ const HesaplamalarPage = () => {
   ];
 
   const tabs = allTabs.filter(tab => hasPermission(tab.permission));
-  const defaultTabId = tabs.length > 0 ? tabs[0].id : null;
+  const [activeTab, setActiveTab] = useState(null);
 
-  const [activeTab, setActiveTab] = useState(defaultTabId);
+  useEffect(() => {
+    if (tabs.length > 0) {
+      setActiveTab(tabs[0].id); // Always pick the first allowed tab
+    }
+  }, [tabs]);
+
 
   useEffect(() => {
     if (tabs.length > 0 && !tabs.find(tab => tab.id === activeTab)) {
       setActiveTab(tabs[0].id);
     }
-  }, [tabs, activeTab]);
+  }, [tabs]);
+
 
   if (!isMounted) return null;
 
