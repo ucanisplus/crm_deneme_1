@@ -26,31 +26,17 @@ const HesaplamalarPage = () => {
     { id: 'zirhli-tel', name: 'Zırhlı Tel', icon: <Link size={16} />, permission: 'access:zirhli-tel' },
   ];
 
-  // Kullanıcının erişebileceği sekmeler
-  const tabs = allTabs;
   const [activeTab, setActiveTab] = useState(null);
+  const allowedTabs = allTabs.filter(tab => hasPermission(tab.permission));
 
-  // Eğer kullanıcı erişimi olmayan bir sekmeye giderse sıfırla
+  // Eğer seçilen sekmeye erişim yoksa sıfırla
   useEffect(() => {
-    if (activeTab && !tabs.find(tab => tab.id === activeTab)) {
+    if (activeTab && !allowedTabs.find(tab => tab.id === activeTab)) {
       setActiveTab(null);
     }
-  }, [tabs, activeTab]);
+  }, [allowedTabs, activeTab]);
 
   if (!isMounted) return null;
-
-  // Kullanıcının hiçbir izni yoksa
-  const allowedTabs = allTabs.filter(tab => hasPermission(tab.permission));
-  if (allowedTabs.length === 0) {
-    return (
-      <ClientAuthCheck>
-        <div className="flex flex-col items-center justify-center h-64 bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Erişim İzniniz Yok</h3>
-          <p className="text-gray-600">Bu sayfaya erişim için gerekli izinlere sahip değilsiniz.</p>
-        </div>
-      </ClientAuthCheck>
-    );
-  }
 
   return (
     <ClientAuthCheck>
@@ -66,20 +52,24 @@ const HesaplamalarPage = () => {
         {/* Sekme navigasyonu */}
         <div className="bg-white border-b">
           <nav className="-mb-px flex space-x-8 overflow-x-auto">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-red-500 text-red-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.name}
-              </button>
-            ))}
+            {allTabs.map((tab) => {
+              const isAllowed = hasPermission(tab.permission);
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => isAllowed && setActiveTab(tab.id)}
+                  disabled={!isAllowed}
+                  className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } ${!isAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  {tab.name}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
