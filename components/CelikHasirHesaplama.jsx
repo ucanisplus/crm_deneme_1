@@ -3312,31 +3312,170 @@ const processExtractedTextFromOCR = (extractedText) => {
   };
 
   // Excel verilerini işleme
+// Enhanced Excel parsing that handles multiple sheets with clear sheet indicators
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
-    
-    // Tüm sayfalardaki verileri toplayacak ana dizi
     const allSheetData = [];
     
-    // Her bir sayfayı işle
+    // Process each sheet
     for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex++) {
       const sheetName = workbook.SheetNames[sheetIndex];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Birleştirilmiş hücreleri analiz et (başlıklar için)
-      const mergedCellHeaders = extractMergedCellHeaders(worksheet);
+      // Handle merged cells in headers
+      const mergedCells = worksheet['!merges'] || [];
+      const mergedHeaders = {};
       
-      // JSON'a dönüştür ve birleştirilmiş başlıkları uygula
-      let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-      jsonData = applyMergedHeaders(jsonData, mergedCellHeaders);
+      mergedCells.forEach(merge => {
+        if (merge.s.r === 0) { // Focus on first row where headers often are
+          const startCell = XLSX.utils.encode_cell(merge.s);
+          if (worksheet[startCell] && worksheet[startCell].v) {
+            for (let c = merge.s.c; c <= merge.e.c; c++) {
+              mergedHeaders[c] = String(worksheet[startCell].v).trim();
+            }
+          }
+        }
+      });
       
-      // Bu sayfadaki verileri işle
-      const validRowsFromSheet = processExcelSheetData(jsonData, sheetName);
+      // Convert to JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      if (jsonData.length === 0) continue;
       
-      // Bu sayfadan geçerli verileri ana listeye ekle
-      if (validRowsFromSheet.length > 0) {
-        allSheetData.push(...validRowsFromSheet);
+      // Apply merged cell headers to first row if it exists
+      if (jsonData[0]) {
+        for (let c = 0; c < jsonData[0].length; c++) {
+          if ((!jsonData[0][c] || jsonData[0][c] === '') && mergedHeaders[c]) {
+            jsonData[0][c] = mergedHeaders[c];
+          }
+        }
+      }
+      
+      // Find columns - with improved header detection
+      const hasHeaders = guessIfHasHeaders(jsonData);
+      const headerRow = hasHeaders ? jsonData[0] : null;
+      
+      // First try direct header matching for critical columns
+      const directColumnMap = {
+        hasirTipi: -1,
+        uzunlukBoy: -1, 
+        uzunlukEn: -1,
+        hasirSayisi: -1
+      };
+      
+      // If we have headers, try to directly match them first
+      if (headerRow) {
+        for (let i = 0; i < headerRow.length; i++) {
+          const header = String(headerRow[i] || '').trim().toUpperCase();
+          
+          // Check for hasir tipi headers
+          if (header.includes('HASIR TİP') || header.includes('HASIR TIP') || 
+              header.includes('ÇELİK HASIR') || header.includes('CELIK HASIR') ||
+              header === 'TİP' || header === 'TIP' || header === 'HASIR') {
+            directColumnMap.hasirTipi = i;
+          }
+          
+          // Check for boy headers
+          else if ((header.includes('BOY') && !header.includes('EN')) ||
+                  header.includes('UZUNLUK BOY') || header === 'BOY CM' ||
+                  header === 'Y.BOY' || header === 'YUKSEKLIK' || header === 'YÜKSEKLİK') {
+            directColumnMap.uzunlukBoy = i;
+          }
+          
+          // Check for en headers
+          else if ((header.includes('EN') && !header.includes('BOY')) ||
+                  header.includes('UZUNLUK EN') || header === 'EN CM' ||
+                  header === 'Y.EN' || header === 'GENISLIK' || header === 'GENİŞLİK') {
+            directColumnMap.uzunlukEn = i;
+          }
+          
+          // Check for hasir sayisi headers
+          else if (header.includes('HASIR SAYISI') || header.includes('ADET') ||
+                  header.includes('MİKTAR') || header.includes('MIKTAR') ||
+                  header === 'SAYI' || header === 'SİPARİŞ ADEDİ' || header === 'SIPARIS ADEDI') {
+            directColumnMap.hasirSayisi = i;
+          }
+        }
+      }
+      
+      // Fall back to findRelevantColumns for any columns we couldn't directly identify
+      const fallbackColumnMap = findRelevantColumns(jsonData, headerRow);
+      
+      // Combine direct matches with fallback column detection
+      const columnMap = {
+        hasirTipi: directColumnMap.hasirTipi >= 0 ? directColumnMap.hasirTipi : fallbackColumnMap.hasirTipi,
+        uzunlukBoy: directColumnMap.uzunlukBoy >= 0 ? directColumnMap.uzunlukBoy : fallbackColumnMap.uzunlukBoy,
+        uzunlukEn: directColumnMap.uzunlukEn >= 0 ? directColumnMap.uzunlukEn : fallbackColumnMap.uzunlukEn,
+        hasirSayisi: directColumnMap.hasirSayisi >= 0 ? directColumnMap.hasirSayisi : fallbackColumnMap.hasirSayisi
+      };
+      
+      // Process rows
+      const startRow = hasHeaders ? 1 : 0;
+      
+      for (let rowIndex = startRow; rowIndex < jsonData.length; rowIndex++) {
+        const row = jsonData[rowIndex];
+        if (!row || row.length === 0) continue;
+        
+        // Try to find hasir tipi in any cell if not found in the mapped column
+        let hasirTipi = '';
+        if (columnMap.hasirTipi !== undefined && columnMap.hasirTipi < row.length) {
+          hasirTipi = String(row[columnMap.hasirTipi] || '').trim();
+        }
+        
+        // If not found in the mapped column, search all cells
+        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
+          for (const cell of row) {
+            if (!cell) continue;
+            const cellValue = String(cell).trim();
+            if (/^(Q|R|TR)\d+/i.test(cellValue)) {
+              hasirTipi = cellValue;
+              break;
+            }
+          }
+        }
+        
+        // Skip rows without hasir tipi
+        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
+          continue;
+        }
+        
+        // Extract other values using column map
+        let uzunlukBoy = '';
+        let uzunlukEn = '';
+        let hasirSayisi = '';
+        
+        if (columnMap.uzunlukBoy !== undefined && columnMap.uzunlukBoy < row.length) {
+          uzunlukBoy = String(row[columnMap.uzunlukBoy] || '').trim();
+        }
+        
+        if (columnMap.uzunlukEn !== undefined && columnMap.uzunlukEn < row.length) {
+          uzunlukEn = String(row[columnMap.uzunlukEn] || '').trim();
+        }
+        
+        if (columnMap.hasirSayisi !== undefined && columnMap.hasirSayisi < row.length) {
+          hasirSayisi = String(row[columnMap.hasirSayisi] || '').trim();
+        }
+        
+        // Format numbers consistently
+        if (uzunlukBoy) uzunlukBoy = formatNumber(uzunlukBoy);
+        if (uzunlukEn) uzunlukEn = formatNumber(uzunlukEn);
+        if (hasirSayisi) hasirSayisi = formatNumber(hasirSayisi);
+        
+        // Default hasir sayisi to 1 if missing
+        if (!hasirSayisi) {
+          hasirSayisi = '1';
+        }
+        
+        // Validate dimensions (at least one must be present)
+        if (uzunlukBoy || uzunlukEn) {
+          allSheetData.push({
+            hasirTipi: standardizeHasirTipi(hasirTipi),
+            uzunlukBoy: uzunlukBoy,
+            uzunlukEn: uzunlukEn,
+            hasirSayisi: hasirSayisi,
+            sheetName: sheetName // Keep track of sheet origin
+          });
+        }
       }
     }
     
@@ -3345,20 +3484,19 @@ const parseExcelData = (data) => {
       return;
     }
     
-    // Ön izleme verileri olarak ayarla - Sayfa adını açıklama olarak göster
+    // Create preview data with sheet indicators
     const previewItems = allSheetData.map((rowData, index) => ({
       id: index,
       hasirTipi: rowData.hasirTipi || '',
       uzunlukBoy: rowData.uzunlukBoy || '',
       uzunlukEn: rowData.uzunlukEn || '',
       hasirSayisi: rowData.hasirSayisi || '',
-      aciklama: `Sayfa: ${rowData.sheetName}` // Sayfa adını görünür açıklama olarak ekle
+      aciklama: `Sayfa: ${rowData.sheetName}` // Add sheet name as description
     }));
     
     setPreviewData(previewItems);
     setBulkInputVisible(true);
     
-    console.log(`Excel dosyasından toplam ${allSheetData.length} satır işlendi.`);
   } catch (error) {
     console.error('Excel işleme hatası:', error);
     alert('Excel dosyası okuma hatası: ' + error.message);
