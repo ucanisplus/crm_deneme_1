@@ -839,20 +839,45 @@ const CelikHasirHesaplama = () => {
     return format;
   };
   
-  // Belge formatına göre sayı değerini normalleştir
-  const normalizeNumber = (value, format) => {
-    if (!value) return '';
-    
-    // Türkçe formatı: 1.234,56 -> 1234.56
-    if (format === "turkish") {
-      return value
-        .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
-        .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
+// Sayı formatını otomatik tespit et - daha güçlü versiyon
+const normalizeNumber = (value, format = "auto") => {
+  if (!value) return '';
+  
+  const stringValue = String(value).trim();
+  
+  // Auto-detect format when needed
+  if (format === "auto") {
+    // If it has comma as decimal (1,23)
+    if (/\d,\d/.test(stringValue) && !/\d\.\d/.test(stringValue)) {
+      format = "turkish";
     }
-    
-    // İngilizce formatı: 1,234.56 -> 1234.56
-    return value.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
-  };
+    // If it has period as decimal (1.23)
+    else if (!/\d,\d/.test(stringValue) && /\d\.\d/.test(stringValue)) {
+      format = "english";
+    }
+    // If it has both (1,234.56)
+    else if (/\d,\d/.test(stringValue) && /\d\.\d/.test(stringValue)) {
+      // Check which one is likely the decimal separator
+      const lastCommaPos = stringValue.lastIndexOf(',');
+      const lastPeriodPos = stringValue.lastIndexOf('.');
+      format = lastPeriodPos > lastCommaPos ? "english" : "turkish";
+    }
+    else {
+      // Default to english
+      format = "english";
+    }
+  }
+  
+  // Türkçe formatı: 1.234,56 -> 1234.56
+  if (format === "turkish") {
+    return stringValue
+      .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
+      .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
+  }
+  
+  // İngilizce formatı: 1,234.56 -> 1234.56
+  return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
+};
 
 // İşaretli çubuk sayısı alanlarının düzenlenebilmesi için handleCellChange fonksiyonunun tam hali
 
