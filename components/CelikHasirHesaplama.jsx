@@ -3335,9 +3335,13 @@ const processExtractedTextFromOCR = (extractedText) => {
         skipEmptyLines: true,
         delimiter: '', // Otomatik ayırıcı algılama
         complete: (results) => {
-          // Sayı formatı bilgisini sonuçlara ekle
-          results.numberFormat = numberFormat;
-          validateAndProcessTabularData(results.data, numberFormat);
+          // Boş satırları filtrele
+          const cleanedData = results.data.filter(row => 
+            row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
+          );
+          
+          // Sayı formatı bilgisini sonuçlara ekle ve işle
+          validateAndProcessTabularData(cleanedData, numberFormat);
         },
         error: (error) => {
           console.error('CSV işleme hatası:', error);
