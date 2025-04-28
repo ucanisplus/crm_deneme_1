@@ -502,10 +502,14 @@ const CelikHasirHesaplama = () => {
       ];
       
       // Hasır Sayısı için olası başlıklar
-      const sayisiKeywords = [
-        'hasir sayisi', 'sayi', 'adet', 'miktar', 'quantity', 'count', 'hasir adedi', 
-        'toplam adet', 'sipariş miktarı', 'siparis adedi', 'toplam', 'tane',
-        'hasır sayısı', 'sayı', 'adet', 'miktar', 'hasır adedi'
+        // Hasır Sayısı için olası başlıklar - genişletilmiş liste
+        const sayisiKeywords = [
+          'hasir sayisi', 'sayi', 'adet', 'miktar', 'quantity', 'count', 'hasir adedi', 
+          'toplam adet', 'sipariş miktarı', 'siparis adedi', 'toplam', 'tane',
+          'hasır sayısı', 'sayı', 'adet', 'miktar', 'hasır adedi', 'hasır adeti',
+          'toplam sayı', 'toplam sayi', 'toplam hasır', 'hasir', 'adet sayısı',
+          'adet sayisi', 'sipariş', 'siparis', 'siparis miktari', 'miktar adet',
+          'adet miktar', 'hasir adet', 'hasır adet'
       ];
       
       // Arama için veri hazırla
@@ -714,69 +718,92 @@ const CelikHasirHesaplama = () => {
       }
     }
     
-    // 6. Hasır Sayısı için geliştirilmiş analiz - Tam sayılar ve eliminasyon yöntemi
+  // 6. Hasır Sayısı için geliştirilmiş analiz - Tam sayılar ve eliminasyon yöntemi
+  if (columnMap.hasirSayisi === undefined) {
+    // Potansiyel tam sayı sütunlarını bul
+    const integerColumns = Object.entries(columnStats)
+      .filter(([colIndex, stats]) => 
+        colIndex !== columnMap.hasirTipi?.toString() && 
+        colIndex !== columnMap.uzunlukBoy?.toString() && 
+        colIndex !== columnMap.uzunlukEn?.toString() &&
+        stats.isInteger // Tam sayı kontrolü
+      )
+      .map(([colIndex, stats]) => ({
+        colIndex: parseInt(colIndex),
+        stats: stats
+      }));
+    
+    if (integerColumns.length > 0) {
+      // Boy ve En sütunlarının dışındaki sütunları seç
+      let bestColumn = null;
+      let bestScore = -1;
+      
+      for (const col of integerColumns) {
+        let score = 0;
+        const values = col.stats.values;
+        
+        // Genellikle 1 ile 1000 arasında değerler olur
+        if (values.every(v => v >= 1 && v <= 1000)) score += 20;
+        
+        // 100'den küçük değerler daha olası
+        if (values.every(v => v < 100)) score += 10;
+        
+        // Tek haneli sayılar çok yaygın - bonus puan
+        if (values.some(v => v >= 1 && v <= 10)) score += 15;
+        
+        // En sağdaki 5 sütundan biriyse bonus (genellikle sağda olur)
+        if (parseInt(col.colIndex) >= data[0].length - 5) score += 25;
+        
+        // Makine limitleri içinde olmayan herhangi bir değer varsa, bu muhtemelen hasır sayısıdır
+        const hasDimensionPattern = values.some(v => 
+          (v >= MACHINE_LIMITS.MIN_BOY * 0.7 && v <= MACHINE_LIMITS.MAX_BOY * 1.3) || 
+          (v >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.7 && v <= MACHINE_LIMITS.MAX_EN * 1.3)
+        );
+        
+        if (!hasDimensionPattern) score += 30;
+        
+        // Çap değerleri genellikle 4-12 arasındadır, bunları elimine et
+        const hasCapPattern = values.every(v => v >= 4 && v <= 12);
+        if (!hasCapPattern) score += 10;
+        
+        // Aralık değerleri genellikle 15, 25, 30 gibi değerlerdir, bunları elimine et
+        const hasAralikPattern = values.every(v => (v === 15 || v === 25 || v === 30));
+        if (!hasAralikPattern) score += 10;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestColumn = col;
+        }
+      }
+      
+      if (bestColumn && bestScore > 30) {
+        columnMap.hasirSayisi = bestColumn.colIndex;
+      } else if (integerColumns.length > 0) {
+        // Eğer tüm tam sayı sütunları elendi ise, ilk tam sayı sütununu kullan
+        columnMap.hasirSayisi = integerColumns[0].colIndex;
+      }
+    }
+    
+    // Hala bulunamadıysa, kalan sayısal sütunları değerlendir
     if (columnMap.hasirSayisi === undefined) {
-      // Potansiyel tam sayı sütunlarını bul
-      const integerColumns = Object.entries(columnStats)
-        .filter(([colIndex, stats]) => 
+      const remainingCols = Object.entries(columnStats)
+        .filter(([colIndex]) => 
           colIndex !== columnMap.hasirTipi?.toString() && 
           colIndex !== columnMap.uzunlukBoy?.toString() && 
-          colIndex !== columnMap.uzunlukEn?.toString() &&
-          stats.isInteger // Tam sayı kontrolü
+          colIndex !== columnMap.uzunlukEn?.toString()
         )
         .map(([colIndex, stats]) => ({
           colIndex: parseInt(colIndex),
-          stats: stats
+          avgValue: stats.avg
         }));
       
-      if (integerColumns.length > 0) {
-        // Boy ve En sütunlarının dışındaki sütunları seç
-        const nonDimensionIntColumns = integerColumns.filter(col => {
-          // Makine limitlerini kullanarak boyut sütunlarını elimine et
-          const values = col.stats.values;
-          const hasDimensionPattern = values.some(v => 
-            (v >= MACHINE_LIMITS.MIN_BOY * 0.7 && v <= MACHINE_LIMITS.MAX_BOY * 1.3) || 
-            (v >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.7 && v <= MACHINE_LIMITS.MAX_EN * 1.3)
-          );
-          
-          // Çap değerleri genellikle 4-12 arasındadır, bunları elimine et
-          const hasCapPattern = values.every(v => v >= 4 && v <= 12);
-          
-          // Aralık değerleri genellikle 15, 25, 30 gibi değerlerdir, bunları elimine et
-          const hasAralikPattern = values.every(v => (v === 15 || v === 25 || v === 30));
-          
-          return !hasDimensionPattern && !hasCapPattern && !hasAralikPattern;
-        });
-        
-        if (nonDimensionIntColumns.length > 0) {
-          // Hasır sayısı adaylarını bul
-          columnMap.hasirSayisi = nonDimensionIntColumns[0].colIndex;
-        } else if (integerColumns.length > 0) {
-          // Eğer tüm tam sayı sütunları elendi ise, ilk tam sayı sütununu kullan
-          columnMap.hasirSayisi = integerColumns[0].colIndex;
-        }
-      }
-      
-      // Hala bulunamadıysa, kalan sayısal sütunları değerlendir
-      if (columnMap.hasirSayisi === undefined) {
-        const remainingCols = Object.entries(columnStats)
-          .filter(([colIndex]) => 
-            colIndex !== columnMap.hasirTipi?.toString() && 
-            colIndex !== columnMap.uzunlukBoy?.toString() && 
-            colIndex !== columnMap.uzunlukEn?.toString()
-          )
-          .map(([colIndex, stats]) => ({
-            colIndex: parseInt(colIndex),
-            avgValue: stats.avg
-          }));
-        
-        if (remainingCols.length > 0) {
-          // Ortalama değerine göre sırala ve en küçük değere sahip olanı seç
-          remainingCols.sort((a, b) => a.avgValue - b.avgValue);
-          columnMap.hasirSayisi = remainingCols[0].colIndex;
-        }
+      if (remainingCols.length > 0) {
+        // Ortalama değerine göre sırala ve en küçük değere sahip olanı seç
+        remainingCols.sort((a, b) => a.avgValue - b.avgValue);
+        columnMap.hasirSayisi = remainingCols[0].colIndex;
       }
     }
+  }
     
     return columnMap;
   };
