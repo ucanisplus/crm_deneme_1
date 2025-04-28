@@ -2083,8 +2083,8 @@ const tryMultiplyDimensions = (row, originalValues) => {
   
   // Boy için çarpma işlemi
   if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
-    // 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-    for (let multiplier of [2, 3]) {
+    // 2, 3, 4, 5 veya 6 ile çarparak minimum limitin üstüne çıkabilir mi?
+    for (let multiplier of [2, 3, 4, 5, 6]) {
       const newUzunlukBoy = uzunlukBoy * multiplier;
       
       if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
@@ -2124,7 +2124,7 @@ const tryMultiplyDimensions = (row, originalValues) => {
     }
     
     // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-    for (let multiplier of [2, 3]) {
+    for (let multiplier of [2, 3, 4, 5, 6]) {
       const newUzunlukEn = uzunlukEn * multiplier;
       
       if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
