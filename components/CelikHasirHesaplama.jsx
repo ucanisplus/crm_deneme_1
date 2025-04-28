@@ -3296,19 +3296,39 @@ const processExtractedTextFromOCR = (extractedText) => {
         // En çok veri içeren sayfayı otomatik olarak seç
         let bestSheetIndex = 0;
         let maxDataCount = 0;
+        let hasQRTRPattern = false;
         
         for (let i = 0; i < workbook.SheetNames.length; i++) {
           const sheetName = workbook.SheetNames[i];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
           
-          // Boş olmayan satırları say
-          const nonEmptyRows = jsonData.filter(row => 
-            row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
-          );
+          // Q, R, TR pattern içeren herhangi bir hücre var mı kontrol et
+          const hasPattern = jsonData.some(row => {
+            if (!row || !row.length) return false;
+            return row.some(cell => {
+              if (!cell) return false;
+              const cellValue = String(cell).trim().toUpperCase();
+              return /^(Q|R|TR)\d+/.test(cellValue);
+            });
+          });
           
-          if (nonEmptyRows.length > maxDataCount) {
-            maxDataCount = nonEmptyRows.length;
+          // Veri sayısını değerlendir
+          const nonEmptyCount = jsonData.reduce((count, row) => {
+            if (!row || !row.length) return count;
+            const cellCount = row.filter(cell => cell !== null && cell !== undefined && String(cell).trim() !== '').length;
+            return count + cellCount;
+          }, 0);
+          
+          // Q, R, TR pattern varsa öncelik ver
+          if (hasPattern && (!hasQRTRPattern || nonEmptyCount > maxDataCount)) {
+            hasQRTRPattern = true;
+            maxDataCount = nonEmptyCount;
+            bestSheetIndex = i;
+          } 
+          // Eğer hiçbir sayfada pattern yoksa, en çok veri içerene bak
+          else if (!hasQRTRPattern && nonEmptyCount > maxDataCount) {
+            maxDataCount = nonEmptyCount;
             bestSheetIndex = i;
           }
         }
@@ -3317,30 +3337,20 @@ const processExtractedTextFromOCR = (extractedText) => {
         const bestSheetName = workbook.SheetNames[bestSheetIndex];
         const worksheet = workbook.Sheets[bestSheetName];
         
-        // Veriyi JSON'a dönüştür
-        let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-        
-        // Boş satırları temizle
-        jsonData = jsonData.filter(row => 
-          row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
-        );
+        // Veriyi JSON'a dönüştür - empty rows'u burada atlama
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
         
         // Başlık satırını tanımla ve verileri işle
         validateAndProcessTabularData(jsonData);
         
-        console.log(`Excel dosyası "${bestSheetName}" sayfasından işlendi (en çok veri içeren sayfa).`);
+        console.log(`Excel dosyası "${bestSheetName}" sayfasından işlendi.`);
       } else {
         // Tek sayfa varsa direkt işle
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Veriyi JSON'a dönüştür
-        let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-        
-        // Boş satırları temizle
-        jsonData = jsonData.filter(row => 
-          row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== '')
-        );
+        // Veriyi JSON'a dönüştür - empty rows'u burada atlama
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
         
         // Başlık satırını tanımla ve verileri işle
         validateAndProcessTabularData(jsonData);
