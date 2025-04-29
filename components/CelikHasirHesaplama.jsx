@@ -3311,7 +3311,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
-// Enhanced Excel parsing with prioritized en/boy detection from the first implementation
+// Completely revised Excel parser with direct implementation selection
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
@@ -3364,33 +3364,29 @@ const parseExcelData = (data) => {
       const hasHeaders = guessIfHasHeaders(jsonData);
       const headerRow = hasHeaders ? jsonData[0] : null;
       
-      // CRITICAL CHANGE: Use both implementations but prioritize differently
-      // First: use the original method for en/boy columns as it works better for those
+      // COMPLETELY REVISED APPROACH:
+      
+      // 1. Use first implementation for en/boy detection - this is known to work
       const firstImplementationColMap = findRelevantColumns(jsonData, headerRow);
       
-      // Second: Use the improved method for hasirSayisi 
+      // 2. Use second implementation only for hasirSayisi detection
       const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
-      
-      // Expanded header matching for all columns
       const directHeadersColMap = findColumnsByHeaderText(headerRow);
       
-      // Create combined map with correct priorities for each data type
+      // 3. Create a new map WITHOUT COMBINING the implementations
       const columnMap = {
-        // For hasirTipi: prioritize direct header match, then fallback
-        hasirTipi: directHeadersColMap.hasirTipi !== undefined ? 
-                   directHeadersColMap.hasirTipi : firstImplementationColMap.hasirTipi,
-                   
-        // For uzunlukBoy and uzunlukEn: prioritize first implementation's detection
-        uzunlukBoy: firstImplementationColMap.uzunlukBoy !== undefined ? 
-                    firstImplementationColMap.uzunlukBoy : directHeadersColMap.uzunlukBoy,
-                    
-        uzunlukEn: firstImplementationColMap.uzunlukEn !== undefined ? 
-                   firstImplementationColMap.uzunlukEn : directHeadersColMap.uzunlukEn,
-                   
-        // For hasirSayisi: prioritize direct headers, then statistical analysis, then fallback
+        // For hasirTipi use either implementation
+        hasirTipi: firstImplementationColMap.hasirTipi !== undefined ? 
+                  firstImplementationColMap.hasirTipi : directHeadersColMap.hasirTipi,
+        
+        // For uzunlukBoy/uzunlukEn use ONLY the first implementation
+        uzunlukBoy: firstImplementationColMap.uzunlukBoy,
+        uzunlukEn: firstImplementationColMap.uzunlukEn,
+        
+        // For hasirSayisi take the best approach from the second implementation
         hasirSayisi: directHeadersColMap.hasirSayisi !== undefined ? directHeadersColMap.hasirSayisi : 
-                     (columnCharacteristics.potentialHasirSayisi !== undefined ? 
-                      columnCharacteristics.potentialHasirSayisi : firstImplementationColMap.hasirSayisi)
+                    (columnCharacteristics.potentialHasirSayisi !== undefined ? 
+                     columnCharacteristics.potentialHasirSayisi : firstImplementationColMap.hasirSayisi)
       };
       
       // Process rows
@@ -3458,41 +3454,41 @@ const parseExcelData = (data) => {
           hasirSayisi = '1';
         }
         
-        // IMPORTANT: Keep machine limits in mind for validation
-        const MACHINE_LIMITS = {
-          MIN_BOY: 275, 
-          MAX_BOY: 800,
-          MIN_EN_ADJUSTABLE: 126,
-          MAX_EN: 250
-        };
-        
-        // Additional validation using machine limits
-        if (uzunlukBoy && uzunlukEn) {
-          const boyValue = parseFloat(uzunlukBoy);
-          const enValue = parseFloat(uzunlukEn);
-          
-          if (!isNaN(boyValue) && !isNaN(enValue)) {
-            // Check if values are within expected machine limits
-            const boyInRange = boyValue >= MACHINE_LIMITS.MIN_BOY * 0.8 && boyValue <= MACHINE_LIMITS.MAX_BOY * 1.2;
-            const enInRange = enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && enValue <= MACHINE_LIMITS.MAX_EN * 1.2;
-            
-            // If both values are out of their expected ranges, they might be swapped
-            if (!boyInRange && !enInRange) {
-              if (boyValue < enValue && 
-                  enValue >= MACHINE_LIMITS.MIN_BOY * 0.8 && enValue <= MACHINE_LIMITS.MAX_BOY * 1.2 &&
-                  boyValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && boyValue <= MACHINE_LIMITS.MAX_EN * 1.2) {
-                // Swap values as they match opposite ranges
-                const temp = uzunlukBoy;
-                uzunlukBoy = uzunlukEn;
-                uzunlukEn = temp;
+        // Simple validation to ensure we have both dimensions when possible
+        // Without any value swapping - trust the column detection
+        if (uzunlukBoy && !uzunlukEn) {
+          // If we have boy but not en, try to find en in sample rows
+          for (let i = 0; i < Math.min(3, jsonData.length - startRow); i++) {
+            const sampleRow = jsonData[startRow + i];
+            for (let j = 0; j < sampleRow.length; j++) {
+              if (j !== columnMap.uzunlukBoy && j !== columnMap.hasirTipi && j !== columnMap.hasirSayisi) {
+                const val = parseFloat(formatNumber(String(sampleRow[j])));
+                if (!isNaN(val) && val >= 126 && val <= 250) {
+                  // Found a likely en value
+                  uzunlukEn = formatNumber(String(row[j]));
+                  break;
+                }
               }
             }
-            // Simple swap if boy < en
-            else if (boyValue < enValue) {
-              const temp = uzunlukBoy;
-              uzunlukBoy = uzunlukEn;
-              uzunlukEn = temp;
+            if (uzunlukEn) break;
+          }
+        }
+        
+        if (!uzunlukBoy && uzunlukEn) {
+          // If we have en but not boy, try to find boy in sample rows
+          for (let i = 0; i < Math.min(3, jsonData.length - startRow); i++) {
+            const sampleRow = jsonData[startRow + i];
+            for (let j = 0; j < sampleRow.length; j++) {
+              if (j !== columnMap.uzunlukEn && j !== columnMap.hasirTipi && j !== columnMap.hasirSayisi) {
+                const val = parseFloat(formatNumber(String(sampleRow[j])));
+                if (!isNaN(val) && val >= 275 && val <= 800) {
+                  // Found a likely boy value
+                  uzunlukBoy = formatNumber(String(row[j]));
+                  break;
+                }
+              }
             }
+            if (uzunlukBoy) break;
           }
         }
         
@@ -3532,6 +3528,7 @@ const parseExcelData = (data) => {
     alert('Excel dosyası okuma hatası: ' + error.message);
   }
 };
+
 
 
 // Enhanced function to find columns by header text - comprehensive patterns for all fields
