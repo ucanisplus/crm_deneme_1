@@ -443,7 +443,7 @@ const CelikHasirHesaplama = () => {
     setRows(updatedRows);
   };
 
-// Eşleşen sütunları bulmak için geliştirilmiş algoritma - Hasır Sayısı için iyileştirildi
+// Kolonları hem başlık metnine hem de veri özelliklerine göre tespit eden nihai algoritma
 const findRelevantColumns = (data, headers) => {
   const columnMap = {
     hasirTipi: undefined,
@@ -454,98 +454,94 @@ const findRelevantColumns = (data, headers) => {
 
   if (!data || data.length === 0) return columnMap;
 
-  const sampleRows = headers ? data.slice(1, Math.min(data.length, 10)) : data.slice(0, Math.min(data.length, 9));
+  // İlk 15 satırdan örnek al
+  const sampleRows = headers
+    ? data.slice(1, Math.min(data.length, 16))
+    : data.slice(0, Math.min(data.length, 15));
+
   if (sampleRows.length === 0) return columnMap;
 
-  // Belge formatını tespit et (Türkçe/İngilizce sayı formatı)
-  const numberFormat = detectNumberFormat(sampleRows);
+  // Başlıkları normalize et
+  const normalizedHeaders = headers
+    ? headers.map(h =>
+        String(h || '')
+          .toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+          .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+      )
+    : [];
 
-  // 1. Adım: Başlıklar varsa, fuzzy matching ile başlıkları eşleştir
-  if (headers) {
-    const normalizedHeaders = headers.map(header =>
-      String(header).toLowerCase()
-        .normalize("NFD").replace(/[̀-ͯ]/g, "")
-        .replace(/ı/g, 'i')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-    );
+  // === 1. Adım: Başlık metnine göre öncelikli eşleşme ===
 
-    const fuseOptions = {
-      includeScore: true,
-      threshold: 0.6,
-      keys: ['value']
-    };
+  const headerPriority = {
+    hasirSayisi: ['hasir adedi', 'hasır adedi', 'adet', 'miktar', 'sayi'],
+    uzunlukBoy: ['uzunluk boy', 'boy', 'boy uzunluk', 'boy cm', 'yukseklik'],
+    uzunlukEn: ['uzunluk en', 'en', 'en uzunluk', 'en cm', 'genislik'],
+    hasirTipi: ['hasir tipi', 'celik hasir', 'hasir', 'tip', 'hasir cinsi']
+  };
 
-    const headerData = normalizedHeaders.map((header, index) => ({ value: header, index }));
-    const fuse = new Fuse(headerData, fuseOptions);
+  for (let i = 0; i < normalizedHeaders.length; i++) {
+    const header = normalizedHeaders[i];
 
-    const headerPriority = {
-      hasirSayisi: ['hasir adedi', 'hasır adedi', 'adet', 'miktar', 'sayi'],
-      uzunlukBoy: ['boy', 'uzunluk boy', 'boy cm', 'yukseklik'],
-      uzunlukEn: ['en', 'uzunluk en', 'en cm', 'genislik'],
-      hasirTipi: ['hasir tipi', 'celik hasir', 'tip', 'hasir']
-    };
-
-    for (const [key, patterns] of Object.entries(headerPriority)) {
-      for (const pattern of patterns) {
-        const result = fuse.search(pattern);
-        if (result.length > 0 && result[0].score < 0.4) {
-          columnMap[key] = result[0].item.index;
+    for (const [key, keywords] of Object.entries(headerPriority)) {
+      for (const keyword of keywords) {
+        if (header.includes(keyword) && columnMap[key] === undefined) {
+          columnMap[key] = i;
           break;
         }
       }
     }
   }
 
-  // 2. Adım: Hasır Tipi regex fallback
-  if (columnMap.hasirTipi === undefined) {
-    const matchCounts = {};
-    for (let col = 0; col < sampleRows[0].length; col++) {
-      matchCounts[col] = 0;
-      for (const row of sampleRows) {
-        const val = String(row[col] || '').toUpperCase().trim();
-        if (/^(Q|R|TR)\d+/.test(val)) matchCounts[col]++;
-      }
-    }
-    const best = Object.entries(matchCounts).sort((a, b) => b[1] - a[1])[0];
-    if (best && best[1] > 0) columnMap.hasirTipi = parseInt(best[0]);
-  }
+  // === 2. Adım: Veri tipi analizi ===
 
-  // 3. Adım: Sayısal veri istatistikleri hesapla
-  const columnStats = {};
+  const colStats = {};
+
   for (let col = 0; col < sampleRows[0].length; col++) {
     const values = [];
     for (const row of sampleRows) {
-      const raw = String(row[col] || '').trim();
-      const num = parseFloat(formatNumber(raw));
+      const val = String(row[col] || '').trim();
+      const num = parseFloat(formatNumber(val));
       if (!isNaN(num)) values.push(num);
     }
     if (values.length > 0) {
-      columnStats[col] = {
-        values,
+      colStats[col] = {
+        count: values.length,
         avg: values.reduce((a, b) => a + b, 0) / values.length,
         intRatio: values.filter(v => Number.isInteger(v)).length / values.length,
-        boyMatch: values.filter(v => v >= 275 && v <= 800).length / values.length,
-        enMatch: values.filter(v => v >= 100 && v <= 300).length / values.length
+        boyRange: values.filter(v => v >= 275 && v <= 800).length / values.length,
+        enRange: values.filter(v => v >= 100 && v <= 300).length / values.length
       };
     }
   }
 
-  // 4. Boy ve En için veri uyumuna göre seçim
-  if (columnMap.uzunlukBoy === undefined) {
-    const candidates = Object.entries(columnStats).filter(([_, s]) => s.boyMatch >= 0.7);
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => b[1].boyMatch - a[1].boyMatch);
-      columnMap.uzunlukBoy = parseInt(candidates[0][0]);
+  // === 3. Adım: Eksik kalan kolonları veriye göre tamamlama ===
+
+  if (columnMap.hasirTipi === undefined) {
+    const regexCounts = {};
+    for (let col = 0; col < sampleRows[0].length; col++) {
+      regexCounts[col] = 0;
+      for (const row of sampleRows) {
+        const val = String(row[col] || '').trim();
+        if (/^(Q|R|TR)\d+/i.test(val)) regexCounts[col]++;
+      }
     }
+    const best = Object.entries(regexCounts).sort((a, b) => b[1] - a[1])[0];
+    if (best && best[1] > 0) columnMap.hasirTipi = parseInt(best[0]);
+  }
+
+  if (columnMap.uzunlukBoy === undefined) {
+    const candidates = Object.entries(colStats)
+      .filter(([_, stat]) => stat.boyRange >= 0.7)
+      .sort((a, b) => b[1].boyRange - a[1].boyRange);
+    if (candidates.length > 0) columnMap.uzunlukBoy = parseInt(candidates[0][0]);
   }
 
   if (columnMap.uzunlukEn === undefined) {
-    const candidates = Object.entries(columnStats).filter(([_, s]) => s.enMatch >= 0.7);
-    candidates.sort((a, b) => b[1].enMatch - a[1].enMatch);
+    const candidates = Object.entries(colStats)
+      .filter(([_, stat]) => stat.enRange >= 0.7)
+      .sort((a, b) => b[1].enRange - a[1].enRange);
     for (const [col] of candidates) {
       if (parseInt(col) !== columnMap.uzunlukBoy) {
         columnMap.uzunlukEn = parseInt(col);
@@ -554,19 +550,15 @@ const findRelevantColumns = (data, headers) => {
     }
   }
 
-  // 5. Hasır Sayısı için fallback analizi (sadece int sütunlar)
   if (columnMap.hasirSayisi === undefined) {
-    const candidates = Object.entries(columnStats)
+    const candidates = Object.entries(colStats)
       .filter(([col, stat]) =>
         stat.intRatio > 0.9 &&
         stat.avg < 1000 &&
         ![columnMap.uzunlukBoy, columnMap.uzunlukEn, columnMap.hasirTipi].includes(parseInt(col))
       )
       .sort((a, b) => a[1].avg - b[1].avg);
-
-    if (candidates.length > 0) {
-      columnMap.hasirSayisi = parseInt(candidates[0][0]);
-    }
+    if (candidates.length > 0) columnMap.hasirSayisi = parseInt(candidates[0][0]);
   }
 
   return columnMap;
