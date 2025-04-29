@@ -3437,12 +3437,50 @@ const parseExcelData = (data) => {
           else if (headerText === "EN") {
             enCol = i;
           }
-          // Hasır sayısı sütunu - HASSAS EŞLEŞME
-          else if (headerText === "ADET" || headerText === "HASIR SAYISI" || 
-                  headerText === "HASIR SAYIŞ" || 
-                  headerText === "SAYI" || headerText === "MİKTAR") {
-            sayisiCol = i;
-          }
+          // Başlığı normalize et (boşlukları sil, büyük harfe çevir, Türkçe karakterleri İngilizce yap)
+        const normalizedHeader = headerText
+          .replace(/\s+/g, '')
+          .toUpperCase()
+          .replace(/İ/g, 'I')
+          .replace(/Ş/g, 'S')
+          .replace(/Ğ/g, 'G')
+          .replace(/Ü/g, 'U')
+          .replace(/Ö/g, 'O')
+          .replace(/Ç/g, 'C');
+        
+        // 1. En güçlü eşleşme: HASIR ADEDİ veya HASIR SAYISI varyasyonları
+        if (normalizedHeader.includes("HASIRADEDI") || normalizedHeader.includes("HASIRADETI") ||
+            normalizedHeader.includes("HASIRADEDI") || normalizedHeader.includes("HASIRADETI") ||
+            normalizedHeader.includes("HASIRSAYISI") || normalizedHeader.includes("HASIRSAYISI")) {
+          sayisiCol = i;
+          continue;
+        }
+        
+        // 2. İkinci öncelik: TOPLAM ADET veya SİPARİŞ ADEDİ türevleri
+        if (sayisiCol === -1 && (
+            normalizedHeader.includes("TOPLAMADET") ||
+            normalizedHeader.includes("TOPLAMADETI") ||
+            normalizedHeader.includes("TOPLAM ADET") ||
+            normalizedHeader.includes("SIPARISADEDI") ||
+            normalizedHeader.includes("SIPARISADETI") ||
+            normalizedHeader.includes("SIPARIS ADEDİ") ||
+            normalizedHeader.includes("SIPARIS ADEDI")
+        )) {
+          sayisiCol = i;
+          continue;
+        }
+        
+        // 3. Üçüncü öncelik: Genel kelimeler (ADET, MİKTAR, SAYI)
+        if (sayisiCol === -1 && (
+            normalizedHeader.includes("ADET") ||
+            normalizedHeader.includes("MIKTAR") ||
+            normalizedHeader.includes("MIKTARI") ||
+            normalizedHeader.includes("SAYI") ||
+            normalizedHeader.includes("SAYISI")
+        )) {
+          sayisiCol = i;
+        }
+
         }
         
         // Tam eşleşme yoksa, metin içeren başlıkları ara
