@@ -3311,22 +3311,23 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
+// Enhanced Excel parsing that handles all three data types correctly
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
     const allSheetData = [];
-
-    // Her sayfayı işle
+    
+    // Process each sheet
     for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex++) {
       const sheetName = workbook.SheetNames[sheetIndex];
       const worksheet = workbook.Sheets[sheetName];
-
-      // Birleştirilmiş hücreleri tespit et (başlıklar için)
+      
+      // Handle merged cells in headers
       const mergedCells = worksheet['!merges'] || [];
       const mergedHeaders = {};
-
+      
       mergedCells.forEach(merge => {
-        if (merge.s.r === 0) { // İlk satıra odaklan
+        if (merge.s.r === 0) { // Focus on first row where headers often are
           const startCell = XLSX.utils.encode_cell(merge.s);
           if (worksheet[startCell] && worksheet[startCell].v) {
             for (let c = merge.s.c; c <= merge.e.c; c++) {
@@ -3335,54 +3336,62 @@ const parseExcelData = (data) => {
           }
         }
       });
-
-      // Sayfayı JSON'a çevir
+      
+      // Convert to JSON
       let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-
-      // Boş satırları temizle
-      jsonData = jsonData.filter(row => row && row.length > 0 && row.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ''));
-
+      
+      // Filter empty rows
+      jsonData = jsonData.filter(row => 
+        row && row.length > 0 && row.some(cell => 
+          cell !== null && cell !== undefined && String(cell).trim() !== ''
+        )
+      );
+      
       if (jsonData.length === 0) continue;
-
-      // Birleştirilmiş başlıkları uygula
+      
+      // Apply merged cell headers to first row if it exists
       if (jsonData[0]) {
-        for (let c = 0; c < jsonData[0].length; c++) {
-          if ((!jsonData[0][c] || jsonData[0][c] === '') && mergedHeaders[c]) {
-            jsonData[0][c] = mergedHeaders[c];
+        const headerRow = [...jsonData[0]]; // Create a copy
+        for (let c = 0; c < headerRow.length; c++) {
+          if ((!headerRow[c] || headerRow[c] === '') && mergedHeaders[c]) {
+            headerRow[c] = mergedHeaders[c];
           }
         }
+        jsonData[0] = headerRow;
       }
-
-      // Başlıkları ve veri karakteristiklerini analiz et
+      
+      // Find columns - with improved header detection
       const hasHeaders = guessIfHasHeaders(jsonData);
       const headerRow = hasHeaders ? jsonData[0] : null;
-
-      const directColumnMap = findColumnsByHeaderText(headerRow);
-      const fallbackColumnMap = findRelevantColumns(jsonData, headerRow);
+      
+      // Analyze column data for statistical pattern detection
       const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
-
-      // Kolon eşleşmelerini birleştir
-      const columnMap = {
-        hasirTipi: directColumnMap.hasirTipi !== undefined ? directColumnMap.hasirTipi : fallbackColumnMap.hasirTipi,
-        uzunlukBoy: directColumnMap.uzunlukBoy !== undefined ? directColumnMap.uzunlukBoy : fallbackColumnMap.uzunlukBoy,
-        uzunlukEn: directColumnMap.uzunlukEn !== undefined ? directColumnMap.uzunlukEn : fallbackColumnMap.uzunlukEn,
-        hasirSayisi: directColumnMap.hasirSayisi !== undefined ? directColumnMap.hasirSayisi :
-                      (columnCharacteristics.potentialHasirSayisi !== undefined ? columnCharacteristics.potentialHasirSayisi : fallbackColumnMap.hasirSayisi)
-      };
-
+      
+      // Three-tier approach to column identification:
+      
+      // 1. First try direct header matching for critical columns
+      const directColumnMap = findColumnsByHeaderText(headerRow);
+      
+      // 2. Fall back to the original findRelevantColumns method - good for en/boy
+      const fallbackColumnMap = findRelevantColumns(jsonData, headerRow);
+      
+      // 3. Combine all approaches, with priority given to direct matches
+      const columnMap = combineColumnMaps(directColumnMap, fallbackColumnMap, columnCharacteristics);
+      
+      // Process rows
       const startRow = hasHeaders ? 1 : 0;
-
-      // Satırları işle
+      
       for (let rowIndex = startRow; rowIndex < jsonData.length; rowIndex++) {
         const row = jsonData[rowIndex];
         if (!row || row.length === 0) continue;
-
-        // Hasır Tipi çıkar
+        
+        // Try to find hasir tipi in any cell if not found in the mapped column
         let hasirTipi = '';
         if (columnMap.hasirTipi !== undefined && columnMap.hasirTipi < row.length) {
           hasirTipi = String(row[columnMap.hasirTipi] || '').trim();
         }
-
+        
+        // If not found in the mapped column, search all cells
         if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
           for (const cell of row) {
             if (!cell) continue;
@@ -3393,73 +3402,91 @@ const parseExcelData = (data) => {
             }
           }
         }
-
+        
+        // Skip rows without hasir tipi
         if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
           continue;
         }
-
-        // Uzunluk Boy, Uzunluk En ve Hasır Sayısı çıkar
+        
+        // Extract other values using column map
         let uzunlukBoy = '';
         let uzunlukEn = '';
         let hasirSayisi = '';
-
+        
         if (columnMap.uzunlukBoy !== undefined && columnMap.uzunlukBoy < row.length) {
           uzunlukBoy = String(row[columnMap.uzunlukBoy] || '').trim();
         }
-
+        
         if (columnMap.uzunlukEn !== undefined && columnMap.uzunlukEn < row.length) {
           uzunlukEn = String(row[columnMap.uzunlukEn] || '').trim();
         }
-
+        
         if (columnMap.hasirSayisi !== undefined && columnMap.hasirSayisi < row.length) {
           hasirSayisi = String(row[columnMap.hasirSayisi] || '').trim();
         }
-
-        if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi !== undefined) {
-          const col = columnCharacteristics.potentialHasirSayisi;
-          if (col < row.length && row[col]) {
-            hasirSayisi = String(row[col]).trim();
-          }
-        }
-
-        // Sayısal değerleri standart formatla
+        
+        // Format numbers consistently
         if (uzunlukBoy) uzunlukBoy = formatNumber(uzunlukBoy);
         if (uzunlukEn) uzunlukEn = formatNumber(uzunlukEn);
         if (hasirSayisi) hasirSayisi = formatNumber(hasirSayisi);
-
+        
+        // Special case for hasirSayisi - check potentialHasirSayisi column from analysis
+        if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi !== undefined) {
+          const col = columnCharacteristics.potentialHasirSayisi;
+          if (col < row.length && row[col]) {
+            hasirSayisi = formatNumber(String(row[col]));
+          }
+        }
+        
+        // Default hasir sayisi to 1 if missing - important for correct handling
         if (!hasirSayisi) {
           hasirSayisi = '1';
         }
-
+        
+        // Additional validation: ensure boy > en if both are present
+        if (uzunlukBoy && uzunlukEn) {
+          const boyValue = parseFloat(uzunlukBoy);
+          const enValue = parseFloat(uzunlukEn);
+          
+          if (!isNaN(boyValue) && !isNaN(enValue) && boyValue < enValue) {
+            // Swap values if boy is less than en
+            const temp = uzunlukBoy;
+            uzunlukBoy = uzunlukEn;
+            uzunlukEn = temp;
+          }
+        }
+        
+        // Validate dimensions (at least one must be present)
         if (uzunlukBoy || uzunlukEn) {
           allSheetData.push({
             hasirTipi: standardizeHasirTipi(hasirTipi),
             uzunlukBoy: uzunlukBoy,
             uzunlukEn: uzunlukEn,
             hasirSayisi: hasirSayisi,
-            sheetName: sheetName
+            sheetName: sheetName // Keep track of sheet origin
           });
         }
       }
     }
-
+    
     if (allSheetData.length === 0) {
       alert('Excel dosyasında işlenebilir veri bulunamadı.');
       return;
     }
-
+    
+    // Create preview data with sheet indicators
     const previewItems = allSheetData.map((rowData, index) => ({
       id: index,
       hasirTipi: rowData.hasirTipi || '',
       uzunlukBoy: rowData.uzunlukBoy || '',
       uzunlukEn: rowData.uzunlukEn || '',
       hasirSayisi: rowData.hasirSayisi || '',
-      aciklama: `Sayfa: ${rowData.sheetName}`
+      sheetName: rowData.sheetName // Keep track of sheet name
     }));
-
+    
     setPreviewData(previewItems);
     setBulkInputVisible(true);
-
+    
   } catch (error) {
     console.error('Excel işleme hatası:', error);
     alert('Excel dosyası okuma hatası: ' + error.message);
@@ -3467,7 +3494,7 @@ const parseExcelData = (data) => {
 };
 
 
-// Başlık metinlerine göre kolonları bul
+// Enhanced function to find columns by header text - comprehensive patterns for all fields
 const findColumnsByHeaderText = (headers) => {
   const result = {
     hasirTipi: undefined,
@@ -3478,42 +3505,47 @@ const findColumnsByHeaderText = (headers) => {
   
   if (!headers) return result;
   
-  // Olası başlık metinleri - Özellikle "HASIR SAYISI" için genişletildi
+  // Expanded header patterns for all fields
   const headerPatterns = {
     hasirTipi: [
-      'HASIR TİP', 'HASIR TIP', 'ÇELIK HASIR', 'CELIK HASIR', 'TİP',
-      'HASIR CİNS', 'HASIR CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP'
+      'HASIR TİP', 'HASIR TIP', 'ÇELIK HASIR', 'CELIK HASIR', 'TİP', 'TIP',
+      'HASIR CİNS', 'HASIR CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 
+      'HASIR TÜRÜ', 'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ'
     ],
     uzunlukBoy: [
-      'BOY', 'UZUNLUK BOY', 'YÜKSEKLIK', 'YUKSEKLIK', 'BOY CM',
-      'Y.BOY', 'YÜKSEKLİK (CM)', 'YÜKSEKLIK (CM)', 'BOY UZUNLUK'
+      'BOY', 'UZUNLUK BOY', 'YÜKSEKLIK', 'YUKSEKLIK', 'BOY CM', 'BOY (CM)',
+      'Y.BOY', 'YÜKSEKLİK (CM)', 'YÜKSEKLIK (CM)', 'BOY UZUNLUK', 'UZUN',
+      'UZUN KENAR', 'BÜYÜK KENAR', 'BUYUK KENAR', 'HEIGHT', 'LENGTH'
     ],
     uzunlukEn: [
-      'EN', 'UZUNLUK EN', 'GENISLIK', 'GENİŞLİK', 'EN CM',
-      'Y.EN', 'GENİŞLİK (CM)', 'GENISLIK (CM)', 'EN UZUNLUK'
+      'EN', 'UZUNLUK EN', 'GENISLIK', 'GENİŞLİK', 'EN CM', 'EN (CM)',
+      'Y.EN', 'GENİŞLİK (CM)', 'GENISLIK (CM)', 'EN UZUNLUK', 'KISA',
+      'KISA KENAR', 'KÜÇÜK KENAR', 'KUCUK KENAR', 'WIDTH'
     ],
     hasirSayisi: [
       'HASIR SAYISI', 'HASIR SAYIS', 'ADET', 'MİKTAR', 'MIKTAR',
       'SAYI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI', 'TOPLAM ADET',
       'TOPLAM', 'ADET SAYISI', 'HASIR ADEDI', 'HASIR ADEDİ',
-      'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ', 'SIPARIS'
+      'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ', 'SIPARIS',
+      'QUANTITY', 'COUNT', 'TOPLAM SAYI', 'TOPLAM HASIR',
+      'ADET SAYISI', 'TANE'
     ]
   };
   
-  // Tüm başlıklar için karşılaştırma yap
+  // Check all headers against patterns
   for (let i = 0; i < headers.length; i++) {
     const header = String(headers[i] || '').trim().toUpperCase();
     if (!header) continue;
     
-    // Her kategori için başlık metinlerini kontrol et
+    // Check each category against header text
     for (const [category, patterns] of Object.entries(headerPatterns)) {
-      // Tam eşleşme var mı?
+      // First check for exact matches (higher priority)
       if (patterns.includes(header)) {
         result[category] = i;
         break;
       }
       
-      // İçeriyor mu?
+      // Then check for partial matches
       for (const pattern of patterns) {
         if (header.includes(pattern)) {
           result[category] = i;
@@ -3649,7 +3681,7 @@ const analyzeColumnData = (data, hasHeaders) => {
   return result;
 };
 
-// Kolon haritalarını birleştir
+// Improved combineColumnMaps with smarter priority logic
 const combineColumnMaps = (directMap, fallbackMap, columnCharacteristics) => {
   const result = {
     hasirTipi: undefined,
@@ -3658,22 +3690,43 @@ const combineColumnMaps = (directMap, fallbackMap, columnCharacteristics) => {
     hasirSayisi: undefined
   };
   
-  // Öncelikle doğrudan eşleşmeyi kullan
+  // Priority 1: Direct header matches
   if (directMap.hasirTipi !== undefined) result.hasirTipi = directMap.hasirTipi;
   if (directMap.uzunlukBoy !== undefined) result.uzunlukBoy = directMap.uzunlukBoy;
   if (directMap.uzunlukEn !== undefined) result.uzunlukEn = directMap.uzunlukEn;
   if (directMap.hasirSayisi !== undefined) result.hasirSayisi = directMap.hasirSayisi;
   
-  // Hasır sayısı için kolon karakteristiklerini kontrol et
+  // Priority 2: Statistical analysis for hasirSayisi
   if (result.hasirSayisi === undefined && columnCharacteristics.potentialHasirSayisi !== undefined) {
     result.hasirSayisi = columnCharacteristics.potentialHasirSayisi;
   }
   
-  // Son olarak fallback kullan
-  if (result.hasirTipi === undefined && fallbackMap.hasirTipi !== undefined) result.hasirTipi = fallbackMap.hasirTipi;
-  if (result.uzunlukBoy === undefined && fallbackMap.uzunlukBoy !== undefined) result.uzunlukBoy = fallbackMap.uzunlukBoy;
-  if (result.uzunlukEn === undefined && fallbackMap.uzunlukEn !== undefined) result.uzunlukEn = fallbackMap.uzunlukEn;
-  if (result.hasirSayisi === undefined && fallbackMap.hasirSayisi !== undefined) result.hasirSayisi = fallbackMap.hasirSayisi;
+  // Priority 3: Fallback column detection
+  if (result.hasirTipi === undefined && fallbackMap.hasirTipi !== undefined) {
+    result.hasirTipi = fallbackMap.hasirTipi;
+  }
+  
+  // Special case for en/boy where we need both - always use fallback if either is missing
+  if (result.uzunlukBoy === undefined && fallbackMap.uzunlukBoy !== undefined) {
+    result.uzunlukBoy = fallbackMap.uzunlukBoy;
+  }
+  
+  if (result.uzunlukEn === undefined && fallbackMap.uzunlukEn !== undefined) {
+    result.uzunlukEn = fallbackMap.uzunlukEn;
+  }
+  
+  // If we have either uzunlukBoy or uzunlukEn but not both, use the fallback map
+  // This is important because the first implementation is better at distinguishing them
+  if ((result.uzunlukBoy === undefined || result.uzunlukEn === undefined) && 
+      (fallbackMap.uzunlukBoy !== undefined && fallbackMap.uzunlukEn !== undefined)) {
+    result.uzunlukBoy = fallbackMap.uzunlukBoy;
+    result.uzunlukEn = fallbackMap.uzunlukEn;
+  }
+  
+  // Final priority for hasirSayisi
+  if (result.hasirSayisi === undefined && fallbackMap.hasirSayisi !== undefined) {
+    result.hasirSayisi = fallbackMap.hasirSayisi;
+  }
   
   return result;
 };
@@ -4257,39 +4310,38 @@ const processSheetData = (data, sheetName = '') => {
 };
 // extra olabilir
 
-// CSV dosyalarını işleme - Aynı gelişmiş analiz ile
 const parseCsvData = (data) => {
   try {
     Papa.parse(data, {
       header: false,
       skipEmptyLines: true,
-      delimiter: '', // Otomatik ayırıcı algılama
+      delimiter: '', // Auto-detect delimiter
       complete: (results) => {
         if (!results.data || results.data.length === 0) {
           alert('CSV dosyasında işlenebilir veri bulunamadı.');
           return;
         }
         
-        // Excel işleme kodu ile benzer mantık
+        // Use the same processing logic as Excel
         const jsonData = results.data;
         
-        // Başlıkları tespit et
+        // Detect headers
         const hasHeaders = guessIfHasHeaders(jsonData);
         const headerRow = hasHeaders ? jsonData[0] : null;
         
-        // Gelişmiş kolon analizi
+        // Advanced column analysis
         const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
         
-        // Doğrudan başlık eşleştirme
+        // Direct header matching
         const directColumnMap = findColumnsByHeaderText(headerRow);
         
-        // Orijinal column map
+        // Original column map detection
         const fallbackColumnMap = findRelevantColumns(jsonData, headerRow);
         
-        // Haritaları birleştir
+        // Combine maps with smart priority
         const columnMap = combineColumnMaps(directColumnMap, fallbackColumnMap, columnCharacteristics);
         
-        // Satırları işle
+        // Process rows using the same logic as Excel
         const startRow = hasHeaders ? 1 : 0;
         const validRows = [];
         
@@ -4297,13 +4349,13 @@ const parseCsvData = (data) => {
           const row = jsonData[rowIndex];
           if (!row || row.length === 0) continue;
           
-          // Hasır tipi var mı kontrol et
+          // Extract hasir tipi
           let hasirTipi = '';
           if (columnMap.hasirTipi !== undefined && columnMap.hasirTipi < row.length) {
             hasirTipi = String(row[columnMap.hasirTipi] || '').trim();
           }
           
-          // Eğer belirtilen sütunda bulunamadıysa, tüm hücrelerde ara
+          // Search all cells if not found in column
           if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
             for (const cell of row) {
               if (!cell) continue;
@@ -4315,12 +4367,12 @@ const parseCsvData = (data) => {
             }
           }
           
-          // Hasır tipi yoksa satırı atla
+          // Skip rows without hasir tipi
           if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
             continue;
           }
           
-          // Diğer değerleri kolon haritasına göre çıkar
+          // Extract other values
           let uzunlukBoy = '';
           let uzunlukEn = '';
           let hasirSayisi = '';
@@ -4337,32 +4389,45 @@ const parseCsvData = (data) => {
             hasirSayisi = String(row[columnMap.hasirSayisi] || '').trim();
           }
           
-          // Sayıları formatla
+          // Format numbers consistently
           if (uzunlukBoy) uzunlukBoy = formatNumber(uzunlukBoy);
           if (uzunlukEn) uzunlukEn = formatNumber(uzunlukEn);
           if (hasirSayisi) hasirSayisi = formatNumber(hasirSayisi);
           
-          // Hasır sayısı yoksa ve açıkça bir sayı sütunu varsa bak
-          if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi) {
+          // Check potentialHasirSayisi if not found
+          if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi !== undefined) {
             const col = columnCharacteristics.potentialHasirSayisi;
             if (col < row.length && row[col]) {
               hasirSayisi = formatNumber(String(row[col]));
             }
           }
           
-          // Hala yoksa varsayılan olarak 1 kullan
+          // Default to 1 if still missing
           if (!hasirSayisi) {
             hasirSayisi = '1';
           }
           
-          // Boyutları doğrula (en az biri olmalı)
+          // Additional validation: ensure boy > en if both values are present
+          if (uzunlukBoy && uzunlukEn) {
+            const boyValue = parseFloat(uzunlukBoy);
+            const enValue = parseFloat(uzunlukEn);
+            
+            if (!isNaN(boyValue) && !isNaN(enValue) && boyValue < enValue) {
+              // Swap values if boy is less than en
+              const temp = uzunlukBoy;
+              uzunlukBoy = uzunlukEn;
+              uzunlukEn = temp;
+            }
+          }
+          
+          // Validate dimensions
           if (uzunlukBoy || uzunlukEn) {
             validRows.push({
               hasirTipi: standardizeHasirTipi(hasirTipi),
               uzunlukBoy: uzunlukBoy,
               uzunlukEn: uzunlukEn,
               hasirSayisi: hasirSayisi,
-              sheetName: "CSV" // CSV için standart sayfa adı
+              sheetName: "CSV" // Standard sheet name for CSV
             });
           }
         }
@@ -4372,7 +4437,7 @@ const parseCsvData = (data) => {
           return;
         }
         
-        // Ön izleme verileri olarak ayarla
+        // Set preview data
         const previewItems = validRows.map((rowData, index) => ({
           id: index,
           hasirTipi: rowData.hasirTipi || '',
