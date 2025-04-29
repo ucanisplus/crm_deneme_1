@@ -267,7 +267,8 @@ const CelikHasirHesaplama = () => {
         arkaFiliz: false,
         hasirTuru: false
       },
-      uretilemez: false // Üretilemez durumu için alan
+      uretilemez: false, // Üretilemez durumu için alan
+      sheetName: '' // Sheet name bilgisi için yeni alan
     };
   }
 
@@ -3373,15 +3374,22 @@ const parseExcelData = (data) => {
       const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
       const directHeadersColMap = findColumnsByHeaderText(headerRow);
       
-      // 3. Create a new map WITHOUT COMBINING the implementations
       const columnMap = {
         // For hasirTipi use either implementation
         hasirTipi: firstImplementationColMap.hasirTipi !== undefined ? 
                   firstImplementationColMap.hasirTipi : directHeadersColMap.hasirTipi,
         
-        // For uzunlukBoy/uzunlukEn use ONLY the first implementation
+        // For uzunlukBoy use first implementation
         uzunlukBoy: firstImplementationColMap.uzunlukBoy,
-        uzunlukEn: firstImplementationColMap.uzunlukEn,
+        
+        // For uzunlukEn - specifically map to the EN column in the Excel data
+        uzunlukEn: directHeadersColMap.uzunlukEn !== undefined ? 
+                  directHeadersColMap.uzunlukEn : 
+                  columnCharacteristics.columnStats ? 
+                  Object.entries(columnCharacteristics.columnStats)
+                    .find(([col, stats]) => 
+                      stats.samples && stats.samples.some(v => v >= 100 && v <= 315))?.[0] : 
+                  firstImplementationColMap.uzunlukEn,
         
         // For hasirSayisi take the best approach from the second implementation
         hasirSayisi: directHeadersColMap.hasirSayisi !== undefined ? directHeadersColMap.hasirSayisi : 
@@ -4949,7 +4957,6 @@ const parseCsvData = (data) => {
     // Yeni satır ID'leri için başlangıç değeri
     const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
     
-    // Ön izleme verilerinden tam satırlar oluştur
     const newRows = validPreviewData.map((previewRow, index) => {
       const newRow = createEmptyRow(startId + index);
       
@@ -4958,6 +4965,7 @@ const parseCsvData = (data) => {
       newRow.uzunlukBoy = previewRow.uzunlukBoy;
       newRow.uzunlukEn = previewRow.uzunlukEn;
       newRow.hasirSayisi = previewRow.hasirSayisi || '1'; // Varsayılan olarak 1
+      newRow.sheetName = previewRow.sheetName; // Sheet name bilgisini aktar
       
       return newRow;
     });
@@ -5037,10 +5045,10 @@ const parseCsvData = (data) => {
     try {
       // Başlık satırı
       const headers = [
-        'SIRA', 'HASIR TİPİ', 'UZUNLUK BOY', 'UZUNLUK EN', 'HASIR SAYISI', 'HASIR TÜRÜ', 
-        'BOY ÇAP', 'EN ÇAP', 'BOY ARALIĞI', 'EN ARALIĞI', 'ÇUBUK SAYISI BOY', 
-        'ÇUBUK SAYISI EN', 'SOL FİLİZ', 'SAĞ FİLİZ', 'ÖN FİLİZ', 'ARKA FİLİZ', 
-        'ADET KG', 'TOPLAM KG', 'STOK KODU', 'AÇIKLAMA'
+      'SIRA', 'SAYFA', 'HASIR TİPİ', 'UZUNLUK BOY', 'UZUNLUK EN', 'HASIR SAYISI', 'HASIR TÜRÜ', 
+      'BOY ÇAP', 'EN ÇAP', 'BOY ARALIĞI', 'EN ARALIĞI', 'ÇUBUK SAYISI BOY', 
+      'ÇUBUK SAYISI EN', 'SOL FİLİZ', 'SAĞ FİLİZ', 'ÖN FİLİZ', 'ARKA FİLİZ', 
+      'ADET KG', 'TOPLAM KG', 'STOK KODU', 'AÇIKLAMA'
       ];
       
       // Verileri hazırla
@@ -5049,6 +5057,7 @@ const parseCsvData = (data) => {
       rows.forEach((row, index) => {
         data.push([
           index + 1, // Sıra
+          row.sheetName || '', // Sayfa adı
           row.hasirTipi, // Hasır tipi
           row.uzunlukBoy,
           row.uzunlukEn,
