@@ -3314,7 +3314,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
-// ULTRA SIMPLE EXCEL PARSER - NO FANCY DETECTION
+// SIMPLE EXCEL PARSER - CONSISTENT COLUMN DETECTION
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
@@ -3337,39 +3337,44 @@ const parseExcelData = (data) => {
       
       if (filteredData.length === 0) continue;
       
-      // HARD RULE: First, look for a header row containing "EN" and "BOY"
+      // Find a header row
       let headerRow = null;
       let headerIndex = -1;
       
       // Check first 5 rows for header
       for (let i = 0; i < Math.min(5, filteredData.length); i++) {
         const row = filteredData[i];
-        // Does row contain both "EN" and "BOY"?
-        if (row.some(cell => typeof cell === 'string' && 
-               cell.toString().toUpperCase().trim() === "EN") && 
-            row.some(cell => typeof cell === 'string' && 
-               cell.toString().toUpperCase().trim() === "BOY")) {
+        
+        // If row contains typical header text
+        if (row.some(cell => {
+          if (typeof cell !== 'string') return false;
+          const header = cell.toString().toUpperCase().trim();
+          return header === "EN" || header === "BOY" || header === "ADET" || 
+                 header === "HASIR TIPI" || header === "HASIR TİPİ";
+        })) {
           headerRow = row;
           headerIndex = i;
           break;
         }
       }
       
-      // Start processing data with header info
+      // Start processing at row after header, or first row if no header found
       const startRow = headerIndex !== -1 ? headerIndex + 1 : 0;
       
-      // Initialize column indices
+      // Find columns using header
       let hasirTipiCol = -1;
       let boyCol = -1;
       let enCol = -1;
       let sayisiCol = -1;
       
-      // If we found header row, use EXACT matches
       if (headerRow) {
+        // First look for exact header matches
         for (let i = 0; i < headerRow.length; i++) {
-          const header = String(headerRow[i]).toUpperCase().trim();
+          if (typeof headerRow[i] !== 'string') continue;
           
-          // EXACT MATCHES ONLY
+          const header = headerRow[i].toString().toUpperCase().trim();
+          
+          // Exact matches
           if (header === "HASIR TİPİ" || header === "HASIR TIPI" || header === "TİP" || header === "TIP") {
             hasirTipiCol = i;
           }
@@ -3379,204 +3384,218 @@ const parseExcelData = (data) => {
           else if (header === "EN") {
             enCol = i;
           }
-          else if (header === "ADET" || header === "HASIR SAYISI") {
+          else if (header === "ADET" || header === "HASIR SAYISI" || header === "SAYI") {
             sayisiCol = i;
+          }
+        }
+        
+        // If exact matches didn't find all columns, look for partial matches
+        if (hasirTipiCol === -1 || boyCol === -1 || enCol === -1 || sayisiCol === -1) {
+          for (let i = 0; i < headerRow.length; i++) {
+            if (typeof headerRow[i] !== 'string') continue;
+            
+            const header = headerRow[i].toString().toUpperCase().trim();
+            
+            // Partial matches
+            if (hasirTipiCol === -1 && 
+                (header.includes("HASIR") || header.includes("TİP") || header.includes("TIP"))) {
+              hasirTipiCol = i;
+            }
+            else if (boyCol === -1 && header.includes("BOY")) {
+              boyCol = i;
+            }
+            else if (enCol === -1 && header.includes("EN")) {
+              enCol = i;
+            }
+            else if (sayisiCol === -1 && 
+                    (header.includes("ADET") || header.includes("SAYI") || header.includes("MİKTAR"))) {
+              sayisiCol = i;
+            }
           }
         }
       }
       
-      // Process rows to find data
-      const foundRows = [];
+      // If we still can't find hasirTipi column, find the column that consistently contains Q/R/TR values
+      if (hasirTipiCol === -1) {
+        const qrPatternCounts = {};
+        
+        for (let rowIndex = startRow; rowIndex < Math.min(filteredData.length, startRow + 10); rowIndex++) {
+          const row = filteredData[rowIndex];
+          if (!row) continue;
+          
+          for (let colIndex = 0; colIndex < row.length; colIndex++) {
+            const cell = String(row[colIndex] || '').trim();
+            if (/^(Q|R|TR)\d+/i.test(cell)) {
+              qrPatternCounts[colIndex] = (qrPatternCounts[colIndex] || 0) + 1;
+            }
+          }
+        }
+        
+        // Find column with most Q/R/TR values
+        let maxCount = 0;
+        for (const [col, count] of Object.entries(qrPatternCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            hasirTipiCol = parseInt(col);
+          }
+        }
+      }
       
+      // If we couldn't find Boy/En columns from headers, analyze data in first few rows
+      if (boyCol === -1 || enCol === -1) {
+        // Find columns with numeric values in the appropriate range
+        const dimensionColumns = {};
+        
+        for (let rowIndex = startRow; rowIndex < Math.min(filteredData.length, startRow + 5); rowIndex++) {
+          const row = filteredData[rowIndex];
+          if (!row) continue;
+          
+          for (let colIndex = 0; colIndex < row.length; colIndex++) {
+            if (colIndex === hasirTipiCol) continue;
+            
+            const cell = String(row[colIndex] || '').trim();
+            const numValue = parseFloat(formatNumber(cell));
+            
+            if (!isNaN(numValue) && numValue >= 49 && numValue <= 800) {
+              if (!dimensionColumns[colIndex]) {
+                dimensionColumns[colIndex] = {
+                  sum: 0,
+                  count: 0,
+                  values: []
+                };
+              }
+              
+              dimensionColumns[colIndex].sum += numValue;
+              dimensionColumns[colIndex].count++;
+              dimensionColumns[colIndex].values.push(numValue);
+            }
+          }
+        }
+        
+        // Calculate averages and sort columns
+        const dimensionColEntries = Object.entries(dimensionColumns)
+          .map(([colIndex, stats]) => ({
+            colIndex: parseInt(colIndex),
+            avg: stats.sum / stats.count,
+            count: stats.count
+          }))
+          .filter(entry => entry.count >= 3) // Must have at least 3 values
+          .sort((a, b) => a.colIndex - b.colIndex); // Sort by column index
+        
+        // Typical case: Boy and En are adjacent columns
+        // Use column index (left to right) rather than value size
+        if (dimensionColEntries.length >= 2) {
+          // First dimension column = Boy (typically)
+          if (boyCol === -1) {
+            boyCol = dimensionColEntries[0].colIndex;
+          }
+          
+          // Second dimension column = En (typically)
+          if (enCol === -1) {
+            for (const entry of dimensionColEntries) {
+              if (entry.colIndex !== boyCol) {
+                enCol = entry.colIndex;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // If we still can't find hasirSayisi column, look for typical integer values (1-100)
+      if (sayisiCol === -1) {
+        const sayisiCandidates = {};
+        
+        for (let rowIndex = startRow; rowIndex < Math.min(filteredData.length, startRow + 10); rowIndex++) {
+          const row = filteredData[rowIndex];
+          if (!row) continue;
+          
+          for (let colIndex = 0; colIndex < row.length; colIndex++) {
+            if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) continue;
+            
+            const cell = String(row[colIndex] || '').trim();
+            const numValue = parseFloat(formatNumber(cell));
+            
+            if (!isNaN(numValue) && 
+                numValue >= 1 && numValue <= 1000 && 
+                (Number.isInteger(numValue) || Math.abs(numValue - Math.round(numValue)) < 0.001)) {
+              sayisiCandidates[colIndex] = (sayisiCandidates[colIndex] || 0) + 1;
+            }
+          }
+        }
+        
+        // Find column with most integer values
+        let maxCount = 0;
+        for (const [col, count] of Object.entries(sayisiCandidates)) {
+          if (count > maxCount) {
+            maxCount = count;
+            sayisiCol = parseInt(col);
+          }
+        }
+      }
+      
+      // Process rows using our identified columns
       for (let rowIndex = startRow; rowIndex < filteredData.length; rowIndex++) {
         const row = filteredData[rowIndex];
         if (!row || row.length === 0) continue;
         
-        // RULE: First find hasir tipi (Q/R/TR pattern)
-        let hasirTipi = "";
-        let hasirTipiFound = false;
-        
-        // If we know the column, use it
+        // Get hasirTipi
+        let hasirTipi = '';
         if (hasirTipiCol !== -1 && hasirTipiCol < row.length) {
-          const cell = String(row[hasirTipiCol] || '').trim();
-          if (/^(Q|R|TR)\d+/i.test(cell)) {
-            hasirTipi = cell;
-            hasirTipiFound = true;
-          }
+          hasirTipi = String(row[hasirTipiCol] || '').trim();
         }
         
-        // If not found, search all cells
-        if (!hasirTipiFound) {
-          for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const cell = String(row[colIndex] || '').trim();
-            if (/^(Q|R|TR)\d+/i.test(cell)) {
-              hasirTipi = cell;
-              hasirTipiCol = colIndex; // Remember position for next rows
-              hasirTipiFound = true;
+        // If not found in column, search all cells
+        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
+          for (const cell of row) {
+            if (!cell) continue;
+            const cellValue = String(cell).trim();
+            if (/^(Q|R|TR)\d+/i.test(cellValue)) {
+              hasirTipi = cellValue;
               break;
             }
           }
         }
         
-        // IMPORTANT: If no hasir tipi, skip row completely
-        if (!hasirTipiFound) continue;
-        
-        // Find all numeric values in this row (except hasirTipiCol)
-        const numericValues = [];
-        
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-          if (colIndex === hasirTipiCol) continue;
-          
-          const rawValue = row[colIndex];
-          if (rawValue === undefined || rawValue === null || rawValue === '') continue;
-          
-          const value = parseFloat(formatNumber(String(rawValue)));
-          if (!isNaN(value)) {
-            numericValues.push({
-              colIndex,
-              value,
-              raw: rawValue
-            });
-          }
+        // Skip row if no hasirTipi found
+        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
+          continue;
         }
         
-        // STRICT RULE: Only consider values between 49 and 800 for dimensions
-        const dimensionValues = numericValues.filter(item => 
-          item.value >= 49 && item.value <= 800
-        );
-        
-        // Sort by value (largest first)
-        dimensionValues.sort((a, b) => b.value - a.value);
-        
-        // RULE: If we have found at least 2 dimension values, use larger as BOY, smaller as EN
-        if (dimensionValues.length >= 2) {
-          // Get BOY (larger value)
-          const boyValue = dimensionValues[0].value.toString();
-          // Get EN (second largest value)
-          const enValue = dimensionValues[1].value.toString();
-          
-          // Remember column indices for next rows
-          if (boyCol === -1) boyCol = dimensionValues[0].colIndex;
-          if (enCol === -1) enCol = dimensionValues[1].colIndex;
-          
-          // Find hasirSayisi (any remaining numeric value < 1000, ideally < 100)
-          let hasirSayisi = "1"; // Default if not found
-          
-          // Small values are likely to be hasirSayisi
-          const smallValues = numericValues.filter(item => 
-            item.colIndex !== dimensionValues[0].colIndex && 
-            item.colIndex !== dimensionValues[1].colIndex &&
-            item.value > 0 && item.value <= 1000
-          );
-          
-          if (smallValues.length > 0) {
-            // Sort by value (smallest first)
-            smallValues.sort((a, b) => a.value - b.value);
-            hasirSayisi = smallValues[0].value.toString();
-            
-            // Remember column index
-            if (sayisiCol === -1) sayisiCol = smallValues[0].colIndex;
-          }
-          
-          // Add row to results
-          foundRows.push({
-            hasirTipi,
-            uzunlukBoy: boyValue,
-            uzunlukEn: enValue,
-            hasirSayisi
-          });
+        // Get uzunlukBoy
+        let uzunlukBoy = '';
+        if (boyCol !== -1 && boyCol < row.length) {
+          uzunlukBoy = formatNumber(String(row[boyCol] || ''));
         }
-      }
-      
-      // Use the reliable column indices to get remaining rows
-      if (boyCol !== -1 && enCol !== -1) {
-        for (let rowIndex = startRow; rowIndex < filteredData.length; rowIndex++) {
-          const row = filteredData[rowIndex];
-          if (!row || row.length === 0) continue;
-          
-          // Skip rows we already processed
-          if (foundRows.some(fr => fr.rowIndex === rowIndex)) continue;
-          
-          // Get hasirTipi
-          let hasirTipi = "";
-          if (hasirTipiCol !== -1 && hasirTipiCol < row.length) {
-            const cell = String(row[hasirTipiCol] || '').trim();
-            if (/^(Q|R|TR)\d+/i.test(cell)) {
-              hasirTipi = cell;
-            }
-          }
-          
-          // If not found in column, search all cells
-          if (!hasirTipi) {
-            for (let colIndex = 0; colIndex < row.length; colIndex++) {
-              const cell = String(row[colIndex] || '').trim();
-              if (/^(Q|R|TR)\d+/i.test(cell)) {
-                hasirTipi = cell;
-                break;
-              }
-            }
-          }
-          
-          // IMPORTANT: If no hasir tipi, skip row
-          if (!hasirTipi) continue;
-          
-          // Get BOY value
-          let boyValue = "";
-          if (boyCol < row.length) {
-            const rawBoy = row[boyCol];
-            if (rawBoy !== undefined && rawBoy !== null && rawBoy !== '') {
-              boyValue = formatNumber(String(rawBoy));
-            }
-          }
-          
-          // Get EN value
-          let enValue = "";
-          if (enCol < row.length) {
-            const rawEn = row[enCol];
-            if (rawEn !== undefined && rawEn !== null && rawEn !== '') {
-              enValue = formatNumber(String(rawEn));
-            }
-          }
-          
-          // Get hasirSayisi
-          let hasirSayisi = "1"; // Default
-          if (sayisiCol !== -1 && sayisiCol < row.length) {
-            const rawSayi = row[sayisiCol];
-            if (rawSayi !== undefined && rawSayi !== null && rawSayi !== '') {
-              hasirSayisi = formatNumber(String(rawSayi));
-            }
-          }
-          
-          // Add to results if we have both dimensions
-          if (boyValue && enValue) {
-            // RULE: BOY should be larger than EN
-            const boyNum = parseFloat(boyValue);
-            const enNum = parseFloat(enValue);
-            
-            if (!isNaN(boyNum) && !isNaN(enNum)) {
-              // If EN is larger than BOY, swap them
-              if (enNum > boyNum) {
-                [boyValue, enValue] = [enValue, boyValue];
-              }
-            }
-            
-            foundRows.push({
-              hasirTipi,
-              uzunlukBoy: boyValue,
-              uzunlukEn: enValue, 
-              hasirSayisi
-            });
-          }
+        
+        // Get uzunlukEn
+        let uzunlukEn = '';
+        if (enCol !== -1 && enCol < row.length) {
+          uzunlukEn = formatNumber(String(row[enCol] || ''));
         }
-      }
-      
-      // Add all found rows to sheet data
-      for (const row of foundRows) {
+        
+        // Get hasirSayisi
+        let hasirSayisi = '';
+        if (sayisiCol !== -1 && sayisiCol < row.length) {
+          hasirSayisi = formatNumber(String(row[sayisiCol] || ''));
+        }
+        
+        // Default hasirSayisi to 1 if not found
+        if (!hasirSayisi) {
+          hasirSayisi = '1';
+        }
+        
+        // Skip rows without valid dimensions
+        if (!uzunlukBoy && !uzunlukEn) {
+          continue;
+        }
+        
+        // Add to data
         allSheetData.push({
-          hasirTipi: standardizeHasirTipi(row.hasirTipi),
-          uzunlukBoy: row.uzunlukBoy,
-          uzunlukEn: row.uzunlukEn,
-          hasirSayisi: row.hasirSayisi,
+          hasirTipi: standardizeHasirTipi(hasirTipi),
+          uzunlukBoy: uzunlukBoy,
+          uzunlukEn: uzunlukEn,
+          hasirSayisi: hasirSayisi,
           sheetName: sheetName
         });
       }
@@ -3587,7 +3606,7 @@ const parseExcelData = (data) => {
       return;
     }
     
-    // Create preview items
+    // Create preview
     const previewItems = allSheetData.map((rowData, index) => ({
       id: index,
       hasirTipi: rowData.hasirTipi || '',
