@@ -3362,21 +3362,19 @@ const parseExcelData = (data) => {
       // Önce tam eşleşen başlıkları ara
       for (let i = 0; i < Math.min(5, jsonData.length); i++) {
         const row = jsonData[i];
-        let foundEN = false;
-        let foundBOY = false;
+        let foundENorBOY = false;
         
-        // Satırda "EN" ve "BOY" kelimelerini ara
+        // Satırda "EN", "BOY", "ADET" kelimelerini ara
         for (let j = 0; j < row.length; j++) {
           const cell = String(row[j] || '').toUpperCase().trim();
-          if (cell === "EN") foundEN = true;
-          if (cell === "BOY") foundBOY = true;
+          if (cell === "EN" || cell === "BOY" || cell === "ADET") {
+            foundENorBOY = true;
+            break;
+          }
         }
         
         // Tam eşleşme bulunduysa, bu satır başlık olabilir
-        if (foundEN || foundBOY || 
-            row.some(cell => typeof cell === 'string' && 
-                   (cell.toString().toUpperCase().trim() === "ADET" || 
-                    cell.toString().toUpperCase().trim() === "HASIR SAYISI"))) {
+        if (foundENorBOY) {
           headerRow = row;
           headerIndex = i;
           break;
@@ -3428,7 +3426,7 @@ const parseExcelData = (data) => {
           
           // Hasır Tipi sütunu
           if (headerText === "HASIR TİPİ" || headerText === "HASIR TIPI" || 
-              headerText === "TİP" || headerText === "TIP") {
+              headerText === "TİP" || headerText === "TIP" || headerText === "AÇIKLAMA") {
             hasirTipiCol = i;
           }
           // Boy sütunu - SADECE tam eşleşme
@@ -3439,8 +3437,9 @@ const parseExcelData = (data) => {
           else if (headerText === "EN") {
             enCol = i;
           }
-          // Hasır sayısı sütunu
+          // Hasır sayısı sütunu - HASSAS EŞLEŞME
           else if (headerText === "ADET" || headerText === "HASIR SAYISI" || 
+                  headerText === "HASIR SAYIŞ" || 
                   headerText === "SAYI" || headerText === "MİKTAR") {
             sayisiCol = i;
           }
@@ -3634,7 +3633,10 @@ const parseExcelData = (data) => {
             v >= 1 && v <= 1000
           ).length / stats.values.length;
           
-          if (integerPercentage >= 0.8 && validRangePercentage >= 0.8 && !stats.isLikelyFixedValue) {
+          // IMPORTANT: Skip columns with mostly small, uniform values (like all 2s)
+          if (stats.isLikelyFixedValue) continue;
+          
+          if (integerPercentage >= 0.8 && validRangePercentage >= 0.8) {
             sayisiCandidates.push({
               col: parseInt(col),
               avg: stats.avg
