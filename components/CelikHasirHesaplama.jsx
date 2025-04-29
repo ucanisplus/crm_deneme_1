@@ -5677,14 +5677,36 @@ const parseCsvData = (data) => {
       // Excel dosyası oluştur
       const wb = XLSX.utils.book_new();
       
+      // ❗ Satırları Excel'e yazmadan önce tüm undefined, null veya NaN değerleri temizliyoruz
+      const sanitizedRecipeData = recipeData.map(recipe => {
+        const sanitizedDetaylar = recipe.receteDetaylari.map(row => {
+          const sanitizedRow = {};
+          for (const key in row) {
+            if (row.hasOwnProperty(key)) {
+              // Eğer değer undefined, null veya NaN ise boş string yap
+              if (row[key] === undefined || row[key] === null || (typeof row[key] === 'number' && isNaN(row[key]))) {
+                sanitizedRow[key] = '';
+              } else {
+                sanitizedRow[key] = row[key];
+              }
+            }
+          }
+          return sanitizedRow;
+        });
+        return {
+          ...recipe,
+          receteDetaylari: sanitizedDetaylar
+        };
+      });
+      
       // Her ürün için ayrı bir çalışma sayfası oluştur
-      recipeData.forEach(recipe => {
+      sanitizedRecipeData.forEach(recipe => {
         const recipeSheet = XLSX.utils.json_to_sheet(recipe.receteDetaylari);
         XLSX.utils.book_append_sheet(wb, recipeSheet, recipe.stokKodu);
       });
       
       // Özet sayfası oluştur
-      const summaryData = recipeData.map(recipe => ({
+      const summaryData = sanitizedRecipeData.map(recipe => ({
         'Stok Kodu': recipe.stokKodu,
         'Hasır Tipi': recipe.hasirTipi,
         'Uzunluk Boy (cm)': recipe.uzunlukBoy,
@@ -5698,6 +5720,7 @@ const parseCsvData = (data) => {
       
       // Excel dosyasını indir
       XLSX.writeFile(wb, 'celik_hasir_receteler.xlsx');
+
       
       setCreatingRecipe(false);
       
