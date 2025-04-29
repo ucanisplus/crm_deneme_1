@@ -2129,7 +2129,7 @@ const tryMultiplyDimensions = (row, originalValues) => {
   return false;
 };
 
-// Filiz değerlerini optimize etme - Döşeme tipi için iyileştirildi
+// Filiz değerlerini optimize etme - İllogical boy değişimlerini engelleyen versiyon
 const optimizeFilizValues = (row) => {
   // Hasır türüne göre filiz limitleri al
   const filizLimits = getFilizLimits(row.hasirTipi, row.hasirTuru);
@@ -2142,7 +2142,11 @@ const optimizeFilizValues = (row) => {
     sagFiliz: parseFloat(row.sagFiliz)
   };
   
-  // Q tipi Döşeme hasırları için özel optimizasyon - İlk kontrolde hemen yap
+  // DÜZELTİLDİ: Boy/En değerlerini kaydet
+  const originalBoy = parseFloat(row.uzunlukBoy);
+  const originalEn = parseFloat(row.uzunlukEn);
+  
+  // Q tipi Döşeme hasırları için özel optimizasyon
   if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
     // İdeal filiz değerleri (15-23 cm arasında)
     const targetFilizMin = 15;
@@ -2165,7 +2169,7 @@ const optimizeFilizValues = (row) => {
       // Çubuk sayısı için başlangıç değeri
       let cubukSayisiEn = Math.floor((uzunlukBoy - (2 * targetFiliz)) / enAraligi) + 1;
       
-      // Çubuk sayısı mantıklı değilse (çok küçük veya büyük) varsayılan değer kalsın
+      // Çubuk sayısı mantıklı değilse varsayılan değer kalsın
       if (cubukSayisiEn < 2) {
         cubukSayisiEn = 2;
       }
@@ -2223,6 +2227,12 @@ const optimizeFilizValues = (row) => {
   if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
       row.hasirTipi.startsWith('Q')) {
     optimizePerdeFilizValues(row, filizLimits);
+    
+    // DÜZELTİLDİ: Optimizasyon sonrası Boy değerini kontrol et ve orijinal değere geri çevir
+    if (originalBoy !== parseFloat(row.uzunlukBoy)) {
+      row.uzunlukBoy = originalBoy.toString();
+    }
+    
     return;
   }
   
@@ -2285,6 +2295,15 @@ const optimizeFilizValues = (row) => {
   } else {
     // Geçerli kombinasyon bulunamadıysa
     findBestApproximateFilizValues(row, filizLimits);
+  }
+  
+  // DÜZELTİLDİ: İşlem sonunda Boy/En değerlerinin değişmediğinden emin ol
+  if (parseFloat(row.uzunlukBoy) !== originalBoy) {
+    row.uzunlukBoy = originalBoy.toString();
+  }
+  
+  if (parseFloat(row.uzunlukEn) !== originalEn) {
+    row.uzunlukEn = originalEn.toString();
   }
 };
 
