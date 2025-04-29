@@ -5217,7 +5217,8 @@ const parseCsvData = (data) => {
     setPreviewData([...previewData, createEmptyPreviewRow(newRowId)]);
   };
 
-  // Ön izleme tablosundaki verileri ana tabloya aktarma
+  // UI iyileştirmesi: Excel sayfalarını gösterme
+  // processPreviewData fonksiyonunu güncelle
   const processPreviewData = () => {
     // Geçerli verileri filtrele
     const validPreviewData = previewData.filter(row => 
@@ -5232,6 +5233,7 @@ const parseCsvData = (data) => {
     // Yeni satır ID'leri için başlangıç değeri
     const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
     
+    // Ön izleme verilerinden tam satırlar oluştur
     const newRows = validPreviewData.map((previewRow, index) => {
       const newRow = createEmptyRow(startId + index);
       
@@ -5240,7 +5242,7 @@ const parseCsvData = (data) => {
       newRow.uzunlukBoy = previewRow.uzunlukBoy;
       newRow.uzunlukEn = previewRow.uzunlukEn;
       newRow.hasirSayisi = previewRow.hasirSayisi || '1'; // Varsayılan olarak 1
-      newRow.sheetName = previewRow.sheetName; // Sheet name bilgisini aktar
+      newRow.sheetName = previewRow.sheetName; // Sayfa adını aktar
       
       return newRow;
     });
@@ -5263,10 +5265,50 @@ const parseCsvData = (data) => {
     setRows(finalRows);
     setTimeout(() => backupTable(), 500);
     setBulkInputVisible(false);
-
+  
     // Ön izleme tablosunu temizle
     setPreviewData([]);
   };
+  
+  // Boş satır oluşturma fonksiyonunu güncelle
+  function createEmptyRow(id) {
+    return {
+      id,
+      hasirTipi: '',
+      uzunlukBoy: '',
+      uzunlukEn: '',
+      hasirSayisi: '',
+      hasirTuru: '',  // Perde, DK Perde, Döşeme veya Standart
+      boyCap: '',
+      enCap: '',
+      boyAraligi: '',
+      enAraligi: '',
+      cubukSayisiBoy: '',
+      cubukSayisiEn: '',
+      solFiliz: '',
+      sagFiliz: '',
+      onFiliz: '',
+      arkaFiliz: '',
+      adetKg: '',
+      toplamKg: '',
+      stokKodu: '', // Veritabanı entegrasyonu için stok kodu
+      aciklama: '',
+      modified: {
+        uzunlukBoy: false,
+        uzunlukEn: false,
+        hasirSayisi: false,
+        cubukSayisiBoy: false,
+        cubukSayisiEn: false,
+        solFiliz: false,
+        sagFiliz: false,
+        onFiliz: false,
+        arkaFiliz: false,
+        hasirTuru: false
+      },
+      uretilemez: false, // Üretilemez durumu için alan
+      sheetName: '' // Sayfa adı bilgisi için yeni alan
+    };
+  }
 
   // Yeni boş satır ekleme
   const addRow = () => {
@@ -6189,9 +6231,18 @@ useEffect(() => {
                 // Satırda temel alanlar dolu mu?
                 const isBasicFieldsFilled = isRowFilled(row);
                 
-                return (
-                  <tr key={row.id} className={row.uretilemez ? 'bg-red-50' : (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
-                    <td className="border border-gray-300 p-1 text-center">{rowIndex + 1}</td>
+                 return (
+                    <tr key={row.id} className={row.uretilemez ? 'bg-red-50' : (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+                      <td className="border border-gray-300 p-1 text-center relative">
+                        {rowIndex + 1}
+                        {/* Sayfa göstergesi - Eğer sheetName varsa göster */}
+                        {row.sheetName && (
+                          <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs px-1 rounded-bl-md" 
+                               title={`Sayfa: ${row.sheetName}`}>
+                            {row.sheetName}
+                          </div>
+                        )}
+                      </td>
                     
                     {/* Temel alanlar (her zaman düzenlenebilir) */}
                     <td className="border border-gray-300 p-1">
