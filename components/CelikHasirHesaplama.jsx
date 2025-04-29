@@ -994,50 +994,61 @@ const handleCellChange = (rowIndex, field, value) => {
     setPreviewData(updatedPreviewData);
   };
 
-  // Satırı Hasır Tipi'ne göre güncelleme
-  const updateRowFromHasirTipi = (rows, rowIndex) => {
-    const row = rows[rowIndex];
-    const hasirTipi = row.hasirTipi;
-    
-    // Yeni bir hasir tipi için modified bayraklarını sıfırla
-    row.modified = {
-      uzunlukBoy: false,
-      uzunlukEn: false,
-      hasirSayisi: false,
-      cubukSayisiBoy: false,
-      cubukSayisiEn: false,
-      solFiliz: false,
-      sagFiliz: false,
-      onFiliz: false,
-      arkaFiliz: false,
-      hasirTuru: false
-    };
-    
-    // Üretilemez durumunu sıfırla
-    row.uretilemez = false;
-    row.aciklama = '';
-    
-    // Hasır Türünü belirle
-    row.hasirTuru = determineHasirTuru(hasirTipi, row.uzunlukBoy);
+// Satırı Hasır Tipi'ne göre güncelleme
+const updateRowFromHasirTipi = (rows, rowIndex) => {
+  const row = rows[rowIndex];
+  const hasirTipi = row.hasirTipi;
 
-    // Boy ve en çap değerlerini ayarla - Karmaşık hasır tipleri için yeni işleme
-    if (hasirTipi.includes('/')) {
-      // Q257/131 gibi kombinasyonları işleme
-      processComplexHasirType(row, hasirTipi);
-    } else if (hasirReferenceData[hasirTipi]) {
-      // Referans veride hasir tipi var mı kontrol et
-      const refData = hasirReferenceData[hasirTipi];
+  // Yeni bir hasır tipi için modified bayraklarını sıfırla
+  row.modified = {
+    uzunlukBoy: false,
+    uzunlukEn: false,
+    hasirSayisi: false,
+    cubukSayisiBoy: false,
+    cubukSayisiEn: false,
+    solFiliz: false,
+    sagFiliz: false,
+    onFiliz: false,
+    arkaFiliz: false,
+    hasirTuru: false
+  };
+
+  // Üretilemez durumunu sıfırla
+  row.uretilemez = false;
+  row.aciklama = '';
+
+  // Hasır Türünü belirle
+  row.hasirTuru = determineHasirTuru(hasirTipi, row.uzunlukBoy);
+
+  // Boy ve en çap değerlerini ayarla - Karmaşık hasır tipleri için yeni işleme
+  if (hasirTipi.includes('/')) {
+    // Q257/131 gibi kombinasyonları işleme
+    processComplexHasirType(row, hasirTipi);
+  } else if (hasirReferenceData[hasirTipi]) {
+    // Referans veride hasır tipi doğrudan varsa kullanıyoruz
+    const refData = hasirReferenceData[hasirTipi];
+    row.boyCap = refData.boyCap;
+    row.enCap = refData.enCap;
+    row.boyAraligi = refData.boyAralik;
+    row.enAraligi = refData.enAralik;
+  } else if (hasirTipi.startsWith('Q')) {
+    //Sadece Q tiplerinde, eğer doğrudan bulunamazsa, / kendisi şeklinde simüle ediyoruz
+    const simulatedHasirTipi = hasirTipi + '/' + hasirTipi;
+    if (hasirReferenceData[simulatedHasirTipi]) {
+      const refData = hasirReferenceData[simulatedHasirTipi];
       row.boyCap = refData.boyCap;
       row.enCap = refData.enCap;
       row.boyAraligi = refData.boyAralik;
       row.enAraligi = refData.enAralik;
     }
-    
-    // Gerekli alanlar doluysa hesaplama yap
-    if (isRowFilled(row)) {
-      calculateBasicValues(rows, rowIndex);
-    }
-  };
+  }
+
+  // Gerekli alanlar doluysa hesaplama yap
+  if (isRowFilled(row)) {
+    calculateBasicValues(rows, rowIndex);
+  }
+};
+
 
   // Karmaşık hasır tiplerini işleme (örn: Q257/131)
   const processComplexHasirType = (row, hasirTipi) => {
