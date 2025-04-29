@@ -3314,7 +3314,6 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
-// Completely revised Excel parser with direct implementation selection
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
@@ -3325,247 +3324,98 @@ const parseExcelData = (data) => {
       const sheetName = workbook.SheetNames[sheetIndex];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Handle merged cells in headers
-      const mergedCells = worksheet['!merges'] || [];
-      const mergedHeaders = {};
-      
-      mergedCells.forEach(merge => {
-        if (merge.s.r === 0) { // Focus on first row where headers often are
-          const startCell = XLSX.utils.encode_cell(merge.s);
-          if (worksheet[startCell] && worksheet[startCell].v) {
-            for (let c = merge.s.c; c <= merge.e.c; c++) {
-              mergedHeaders[c] = String(worksheet[startCell].v).trim();
-            }
-          }
-        }
-      });
-      
-      // Convert to JSON
-      let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      // Convert to JSON with header:1 option to get array format
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
       
       // Filter empty rows
-      jsonData = jsonData.filter(row => 
+      const filteredData = jsonData.filter(row => 
         row && row.length > 0 && row.some(cell => 
           cell !== null && cell !== undefined && String(cell).trim() !== ''
         )
       );
       
-      if (jsonData.length === 0) continue;
+      if (filteredData.length === 0) continue;
       
-      // Apply merged cell headers to first row if it exists
-      if (jsonData[0]) {
-        const headerRow = [...jsonData[0]]; // Create a copy
-        for (let c = 0; c < headerRow.length; c++) {
-          if ((!headerRow[c] || headerRow[c] === '') && mergedHeaders[c]) {
-            headerRow[c] = mergedHeaders[c];
-          }
-        }
-        jsonData[0] = headerRow;
-      }
+      // Check for headers
+      const hasHeaders = guessIfHasHeaders(filteredData);
+      const startRow = hasHeaders ? 1 : 0;
       
-      // Find columns - with improved header detection
-      const hasHeaders = guessIfHasHeaders(jsonData);
-      const headerRow = hasHeaders ? jsonData[0] : null;
-      
-      // COMPLETELY REVISED APPROACH:
-      
-      // 1. Use first implementation for en/boy detection - this is known to work
-      const firstImplementationColMap = findRelevantColumns(jsonData, headerRow);
-      
-      // 2. Use second implementation only for hasirSayisi detection
-      const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
-      const directHeadersColMap = findColumnsByHeaderText(headerRow);
-      
-      // Sütun haritasını başlat
-      const columnMap = {
-        hasirTipi: firstImplementationColMap.hasirTipi !== undefined ? 
-                  firstImplementationColMap.hasirTipi : directHeadersColMap.hasirTipi,
+      // Process rows directly
+      for (let rowIndex = startRow; rowIndex < filteredData.length; rowIndex++) {
+        const row = filteredData[rowIndex];
+        if (!row || row.length === 0) continue;
         
-        // Boy/En için başlangıçta tanımlamama
-        uzunlukBoy: undefined,
-        uzunlukEn: undefined,
-        
-        hasirSayisi: directHeadersColMap.hasirSayisi !== undefined ? directHeadersColMap.hasirSayisi : 
-                    (columnCharacteristics.potentialHasirSayisi !== undefined ? 
-                     columnCharacteristics.potentialHasirSayisi : firstImplementationColMap.hasirSayisi)
-      };
-      
-      // Makine limit kontrolü ile sütunları bulmak için sayısal sütunları analiz et
-      const numericColumns = {};
-      // İlk satırı kontrol et
-      if (jsonData && jsonData.length > 0 && jsonData[0]) {
-        for (let i = 0; i < jsonData[0].length; i++) {
-          const values = [];
-          for (let j = startRow; j < Math.min(jsonData.length, startRow + 10); j++) {
-            if (jsonData[j] && i < jsonData[j].length) {
-              const value = parseFloat(formatNumber(String(jsonData[j][i])));
-              if (!isNaN(value)) values.push(value);
-            }
-          }
-          
-          if (values.length > 0) {
-            numericColumns[i] = {
-              avg: values.reduce((sum, v) => sum + v, 0) / values.length,
-              min: Math.min(...values),
-              max: Math.max(...values),
-              values: values
-            };
-          }
-        }
-      }
-      
-      // Boy sütunları için aday bul (100-800 arasında değerler)
-      const boyColumns = Object.entries(numericColumns)
-        .filter(([col, stats]) => 
-          stats.values.every(v => v >= 100 && v <= 800) && 
-          stats.values.some(v => v >= 200))
-        .sort((a, b) => b[1].avg - a[1].avg);
-      
-      // En sütunları için aday bul (100-250 arasında değerler)
-      const enColumns = Object.entries(numericColumns)
-        .filter(([col, stats]) => 
-          stats.values.every(v => v >= 100 && v <= 250) &&
-          stats.values.some(v => v >= 126))
-        .sort((a, b) => b[1].avg - a[1].avg);
-      
-      // Hem En hem Boy adayları varsa
-      if (boyColumns.length > 0 && enColumns.length > 0) {
-        // Boy için daha büyük değerler olan sütunu seç
-        columnMap.uzunlukBoy = parseInt(boyColumns[0][0]);
-        
-        // En için daha küçük değerler olan sütunu seç, Boy'dan farklı olmalı
-        for (const [col, stats] of enColumns) {
-          if (parseInt(col) !== columnMap.uzunlukBoy) {
-            columnMap.uzunlukEn = parseInt(col);
+        // Look for hasir tipi in this row (any cell)
+        let hasirTipi = '';
+        for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
+          const cellValue = String(row[cellIndex] || '').trim().toUpperCase();
+          if (/^(Q|R|TR)\d+/.test(cellValue)) {
+            hasirTipi = cellValue;
             break;
           }
         }
-      } else {
-        // Orijinal yönteme geri dön
-        columnMap.uzunlukBoy = firstImplementationColMap.uzunlukBoy;
-        columnMap.uzunlukEn = firstImplementationColMap.uzunlukEn;
-      }
-      
-      // Eksik değer varsa orijinal yöntemden al
-      if (columnMap.uzunlukBoy === undefined) {
-        columnMap.uzunlukBoy = firstImplementationColMap.uzunlukBoy;
-      }
-      
-      if (columnMap.uzunlukEn === undefined) {
-        columnMap.uzunlukEn = firstImplementationColMap.uzunlukEn;
-      }
-      
-      // Process rows
-      const startRow = hasHeaders ? 1 : 0;
-      
-      for (let rowIndex = startRow; rowIndex < jsonData.length; rowIndex++) {
-        const row = jsonData[rowIndex];
-        if (!row || row.length === 0) continue;
         
-        // Try to find hasir tipi in any cell if not found in the mapped column
-        let hasirTipi = '';
-        if (columnMap.hasirTipi !== undefined && columnMap.hasirTipi < row.length) {
-          hasirTipi = String(row[columnMap.hasirTipi] || '').trim();
-        }
+        // Skip row if no hasir tipi found
+        if (!hasirTipi) continue;
         
-        // If not found in the mapped column, search all cells
-        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-          for (const cell of row) {
-            if (!cell) continue;
-            const cellValue = String(cell).trim();
-            if (/^(Q|R|TR)\d+/i.test(cellValue)) {
-              hasirTipi = cellValue;
-              break;
+        // Find potential Boy, En, and hasirSayisi columns
+        let bestBoyCol = -1;
+        let bestEnCol = -1;
+        let bestSayisiCol = -1;
+        
+        let boyValue = '';
+        let enValue = '';
+        let sayisiValue = '';
+        
+        // Find numeric columns
+        for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
+          const cellValue = String(row[cellIndex] || '').trim();
+          const numValue = parseFloat(formatNumber(cellValue));
+          
+          if (!isNaN(numValue)) {
+            // Check if could be Boy (275-800)
+            if (numValue >= 200 && numValue <= 800 && bestBoyCol === -1) {
+              bestBoyCol = cellIndex;
+              boyValue = cellValue;
+            }
+            // Check if could be En (126-250)
+            else if (numValue >= 100 && numValue <= 250 && numValue < 270 && bestEnCol === -1) {
+              bestEnCol = cellIndex;
+              enValue = cellValue;
+            }
+            // Check if could be hasirSayisi (typically 1-100, integer)
+            else if (numValue >= 1 && numValue <= 1000 && 
+                    (Number.isInteger(numValue) || Math.abs(numValue - Math.round(numValue)) < 0.001) &&
+                    bestSayisiCol === -1) {
+              bestSayisiCol = cellIndex;
+              sayisiValue = cellValue;
             }
           }
         }
         
-        // Skip rows without hasir tipi
-        if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-          continue;
-        }
-        
-        // Extract other values using column map
-        let uzunlukBoy = '';
-        let uzunlukEn = '';
-        let hasirSayisi = '';
-        
-        if (columnMap.uzunlukBoy !== undefined && columnMap.uzunlukBoy < row.length) {
-          uzunlukBoy = String(row[columnMap.uzunlukBoy] || '').trim();
-        }
-        
-        if (columnMap.uzunlukEn !== undefined && columnMap.uzunlukEn < row.length) {
-          uzunlukEn = String(row[columnMap.uzunlukEn] || '').trim();
-        }
-        
-        if (columnMap.hasirSayisi !== undefined && columnMap.hasirSayisi < row.length) {
-          hasirSayisi = String(row[columnMap.hasirSayisi] || '').trim();
-        }
-        
-        // Format numbers consistently
-        if (uzunlukBoy) uzunlukBoy = formatNumber(uzunlukBoy);
-        if (uzunlukEn) uzunlukEn = formatNumber(uzunlukEn);
-        if (hasirSayisi) hasirSayisi = formatNumber(hasirSayisi);
-        
-        // Special case for hasirSayisi - check potentialHasirSayisi column from analysis
-        if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi !== undefined) {
-          const col = columnCharacteristics.potentialHasirSayisi;
-          if (col < row.length && row[col]) {
-            hasirSayisi = formatNumber(String(row[col]));
+        // If we have 2 columns with values that look like dimensions
+        if (bestBoyCol !== -1 && bestEnCol !== -1) {
+          // Make sure Boy > En
+          const boyNum = parseFloat(formatNumber(boyValue));
+          const enNum = parseFloat(formatNumber(enValue));
+          
+          if (boyNum < enNum) {
+            // Swap them - Boy should be larger
+            [boyValue, enValue] = [enValue, boyValue];
           }
-        }
-        
-        // Default hasir sayisi to 1 if missing - important for correct handling
-        if (!hasirSayisi) {
-          hasirSayisi = '1';
-        }
-        
-        // Simple validation to ensure we have both dimensions when possible
-        // Without any value swapping - trust the column detection
-        if (uzunlukBoy && !uzunlukEn) {
-          // If we have boy but not en, try to find en in sample rows
-          for (let i = 0; i < Math.min(3, jsonData.length - startRow); i++) {
-            const sampleRow = jsonData[startRow + i];
-            for (let j = 0; j < sampleRow.length; j++) {
-              if (j !== columnMap.uzunlukBoy && j !== columnMap.hasirTipi && j !== columnMap.hasirSayisi) {
-                const val = parseFloat(formatNumber(String(sampleRow[j])));
-                if (!isNaN(val) && val >= 126 && val <= 250) {
-                  // Found a likely en value
-                  uzunlukEn = formatNumber(String(row[j]));
-                  break;
-                }
-              }
-            }
-            if (uzunlukEn) break;
+          
+          // Default hasirSayisi to 1 if not found
+          if (bestSayisiCol === -1) {
+            sayisiValue = '1';
           }
-        }
-        
-        if (!uzunlukBoy && uzunlukEn) {
-          // If we have en but not boy, try to find boy in sample rows
-          for (let i = 0; i < Math.min(3, jsonData.length - startRow); i++) {
-            const sampleRow = jsonData[startRow + i];
-            for (let j = 0; j < sampleRow.length; j++) {
-              if (j !== columnMap.uzunlukEn && j !== columnMap.hasirTipi && j !== columnMap.hasirSayisi) {
-                const val = parseFloat(formatNumber(String(sampleRow[j])));
-                if (!isNaN(val) && val >= 275 && val <= 800) {
-                  // Found a likely boy value
-                  uzunlukBoy = formatNumber(String(row[j]));
-                  break;
-                }
-              }
-            }
-            if (uzunlukBoy) break;
-          }
-        }
-        
-        // Validate dimensions (at least one must be present)
-        if (uzunlukBoy || uzunlukEn) {
+          
+          // Add to results
           allSheetData.push({
             hasirTipi: standardizeHasirTipi(hasirTipi),
-            uzunlukBoy: uzunlukBoy,
-            uzunlukEn: uzunlukEn,
-            hasirSayisi: hasirSayisi,
-            sheetName: sheetName // Keep track of sheet origin
+            uzunlukBoy: formatNumber(boyValue),
+            uzunlukEn: formatNumber(enValue),
+            hasirSayisi: formatNumber(sayisiValue),
+            sheetName: sheetName
           });
         }
       }
@@ -3576,14 +3426,14 @@ const parseExcelData = (data) => {
       return;
     }
     
-    // Create preview data with sheet indicators
+    // Create preview data
     const previewItems = allSheetData.map((rowData, index) => ({
       id: index,
       hasirTipi: rowData.hasirTipi || '',
       uzunlukBoy: rowData.uzunlukBoy || '',
       uzunlukEn: rowData.uzunlukEn || '',
       hasirSayisi: rowData.hasirSayisi || '',
-      sheetName: rowData.sheetName // Keep track of sheet name
+      sheetName: rowData.sheetName
     }));
     
     setPreviewData(previewItems);
