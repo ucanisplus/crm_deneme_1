@@ -3392,22 +3392,25 @@ const parseExcelData = (data) => {
       
       // Makine limit kontrolü ile sütunları bulmak için sayısal sütunları analiz et
       const numericColumns = {};
-      for (let i = 0; i < jsonData[0].length; i++) {
-        const values = [];
-        for (let j = startRow; j < Math.min(jsonData.length, startRow + 10); j++) {
-          if (i < jsonData[j].length) {
-            const value = parseFloat(formatNumber(String(jsonData[j][i])));
-            if (!isNaN(value)) values.push(value);
+      // İlk satırı kontrol et
+      if (jsonData && jsonData.length > 0 && jsonData[0]) {
+        for (let i = 0; i < jsonData[0].length; i++) {
+          const values = [];
+          for (let j = startRow; j < Math.min(jsonData.length, startRow + 10); j++) {
+            if (jsonData[j] && i < jsonData[j].length) {
+              const value = parseFloat(formatNumber(String(jsonData[j][i])));
+              if (!isNaN(value)) values.push(value);
+            }
           }
-        }
-        
-        if (values.length > 0) {
-          numericColumns[i] = {
-            avg: values.reduce((sum, v) => sum + v, 0) / values.length,
-            min: Math.min(...values),
-            max: Math.max(...values),
-            values: values
-          };
+          
+          if (values.length > 0) {
+            numericColumns[i] = {
+              avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+              min: Math.min(...values),
+              max: Math.max(...values),
+              values: values
+            };
+          }
         }
       }
       
