@@ -1956,18 +1956,20 @@ const iyilestirAll = async () => {
   setBatchProcessing(false);
 };
 
-  // Makine limitlerine uygun mu kontrol et
-  const isMachineLimitsOk = (row) => {
-    const uzunlukBoy = parseFloat(row.uzunlukBoy);
-    const uzunlukEn = parseFloat(row.uzunlukEn);
-    
-    return (
-      uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && 
-      uzunlukBoy <= MACHINE_LIMITS.MAX_BOY &&
-      uzunlukEn >= MACHINE_LIMITS.MIN_EN && 
-      uzunlukEn <= MACHINE_LIMITS.MAX_EN
-    );
-  };
+  // Makine limitlerini kontrol et
+const isMachineLimitsOk = (row) => {
+  const uzunlukBoy = parseFloat(row.uzunlukBoy);
+  const uzunlukEn = parseFloat(row.uzunlukEn);
+  
+  if (isNaN(uzunlukBoy) || isNaN(uzunlukEn)) return false;
+  
+  return (
+    uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && 
+    uzunlukBoy <= MACHINE_LIMITS.MAX_BOY &&
+    uzunlukEn >= MACHINE_LIMITS.MIN_EN && 
+    uzunlukEn <= MACHINE_LIMITS.MAX_EN
+  );
+};
 
 // Boy/En değerlerini değiştirmeyi dene (Sadece Q tipi için)
 const trySwapBoyEn = (row) => {
@@ -3374,28 +3376,81 @@ const parseExcelData = (data) => {
       const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
       const directHeadersColMap = findColumnsByHeaderText(headerRow);
       
+      // Sütun haritasını başlat
       const columnMap = {
-        // For hasirTipi use either implementation
         hasirTipi: firstImplementationColMap.hasirTipi !== undefined ? 
                   firstImplementationColMap.hasirTipi : directHeadersColMap.hasirTipi,
         
-        // For uzunlukBoy use first implementation
-        uzunlukBoy: firstImplementationColMap.uzunlukBoy,
+        // Boy/En için başlangıçta tanımlamama
+        uzunlukBoy: undefined,
+        uzunlukEn: undefined,
         
-        // For uzunlukEn - specifically map to the EN column in the Excel data
-        uzunlukEn: directHeadersColMap.uzunlukEn !== undefined ? 
-                  directHeadersColMap.uzunlukEn : 
-                  columnCharacteristics.columnStats ? 
-                  Object.entries(columnCharacteristics.columnStats)
-                    .find(([col, stats]) => 
-                      stats.samples && stats.samples.some(v => v >= 100 && v <= 315))?.[0] : 
-                  firstImplementationColMap.uzunlukEn,
-        
-        // For hasirSayisi take the best approach from the second implementation
         hasirSayisi: directHeadersColMap.hasirSayisi !== undefined ? directHeadersColMap.hasirSayisi : 
                     (columnCharacteristics.potentialHasirSayisi !== undefined ? 
                      columnCharacteristics.potentialHasirSayisi : firstImplementationColMap.hasirSayisi)
       };
+      
+      // Makine limit kontrolü ile sütunları bulmak için sayısal sütunları analiz et
+      const numericColumns = {};
+      for (let i = 0; i < jsonData[0].length; i++) {
+        const values = [];
+        for (let j = startRow; j < Math.min(jsonData.length, startRow + 10); j++) {
+          if (i < jsonData[j].length) {
+            const value = parseFloat(formatNumber(String(jsonData[j][i])));
+            if (!isNaN(value)) values.push(value);
+          }
+        }
+        
+        if (values.length > 0) {
+          numericColumns[i] = {
+            avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+            min: Math.min(...values),
+            max: Math.max(...values),
+            values: values
+          };
+        }
+      }
+      
+      // Boy sütunları için aday bul (100-800 arasında değerler)
+      const boyColumns = Object.entries(numericColumns)
+        .filter(([col, stats]) => 
+          stats.values.every(v => v >= 100 && v <= 800) && 
+          stats.values.some(v => v >= 200))
+        .sort((a, b) => b[1].avg - a[1].avg);
+      
+      // En sütunları için aday bul (100-250 arasında değerler)
+      const enColumns = Object.entries(numericColumns)
+        .filter(([col, stats]) => 
+          stats.values.every(v => v >= 100 && v <= 250) &&
+          stats.values.some(v => v >= 126))
+        .sort((a, b) => b[1].avg - a[1].avg);
+      
+      // Hem En hem Boy adayları varsa
+      if (boyColumns.length > 0 && enColumns.length > 0) {
+        // Boy için daha büyük değerler olan sütunu seç
+        columnMap.uzunlukBoy = parseInt(boyColumns[0][0]);
+        
+        // En için daha küçük değerler olan sütunu seç, Boy'dan farklı olmalı
+        for (const [col, stats] of enColumns) {
+          if (parseInt(col) !== columnMap.uzunlukBoy) {
+            columnMap.uzunlukEn = parseInt(col);
+            break;
+          }
+        }
+      } else {
+        // Orijinal yönteme geri dön
+        columnMap.uzunlukBoy = firstImplementationColMap.uzunlukBoy;
+        columnMap.uzunlukEn = firstImplementationColMap.uzunlukEn;
+      }
+      
+      // Eksik değer varsa orijinal yöntemden al
+      if (columnMap.uzunlukBoy === undefined) {
+        columnMap.uzunlukBoy = firstImplementationColMap.uzunlukBoy;
+      }
+      
+      if (columnMap.uzunlukEn === undefined) {
+        columnMap.uzunlukEn = firstImplementationColMap.uzunlukEn;
+      }
       
       // Process rows
       const startRow = hasHeaders ? 1 : 0;
