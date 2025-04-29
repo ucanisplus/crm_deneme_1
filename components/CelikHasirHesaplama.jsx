@@ -1989,17 +1989,17 @@ const trySwapBoyEn = (row) => {
    return false;
 };
 
-// Replace the entire tryMultiplyDimensions function
+// Boyutları çarparak iyileştirmeye çalışan fonksiyon - Düzeltilmiş
 const tryMultiplyDimensions = (row, originalValues) => {
   const uzunlukBoy = parseFloat(originalValues.uzunlukBoy);
   const uzunlukEn = parseFloat(originalValues.uzunlukEn);
   const hasirSayisi = parseFloat(originalValues.hasirSayisi);
   
-  // STEP 1: First check if En exceeds maximum limit (250cm)
+  // AŞAMA 1: Öncelikle En > MAX_EN kontrolü
   if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-    // Try swapping dimensions
+    // Boyutları değiştirmeyi dene
     if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
-      // Swap the dimensions
+      // Boyutları değiştir
       row.uzunlukBoy = uzunlukEn.toString();
       row.uzunlukEn = uzunlukBoy.toString();
       row.modified.uzunlukBoy = true;
@@ -2007,13 +2007,13 @@ const tryMultiplyDimensions = (row, originalValues) => {
       
       row.aciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için En/Boy değerleri değiştirildi. `;
       
-      // Update hasır türü after swap
+      // Hasır türünü değiştirme sonrası güncelle
       row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       
-      // After swap, check if new En value needs adjustment
+      // Değiştirme sonrası yeni En değeri ayarlamaya ihtiyaç duyabilir
       const newUzunlukEn = parseFloat(row.uzunlukEn);
       
-      // If new En value is below minimum, try multiplication
+      // Yeni En değeri çok küçükse çarpma dene
       if (newUzunlukEn < MACHINE_LIMITS.MIN_EN) {
         for (let multiplier of [2, 3]) {
           const multipliedEn = newUzunlukEn * multiplier;
@@ -2026,7 +2026,7 @@ const tryMultiplyDimensions = (row, originalValues) => {
             
             row.aciklama += `Değiştirme sonrası En ölçüsü ${multiplier} ile çarpılarak ${multipliedEn.toFixed(2)}cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
             
-            // Recalculate values after both swap and multiplication
+            // Değişiklikler sonrası değerleri yeniden hesapla
             initializeCubukSayisi(row);
             calculateFilizValues(row);
             
@@ -2034,7 +2034,7 @@ const tryMultiplyDimensions = (row, originalValues) => {
           }
         }
       } else {
-        // Just the swap was sufficient
+        // Sadece değiştirme yeterli oldu
         initializeCubukSayisi(row);
         calculateFilizValues(row);
         return true;
@@ -2042,9 +2042,9 @@ const tryMultiplyDimensions = (row, originalValues) => {
     }
   }
   
-  // Boy için çarpma işlemi
+  // AŞAMA 2: Boy limitleri kontrolü
   if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY) {
-    // 2, 3, 4, 5 veya 6 ile çarparak minimum limitin üstüne çıkabilir mi?
+    // Boy çok kısa ise çarpma işlemi yap - 2, 3, 4 ile çarpma dene
     for (let multiplier of [2, 3, 4, 5, 6]) {
       const newUzunlukBoy = uzunlukBoy * multiplier;
       
@@ -2067,8 +2067,15 @@ const tryMultiplyDimensions = (row, originalValues) => {
       }
     }
   }
+  // DÜZELTİLDİ: Boy > MAX_BOY kontrolü - Bu durumda üretilemez işaretle
+  else if (uzunlukBoy > MACHINE_LIMITS.MAX_BOY) {
+    // HATA DÜZELTME: Limit dahilindeki boyutları azaltmak yerine, sadece limiti aşanları işaretle
+    row.uretilemez = true;
+    row.aciklama += `Boy ölçüsü (${uzunlukBoy}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_BOY}cm) aştığı için üretilemez. `;
+    return false;
+  }
     
-  // En için çarpma işlemi
+  // AŞAMA 3: En limitleri kontrolü
   if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
     // Önce 126-149 arası ise otomatik düzeltme yap
     if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
@@ -2104,8 +2111,15 @@ const tryMultiplyDimensions = (row, originalValues) => {
       }
     }
   }
+  // En değeri MAX_EN'i aşıyorsa (bu kısım normalde AŞAMA 1'de ele alınmalıdır)
+  else if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+    // Eğer buraya gelindiyse değiştirme çalışmamış demektir, üretilemez olarak işaretle
+    row.uretilemez = true;
+    row.aciklama += `En ölçüsü (${uzunlukEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için üretilemez. `;
+    return false;
+  }
   
-  // Hiçbir iyileştirme yapılamazsa
+  // Hiçbir iyileştirme yapılamazsa, üretilemez olarak işaretle
   if (!isMachineLimitsOk(row)) {
     row.uretilemez = true;
     row.aciklama += 'Makine limitlerine uygun boyutlara getirilemedi. ';
