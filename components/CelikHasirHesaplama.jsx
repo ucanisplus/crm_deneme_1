@@ -994,7 +994,7 @@ const handleCellChange = (rowIndex, field, value) => {
     setPreviewData(updatedPreviewData);
   };
 
-// Satırı Hasır Tipi'ne göre güncelleme
+// Satırı Hasır Tipi'ne göre güncelleme - Düzeltilmiş Versiyon
 const updateRowFromHasirTipi = (rows, rowIndex) => {
   const row = rows[rowIndex];
   const hasirTipi = row.hasirTipi;
@@ -1032,7 +1032,8 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     row.boyAraligi = refData.boyAralik;
     row.enAraligi = refData.enAralik;
   } else if (hasirTipi.startsWith('Q')) {
-    //Sadece Q tiplerinde, eğer doğrudan bulunamazsa, / kendisi şeklinde simüle ediyoruz
+    // DÜZELTİLDİ: Sadece Q tiplerinde, eğer doğrudan bulunamazsa, hasir_tipi/hasir_tipi şeklinde simüle ediyoruz
+    // Örneğin Q257 -> Q257/257 olarak değerlendirilir
     const simulatedHasirTipi = hasirTipi + '/' + hasirTipi;
     if (hasirReferenceData[simulatedHasirTipi]) {
       const refData = hasirReferenceData[simulatedHasirTipi];
@@ -1040,6 +1041,15 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
       row.enCap = refData.enCap;
       row.boyAraligi = refData.boyAralik;
       row.enAraligi = refData.enAralik;
+    } else {
+      // Eğer simulasyon da bulunamazsa, qTypeReferenceMap'ten değerleri al
+      if (qTypeReferenceMap[hasirTipi]) {
+        const capValue = qTypeReferenceMap[hasirTipi];
+        row.boyCap = capValue;
+        row.enCap = capValue;
+        row.boyAraligi = 15; // Q tipi için standart aralık değerleri
+        row.enAraligi = 15;
+      }
     }
   }
 
