@@ -1609,30 +1609,6 @@ const iyilestir = async (rowIndex) => {
     setRows(updatedRows);
     
 
-//denemealanı1
-// Sonuç kontrolü (hala optimum değilse ikinci optimizasyon dene)
-if (!row.uretilemez && isImproved) {
-  // Filiz değerleri için ikinci bir optimizasyon
-  const initialFiliz2 = {
-    on: row.onFiliz,
-    arka: row.arkaFiliz,
-    sol: row.solFiliz,
-    sag: row.sagFiliz
-  };
-  
-  // İkinci tur optimizasyon
-  calculateFilizValues(row);
-  optimizeFilizValues(row);
-  calculateWeight(row);
-  
-  // Değişim kontrolü
-  if (Math.abs(initialFiliz2.on - row.onFiliz) > 0.1 || 
-      Math.abs(initialFiliz2.arka - row.arkaFiliz) > 0.1) {
-    newAciklama += ` İkinci tur filiz optimizasyonu: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm.`;
-  }
-}
-
-//denemealanı1
 
 
     return true;
@@ -1806,29 +1782,7 @@ const iyilestirAll = async () => {
     
 
 
-//denemealani2
-// Sonuç kontrolü (hala optimum değilse ikinci optimizasyon dene)
-if (!row.uretilemez && isImproved) {
-  // Filiz değerleri için ikinci bir optimizasyon
-  const initialFiliz2 = {
-    on: row.onFiliz,
-    arka: row.arkaFiliz,
-    sol: row.solFiliz,
-    sag: row.sagFiliz
-  };
-  
-  // İkinci tur optimizasyon
-  calculateFilizValues(row);
-  optimizeFilizValues(row);
-  calculateWeight(row);
-  
-  // Değişim kontrolü
-  if (Math.abs(initialFiliz2.on - row.onFiliz) > 0.1 || 
-      Math.abs(initialFiliz2.arka - row.arkaFiliz) > 0.1) {
-    newAciklama += ` İkinci tur filiz optimizasyonu: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm.`;
-  }
-}
-//denemealani2
+
 
 
     // Kısa bekletme
