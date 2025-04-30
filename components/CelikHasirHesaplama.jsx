@@ -194,7 +194,7 @@ const CelikHasirHesaplama = () => {
 
   // Makine limitleri için sabitler
   const MACHINE_LIMITS = {
-    MIN_BOY: 275, // Minimum boy limiti (cm)
+    MIN_BOY: 270, // Minimum boy limiti (cm)
     MAX_BOY: 800, // Maksimum boy limiti (cm)
     MIN_EN: 150,  // Minimum en limiti (cm)
     MAX_EN: 250,  // Maksimum en limiti (cm)
@@ -1608,6 +1608,33 @@ const iyilestir = async (rowIndex) => {
     // Satırları güncelle
     setRows(updatedRows);
     
+
+//denemealanı1
+// Sonuç kontrolü (hala optimum değilse ikinci optimizasyon dene)
+if (!row.uretilemez && isImproved) {
+  // Filiz değerleri için ikinci bir optimizasyon
+  const initialFiliz2 = {
+    on: row.onFiliz,
+    arka: row.arkaFiliz,
+    sol: row.solFiliz,
+    sag: row.sagFiliz
+  };
+  
+  // İkinci tur optimizasyon
+  calculateFilizValues(row);
+  optimizeFilizValues(row);
+  calculateWeight(row);
+  
+  // Değişim kontrolü
+  if (Math.abs(initialFiliz2.on - row.onFiliz) > 0.1 || 
+      Math.abs(initialFiliz2.arka - row.arkaFiliz) > 0.1) {
+    newAciklama += ` İkinci tur filiz optimizasyonu: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm.`;
+  }
+}
+
+//denemealanı1
+
+
     return true;
   } catch (error) {
     console.error('İyileştirme işlemi hatası:', error);
@@ -1777,6 +1804,33 @@ const iyilestirAll = async () => {
     setRows(updatedRows);
     setProcessingRowIndex(null);
     
+
+
+//denemealani2
+// Sonuç kontrolü (hala optimum değilse ikinci optimizasyon dene)
+if (!row.uretilemez && isImproved) {
+  // Filiz değerleri için ikinci bir optimizasyon
+  const initialFiliz2 = {
+    on: row.onFiliz,
+    arka: row.arkaFiliz,
+    sol: row.solFiliz,
+    sag: row.sagFiliz
+  };
+  
+  // İkinci tur optimizasyon
+  calculateFilizValues(row);
+  optimizeFilizValues(row);
+  calculateWeight(row);
+  
+  // Değişim kontrolü
+  if (Math.abs(initialFiliz2.on - row.onFiliz) > 0.1 || 
+      Math.abs(initialFiliz2.arka - row.arkaFiliz) > 0.1) {
+    newAciklama += ` İkinci tur filiz optimizasyonu: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm.`;
+  }
+}
+//denemealani2
+
+
     // Kısa bekletme
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -1819,28 +1873,28 @@ const processDimensions = (row) => {
   }
   
   // AŞAMA 2: En > MAX_EN ise SWAP deneme
-  if (originalEn > MACHINE_LIMITS.MAX_EN) {
-    // Swap için kontrol: En, Boy limitine uygun mu ve Boy, En limitine uygun mu?
-    if (originalEn <= MACHINE_LIMITS.MAX_BOY && originalBoy <= MACHINE_LIMITS.MAX_EN) {
-      // Boy ve En değerlerini değiştir
-      row.uzunlukBoy = originalEn.toString();
-      row.uzunlukEn = originalBoy.toString();
-      row.modified.uzunlukBoy = true;
-      row.modified.uzunlukEn = true;
-      
-      result.changed = true;
-      result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
-      
-      // Hasır türünü değiştirme sonrası güncelle
-      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-    } else {
-      // En > MAX_EN ve Swap da çalışmadıysa, üretilemez olarak işaretle
-      row.uretilemez = true;
-      result.changed = true;
-      result.message = `3. En ölçüsü (${originalEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı ve swap yapılamadığı için üretilemez. `;
-      return result;
-    }
+if (originalEn > MACHINE_LIMITS.MAX_EN) {
+  // ÖNEMLİ: Swap işlemi sadece En>MAX_EN durumunda ve makine limitlerini karşılayacaksa yapılır
+  if (originalEn <= MACHINE_LIMITS.MAX_BOY && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+    // Boy ve En değerlerini değiştir
+    row.uzunlukBoy = originalEn.toString();
+    row.uzunlukEn = originalBoy.toString();
+    row.modified.uzunlukBoy = true;
+    row.modified.uzunlukEn = true;
+    
+    result.changed = true;
+    result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
+    
+    // Hasır türünü değiştirme sonrası güncelle
+    row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+  } else {
+    // En > MAX_EN ve Swap da çalışmadıysa, üretilemez olarak işaretle
+    row.uretilemez = true;
+    result.changed = true;
+    result.message = `3. En ölçüsü (${originalEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı ve swap yapılamadığı için üretilemez. `;
+    return result;
   }
+}
   
   // AŞAMA 3: En 126-149 cm aralığında mı kontrol et (swap sonrası)
   const currentEn = parseFloat(row.uzunlukEn);
