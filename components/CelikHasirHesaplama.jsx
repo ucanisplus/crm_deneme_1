@@ -1465,7 +1465,7 @@ const calculateFilizValues = (row) => {
     }
   };
 
-// İyileştirme işlemlerini gerçekleştirme - Tamamen yeniden düzenlendi
+// İyileştirme işlemlerini gerçekleştirme - Tamamen yenilenmiş
 const iyilestir = async (rowIndex) => {
   try {
     // Başlangıçta satırı yedekle
@@ -1486,11 +1486,11 @@ const iyilestir = async (rowIndex) => {
     
     // Temel değerler
     const hasirTipi = row.hasirTipi;
-    let uzunlukBoy = parseFloat(row.uzunlukBoy);
-    let uzunlukEn = parseFloat(row.uzunlukEn);
-    let hasirSayisi = parseFloat(row.hasirSayisi);
+    const uzunlukBoy = parseFloat(row.uzunlukBoy);
+    const uzunlukEn = parseFloat(row.uzunlukEn);
+    const hasirSayisi = parseFloat(row.hasirSayisi);
     
-    // Başlangıç değerlerini hatırla (İkinci kez çalıştırılırsa bozulmasın diye)
+    // Başlangıç değerlerini hatırla
     const originalValues = {
       hasirTipi: hasirTipi,
       uzunlukBoy: uzunlukBoy,
@@ -1507,6 +1507,7 @@ const iyilestir = async (rowIndex) => {
     // Yeni açıklama için değişken
     let newAciklama = '';
     
+    // Değişiklik olup olmadığını takip et
     let isImproved = false;
     
     // Başlangıçta modified durumlarını temizle
@@ -1532,61 +1533,26 @@ const iyilestir = async (rowIndex) => {
       updateRowFromHasirTipi(updatedRows, rowIndex);
     }
     
-    // AŞAMA 2: Hasır türünü güncelle - İşlemin en başında yapılmalı
+    // AŞAMA 2: Hasır türünü güncelle
     row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
     
-    // AŞAMA 3: Öncelikle En > MAX_EN kontrolü
-    if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-      isImproved = trySwapBoyEn(row);
-      if (isImproved) {
-        newAciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
-        
-        // Değiştirme sonrası local değerleri güncelle
-        uzunlukBoy = parseFloat(row.uzunlukBoy);
-        uzunlukEn = parseFloat(row.uzunlukEn);
-        hasirSayisi = parseFloat(row.hasirSayisi);
-        
-        // Boy/En değiştikten sonra hasır türünü yeniden belirle
-        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      }
+    // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
+    // Bu aşamada sadece makine limitlerine uygun hale getirme işlemi yapılır
+    // Filiz optimizasyonu yapılmaz
+    
+    // Swap ve Merge işlemi uygula (swap -> boy/en değiştirme, merge -> boyutları çarpma)
+    const swapResult = processDimensions(row);
+    
+    if (swapResult.changed) {
+      isImproved = true;
+      newAciklama += swapResult.message;
     }
     
-    // AŞAMA 4: Q tipi için Boy/En değiştirmeyi dene (Adım 3'te başarısız olunmadıysa)
-    if (!isImproved && hasirTipi.startsWith('Q')) {
-      isImproved = trySwapBoyEn(row);
-      if (isImproved) {
-        newAciklama += 'Boy ve en değerleri değiştirildi. ';
-        
-        // Değiştirme sonrası local değerleri güncelle
-        uzunlukBoy = parseFloat(row.uzunlukBoy);
-        uzunlukEn = parseFloat(row.uzunlukEn);
-        hasirSayisi = parseFloat(row.hasirSayisi);
-        
-        // Boy/En değiştikten sonra hasır türünü yeniden belirle
-        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      }
-    }
-    
-    // AŞAMA 5: Limitin altındaki değerler için çarpma işlemi dene
-    // Limit içinde olan değerlere dokunma
-    if (!isMachineLimitsOk(row)) {
-      isImproved = tryMultiplyDimensions(row, originalValues);
-      if (isImproved) {
-        // Değiştirme sonrası local değerleri güncelle
-        uzunlukBoy = parseFloat(row.uzunlukBoy);
-        uzunlukEn = parseFloat(row.uzunlukEn);
-        hasirSayisi = parseFloat(row.hasirSayisi);
-        
-        // Değerler değiştiyse hasır türünü yeniden belirle
-        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      }
-    }
-    
-    // AŞAMA 6: Cubuk sayılarını baştan hesapla - boy/en işlemleri tamamlandıktan sonra
-    initializeCubukSayisi(row);
-    
-    // AŞAMA 7: Filiz değerlerini hesapla ve optimize et - tek adımda
+    // AŞAMA 4: Sadece limitleri karşılayan ürünler için filiz optimizasyonu
     if (!row.uretilemez) {
+      // Cubuk sayılarını baştan hesapla
+      initializeCubukSayisi(row);
+      
       // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
       const initialFiliz = {
         on: row.onFiliz,
@@ -1653,7 +1619,7 @@ const iyilestir = async (rowIndex) => {
   }
 };
 
-// Tüm satırları iyileştir - İllogical boyut değişimleri düzeltildi
+// Tüm satırları iyileştir - Mantık hatası düzeltildi
 const iyilestirAll = async () => {
   // İşlemden önce tüm satırları yedekle
   backupAllRows();
@@ -1707,8 +1673,6 @@ const iyilestirAll = async () => {
         hasirSayisi: hasirSayisi
       };
       
-      let isImproved = false;
-      
       // Modified durumlarını temizle
       row.modified = {
         uzunlukBoy: false,
@@ -1726,87 +1690,38 @@ const iyilestirAll = async () => {
       // Üretilemez durumunu sıfırla
       row.uretilemez = false;
       
-      // Hasır türünü işlemin en başında belirle
+      // AŞAMA 1: Hasır türünü işlemin en başında belirle
       row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       
-      // AŞAMA 1: Tüm değerleri başlangıçta hesapla veya yeniden hesapla
+      // AŞAMA 2: Tüm değerleri başlangıçta hesapla veya yeniden hesapla
       if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
         updateRowFromHasirTipi(updatedRows, rowIndex);
         changesCount++;
         newAciklama += "1. Hasır tipi özellikleri güncellendi. ";
       }
       
-      // AŞAMA 2: Öncelikle En > MAX_EN kontrolü
-      if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-        const oldUzunlukBoy = row.uzunlukBoy;
-        const oldUzunlukEn = row.uzunlukEn;
-        const oldHasirSayisi = row.hasirSayisi;
-        
-        isImproved = trySwapBoyEn(row);
-        
-        if (isImproved) {
-          changesCount++;
-          newAciklama += `2. En değeri (${oldUzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${oldUzunlukBoy} × ${oldUzunlukEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
-          
-          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
-          row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-        }
-      }
-      // AŞAMA 3: Q tipi için Boy/En değiştirmeyi dene (Eğer En > MAX_EN için yapılmadıysa)
-      else if (hasirTipi.startsWith('Q')) {
-        const oldUzunlukBoy = row.uzunlukBoy;
-        const oldUzunlukEn = row.uzunlukEn;
-        
-        isImproved = trySwapBoyEn(row);
-        
-        if (isImproved) {
-          changesCount++;
-          newAciklama += `3. Boy ve En değerleri değiştirildi (${oldUzunlukBoy} × ${oldUzunlukEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
-          
-          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
-          row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-        }
-      }
+      // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
+      // Boyutları uyumlamak için tek bir işlev çağrısı yap
+      const swapResult = processDimensions(row);
       
-      // AŞAMA 4: Limitin altındaki değerler için çarpma dene
-      // DÜZELTİLDİ: Makine limitleri içindeyse çarpma işlemi yapma
-      if (!isMachineLimitsOk(row)) {
-        const oldUzunlukBoy = row.uzunlukBoy;
-        const oldUzunlukEn = row.uzunlukEn;
-        const oldHasirSayisi = row.hasirSayisi;
-        
-        isImproved = tryMultiplyDimensions(row, originalValues);
-        
-        if (isImproved) {
-          changesCount++;
-          if (parseFloat(oldUzunlukBoy) !== parseFloat(row.uzunlukBoy)) {
-            newAciklama += `4. Boy ölçüsü değiştirildi (${oldUzunlukBoy} ➝ ${row.uzunlukBoy}). `;
-          }
-          if (parseFloat(oldUzunlukEn) !== parseFloat(row.uzunlukEn)) {
-            newAciklama += `5. En ölçüsü değiştirildi (${oldUzunlukEn} ➝ ${row.uzunlukEn}). `;
-          }
-          if (parseFloat(oldHasirSayisi) !== parseFloat(row.hasirSayisi)) {
-            newAciklama += `6. Hasır sayısı güncellendi (${oldHasirSayisi} ➝ ${row.hasirSayisi}). `;
-          }
-          
-          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
-          row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-        }
-      }
-      
-      // AŞAMA 5: Çubuk sayılarını hesapla - Boy/En işlemleri tamamlandıktan sonra
-      const oldCubukSayisiBoy = row.cubukSayisiBoy;
-      const oldCubukSayisiEn = row.cubukSayisiEn;
-      initializeCubukSayisi(row);
-      
-      if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+      if (swapResult.changed) {
         changesCount++;
-        newAciklama += `7. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
+        newAciklama += swapResult.message.replace(/^\d+\.\s/, `${changesCount + 1}. `);
       }
       
-      // AŞAMA 6: Filiz değerlerini hesapla ve optimize et - Tüm Boy/En işlemleri sonrası
+      // AŞAMA 4: Çubuk sayılarını hesapla ve filiz değerlerini optimize et
       if (!row.uretilemez) {
-        // Filiz değerlerini hesaplayıp kaydet
+        // Çubuk sayılarını hesapla
+        const oldCubukSayisiBoy = row.cubukSayisiBoy;
+        const oldCubukSayisiEn = row.cubukSayisiEn;
+        initializeCubukSayisi(row);
+        
+        if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+          changesCount++;
+          newAciklama += `${changesCount + 1}. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
+        }
+        
+        // Filiz değerlerini hesapla
         const oldFilizValues = {
           solFiliz: row.solFiliz,
           sagFiliz: row.sagFiliz,
@@ -1814,23 +1729,10 @@ const iyilestirAll = async () => {
           arkaFiliz: row.arkaFiliz
         };
         
-        // Filiz değerlerini hesapla
         calculateFilizValues(row);
-        
-        const initialFiliz = {
-          on: row.onFiliz,
-          arka: row.arkaFiliz
-        };
-        
-        // Filiz değerlerini optimize et
         optimizeFilizValues(row);
         
-        const optimizedFiliz = {
-          on: row.onFiliz,
-          arka: row.arkaFiliz
-        };
-        
-        // Negatif filiz değerlerini engelle
+        // Negatif filiz değerlerini düzelt
         if (row.solFiliz < 0) row.solFiliz = 1.5;
         if (row.sagFiliz < 0) row.sagFiliz = 1.5;
         if (row.onFiliz < 0) row.onFiliz = 2.5;
@@ -1840,17 +1742,12 @@ const iyilestirAll = async () => {
         calculateWeight(row);
         
         // Değişiklik olmuşsa rapor et
-        if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
-          changesCount++;
-          newAciklama += `8. Çubuk sayıları optimize edildi (Boy: ${oldCubukSayisiBoy} ➝ ${row.cubukSayisiBoy}, En: ${oldCubukSayisiEn} ➝ ${row.cubukSayisiEn}). `;
-        }
-        
         if (Math.abs(oldFilizValues.solFiliz - row.solFiliz) > 0.1 || 
             Math.abs(oldFilizValues.sagFiliz - row.sagFiliz) > 0.1 ||
             Math.abs(oldFilizValues.onFiliz - row.onFiliz) > 0.1 ||
             Math.abs(oldFilizValues.arkaFiliz - row.arkaFiliz) > 0.1) {
           changesCount++;
-          newAciklama += `9. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
+          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
         }
       }
       
@@ -1888,6 +1785,162 @@ const iyilestirAll = async () => {
   }
   
   setBatchProcessing(false);
+};
+
+// Boyutları uyumlama işlemlerini tek bir fonksiyonda topla
+// Bu fonksiyon hem swap hem merge işlemlerini yönetir
+const processDimensions = (row) => {
+  const result = {
+    changed: false,
+    message: ""
+  };
+  
+  // Değişiklik öncesi değerleri kaydet
+  const originalBoy = parseFloat(row.uzunlukBoy);
+  const originalEn = parseFloat(row.uzunlukEn);
+  const originalHasirSayisi = parseFloat(row.hasirSayisi);
+  
+  // Makine limitleri kontrolü
+  const boyInLimits = originalBoy >= MACHINE_LIMITS.MIN_BOY && originalBoy <= MACHINE_LIMITS.MAX_BOY;
+  const enInLimits = originalEn >= MACHINE_LIMITS.MIN_EN && originalEn <= MACHINE_LIMITS.MAX_EN;
+  
+  // Eğer her iki boyut da makine limitleri içindeyse, hiçbir şey yapma
+  if (boyInLimits && enInLimits) {
+    return result;
+  }
+  
+  // AŞAMA 1: En > MAX_EN kontrolü - Swap denemesi
+  if (originalEn > MACHINE_LIMITS.MAX_EN) {
+    // Boy/En değiştirilebilir mi?
+    if (originalEn >= MACHINE_LIMITS.MIN_BOY && originalEn <= MACHINE_LIMITS.MAX_BOY &&
+        originalBoy >= MACHINE_LIMITS.MIN_EN && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+      
+      // Boy ve En değerlerini değiştir
+      row.uzunlukBoy = originalEn.toString();
+      row.uzunlukEn = originalBoy.toString();
+      row.modified.uzunlukBoy = true;
+      row.modified.uzunlukEn = true;
+      
+      result.changed = true;
+      result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
+      
+      // Hasır türünü değiştirme sonrası güncelle
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      
+      return result;
+    }
+  }
+  
+  // AŞAMA 2: Q tipi için Boy/En değiştirmeyi dene (sadece Q tipi için)
+  if (row.hasirTipi.startsWith('Q') && !result.changed) {
+    // Değiştirince makine limitlerini karşılıyor mu?
+    if (originalEn >= MACHINE_LIMITS.MIN_BOY && originalEn <= MACHINE_LIMITS.MAX_BOY &&
+        originalBoy >= MACHINE_LIMITS.MIN_EN && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+      
+      // Boy ve En değerlerini değiştir
+      row.uzunlukBoy = originalEn.toString();
+      row.uzunlukEn = originalBoy.toString();
+      row.modified.uzunlukBoy = true;
+      row.modified.uzunlukEn = true;
+      
+      result.changed = true;
+      result.message = `3. Boy ve En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
+      
+      // Hasır türünü değiştirme sonrası güncelle
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      
+      return result;
+    }
+  }
+  
+  // AŞAMA 3: Swap sonrası güncel Boy/En değerlerini al
+  const currentBoy = parseFloat(row.uzunlukBoy);
+  const currentEn = parseFloat(row.uzunlukEn);
+  const currentHasirSayisi = parseFloat(row.hasirSayisi);
+  
+  // Güncel Boy/En limitleri kontrolü
+  const currentBoyInLimits = currentBoy >= MACHINE_LIMITS.MIN_BOY && currentBoy <= MACHINE_LIMITS.MAX_BOY;
+  const currentEnInLimits = currentEn >= MACHINE_LIMITS.MIN_EN && currentEn <= MACHINE_LIMITS.MAX_EN;
+  
+  // AŞAMA 4: Boy limitleri kontrolü - Boy çok kısaysa çarpma dene
+  if (!currentBoyInLimits && currentBoy < MACHINE_LIMITS.MIN_BOY) {
+    for (let multiplier of [2, 3, 4, 5, 6]) {
+      const newBoy = currentBoy * multiplier;
+      
+      if (newBoy >= MACHINE_LIMITS.MIN_BOY && newBoy <= MACHINE_LIMITS.MAX_BOY) {
+        row.uzunlukBoy = newBoy.toString();
+        // Hasır sayısını yukarı yuvarlayarak ayarla
+        const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
+        row.hasirSayisi = newHasirSayisi.toString();
+        row.modified.uzunlukBoy = true;
+        row.modified.hasirSayisi = true;
+        
+        result.changed = true;
+        result.message = `4. Boy ölçüsü ${multiplier} ile çarpılarak ${newBoy.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+        
+        // Hasır türünü güncelle
+        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+        
+        return result;
+      }
+    }
+  }
+  // Boy çok uzunsa üretilemez olarak işaretle
+  else if (!currentBoyInLimits && currentBoy > MACHINE_LIMITS.MAX_BOY) {
+    row.uretilemez = true;
+    result.changed = true;
+    result.message = `5. Boy ölçüsü (${currentBoy}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_BOY}cm) aştığı için üretilemez. `;
+    return result;
+  }
+  
+  // AŞAMA 5: En limitleri kontrolü - En çok kısaysa çarpma veya otomatik düzelt
+  if (!currentEnInLimits && currentEn < MACHINE_LIMITS.MIN_EN) {
+    // 126-149 arası ise otomatik düzelt
+    if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
+      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+      row.modified.uzunlukEn = true;
+      
+      result.changed = true;
+      result.message = `6. En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+      
+      return result;
+    }
+    
+    // Değilse çarpma dene
+    for (let multiplier of [2, 3, 4, 5, 6]) {
+      const newEn = currentEn * multiplier;
+      
+      if (newEn >= MACHINE_LIMITS.MIN_EN && newEn <= MACHINE_LIMITS.MAX_EN) {
+        row.uzunlukEn = newEn.toString();
+        // Hasır sayısını yukarı yuvarlayarak ayarla
+        const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
+        row.hasirSayisi = newHasirSayisi.toString();
+        row.modified.uzunlukEn = true;
+        row.modified.hasirSayisi = true;
+        
+        result.changed = true;
+        result.message = `7. En ölçüsü ${multiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+        
+        return result;
+      }
+    }
+  }
+  // En çok uzunsa üretilemez olarak işaretle
+  else if (!currentEnInLimits && currentEn > MACHINE_LIMITS.MAX_EN) {
+    row.uretilemez = true;
+    result.changed = true;
+    result.message = `8. En ölçüsü (${currentEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için üretilemez. `;
+    return result;
+  }
+  
+  // Hiçbir işlem yapılamazsa üretilemez işaretle
+  if (!isMachineLimitsOk(row)) {
+    row.uretilemez = true;
+    result.changed = true;
+    result.message = "9. Makine limitlerine uygun boyutlara getirilemedi. ";
+  }
+  
+  return result;
 };
 
   // Makine limitlerini kontrol et
