@@ -1999,12 +1999,11 @@ const tryMultiplyDimensions = (row, originalValues) => {
     return false;
   }
     
-  // AŞAMA 3: En limitleri kontrolü
+ // AŞAMA 3: En limitleri kontrolü
 if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
   // Önce 126-149 arası ise otomatik düzeltme yap
   if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-    // DÜZELTİLDİ: Eğer boy değeri zaten makine limitleri içindeyse, 
-    // sadece en değerini ayarla ve boy'a dokunma
+    // KRİTİK DÜZELTME: Boy'a dokunmuyoruz, sadece En'i değiştiriyoruz
     row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
     row.modified.uzunlukEn = true;
     
@@ -2018,14 +2017,11 @@ if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
   }
   
   // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-  // DÜZELTİLDİ: Boy değeri zaten makine limitlerinde ise boy'a dokunma
-  const boyAlreadyInLimits = uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && uzunlukBoy <= MACHINE_LIMITS.MAX_BOY;
-  
   for (let multiplier of [2, 3, 4, 5, 6]) {
     const newUzunlukEn = uzunlukEn * multiplier;
     
     if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-      // Sadece en'i değiştir, boy'a dokunma
+      // KRİTİK DÜZELTME: Boy'a dokunmuyoruz, sadece En ve hasirSayisi değerlerini değiştiriyoruz
       row.uzunlukEn = newUzunlukEn.toString();
       row.hasirSayisi = (hasirSayisi / multiplier).toString();
       row.modified.uzunlukEn = true;
