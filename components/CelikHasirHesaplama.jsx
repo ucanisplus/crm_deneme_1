@@ -1913,12 +1913,6 @@ const tryMultiplyDimensions = (row, originalValues) => {
   const uzunlukEn = parseFloat(originalValues.uzunlukEn);
   const hasirSayisi = parseFloat(originalValues.hasirSayisi);
   
-  // DÜZELTİLDİ: Eğer değerler zaten makine limitleri içindeyse işlem yapma
-  if (uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && uzunlukBoy <= MACHINE_LIMITS.MAX_BOY &&
-      uzunlukEn >= MACHINE_LIMITS.MIN_EN && uzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-    return false;
-  }
-  
   // AŞAMA 1: Öncelikle En > MAX_EN kontrolü
   if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
     // Boyutları değiştirmeyi dene
@@ -1999,35 +1993,17 @@ const tryMultiplyDimensions = (row, originalValues) => {
     return false;
   }
     
- // AŞAMA 3: En limitleri kontrolü
-if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-  // Önce 126-149 arası ise otomatik düzeltme yap
-  if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-    // KRİTİK DÜZELTME: Boy'a dokunmuyoruz, sadece En'i değiştiriyoruz
-    row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-    row.modified.uzunlukEn = true;
-    
-    row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
-    
-    // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-    initializeCubukSayisi(row);
-    calculateFilizValues(row);
-    
-    return true;
-  }
+  // AŞAMA 3: En limitleri kontrolü
+  // KRİTİK DÜZELTME: Swap işleminden sonraki güncel En değerini kullan
+  const currentEn = parseFloat(row.uzunlukEn);
   
-  // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-  for (let multiplier of [2, 3, 4, 5, 6]) {
-    const newUzunlukEn = uzunlukEn * multiplier;
-    
-    if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-      // KRİTİK DÜZELTME: Boy'a dokunmuyoruz, sadece En ve hasirSayisi değerlerini değiştiriyoruz
-      row.uzunlukEn = newUzunlukEn.toString();
-      row.hasirSayisi = (hasirSayisi / multiplier).toString();
+  if (currentEn < MACHINE_LIMITS.MIN_EN) {
+    // Önce 126-149 arası ise otomatik düzeltme yap
+    if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
+      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
       row.modified.uzunlukEn = true;
-      row.modified.hasirSayisi = true;
       
-      row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+      row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
       
       // Değerler değiştiğinde diğer hesaplamaları yeniden yap
       initializeCubukSayisi(row);
@@ -2035,14 +2011,35 @@ if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
       
       return true;
     }
+    
+    // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+    const currentHasirSayisi = parseFloat(row.hasirSayisi);
+    
+    for (let multiplier of [2, 3, 4, 5, 6]) {
+      const newUzunlukEn = currentEn * multiplier;
+      
+      if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
+        // KRİTİK DÜZELTME: Sadece En ve hasirSayisi değerlerini değiştir, Boy'a dokunma
+        row.uzunlukEn = newUzunlukEn.toString();
+        row.hasirSayisi = (currentHasirSayisi / multiplier).toString();
+        row.modified.uzunlukEn = true;
+        row.modified.hasirSayisi = true;
+        
+        row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(currentHasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
+        
+        // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+        initializeCubukSayisi(row);
+        calculateFilizValues(row);
+        
+        return true;
+      }
+    }
   }
-}
-
   // En değeri MAX_EN'i aşıyorsa (bu kısım normalde AŞAMA 1'de ele alınmalıdır)
-  else if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
+  else if (currentEn > MACHINE_LIMITS.MAX_EN) {
     // Eğer buraya gelindiyse değiştirme çalışmamış demektir, üretilemez olarak işaretle
     row.uretilemez = true;
-    row.aciklama += `En ölçüsü (${uzunlukEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için üretilemez. `;
+    row.aciklama += `En ölçüsü (${currentEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için üretilemez. `;
     return false;
   }
   
