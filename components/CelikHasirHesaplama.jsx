@@ -1630,7 +1630,7 @@ const iyilestir = async (rowIndex) => {
   }
 };
 
-// Tüm satırları iyileştir - Tek seferde optimizasyon yapar
+// Tüm satırları iyileştir - Mantık hatası düzeltildi
 const iyilestirAll = async () => {
   // İşlemden önce tüm satırları yedekle
   backupAllRows();
@@ -1660,16 +1660,126 @@ const iyilestirAll = async () => {
       // İşlem için kısa bir bekletme
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Yeni yaklaşım: tekli iyileştirme fonksiyonunu çağır
-      // Bu sayede aynı işlem mantığı kullanılır
-      await iyilestir(rowIndex);
-      
-      // Açıklamaya toplu işlem notu ekle
+      // İyileştirme işlemini gerçekleştir
       const row = updatedRows[rowIndex];
-      const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
       
-      if (row.aciklama && !row.aciklama.startsWith('[Toplu İyileştirme]')) {
-        row.aciklama = `[${timestamp} Toplu İyileştirme] ` + row.aciklama;
+      // Mevcut açıklamayı sakla
+      const previousAciklama = row.aciklama || '';
+      
+      // Yeni bir sürece başladığımızı belirtmek için timestamp ekle
+      const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+      let newAciklama = `[${timestamp} Toplu İyileştirme] `;
+      let changesCount = 0; // Yapılan değişiklikleri sayan değişken
+      
+      // Temel değerler
+      const hasirTipi = row.hasirTipi;
+      const uzunlukBoy = parseFloat(row.uzunlukBoy);
+      const uzunlukEn = parseFloat(row.uzunlukEn);
+      const hasirSayisi = parseFloat(row.hasirSayisi);
+      
+      // Başlangıç değerlerini hatırla
+      const originalValues = {
+        uzunlukBoy: uzunlukBoy,
+        uzunlukEn: uzunlukEn,
+        hasirSayisi: hasirSayisi
+      };
+      
+      // Modified durumlarını temizle
+      row.modified = {
+        uzunlukBoy: false,
+        uzunlukEn: false,
+        hasirSayisi: false,
+        cubukSayisiBoy: false,
+        cubukSayisiEn: false,
+        solFiliz: false,
+        sagFiliz: false,
+        onFiliz: false,
+        arkaFiliz: false,
+        hasirTuru: false
+      };
+      
+      // Üretilemez durumunu sıfırla
+      row.uretilemez = false;
+      
+      // AŞAMA 1: Hasır türünü işlemin en başında belirle
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      
+      // AŞAMA 2: Tüm değerleri başlangıçta hesapla veya yeniden hesapla
+      if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
+        updateRowFromHasirTipi(updatedRows, rowIndex);
+        changesCount++;
+        newAciklama += "1. Hasır tipi özellikleri güncellendi. ";
+      }
+      
+      // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
+      // Boyutları uyumlamak için tek bir işlev çağrısı yap
+      const swapResult = processDimensions(row);
+      
+      if (swapResult.changed) {
+        changesCount++;
+        newAciklama += swapResult.message.replace(/^\d+\.\s/, `${changesCount + 1}. `);
+      }
+      
+      // AŞAMA 4: Çubuk sayılarını hesapla ve filiz değerlerini optimize et
+      if (!row.uretilemez) {
+        // Çubuk sayılarını hesapla
+        const oldCubukSayisiBoy = row.cubukSayisiBoy;
+        const oldCubukSayisiEn = row.cubukSayisiEn;
+        initializeCubukSayisi(row);
+        
+        if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+          changesCount++;
+          newAciklama += `${changesCount + 1}. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
+        }
+        
+        // Filiz değerlerini hesapla
+        const oldFilizValues = {
+          solFiliz: row.solFiliz,
+          sagFiliz: row.sagFiliz,
+          onFiliz: row.onFiliz,
+          arkaFiliz: row.arkaFiliz
+        };
+        
+        calculateFilizValues(row);
+        optimizeFilizValues(row);
+        
+        // Negatif filiz değerlerini düzelt
+        if (row.solFiliz < 0) row.solFiliz = 1.5;
+        if (row.sagFiliz < 0) row.sagFiliz = 1.5;
+        if (row.onFiliz < 0) row.onFiliz = 2.5;
+        if (row.arkaFiliz < 0) row.arkaFiliz = 2.5;
+        
+        // Ağırlık hesapla
+        calculateWeight(row);
+        
+        // Değişiklik olmuşsa rapor et
+        if (Math.abs(oldFilizValues.solFiliz - row.solFiliz) > 0.1 || 
+            Math.abs(oldFilizValues.sagFiliz - row.sagFiliz) > 0.1 ||
+            Math.abs(oldFilizValues.onFiliz - row.onFiliz) > 0.1 ||
+            Math.abs(oldFilizValues.arkaFiliz - row.arkaFiliz) > 0.1) {
+          changesCount++;
+          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
+        }
+      }
+      
+      // Eğer ürün üretilemez durumdaysa
+      if (row.uretilemez) {
+        newAciklama = 'ÜRETİLEMEZ! ' + newAciklama;
+      } else if (changesCount === 0) {
+        newAciklama += 'Herhangi bir değişiklik yapılmadı, ürün zaten optimum durumda.';
+      }
+      
+      // Önceki açıklama ile yeni açıklamayı akıllıca birleştir
+      if (previousAciklama) {
+        // Eğer önceki açıklama zaten "ÜRETİLEMEZ!" içeriyorsa ve şimdi de üretilemezse tekrar ekleme
+        if (row.uretilemez && previousAciklama.includes('ÜRETİLEMEZ!')) {
+          row.aciklama = previousAciklama + '\n' + newAciklama.replace('ÜRETİLEMEZ! ', '');
+        } else {
+          // Uzun açıklamaları birden fazla satıra böl
+          row.aciklama = previousAciklama + '\n' + newAciklama;
+        }
+      } else {
+        row.aciklama = newAciklama;
       }
     }
     
