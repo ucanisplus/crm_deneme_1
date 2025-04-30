@@ -1453,7 +1453,7 @@ const calculateFilizValues = (row) => {
     }
   };
 
-// İyileştirme işlemlerini gerçekleştirme - Tamamen yenilenmiş
+// İyileştirme işlemlerini gerçekleştirme - Sıralı işlem garantili
 const iyilestir = async (rowIndex) => {
   try {
     // Başlangıçta satırı yedekle
@@ -1519,6 +1519,8 @@ const iyilestir = async (rowIndex) => {
     // Eğer eksik bilgiler varsa hasır tipinden doldur
     if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
       updateRowFromHasirTipi(updatedRows, rowIndex);
+      isImproved = true;
+      newAciklama += "1. Hasır tipi özellikleri güncellendi. ";
     }
     
     // AŞAMA 2: Hasır türünü güncelle
@@ -1526,20 +1528,31 @@ const iyilestir = async (rowIndex) => {
     
     // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
     // Bu aşamada sadece makine limitlerine uygun hale getirme işlemi yapılır
-    // Filiz optimizasyonu yapılmaz
     
-    // Swap ve Merge işlemi uygula (swap -> boy/en değiştirme, merge -> boyutları çarpma)
-    const swapResult = processDimensions(row);
+    // processDimensions fonksiyonu çağrılıyor - kendi içinde sıralı işlemleri yapar
+    const processDimensionsResult = processDimensions(row);
     
-    if (swapResult.changed) {
+    if (processDimensionsResult.changed) {
       isImproved = true;
-      newAciklama += swapResult.message;
+      newAciklama += processDimensionsResult.message;
     }
     
     // AŞAMA 4: Sadece limitleri karşılayan ürünler için filiz optimizasyonu
     if (!row.uretilemez) {
+      // Orijinal boyut değerlerini kaydet (filiz optimizasyonu sırasında korunması için)
+      const currentBoy = parseFloat(row.uzunlukBoy);
+      const currentEn = parseFloat(row.uzunlukEn);
+      
       // Cubuk sayılarını baştan hesapla
+      const oldCubukSayisiBoy = row.cubukSayisiBoy;
+      const oldCubukSayisiEn = row.cubukSayisiEn;
+      
       initializeCubukSayisi(row);
+      
+      if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+        isImproved = true;
+        newAciklama += `4. Çubuk sayıları hesaplandı (Boy: ${oldCubukSayisiBoy || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${oldCubukSayisiEn || "N/A"} ➝ ${row.cubukSayisiEn}). `;
+      }
       
       // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
       const initialFiliz = {
@@ -1569,7 +1582,17 @@ const iyilestir = async (rowIndex) => {
           Math.abs(initialFiliz.sag - row.sagFiliz) > 0.1 ||
           Math.abs(initialFiliz.on - row.onFiliz) > 0.1 ||
           Math.abs(initialFiliz.arka - row.arkaFiliz) > 0.1) {
-        newAciklama += `Filiz değerleri optimize edildi: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm, Sol/Sağ: ${row.solFiliz.toFixed(2)}cm. `;
+        isImproved = true;
+        newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm, Sol/Sağ: ${row.solFiliz.toFixed(2)}cm. `;
+      }
+      
+      // ÖNEMLİ: Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
+      if (parseFloat(row.uzunlukBoy) !== currentBoy) {
+        row.uzunlukBoy = currentBoy.toString();
+      }
+      
+      if (parseFloat(row.uzunlukEn) !== currentEn) {
+        row.uzunlukEn = currentEn.toString();
       }
     }
     
@@ -2170,8 +2193,12 @@ const trySwapBoyEn = (row) => {
    return false;
 };
 
-// Filiz değerlerini optimize etme - İllogical boy değişimlerini engelleyen versiyon
+// Filiz değerlerini optimize etme - Boyut değişimlerini engelleyen versiyon
 const optimizeFilizValues = (row) => {
+  // Orijinal boyutları kaydet
+  const originalBoy = parseFloat(row.uzunlukBoy);
+  const originalEn = parseFloat(row.uzunlukEn);
+  
   // Hasır türüne göre filiz limitleri al
   const filizLimits = getFilizLimits(row.hasirTipi, row.hasirTuru);
   
@@ -2182,10 +2209,6 @@ const optimizeFilizValues = (row) => {
     solFiliz: parseFloat(row.solFiliz),
     sagFiliz: parseFloat(row.sagFiliz)
   };
-  
-  // DÜZELTİLDİ: Boy/En değerlerini kaydet
-  const originalBoy = parseFloat(row.uzunlukBoy);
-  const originalEn = parseFloat(row.uzunlukEn);
   
   // Q tipi Döşeme hasırları için özel optimizasyon
   if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
@@ -2268,12 +2291,6 @@ const optimizeFilizValues = (row) => {
   if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
       row.hasirTipi.startsWith('Q')) {
     optimizePerdeFilizValues(row, filizLimits);
-    
-    // DÜZELTİLDİ: Optimizasyon sonrası Boy değerini kontrol et ve orijinal değere geri çevir
-    if (originalBoy !== parseFloat(row.uzunlukBoy)) {
-      row.uzunlukBoy = originalBoy.toString();
-    }
-    
     return;
   }
   
@@ -2338,7 +2355,7 @@ const optimizeFilizValues = (row) => {
     findBestApproximateFilizValues(row, filizLimits);
   }
   
-  // DÜZELTİLDİ: İşlem sonunda Boy/En değerlerinin değişmediğinden emin ol
+  // ÖNEMLİ: İşlem sonunda Boy/En değerlerinin değişmediğinden emin ol
   if (parseFloat(row.uzunlukBoy) !== originalBoy) {
     row.uzunlukBoy = originalBoy.toString();
   }
