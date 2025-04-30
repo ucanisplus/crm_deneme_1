@@ -5142,7 +5142,7 @@ const parseCsvData = (data) => {
     setPreviewData([...previewData, createEmptyPreviewRow(newRowId)]);
   };
 
-// Ön izleme verilerini işleyip ana tabloya ekleme - Hiçbir düzeltme yapmaz
+// Ön izleme verilerini işleyip ana tabloya ekleme - Temel hesaplamaları yapar fakat boyutları değiştirmez
 const processPreviewData = () => {
   // Geçerli verileri filtrele
   const validPreviewData = previewData.filter(row => 
@@ -5157,16 +5157,16 @@ const processPreviewData = () => {
   // Yeni satır ID'leri için başlangıç değeri
   const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
   
-  // Orijinal değerleri direkt kopyala - hiçbir boyut değişikliği yapmadan
+  // Ön izleme verilerinden tam satırlar oluştur
   const newRows = validPreviewData.map((previewRow, index) => {
     const newRow = createEmptyRow(startId + index);
     
-    // Değerleri aynen aktar, hiçbir düzeltme/hesaplama yapmadan
+    // Temel verileri aktar - değerleri ayarlamadan
     newRow.hasirTipi = previewRow.hasirTipi;
     newRow.uzunlukBoy = previewRow.uzunlukBoy;
     newRow.uzunlukEn = previewRow.uzunlukEn;
-    newRow.hasirSayisi = previewRow.hasirSayisi || '1';
-    newRow.sheetName = previewRow.sheetName;
+    newRow.hasirSayisi = previewRow.hasirSayisi || '1'; // Varsayılan olarak 1
+    newRow.sheetName = previewRow.sheetName; // Sayfa adını aktar
     
     return newRow;
   });
@@ -5178,44 +5178,26 @@ const processPreviewData = () => {
   const finalRows = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
                    newRows : [...updatedRows, ...newRows];
   
-  // Sadece hasır tipine göre çap ve aralık özelliklerini doldur
-  // Boyut düzeltmesi YAPILMAYACAK
+  // Her yeni satır için temel değerleri hesapla
   newRows.forEach((_, index) => {
     const rowIndex = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
                     index : updatedRows.length + index;
     
-    // Sadece çap ve aralık değerlerini doldur, boyut değişikliği yapma
+    // Hasır tipine göre çap ve aralık değerlerini doldur - boyut değiştirmeden
+    updateRowFromHasirTipi(finalRows, rowIndex);
+    
+    // Temel hesaplamaları yap (filiz, çubuk sayısı, ağırlık)
     const row = finalRows[rowIndex];
-    const hasirTipi = row.hasirTipi;
-    
-    // Boy ve en çap değerlerini ayarla
-    if (hasirTipi.includes('/')) {
-      processComplexHasirType(row, hasirTipi);
-    } else if (hasirReferenceData[hasirTipi]) {
-      const refData = hasirReferenceData[hasirTipi];
-      row.boyCap = refData.boyCap;
-      row.enCap = refData.enCap;
-      row.boyAraligi = refData.boyAralik;
-      row.enAraligi = refData.enAralik;
-    } else if (hasirTipi.startsWith('Q')) {
-      const simulatedHasirTipi = hasirTipi + '/' + hasirTipi;
-      if (hasirReferenceData[simulatedHasirTipi]) {
-        const refData = hasirReferenceData[simulatedHasirTipi];
-        row.boyCap = refData.boyCap;
-        row.enCap = refData.enCap;
-        row.boyAraligi = refData.boyAralik;
-        row.enAraligi = refData.enAralik;
-      } else if (qTypeReferenceMap[hasirTipi]) {
-        const capValue = qTypeReferenceMap[hasirTipi];
-        row.boyCap = capValue;
-        row.enCap = capValue;
-        row.boyAraligi = 15;
-        row.enAraligi = 15;
-      }
+    if (isRowFilled(row)) {
+      // Çubuk sayılarını başlat
+      initializeCubukSayisi(row);
+      
+      // Filiz değerlerini hesapla
+      calculateFilizValues(row);
+      
+      // Ağırlık hesapla
+      calculateWeight(row);
     }
-    
-    // Hasır türünü ayarla
-    row.hasirTuru = determineHasirTuru(hasirTipi, row.uzunlukBoy);
   });
   
   // Durumu güncelle
