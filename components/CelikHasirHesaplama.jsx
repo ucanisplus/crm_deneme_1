@@ -880,8 +880,8 @@ const normalizeNumber = (value, format = "auto") => {
   return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
 };
 
-// İşaretli çubuk sayısı alanlarının düzenlenebilmesi için handleCellChange fonksiyonunun tam hali
 
+// İşaretli çubuk sayısı alanlarının düzenlenebilmesi için handleCellChange fonksiyonu
 const handleCellChange = (rowIndex, field, value) => {
   const updatedRows = [...rows];
   const row = updatedRows[rowIndex];
@@ -939,20 +939,8 @@ const handleCellChange = (rowIndex, field, value) => {
     updateRowFromHasirTipi(updatedRows, rowIndex);
   }
   
-  // En değerini otomatik düzelt (126-149 cm aralığındakileri 150 cm'e tamamla)
-  if (field === 'uzunlukEn') {
-    const enValue = parseFloat(value);
-    if (!isNaN(enValue) && enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && enValue < MACHINE_LIMITS.MIN_EN) {
-      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-      row.modified.uzunlukEn = true;
-      
-      if (row.aciklama && !row.aciklama.includes('En ölçüsü otomatik olarak 150 cm\'e ayarlandı')) {
-        row.aciklama += 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
-      } else if (!row.aciklama) {
-        row.aciklama = 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
-      }
-    }
-  }
+  // ÖNEMLİ: En değerini otomatik düzeltmeyi kaldırıyoruz
+  // Bu ayarlama artık iyileştir işlemi sırasında yapılacak
   
   // Uzunluk Boy değiştiğinde hasır türünü güncelle
   if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
@@ -1936,6 +1924,7 @@ const processDimensions = (row) => {
 };
 
   // Makine limitlerini kontrol et
+// Makine limitlerini kontrol et
 const isMachineLimitsOk = (row) => {
   const uzunlukBoy = parseFloat(row.uzunlukBoy);
   const uzunlukEn = parseFloat(row.uzunlukEn);
@@ -1945,7 +1934,7 @@ const isMachineLimitsOk = (row) => {
   return (
     uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && 
     uzunlukBoy <= MACHINE_LIMITS.MAX_BOY &&
-    uzunlukEn >= MACHINE_LIMITS.MIN_EN && 
+    uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && 
     uzunlukEn <= MACHINE_LIMITS.MAX_EN
   );
 };
@@ -5235,58 +5224,59 @@ const parseCsvData = (data) => {
     setPreviewData([...previewData, createEmptyPreviewRow(newRowId)]);
   };
 
-  // UI iyileştirmesi: Excel sayfalarını gösterme
-  // processPreviewData fonksiyonunu güncelle
-  const processPreviewData = () => {
-    // Geçerli verileri filtrele
-    const validPreviewData = previewData.filter(row => 
-      row.hasirTipi && (row.uzunlukBoy || row.uzunlukEn)
-    );
-    
-    if (validPreviewData.length === 0) {
-      alert('Aktarılacak geçerli veri bulunamadı. Lütfen en az Hasır Tipi, Uzunluk Boy veya Uzunluk En alanlarını doldurun.');
-      return;
-    }
-    
-    // Yeni satır ID'leri için başlangıç değeri
-    const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
-    
-    // Ön izleme verilerinden tam satırlar oluştur
-    const newRows = validPreviewData.map((previewRow, index) => {
-      const newRow = createEmptyRow(startId + index);
-      
-      // Temel verileri aktar
-      newRow.hasirTipi = previewRow.hasirTipi;
-      newRow.uzunlukBoy = previewRow.uzunlukBoy;
-      newRow.uzunlukEn = previewRow.uzunlukEn;
-      newRow.hasirSayisi = previewRow.hasirSayisi || '1'; // Varsayılan olarak 1
-      newRow.sheetName = previewRow.sheetName; // Sayfa adını aktar
-      
-      return newRow;
-    });
-    
-    // Satırları ana tabloya ekle
-    const updatedRows = [...rows].filter(row => isRowFilled(row) || row.id === 0);
-    
-    // Eğer ilk satır boşsa ve sadece bir satır varsa, onu çıkar
-    const finalRows = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
-                     newRows : [...updatedRows, ...newRows];
-    
-    // Her yeni satır için hesaplamaları yap
-    newRows.forEach((_, index) => {
-      const rowIndex = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
-                      index : updatedRows.length + index;
-      updateRowFromHasirTipi(finalRows, rowIndex);
-    });
-    
-    // Durumu güncelle
-    setRows(finalRows);
-    setTimeout(() => backupTable(), 500);
-    setBulkInputVisible(false);
+// Ön izleme verilerini işleyip ana tabloya ekleme
+const processPreviewData = () => {
+  // Geçerli verileri filtrele
+  const validPreviewData = previewData.filter(row => 
+    row.hasirTipi && (row.uzunlukBoy || row.uzunlukEn)
+  );
   
-    // Ön izleme tablosunu temizle
-    setPreviewData([]);
-  };
+  if (validPreviewData.length === 0) {
+    alert('Aktarılacak geçerli veri bulunamadı. Lütfen en az Hasır Tipi, Uzunluk Boy veya Uzunluk En alanlarını doldurun.');
+    return;
+  }
+  
+  // Yeni satır ID'leri için başlangıç değeri
+  const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
+  
+  // Ön izleme verilerinden tam satırlar oluştur
+  const newRows = validPreviewData.map((previewRow, index) => {
+    const newRow = createEmptyRow(startId + index);
+    
+    // Temel verileri aktar - değerleri ayarlamadan
+    newRow.hasirTipi = previewRow.hasirTipi;
+    newRow.uzunlukBoy = previewRow.uzunlukBoy;
+    newRow.uzunlukEn = previewRow.uzunlukEn;
+    newRow.hasirSayisi = previewRow.hasirSayisi || '1'; // Varsayılan olarak 1
+    newRow.sheetName = previewRow.sheetName; // Sayfa adını aktar
+    
+    return newRow;
+  });
+  
+  // Satırları ana tabloya ekle
+  const updatedRows = [...rows].filter(row => isRowFilled(row) || row.id === 0);
+  
+  // Eğer ilk satır boşsa ve sadece bir satır varsa, onu çıkar
+  const finalRows = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
+                   newRows : [...updatedRows, ...newRows];
+  
+  // Her yeni satır için hasır tipine göre değerleri güncelle
+  // ÖNEMLİ: Bu aşamada sadece hasır tipine göre özellikler dolduruluyor,
+  // iyileştirme işlemi yapılmıyor (otomatik En ayarlama yok)
+  newRows.forEach((_, index) => {
+    const rowIndex = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
+                    index : updatedRows.length + index;
+    updateRowFromHasirTipi(finalRows, rowIndex);
+  });
+  
+  // Durumu güncelle
+  setRows(finalRows);
+  setTimeout(() => backupTable(), 500);
+  setBulkInputVisible(false);
+
+  // Ön izleme tablosunu temizle
+  setPreviewData([]);
+};
   
   // Boş satır oluşturma fonksiyonunu güncelle
   function createEmptyRow(id) {
