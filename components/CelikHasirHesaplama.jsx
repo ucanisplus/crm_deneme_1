@@ -1834,6 +1834,7 @@ const processDimensions = (row) => {
   // AŞAMA 3: En 126-149 cm aralığında mı kontrol et (swap sonrası)
   const currentEn = parseFloat(row.uzunlukEn);
   
+  // ÖNEMLİ: 126-149 aralığındaki En değerlerini burada 150'ye çevir
   if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
     row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
     row.modified.uzunlukEn = true;
@@ -2189,88 +2190,39 @@ const optimizeFilizValues = (row) => {
     sagFiliz: parseFloat(row.sagFiliz)
   };
   
+  // ÖNEMLİ: Hasır türüne göre uygun optimizasyon stratejisini seç ve tam olarak uygula
+  
   // Q tipi Döşeme hasırları için özel optimizasyon
   if (row.hasirTipi.startsWith('Q') && row.hasirTuru === 'Döşeme') {
-    // İdeal filiz değerleri (15-23 cm arasında)
-    const targetFilizMin = 15;
-    const targetFilizMax = 23;
-    const targetFilizOptimal = 22.5;
+    optimizeDosemeQFilizValues(row, filizLimits);
     
-    // Mevcut değerler uygun mu? Değilse optimize et
-    if (currentFilizValues.onFiliz < targetFilizMin || 
-        currentFilizValues.onFiliz > targetFilizMax || 
-        currentFilizValues.arkaFiliz < targetFilizMin || 
-        currentFilizValues.arkaFiliz > targetFilizMax) {
-      
-      // İdeal çubuk sayısını bulmaya çalışalım
-      const uzunlukBoy = parseFloat(row.uzunlukBoy);
-      const enAraligi = parseFloat(row.enAraligi);
-      
-      // İdeal aralıkta filiz değeri için gerekli çubuk sayısı
-      const targetFiliz = targetFilizOptimal;
-      
-      // Çubuk sayısı için başlangıç değeri
-      let cubukSayisiEn = Math.floor((uzunlukBoy - (2 * targetFiliz)) / enAraligi) + 1;
-      
-      // Çubuk sayısı mantıklı değilse varsayılan değer kalsın
-      if (cubukSayisiEn < 2) {
-        cubukSayisiEn = 2;
-      }
-      
-      // Yeni çubuk sayısıyla filiz değeri
-      const yeniFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
-      
-      // Yeni değerler hedef aralıkta mı kontrol et
-      if (yeniFiliz >= targetFilizMin && yeniFiliz <= targetFilizMax) {
-        // İdeal değerleri güncelle
-        row.cubukSayisiEn = cubukSayisiEn;
-        row.onFiliz = yeniFiliz;
-        row.arkaFiliz = yeniFiliz;
-        row.modified.cubukSayisiEn = true;
-        return;
-      }
-      
-      // Eğer ilk deneme başarısız olduysa, daha kapsamlı bir aramaya geç
-      const minEnCount = Math.max(2, parseInt(row.cubukSayisiEn) - 10);
-      const maxEnCount = parseInt(row.cubukSayisiEn) + 10;
-      
-      let bestEnCount = parseInt(row.cubukSayisiEn);
-      let bestFilizValue = yeniFiliz;
-      let minDifference = Math.abs(bestFilizValue - targetFilizOptimal);
-      
-      // Tüm makul çubuk sayılarını dene
-      for (let enCount = minEnCount; enCount <= maxEnCount; enCount++) {
-        const testFiliz = (uzunlukBoy - ((enCount - 1) * enAraligi)) / 2;
-        
-        // Hedef aralıkta mı?
-        if (testFiliz >= targetFilizMin && testFiliz <= targetFilizMax) {
-          const difference = Math.abs(testFiliz - targetFilizOptimal);
-          
-          // Daha iyi bir eşleşme bulundu mu?
-          if (difference < minDifference) {
-            minDifference = difference;
-            bestEnCount = enCount;
-            bestFilizValue = testFiliz;
-          }
-        }
-      }
-      
-      // En iyi değeri bulduk mu?
-      if (bestFilizValue >= targetFilizMin && bestFilizValue <= targetFilizMax) {
-        row.cubukSayisiEn = bestEnCount;
-        row.onFiliz = bestFilizValue;
-        row.arkaFiliz = bestFilizValue;
-        row.modified.cubukSayisiEn = true;
-        return;
-      }
+    // ÖNEMLİ: İşlem sonunda Boy/En değerlerinin değişmediğinden emin ol
+    if (parseFloat(row.uzunlukBoy) !== originalBoy) {
+      row.uzunlukBoy = originalBoy.toString();
     }
+    
+    if (parseFloat(row.uzunlukEn) !== originalEn) {
+      row.uzunlukEn = originalEn.toString();
+    }
+    
+    return; // Optimizasyon tamamlandı, fonksiyondan çık
   }
   
   // Perde ve DK Perde tipleri için özel optimizasyon
   if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
       row.hasirTipi.startsWith('Q')) {
     optimizePerdeFilizValues(row, filizLimits);
-    return;
+    
+    // ÖNEMLİ: İşlem sonunda Boy/En değerlerinin değişmediğinden emin ol
+    if (parseFloat(row.uzunlukBoy) !== originalBoy) {
+      row.uzunlukBoy = originalBoy.toString();
+    }
+    
+    if (parseFloat(row.uzunlukEn) !== originalEn) {
+      row.uzunlukEn = originalEn.toString();
+    }
+    
+    return; // Optimizasyon tamamlandı, fonksiyondan çık
   }
   
   // Diğer hasır tipleri için genel optimizasyon
@@ -2292,7 +2244,7 @@ const optimizeFilizValues = (row) => {
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
-  // Tüm olası kombinasyonları dene
+  // ÖNEMLİ: Kapsamlı arama için tüm olası kombinasyonları dene
   for (let boyCount = minBoyCount; boyCount <= maxBoyCount; boyCount++) {
     for (let enCount = minEnCount; enCount <= maxEnCount; enCount++) {
       // Bu kombinasyon için filiz değerlerini hesapla
@@ -2344,14 +2296,14 @@ const optimizeFilizValues = (row) => {
   }
 };
 
-// Döşeme tipi Q hasırları için filiz optimizasyonu fonksiyonu - Yeni eklenen fonksiyon
+// Döşeme tipi Q hasırları için filiz optimizasyonu fonksiyonu 
 const optimizeDosemeQFilizValues = (row, filizLimits) => {
   const uzunlukBoy = parseFloat(row.uzunlukBoy);
   const uzunlukEn = parseFloat(row.uzunlukEn);
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
- // Hedef filiz aralığı (15-23 cm)
+  // Hedef filiz aralığı (15-23 cm)
   const targetMin = 15;
   const targetMax = 23; 
   const targetOptimal = 22.5; 
@@ -2369,7 +2321,7 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
   let bestCombination = null;
   let bestScore = -Infinity;
   
-  // Tüm olası kombinasyonları dene
+  // ÖNEMLİ: Kapsamlı ve eksiksiz arama için tüm olası kombinasyonları dene
   for (let boyCount = minBoyCount; boyCount <= maxBoyCount; boyCount++) {
     for (let enCount = minEnCount; enCount <= maxEnCount; enCount++) {
       // Bu kombinasyon için filiz değerlerini hesapla
@@ -2439,19 +2391,17 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
 };
 
 // Perde tipi hasırlar için filiz değerlerini optimize et
-
 const optimizePerdeFilizValues = (row, filizLimits) => {
     const uzunlukBoy = parseFloat(row.uzunlukBoy);
     const enAraligi = parseFloat(row.enAraligi);
     
     // En çubuk sayısını sabit tut
     const cubukSayisiEn = row.hasirTuru === 'Perde' ? 18 : 21;
+    row.cubukSayisiEn = cubukSayisiEn;
+    row.modified.cubukSayisiEn = true;
     
     // Toplam filiz hesapla
     const totalFiliz = uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi);
-    
-    // Arka filiz için hedef değer - Artık 70cm öncelikli
-    let targetArkaFiliz = 70;
     
     // Filiz kombinasyonlarını dene ve en uygun olanı seç
     const possibleCombinations = [];
@@ -2529,9 +2479,8 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
             
             // Değişiklik yapıldığını işaretle
             row.modified.cubukSayisiEn = true;
-            
-            // Açıklamaya bilgi ekle
-            row.aciklama += `Perde tipi hasır için filiz değerleri optimize edildi: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${roundedArkaFiliz}cm. `;
+            row.modified.onFiliz = true;
+            row.modified.arkaFiliz = true;
             
             return;
         }
@@ -2539,7 +2488,7 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     
     // Buraya kadar geldiyse, standart yöntem kullan
     // Arka filiz için hedef değer
-    targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
+    let targetArkaFiliz = Math.max(65, totalFiliz - 2.5);
     targetArkaFiliz = Math.round(targetArkaFiliz / 5) * 5;
     
     // Son ön filiz değeri
@@ -2552,10 +2501,9 @@ const optimizePerdeFilizValues = (row, filizLimits) => {
     
     // Değişiklik yapıldığını işaretle
     row.modified.cubukSayisiEn = true;
-    
-    // Açıklamaya bilgi ekle
-    row.aciklama += `Perde tipi hasır için minimum filiz değerleri kullanıldı: Ön: ${finalOnFiliz.toFixed(2)}cm, Arka: ${targetArkaFiliz}cm. `;
-}
+    row.modified.onFiliz = true;
+    row.modified.arkaFiliz = true;
+};
 
   // Test edilecek filiz değerlerini hesapla
   const calculateTestFilizValues = (uzunlukBoy, uzunlukEn, boyCount, enCount, boyAraligi, enAraligi) => {
