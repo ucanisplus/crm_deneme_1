@@ -1699,6 +1699,7 @@ const iyilestirAll = async () => {
   setBatchProcessing(false);
 };
 
+
 // Boyutları uyumlama işlemlerini tek bir fonksiyonda topla
 // Bu fonksiyon hem swap hem merge işlemlerini yönetir
 const processDimensions = (row) => {
