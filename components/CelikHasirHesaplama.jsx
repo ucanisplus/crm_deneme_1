@@ -1177,8 +1177,6 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY ||
         uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN) {
       
-        }
-      }
     }
   };
 
