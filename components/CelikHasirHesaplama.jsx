@@ -1177,16 +1177,6 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY ||
         uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN) {
       
-      // En değerini otomatik ayarla (126-149 cm aralığındaysa)
-      if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-        row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-        row.modified.uzunlukEn = true;
-        
-        if (!row.aciklama || !row.aciklama.includes('En ölçüsü otomatik olarak 150 cm\'e ayarlandı')) {
-          row.aciklama = (row.aciklama || '') + 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
-        }
-      }
-      // Bu aşamada diğer durumlar için iyileştir butonu kullanılacak
     }
   };
 
@@ -1565,7 +1555,7 @@ const iyilestir = async (rowIndex) => {
       // Önce filiz değerlerini hesapla
       calculateFilizValues(row);
       
-      // Sonra filiz değerlerini optimize et
+      // Sonra filiz değerlerini optimize et - ÖNEMLİ: Her işlem için iteratif olarak yapılmalı
       optimizeFilizValues(row);
       
       // Hatalı negatif filiz değerlerini düzelt
@@ -1671,19 +1661,6 @@ const iyilestirAll = async () => {
       let newAciklama = `[${timestamp} Toplu İyileştirme] `;
       let changesCount = 0; // Yapılan değişiklikleri sayan değişken
       
-      // Temel değerler
-      const hasirTipi = row.hasirTipi;
-      const uzunlukBoy = parseFloat(row.uzunlukBoy);
-      const uzunlukEn = parseFloat(row.uzunlukEn);
-      const hasirSayisi = parseFloat(row.hasirSayisi);
-      
-      // Başlangıç değerlerini hatırla
-      const originalValues = {
-        uzunlukBoy: uzunlukBoy,
-        uzunlukEn: uzunlukEn,
-        hasirSayisi: hasirSayisi
-      };
-      
       // Modified durumlarını temizle
       row.modified = {
         uzunlukBoy: false,
@@ -1732,7 +1709,7 @@ const iyilestirAll = async () => {
           newAciklama += `${changesCount + 1}. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
         }
         
-        // Filiz değerlerini hesapla
+        // Filiz değerlerini hesapla ve optimize et
         const oldFilizValues = {
           solFiliz: row.solFiliz,
           sagFiliz: row.sagFiliz,
@@ -1741,6 +1718,8 @@ const iyilestirAll = async () => {
         };
         
         calculateFilizValues(row);
+        
+        // ÖNEMLİ: Filiz değerlerini optimize et - Bir defada tam optimizasyonu sağla
         optimizeFilizValues(row);
         
         // Negatif filiz değerlerini düzelt
