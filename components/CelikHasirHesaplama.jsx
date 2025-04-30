@@ -2000,13 +2000,38 @@ const tryMultiplyDimensions = (row, originalValues) => {
   }
     
   // AŞAMA 3: En limitleri kontrolü
-  if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-    // Önce 126-149 arası ise otomatik düzeltme yap
-    if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+if (uzunlukEn < MACHINE_LIMITS.MIN_EN) {
+  // Önce 126-149 arası ise otomatik düzeltme yap
+  if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
+    // DÜZELTİLDİ: Eğer boy değeri zaten makine limitleri içindeyse, 
+    // sadece en değerini ayarla ve boy'a dokunma
+    row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+    row.modified.uzunlukEn = true;
+    
+    row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+    
+    // Değerler değiştiğinde diğer hesaplamaları yeniden yap
+    initializeCubukSayisi(row);
+    calculateFilizValues(row);
+    
+    return true;
+  }
+  
+  // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
+  // DÜZELTİLDİ: Boy değeri zaten makine limitlerinde ise boy'a dokunma
+  const boyAlreadyInLimits = uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && uzunlukBoy <= MACHINE_LIMITS.MAX_BOY;
+  
+  for (let multiplier of [2, 3, 4, 5, 6]) {
+    const newUzunlukEn = uzunlukEn * multiplier;
+    
+    if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
+      // Sadece en'i değiştir, boy'a dokunma
+      row.uzunlukEn = newUzunlukEn.toString();
+      row.hasirSayisi = (hasirSayisi / multiplier).toString();
       row.modified.uzunlukEn = true;
+      row.modified.hasirSayisi = true;
       
-      row.aciklama += `En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+      row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
       
       // Değerler değiştiğinde diğer hesaplamaları yeniden yap
       initializeCubukSayisi(row);
@@ -2014,27 +2039,9 @@ const tryMultiplyDimensions = (row, originalValues) => {
       
       return true;
     }
-    
-    // Değilse 2 veya 3 ile çarparak minimum limitin üstüne çıkabilir mi?
-    for (let multiplier of [2, 3, 4, 5, 6]) {
-      const newUzunlukEn = uzunlukEn * multiplier;
-      
-      if (newUzunlukEn >= MACHINE_LIMITS.MIN_EN && newUzunlukEn <= MACHINE_LIMITS.MAX_EN) {
-        row.uzunlukEn = newUzunlukEn.toString();
-        row.hasirSayisi = (hasirSayisi / multiplier).toString();
-        row.modified.uzunlukEn = true;
-        row.modified.hasirSayisi = true;
-        
-        row.aciklama += `En ölçüsü ${multiplier} ile çarpılarak ${newUzunlukEn.toFixed(2)} cm yapıldı, hasır sayısı ${(hasirSayisi / multiplier).toFixed(2)} olarak güncellendi. `;
-        
-        // Değerler değiştiğinde diğer hesaplamaları yeniden yap
-        initializeCubukSayisi(row);
-        calculateFilizValues(row);
-        
-        return true;
-      }
-    }
   }
+}
+
   // En değeri MAX_EN'i aşıyorsa (bu kısım normalde AŞAMA 1'de ele alınmalıdır)
   else if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
     // Eğer buraya gelindiyse değiştirme çalışmamış demektir, üretilemez olarak işaretle
