@@ -1177,16 +1177,8 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     if (uzunlukBoy < MACHINE_LIMITS.MIN_BOY || uzunlukBoy > MACHINE_LIMITS.MAX_BOY ||
         uzunlukEn < MACHINE_LIMITS.MIN_EN || uzunlukEn > MACHINE_LIMITS.MAX_EN) {
       
-      // En değerini otomatik ayarla (126-149 cm aralığındaysa)
-      if (uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && uzunlukEn < MACHINE_LIMITS.MIN_EN) {
-        row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-        row.modified.uzunlukEn = true;
-        
-        if (!row.aciklama || !row.aciklama.includes('En ölçüsü otomatik olarak 150 cm\'e ayarlandı')) {
-          row.aciklama = (row.aciklama || '') + 'En ölçüsü otomatik olarak 150 cm\'e ayarlandı. ';
         }
       }
-      // Bu aşamada diğer durumlar için iyileştir butonu kullanılacak
     }
   };
 
