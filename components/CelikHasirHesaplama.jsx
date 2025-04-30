@@ -1541,7 +1541,7 @@ const iyilestir = async (rowIndex) => {
       if (isImproved) {
         newAciklama += `En değeri (${uzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi. `;
         
-        // IMPORTANT: Değiştirme sonrası local değerleri güncelle
+        // Değiştirme sonrası local değerleri güncelle
         uzunlukBoy = parseFloat(row.uzunlukBoy);
         uzunlukEn = parseFloat(row.uzunlukEn);
         hasirSayisi = parseFloat(row.hasirSayisi);
@@ -1568,10 +1568,10 @@ const iyilestir = async (rowIndex) => {
     }
     
     // AŞAMA 5: Limitin altındaki değerler için çarpma işlemi dene
+    // Limit içinde olan değerlere dokunma
     if (!isMachineLimitsOk(row)) {
       isImproved = tryMultiplyDimensions(row, originalValues);
       if (isImproved) {
-        // DÜZELTİLDİ: tryMultiplyDimensions içinde gereksiz azaltma olmaz
         // Değiştirme sonrası local değerleri güncelle
         uzunlukBoy = parseFloat(row.uzunlukBoy);
         uzunlukEn = parseFloat(row.uzunlukEn);
@@ -1580,7 +1580,6 @@ const iyilestir = async (rowIndex) => {
         // Değerler değiştiyse hasır türünü yeniden belirle
         row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       }
-      // tryMultiplyDimensions içinde aciklama güncellenir
     }
     
     // AŞAMA 6: Cubuk sayılarını baştan hesapla - boy/en işlemleri tamamlandıktan sonra
@@ -1602,7 +1601,7 @@ const iyilestir = async (rowIndex) => {
       // Sonra filiz değerlerini optimize et
       optimizeFilizValues(row);
       
-      // DÜZELTİLDİ: Hatalı negatif filiz değerlerini düzelt
+      // Hatalı negatif filiz değerlerini düzelt
       if (row.solFiliz < 0) row.solFiliz = 1.5;
       if (row.sagFiliz < 0) row.sagFiliz = 1.5;
       if (row.onFiliz < 0) row.onFiliz = 2.5;
@@ -1654,7 +1653,7 @@ const iyilestir = async (rowIndex) => {
   }
 };
 
-// Tüm satırları iyileştir - Tamamen düzeltildi, illogical boy değişimleri engellendi
+// Tüm satırları iyileştir - İllogical boyut değişimleri düzeltildi
 const iyilestirAll = async () => {
   // İşlemden önce tüm satırları yedekle
   backupAllRows();
@@ -1727,7 +1726,7 @@ const iyilestirAll = async () => {
       // Üretilemez durumunu sıfırla
       row.uretilemez = false;
       
-      // ÖNEMLİ: Hasır türünü işlemin en başında belirle
+      // Hasır türünü işlemin en başında belirle
       row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       
       // AŞAMA 1: Tüm değerleri başlangıçta hesapla veya yeniden hesapla
@@ -1749,7 +1748,7 @@ const iyilestirAll = async () => {
           changesCount++;
           newAciklama += `2. En değeri (${oldUzunlukEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${oldUzunlukBoy} × ${oldUzunlukEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
           
-          // ÖNEMLİ: Boy ve En değiştikten sonra hasır türünü yeniden belirle
+          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
           row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
         }
       }
@@ -1764,12 +1763,13 @@ const iyilestirAll = async () => {
           changesCount++;
           newAciklama += `3. Boy ve En değerleri değiştirildi (${oldUzunlukBoy} × ${oldUzunlukEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
           
-          // ÖNEMLİ: Boy ve En değiştikten sonra hasır türünü yeniden belirle
+          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
           row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
         }
       }
       
       // AŞAMA 4: Limitin altındaki değerler için çarpma dene
+      // DÜZELTİLDİ: Makine limitleri içindeyse çarpma işlemi yapma
       if (!isMachineLimitsOk(row)) {
         const oldUzunlukBoy = row.uzunlukBoy;
         const oldUzunlukEn = row.uzunlukEn;
@@ -1779,37 +1779,18 @@ const iyilestirAll = async () => {
         
         if (isImproved) {
           changesCount++;
-          if (oldUzunlukBoy !== row.uzunlukBoy) {
+          if (parseFloat(oldUzunlukBoy) !== parseFloat(row.uzunlukBoy)) {
             newAciklama += `4. Boy ölçüsü değiştirildi (${oldUzunlukBoy} ➝ ${row.uzunlukBoy}). `;
           }
-          if (oldUzunlukEn !== row.uzunlukEn) {
+          if (parseFloat(oldUzunlukEn) !== parseFloat(row.uzunlukEn)) {
             newAciklama += `5. En ölçüsü değiştirildi (${oldUzunlukEn} ➝ ${row.uzunlukEn}). `;
           }
-          if (oldHasirSayisi !== row.hasirSayisi) {
+          if (parseFloat(oldHasirSayisi) !== parseFloat(row.hasirSayisi)) {
             newAciklama += `6. Hasır sayısı güncellendi (${oldHasirSayisi} ➝ ${row.hasirSayisi}). `;
           }
           
-          // ÖNEMLİ: Boy ve En değiştikten sonra hasır türünü yeniden belirle
+          // Boy ve En değiştikten sonra hasır türünü yeniden belirle
           row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-        }
-      }
-      
-      // ÖNEMLİ: DÜZELTİLDİ - Limit dahilindeki değerleri değiştirmeyi engelle
-      // Eğer zaten makine limitleri içindeki bir değer değiştirildiyse, eski değere dön
-      if (parseFloat(row.uzunlukBoy) !== uzunlukBoy && 
-          uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && uzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
-        
-        // Sadece çarpma dışında bir nedenle değiştirilmişse (yani takas işleminden kaynaklanmıyorsa)
-        // Bu durumda boy ve en değerlerinin değişmesi normaldir
-        const wasSwapped = (parseFloat(row.uzunlukBoy) === uzunlukEn && parseFloat(row.uzunlukEn) === uzunlukBoy);
-        
-        if (!wasSwapped) {
-          // 500 -> 411 gibi illogical değişimleri geri al
-          row.uzunlukBoy = uzunlukBoy.toString();
-          row.modified.uzunlukBoy = false;
-          
-          // Açıklamadan bu değişiklik bilgisini çıkar
-          newAciklama = newAciklama.replace(/\d\. Boy ölçüsü değiştirildi \([^)]+\)\. /g, '');
         }
       }
       
@@ -1849,7 +1830,7 @@ const iyilestirAll = async () => {
           arka: row.arkaFiliz
         };
         
-        // ÖNEMLİ: DÜZELTİLDİ - Negatif filiz değerlerini engelle
+        // Negatif filiz değerlerini engelle
         if (row.solFiliz < 0) row.solFiliz = 1.5;
         if (row.sagFiliz < 0) row.sagFiliz = 1.5;
         if (row.onFiliz < 0) row.onFiliz = 2.5;
