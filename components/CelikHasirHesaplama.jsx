@@ -1787,35 +1787,40 @@ const iyilestirAll = async () => {
   setBatchProcessing(false);
 };
 
-// Boyutları uyumlama işlemlerini tek bir fonksiyonda topla
-// Bu fonksiyon hem swap hem merge işlemlerini yönetir
+// Completely rewritten processDimensions function with a more rigid approach
 const processDimensions = (row) => {
   const result = {
     changed: false,
     message: ""
   };
   
-  // Değişiklik öncesi değerleri kaydet
+  // Capture original values for reference
   const originalBoy = parseFloat(row.uzunlukBoy);
   const originalEn = parseFloat(row.uzunlukEn);
   const originalHasirSayisi = parseFloat(row.hasirSayisi);
   
-  // Makine limitleri kontrolü
-  const boyInLimits = originalBoy >= MACHINE_LIMITS.MIN_BOY && originalBoy <= MACHINE_LIMITS.MAX_BOY;
-  const enInLimits = originalEn >= MACHINE_LIMITS.MIN_EN && originalEn <= MACHINE_LIMITS.MAX_EN;
+  // Machine limits for reference
+  const MIN_BOY = MACHINE_LIMITS.MIN_BOY;  // 275 cm
+  const MAX_BOY = MACHINE_LIMITS.MAX_BOY;  // 800 cm
+  const MIN_EN = MACHINE_LIMITS.MIN_EN;    // 150 cm
+  const MAX_EN = MACHINE_LIMITS.MAX_EN;    // 250 cm
+  const MIN_EN_ADJUSTABLE = MACHINE_LIMITS.MIN_EN_ADJUSTABLE; // 126 cm
   
-  // Eğer her iki boyut da makine limitleri içindeyse, hiçbir şey yapma
+  // Check if dimensions are already within limits - if yes, do nothing
+  const boyInLimits = originalBoy >= MIN_BOY && originalBoy <= MAX_BOY;
+  const enInLimits = originalEn >= MIN_EN && originalEn <= MAX_EN;
+  
   if (boyInLimits && enInLimits) {
     return result;
   }
   
-  // AŞAMA 1: En > MAX_EN kontrolü - Swap denemesi
-  if (originalEn > MACHINE_LIMITS.MAX_EN) {
-    // Boy/En değiştirilebilir mi?
-    if (originalEn >= MACHINE_LIMITS.MIN_BOY && originalEn <= MACHINE_LIMITS.MAX_BOY &&
-        originalBoy >= MACHINE_LIMITS.MIN_EN && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+  // STEP 1: Try dimension swapping if appropriate
+  if (originalEn > MAX_EN) {
+    // If En exceeds limits but would be valid as Boy, and Boy would be valid as En
+    if (originalEn >= MIN_BOY && originalEn <= MAX_BOY &&
+        originalBoy >= MIN_EN_ADJUSTABLE && originalBoy <= MAX_EN) {
       
-      // Boy ve En değerlerini değiştir
+      // Swap the dimensions
       row.uzunlukBoy = originalEn.toString();
       row.uzunlukEn = originalBoy.toString();
       row.modified.uzunlukBoy = true;
@@ -1824,20 +1829,21 @@ const processDimensions = (row) => {
       result.changed = true;
       result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
       
-      // Hasır türünü değiştirme sonrası güncelle
+      // Update Hasır Türü after swapping
       row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       
+      // Since we swapped dimensions and they are now within limits, we're done
       return result;
     }
   }
   
-  // AŞAMA 2: Q tipi için Boy/En değiştirmeyi dene (sadece Q tipi için)
+  // STEP 2: For Q type, try dimension swapping even if En doesn't exceed limits
   if (row.hasirTipi.startsWith('Q') && !result.changed) {
-    // Değiştirince makine limitlerini karşılıyor mu?
-    if (originalEn >= MACHINE_LIMITS.MIN_BOY && originalEn <= MACHINE_LIMITS.MAX_BOY &&
-        originalBoy >= MACHINE_LIMITS.MIN_EN && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+    // If swapping would make both dimensions in valid ranges
+    if (originalEn >= MIN_BOY && originalEn <= MAX_BOY &&
+        originalBoy >= MIN_EN_ADJUSTABLE && originalBoy <= MAX_EN) {
       
-      // Boy ve En değerlerini değiştir
+      // Swap the dimensions
       row.uzunlukBoy = originalEn.toString();
       row.uzunlukEn = originalBoy.toString();
       row.modified.uzunlukBoy = true;
@@ -1846,98 +1852,108 @@ const processDimensions = (row) => {
       result.changed = true;
       result.message = `3. Boy ve En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
       
-      // Hasır türünü değiştirme sonrası güncelle
+      // Update Hasır Türü after swapping
       row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
       
+      // Since we swapped dimensions and they are now within limits, we're done
       return result;
     }
   }
   
-  // AŞAMA 3: Swap sonrası güncel Boy/En değerlerini al
+  // After potential swapping, get current dimensions
   const currentBoy = parseFloat(row.uzunlukBoy);
   const currentEn = parseFloat(row.uzunlukEn);
-  const currentHasirSayisi = parseFloat(row.hasirSayisi);
   
-  // Güncel Boy/En limitleri kontrolü
-  const currentBoyInLimits = currentBoy >= MACHINE_LIMITS.MIN_BOY && currentBoy <= MACHINE_LIMITS.MAX_BOY;
-  const currentEnInLimits = currentEn >= MACHINE_LIMITS.MIN_EN && currentEn <= MACHINE_LIMITS.MAX_EN;
+  // STEP 3: Handle En dimension if it's below MIN_EN but above MIN_EN_ADJUSTABLE
+  if (currentEn >= MIN_EN_ADJUSTABLE && currentEn < MIN_EN) {
+    row.uzunlukEn = MIN_EN.toString();
+    row.modified.uzunlukEn = true;
+    
+    result.changed = true;
+    result.message = `4. En ölçüsü otomatik olarak ${MIN_EN} cm'e ayarlandı. `;
+    
+    // This is a minor adjustment, so we can continue processing
+  }
   
-  // AŞAMA 4: Boy limitleri kontrolü - Boy çok kısaysa çarpma dene
-  if (!currentBoyInLimits && currentBoy < MACHINE_LIMITS.MIN_BOY) {
+  // STEP 4: Try dimension multiplication for Boy if it's too small
+  if (currentBoy < MIN_BOY) {
+    // Try multiplying by factors
     for (let multiplier of [2, 3, 4, 5, 6]) {
       const newBoy = currentBoy * multiplier;
       
-      if (newBoy >= MACHINE_LIMITS.MIN_BOY && newBoy <= MACHINE_LIMITS.MAX_BOY) {
+      if (newBoy >= MIN_BOY && newBoy <= MAX_BOY) {
+        // Found a valid multiplier
         row.uzunlukBoy = newBoy.toString();
-        // Hasır sayısını yukarı yuvarlayarak ayarla
-        const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
+        
+        // Calculate new Hasır Sayısı and round up to ensure enough material
+        const newHasirSayisi = Math.ceil(originalHasirSayisi / multiplier);
         row.hasirSayisi = newHasirSayisi.toString();
+        
         row.modified.uzunlukBoy = true;
         row.modified.hasirSayisi = true;
         
         result.changed = true;
-        result.message = `4. Boy ölçüsü ${multiplier} ile çarpılarak ${newBoy.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+        result.message += `5. Boy ölçüsü ${multiplier} ile çarpılarak ${newBoy.toFixed(2)} cm yapıldı, hasır sayısı ${originalHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
         
-        // Hasır türünü güncelle
+        // Update Hasır Türü after dimension change
         row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
         
-        return result;
+        // We've fixed Boy dimension, break out of the loop
+        break;
       }
     }
   }
-  // Boy çok uzunsa üretilemez olarak işaretle
-  else if (!currentBoyInLimits && currentBoy > MACHINE_LIMITS.MAX_BOY) {
-    row.uretilemez = true;
-    result.changed = true;
-    result.message = `5. Boy ölçüsü (${currentBoy}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_BOY}cm) aştığı için üretilemez. `;
-    return result;
-  }
   
-  // AŞAMA 5: En limitleri kontrolü - En çok kısaysa çarpma veya otomatik düzelt
-  if (!currentEnInLimits && currentEn < MACHINE_LIMITS.MIN_EN) {
-    // 126-149 arası ise otomatik düzelt
-    if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
-      row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-      row.modified.uzunlukEn = true;
-      
-      result.changed = true;
-      result.message = `6. En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
-      
-      return result;
-    }
+  // STEP 5: Try dimension multiplication for En if it's too small
+  // Only do this if En is still below MIN_EN_ADJUSTABLE after previous steps
+  if (parseFloat(row.uzunlukEn) < MIN_EN_ADJUSTABLE) {
+    const currentEn = parseFloat(row.uzunlukEn);
+    const currentHasirSayisi = parseFloat(row.hasirSayisi);
     
-    // Değilse çarpma dene
+    // Try multiplying by factors
     for (let multiplier of [2, 3, 4, 5, 6]) {
       const newEn = currentEn * multiplier;
       
-      if (newEn >= MACHINE_LIMITS.MIN_EN && newEn <= MACHINE_LIMITS.MAX_EN) {
+      if (newEn >= MIN_EN_ADJUSTABLE && newEn <= MAX_EN) {
+        // Found a valid multiplier
         row.uzunlukEn = newEn.toString();
-        // Hasır sayısını yukarı yuvarlayarak ayarla
+        
+        // Calculate new Hasır Sayısı and round up
         const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
         row.hasirSayisi = newHasirSayisi.toString();
+        
         row.modified.uzunlukEn = true;
         row.modified.hasirSayisi = true;
         
         result.changed = true;
-        result.message = `7. En ölçüsü ${multiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+        result.message += `6. En ölçüsü ${multiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
         
-        return result;
+        // We've fixed En dimension, break out of the loop
+        break;
       }
     }
   }
-  // En çok uzunsa üretilemez olarak işaretle
-  else if (!currentEnInLimits && currentEn > MACHINE_LIMITS.MAX_EN) {
-    row.uretilemez = true;
-    result.changed = true;
-    result.message = `8. En ölçüsü (${currentEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı için üretilemez. `;
-    return result;
-  }
   
-  // Hiçbir işlem yapılamazsa üretilemez işaretle
+  // STEP 6: Final check - if dimensions are still outside limits, mark as unproducible
   if (!isMachineLimitsOk(row)) {
     row.uretilemez = true;
     result.changed = true;
-    result.message = "9. Makine limitlerine uygun boyutlara getirilemedi. ";
+    
+    // Add appropriate message based on which dimension is problematic
+    const finalBoy = parseFloat(row.uzunlukBoy);
+    const finalEn = parseFloat(row.uzunlukEn);
+    
+    if (finalBoy > MAX_BOY) {
+      result.message += `7. Boy ölçüsü (${finalBoy}cm) maksimum makine limitini (${MAX_BOY}cm) aştığı için üretilemez. `;
+    } else if (finalBoy < MIN_BOY) {
+      result.message += `8. Boy ölçüsü (${finalBoy}cm) minimum makine limitinin (${MIN_BOY}cm) altında olduğu için üretilemez. `;
+    }
+    
+    if (finalEn > MAX_EN) {
+      result.message += `9. En ölçüsü (${finalEn}cm) maksimum makine limitini (${MAX_EN}cm) aştığı için üretilemez. `;
+    } else if (finalEn < MIN_EN_ADJUSTABLE) {
+      result.message += `10. En ölçüsü (${finalEn}cm) minimum makine limitinin (${MIN_EN_ADJUSTABLE}cm) altında olduğu için üretilemez. `;
+    }
   }
   
   return result;
