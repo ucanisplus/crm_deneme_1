@@ -1443,7 +1443,7 @@ const calculateFilizValues = (row) => {
     }
   };
 
-// İyileştirme işlemlerini gerçekleştirme - Sıralı işlem garantili
+// İyileştirme işlemlerini gerçekleştirme - Tek tıklamada tam optimizasyon sağlayan versiyon
 const iyilestir = async (rowIndex) => {
   try {
     // Başlangıçta satırı yedekle
@@ -1527,47 +1527,93 @@ const iyilestir = async (rowIndex) => {
       newAciklama += processDimensionsResult.message;
     }
     
-    // AŞAMA 4: Sadece limitleri karşılayan ürünler için filiz optimizasyonu
+    // AŞAMA 4: İteratif iyileştirme süreci - birden fazla geçiş yaparak optimum sonuç elde et
     if (!row.uretilemez) {
-      // Orijinal boyut değerlerini kaydet (filiz optimizasyonu sırasında korunması için)
-      const currentBoy = parseFloat(row.uzunlukBoy);
-      const currentEn = parseFloat(row.uzunlukEn);
+      // İteratif optimizasyon için maksimum döngü sayısı
+      const MAX_ITERATIONS = 3;
+      let iterationCount = 0;
+      let hasChanges = true;
       
-      // Cubuk sayılarını baştan hesapla
-      const oldCubukSayisiBoy = row.cubukSayisiBoy;
-      const oldCubukSayisiEn = row.cubukSayisiEn;
-      
-      initializeCubukSayisi(row);
-      
-      if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
-        isImproved = true;
-        newAciklama += `4. Çubuk sayıları hesaplandı (Boy: ${oldCubukSayisiBoy || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${oldCubukSayisiEn || "N/A"} ➝ ${row.cubukSayisiEn}). `;
+      // Değişiklik olduğu sürece veya maksimum iterasyon sayısına ulaşana kadar döngüye devam et
+      while (hasChanges && iterationCount < MAX_ITERATIONS) {
+        // Bu iterasyonda değişiklik var mı?
+        hasChanges = false;
+        
+        // Önceki değerleri kaydet (değişiklikleri tespit etmek için)
+        const prevValues = {
+          cubukSayisiBoy: row.cubukSayisiBoy,
+          cubukSayisiEn: row.cubukSayisiEn,
+          solFiliz: row.solFiliz,
+          sagFiliz: row.sagFiliz,
+          onFiliz: row.onFiliz,
+          arkaFiliz: row.arkaFiliz
+        };
+        
+        // Orijinal boyut değerlerini kaydet
+        const currentBoy = parseFloat(row.uzunlukBoy);
+        const currentEn = parseFloat(row.uzunlukEn);
+        
+        // Cubuk sayılarını baştan hesapla
+        const oldCubukSayisiBoy = row.cubukSayisiBoy;
+        const oldCubukSayisiEn = row.cubukSayisiEn;
+        
+        initializeCubukSayisi(row);
+        
+        if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+          isImproved = true;
+          hasChanges = true;
+          if (iterationCount === 0) { // Sadece ilk iterasyonda açıklamaya ekle
+            newAciklama += `4. Çubuk sayıları hesaplandı (Boy: ${oldCubukSayisiBoy || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${oldCubukSayisiEn || "N/A"} ➝ ${row.cubukSayisiEn}). `;
+          }
+        }
+        
+        // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
+        const initialFiliz = {
+          on: row.onFiliz,
+          arka: row.arkaFiliz,
+          sol: row.solFiliz,
+          sag: row.sagFiliz
+        };
+        
+        // Önce filiz değerlerini hesapla
+        calculateFilizValues(row);
+        
+        // Sonra filiz değerlerini optimize et
+        optimizeFilizValues(row);
+        
+        // Hatalı negatif filiz değerlerini düzelt
+        if (row.solFiliz < 0) row.solFiliz = 1.5;
+        if (row.sagFiliz < 0) row.sagFiliz = 1.5;
+        if (row.onFiliz < 0) row.onFiliz = 2.5;
+        if (row.arkaFiliz < 0) row.arkaFiliz = 2.5;
+        
+        // Ağırlık hesapla
+        calculateWeight(row);
+        
+        // ÖNEMLİ: Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
+        if (parseFloat(row.uzunlukBoy) !== currentBoy) {
+          row.uzunlukBoy = currentBoy.toString();
+        }
+        
+        if (parseFloat(row.uzunlukEn) !== currentEn) {
+          row.uzunlukEn = currentEn.toString();
+        }
+        
+        // Önemli değerlerde değişiklik oldu mu kontrol et
+        if (prevValues.cubukSayisiBoy !== row.cubukSayisiBoy ||
+            prevValues.cubukSayisiEn !== row.cubukSayisiEn ||
+            Math.abs(prevValues.solFiliz - row.solFiliz) > 0.1 ||
+            Math.abs(prevValues.sagFiliz - row.sagFiliz) > 0.1 ||
+            Math.abs(prevValues.onFiliz - row.onFiliz) > 0.1 ||
+            Math.abs(prevValues.arkaFiliz - row.arkaFiliz) > 0.1) {
+          hasChanges = true;
+          isImproved = true;
+        }
+        
+        iterationCount++;
       }
       
-      // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
-      const initialFiliz = {
-        on: row.onFiliz,
-        arka: row.arkaFiliz,
-        sol: row.solFiliz,
-        sag: row.sagFiliz
-      };
-      
-      // Önce filiz değerlerini hesapla
-      calculateFilizValues(row);
-      
-      // Sonra filiz değerlerini optimize et
-      optimizeFilizValues(row);
-      
-      // Hatalı negatif filiz değerlerini düzelt
-      if (row.solFiliz < 0) row.solFiliz = 1.5;
-      if (row.sagFiliz < 0) row.sagFiliz = 1.5;
-      if (row.onFiliz < 0) row.onFiliz = 2.5;
-      if (row.arkaFiliz < 0) row.arkaFiliz = 2.5;
-      
-      // Ağırlık hesapla
-      calculateWeight(row);
-      
-      // Filiz değişiklikleri için açıklama ekle
+      // Filiz değişikliklerini açıklamaya ekle - sadece iterasyonlar sonunda
       if (Math.abs(initialFiliz.sol - row.solFiliz) > 0.1 || 
           Math.abs(initialFiliz.sag - row.sagFiliz) > 0.1 ||
           Math.abs(initialFiliz.on - row.onFiliz) > 0.1 ||
@@ -1575,22 +1621,13 @@ const iyilestir = async (rowIndex) => {
         isImproved = true;
         newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm, Sol/Sağ: ${row.solFiliz.toFixed(2)}cm. `;
       }
-      
-      // ÖNEMLİ: Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
-      if (parseFloat(row.uzunlukBoy) !== currentBoy) {
-        row.uzunlukBoy = currentBoy.toString();
-      }
-      
-      if (parseFloat(row.uzunlukEn) !== currentEn) {
-        row.uzunlukEn = currentEn.toString();
-      }
     }
     
     // Eğer ürün üretilemez durumdaysa
     if (row.uretilemez) {
       newAciklama = 'ÜRETİLEMEZ! ' + newAciklama;
     } else if (newAciklama === '') {
-      newAciklama = 'İyileştirme işlemi tamamlandı.';
+      newAciklama = 'İyileştirme işlemi tamamlandı. Ürün zaten optimize durumda.';
     }
     
     // Önceki açıklama ile yeni açıklamayı birleştir
@@ -1608,9 +1645,6 @@ const iyilestir = async (rowIndex) => {
     // Satırları güncelle
     setRows(updatedRows);
     
-
-
-
     return true;
   } catch (error) {
     console.error('İyileştirme işlemi hatası:', error);
@@ -1623,7 +1657,7 @@ const iyilestir = async (rowIndex) => {
   }
 };
 
-// Tüm satırları iyileştir - Mantık hatası düzeltildi
+// Tüm satırları iyileştir - İteratif optimizasyon ile geliştirme
 const iyilestirAll = async () => {
   // İşlemden önce tüm satırları yedekle
   backupAllRows();
@@ -1651,7 +1685,7 @@ const iyilestirAll = async () => {
       setProcessingRowIndex(rowIndex);
       
       // İşlem için kısa bir bekletme
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // İyileştirme işlemini gerçekleştir
       const row = updatedRows[rowIndex];
@@ -1663,19 +1697,6 @@ const iyilestirAll = async () => {
       const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
       let newAciklama = `[${timestamp} Toplu İyileştirme] `;
       let changesCount = 0; // Yapılan değişiklikleri sayan değişken
-      
-      // Temel değerler
-      const hasirTipi = row.hasirTipi;
-      const uzunlukBoy = parseFloat(row.uzunlukBoy);
-      const uzunlukEn = parseFloat(row.uzunlukEn);
-      const hasirSayisi = parseFloat(row.hasirSayisi);
-      
-      // Başlangıç değerlerini hatırla
-      const originalValues = {
-        uzunlukBoy: uzunlukBoy,
-        uzunlukEn: uzunlukEn,
-        hasirSayisi: hasirSayisi
-      };
       
       // Modified durumlarını temizle
       row.modified = {
@@ -1713,39 +1734,88 @@ const iyilestirAll = async () => {
         newAciklama += swapResult.message.replace(/^\d+\.\s/, `${changesCount + 1}. `);
       }
       
-      // AŞAMA 4: Çubuk sayılarını hesapla ve filiz değerlerini optimize et
+      // AŞAMA 4: İTERATİF İYİLEŞTİRME SÜRECİ - Çubuk sayıları ve filiz değerleri için
       if (!row.uretilemez) {
-        // Çubuk sayılarını hesapla
-        const oldCubukSayisiBoy = row.cubukSayisiBoy;
-        const oldCubukSayisiEn = row.cubukSayisiEn;
-        initializeCubukSayisi(row);
+        // İteratif optimizasyon için maksimum döngü sayısı
+        const MAX_ITERATIONS = 3;
+        let iterationCount = 0;
+        let hasChanges = true;
         
-        if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
-          changesCount++;
-          newAciklama += `${changesCount + 1}. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
+        // Değişiklik olduğu sürece veya maksimum iterasyon sayısına ulaşana kadar döngüye devam et
+        while (hasChanges && iterationCount < MAX_ITERATIONS) {
+          // Bu iterasyonda değişiklik var mı?
+          hasChanges = false;
+          
+          // Önceki değerleri kaydet (değişiklikleri tespit etmek için)
+          const prevValues = {
+            cubukSayisiBoy: row.cubukSayisiBoy,
+            cubukSayisiEn: row.cubukSayisiEn,
+            solFiliz: row.solFiliz,
+            sagFiliz: row.sagFiliz,
+            onFiliz: row.onFiliz,
+            arkaFiliz: row.arkaFiliz
+          };
+          
+          // Orijinal boyut değerlerini kaydet
+          const currentBoy = parseFloat(row.uzunlukBoy);
+          const currentEn = parseFloat(row.uzunlukEn);
+          
+          // Cubuk sayılarını hesapla
+          const oldCubukSayisiBoy = row.cubukSayisiBoy;
+          const oldCubukSayisiEn = row.cubukSayisiEn;
+          initializeCubukSayisi(row);
+          
+          if (oldCubukSayisiBoy !== row.cubukSayisiBoy || oldCubukSayisiEn !== row.cubukSayisiEn) {
+            changesCount++;
+            hasChanges = true;
+            if (iterationCount === 0) { // Sadece ilk iterasyonda açıklamaya ekle
+              newAciklama += `${changesCount + 1}. Çubuk sayıları hesaplandı (Boy: ${row.cubukSayisiBoy}, En: ${row.cubukSayisiEn}). `;
+            }
+          }
+          
+          // Filiz değerlerini hesapla
+          const oldFilizValues = {
+            solFiliz: row.solFiliz,
+            sagFiliz: row.sagFiliz,
+            onFiliz: row.onFiliz,
+            arkaFiliz: row.arkaFiliz
+          };
+          
+          calculateFilizValues(row);
+          optimizeFilizValues(row);
+          
+          // Negatif filiz değerlerini düzelt
+          if (row.solFiliz < 0) row.solFiliz = 1.5;
+          if (row.sagFiliz < 0) row.sagFiliz = 1.5;
+          if (row.onFiliz < 0) row.onFiliz = 2.5;
+          if (row.arkaFiliz < 0) row.arkaFiliz = 2.5;
+          
+          // Ağırlık hesapla
+          calculateWeight(row);
+          
+          // ÖNEMLİ: Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
+          if (parseFloat(row.uzunlukBoy) !== currentBoy) {
+            row.uzunlukBoy = currentBoy.toString();
+          }
+          
+          if (parseFloat(row.uzunlukEn) !== currentEn) {
+            row.uzunlukEn = currentEn.toString();
+          }
+          
+          // Önemli değerlerde değişiklik oldu mu kontrol et
+          if (prevValues.cubukSayisiBoy !== row.cubukSayisiBoy ||
+              prevValues.cubukSayisiEn !== row.cubukSayisiEn ||
+              Math.abs(prevValues.solFiliz - row.solFiliz) > 0.1 ||
+              Math.abs(prevValues.sagFiliz - row.sagFiliz) > 0.1 ||
+              Math.abs(prevValues.onFiliz - row.onFiliz) > 0.1 ||
+              Math.abs(prevValues.arkaFiliz - row.arkaFiliz) > 0.1) {
+            hasChanges = true;
+          }
+          
+          iterationCount++;
         }
         
-        // Filiz değerlerini hesapla
-        const oldFilizValues = {
-          solFiliz: row.solFiliz,
-          sagFiliz: row.sagFiliz,
-          onFiliz: row.onFiliz,
-          arkaFiliz: row.arkaFiliz
-        };
-        
-        calculateFilizValues(row);
-        optimizeFilizValues(row);
-        
-        // Negatif filiz değerlerini düzelt
-        if (row.solFiliz < 0) row.solFiliz = 1.5;
-        if (row.sagFiliz < 0) row.sagFiliz = 1.5;
-        if (row.onFiliz < 0) row.onFiliz = 2.5;
-        if (row.arkaFiliz < 0) row.arkaFiliz = 2.5;
-        
-        // Ağırlık hesapla
-        calculateWeight(row);
-        
-        // Değişiklik olmuşsa rapor et
+        // Değişiklik olmuşsa rapor et (sadece bir kez - iterasyonlar sonunda)
         if (Math.abs(oldFilizValues.solFiliz - row.solFiliz) > 0.1 || 
             Math.abs(oldFilizValues.sagFiliz - row.sagFiliz) > 0.1 ||
             Math.abs(oldFilizValues.onFiliz - row.onFiliz) > 0.1 ||
@@ -1780,13 +1850,8 @@ const iyilestirAll = async () => {
     setRows(updatedRows);
     setProcessingRowIndex(null);
     
-
-
-
-
-
     // Kısa bekletme
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
   } catch (error) {
     console.error('Toplu iyileştirme hatası:', error);
