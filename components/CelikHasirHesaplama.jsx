@@ -293,32 +293,7 @@ const CelikHasirHesaplama = () => {
     );
   };
 
-  // Sayıları ondalık nokta formatına çevirme - Türkçe formatı desteği geliştirildi
-  const formatNumber = (value) => {
-      if (value === undefined || value === null || value === '') return '';
-      
-      // Sayı formatını belirle (Türkçe veya İngilizce)
-      const stringValue = String(value);
-      
-      // Türkçe formatı: 1.234,56 -> 1234.56
-      if (stringValue.includes(',') && (stringValue.includes('.') || /\d{1,3}(\.\d{3})+/.test(stringValue))) {
-          return stringValue
-              .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
-              .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
-      }
-      
-      // İngilizce formatı: 1,234.56 -> 1234.56
-      if (stringValue.includes('.') && stringValue.includes(',')) {
-          return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
-      }
-      
-      // Sadece virgül varsa ve ondalık ayırıcı olarak kullanılmışsa
-      if (stringValue.includes(',') && !stringValue.includes('.')) {
-          return stringValue.replace(',', '.'); // Virgülü noktaya çevir
-      }
-      
-      return stringValue;
-  };
+
 
 
   
