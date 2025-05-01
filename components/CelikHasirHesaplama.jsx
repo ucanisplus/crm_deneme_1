@@ -3831,7 +3831,7 @@ const parseExcelData = (data) => {
 
 
 
-// Enhanced function to find columns by header text - comprehensive patterns for all fields
+// Geliştirilmiş sütun başlık metni eşleştirme fonksiyonu
 const findColumnsByHeaderText = (headers) => {
   const result = {
     hasirTipi: undefined,
@@ -3842,53 +3842,183 @@ const findColumnsByHeaderText = (headers) => {
   
   if (!headers) return result;
   
-  // Expanded header patterns for all fields
+  // Öncelik seviyelerine göre başlık kalıpları
   const headerPatterns = {
-    hasirTipi: [
-      'HASIR TİP', 'HASIR TIP', 'ÇELIK HASIR', 'CELIK HASIR', 'TİP', 'TIP',
-      'HASIR CİNS', 'HASIR CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 
-      'HASIR TÜRÜ', 'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ'
-    ],
-    uzunlukBoy: [
-      'BOY', 'UZUNLUK BOY', 'YÜKSEKLIK', 'YUKSEKLIK', 'BOY CM', 'BOY (CM)',
-      'Y.BOY', 'YÜKSEKLİK (CM)', 'YÜKSEKLIK (CM)', 'BOY UZUNLUK', 'UZUN',
-      'UZUN KENAR', 'BÜYÜK KENAR', 'BUYUK KENAR', 'HEIGHT', 'LENGTH'
-    ],
-    uzunlukEn: [
-      'EN', 'UZUNLUK EN', 'GENISLIK', 'GENİŞLİK', 'EN CM', 'EN (CM)',
-      'Y.EN', 'GENİŞLİK (CM)', 'GENISLIK (CM)', 'EN UZUNLUK', 'KISA',
-      'KISA KENAR', 'KÜÇÜK KENAR', 'KUCUK KENAR', 'WIDTH'
-    ],
-    hasirSayisi: [
-      'HASIR SAYISI', 'HASIR SAYIS', 'ADET', 'MİKTAR', 'MIKTAR',
-      'SAYI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI', 'TOPLAM ADET',
-      'TOPLAM', 'ADET SAYISI', 'HASIR ADEDI', 'HASIR ADEDİ',
-      'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ', 'SIPARIS',
-      'QUANTITY', 'COUNT', 'TOPLAM SAYI', 'TOPLAM HASIR',
-      'ADET SAYISI', 'TANE'
-    ]
+    hasirTipi: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'HASIR TİPİ', 'HASIR TIPI', 'HASIR TÜRÜ', 'HASIR TURU', 
+        'ÇELİK HASIR', 'CELIK HASIR', 'HASIR CİNSİ', 'HASIR CINSI'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'HASIR KODU', 'TİP', 'TIP', 'TÜR', 'TUR', 'CİNS', 'CINS', 
+        'hasır tipi', 'hasir tipi', 'çelik hasır', 'celik hasir',
+        'Q TİPİ', 'Q TIPI', 'R TİPİ', 'R TIPI', 'TR TİPİ', 'TR TIPI'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'HASIR', 'hasır', 'hasir', 'KOD', 'kod', 'MODEL', 'model'
+      ]
+    },
+    uzunlukBoy: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'UZUNLUK BOY', 'BOY UZUNLUĞU', 'BOY UZUNLUGU',
+        'HASIR BOYU', 'BOY ÖLÇÜSÜ', 'BOY OLCUSU'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'BOY', 'boy', 'BÜYÜK KENAR', 'BUYUK KENAR', 'UZUN KENAR',
+        'uzunluk boy', 'hasır boyu', 'hasir boyu', 'boy cm', 'BOY CM',
+        'YÜKSEKLİK', 'YUKSEKLIK', 'BOY(CM)', 'UZUNLUK(CM)'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'UZUNLUK', 'uzunluk', 'B. ÖLÇÜ', 'B.ÖLÇÜ', 'Y.BOY',
+        'BOYUT', 'boyut', 'Y BOYUT', 'ANA BOYUT', 'BYT', 'byt'
+      ]
+    },
+    uzunlukEn: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'UZUNLUK EN', 'EN UZUNLUĞU', 'EN UZUNLUGU',
+        'HASIR ENİ', 'HASIR ENI', 'EN ÖLÇÜSÜ', 'EN OLCUSU'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'EN', 'en', 'GENİŞLİK', 'GENISLIK', 'KÜÇÜK KENAR', 'KUCUK KENAR',
+        'KISA KENAR', 'uzunluk en', 'hasır eni', 'hasir eni', 'en cm', 'EN CM',
+        'EN(CM)', 'GENISLIK(CM)', 'WIDTH', 'width'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'E. ÖLÇÜ', 'E.ÖLÇÜ', 'Y.EN', 'KISA', 'kisa', 'DAR KENAR',
+        'X BOYUT', 'X.BOYUT', 'ENB', 'enb', 'İKİNCİ BOYUT', 'IKINCI BOYUT'
+      ]
+    },
+    hasirSayisi: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'HASIR SAYISI', 'HASIR SAYISI', 'HASIR ADEDİ', 'HASIR ADEDI',
+        'HASIR ADETİ', 'HASIR ADETI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'ADET SAYISI', 'ADET SAYISI', 'TOPLAM HASIR', 'TOPLAM ADET',
+        'SİPARİŞ MİKTARI', 'SIPARIS MIKTARI', 'hasır sayısı', 'hasir sayisi',
+        'ADET MİKTARI', 'ADET MIKTARI', 'PARÇA SAYISI', 'PARCA SAYISI',
+        'İMALAT ADEDİ', 'IMALAT ADEDI', 'ÜRÜN ADEDİ', 'URUN ADEDI'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'ADET', 'adet', 'MİKTAR', 'MIKTAR', 'miktar', 'SAYI', 'SAYI',
+        'sayı', 'sayi', 'TOPLAM', 'toplam', 'SİPARİŞ', 'SIPARIS',
+        'TANE', 'tane', 'QUANTITY', 'COUNT', 'AMOUNT', 'NUMBER'
+      ]
+    }
+  };
+
+  // Özel desenlerin kontrolü için regex'ler
+  const boyEnCombinedPattern = /^(.*?)(\d+)[\s]*[xX*][\s]*(\d+)(.*?)$/i;
+  const numberExtractPattern = /\d+/g;
+  
+  // Başlıkları ve indeksleri saklayacak, öncelik puanlarını hesaplayacağız
+  const candidateColumns = {
+    hasirTipi: [],
+    uzunlukBoy: [],
+    uzunlukEn: [],
+    hasirSayisi: []
   };
   
-  // Check all headers against patterns
+  // Tüm başlıkları kontrol et
   for (let i = 0; i < headers.length; i++) {
-    const header = String(headers[i] || '').trim().toUpperCase();
-    if (!header) continue;
+    if (!headers[i]) continue;
     
-    // Check each category against header text
+    // Başlık metnini normalleştir
+    const headerText = String(headers[i]).trim();
+    const upperHeaderText = headerText.toUpperCase();
+    
+    // Özel durumları kontrol et: Birleşik boy/en deseni (örn: "400x200")
+    const boyEnMatch = headerText.match(boyEnCombinedPattern);
+    if (boyEnMatch) {
+      const firstDimension = parseInt(boyEnMatch[2]);
+      const secondDimension = parseInt(boyEnMatch[3]);
+      
+      // Daha büyük boyut boy, daha küçük en olarak değerlendir
+      if (firstDimension > secondDimension) {
+        candidateColumns.uzunlukBoy.push({ index: i, priority: 60 }); // Yüksek öncelik
+      } else {
+        candidateColumns.uzunlukEn.push({ index: i, priority: 60 }); // Yüksek öncelik
+      }
+      continue;
+    }
+    
+    // Her kategori için önceliğe göre başlık kontrolleri
     for (const [category, patterns] of Object.entries(headerPatterns)) {
-      // First check for exact matches (higher priority)
-      if (patterns.includes(header)) {
-        result[category] = i;
-        break;
+      // Yüksek öncelikli tam eşleşmeler
+      if (patterns.highPriority.some(pattern => upperHeaderText === pattern)) {
+        candidateColumns[category].push({ index: i, priority: 100 });
+        continue;
       }
       
-      // Then check for partial matches
-      for (const pattern of patterns) {
-        if (header.includes(pattern)) {
-          result[category] = i;
-          break;
+      // Orta öncelikli kısmi eşleşmeler
+      if (patterns.mediumPriority.some(pattern => {
+        return upperHeaderText.includes(pattern) || 
+               upperHeaderText === pattern;
+      })) {
+        candidateColumns[category].push({ index: i, priority: 80 });
+        continue;
+      }
+      
+      // Düşük öncelikli genel eşleşmeler
+      if (patterns.lowPriority.some(pattern => {
+        return upperHeaderText.includes(pattern) || 
+               upperHeaderText === pattern;
+      })) {
+        candidateColumns[category].push({ index: i, priority: 60 });
+        continue;
+      }
+      
+      // Başlık içinde herhangi bir sayı var mı?
+      const numbers = headerText.match(numberExtractPattern);
+      
+      // Eğer başlık sadece tek bir sayı içeriyorsa, bu muhtemelen boyut değil
+      // Ancak herhangi bir şey içeriyorsa kontrol et
+      if (headerText.length > 0) {
+        // Boy/En/Hasır Sayısı kelimelerinden hiçbiri eşleşmediyse
+        // içerdiği kelimelere göre bulanık eşleştirme yapalım
+        
+        // Boy için en yaygın kısmi eşleşmeler
+        if (/boy|uzun|yuksek|buyuk|height|length/i.test(headerText)) {
+          candidateColumns.uzunlukBoy.push({ index: i, priority: 40 });
+        }
+        
+        // En için en yaygın kısmi eşleşmeler
+        if (/en|gen|dar|kucuk|kisa|width/i.test(headerText)) {
+          candidateColumns.uzunlukEn.push({ index: i, priority: 40 });
+        }
+        
+        // Hasır Sayısı için en yaygın kısmi eşleşmeler
+        if (/adet|say[iı]|miktar|count|piece/i.test(headerText)) {
+          candidateColumns.hasirSayisi.push({ index: i, priority: 40 });
+        }
+        
+        // Hasır Tipi için en yaygın kısmi eşleşmeler
+        if (/hasir|hasır|tip|cins|tur|tür|model|kod/i.test(headerText)) {
+          candidateColumns.hasirTipi.push({ index: i, priority: 40 });
         }
       }
+    }
+  }
+  
+  // Her kategori için en yüksek öncelikli adayı seç
+  for (const category of Object.keys(candidateColumns)) {
+    if (candidateColumns[category].length > 0) {
+      // Önceliğe göre sırala
+      candidateColumns[category].sort((a, b) => b.priority - a.priority);
+      // En yüksek önceliğe sahip olanı seç
+      result[category] = candidateColumns[category][0].index;
     }
   }
   
