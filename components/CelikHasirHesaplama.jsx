@@ -3331,7 +3331,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
-// GELİŞTİRİLMİŞ EXCEL İŞLEME - FARKLI FORMATLAR İÇİN
+// Excel dosyasını analiz eden geliştirilmiş fonksiyon - İlk kısmı
 const parseExcelData = (data) => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
@@ -3360,8 +3360,13 @@ const parseExcelData = (data) => {
         }
       });
       
-      // JSON'a dönüştür
-      let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      // JSON'a dönüştür (gelişmiş seçeneklerle)
+      let jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1, // Başlık kullanma - manuel başlık tespiti yapacağız
+        defval: '', // Boş hücre değeri
+        raw: false, // Biçimlendirilmiş değerleri kullan (tarih, sayı vb için önemli)
+        dateNF: 'yyyy-mm-dd' // Tarih biçimlemesi 
+      });
       
       // Boş satırları filtrele
       jsonData = jsonData.filter(row => 
@@ -3376,39 +3381,46 @@ const parseExcelData = (data) => {
       let headerRow = null;
       let headerIndex = -1;
       
-      // Önce tam eşleşen başlıkları ara
-      for (let i = 0; i < Math.min(5, jsonData.length); i++) {
-        const row = jsonData[i];
-        let foundENorBOY = false;
-        
-        // Satırda "EN", "BOY", "ADET" kelimelerini ara
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || '').toUpperCase().trim();
-          if (cell === "EN" || cell === "BOY" || cell === "ADET") {
-            foundENorBOY = true;
-            break;
+      // Birleştirilmiş hücre bilgilerini başlık satırına uygula
+      if (Object.keys(mergedHeaderInfo).length > 0) {
+        // İlk satırdaki birleştirilmiş başlıkları dikkate al
+        if (jsonData.length > 0) {
+          const firstRow = [...jsonData[0]];
+          
+          // Birleştirilmiş hücre başlıklarını uygula
+          for (const [colIndex, headerText] of Object.entries(mergedHeaderInfo)) {
+            const col = parseInt(colIndex);
+            if (col < firstRow.length) {
+              // Eğer hücre boşsa veya veri yoksa birleştirilmiş başlığı koy
+              if (!firstRow[col] || String(firstRow[col]).trim() === '') {
+                firstRow[col] = headerText;
+              }
+            }
           }
-        }
-        
-        // Tam eşleşme bulunduysa, bu satır başlık olabilir
-        if (foundENorBOY) {
-          headerRow = row;
-          headerIndex = i;
-          break;
+          
+          // Güncellenmiş başlık satırını kullan
+          headerRow = firstRow;
+          headerIndex = 0;
         }
       }
       
-      // Başlık bulunamadıysa, içinde "EN" veya "BOY" içeren satırları dene
+      // Başlık satırını bul - öncelikle tam eşleşen anahtar kelimelere bak
       if (headerIndex === -1) {
         for (let i = 0; i < Math.min(5, jsonData.length); i++) {
           const row = jsonData[i];
+          let foundENorBOY = false;
           
-          if (row.some(cell => {
-            if (typeof cell !== 'string') return false;
-            const upperCell = cell.toString().toUpperCase().trim();
-            return upperCell.includes("EN") || upperCell.includes("BOY") || 
-                   upperCell.includes("ADET") || upperCell.includes("SAYI");
-          })) {
+          // Satırda "EN", "BOY", "ADET" kelimelerini ara
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || '').toUpperCase().trim();
+            if (cell === "EN" || cell === "BOY" || cell === "ADET") {
+              foundENorBOY = true;
+              break;
+            }
+          }
+          
+          // Tam eşleşme bulunduysa, bu satır başlık olabilir
+          if (foundENorBOY) {
             headerRow = row;
             headerIndex = i;
             break;
@@ -3416,392 +3428,242 @@ const parseExcelData = (data) => {
         }
       }
       
-      // Hala başlık bulunamadıysa, birleştirilmiş hücre bilgilerini kullan
+      // Başlık bulunamadıysa, içinde belirli kelimeleri içeren satırları dene
+      if (headerIndex === -1) {
+        for (let i = 0; i < Math.min(5, jsonData.length); i++) {
+          const row = jsonData[i];
+          
+          // Genişletilmiş anahtar kelime listesi
+          let headerKeywordCount = 0;
+          for (const cell of row) {
+            if (!cell) continue;
+            const cellText = String(cell).toUpperCase().trim();
+            
+            // Potansiyel başlık kelimeleri bul
+            if (cellText.includes('HASIR') || 
+                cellText.includes('BOY') || 
+                cellText.includes('EN') || 
+                cellText.includes('ADET') || 
+                cellText.includes('SAYI') || 
+                cellText.includes('TİP') || 
+                cellText.includes('TIP') ||
+                cellText.includes('UZUNLUK') ||
+                cellText.includes('GENISLIK') ||
+                cellText.includes('GENİŞLİK') ||
+                cellText.includes('MIKTAR') ||
+                cellText.includes('MİKTAR')) {
+              headerKeywordCount++;
+            }
+          }
+          
+          // En az iki anahtar kelime varsa başlık olarak kabul et
+          if (headerKeywordCount >= 2) {
+            headerRow = row;
+            headerIndex = i;
+            break;
+          }
+        }
+      }
+      
+      // Hala başlık bulunamadıysa, birleştirilmiş hücre bilgilerinden sanal başlık oluştur
       if (headerIndex === -1 && Object.keys(mergedHeaderInfo).length > 0) {
         // Birleştirilmiş hücre başlıklarından sanal bir başlık satırı oluştur
         headerRow = [];
-        for (let colIndex = 0; colIndex < 20; colIndex++) { // En fazla 20 sütun kontrol et
+        const maxColIndex = Math.max(...Object.keys(mergedHeaderInfo).map(Number));
+        
+        for (let colIndex = 0; colIndex <= maxColIndex; colIndex++) {
           headerRow[colIndex] = mergedHeaderInfo[colIndex] || '';
         }
+        
         headerIndex = 0;
+        
+        // Verilerin ilk satırının birleştirilmiş başlıklarla başlamaması için eğer ilk satırda veri varsa
+        if (jsonData.length > 0 && jsonData[0].some(cell => String(cell || '').trim() !== '')) {
+          // jsonData'ya yeni başlık satırını ekle
+          jsonData = [headerRow, ...jsonData];
+        }
+      }
+      
+      // Eğer hala başlık bulunamadıysa, başlık olmayabilir
+      if (headerIndex === -1) {
+        headerRow = null;
       }
       
       // Veri satırları başlangıcı
       const startRow = headerIndex !== -1 ? headerIndex + 1 : 0;
       
-      // Sütunları analiz et
-      let hasirTipiCol = -1;
-      let boyCol = -1;
-      let enCol = -1;
-      let sayisiCol = -1;
+      // Geliştirilmiş başlık analizi - başlıklardan kolonu bul
+      const headerBasedColumns = headerRow ? findColumnsByHeaderText(headerRow) : {
+        hasirTipi: undefined,
+        uzunlukBoy: undefined,
+        uzunlukEn: undefined,
+        hasirSayisi: undefined
+      };
       
-      // 1. Başlıklardan sütunları bul (varsa)
-      if (headerRow) {
-        // Başlıklarda kesin eşleşme ara
-        for (let i = 0; i < headerRow.length; i++) {
-          const headerText = String(headerRow[i] || '').toUpperCase().trim();
-          
-          // Hasır Tipi sütunu
-          if (headerText === "HASIR TİPİ" || headerText === "HASIR TIPI" || 
-              headerText === "TİP" || headerText === "TIP" || headerText === "AÇIKLAMA") {
-            hasirTipiCol = i;
-          }
-          // Boy sütunu - SADECE tam eşleşme
-          else if (headerText === "BOY") {
-            boyCol = i;
-          }
-          // En sütunu - SADECE tam eşleşme
-          else if (headerText === "EN") {
-            enCol = i;
-          }
-          // Başlığı normalize et (boşlukları sil, büyük harfe çevir, Türkçe karakterleri İngilizce yap)
-        const normalizedHeader = headerText
-          .replace(/\s+/g, '')
-          .toUpperCase()
-          .replace(/İ/g, 'I')
-          .replace(/Ş/g, 'S')
-          .replace(/Ğ/g, 'G')
-          .replace(/Ü/g, 'U')
-          .replace(/Ö/g, 'O')
-          .replace(/Ç/g, 'C');
-        
-        // 1. En güçlü eşleşme: HASIR ADEDİ veya HASIR SAYISI varyasyonları
-        if (normalizedHeader.includes("HASIRADEDI") || normalizedHeader.includes("HASIRADETI") ||
-            normalizedHeader.includes("HASIRADEDI") || normalizedHeader.includes("HASIRADETI") ||
-            normalizedHeader.includes("HASIRSAYISI") || normalizedHeader.includes("HASIRSAYISI")) {
-          sayisiCol = i;
-          continue;
-        }
-        
-        // 2. İkinci öncelik: TOPLAM ADET veya SİPARİŞ ADEDİ türevleri
-        if (sayisiCol === -1 && (
-            normalizedHeader.includes("TOPLAMADET") ||
-            normalizedHeader.includes("TOPLAMADETI") ||
-            normalizedHeader.includes("TOPLAM ADET") ||
-            normalizedHeader.includes("SIPARISADEDI") ||
-            normalizedHeader.includes("SIPARISADETI") ||
-            normalizedHeader.includes("SIPARIS ADEDİ") ||
-            normalizedHeader.includes("SIPARIS ADEDI")
-        )) {
-          sayisiCol = i;
-          continue;
-        }
-        
-        // 3. Üçüncü öncelik: Genel kelimeler (ADET, MİKTAR, SAYI)
-        if (sayisiCol === -1 && (
-            normalizedHeader.includes("ADET") ||
-            normalizedHeader.includes("MIKTAR") ||
-            normalizedHeader.includes("MIKTARI") ||
-            normalizedHeader.includes("SAYI") ||
-            normalizedHeader.includes("SAYISI")
-        )) {
-          sayisiCol = i;
-        }
-
-        }
-        
-        // Tam eşleşme yoksa, metin içeren başlıkları ara
-        if (hasirTipiCol === -1 || boyCol === -1 || enCol === -1 || sayisiCol === -1) {
-          for (let i = 0; i < headerRow.length; i++) {
-            const headerText = String(headerRow[i] || '').toUpperCase().trim();
-            
-            // Hasır Tipi için alternatif başlıklar
-            if (hasirTipiCol === -1 && 
-                (headerText.includes("HASIR") && 
-                (headerText.includes("TİP") || headerText.includes("TIP") || 
-                 headerText.includes("CİNS") || headerText.includes("CINS")))) {
-              hasirTipiCol = i;
-            }
-            // Boy için alternatif başlıklar - SADECE kesin "BOY" sözcüğü içeriyorsa
-            else if (boyCol === -1 && /\bBOY\b/.test(headerText)) {
-              boyCol = i;
-            }
-            // En için alternatif başlıklar - SADECE kesin "EN" sözcüğü içeriyorsa
-            else if (enCol === -1 && /\bEN\b/.test(headerText)) {
-              enCol = i;
-            }
-            // Hasır sayısı için alternatif başlıklar
-            else if (sayisiCol === -1 && 
-                     (headerText.includes("ADET") || 
-                      headerText.includes("SAYI") || 
-                      headerText.includes("MİKTAR"))) {
-              sayisiCol = i;
-            }
-          }
-        }
-      }
+      // Geliştirilmiş veri analizi
+      const dataAnalysisResult = analyzeColumnData(jsonData, headerIndex !== -1);
       
-      // 2. Veri analizi ile doğrula/düzelt
+      // Sütun haritalarını birleştir (başlık öncelikli)
+      const combinedColumnMap = combineColumnMaps(headerBasedColumns, dataAnalysisResult);
       
-      // Hasır Tipi kolonunu bulmak için Q/R/TR değerlerini ara
-      if (hasirTipiCol === -1) {
-        const patternCounts = {};
-        
-        // İlk 10 satırda ara
-        for (let r = startRow; r < Math.min(jsonData.length, startRow + 10); r++) {
-          if (!jsonData[r]) continue;
-          
-          for (let c = 0; c < jsonData[r].length; c++) {
-            const cell = String(jsonData[r][c] || '').trim();
-            if (/^(Q|R|TR)\d+/.test(cell)) {
-              patternCounts[c] = (patternCounts[c] || 0) + 1;
-            }
-          }
-        }
-        
-        // En çok Q/R/TR içeren sütunu bul
-        let maxCount = 0;
-        for (const [col, count] of Object.entries(patternCounts)) {
-          if (count > maxCount) {
-            maxCount = count;
-            hasirTipiCol = parseInt(col);
-          }
-        }
-      }
+      // Geliştirme için log kayıtları (gerekirse sonra kaldırılabilir)
+      console.log('Sheet:', sheetName);
+      console.log('Header Analysis:', headerBasedColumns);
+      console.log('Data Analysis:', dataAnalysisResult.potentialColumns);
+      console.log('Combined Map:', combinedColumnMap);
       
-      // 3. Boyut ve sayı sütunlarını analiz et
-      // Sütun istatistikleri oluştur
-      const columnStats = {};
-      
-      // İlk 10 veri satırından istatistik topla
-      for (let r = startRow; r < Math.min(jsonData.length, startRow + 10); r++) {
-        if (!jsonData[r]) continue;
+      // Geçerli satırları çıkar
+      for (let i = startRow; i < jsonData.length; i++) {
+        const rowData = jsonData[i];
+        if (!rowData || rowData.length === 0) continue;
         
-        for (let c = 0; c < jsonData[r].length; c++) {
-          if (c === hasirTipiCol) continue; // Hasır tipi sütununu atla
-          
-          const rawValue = jsonData[r][c];
-          if (rawValue === undefined || rawValue === null || rawValue === '') continue;
-          
-          const value = parseFloat(formatNumber(String(rawValue)));
-          if (isNaN(value)) continue;
-          
-          if (!columnStats[c]) {
-            columnStats[c] = {
-              sum: 0,
-              count: 0,
-              values: [],
-              min: Infinity,
-              max: -Infinity
-            };
-          }
-          
-          columnStats[c].sum += value;
-          columnStats[c].count++;
-          columnStats[c].values.push(value);
-          columnStats[c].min = Math.min(columnStats[c].min, value);
-          columnStats[c].max = Math.max(columnStats[c].max, value);
-        }
-      }
-      
-      // İstatistikleri analiz et
-      for (const [col, stats] of Object.entries(columnStats)) {
-        if (stats.count < 3) continue; // En az 3 değer olmalı
-        
-        stats.avg = stats.sum / stats.count;
-        
-        // İstatistik temelli özellikler ekle
-        stats.uniformity = stats.values.length > 0 ? 
-                           1 - (stats.max - stats.min) / (stats.max + 0.0001) : 0;
-        
-        // SERT KURAL: Değerlerin çoğu 49'dan küçükse boyut olamaz
-        stats.tooSmallPercentage = stats.values.filter(v => v < 49).length / stats.values.length;
-        
-        // SERT KURAL: Değerler çok küçük ve birbirine çok benziyorsa, muhtemelen sabit bir değerdir (Blok Benzeri gibi)
-        stats.isLikelyFixedValue = stats.uniformity > 0.9 && stats.max < 20;
-      }
-      
-      // Boy sütunu için adaylar (Başlıktan bulunamadıysa)
-      if (boyCol === -1) {
-        const boyCandidates = [];
-        
-        for (const [col, stats] of Object.entries(columnStats)) {
-          // SERT KURAL: Değerlerin en az %70'i 49-800 aralığında olmalı
-          const validRangePercentage = stats.values.filter(v => v >= 49 && v <= 800).length / stats.values.length;
-          
-          if (validRangePercentage >= 0.7 && stats.tooSmallPercentage < 0.3 && !stats.isLikelyFixedValue) {
-            boyCandidates.push({
-              col: parseInt(col),
-              avg: stats.avg,
-              validRangePercentage: validRangePercentage
-            });
-          }
-        }
-        
-        // Boyut adaylarını değerlerine göre sırala (büyükten küçüğe)
-        boyCandidates.sort((a, b) => b.avg - a.avg);
-        
-        // En büyük ortalamaya sahip sütunu Boy olarak işaretle
-        if (boyCandidates.length > 0) {
-          boyCol = boyCandidates[0].col;
-        }
-      }
-      
-      // En sütunu için adaylar (Başlıktan bulunamadıysa)
-      if (enCol === -1) {
-        const enCandidates = [];
-        
-        for (const [col, stats] of Object.entries(columnStats)) {
-          // Boyu atla
-          if (parseInt(col) === boyCol) continue;
-          
-          // SERT KURAL: Değerlerin en az %70'i 49-800 aralığında olmalı
-          const validRangePercentage = stats.values.filter(v => v >= 49 && v <= 800).length / stats.values.length;
-          
-          if (validRangePercentage >= 0.7 && stats.tooSmallPercentage < 0.3 && !stats.isLikelyFixedValue) {
-            enCandidates.push({
-              col: parseInt(col),
-              avg: stats.avg,
-              validRangePercentage: validRangePercentage
-            });
-          }
-        }
-        
-        // Boy ve En genellikle komşu sütunlardır
-        enCandidates.sort((a, b) => {
-          // Önce boyCol'a yakınlığı, sonra değer boyutunu değerlendir
-          const distA = Math.abs(a.col - boyCol);
-          const distB = Math.abs(b.col - boyCol);
-          if (distA !== distB) return distA - distB;
-          return b.avg - a.avg; // Eşit mesafede, daha büyük ortalamayı seç
-        });
-        
-        if (enCandidates.length > 0) {
-          enCol = enCandidates[0].col;
-        }
-      }
-      
-      // Hasır Sayısı sütunu için adaylar (Başlıktan bulunamadıysa)
-      if (sayisiCol === -1) {
-        const sayisiCandidates = [];
-        
-        for (const [col, stats] of Object.entries(columnStats)) {
-          // Boy ve En sütunlarını atla
-          if (parseInt(col) === boyCol || parseInt(col) === enCol) continue;
-          
-          // Hasır sayısı genellikle tam sayıdır ve 1-1000 arasındadır
-          const integerPercentage = stats.values.filter(v => 
-            Math.abs(v - Math.round(v)) < 0.001
-          ).length / stats.values.length;
-          
-          const validRangePercentage = stats.values.filter(v => 
-            v >= 1 && v <= 1000
-          ).length / stats.values.length;
-          
-          // IMPORTANT: Skip columns with mostly small, uniform values (like all 2s)
-          if (stats.isLikelyFixedValue) continue;
-          
-          if (integerPercentage >= 0.8 && validRangePercentage >= 0.8) {
-            sayisiCandidates.push({
-              col: parseInt(col),
-              avg: stats.avg
-            });
-          }
-        }
-        
-        // Tam sayı adayları arasından en küçük ortalamaya sahip olanı seç
-        sayisiCandidates.sort((a, b) => a.avg - b.avg);
-        
-        if (sayisiCandidates.length > 0) {
-          sayisiCol = sayisiCandidates[0].col;
-        }
-      }
-      
-      // 4. Final doğrulama - bulunamayan sütunlar için çözüm
-      // Boy veya En bulunamadıysa en azından birbiriyle ilişkili iki boyut sütunu olmalı
-      if (boyCol === -1 && enCol === -1) {
-        // Boyut olabilecek tüm sütunları bul (49-800 aralığında değer içeren)
-        const dimensionCols = [];
-        
-        for (const [col, stats] of Object.entries(columnStats)) {
-          if (stats.tooSmallPercentage < 0.3 && !stats.isLikelyFixedValue &&
-              stats.values.some(v => v >= 49 && v <= 800)) {
-            dimensionCols.push({
-              col: parseInt(col),
-              avg: stats.avg
-            });
-          }
-        }
-        
-        // Değer büyüklüğüne göre sırala (büyükten küçüğe)
-        dimensionCols.sort((a, b) => b.avg - a.avg);
-        
-        // En az iki boyut sütunu varsa
-        if (dimensionCols.length >= 2) {
-          boyCol = dimensionCols[0].col; // Daha büyük ortalamaya sahip olanı Boy
-          enCol = dimensionCols[1].col;  // İkinci büyük ortalamaya sahip olanı En
-        }
-      }
-      
-      // Hasır Sayısı hala bulunamadıysa 1 değerini kullan
-      
-      // 5. Satırları işle
-      for (let r = startRow; r < jsonData.length; r++) {
-        const row = jsonData[r];
-        if (!row || row.length === 0) continue;
-        
-        // Hasır Tipi
+        // Hasır Tipi için veri kontrolü
         let hasirTipi = '';
-        if (hasirTipiCol !== -1 && hasirTipiCol < row.length) {
-          hasirTipi = String(row[hasirTipiCol] || '').trim();
+        
+        // Kombine haritadan sütun indeksini al
+        if (combinedColumnMap.hasirTipi !== undefined && combinedColumnMap.hasirTipi < rowData.length) {
+          hasirTipi = String(rowData[combinedColumnMap.hasirTipi] || '').trim();
         }
         
-        // Hasır tipi sütunda yoksa, satırda ara
+        // Hasır Tipi bulunamadıysa tüm hücreleri kontrol et
         if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-          for (let i = 0; i < row.length; i++) {
-            if (row[i] === undefined || row[i] === null) continue;
-            
-            const cell = String(row[i]).trim();
-            if (/^(Q|R|TR)\d+/i.test(cell)) {
-              hasirTipi = cell;
+          for (let j = 0; j < rowData.length; j++) {
+            const cell = rowData[j];
+            if (!cell) continue;
+            const cellValue = String(cell).trim();
+            if (/^(Q|R|TR)\d+/i.test(cellValue)) {
+              hasirTipi = cellValue;
               // Bulunan sütunu kaydet (gelecek satırlar için)
-              if (hasirTipiCol === -1) hasirTipiCol = i;
+              if (combinedColumnMap.hasirTipi === undefined) {
+                combinedColumnMap.hasirTipi = j;
+              }
               break;
             }
           }
         }
         
-        // Hasır tipi yoksa satırı atla
+        // Hasır Tipi bulunamadıysa bu satırı atla
         if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
           continue;
         }
         
-        // Uzunluk Boy
+        // Boyut ve Sayı değerlerini al
         let uzunlukBoy = '';
-        if (boyCol !== -1 && boyCol < row.length) {
-          uzunlukBoy = formatNumber(String(row[boyCol] || ''));
-        }
-        
-        // Uzunluk En
         let uzunlukEn = '';
-        if (enCol !== -1 && enCol < row.length) {
-          uzunlukEn = formatNumber(String(row[enCol] || ''));
-        }
-        
-        // Hasır Sayısı
         let hasirSayisi = '';
-        if (sayisiCol !== -1 && sayisiCol < row.length) {
-          hasirSayisi = formatNumber(String(row[sayisiCol] || ''));
+        
+        // Kombine haritadan sütun indekslerini kullan
+        if (combinedColumnMap.uzunlukBoy !== undefined && combinedColumnMap.uzunlukBoy < rowData.length) {
+          uzunlukBoy = String(rowData[combinedColumnMap.uzunlukBoy] || '').trim();
+          uzunlukBoy = formatNumber(uzunlukBoy);
         }
         
-        // Hasır sayısı bulunamadıysa varsayılan 1
-        if (!hasirSayisi) {
+        if (combinedColumnMap.uzunlukEn !== undefined && combinedColumnMap.uzunlukEn < rowData.length) {
+          uzunlukEn = String(rowData[combinedColumnMap.uzunlukEn] || '').trim();
+          uzunlukEn = formatNumber(uzunlukEn);
+        }
+        
+        if (combinedColumnMap.hasirSayisi !== undefined && combinedColumnMap.hasirSayisi < rowData.length) {
+          hasirSayisi = String(rowData[combinedColumnMap.hasirSayisi] || '').trim();
+          hasirSayisi = formatNumber(hasirSayisi);
+        }
+        
+        // Eğer değerlerden birinde parantez içi değer varsa, parantezi temizle (örn: "240 (cm)" -> "240")
+        if (uzunlukBoy) uzunlukBoy = uzunlukBoy.replace(/\s*\([^)]*\)\s*/g, '');
+        if (uzunlukEn) uzunlukEn = uzunlukEn.replace(/\s*\([^)]*\)\s*/g, '');
+        if (hasirSayisi) hasirSayisi = hasirSayisi.replace(/\s*\([^)]*\)\s*/g, '');
+        
+        // En temel verilerin güvenilirliğini kontrol et (Hasır Tipi zaten kontrol edildi)
+        let boyValue = parseFloat(uzunlukBoy);
+        let enValue = parseFloat(uzunlukEn);
+        let sayiValue = parseFloat(hasirSayisi);
+        
+        // Eksik değerler için tahminler yap - sadece kesinlikle gerekiyorsa
+        
+        // Eğer boy ve en değerlerinden biri eksikse...
+        if ((isNaN(boyValue) && !isNaN(enValue)) || (isNaN(enValue) && !isNaN(boyValue))) {
+          // Makine limit değerleri
+          const MACHINE_LIMITS = {
+            MIN_BOY: 270,
+            MAX_BOY: 800,
+            MIN_EN: 150,
+            MAX_EN: 250,
+            MIN_EN_ADJUSTABLE: 126
+          };
+          
+          // Eksik boy değeri varsa tahmin et
+          if (isNaN(boyValue) && !isNaN(enValue)) {
+            // En değeri makine limitleri içinde mi?
+            if (enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && enValue <= MACHINE_LIMITS.MAX_EN) {
+              // En değerinden boy değerini tahmin et (genellikle daha büyük)
+              uzunlukBoy = Math.min(MACHINE_LIMITS.MAX_BOY, Math.max(MACHINE_LIMITS.MIN_BOY, Math.floor(enValue * 2))).toString();
+              boyValue = parseFloat(uzunlukBoy);
+            } else if (enValue > MACHINE_LIMITS.MAX_EN && enValue <= MACHINE_LIMITS.MAX_BOY) {
+              // Belki roller tersine yazılmış? En değeri Boy olabilir
+              uzunlukBoy = enValue.toString();
+              uzunlukEn = Math.min(MACHINE_LIMITS.MAX_EN, Math.max(MACHINE_LIMITS.MIN_EN, Math.floor(enValue * 0.4))).toString();
+              boyValue = enValue;
+              enValue = parseFloat(uzunlukEn);
+            }
+          }
+          
+          // Eksik en değeri varsa tahmin et
+          if (isNaN(enValue) && !isNaN(boyValue)) {
+            // Boy değeri makine limitleri içinde mi?
+            if (boyValue >= MACHINE_LIMITS.MIN_BOY && boyValue <= MACHINE_LIMITS.MAX_BOY) {
+              // Boy değerinden en değerini tahmin et (genellikle daha küçük)
+              uzunlukEn = Math.min(MACHINE_LIMITS.MAX_EN, Math.max(MACHINE_LIMITS.MIN_EN, Math.floor(boyValue * 0.4))).toString();
+              enValue = parseFloat(uzunlukEn);
+            } else if (boyValue < MACHINE_LIMITS.MIN_BOY && boyValue >= MACHINE_LIMITS.MIN_EN) {
+              // Belki roller tersine yazılmış? Boy değeri En olabilir
+              uzunlukEn = boyValue.toString();
+              uzunlukBoy = Math.min(MACHINE_LIMITS.MAX_BOY, Math.max(MACHINE_LIMITS.MIN_BOY, Math.floor(boyValue * 2.5))).toString();
+              enValue = boyValue;
+              boyValue = parseFloat(uzunlukBoy);
+            }
+          }
+        }
+        
+        // Hasır sayısı eksikse varsayılan 1 kullan
+        if (isNaN(sayiValue)) {
           hasirSayisi = '1';
+          sayiValue = 1;
+        }
+        // Sadece başlık satırı yoksa ve veri analizine dayanarak tespit yapıldıysa devreye girmeli
+        if (headerIndex === -1 && !isNaN(boyValue) && !isNaN(enValue)) {
+          // Boyut ve makine sınırlarını kontrol et
+          const MACHINE_LIMITS = {
+            MIN_BOY: 270,
+            MAX_BOY: 800,
+            MIN_EN: 150,
+            MAX_EN: 250
+          };
+          
+          // Eğer değerler mantıksızsa ve yer değiştirince daha mantıklı oluyorsa
+          if ((enValue > boyValue) && 
+              (enValue >= MACHINE_LIMITS.MIN_BOY && enValue <= MACHINE_LIMITS.MAX_BOY) && 
+              (boyValue >= MACHINE_LIMITS.MIN_EN && boyValue <= MACHINE_LIMITS.MAX_EN)) {
+            // Boy ve En değerlerini takas et - SADECE BAŞLIKSIZ DURUMLARDA
+            const temp = uzunlukBoy;
+            uzunlukBoy = uzunlukEn;
+            uzunlukEn = temp;
+            
+            // Değerleri de güncelle
+            boyValue = parseFloat(uzunlukBoy);
+            enValue = parseFloat(uzunlukEn);
+          }
         }
         
-        // En az bir boyut gerekli
-        if (!uzunlukBoy && !uzunlukEn) {
-          continue;
+        // En az hasır tipi ve bir boyut var mı kontrol et
+        if (hasirTipi && (uzunlukBoy || uzunlukEn)) {
+          allSheetData.push({
+            hasirTipi: standardizeHasirTipi(hasirTipi),
+            uzunlukBoy: uzunlukBoy,
+            uzunlukEn: uzunlukEn,
+            hasirSayisi: hasirSayisi,
+            sheetName: sheetName
+          });
         }
-        
-        // Sonuçları ekle
-        allSheetData.push({
-          hasirTipi: standardizeHasirTipi(hasirTipi),
-          uzunlukBoy: uzunlukBoy,
-          uzunlukEn: uzunlukEn,
-          hasirSayisi: hasirSayisi,
-          sheetName: sheetName
-        });
       }
     }
     
@@ -3809,6 +3671,24 @@ const parseExcelData = (data) => {
       alert('Excel dosyasında işlenebilir veri bulunamadı.');
       return;
     }
+    
+    // Son bir kontrol - hasır tipi, boy, en değerlerini standardize et
+    allSheetData.forEach(row => {
+      // Hasır Tipi format kontrolü
+      row.hasirTipi = standardizeHasirTipi(row.hasirTipi);
+      
+      // Boy/En değerlerini kontrol et - sayı değeri mi?
+      const boyValue = parseFloat(row.uzunlukBoy);
+      const enValue = parseFloat(row.uzunlukEn);
+      
+      // Boyutlar sayısal değil mi? Düzelt
+      if (isNaN(boyValue)) row.uzunlukBoy = '';
+      if (isNaN(enValue)) row.uzunlukEn = '';
+      
+      // Hasır sayısı sayısal değil mi? Düzelt
+      const sayiValue = parseFloat(row.hasirSayisi);
+      if (isNaN(sayiValue)) row.hasirSayisi = '1';
+    });
     
     // Ön izleme verileri oluştur
     const previewItems = allSheetData.map((rowData, index) => ({
@@ -3829,9 +3709,22 @@ const parseExcelData = (data) => {
   }
 };
 
+// Hasır tipini standartlaştırma fonksiyonu - Referans
+const standardizeHasirTipi = (value) => {
+  if (!value) return '';
+  
+  // Boşlukları kaldır ve büyük harfe çevir
+  let standardized = value.toUpperCase().replace(/\s+/g, '');
+  
+  // Q, R veya TR ile başladığını kontrol et
+  if (!/^(Q|R|TR)/.test(standardized)) return value;
+  
+  return standardized;
+};
 
 
-// Enhanced function to find columns by header text - comprehensive patterns for all fields
+
+// Geliştirilmiş sütun başlık metni eşleştirme fonksiyonu
 const findColumnsByHeaderText = (headers) => {
   const result = {
     hasirTipi: undefined,
@@ -3842,74 +3735,215 @@ const findColumnsByHeaderText = (headers) => {
   
   if (!headers) return result;
   
-  // Expanded header patterns for all fields
+  // Öncelik seviyelerine göre başlık kalıpları
   const headerPatterns = {
-    hasirTipi: [
-      'HASIR TİP', 'HASIR TIP', 'ÇELIK HASIR', 'CELIK HASIR', 'TİP', 'TIP',
-      'HASIR CİNS', 'HASIR CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 
-      'HASIR TÜRÜ', 'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ'
-    ],
-    uzunlukBoy: [
-      'BOY', 'UZUNLUK BOY', 'YÜKSEKLIK', 'YUKSEKLIK', 'BOY CM', 'BOY (CM)',
-      'Y.BOY', 'YÜKSEKLİK (CM)', 'YÜKSEKLIK (CM)', 'BOY UZUNLUK', 'UZUN',
-      'UZUN KENAR', 'BÜYÜK KENAR', 'BUYUK KENAR', 'HEIGHT', 'LENGTH'
-    ],
-    uzunlukEn: [
-      'EN', 'UZUNLUK EN', 'GENISLIK', 'GENİŞLİK', 'EN CM', 'EN (CM)',
-      'Y.EN', 'GENİŞLİK (CM)', 'GENISLIK (CM)', 'EN UZUNLUK', 'KISA',
-      'KISA KENAR', 'KÜÇÜK KENAR', 'KUCUK KENAR', 'WIDTH'
-    ],
-    hasirSayisi: [
-      'HASIR SAYISI', 'HASIR SAYIS', 'ADET', 'MİKTAR', 'MIKTAR',
-      'SAYI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI', 'TOPLAM ADET',
-      'TOPLAM', 'ADET SAYISI', 'HASIR ADEDI', 'HASIR ADEDİ',
-      'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ', 'SIPARIS',
-      'QUANTITY', 'COUNT', 'TOPLAM SAYI', 'TOPLAM HASIR',
-      'ADET SAYISI', 'TANE'
-    ]
+    hasirTipi: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'HASIR TİPİ', 'HASIR TIPI', 'HASIR TÜRÜ', 'HASIR TURU', 
+        'ÇELİK HASIR', 'CELIK HASIR', 'HASIR CİNSİ', 'HASIR CINSI'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'HASIR KODU', 'TİP', 'TIP', 'TÜR', 'TUR', 'CİNS', 'CINS', 
+        'hasır tipi', 'hasir tipi', 'çelik hasır', 'celik hasir',
+        'Q TİPİ', 'Q TIPI', 'R TİPİ', 'R TIPI', 'TR TİPİ', 'TR TIPI'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'HASIR', 'hasır', 'hasir', 'KOD', 'kod', 'MODEL', 'model'
+      ]
+    },
+    uzunlukBoy: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'UZUNLUK BOY', 'BOY UZUNLUĞU', 'BOY UZUNLUGU',
+        'HASIR BOYU', 'BOY ÖLÇÜSÜ', 'BOY OLCUSU'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'BOY', 'boy', 'BÜYÜK KENAR', 'BUYUK KENAR', 'UZUN KENAR',
+        'uzunluk boy', 'hasır boyu', 'hasir boyu', 'boy cm', 'BOY CM',
+        'YÜKSEKLİK', 'YUKSEKLIK', 'BOY(CM)', 'UZUNLUK(CM)'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'UZUNLUK', 'uzunluk', 'B. ÖLÇÜ', 'B.ÖLÇÜ', 'Y.BOY',
+        'BOYUT', 'boyut', 'Y BOYUT', 'ANA BOYUT', 'BYT', 'byt'
+      ]
+    },
+    uzunlukEn: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'UZUNLUK EN', 'EN UZUNLUĞU', 'EN UZUNLUGU',
+        'HASIR ENİ', 'HASIR ENI', 'EN ÖLÇÜSÜ', 'EN OLCUSU'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'EN', 'en', 'GENİŞLİK', 'GENISLIK', 'KÜÇÜK KENAR', 'KUCUK KENAR',
+        'KISA KENAR', 'uzunluk en', 'hasır eni', 'hasir eni', 'en cm', 'EN CM',
+        'EN(CM)', 'GENISLIK(CM)', 'WIDTH', 'width'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'E. ÖLÇÜ', 'E.ÖLÇÜ', 'Y.EN', 'KISA', 'kisa', 'DAR KENAR',
+        'X BOYUT', 'X.BOYUT', 'ENB', 'enb', 'İKİNCİ BOYUT', 'IKINCI BOYUT'
+      ]
+    },
+    hasirSayisi: {
+      // Yüksek öncelikli tam eşleşmeler
+      highPriority: [
+        'HASIR SAYISI', 'HASIR SAYISI', 'HASIR ADEDİ', 'HASIR ADEDI',
+        'HASIR ADETİ', 'HASIR ADETI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI'
+      ],
+      // Orta öncelikli kısmi eşleşmeler
+      mediumPriority: [
+        'ADET SAYISI', 'ADET SAYISI', 'TOPLAM HASIR', 'TOPLAM ADET',
+        'SİPARİŞ MİKTARI', 'SIPARIS MIKTARI', 'hasır sayısı', 'hasir sayisi',
+        'ADET MİKTARI', 'ADET MIKTARI', 'PARÇA SAYISI', 'PARCA SAYISI',
+        'İMALAT ADEDİ', 'IMALAT ADEDI', 'ÜRÜN ADEDİ', 'URUN ADEDI'
+      ],
+      // Düşük öncelikli genel eşleşmeler
+      lowPriority: [
+        'ADET', 'adet', 'MİKTAR', 'MIKTAR', 'miktar', 'SAYI', 'SAYI',
+        'sayı', 'sayi', 'TOPLAM', 'toplam', 'SİPARİŞ', 'SIPARIS',
+        'TANE', 'tane', 'QUANTITY', 'COUNT', 'AMOUNT', 'NUMBER'
+      ]
+    }
+  };
+
+  // Özel desenlerin kontrolü için regex'ler
+  const boyEnCombinedPattern = /^(.*?)(\d+)[\s]*[xX*][\s]*(\d+)(.*?)$/i;
+  const numberExtractPattern = /\d+/g;
+  
+  // Başlıkları ve indeksleri saklayacak, öncelik puanlarını hesaplayacağız
+  const candidateColumns = {
+    hasirTipi: [],
+    uzunlukBoy: [],
+    uzunlukEn: [],
+    hasirSayisi: []
   };
   
-  // Check all headers against patterns
+  // Tüm başlıkları kontrol et
   for (let i = 0; i < headers.length; i++) {
-    const header = String(headers[i] || '').trim().toUpperCase();
-    if (!header) continue;
+    if (!headers[i]) continue;
     
-    // Check each category against header text
+    // Başlık metnini normalleştir
+    const headerText = String(headers[i]).trim();
+    const upperHeaderText = headerText.toUpperCase();
+    
+    // Özel durumları kontrol et: Birleşik boy/en deseni (örn: "400x200")
+    const boyEnMatch = headerText.match(boyEnCombinedPattern);
+    if (boyEnMatch) {
+      const firstDimension = parseInt(boyEnMatch[2]);
+      const secondDimension = parseInt(boyEnMatch[3]);
+      
+      // Daha büyük boyut boy, daha küçük en olarak değerlendir
+      if (firstDimension > secondDimension) {
+        candidateColumns.uzunlukBoy.push({ index: i, priority: 60 }); // Yüksek öncelik
+      } else {
+        candidateColumns.uzunlukEn.push({ index: i, priority: 60 }); // Yüksek öncelik
+      }
+      continue;
+    }
+    
+    // Her kategori için önceliğe göre başlık kontrolleri
     for (const [category, patterns] of Object.entries(headerPatterns)) {
-      // First check for exact matches (higher priority)
-      if (patterns.includes(header)) {
-        result[category] = i;
-        break;
+      // Yüksek öncelikli tam eşleşmeler
+      if (patterns.highPriority.some(pattern => upperHeaderText === pattern)) {
+        candidateColumns[category].push({ index: i, priority: 100 });
+        continue;
       }
       
-      // Then check for partial matches
-      for (const pattern of patterns) {
-        if (header.includes(pattern)) {
-          result[category] = i;
-          break;
+      // Orta öncelikli kısmi eşleşmeler
+      if (patterns.mediumPriority.some(pattern => {
+        return upperHeaderText.includes(pattern) || 
+               upperHeaderText === pattern;
+      })) {
+        candidateColumns[category].push({ index: i, priority: 80 });
+        continue;
+      }
+      
+      // Düşük öncelikli genel eşleşmeler
+      if (patterns.lowPriority.some(pattern => {
+        return upperHeaderText.includes(pattern) || 
+               upperHeaderText === pattern;
+      })) {
+        candidateColumns[category].push({ index: i, priority: 60 });
+        continue;
+      }
+      
+      // Başlık içinde herhangi bir sayı var mı?
+      const numbers = headerText.match(numberExtractPattern);
+      
+      // Eğer başlık sadece tek bir sayı içeriyorsa, bu muhtemelen boyut değil
+      // Ancak herhangi bir şey içeriyorsa kontrol et
+      if (headerText.length > 0) {
+        // Boy/En/Hasır Sayısı kelimelerinden hiçbiri eşleşmediyse
+        // içerdiği kelimelere göre bulanık eşleştirme yapalım
+        
+        // Boy için en yaygın kısmi eşleşmeler
+        if (/boy|uzun|yuksek|buyuk|height|length/i.test(headerText)) {
+          candidateColumns.uzunlukBoy.push({ index: i, priority: 40 });
+        }
+        
+        // En için en yaygın kısmi eşleşmeler
+        if (/en|gen|dar|kucuk|kisa|width/i.test(headerText)) {
+          candidateColumns.uzunlukEn.push({ index: i, priority: 40 });
+        }
+        
+        // Hasır Sayısı için en yaygın kısmi eşleşmeler
+        if (/adet|say[iı]|miktar|count|piece/i.test(headerText)) {
+          candidateColumns.hasirSayisi.push({ index: i, priority: 40 });
+        }
+        
+        // Hasır Tipi için en yaygın kısmi eşleşmeler
+        if (/hasir|hasır|tip|cins|tur|tür|model|kod/i.test(headerText)) {
+          candidateColumns.hasirTipi.push({ index: i, priority: 40 });
         }
       }
+    }
+  }
+  
+  // Her kategori için en yüksek öncelikli adayı seç
+  for (const category of Object.keys(candidateColumns)) {
+    if (candidateColumns[category].length > 0) {
+      // Önceliğe göre sırala
+      candidateColumns[category].sort((a, b) => b.priority - a.priority);
+      // En yüksek önceliğe sahip olanı seç
+      result[category] = candidateColumns[category][0].index;
     }
   }
   
   return result;
 };
 
-// Kolon verilerini analiz et
+// Kolon verilerini analiz eden geliştirilmiş fonksiyon
 const analyzeColumnData = (data, hasHeaders) => {
   const startRow = hasHeaders ? 1 : 0;
   const result = {
-    potentialHasirSayisi: undefined,
-    columnStats: {}
+    potentialColumns: {
+      hasirTipi: undefined,
+      uzunlukBoy: undefined,
+      uzunlukEn: undefined,
+      hasirSayisi: undefined
+    },
+    columnStats: {},
+    confidence: {
+      hasirTipi: 0,
+      uzunlukBoy: 0,
+      uzunlukEn: 0,
+      hasirSayisi: 0
+    }
   };
   
   // Hiç veri yoksa boş dön
   if (data.length <= startRow) return result;
   
-  // Örnek satır sayısını belirle
+  // İlk 20 satırı inceleyerek istatistikler topla
   const maxSampleRows = Math.min(20, data.length - startRow);
   
-  // Her sütun için istatistikler
+  // Her sütun için istatistikler tut
   const colCount = data[0].length;
   for (let col = 0; col < colCount; col++) {
     const stats = {
@@ -3920,15 +3954,22 @@ const analyzeColumnData = (data, hasHeaders) => {
       sum: 0,
       values: [],
       valueCount: 0,
-      hasQRTRPattern: false
+      hasQRTRPattern: false,
+      valueVariance: 0,  // Değerlerin varyansı (Hasır Sayısı için önemli)
+      avgValue: 0,
+      boyUyumluluk: 0,   // Boy limitlerine uyum yüzdesi
+      enUyumluluk: 0,    // En limitlerine uyum yüzdesi
+      distinctValuesCount: 0, // Benzersiz değer sayısı
     };
     
     // Her örnek satırda bu sütunu analiz et
+    const values = [];
     for (let i = 0; i < maxSampleRows; i++) {
       const rowIndex = startRow + i;
       if (rowIndex >= data.length || !data[rowIndex] || !data[rowIndex][col]) continue;
       
-      const cellValue = String(data[rowIndex][col]).trim();
+      const cell = data[rowIndex][col];
+      const cellValue = String(cell).trim();
       
       // Q, R, TR kalıbı var mı?
       if (/^(Q|R|TR)\d+/i.test(cellValue)) {
@@ -3936,7 +3977,13 @@ const analyzeColumnData = (data, hasHeaders) => {
       }
       
       // Sayısal değer mi?
-      const numValue = parseFloat(formatNumber(cellValue));
+      let numValue;
+      try {
+        numValue = typeof cell === 'number' ? cell : parseFloat(formatNumber(cellValue));
+      } catch (e) {
+        numValue = NaN;
+      }
+      
       if (!isNaN(numValue)) {
         stats.numericCount++;
         stats.sum += numValue;
@@ -3951,75 +3998,231 @@ const analyzeColumnData = (data, hasHeaders) => {
         }
         
         stats.valueCount++;
-        stats.values.push(numValue);
+        values.push(numValue);
       }
     }
+    
+    // Değerleri sakla
+    stats.values = values;
     
     // Ortalama hesapla
     if (stats.valueCount > 0) {
       stats.avgValue = stats.sum / stats.valueCount;
+      
+      // Benzersiz değer sayısını hesapla
+      const distinctValues = new Set(values.map(v => Math.round(v * 100) / 100));
+      stats.distinctValuesCount = distinctValues.size;
+      
+      // Varyans hesapla (Hasır Sayısı varyansı yüksek olabilir)
+      if (values.length > 1) {
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - stats.avgValue, 2), 0) / values.length;
+        stats.valueVariance = variance;
+      }
+      
+      // Boy ve En sınırlarına uyum yüzdesi hesapla
+      const MACHINE_LIMITS = {
+        MIN_BOY: 270,
+        MAX_BOY: 800,
+        MIN_EN: 150,
+        MAX_EN: 250,
+        MIN_EN_ADJUSTABLE: 126
+      };
+      
+      // Boy sınırlarına uyumu kontrol et (daha yüksek değerler)
+      const boyUyumlular = values.filter(v => 
+        v >= MACHINE_LIMITS.MIN_BOY * 0.8 && 
+        v <= MACHINE_LIMITS.MAX_BOY * 1.2
+      );
+      stats.boyUyumluluk = boyUyumlular.length / values.length;
+      
+      // En sınırlarına uyumu kontrol et (daha düşük değerler)
+      const enUyumlular = values.filter(v => 
+        v >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && 
+        v <= MACHINE_LIMITS.MAX_EN * 1.2
+      );
+      stats.enUyumluluk = enUyumlular.length / values.length;
     }
     
     result.columnStats[col] = stats;
   }
   
-  // Potansiyel Hasır Sayısı sütununu belirle (tam sayı, 1-100000 aralığında)
-  let bestHasirSayisiScore = -1;
-  let bestHasirSayisiCol = undefined;
+  // İstatistiksel verilere dayalı olarak potansiyel sütunları belirle
+  
+  // 1. Hasır Tipi: Q/R/TR kalıplarını içeren sütunlar
+  let hasirTipiScore = 0;
+  let bestHasirTipiCol = undefined;
   
   for (const [col, stats] of Object.entries(result.columnStats)) {
-    // Sayısal değer kontrolü
-    if (stats.numericCount === 0) continue;
+    if (stats.hasQRTRPattern) {
+      // Q/R/TR kalıbı içerdiği için bu sütun Hasır Tipi olabilir
+      const score = 90; // Hasır Tipi için yüksek güven
+      
+      if (score > hasirTipiScore) {
+        hasirTipiScore = score;
+        bestHasirTipiCol = parseInt(col);
+      }
+    }
+  }
+  
+  // 2. Boy ve En için aday sütunları bul
+  let bestBoyCol = undefined;
+  let bestBoyScore = 0;
+  let bestEnCol = undefined; 
+  let bestEnScore = 0;
+  
+  for (const [col, stats] of Object.entries(result.columnStats)) {
+    if (stats.numericCount < 3) continue; // Yeterli sayısal veri yoksa atla
     
-    // Hasır Sayısı skoru hesapla
-    let score = 0;
+    // Boy için skor hesapla
+    let boyScore = 0;
     
-    // 1-100000 aralığında değerleri çok olan sütunlar
+    // Boy için önemli kriterler:
+    // - Değerlerin çoğu Boy sınırları içinde (270-800cm)
+    // - Değerler daha yüksek eğilimde
+    if (stats.boyUyumluluk > 0.7) {
+      boyScore = 75 * stats.boyUyumluluk;
+      
+      // Daha yüksek değerler Boy için avantaj sağlar
+      if (stats.avgValue > 350) boyScore += 10;
+      
+      // Değerler genellikle üst limite yakınsa bonus puan
+      if (stats.maxValue > 600) boyScore += 5;
+    }
+    
+    // En için skor hesapla
+    let enScore = 0;
+    
+    // En için önemli kriterler:
+    // - Değerlerin çoğu En sınırları içinde (126-250cm)
+    // - Değerler daha düşük eğilimde
+    if (stats.enUyumluluk > 0.7) {
+      enScore = 75 * stats.enUyumluluk;
+      
+      // Daha düşük değerler En için avantaj sağlar
+      if (stats.avgValue < 220) enScore += 10;
+      
+      // Değerler genellikle alt limite yakınsa bonus puan
+      if (stats.minValue < 200) enScore += 5;
+    }
+    
+    // En yüksek skorlu adayları güncelle
+    if (boyScore > bestBoyScore) {
+      bestBoyScore = boyScore;
+      bestBoyCol = parseInt(col);
+    }
+    
+    if (enScore > bestEnScore) {
+      bestEnScore = enScore;
+      bestEnCol = parseInt(col);
+    }
+  }
+  
+  // 3. Hasır Sayısı için aday sütunları bul
+  let bestHasirSayisiCol = undefined;
+  let bestHasirSayisiScore = 0;
+  
+  for (const [col, stats] of Object.entries(result.columnStats)) {
+    // Zaten boy, en veya hasır tipi olarak seçilen sütunları atla
+    if (
+      parseInt(col) === bestBoyCol ||
+      parseInt(col) === bestEnCol ||
+      parseInt(col) === bestHasirTipiCol
+    ) continue;
+    
+    if (stats.numericCount < 3) continue; // Yeterli sayısal veri yoksa atla
+    
+    // Hasır Sayısı için skor hesapla
+    let hasirSayisiScore = 0;
+    
+    // Hasır Sayısı için önemli kriterler:
+    // - Çoğunlukla tam sayılar
+    // - Geniş değer aralığı (1-100000)
+    // - Değerler arasında yüksek varyans (bir değer 10, diğeri 1000 olabilir)
+    
+    // Tam sayı oranı
+    const integerRatio = stats.integerCount / stats.numericCount;
+    if (integerRatio > 0.9) {
+      hasirSayisiScore += 40;
+    }
+    
+    // Değer aralığı uygun mu?
     if (stats.minValue >= 1 && stats.maxValue <= 100000) {
-      score += 30;
+      hasirSayisiScore += 20;
       
-      // Çoğunlukla tam sayı
-      if (stats.integerCount / stats.numericCount > 0.9) {
-        score += 30;
-      }
-      
-      // Düşük değerlerde yoğunlaşma (sık görülen hasır sayısı değerleri)
-      if (stats.avgValue < 100) {
-        score += 20;
-      }
-      
-      // 1, 2, 5, 10 gibi yaygın değerler içerme
-      const commonValues = [1, 2, 5, 10, 20, 50, 100];
-      for (const val of stats.values) {
-        if (commonValues.includes(Math.round(val))) {
-          score += 5;
-          break;
-        }
-      }
-      
-      // Önemli: Q, R, TR kalıbı içermiyor olmalı
-      if (!stats.hasQRTRPattern) {
-        score += 50;
+      // Adetlerde tipik olarak 1, 2, 5, 10 gibi değerler olabilir
+      if (stats.values.some(v => [1, 2, 5, 10, 20, 50, 100].includes(Math.round(v)))) {
+        hasirSayisiScore += 10;
       }
     }
     
-    // En iyi skoru kaydet
-    if (score > bestHasirSayisiScore) {
-      bestHasirSayisiScore = score;
+    // Varyans kontrolü - Hasır Sayısı değişkenlik gösterebilir
+    if (stats.valueVariance > 1000) {
+      hasirSayisiScore += 15;
+    }
+    
+    // Boy/En'e göre daha küçük değerler içeriyorsa bonus
+    if (bestBoyCol !== undefined && bestEnCol !== undefined) {
+      const boyStats = result.columnStats[bestBoyCol];
+      const enStats = result.columnStats[bestEnCol];
+      
+      if (stats.avgValue < Math.min(boyStats.avgValue, enStats.avgValue) * 0.5) {
+        hasirSayisiScore += 15;
+      }
+    }
+    
+    // En yüksek skorlu adayı güncelle
+    if (hasirSayisiScore > bestHasirSayisiScore) {
+      bestHasirSayisiScore = hasirSayisiScore;
       bestHasirSayisiCol = parseInt(col);
     }
   }
   
-  // Yeterince yüksek bir skor varsa (keyfi eşik: 60)
-  if (bestHasirSayisiScore >= 60) {
-    result.potentialHasirSayisi = bestHasirSayisiCol;
-  }
+  // Sonuçları ve güven skorlarını kaydet
+  result.potentialColumns.hasirTipi = bestHasirTipiCol;
+  result.potentialColumns.uzunlukBoy = bestBoyCol;
+  result.potentialColumns.uzunlukEn = bestEnCol;
+  result.potentialColumns.hasirSayisi = bestHasirSayisiCol;
+  
+  result.confidence.hasirTipi = hasirTipiScore;
+  result.confidence.uzunlukBoy = bestBoyScore;
+  result.confidence.uzunlukEn = bestEnScore;
+  result.confidence.hasirSayisi = bestHasirSayisiScore;
   
   return result;
 };
 
-// Improved combineColumnMaps with smarter priority logic
-const combineColumnMaps = (directMap, fallbackMap, columnCharacteristics) => {
+// Sayıları formatla fonksiyonu - Referans
+const formatNumber = (value) => {
+  if (value === undefined || value === null || value === '') return '';
+  
+  // Sayı formatını belirle (Türkçe veya İngilizce)
+  const stringValue = String(value);
+  
+  // Türkçe formatı: 1.234,56 -> 1234.56
+  if (stringValue.includes(',') && (stringValue.includes('.') || /\d{1,3}(\.\d{3})+/.test(stringValue))) {
+      return stringValue
+          .replace(/\./g, '') // Noktaları kaldır (binlik ayırıcı)
+          .replace(',', '.'); // Virgülü noktaya çevir (ondalık ayırıcı)
+  }
+  
+  // İngilizce formatı: 1,234.56 -> 1234.56
+  if (stringValue.includes('.') && stringValue.includes(',')) {
+      return stringValue.replace(/,/g, ''); // Virgülleri kaldır (binlik ayırıcı)
+  }
+  
+  // Sadece virgül varsa ve ondalık ayırıcı olarak kullanılmışsa
+  if (stringValue.includes(',') && !stringValue.includes('.')) {
+      return stringValue.replace(',', '.'); // Virgülü noktaya çevir
+  }
+  
+  return stringValue;
+};
+
+// Farklı sütun tespiti yöntemlerini birleştiren geliştirilmiş fonksiyon
+const combineColumnMaps = (headerMap, dataAnalysisResult) => {
+  // headerMap: Başlık tabanlı tespitler
+  // dataAnalysisResult: İstatistiksel analiz tabanlı tespitler
+  
   const result = {
     hasirTipi: undefined,
     uzunlukBoy: undefined,
@@ -4027,47 +4230,165 @@ const combineColumnMaps = (directMap, fallbackMap, columnCharacteristics) => {
     hasirSayisi: undefined
   };
   
-  // Priority 1: Direct header matches
-  if (directMap.hasirTipi !== undefined) result.hasirTipi = directMap.hasirTipi;
-  if (directMap.uzunlukBoy !== undefined) result.uzunlukBoy = directMap.uzunlukBoy;
-  if (directMap.uzunlukEn !== undefined) result.uzunlukEn = directMap.uzunlukEn;
-  if (directMap.hasirSayisi !== undefined) result.hasirSayisi = directMap.hasirSayisi;
+  // Güven skorları (öncelikleri belirlemek için)
+  const confidence = {
+    header: {
+      hasirTipi: headerMap.hasirTipi !== undefined ? 100 : 0,  // Başlık varsa yüksek güven
+      uzunlukBoy: headerMap.uzunlukBoy !== undefined ? 100 : 0,
+      uzunlukEn: headerMap.uzunlukEn !== undefined ? 100 : 0,
+      hasirSayisi: headerMap.hasirSayisi !== undefined ? 100 : 0
+    },
+    data: dataAnalysisResult.confidence || {
+      hasirTipi: 0,
+      uzunlukBoy: 0,
+      uzunlukEn: 0,
+      hasirSayisi: 0
+    }
+  };
   
-  // Priority 2: Statistical analysis for hasirSayisi
-  if (result.hasirSayisi === undefined && columnCharacteristics.potentialHasirSayisi !== undefined) {
-    result.hasirSayisi = columnCharacteristics.potentialHasirSayisi;
+  // Sütun adayları
+  const columnCandidates = {
+    hasirTipi: [
+      { source: 'header', value: headerMap.hasirTipi, confidence: confidence.header.hasirTipi },
+      { source: 'data', value: dataAnalysisResult.potentialColumns?.hasirTipi, confidence: confidence.data.hasirTipi }
+    ].filter(candidate => candidate.value !== undefined),
+    
+    uzunlukBoy: [
+      { source: 'header', value: headerMap.uzunlukBoy, confidence: confidence.header.uzunlukBoy },
+      { source: 'data', value: dataAnalysisResult.potentialColumns?.uzunlukBoy, confidence: confidence.data.uzunlukBoy }
+    ].filter(candidate => candidate.value !== undefined),
+    
+    uzunlukEn: [
+      { source: 'header', value: headerMap.uzunlukEn, confidence: confidence.header.uzunlukEn },
+      { source: 'data', value: dataAnalysisResult.potentialColumns?.uzunlukEn, confidence: confidence.data.uzunlukEn }
+    ].filter(candidate => candidate.value !== undefined),
+    
+    hasirSayisi: [
+      { source: 'header', value: headerMap.hasirSayisi, confidence: confidence.header.hasirSayisi },
+      { source: 'data', value: dataAnalysisResult.potentialColumns?.hasirSayisi, confidence: confidence.data.hasirSayisi }
+    ].filter(candidate => candidate.value !== undefined)
+  };
+
+  // Yöntem 1: Her alan için en güvenilir adayı seç
+  for (const field of Object.keys(result)) {
+    if (columnCandidates[field].length > 0) {
+      // Güven skoruna göre sırala
+      columnCandidates[field].sort((a, b) => b.confidence - a.confidence);
+      
+      // En yüksek güvenli olanı seç
+      result[field] = columnCandidates[field][0].value;
+    }
   }
   
-  // Priority 3: Fallback column detection
-  if (result.hasirTipi === undefined && fallbackMap.hasirTipi !== undefined) {
-    result.hasirTipi = fallbackMap.hasirTipi;
+  // Yöntem 2: Boy ve En birlikte değerlendir
+  // Eğer sadece bir tanesi bulunduysa diğerini de bulmaya çalış
+  if ((result.uzunlukBoy === undefined && result.uzunlukEn !== undefined) ||
+      (result.uzunlukBoy !== undefined && result.uzunlukEn === undefined)) {
+    
+    const potentialBoy = dataAnalysisResult.potentialColumns?.uzunlukBoy;
+    const potentialEn = dataAnalysisResult.potentialColumns?.uzunlukEn;
+    
+    // Eğer veri analizinden bulunabiliyorsa ekle
+    if (result.uzunlukBoy === undefined && potentialBoy !== undefined) {
+      result.uzunlukBoy = potentialBoy;
+    }
+    
+    if (result.uzunlukEn === undefined && potentialEn !== undefined) {
+      result.uzunlukEn = potentialEn;
+    }
   }
   
-  // Special case for en/boy where we need both - always use fallback if either is missing
-  if (result.uzunlukBoy === undefined && fallbackMap.uzunlukBoy !== undefined) {
-    result.uzunlukBoy = fallbackMap.uzunlukBoy;
+  // Yöntem 3: Boy ve En sütunları için tutarlılık kontrolü
+  // Eğer header'dan tespit edilen boyut sütunları mantıklı değilse düzelt
+  if (result.uzunlukBoy !== undefined && result.uzunlukEn !== undefined) {
+    // Boy ve En için aynı sütunu seçmişsek düzelt
+    if (result.uzunlukBoy === result.uzunlukEn) {
+      // Veri analizinden gelen alternatif değerleri kullan
+      if (potentialBoy !== undefined && potentialBoy !== result.uzunlukBoy) {
+        result.uzunlukBoy = potentialBoy;
+      } else if (potentialEn !== undefined && potentialEn !== result.uzunlukEn) {
+        result.uzunlukEn = potentialEn;
+      }
+    }
   }
   
-  if (result.uzunlukEn === undefined && fallbackMap.uzunlukEn !== undefined) {
-    result.uzunlukEn = fallbackMap.uzunlukEn;
+  // Yöntem 4: Hasır Sayısı için özel kontrol
+  // Hasır Sayısı bulunamadıysa ve potansiyel bir aday varsa
+  if (result.hasirSayisi === undefined && dataAnalysisResult.potentialColumns?.hasirSayisi !== undefined) {
+    result.hasirSayisi = dataAnalysisResult.potentialColumns.hasirSayisi;
   }
   
-  // If we have either uzunlukBoy or uzunlukEn but not both, use the fallback map
-  // This is important because the first implementation is better at distinguishing them
-  if ((result.uzunlukBoy === undefined || result.uzunlukEn === undefined) && 
-      (fallbackMap.uzunlukBoy !== undefined && fallbackMap.uzunlukEn !== undefined)) {
-    result.uzunlukBoy = fallbackMap.uzunlukBoy;
-    result.uzunlukEn = fallbackMap.uzunlukEn;
+  // Yöntem 5: Hasır Tipi için özel kontrol
+  // Hasır Tipi veri analizinde kesin bulunduysa (Q/R/TR kalıbı) ve header'dan farklı tespit edildiyse
+  // veri analizinden gelen değeri kullan
+  if (dataAnalysisResult.confidence?.hasirTipi >= 90 && 
+      result.hasirTipi !== dataAnalysisResult.potentialColumns?.hasirTipi) {
+    result.hasirTipi = dataAnalysisResult.potentialColumns?.hasirTipi;
   }
   
-  // Final priority for hasirSayisi
-  if (result.hasirSayisi === undefined && fallbackMap.hasirSayisi !== undefined) {
-    result.hasirSayisi = fallbackMap.hasirSayisi;
+  // Çakışma Çözümleme: 
+  // Eğer iki farklı alan için aynı sütun seçildiyse, veri analizine göre düzelt
+  const usedColumns = new Set();
+  const duplicates = [];
+  
+  // Çakışan sütunları tespit et
+  for (const field of Object.keys(result)) {
+    if (result[field] !== undefined) {
+      if (usedColumns.has(result[field])) {
+        duplicates.push(field);
+      } else {
+        usedColumns.add(result[field]);
+      }
+    }
+  }
+  
+  // Çakışmaları çöz
+  for (const field of duplicates) {
+    // Veri analizinden gelen alternatif adayları kullan
+    if (dataAnalysisResult.potentialColumns?.[field] !== undefined && 
+        !usedColumns.has(dataAnalysisResult.potentialColumns[field])) {
+      result[field] = dataAnalysisResult.potentialColumns[field];
+      usedColumns.add(result[field]);
+    } else {
+      // Başka bir alternatif bulunamadıysa geçici olarak temizle
+      const temp = result[field];
+      result[field] = undefined;
+      
+      // En uygun alternatifi bul
+      for (let col = 0; col < Object.keys(dataAnalysisResult.columnStats).length; col++) {
+        if (!usedColumns.has(col)) {
+          const stats = dataAnalysisResult.columnStats[col];
+          
+          // Alan tipine göre uygunluk kontrol et
+          if (field === 'uzunlukBoy' && stats.boyUyumluluk > 0.6) {
+            result[field] = col;
+            usedColumns.add(col);
+            break;
+          } else if (field === 'uzunlukEn' && stats.enUyumluluk > 0.6) {
+            result[field] = col;
+            usedColumns.add(col);
+            break;
+          } else if (field === 'hasirSayisi' && stats.integerCount / stats.numericCount > 0.9) {
+            result[field] = col;
+            usedColumns.add(col);
+            break;
+          } else if (field === 'hasirTipi' && stats.hasQRTRPattern) {
+            result[field] = col;
+            usedColumns.add(col);
+            break;
+          }
+        }
+      }
+      
+      // Hala bulunamadıysa önceki değeri geri koy
+      if (result[field] === undefined) {
+        result[field] = temp;
+      }
+    }
   }
   
   return result;
 };
-
 
 //Eklenmis
 
