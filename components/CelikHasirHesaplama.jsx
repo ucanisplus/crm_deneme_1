@@ -3831,7 +3831,7 @@ const parseExcelData = (data) => {
 
 
 
-// Enhanced function to find columns by header text - comprehensive patterns for all fields
+// Geliştirilmiş başlık metni arama fonksiyonu
 const findColumnsByHeaderText = (headers) => {
   const result = {
     hasirTipi: undefined,
@@ -3840,55 +3840,136 @@ const findColumnsByHeaderText = (headers) => {
     hasirSayisi: undefined
   };
   
-  if (!headers) return result;
+  if (!headers || headers.length === 0) return result;
   
-  // Expanded header patterns for all fields
+  // Genişletilmiş başlık kalıpları - tüm olası varyasyonlar için
   const headerPatterns = {
     hasirTipi: [
-      'HASIR TİP', 'HASIR TIP', 'ÇELIK HASIR', 'CELIK HASIR', 'TİP', 'TIP',
-      'HASIR CİNS', 'HASIR CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 
-      'HASIR TÜRÜ', 'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ'
+      'HASIR TİP', 'HASIR TIP', 'HASIR CİNS', 'HASIR CINS', 'ÇELIK HASIR', 'CELIK HASIR', 
+      'TİP', 'TIP', 'CİNS', 'CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 'HASIR TÜRÜ', 
+      'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ', 'Q TIPI', 'R TIPI', 
+      'TR TIPI', 'KOD', 'TÜR'
     ],
     uzunlukBoy: [
-      'BOY', 'UZUNLUK BOY', 'YÜKSEKLIK', 'YUKSEKLIK', 'BOY CM', 'BOY (CM)',
-      'Y.BOY', 'YÜKSEKLİK (CM)', 'YÜKSEKLIK (CM)', 'BOY UZUNLUK', 'UZUN',
-      'UZUN KENAR', 'BÜYÜK KENAR', 'BUYUK KENAR', 'HEIGHT', 'LENGTH'
+      'BOY', 'UZUNLUK BOY', 'BOY UZUNLUK', 'BOY UZUNLUĞU', 'BOY UZUNLUGU', 'HASIR BOYU', 
+      'HASIR BOY', 'UZUNLUK', 'BOY ÖLÇÜSÜ', 'BOY OLCUSU', 'BÜYÜK KENAR', 'BUYUK KENAR', 
+      'UZUN KENAR', 'B ÖLÇÜ', 'B OLCU', 'BOY CM', 'BOY(CM)', 'UZUNLUK(CM)', 'YÜKSEKLİK', 
+      'YUKSEKLIK', 'HASIR YÜKSEKLİĞİ', 'HASIR YUKSEKLIGI', 'HEIGHT', 'LENGTH', 'Y BOY', 
+      'BOYUT', 'ANA BOYUT', 'B.ÖLÇÜ', 'B.OLCU', 'BOY ÖLÇÜ', 'YÜKSEK', 'YUKSEK', 'UBOY',
+      'BYT', 'BOYUTLAR'
     ],
     uzunlukEn: [
-      'EN', 'UZUNLUK EN', 'GENISLIK', 'GENİŞLİK', 'EN CM', 'EN (CM)',
-      'Y.EN', 'GENİŞLİK (CM)', 'GENISLIK (CM)', 'EN UZUNLUK', 'KISA',
-      'KISA KENAR', 'KÜÇÜK KENAR', 'KUCUK KENAR', 'WIDTH'
+      'EN', 'UZUNLUK EN', 'EN UZUNLUK', 'EN UZUNLUĞU', 'EN UZUNLUGU', 'HASIR ENİ', 
+      'HASIR ENI', 'HASIR EN', 'GENİŞLİK', 'GENISLIK', 'EN ÖLÇÜSÜ', 'EN OLCUSU', 
+      'KÜÇÜK KENAR', 'KUCUK KENAR', 'KISA KENAR', 'E ÖLÇÜ', 'E OLCU', 'EN CM', 
+      'EN(CM)', 'GENISLIK(CM)', 'HASIR GENİŞLİĞİ', 'HASIR GENISLIGI', 'WIDTH', 
+      'Y EN', 'X BOYUT', 'E.ÖLÇÜ', 'E.OLCU', 'EN ÖLÇÜ', 'DAR KENAR', 'GENİŞ', 
+      'GENIS', 'UEN', 'ENB', 'ENİ'
     ],
     hasirSayisi: [
-      'HASIR SAYISI', 'HASIR SAYIS', 'ADET', 'MİKTAR', 'MIKTAR',
-      'SAYI', 'SİPARİŞ ADEDİ', 'SIPARIS ADEDI', 'TOPLAM ADET',
-      'TOPLAM', 'ADET SAYISI', 'HASIR ADEDI', 'HASIR ADEDİ',
-      'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ', 'SIPARIS',
-      'QUANTITY', 'COUNT', 'TOPLAM SAYI', 'TOPLAM HASIR',
-      'ADET SAYISI', 'TANE'
+      'HASIR SAYISI', 'HASIR SAYIS', 'ADET SAYISI', 'TOPLAM HASIR', 'SAYI', 
+      'MİKTAR', 'MIKTAR', 'ADET', 'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ ADEDİ', 
+      'SIPARIS ADEDI', 'SİPARİŞ', 'SIPARIS', 'TOPLAM ADET', 'HASIR ADEDİ', 'HASIR ADEDI', 
+      'HASIR ADETİ', 'HASIR ADETI', 'HASIR MİKTARI', 'HASIR MIKTARI', 'TOPLAM', 
+      'ADET TOPLAMI', 'PARÇA SAYISI', 'PARCA SAYISI', 'ÜRÜN ADEDİ', 'URUN ADEDI',
+      'SİPARİŞ MİKTARI', 'SIPARIS MIKTARI', 'İMALAT ADEDİ', 'IMALAT ADEDI', 'ADET NO', 
+      'TANE', 'QUANTITY', 'COUNT', 'PIECE', 'PIECES', 'NUMBER', 'AMOUNT', 'SİP ADET',
+      'SIP ADET'
     ]
   };
   
-  // Check all headers against patterns
+  // Başlıkları normalize et (büyük harfe çevir, boşlukları temizle, Türkçe karakterleri standartlaştır)
+  const normalizeHeader = (text) => {
+    if (!text) return '';
+    return String(text)
+      .toUpperCase()
+      .trim()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Aksanları kaldır
+      .replace(/İ/g, 'I')
+      .replace(/Ğ/g, 'G')
+      .replace(/Ü/g, 'U')
+      .replace(/Ş/g, 'S')
+      .replace(/Ö/g, 'O')
+      .replace(/Ç/g, 'C');
+  };
+  
+  // Başlık eşleşme skorları
+  const headerScores = {
+    hasirTipi: {},
+    uzunlukBoy: {},
+    uzunlukEn: {},
+    hasirSayisi: {}
+  };
+  
+  // Her başlık için kategorilere göre skor hesapla
   for (let i = 0; i < headers.length; i++) {
-    const header = String(headers[i] || '').trim().toUpperCase();
-    if (!header) continue;
+    const headerText = normalizeHeader(headers[i]);
+    if (!headerText) continue;
     
-    // Check each category against header text
+    // Her kategori için eşleşme skorunu hesapla
     for (const [category, patterns] of Object.entries(headerPatterns)) {
-      // First check for exact matches (higher priority)
-      if (patterns.includes(header)) {
-        result[category] = i;
-        break;
-      }
+      let bestScore = 0;
       
-      // Then check for partial matches
-      for (const pattern of patterns) {
-        if (header.includes(pattern)) {
-          result[category] = i;
-          break;
+      // Tam eşleşme (en yüksek puan)
+      if (patterns.includes(headerText)) {
+        bestScore = 100;
+      } 
+      // Kısmi eşleşme (orta puan)
+      else {
+        for (const pattern of patterns) {
+          // Normalize edilmiş pattern
+          const normalizedPattern = normalizeHeader(pattern);
+          
+          // Tam kelime eşleşmesi (yüksek puan)
+          if (headerText === normalizedPattern) {
+            bestScore = Math.max(bestScore, 100);
+            break;
+          }
+          
+          // Başlık, kalıbı içeriyor mu? (orta puan)
+          if (headerText.includes(normalizedPattern)) {
+            bestScore = Math.max(bestScore, 75);
+          }
+          
+          // Kalıp, başlığı içeriyor mu? (düşük-orta puan)
+          if (normalizedPattern.includes(headerText) && headerText.length >= 2) {
+            bestScore = Math.max(bestScore, 60);
+          }
+          
+          // Karakter bazlı eşleşme yüzdesi (en düşük puan)
+          // Örnek: "UZUNLUK" ve "BOY UZUNLUK" - kısmi eşleşme
+          if (headerText.length >= 2 && normalizedPattern.length >= 2) {
+            const matchCount = [...headerText].filter(char => normalizedPattern.includes(char)).length;
+            const matchPercent = matchCount / Math.max(headerText.length, normalizedPattern.length);
+            
+            if (matchPercent > 0.5) {
+              bestScore = Math.max(bestScore, Math.floor(matchPercent * 50));
+            }
+          }
         }
       }
+      
+      if (bestScore > 0) {
+        headerScores[category][i] = bestScore;
+      }
+    }
+  }
+  
+  // Her kategori için en yüksek skorlu başlığı seç
+  for (const category of Object.keys(result)) {
+    let maxScore = 0;
+    let bestIndex = undefined;
+    
+    for (const [index, score] of Object.entries(headerScores[category])) {
+      if (score > maxScore) {
+        maxScore = score;
+        bestIndex = parseInt(index);
+      }
+    }
+    
+    // Minimum skor eşiği (örneğin 30)
+    if (maxScore >= 30) {
+      result[category] = bestIndex;
     }
   }
   
@@ -4077,8 +4158,9 @@ const extractMergedCellHeaders = (worksheet) => {
   const mergedHeaders = {};
   
   // Birleştirilmiş hücrelerdeki başlıkları çıkar
+  // İlk 5 satıra kadar kontrol et (birden fazla başlık satırı olabilir)
   mergedCells.forEach(merge => {
-    if (merge.s.r < 2) { // İlk iki satıra odaklan (başlıklar genellikle burada)
+    if (merge.s.r < 5) { // İlk 5 satıra odaklan (başlıklar genellikle burada)
       const startCell = XLSX.utils.encode_cell(merge.s);
       if (worksheet[startCell] && worksheet[startCell].v) {
         const headerValue = String(worksheet[startCell].v).trim();
@@ -5175,25 +5257,36 @@ const parseCsvData = (data) => {
     return hasValidHasirTipi && (hasValidUzunlukBoy || hasValidUzunlukEn);
   };
 
-  // Veride başlık satırı olup olmadığını tahmin et
-  const guessIfHasHeaders = (data) => {
-    if (data.length < 2) return false;
+// Veride başlık satırı olup olmadığını tahmin et - Geliştirilmiş versiyon
+const guessIfHasHeaders = (data) => {
+  if (data.length < 2) return false;
+  
+  // İlk 5 satırı kontrol et (çok satırlı başlık olabilir)
+  for (let headerRowIndex = 0; headerRowIndex < Math.min(5, data.length - 1); headerRowIndex++) {
+    const potentialHeaderRow = data[headerRowIndex];
+    const nextRow = data[headerRowIndex + 1];
     
-    const firstRow = data[0];
-    const secondRow = data[1];
+    if (!potentialHeaderRow || !nextRow) continue;
     
     // Başlık olabilecek tipik sütun adları
     const headerKeywords = [
-      'hasır', 'tipi', 'tip', 'boy', 'en', 'uzunluk', 'genislik', 'sayı', 'adet', 'miktar',
-      'çap', 'cap', 'çubuk', 'cubuk', 'filiz', 'ağırlık', 'weight', 'kg', 'cinsi'
+      // Boy ile ilgili anahtar kelimeler
+      'boy', 'uzunluk boy', 'boy uzunluk', 'hasır boy', 'hasir boy', 'uzunluk', 'boy ölçü',
+      'büyük kenar', 'buyuk kenar', 'uzun kenar', 'b ölçü', 'yükseklik', 'yukseklik', 'height', 'length',
+      // En ile ilgili anahtar kelimeler
+      'en', 'uzunluk en', 'en uzunluk', 'hasır en', 'hasir en', 'genişlik', 'genislik', 'en ölçü',
+      'küçük kenar', 'kucuk kenar', 'kısa kenar', 'kisa kenar', 'e ölçü', 'width',
+      // Hasır tipi/sayısı ile ilgili anahtar kelimeler
+      'hasır tip', 'hasir tip', 'tip', 'cins', 'tür', 'tur', 'çelik hasır', 'celik hasir',
+      'hasır sayı', 'hasir sayi', 'adet', 'miktar', 'sayı', 'sayi', 'quantity', 'count'
     ];
     
     // İlk satırda sayı olmayan değerler var mı kontrol et
     let nonNumericHeaderCount = 0;
     let keywordMatchCount = 0;
     
-    for (let i = 0; i < firstRow.length; i++) {
-      const value = String(firstRow[i]).toLowerCase();
+    for (let i = 0; i < potentialHeaderRow.length; i++) {
+      const value = String(potentialHeaderRow[i] || '').toLowerCase().trim();
       if (value && isNaN(parseFloat(value))) {
         nonNumericHeaderCount++;
         
@@ -5204,18 +5297,55 @@ const parseCsvData = (data) => {
       }
     }
     
-    // İkinci satırda sayısal değerler var mı kontrol et
+    // İkinci satırda sayısal değerler ve Q/R/TR desenleri var mı kontrol et
     let numericDataCount = 0;
-    for (let i = 0; i < secondRow.length; i++) {
-      const value = String(secondRow[i]);
-      if (value && !isNaN(parseFloat(formatNumber(value)))) {
+    let hasirTipiPatternCount = 0;
+    
+    for (let i = 0; i < nextRow.length; i++) {
+      const value = String(nextRow[i] || '').trim();
+      
+      // Hasır tipi deseni ara (Q, R, TR ile başlayan)
+      if (/^(Q|R|TR)\d+/i.test(value)) {
+        hasirTipiPatternCount++;
+      }
+      
+      // Sayısal değerleri kontrol et
+      const numValue = parseFloat(formatNumber(value));
+      if (!isNaN(numValue) && numValue > 0) {
         numericDataCount++;
       }
     }
     
-    // Eğer ilk satırda başlık anahtar kelimeleri varsa ve ikinci satırda sayısal değerler varsa, başlık vardır
-    return (keywordMatchCount > 0 && numericDataCount > 0) || nonNumericHeaderCount > 2;
-  };
+    // Eğer aşağıdaki koşullardan biri sağlanıyorsa, bu satır başlık olabilir:
+    // 1. Başlık anahtar kelimeleri ve sonraki satırda sayısal değerler var
+    // 2. Başlık anahtar kelimeleri ve sonraki satırda hasır tipi desenleri var
+    // 3. Çok sayıda sayısal olmayan değer var ve sonraki satır veri içeriyor
+    if ((keywordMatchCount > 0 && numericDataCount > 0) || 
+        (keywordMatchCount > 0 && hasirTipiPatternCount > 0) ||
+        (nonNumericHeaderCount > 2 && (numericDataCount > 1 || hasirTipiPatternCount > 0))) {
+      return true;
+    }
+  }
+  
+  // Özel durum: Q/R/TR desenlerini içeren bir satır var mı kontrol et
+  // İlk veri içeren satırın bir önceki satırını başlık olarak kabul et
+  for (let i = 0; i < Math.min(10, data.length); i++) {
+    const row = data[i];
+    if (!row) continue;
+    
+    for (const cell of row) {
+      if (!cell) continue;
+      const cellValue = String(cell).trim();
+      
+      if (/^(Q|R|TR)\d+/i.test(cellValue) && i > 0) {
+        // Bir önceki satır muhtemelen başlık
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
 
   // Ön izleme tablosundan tüm satırları silme
   const deleteAllPreviewRows = () => {
