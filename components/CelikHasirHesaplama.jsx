@@ -1736,6 +1736,14 @@ const iyilestirAll = async () => {
       
       // AŞAMA 4: İTERATİF İYİLEŞTİRME SÜRECİ - Çubuk sayıları ve filiz değerleri için
       if (!row.uretilemez) {
+        // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
+        const initialFilizValues = {
+          on: row.onFiliz,
+          arka: row.arkaFiliz,
+          sol: row.solFiliz,
+          sag: row.sagFiliz
+        };
+        
         // İteratif optimizasyon için maksimum döngü sayısı
         const MAX_ITERATIONS = 3;
         let iterationCount = 0;
@@ -1774,13 +1782,6 @@ const iyilestirAll = async () => {
           }
           
           // Filiz değerlerini hesapla
-          const oldFilizValues = {
-            solFiliz: row.solFiliz,
-            sagFiliz: row.sagFiliz,
-            onFiliz: row.onFiliz,
-            arkaFiliz: row.arkaFiliz
-          };
-          
           calculateFilizValues(row);
           optimizeFilizValues(row);
           
@@ -1816,10 +1817,10 @@ const iyilestirAll = async () => {
         }
         
         // Değişiklik olmuşsa rapor et (sadece bir kez - iterasyonlar sonunda)
-        if (Math.abs(oldFilizValues.solFiliz - row.solFiliz) > 0.1 || 
-            Math.abs(oldFilizValues.sagFiliz - row.sagFiliz) > 0.1 ||
-            Math.abs(oldFilizValues.onFiliz - row.onFiliz) > 0.1 ||
-            Math.abs(oldFilizValues.arkaFiliz - row.arkaFiliz) > 0.1) {
+        if (Math.abs(initialFilizValues.sol - row.solFiliz) > 0.1 || 
+            Math.abs(initialFilizValues.sag - row.sagFiliz) > 0.1 ||
+            Math.abs(initialFilizValues.on - row.onFiliz) > 0.1 ||
+            Math.abs(initialFilizValues.arka - row.arkaFiliz) > 0.1) {
           changesCount++;
           newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
         }
