@@ -3828,17 +3828,7 @@ const parseExcelData = (data) => {
         let isValidBoy = !isNaN(boyValue) && boyValue >= 50;
         let isValidEn = !isNaN(enValue) && enValue >= 50;
         
-        // Boy/En oranını kontrol et - Boy'un En'den belirgin şekilde büyük olması beklenir
-        if (isValidBoy && isValidEn && boyValue < enValue) {
-          // Boy < En ise, değerleri değiştir - bu anormal bir durumdur
-          const temp = uzunlukBoy;
-          uzunlukBoy = uzunlukEn;
-          uzunlukEn = temp;
-          
-          isValidBoy = !isNaN(parseFloat(uzunlukBoy)) && parseFloat(uzunlukBoy) >= 50;
-          isValidEn = !isNaN(parseFloat(uzunlukEn)) && parseFloat(uzunlukEn) >= 50;
-        }
-        
+
         // En az bir boyut geçerli olmalı
         if (!isValidBoy && !isValidEn) {
           // Diğer sütunlarda 50+ değerleri ara
@@ -3907,16 +3897,7 @@ const parseExcelData = (data) => {
           isValidEn = true;
         }
         
-        // SON KONTROL: Boy > En olmalı
-        const finalBoyValue = parseFloat(uzunlukBoy);
-        const finalEnValue = parseFloat(uzunlukEn);
-        
-        if (isValidBoy && isValidEn && finalBoyValue < finalEnValue) {
-          // Değerleri değiştir
-          const temp = uzunlukBoy;
-          uzunlukBoy = uzunlukEn;
-          uzunlukEn = temp;
-        }
+     
         
         // Hasır Sayısı için kontrol - ÖNEMLİ DÜZELTME: HASIR SAYISI için BİRDEN FAZLA AŞAMALI YAKLAŞIM
         if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
@@ -4510,12 +4491,7 @@ const combineColumnMaps = (headerMap, dataAnalysisMap) => {
       const boyAvg = columnStats[result.uzunlukBoy].numericAverage;
       const enAvg = columnStats[result.uzunlukEn].numericAverage;
       
-      // Genel kural: Boy > En olmalı
-      if (boyAvg < enAvg) {
-        const temp = result.uzunlukBoy;
-        result.uzunlukBoy = result.uzunlukEn;
-        result.uzunlukEn = temp;
-      }
+
     }
   }
   
