@@ -3227,6 +3227,7 @@ const processExtractedTextFromOCR = (extractedText) => {
 // Hasır Sayısı sütununu belirleme - Tamamen yenilenmiş versiyon
 function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol) {
   // ÖNCELİKLİ KONTROL: HASIR SAYISI için kesin başlık kontrolü 
+  // DOĞRUDAN HASIR SAYISI/HASIR ADEDİ başlığı kontrolü - En yüksek öncelik
   if (headerRowIndex >= 0) {
     const headerRow = jsonData[headerRowIndex];
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
@@ -3237,7 +3238,7 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
       
       const header = String(headerRow[colIndex]).toUpperCase().trim();
       
-      // Tam eşleşmeler için anında seç ve döndür
+      // HASIR SAYISI/HASIR SAYICI/HASIR ADEDİ için en yüksek öncelik
       if (header === "HASIR SAYISI" || header === "HASIR SAYICI" || 
           header === "HASIR ADEDİ" || header === "HASIR ADEDI") {
         return colIndex; // Hemen döndür
@@ -3309,13 +3310,14 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
       // Veri analizi sonucuna göre karar verilecek, ama şimdilik bu başlığı aday olarak tut
       const candidateHeaderCol = bestHeaderMatch;
       
-      // 2. VERİ ANALİZİ - BAŞLIK YETERLİ DEĞİLSE
+      // Herhangi bir başlık eşleşmesi yoksa, EN BÜYÜK DEĞERLERE sahip sütunu bul
+      // Veri satırlarını incele
       const dataRows = jsonData.slice(dataStartRow, Math.min(jsonData.length, dataStartRow + 15));
       const columnStats = {};
       
-      // Tüm sütunlar için istatistik topla (aday başlık dahil)
+      // Her sütun için max değerleri ve ortalamayı hesapla
       for (let colIndex = 0; colIndex < Math.max(...dataRows.map(row => row.length)); colIndex++) {
-        // Boy ve En sütunlarını atla
+        // Zaten bilinen sütunları atla
         if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
         
         const values = [];
@@ -3331,26 +3333,28 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
           }
         }
         
-        if (values.length >= 2) { // En az 2 sayısal değer olmalı
-          // İstatistikleri hesapla
+        if (values.length >= 3) { // En az 3 sayısal değer olmalı
           columnStats[colIndex] = {
-            values: values,
-            count: values.length,
-            min: Math.min(...values),
-            max: Math.max(...values),
+            maxValue: Math.max(...values),
             avg: values.reduce((sum, val) => sum + val, 0) / values.length,
-            // Tam sayı yüzdesi
-            integerCount: values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001).length,
-            // Küçük değerler (1-10)
-            smallValueCount: values.filter(v => v >= 1 && v <= 10).length,
-            // Büyük değerler (>50)
-            largeValueCount: values.filter(v => v > 50).length,
-            // Çok büyük değerler (>100)
-            veryLargeValueCount: values.filter(v => v > 100).length,
-            // Benzersiz değer sayısı
-            uniqueValues: new Set(values).size
+            count: values.length
           };
         }
+      }
+      
+      // En büyük MAX değere sahip sütunu bul
+      let highestMaxVal = -1;
+      let bestColumn = -1;
+      
+      for (const [col, stats] of Object.entries(columnStats)) {
+        if (stats.maxValue > highestMaxVal) {
+          highestMaxVal = stats.maxValue;
+          bestColumn = parseInt(col);
+        }
+      }
+      
+      if (bestColumn !== -1) {
+        return bestColumn;
       }
       
       // Aday başlık sütununun veri analizi
