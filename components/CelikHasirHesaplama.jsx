@@ -3271,159 +3271,116 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
     }
   };
 
-// OCR.space'den gelen metni özel olarak işleme 
+// OCR sonuçlarını sütun eşleştirmesi ile işleme
 const processExtractedTextFromOCR = (extractedText) => {
   try {
     // İlk olarak satırlara böl
     const lines = extractedText.split('\n').filter(line => line.trim() !== '');
     
-    // Potansiyel veri satırlarını belirle
-    let dataRows = [];
+    // Verileri tablo formatına getir
+    const tableData = [];
     
-    // Her satırda Hasır Tipi, Uzunluk bilgileri var mı kontrol et
     for (const line of lines) {
-      // Hasır Tipi için özel model tanıma (Q, R veya TR ile başlayan)
-      const hasirTipiMatch = line.match(/(?:\b|\s)([QRTRqrtr]{1,2}\s*\d{2,3}(?:\/\d{2,3})?)/i);
-      let hasirTipi = hasirTipiMatch ? standardizeHasirTipi(hasirTipiMatch[1]) : '';
+      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
+      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
+      if (rowData.length > 0) {
+        tableData.push(rowData);
+      }
+    }
+    
+    if (tableData.length === 0) {
+      alert('OCR sonuçlarında işlenebilir veri bulunamadı.');
+      return;
+    }
+    
+    // Başlıkları tespit et - OCR için genellikle başlık olmaz
+    const hasHeaders = false;
+    const headerRow = [];
+    
+    // Hasır Tipi sütununu bul (Q, R, TR deseni)
+    let hasirTipiCol = -1;
+    
+    // Tüm satırlarda deseni kontrol et
+    for (let rowIndex = 0; rowIndex < tableData.length; rowIndex++) {
+      const row = tableData[rowIndex];
       
-      // Eğer hasir tipi bulunamadıysa, "Q", "R" veya "TR" ile başlayan kelimeyi ara
-      if (!hasirTipi) {
-        const prefixMatch = line.match(/\b([QRqr]{1}|TR|tr)\s*\d+/i);
-        hasirTipi = prefixMatch ? standardizeHasirTipi(prefixMatch[0]) : '';
+      for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
+        
+        if (/^(Q|R|TR)\d+/.test(cellValue)) {
+          hasirTipiCol = colIndex;
+          break;
+        }
       }
       
-      // Sayısal değerler için arama (potansiyel boy, en ve hasır sayısı)
-      // Hem nokta hem virgül ile ayrılmış ondalık sayıları destekle (Türkçe/İngilizce)
-      const numericMatches = line.match(/\b\d+[.,]?\d*\b/g) || [];
+      if (hasirTipiCol !== -1) break;
+    }
+    
+    // Hasır tipi sütunu bulunamadıysa, her satırda tam değer ara
+    if (hasirTipiCol === -1) {
+      // Her satırı tek tek kontrol et
+      const processedData = [];
       
-      // En az bir sayısal değer ve hasır tipi varsa, veri satırı olarak değerlendir
-      if (hasirTipi && numericMatches.length >= 2) {
-        // Sayısal değerlerin analizi
-        const formattedNums = numericMatches.map(n => formatNumber(n));
+      for (const row of tableData) {
+        let hasirTipi = null;
         
-        // Boy ve En için makine limitleri kontrolü
-        const boyEnCandidates = [];
-        for (const num of formattedNums) {
-          const val = parseFloat(num);
-          if (!isNaN(val)) {
-            // Makine limitlerini kontrol et
-            if (val >= MACHINE_LIMITS.MIN_BOY * 0.8 && val <= MACHINE_LIMITS.MAX_BOY * 1.2) {
-              boyEnCandidates.push({ value: val, isBoy: true });
-            } else if (val >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && val <= MACHINE_LIMITS.MAX_EN * 1.2) {
-              boyEnCandidates.push({ value: val, isBoy: false });
-            }
+        // Satırdaki her değeri kontrol et
+        for (const cell of row) {
+          if (/^(Q|R|TR)\d+/i.test(cell)) {
+            hasirTipi = cell;
+            break;
           }
         }
         
-        // Uygun Boy ve En değerlerini seç
-        let uzunlukBoy = '';
-        let uzunlukEn = '';
-        
-        // İlk önce Boy değerini belirle
-        const boyCandidates = boyEnCandidates.filter(c => c.isBoy);
-        if (boyCandidates.length > 0) {
-          // En büyük değeri al
-          boyCandidates.sort((a, b) => b.value - a.value);
-          uzunlukBoy = boyCandidates[0].value.toString();
-        }
-        
-        // Sonra En değerini belirle
-        const enCandidates = boyEnCandidates.filter(c => !c.isBoy);
-        if (enCandidates.length > 0) {
-          // En büyük değeri al, Boydan küçük olmalı
-          enCandidates.sort((a, b) => b.value - a.value);
-          uzunlukEn = enCandidates[0].value.toString();
-        }
-        
-        // Eğer limitler bulunamazsa, büyükten küçüğe sırala
-        if (!uzunlukBoy && !uzunlukEn && formattedNums.length >= 2) {
-          const sortedNums = [...formattedNums].map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => b - a);
-          if (sortedNums.length >= 2) {
-            uzunlukBoy = sortedNums[0].toString();
-            uzunlukEn = sortedNums[1].toString();
-          }
-        }
-        
-        // Hasır sayısı için kalan değerleri değerlendir
-        let hasirSayisi = '';
-        const remainingNums = formattedNums
-          .map(n => parseFloat(n))
-          .filter(n => !isNaN(n) && 
-                n.toString() !== uzunlukBoy && 
-                n.toString() !== uzunlukEn);
-        
-        if (remainingNums.length > 0) {
-          // Tam sayıları filtrele
-          const integerValues = remainingNums.filter(n => 
-            Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.001
-          );
+        // Hasır tipi bulunduysa, bu satırı işle
+        if (hasirTipi) {
+          // Sayısal değerleri bul
+          const numericValues = row
+            .filter(cell => cell !== hasirTipi)
+            .map(cell => {
+              const num = parseFloat(formatNumber(cell));
+              return isNaN(num) ? null : num;
+            })
+            .filter(num => num !== null);
           
-          if (integerValues.length > 0) {
-            // Tam sayı varsa ilk değeri al
-            hasirSayisi = integerValues[0].toString();
-          } else {
-            // En küçük değeri al
-            hasirSayisi = remainingNums[0].toString();
+          // En az 2 sayısal değer varsa geçerli satır
+          if (numericValues.length >= 2) {
+            processedData.push([hasirTipi, ...numericValues.map(num => num.toString())]);
           }
-        } else if (formattedNums.length > 2) {
-          // Eğer hasır sayısı bulunamazsa ve 2'den fazla sayı varsa, en küçüğünü al
-          const sortedNums = [...formattedNums].map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => a - b);
-          if (sortedNums.length > 2) {
-            hasirSayisi = sortedNums[0].toString();
-          } else {
-            hasirSayisi = '1'; // Varsayılan
-          }
-        } else {
-          hasirSayisi = '1'; // Varsayılan
         }
+      }
+      
+      // İşlenmiş verileri kullan
+      if (processedData.length > 0) {
+        const sheetsData = [{
+          sheetName: "OCR",
+          headers: [],
+          data: processedData,
+          hasirTipiCol: 0, // İlk sütun hasır tipi
+          hasHeaders: false
+        }];
         
-        // Veri satırını ekle
-        if (hasirTipi && (uzunlukBoy || uzunlukEn)) {
-          dataRows.push({
-            hasirTipi,
-            uzunlukBoy,
-            uzunlukEn,
-            hasirSayisi
-          });
-        }
+        // Eşleştirme modalını göster
+        setSheetData(sheetsData);
+        setShowMappingModal(true);
+        return;
       }
     }
     
-    // Bulunan verileri makine limitlerine göre doğrula
-    const validatedDataRows = dataRows.filter(row => {
-      // Boy ve En değerlerini kontrol et
-      const boyValue = parseFloat(row.uzunlukBoy);
-      const enValue = parseFloat(row.uzunlukEn);
-      
-      // Boy ve En için makine limitlerini gevşek kontrol et
-      const isBoyValid = isNaN(boyValue) || 
-                        (boyValue >= MACHINE_LIMITS.MIN_BOY * 0.7 && 
-                         boyValue <= MACHINE_LIMITS.MAX_BOY * 1.3);
-      
-      const isEnValid = isNaN(enValue) || 
-                       (enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.7 && 
-                        enValue <= MACHINE_LIMITS.MAX_EN * 1.3);
-      
-      return isBoyValid && isEnValid;
-    });
+    const sheetsData = [{
+      sheetName: "OCR",
+      headers: headerRow,
+      data: tableData,
+      hasirTipiCol,
+      hasHeaders
+    }];
     
-    // Bulunan verileri ön izleme tablosuna ekle
-    if (validatedDataRows.length > 0) {
-      const previewItems = validatedDataRows.map((rowData, index) => ({
-        id: index,
-        hasirTipi: rowData.hasirTipi || '',
-        uzunlukBoy: rowData.uzunlukBoy || '',
-        uzunlukEn: rowData.uzunlukEn || '',
-        hasirSayisi: rowData.hasirSayisi || ''
-      }));
-      
-      setPreviewData(previewItems);
-    } else {
-      // Veri bulunamadıysa veya tümü geçersizse normal metin işlemeye geri dön
-      parseTextData(extractedText);
-    }
+    // Eşleştirme modalını göster
+    setSheetData(sheetsData);
+    setShowMappingModal(true);
+    
   } catch (error) {
-    console.error('OCR.space veri analiz hatası:', error);
+    console.error('OCR veri analiz hatası:', error);
     // Hata durumunda basit metin işlemeye geri dön
     parseTextData(extractedText);
   }
