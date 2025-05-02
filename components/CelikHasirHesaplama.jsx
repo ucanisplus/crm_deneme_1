@@ -3506,29 +3506,68 @@ const processExtractedTextFromOCR = (extractedText) => {
     event.target.value = '';
   };
 
-  // Metin verilerini işleme
-  const parseTextData = (text) => {
-    try {
-      // Metni satırlara böl
-      const lines = text.split(/\r?\n/);
-      
-      // Boş satırları filtrele
-      const nonEmptyLines = lines.filter(line => line.trim() !== '');
-      
-      // Verileri düzelt ve tablo formatına getir
-      const tableData = nonEmptyLines.map(line => {
-        // Tab, virgül veya boşluklarla ayrılmış verileri parçala
-        const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
-        return rowData;
-      }).filter(row => row.length > 0);
-      
-      // Verileri işle
-      validateAndProcessTabularData(tableData);
-    } catch (error) {
-      console.error('Metin işleme hatası:', error);
-      alert('Metin işleme hatası: ' + error.message);
+// Metin verilerini sütun eşleştirmesi ile işleme
+const parseTextData = (text) => {
+  try {
+    // Metni satırlara böl
+    const lines = text.split(/\r?\n/);
+    
+    // Boş satırları filtrele
+    const nonEmptyLines = lines.filter(line => line.trim() !== '');
+    
+    // Verileri düzelt ve tablo formatına getir
+    const tableData = nonEmptyLines.map(line => {
+      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
+      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
+      return rowData;
+    }).filter(row => row.length > 0);
+    
+    if (tableData.length === 0) {
+      alert('İşlenebilir veri bulunamadı.');
+      return;
     }
-  };
+    
+    // Başlıkları tespit et
+    const hasHeaders = guessIfHasHeaders(tableData);
+    const headerRow = hasHeaders ? tableData[0] : [];
+    const dataStartRow = hasHeaders ? 1 : 0;
+    
+    // Hasır Tipi sütununu bul (Q, R, TR deseni)
+    let hasirTipiCol = -1;
+    
+    // Birkaç satırda deseni kontrol et
+    for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, tableData.length); rowIndex++) {
+      const row = tableData[rowIndex];
+      
+      for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
+        
+        if (/^(Q|R|TR)\d+/.test(cellValue)) {
+          hasirTipiCol = colIndex;
+          break;
+        }
+      }
+      
+      if (hasirTipiCol !== -1) break;
+    }
+    
+    const sheetsData = [{
+      sheetName: "Metin",
+      headers: headerRow,
+      data: tableData.slice(dataStartRow),
+      hasirTipiCol,
+      hasHeaders
+    }];
+    
+    // Eşleştirme modalını göster
+    setSheetData(sheetsData);
+    setShowMappingModal(true);
+    
+  } catch (error) {
+    console.error('Metin işleme hatası:', error);
+    alert('Metin işleme hatası: ' + error.message);
+  }
+};
 
 
 
