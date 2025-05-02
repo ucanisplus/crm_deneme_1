@@ -1196,26 +1196,49 @@ const handleCellChange = (rowIndex, field, value) => {
   // Değeri güncelle
   row[field] = value;
   
-  // Özel durumlar için kontrol
-  if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
-      // Allow empty value for backspace to work
-      if (value === '') {
-          row[field] = '';
-          setRows(updatedRows);
-          return;
-      }
-      
-      // Kullanıcı çubuk sayısını düzenlediğinde işaretleri kaldır
-      // Reset modified flag when user explicitly edits these fields
-      row.modified[field] = false;
-  }
+// Özel durumlar için kontrol - Cubuk sayıları için özel işlem
+if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
+    // Allow empty value for backspace to work
+    if (value === '') {
+        row[field] = '';
+        setRows(updatedRows);
+        return;
+    }
+    
+    // Çubuk sayısı değiştirildi, işaretle
+    row.modified[field] = true;
+    
+    // Eğer değer geçerli bir sayı ise ve hasır tipi doluysa filiz değerlerini güncelle
+    if (!isNaN(parseFloat(value)) && row.hasirTipi) {
+        // Eski filiz değerlerini sakla - manuel değiştirilenler korunacak
+        const oldFilizValues = {
+            solFiliz: row.modified.solFiliz ? row.solFiliz : null,
+            sagFiliz: row.modified.sagFiliz ? row.sagFiliz : null,
+            onFiliz: row.modified.onFiliz ? row.onFiliz : null,
+            arkaFiliz: row.modified.arkaFiliz ? row.arkaFiliz : null
+        };
+        
+        // Filiz değerlerini güncelle
+        calculateFilizValues(row);
+        
+        // Elle değiştirilen filiz değerlerini geri yükle
+        if (oldFilizValues.solFiliz !== null) row.solFiliz = oldFilizValues.solFiliz;
+        if (oldFilizValues.sagFiliz !== null) row.sagFiliz = oldFilizValues.sagFiliz;
+        if (oldFilizValues.onFiliz !== null) row.onFiliz = oldFilizValues.onFiliz;
+        if (oldFilizValues.arkaFiliz !== null) row.arkaFiliz = oldFilizValues.arkaFiliz;
+        
+        // Ağırlık değerlerini de güncelle
+        calculateWeight(row);
+    }
+}
   
-  // Kırmızı işaretleri kaldır - Filiz alanları hariç
-  if (row.modified && row.modified[field] && 
-      field !== 'solFiliz' && field !== 'sagFiliz' && 
-      field !== 'onFiliz' && field !== 'arkaFiliz') {
-    row.modified[field] = false;
-  }
+// Kırmızı işaretleri kaldır - Filiz alanları ve çubuk sayıları hariç
+if (row.modified && row.modified[field] && 
+    field !== 'solFiliz' && field !== 'sagFiliz' && 
+    field !== 'onFiliz' && field !== 'arkaFiliz' &&
+    field !== 'cubukSayisiBoy' && field !== 'cubukSayisiEn') {
+  row.modified[field] = false;
+}
   
   // Filiz değerlerinin değişimi için özel kontrol - Güçlü işaretleme
   if (field === 'solFiliz' || field === 'sagFiliz' || field === 'onFiliz' || field === 'arkaFiliz') {
@@ -6302,20 +6325,18 @@ useEffect(() => {
                     <td className="border border-gray-300 p-1">
                       <input
                         type="text"
-                        className={`w-full p-1 border ${row.modified.cubukSayisiBoy ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
+                        className={`w-full p-1 border ${row.modified.cubukSayisiBoy ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
                         value={formatDisplayValue(row.cubukSayisiBoy)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiBoy', e.target.value)}
-                        disabled={!isBasicFieldsFilled}
                       />
                     </td>
                     
                     <td className="border border-gray-300 p-1">
                       <input
                         type="text"
-                        className={`w-full p-1 border ${row.modified.cubukSayisiEn ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
+                        className={`w-full p-1 border ${row.modified.cubukSayisiEn ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
                         value={formatDisplayValue(row.cubukSayisiEn)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiEn', e.target.value)}
-                        disabled={!isBasicFieldsFilled}
                       />
                     </td>
                     
