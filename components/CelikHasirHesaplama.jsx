@@ -3521,10 +3521,19 @@ const parseExcelData = (data) => {
             else if (header === 'EN' || header === 'UZUNLUK EN' || header === 'HASIR ENİ' || header === 'HASIR ENI') {
               enCol = colIndex;
             }
-            else if (header === 'HASIR SAYISI' || header === 'ADET' || header === 'MİKTAR' || header === 'MIKTAR' ||
-                     header === 'TOPLAM ADET' || header === 'ADET SAYISI') {
+            // HASIR kelimesi içeren başlık için öncelik
+            else if (header.includes('HASIR') && (header.includes('ADET') || header.includes('SAYI'))) {
               hasirSayisiCol = colIndex;
+              let highPriorityHeaderFound = true;
             }
+            // Düşük öncelikli başlıklar
+            else if (header === 'ADET' || header === 'MİKTAR' || header === 'MIKTAR' ||
+                     header === 'TOPLAM ADET' || header === 'ADET SAYISI') {
+              // Yüksek öncelikli başlık bulunmadıysa bu sütunu kullan
+              if (!highPriorityHeaderFound) {
+                hasirSayisiCol = colIndex;
+              }
+}
             else if (hasirTipiCol === -1 && 
                     (header === 'HASIR TİPİ' || header === 'HASIR TIPI' || header === 'TİP' || header === 'TIP')) {
               hasirTipiCol = colIndex;
@@ -3669,6 +3678,12 @@ const parseExcelData = (data) => {
             // KRİTİK DÜZELTME: Eğer değerler çoğunlukla küçükse (1-20), büyük negatif puan
             if (stats.smallValueCount / stats.count >= 0.8) {
               score -= 50;
+            }
+
+            // BLOK BENZERİ KONTROLÜ - Küçük değerleri reddet
+            if (stats.smallValueCount / stats.count >= 0.7) {
+              // Küçük değerlerde yoğunlaşan sütunlara büyük ceza
+              score -= 100;
             }
             
             if (score > bestHasirSayisiScore) {
@@ -3816,51 +3831,9 @@ const parseExcelData = (data) => {
           isValidEn = true;
         }
         
-        // Hasır Sayısı için kontrol
+        // Hasır Sayısı bulunamadıysa varsayılan değer atama
         if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
-          // Önce büyük değerleri (>100) ara
-          let foundLargeValue = false;
-          
-          for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            // Boy, En ve Hasır Tipi sütunlarını atla
-            if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
-              continue;
-            }
-            
-            const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
-            
-            // Büyük değer mi?
-            if (!isNaN(cellValue) && cellValue >= 100 && cellValue <= 100000) {
-              hasirSayisi = cellValue.toString();
-              foundLargeValue = true;
-              break;
-            }
-          }
-          
-          // Eğer büyük değer bulunamadıysa, tamsayı ara
-          if (!foundLargeValue) {
-            for (let colIndex = 0; colIndex < row.length; colIndex++) {
-              // Boy, En ve Hasır Tipi sütunlarını atla
-              if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
-                continue;
-              }
-              
-              const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
-              
-              // Tamsayı mı?
-              if (!isNaN(cellValue) && 
-                  (Number.isInteger(cellValue) || Math.abs(cellValue - Math.round(cellValue)) < 0.001) && 
-                  cellValue >= 1 && cellValue <= 100000) {
-                hasirSayisi = cellValue.toString();
-                break;
-              }
-            }
-          }
-          
-          // Hala bulunamadıysa varsayılan olarak 1 kullan
-          if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
-            hasirSayisi = '1';
-          }
+          hasirSayisi = '1';
         }
         
         // Geçerli satırı ekle
