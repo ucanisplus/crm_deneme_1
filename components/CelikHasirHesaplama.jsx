@@ -3166,7 +3166,7 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
 
 
 
-// OCR sonuçlarını sütun eşleştirmesi ile işleme
+// OCR sonuçlarını sütun eşleştirmesi ile işleme - Basitleştirilmiş versiyon
 const processExtractedTextFromOCR = (extractedText) => {
   try {
     // İlk olarak satırlara böl
@@ -3188,10 +3188,6 @@ const processExtractedTextFromOCR = (extractedText) => {
       return;
     }
     
-    // Başlıkları tespit et - OCR için genellikle başlık olmaz
-    const hasHeaders = false;
-    const headerRow = [];
-    
     // Hasır Tipi sütununu bul (Q, R, TR deseni)
     let hasirTipiCol = -1;
     
@@ -3211,68 +3207,18 @@ const processExtractedTextFromOCR = (extractedText) => {
       if (hasirTipiCol !== -1) break;
     }
     
-    // Hasır tipi sütunu bulunamadıysa, her satırda tam değer ara
-    if (hasirTipiCol === -1) {
-      // Her satırı tek tek kontrol et
-      const processedData = [];
-      
-      for (const row of tableData) {
-        let hasirTipi = null;
-        
-        // Satırdaki her değeri kontrol et
-        for (const cell of row) {
-          if (/^(Q|R|TR)\d+/i.test(cell)) {
-            hasirTipi = cell;
-            break;
-          }
-        }
-        
-        // Hasır tipi bulunduysa, bu satırı işle
-        if (hasirTipi) {
-          // Sayısal değerleri bul
-          const numericValues = row
-            .filter(cell => cell !== hasirTipi)
-            .map(cell => {
-              const num = parseFloat(formatNumber(cell));
-              return isNaN(num) ? null : num;
-            })
-            .filter(num => num !== null);
-          
-          // En az 2 sayısal değer varsa geçerli satır
-          if (numericValues.length >= 2) {
-            processedData.push([hasirTipi, ...numericValues.map(num => num.toString())]);
-          }
-        }
-      }
-      
-      // İşlenmiş verileri kullan
-      if (processedData.length > 0) {
-        const sheetsData = [{
-          sheetName: "OCR",
-          headers: [],
-          data: processedData,
-          hasirTipiCol: 0, // İlk sütun hasır tipi
-          hasHeaders: false
-        }];
-        
-        // Eşleştirme modalını göster
-        setSheetData(sheetsData);
-        setShowMappingModal(true);
-        return;
-      }
-    }
-    
     const sheetsData = [{
       sheetName: "OCR",
-      headers: headerRow,
+      headers: [], // OCR için başlık yok
       data: tableData,
       hasirTipiCol,
-      hasHeaders
+      hasHeaders: false
     }];
     
     // Eşleştirme modalını göster
     setSheetData(sheetsData);
     setShowMappingModal(true);
+    setBulkInputVisible(true);
     
   } catch (error) {
     console.error('OCR veri analiz hatası:', error);
