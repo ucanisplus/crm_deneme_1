@@ -3510,6 +3510,8 @@ const parseExcelData = (data) => {
         // 6A. Başlık satırını kontrol et
         if (headerRowIndex >= 0) {
           const headerRow = jsonData[headerRowIndex];
+
+          let highPriorityHeaderFound = false; // Yüksek öncelikli başlık bulunup bulunmadığını takip eden değişken
           
           for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
             const header = String(headerRow[colIndex] || '').toUpperCase().trim();
@@ -3524,7 +3526,7 @@ const parseExcelData = (data) => {
             // HASIR kelimesi içeren başlık için öncelik
             else if (header.includes('HASIR') && (header.includes('ADET') || header.includes('SAYI'))) {
               hasirSayisiCol = colIndex;
-              let highPriorityHeaderFound = true;
+              highPriorityHeaderFound = true;
             }
             // Düşük öncelikli başlıklar
             else if (header === 'ADET' || header === 'MİKTAR' || header === 'MIKTAR' ||
@@ -3533,7 +3535,7 @@ const parseExcelData = (data) => {
               if (!highPriorityHeaderFound) {
                 hasirSayisiCol = colIndex;
               }
-}
+            }
             else if (hasirTipiCol === -1 && 
                     (header === 'HASIR TİPİ' || header === 'HASIR TIPI' || header === 'TİP' || header === 'TIP')) {
               hasirTipiCol = colIndex;
@@ -3674,18 +3676,11 @@ const parseExcelData = (data) => {
               }
             }
             
-            // BLOK BENZERİ KONTROLÜ - Genellikle 1-20 arası değerler içeren sütunlar hasır sayısı değildir
-            // KRİTİK DÜZELTME: Eğer değerler çoğunlukla küçükse (1-20), büyük negatif puan
-            if (stats.smallValueCount / stats.count >= 0.8) {
-              score -= 50;
-            }
-
-            // BLOK BENZERİ KONTROLÜ - Küçük değerleri reddet
-            if (stats.smallValueCount / stats.count >= 0.7) {
-              // Küçük değerlerde yoğunlaşan sütunlara büyük ceza
-              score -= 100;
-            }
-            
+              // BLOK BENZERİ KONTROLÜ - Küçük değerleri reddet
+              if (stats.smallValueCount / stats.count >= 0.7) {
+                // Küçük değerlerde yoğunlaşan sütunlara büyük ceza
+                score -= 100;
+              }
             if (score > bestHasirSayisiScore) {
               bestHasirSayisiScore = score;
               hasirSayisiCol = parseInt(colIndex);
