@@ -3334,25 +3334,27 @@ const processExtractedTextFromOCR = (extractedText) => {
 
 
 
-// Hasır Sayısı sütununu belirleme - geliştirilmiş fonksiyon
+// Mevcut findHasirSayisiColumn fonksiyonunu aşağıdaki kod ile değiştir
+// Hasır Sayısı sütununu belirleme - Geliştirilmiş versiyon
 function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol) {
   // 1. Öncelikle başlıkta "HASIR ADEDİ" veya "HASIR SAYISI" varsa, onu tercih et
   if (headerRowIndex >= 0) {
     const headerRow = jsonData[headerRowIndex];
     
+    // İlk öncelik: "HASIR" + "ADET"/"SAYI" içeren başlıkları ara
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
       // Zaten belli olan sütunları atla
       if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
       
       const header = String(headerRow[colIndex] || '').toUpperCase().trim();
       
-      // HASIR + ADET/SAYI içeren başlıkları ara
+      // HASIR + ADET/SAYI içeren başlıklar için ara
       if (header.includes('HASIR') && (header.includes('ADET') || header.includes('SAYI'))) {
         return colIndex; // En yüksek öncelik
       }
     }
     
-    // HASIR içermeden sadece "ADET" içeren başlıkları ara
+    // İkinci öncelik: "ADET" başlıkları
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
       // Zaten belli olan sütunları atla
       if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
@@ -3397,7 +3399,9 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
         // Özel karakteristikler
         highValueCount: values.filter(v => v >= 100).length,
         smallValueCount: values.filter(v => v >= 1 && v <= 20).length,
-        integerCount: values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001).length
+        integerCount: values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001).length,
+        // Sabit değer tespiti için
+        uniqueValues: new Set(values).size
       };
     }
   }
@@ -3424,15 +3428,25 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
       score += 20;
     }
     
-    // 3. Küçük değerler (1-20) içeren sütunları cezalandır
-    if (stats.smallValueCount / stats.values.length > 0.7) {
-      score -= 100; // Büyük ceza
+    // 3. Küçük değerler (1-20) içeren sütunları değerlendir
+    if (stats.smallValueCount > 0) {
+      // 1 veya 2 içeriyorsa bonus (tipik hasır sayısı değerleri)
+      if (stats.values.includes(1) || stats.values.includes(2)) {
+        score += 15;
+      }
     }
     
-    // 4. Az sayıda tekrarlayan değerler içeren sütunları cezalandır
-    const uniqueCount = new Set(stats.values).size;
-    if (uniqueCount < 5 && stats.values.length > 5) {
-      score -= 30; // Blok benzeri sütunlar için ceza
+    // 4. Hepsi aynı değer mi? (Blok değerleri için ceza)
+    if (stats.uniqueValues === 1) {
+      score -= 50; // Büyük ceza
+    } else if (stats.uniqueValues < 3 && stats.values.length > 5) {
+      score -= 30; // Yine ceza (az sayıda farklı değer)
+    }
+    
+    // 5. Tablonun sağ tarafındaki sütunlar için bonus (genellikle adet sağda olur)
+    const colNum = parseInt(colIndex);
+    if (colNum >= Math.max(boyCol || 0, enCol || 0, hasirTipiCol || 0) + 1) {
+      score += 15;
     }
     
     if (score > bestScore) {
@@ -3765,7 +3779,7 @@ const parseExcelData = (data) => {
         
         // Hasır Sayısı sütununu belirlemek için özel fonksiyon çağır
         if (hasirSayisiCol === -1) {
-        hasirSayisiCol = determineHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, hasirTipiCol, boyCol, enCol);
+          hasirSayisiCol = findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, hasirTipiCol, boyCol, enCol);
         }
         
         // Eğer bu ilk işlenen sayfaysa, sütun eşleştirmesini global olarak kaydet
