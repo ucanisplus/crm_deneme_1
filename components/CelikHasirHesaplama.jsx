@@ -3166,110 +3166,172 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
 
 
 
-  // PaddleOCR sonuçlarını işle
-  const processExtractedTextWithPaddleOCR = (results) => {
-    try {
-      // Sonuçları doğru formatta işle
-      let textData = '';
+// OCR sonuçlarını sütun eşleştirmesi ile işleme
+const processExtractedTextFromOCR = (extractedText) => {
+  try {
+    // İlk olarak satırlara böl
+    const lines = extractedText.split('\n').filter(line => line.trim() !== '');
+    
+    // Verileri tablo formatına getir
+    const tableData = [];
+    
+    for (const line of lines) {
+      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
+      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
+      if (rowData.length > 0) {
+        tableData.push(rowData);
+      }
+    }
+    
+    if (tableData.length === 0) {
+      alert('OCR sonuçlarında işlenebilir veri bulunamadı.');
+      return;
+    }
+    
+    // Başlıkları tespit et - OCR için genellikle başlık olmaz
+    const hasHeaders = false;
+    const headerRow = [];
+    
+    // Hasır Tipi sütununu bul (Q, R, TR deseni)
+    let hasirTipiCol = -1;
+    
+    // Tüm satırlarda deseni kontrol et
+    for (let rowIndex = 0; rowIndex < tableData.length; rowIndex++) {
+      const row = tableData[rowIndex];
       
-      if (results && results.text) {
-        textData = results.text;
-      } else if (typeof results === 'string') {
-        textData = results;
-      } else if (results && Array.isArray(results.regions)) {
-        // Eski PaddleOCR API yapısı
-        textData = results.regions.map(region => 
-          region.lines.map(line => line.text).join('\n')
-        ).join('\n');
-      } else {
-        textData = JSON.stringify(results);
+      for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
+        
+        if (/^(Q|R|TR)\d+/.test(cellValue)) {
+          hasirTipiCol = colIndex;
+          break;
+        }
       }
       
-      // Metni satırlara ayır
-      const lines = textData.split('\n');
+      if (hasirTipiCol !== -1) break;
+    }
+    
+    // Hasır tipi sütunu bulunamadıysa, her satırda tam değer ara
+    if (hasirTipiCol === -1) {
+      // Her satırı tek tek kontrol et
+      const processedData = [];
       
-      // Her satırı boşluklara göre ayırarak tablo oluştur
-      const tableData = [];
-      lines.forEach(line => {
-        if (line.trim()) {
-          // Tab, virgül veya birden fazla boşlukla ayır
-          const rowData = line.split(/\t|,|;|\s{2,}/).map(item => item.trim()).filter(item => item);
-          if (rowData.length > 0) {
-            tableData.push(rowData);
+      for (const row of tableData) {
+        let hasirTipi = null;
+        
+        // Satırdaki her değeri kontrol et
+        for (const cell of row) {
+          if (/^(Q|R|TR)\d+/i.test(cell)) {
+            hasirTipi = cell;
+            break;
           }
         }
-      });
-      
-      // Oluşan tabloyu işle
-      if (tableData.length > 0) {
-        validateAndProcessTabularData(tableData);
-      } else {
-        // Tablo oluşturulamadıysa düz metin olarak işle
-        parseTextData(textData);
+        
+        // Hasır tipi bulunduysa, bu satırı işle
+        if (hasirTipi) {
+          // Sayısal değerleri bul
+          const numericValues = row
+            .filter(cell => cell !== hasirTipi)
+            .map(cell => {
+              const num = parseFloat(formatNumber(cell));
+              return isNaN(num) ? null : num;
+            })
+            .filter(num => num !== null);
+          
+          // En az 2 sayısal değer varsa geçerli satır
+          if (numericValues.length >= 2) {
+            processedData.push([hasirTipi, ...numericValues.map(num => num.toString())]);
+          }
+        }
       }
-    } catch (error) {
-      console.error('PaddleOCR veri işleme hatası:', error);
       
-      // Hata durumunda düz metin olarak işle
-      if (results && results.text) {
-        parseTextData(results.text);
-      } else if (typeof results === 'string') {
-        parseTextData(results);
-      } else {
-        parseTextData(JSON.stringify(results));
+      // İşlenmiş verileri kullan
+      if (processedData.length > 0) {
+        const sheetsData = [{
+          sheetName: "OCR",
+          headers: [],
+          data: processedData,
+          hasirTipiCol: 0, // İlk sütun hasır tipi
+          hasHeaders: false
+        }];
+        
+        // Eşleştirme modalını göster
+        setSheetData(sheetsData);
+        setShowMappingModal(true);
+        return;
       }
     }
-  };
+    
+    const sheetsData = [{
+      sheetName: "OCR",
+      headers: headerRow,
+      data: tableData,
+      hasirTipiCol,
+      hasHeaders
+    }];
+    
+    // Eşleştirme modalını göster
+    setSheetData(sheetsData);
+    setShowMappingModal(true);
+    
+  } catch (error) {
+    console.error('OCR veri analiz hatası:', error);
+    // Hata durumunda basit metin işlemeye geri dön
+    parseTextData(extractedText);
+  }
+};
 
-  // OCR.space API ile görüntüden metin çıkarma - Hata yönetimi geliştirildi
-  const processImageWithOCRSpace = async (imageFile) => {
-    try {
-      setOcrProgress(10);
-      setOcrProvider('ocr.space');
-      
-      // FormData oluştur
-      const formData = new FormData();
-      formData.append('apikey', OCR_SPACE_API_KEY);
-      formData.append('file', imageFile);
-      formData.append('language', 'tur');
-      formData.append('isTable', 'true');
-      formData.append('OCREngine', '2'); // Daha doğru motor
-      
-      setOcrProgress(30);
-      
-      // API isteği yap
-      const response = await fetch('https://api.ocr.space/parse/image', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      setOcrProgress(70);
-      
-      if (!response.ok) {
-        throw new Error(`OCR.space API hatası: ${response.status} ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.ParsedResults && result.ParsedResults.length > 0) {
-        const extractedText = result.ParsedResults[0].ParsedText;
-        
-        // Özelleştirilmiş Q, R, TR hasır tipi ve boyut arama algoritması uygula
-        processExtractedTextFromOCR(extractedText);
-        
-        setOcrProgress(100);
-        setBulkInputVisible(true);
-        return true;
-      } else if (result.ErrorMessage) {
-        throw new Error(`OCR.space hata mesajı: ${result.ErrorMessage}`);
-      } else {
-        throw new Error('OCR sonuçları alınamadı');
-      }
-    } catch (error) {
-      console.error('OCR.space işleme hatası:', error);
-      return false;
+// OCR.space API ile görüntüden metin çıkarma ve sütun eşleştirme uygulaması
+const processImageWithOCRSpace = async (imageFile) => {
+  try {
+    setOcrProgress(10);
+    setOcrProvider('ocr.space');
+    
+    // FormData oluştur
+    const formData = new FormData();
+    formData.append('apikey', OCR_SPACE_API_KEY);
+    formData.append('file', imageFile);
+    formData.append('language', 'tur');
+    formData.append('isTable', 'true');
+    formData.append('OCREngine', '2'); // Daha doğru motor
+    
+    setOcrProgress(30);
+    
+    // API isteği yap
+    const response = await fetch('https://api.ocr.space/parse/image', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    setOcrProgress(70);
+    
+    if (!response.ok) {
+      throw new Error(`OCR.space API hatası: ${response.status} ${response.statusText}`);
     }
-  };
+    
+    const result = await response.json();
+    
+    if (result.ParsedResults && result.ParsedResults.length > 0) {
+      const extractedText = result.ParsedResults[0].ParsedText;
+      
+      // Sütun eşleştirmeli işleme fonksiyonunu kullan
+      processExtractedTextFromOCR(extractedText);
+      
+      setOcrProgress(100);
+      return true;
+    } else if (result.ErrorMessage) {
+      throw new Error(`OCR.space hata mesajı: ${result.ErrorMessage}`);
+    } else {
+      throw new Error('OCR sonuçları alınamadı');
+    }
+  } catch (error) {
+    console.error('OCR.space işleme hatası:', error);
+    setOcrProgress(0);
+    setIsProcessingImage(false);
+    alert('Görüntü işleme hatası: ' + error.message);
+    return false;
+  }
+};
 
 // OCR.space'den gelen metni özel olarak işleme 
 const processExtractedTextFromOCR = (extractedText) => {
@@ -3507,28 +3569,68 @@ const processExtractedTextFromOCR = (extractedText) => {
   };
 
   // Metin verilerini işleme
-  const parseTextData = (text) => {
-    try {
-      // Metni satırlara böl
-      const lines = text.split(/\r?\n/);
-      
-      // Boş satırları filtrele
-      const nonEmptyLines = lines.filter(line => line.trim() !== '');
-      
-      // Verileri düzelt ve tablo formatına getir
-      const tableData = nonEmptyLines.map(line => {
-        // Tab, virgül veya boşluklarla ayrılmış verileri parçala
-        const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
-        return rowData;
-      }).filter(row => row.length > 0);
-      
-      // Verileri işle
-      validateAndProcessTabularData(tableData);
-    } catch (error) {
-      console.error('Metin işleme hatası:', error);
-      alert('Metin işleme hatası: ' + error.message);
+// Metin verilerini sütun eşleştirmesi ile işleme
+const parseTextData = (text) => {
+  try {
+    // Metni satırlara böl
+    const lines = text.split(/\r?\n/);
+    
+    // Boş satırları filtrele
+    const nonEmptyLines = lines.filter(line => line.trim() !== '');
+    
+    // Verileri düzelt ve tablo formatına getir
+    const tableData = nonEmptyLines.map(line => {
+      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
+      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
+      return rowData;
+    }).filter(row => row.length > 0);
+    
+    if (tableData.length === 0) {
+      alert('İşlenebilir veri bulunamadı.');
+      return;
     }
-  };
+    
+    // Başlıkları tespit et
+    const hasHeaders = guessIfHasHeaders(tableData);
+    const headerRow = hasHeaders ? tableData[0] : [];
+    const dataStartRow = hasHeaders ? 1 : 0;
+    
+    // Hasır Tipi sütununu bul (Q, R, TR deseni)
+    let hasirTipiCol = -1;
+    
+    // Birkaç satırda deseni kontrol et
+    for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, tableData.length); rowIndex++) {
+      const row = tableData[rowIndex];
+      
+      for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
+        
+        if (/^(Q|R|TR)\d+/.test(cellValue)) {
+          hasirTipiCol = colIndex;
+          break;
+        }
+      }
+      
+      if (hasirTipiCol !== -1) break;
+    }
+    
+    const sheetsData = [{
+      sheetName: "Metin",
+      headers: headerRow,
+      data: tableData.slice(dataStartRow),
+      hasirTipiCol,
+      hasHeaders
+    }];
+    
+    // Eşleştirme modalını göster
+    setSheetData(sheetsData);
+    setShowMappingModal(true);
+    
+  } catch (error) {
+    console.error('Metin işleme hatası:', error);
+    alert('Metin işleme hatası: ' + error.message);
+  }
+};
 
 
 
@@ -4629,188 +4731,57 @@ const extractRowData = (row, columnAnalysis) => {
 
 
 
-// Enhanced CSV parser with the same improved approach
+// CSV veri analizi fonksiyonu - Sütün eşleştirmeli versiyon
 const parseCsvData = (data) => {
   try {
     Papa.parse(data, {
       header: false,
       skipEmptyLines: true,
-      delimiter: '', // Auto-detect delimiter
+      delimiter: '', // Otomatik ayırıcı tespiti
       complete: (results) => {
         if (!results.data || results.data.length === 0) {
           alert('CSV dosyasında işlenebilir veri bulunamadı.');
           return;
         }
         
-        // Use the same updated processing logic as Excel
         const jsonData = results.data;
+        const sheetsData = [];
         
-        // Detect headers
+        // Başlıkları tespit et
         const hasHeaders = guessIfHasHeaders(jsonData);
-        const headerRow = hasHeaders ? jsonData[0] : null;
+        const headerRow = hasHeaders ? jsonData[0] : [];
+        const dataStartRow = hasHeaders ? 1 : 0;
         
-        // CRITICAL CHANGE: Use both implementations but prioritize differently
-        // First: use the original method for en/boy columns
-        const firstImplementationColMap = findRelevantColumns(jsonData, headerRow);
+        // Hasır Tipi sütununu bul (Q, R, TR deseni)
+        let hasirTipiCol = -1;
         
-        // Second: Use the improved method for hasirSayisi
-        const columnCharacteristics = analyzeColumnData(jsonData, hasHeaders);
-        
-        // Expanded header matching
-        const directHeadersColMap = findColumnsByHeaderText(headerRow);
-        
-        // Create combined map with correct priorities for each data type
-        const columnMap = {
-          // For hasirTipi: prioritize direct header match, then fallback
-          hasirTipi: directHeadersColMap.hasirTipi !== undefined ? 
-                     directHeadersColMap.hasirTipi : firstImplementationColMap.hasirTipi,
-                     
-          // For uzunlukBoy and uzunlukEn: prioritize first implementation's detection
-          uzunlukBoy: firstImplementationColMap.uzunlukBoy !== undefined ? 
-                      firstImplementationColMap.uzunlukBoy : directHeadersColMap.uzunlukBoy,
-                      
-          uzunlukEn: firstImplementationColMap.uzunlukEn !== undefined ? 
-                     firstImplementationColMap.uzunlukEn : directHeadersColMap.uzunlukEn,
-                     
-          // For hasirSayisi: prioritize direct headers, then statistical analysis, then fallback
-          hasirSayisi: directHeadersColMap.hasirSayisi !== undefined ? directHeadersColMap.hasirSayisi : 
-                       (columnCharacteristics.potentialHasirSayisi !== undefined ? 
-                        columnCharacteristics.potentialHasirSayisi : firstImplementationColMap.hasirSayisi)
-        };
-        
-        // Process rows
-        const startRow = hasHeaders ? 1 : 0;
-        const validRows = [];
-        
-        // Define machine limits for validation
-        const MACHINE_LIMITS = {
-          MIN_BOY: 275, 
-          MAX_BOY: 800,
-          MIN_EN_ADJUSTABLE: 126,
-          MAX_EN: 250
-        };
-        
-        for (let rowIndex = startRow; rowIndex < jsonData.length; rowIndex++) {
+        // Birkaç satırda deseni kontrol et
+        for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, jsonData.length); rowIndex++) {
           const row = jsonData[rowIndex];
-          if (!row || row.length === 0) continue;
           
-          // Extract hasir tipi
-          let hasirTipi = '';
-          if (columnMap.hasirTipi !== undefined && columnMap.hasirTipi < row.length) {
-            hasirTipi = String(row[columnMap.hasirTipi] || '').trim();
-          }
-          
-          // Search all cells if not found in column
-          if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-            for (const cell of row) {
-              if (!cell) continue;
-              const cellValue = String(cell).trim();
-              if (/^(Q|R|TR)\d+/i.test(cellValue)) {
-                hasirTipi = cellValue;
-                break;
-              }
-            }
-          }
-          
-          // Skip rows without hasir tipi
-          if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-            continue;
-          }
-          
-          // Extract other values
-          let uzunlukBoy = '';
-          let uzunlukEn = '';
-          let hasirSayisi = '';
-          
-          if (columnMap.uzunlukBoy !== undefined && columnMap.uzunlukBoy < row.length) {
-            uzunlukBoy = String(row[columnMap.uzunlukBoy] || '').trim();
-          }
-          
-          if (columnMap.uzunlukEn !== undefined && columnMap.uzunlukEn < row.length) {
-            uzunlukEn = String(row[columnMap.uzunlukEn] || '').trim();
-          }
-          
-          if (columnMap.hasirSayisi !== undefined && columnMap.hasirSayisi < row.length) {
-            hasirSayisi = String(row[columnMap.hasirSayisi] || '').trim();
-          }
-          
-          // Format numbers consistently
-          if (uzunlukBoy) uzunlukBoy = formatNumber(uzunlukBoy);
-          if (uzunlukEn) uzunlukEn = formatNumber(uzunlukEn);
-          if (hasirSayisi) hasirSayisi = formatNumber(hasirSayisi);
-          
-          // Check potentialHasirSayisi if not found
-          if (!hasirSayisi && columnCharacteristics.potentialHasirSayisi !== undefined) {
-            const col = columnCharacteristics.potentialHasirSayisi;
-            if (col < row.length && row[col]) {
-              hasirSayisi = formatNumber(String(row[col]));
-            }
-          }
-          
-          // Default to 1 if still missing
-          if (!hasirSayisi) {
-            hasirSayisi = '1';
-          }
-          
-          // Additional validation using machine limits
-          if (uzunlukBoy && uzunlukEn) {
-            const boyValue = parseFloat(uzunlukBoy);
-            const enValue = parseFloat(uzunlukEn);
+          for (let colIndex = 0; colIndex < row.length; colIndex++) {
+            const cellValue = String(row[colIndex] || '').trim().toUpperCase();
             
-            if (!isNaN(boyValue) && !isNaN(enValue)) {
-              // Check if values are within expected machine limits
-              const boyInRange = boyValue >= MACHINE_LIMITS.MIN_BOY * 0.8 && boyValue <= MACHINE_LIMITS.MAX_BOY * 1.2;
-              const enInRange = enValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && enValue <= MACHINE_LIMITS.MAX_EN * 1.2;
-              
-              // If both values are out of their expected ranges, they might be swapped
-              if (!boyInRange && !enInRange) {
-                if (boyValue < enValue && 
-                    enValue >= MACHINE_LIMITS.MIN_BOY * 0.8 && enValue <= MACHINE_LIMITS.MAX_BOY * 1.2 &&
-                    boyValue >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE * 0.8 && boyValue <= MACHINE_LIMITS.MAX_EN * 1.2) {
-                  // Swap values as they match opposite ranges
-                  const temp = uzunlukBoy;
-                  uzunlukBoy = uzunlukEn;
-                  uzunlukEn = temp;
-                }
-              }
-              // Simple swap if boy < en
-              else if (boyValue < enValue) {
-                const temp = uzunlukBoy;
-                uzunlukBoy = uzunlukEn;
-                uzunlukEn = temp;
-              }
+            if (/^(Q|R|TR)\d+/.test(cellValue)) {
+              hasirTipiCol = colIndex;
+              break;
             }
           }
           
-          // Validate dimensions
-          if (uzunlukBoy || uzunlukEn) {
-            validRows.push({
-              hasirTipi: standardizeHasirTipi(hasirTipi),
-              uzunlukBoy: uzunlukBoy,
-              uzunlukEn: uzunlukEn,
-              hasirSayisi: hasirSayisi,
-              sheetName: "CSV" // Standard sheet name for CSV
-            });
-          }
+          if (hasirTipiCol !== -1) break;
         }
         
-        if (validRows.length === 0) {
-          alert('CSV dosyasında işlenebilir veri bulunamadı.');
-          return;
-        }
+        sheetsData.push({
+          sheetName: "CSV",
+          headers: headerRow,
+          data: jsonData.slice(dataStartRow),
+          hasirTipiCol,
+          hasHeaders
+        });
         
-        // Set preview data
-        const previewItems = validRows.map((rowData, index) => ({
-          id: index,
-          hasirTipi: rowData.hasirTipi || '',
-          uzunlukBoy: rowData.uzunlukBoy || '',
-          uzunlukEn: rowData.uzunlukEn || '',
-          hasirSayisi: rowData.hasirSayisi || '',
-          sheetName: rowData.sheetName
-        }));
-        
-        setPreviewData(previewItems);
-        setBulkInputVisible(true);
+        // Hemen işlemek yerine, eşleştirme modalını göster
+        setSheetData(sheetsData);
+        setShowMappingModal(true);
       },
       error: (error) => {
         console.error('CSV işleme hatası:', error);
