@@ -3923,10 +3923,13 @@ const parseExcelData = (data) => {
           uzunlukEn = formatNumber(uzunlukEn);
         }
         
-        // Hasır Sayısı
+        // Hasır Sayısı - Tüm değerleri eksiksiz al
         if (hasirSayisiCol !== -1 && hasirSayisiCol < row.length) {
-          hasirSayisi = String(row[hasirSayisiCol] || '').trim();
-          hasirSayisi = formatNumber(hasirSayisi);
+          const rawValue = row[hasirSayisiCol];
+          if (rawValue !== undefined && rawValue !== null) {
+            hasirSayisi = String(rawValue).trim();
+            hasirSayisi = formatNumber(hasirSayisi);
+          }
         }
         // Değerlerin geçerli olup olmadığını kontrol et (minimum 50cm kuralı)
         const boyValue = parseFloat(uzunlukBoy);
@@ -3998,53 +4001,36 @@ const parseExcelData = (data) => {
           isValidEn = true;
         }
         
-        // Hasır Sayısı için kontrol
-      if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
-        // Önce büyük değerleri (>100) ara
-        let foundLargeValue = false;
-        
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-          // Boy, En ve Hasır Tipi sütunlarını atla
-          if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
-      continue;
-    }
-    
-    const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
-    
-    // Büyük değer mi?
-    if (!isNaN(cellValue) && cellValue >= 100 && cellValue <= 100000) {
-      hasirSayisi = cellValue.toString();
-      foundLargeValue = true;
-      break;
-    }
-  }
-  
-  // Eğer büyük değer bulunamadıysa, tamsayı ara
-  if (!foundLargeValue) {
-    for (let colIndex = 0; colIndex < row.length; colIndex++) {
-      // Boy, En ve Hasır Tipi sütunlarını atla
-      if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
-        continue;
-      }
-      
-      const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
-      
-      // Tamsayı mı?
-      if (!isNaN(cellValue) && 
-          (Number.isInteger(cellValue) || Math.abs(cellValue - Math.round(cellValue)) < 0.001) && 
-          cellValue >= 1 && cellValue <= 100000) {
-        hasirSayisi = cellValue.toString();
-        break;
-      }
-    }
-  }
-  
-  // Hasır Sayısı için kontrol - bulunan sütundan tüm değerleri al
-  if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
-    // Sütundan değer alınamadı, varsayılan olarak 1 kullan
-    hasirSayisi = '1';
-  }
-}
+        // Hasır Sayısı için kontrol - sadece gerekirse yedek arama
+        if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
+          // Sadece bulunan hasırSayisiCol sütununda değer yoksa diğer sütunlara bak
+          const rawValue = row[hasirSayisiCol];
+          if (rawValue === undefined || rawValue === null || rawValue === '') {
+            // Önce büyük değerleri (>100) ara
+            let foundLargeValue = false;
+            
+            for (let colIndex = 0; colIndex < row.length; colIndex++) {
+              // Boy, En ve Hasır Tipi sütunlarını atla
+              if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
+                continue;
+              }
+              
+              const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
+              
+              // Herhangi bir sayısal değer mi? (değer filtresi kaldırıldı)
+              if (!isNaN(cellValue) && cellValue >= 1) {
+                hasirSayisi = cellValue.toString();
+                foundLargeValue = true;
+                break;
+              }
+            }
+            
+            // Eğer hiçbir sayısal değer bulunamadıysa, en son çare olarak 1 kullan
+            if (!foundLargeValue) {
+              hasirSayisi = '1'; // Varsayılan
+            }
+          }
+        }
         
         // Geçerli satırı ekle
         if ((isValidBoy || isValidEn) && hasirTipi) {
