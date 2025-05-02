@@ -3765,7 +3765,7 @@ const parseExcelData = (data) => {
         
         // Hasır Sayısı sütununu belirlemek için özel fonksiyon çağır
         if (hasirSayisiCol === -1) {
-          hasirSayisiCol = findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol);
+        hasirSayisiCol = determineHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, hasirTipiCol, boyCol, enCol);
         }
         
         // Eğer bu ilk işlenen sayfaysa, sütun eşleştirmesini global olarak kaydet
@@ -3907,13 +3907,13 @@ const parseExcelData = (data) => {
         }
         
         // Hasır Sayısı için kontrol
-if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
-  // Önce büyük değerleri (>100) ara
-  let foundLargeValue = false;
-  
-  for (let colIndex = 0; colIndex < row.length; colIndex++) {
-    // Boy, En ve Hasır Tipi sütunlarını atla
-    if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
+      if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
+        // Önce büyük değerleri (>100) ara
+        let foundLargeValue = false;
+        
+        for (let colIndex = 0; colIndex < row.length; colIndex++) {
+          // Boy, En ve Hasır Tipi sütunlarını atla
+          if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
       continue;
     }
     
@@ -3947,8 +3947,9 @@ if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
     }
   }
   
-  // Hala bulunamadıysa varsayılan olarak 1 kullan
+  // Hasır Sayısı için kontrol - bulunan sütundan tüm değerleri al
   if (!hasirSayisi || isNaN(parseFloat(hasirSayisi))) {
+    // Sütundan değer alınamadı, varsayılan olarak 1 kullan
     hasirSayisi = '1';
   }
 }
@@ -4504,6 +4505,219 @@ const combineColumnMaps = (headerMap, dataAnalysisMap) => {
 };
 
 
+//Eklenmis
+
+// Basitçe hasır sayısı sütunu tespiti için fonksiyon
+function determineHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, hasirTipiCol, boyCol, enCol) {
+  // 1. ADIM: Başlık eşleştirmesi yap (en yüksek öncelik)
+  if (headerRowIndex >= 0) {
+    const headerRow = jsonData[headerRowIndex];
+    
+    // Öncelik 1: "HASIR ADEDİ" veya "HASIR SAYISI" başlıkları
+    for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
+      const header = String(headerRow[colIndex] || '').toUpperCase().trim();
+      
+      // HASIR + ADET/SAYI kombinasyonu ara
+      if (header.includes('HASIR') && 
+          (header.includes('ADET') || header.includes('SAYI'))) {
+        return colIndex; // Doğrudan dön - en yüksek öncelik
+      }
+    }
+    
+    // Öncelik 2: Sadece "ADET" veya "MİKTAR" başlıkları
+    let adetColumn = -1;
+    for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
+      const header = String(headerRow[colIndex] || '').toUpperCase().trim();
+      
+      if (header === 'ADET' || header === 'MİKTAR' || header === 'MIKTAR' ||
+          header === 'TOPLAM ADET' || header === 'ADET SAYISI') {
+        adetColumn = colIndex;
+        break;
+      }
+    }
+    
+    // Eğer "ADET" başlığı bulunduysa, önce veri kalıplarına bak, sonra karar ver
+    if (adetColumn !== -1) {
+      // 2. ADIM: Veri kalıpları ile doğrulama
+      // İlk 10 veri satırını örnekle
+      const sampleRows = jsonData.slice(dataStartRow, Math.min(dataStartRow + 10, jsonData.length));
+      
+      // Potansiyel diğer sütunları ara
+      let bestCol = adetColumn; // Varsayılan olarak başlıkta bulunan sütun
+      let bestScore = 0;
+      let adetColScore = 0;
+      let hasBigValues = false;
+      
+      // "ADET" sütunu için puanlama
+      if (adetColumn !== -1) {
+        const adetValues = [];
+        for (const row of sampleRows) {
+          if (row.length <= adetColumn) continue;
+          
+          const cellValue = String(row[adetColumn] || '').trim();
+          const numValue = parseFloat(formatNumber(cellValue));
+          
+          if (!isNaN(numValue)) {
+            adetValues.push(numValue);
+          }
+        }
+        
+        if (adetValues.length > 0) {
+          // Büyük değer sayısı (>100)
+          const bigValueCount = adetValues.filter(v => v >= 100).length;
+          
+          if (bigValueCount > 0) {
+            adetColScore += 40;
+            hasBigValues = true;
+            
+            // Çoğunlukla büyük değerlerse ek puan
+            if (bigValueCount / adetValues.length > 0.3) {
+              adetColScore += 20;
+            }
+          }
+          
+          // Küçük değer cezası (1-20)
+          const smallValueCount = adetValues.filter(v => v >= 1 && v <= 20).length;
+          if (smallValueCount / adetValues.length > 0.7) {
+            adetColScore -= 50;
+          }
+        }
+        
+        bestScore = adetColScore;
+      }
+      
+      // Diğer sütunları kontrol et
+      for (let colIndex = 0; colIndex < Math.max(...sampleRows.map(row => row.length)); colIndex++) {
+        // Hasır Tipi, Boy, En ve ADET sütunlarını atla
+        if (colIndex === hasirTipiCol || colIndex === boyCol || 
+            colIndex === enCol || colIndex === adetColumn) {
+          continue;
+        }
+        
+        const values = [];
+        for (const row of sampleRows) {
+          if (row.length <= colIndex) continue;
+          
+          const cellValue = String(row[colIndex] || '').trim();
+          const numValue = parseFloat(formatNumber(cellValue));
+          
+          if (!isNaN(numValue)) {
+            values.push(numValue);
+          }
+        }
+        
+        if (values.length < 3) continue; // Yeterli değer yok
+        
+        // Puanlama
+        let score = 0;
+        
+        // Büyük değerler (>100)
+        const bigValues = values.filter(v => v >= 100);
+        if (bigValues.length > 0) {
+          score += 30;
+          
+          // Çoğunlukla büyük değerlerse ek puan
+          if (bigValues.length / values.length > 0.3) {
+            score += 20;
+          }
+          
+          // En büyük değerler bu sütunda ise ek puan
+          const maxBigValue = Math.max(...bigValues);
+          if (!hasBigValues || maxBigValue > 1000) {
+            score += 30;
+          }
+        }
+        
+        // Tamsayı kontrolü
+        const integers = values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001);
+        if (integers.length / values.length > 0.8) {
+          score += 10;
+        }
+        
+        // Küçük değer cezası (1-20)
+        const smallValues = values.filter(v => v >= 1 && v <= 20);
+        if (smallValues.length / values.length > 0.7) {
+          score -= 70; // Büyük ceza
+        }
+        
+        // Daha iyi puan varsa güncelle
+        if (score > bestScore) {
+          bestScore = score;
+          bestCol = colIndex;
+        }
+      }
+      
+      return bestCol;
+    }
+  }
+  
+  // 3. ADIM: Hiçbir başlık bulunamazsa sadece veri desenine göre belirle
+  // İlk 10 veri satırını örnekle
+  const sampleRows = jsonData.slice(dataStartRow, Math.min(dataStartRow + 10, jsonData.length));
+  
+  let bestCol = -1;
+  let bestScore = -1;
+  
+  for (let colIndex = 0; colIndex < Math.max(...sampleRows.map(row => row.length)); colIndex++) {
+    // Hasır Tipi, Boy ve En sütunlarını atla
+    if (colIndex === hasirTipiCol || colIndex === boyCol || colIndex === enCol) {
+      continue;
+    }
+    
+    const values = [];
+    for (const row of sampleRows) {
+      if (row.length <= colIndex) continue;
+      
+      const cellValue = String(row[colIndex] || '').trim();
+      const numValue = parseFloat(formatNumber(cellValue));
+      
+      if (!isNaN(numValue)) {
+        values.push(numValue);
+      }
+    }
+    
+    if (values.length < 3) continue; // Yeterli değer yok
+    
+    // Puanlama
+    let score = 0;
+    
+    // Büyük değerler (>100) - en önemli faktör
+    const bigValues = values.filter(v => v >= 100);
+    if (bigValues.length > 0) {
+      score += 50;
+      
+      // Çoğunlukla büyük değerlerse ek puan
+      if (bigValues.length / values.length > 0.3) {
+        score += 30;
+      }
+    }
+    
+    // Tamsayı kontrolü
+    const integers = values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001);
+    if (integers.length / values.length > 0.8) {
+      score += 20;
+    }
+    
+    // Küçük değer cezası (1-20)
+    const smallValues = values.filter(v => v >= 1 && v <= 20);
+    if (smallValues.length / values.length > 0.7) {
+      score -= 100; // Çok büyük ceza
+    }
+    
+    // Aynı değerlerin tekrarı için ceza
+    const uniqueValues = new Set(values);
+    if (uniqueValues.size < values.length / 2 && values.length > 5) {
+      score -= 30; // Tekrar eden değerler için ceza
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestCol = colIndex;
+    }
+  }
+  
+  return bestCol;
+}
 //Eklenmis
 
 // Verinin başlangıç satırını tespit eden fonksiyon
