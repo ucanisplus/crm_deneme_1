@@ -3331,6 +3331,123 @@ const processExtractedTextFromOCR = (extractedText) => {
     }
   };
 
+
+
+
+// Hasır Sayısı sütununu belirleme - geliştirilmiş fonksiyon
+function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol) {
+  // 1. Öncelikle başlıkta "HASIR ADEDİ" veya "HASIR SAYISI" varsa, onu tercih et
+  if (headerRowIndex >= 0) {
+    const headerRow = jsonData[headerRowIndex];
+    
+    for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
+      // Zaten belli olan sütunları atla
+      if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
+      
+      const header = String(headerRow[colIndex] || '').toUpperCase().trim();
+      
+      // HASIR + ADET/SAYI içeren başlıkları ara
+      if (header.includes('HASIR') && (header.includes('ADET') || header.includes('SAYI'))) {
+        return colIndex; // En yüksek öncelik
+      }
+    }
+    
+    // HASIR içermeden sadece "ADET" içeren başlıkları ara
+    for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
+      // Zaten belli olan sütunları atla
+      if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
+      
+      const header = String(headerRow[colIndex] || '').toUpperCase().trim();
+      
+      if (header === 'ADET' || header === 'MİKTAR' || header === 'MIKTAR' ||
+          header === 'TOPLAM ADET' || header === 'ADET SAYISI') {
+        return colIndex; // İkinci öncelik
+      }
+    }
+  }
+  
+  // 2. Veri değerlerine göre sütun seç
+  const dataRows = jsonData.slice(dataStartRow, Math.min(dataStartRow + 10, jsonData.length));
+  const columnStats = {};
+  
+  // Önce her sütun için istatistikler topla
+  for (let colIndex = 0; colIndex < Math.max(...dataRows.map(row => row.length)); colIndex++) {
+    // Zaten belirlenen sütunları atla
+    if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
+    
+    const values = [];
+    
+    for (const row of dataRows) {
+      if (row.length <= colIndex) continue;
+      
+      const cellValue = String(row[colIndex] || '').trim();
+      const numValue = parseFloat(formatNumber(cellValue));
+      
+      if (!isNaN(numValue)) {
+        values.push(numValue);
+      }
+    }
+    
+    if (values.length >= 3) {
+      columnStats[colIndex] = {
+        min: Math.min(...values),
+        max: Math.max(...values),
+        avg: values.reduce((sum, val) => sum + val, 0) / values.length,
+        values: values,
+        // Özel karakteristikler
+        highValueCount: values.filter(v => v >= 100).length,
+        smallValueCount: values.filter(v => v >= 1 && v <= 20).length,
+        integerCount: values.filter(v => Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001).length
+      };
+    }
+  }
+  
+  // Puanlama sistemi ile sütunları değerlendir
+  let bestCol = -1;
+  let bestScore = -1;
+  
+  for (const [colIndex, stats] of Object.entries(columnStats)) {
+    let score = 0;
+    
+    // 1. Büyük değerler (>100) içeriyor mu?
+    if (stats.highValueCount > 0) {
+      score += 40;
+      
+      // Çoğunlukla büyük değerler mi?
+      if (stats.highValueCount / stats.values.length > 0.5) {
+        score += 30;
+      }
+    }
+    
+    // 2. Tamsayı mı?
+    if (stats.integerCount / stats.values.length > 0.9) {
+      score += 20;
+    }
+    
+    // 3. Küçük değerler (1-20) içeren sütunları cezalandır
+    if (stats.smallValueCount / stats.values.length > 0.7) {
+      score -= 100; // Büyük ceza
+    }
+    
+    // 4. Az sayıda tekrarlayan değerler içeren sütunları cezalandır
+    const uniqueCount = new Set(stats.values).size;
+    if (uniqueCount < 5 && stats.values.length > 5) {
+      score -= 30; // Blok benzeri sütunlar için ceza
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestCol = parseInt(colIndex);
+    }
+  }
+  
+  return bestCol;
+}
+
+
+
+
+
 // Basitleştirilmiş Excel veri analizi fonksiyonu
 const parseExcelData = (data) => {
   try {
@@ -3646,46 +3763,9 @@ const parseExcelData = (data) => {
           }
         }
         
-        // Hasır Sayısı sütunu - başlık eşleşmesi yoksa veri kalıplarından bul
+        // Hasır Sayısı sütununu belirlemek için özel fonksiyon çağır
         if (hasirSayisiCol === -1) {
-          let bestHasirSayisiScore = -1;
-          
-          for (const [colIndex, stats] of Object.entries(columnStats)) {
-            // Hasır Tipi, Boy ve En sütunlarını atla
-            if (parseInt(colIndex) === hasirTipiCol || 
-                parseInt(colIndex) === boyCol || 
-                parseInt(colIndex) === enCol) {
-              continue;
-            }
-            
-            let score = 0;
-            
-            // Tamsayı oranı (hasır sayısı genellikle tamsayıdır)
-            const integerPercentage = stats.integerCount / stats.count;
-            if (integerPercentage >= 0.9) {
-              score += 20;
-            }
-            
-            // ÖNEMLİ: Büyük değerler (>100) içeriyor mu? (hasır sayısı genellikle büyük olabilir)
-            if (stats.highValueCount > 0) {
-              score += 30;
-              
-              // Eğer büyük değerler çoğunluktaysa, daha da yüksek puan
-              if (stats.highValueCount / stats.count >= 0.5) {
-                score += 20;
-              }
-            }
-            
-              // BLOK BENZERİ KONTROLÜ - Küçük değerleri reddet
-              if (stats.smallValueCount / stats.count >= 0.7) {
-                // Küçük değerlerde yoğunlaşan sütunlara büyük ceza
-                score -= 100;
-              }
-            if (score > bestHasirSayisiScore) {
-              bestHasirSayisiScore = score;
-              hasirSayisiCol = parseInt(colIndex);
-            }
-          }
+          hasirSayisiCol = findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol);
         }
         
         // Eğer bu ilk işlenen sayfaysa, sütun eşleştirmesini global olarak kaydet
