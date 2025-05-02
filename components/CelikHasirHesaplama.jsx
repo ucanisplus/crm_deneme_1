@@ -2233,7 +2233,7 @@ const processDimensions = (row) => {
     }
   }
   
-  // AŞAMA 3: En 126-149 cm aralığında mı kontrol et - ÖNEMLİ: Çarpma işleminden ÖNCE yap
+  // AŞAMA 3: En 126-149 cm aralığında mı kontrol et - Herhangi bir çarpma işleminden TAMAMEN BAĞIMSIZ
   const currentEn = parseFloat(row.uzunlukEn);
   
   if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
@@ -2296,7 +2296,7 @@ const processDimensions = (row) => {
   }
   
   // AŞAMA 5: En < MIN_EN_ADJUSTABLE (126cm) ise çarpma dene
-  // ÖNEMLİ: Bu adımda güncel En değerini kullan (126-149 ayarlamasından sonra)
+  // ÖNEMLİ: Gerekirse doğrudan 150cm ve üzerine çarp, 126-149 aralığına çarpma hedefi YOK
   const updatedEn = parseFloat(row.uzunlukEn);
   
   if (updatedEn < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
@@ -2305,26 +2305,17 @@ const processDimensions = (row) => {
     // ÖNEMLİ: Çarpıcıları küçükten büyüğe sırala
     const multipliers = [2, 3, 4, 5, 6];
     
-    // Her çarpan için minimum gereken değeri hesapla
-    const minRequired = MACHINE_LIMITS.MIN_EN / updatedEn; // Direkt 150'ye ulaşacak çarpan
+    // Her çarpan için minimum gereken değeri hesapla - DOĞRUDAN 150 CM'YE ulaşmayı hedefle
+    const minRequired = MACHINE_LIMITS.MIN_EN / updatedEn;
     
-    // En uygun çarpıcıyı bul - 150cm'ye ulaşacak en küçük çarpıcı
+    // En uygun çarpıcıyı bul - doğrudan 150cm ve üzerine ulaşacak en küçük çarpıcı
     let bestMultiplier = null;
     for (const multiplier of multipliers) {
-      if (multiplier >= minRequired && updatedEn * multiplier <= MACHINE_LIMITS.MAX_EN) {
+      const resultValue = updatedEn * multiplier;
+      // ÖNEMLİ: Doğrudan 150cm ve üzerine ulaşmalı
+      if (resultValue >= MACHINE_LIMITS.MIN_EN && resultValue <= MACHINE_LIMITS.MAX_EN) {
         bestMultiplier = multiplier;
         break;
-      }
-    }
-    
-    // Eğer 150'ye ulaşacak çarpan bulunamadıysa, 126'ya ulaşacak çarpan ara
-    if (!bestMultiplier) {
-      const minAdjustableRequired = MACHINE_LIMITS.MIN_EN_ADJUSTABLE / updatedEn;
-      for (const multiplier of multipliers) {
-        if (multiplier >= minAdjustableRequired && updatedEn * multiplier <= MACHINE_LIMITS.MAX_EN) {
-          bestMultiplier = multiplier;
-          break;
-        }
       }
     }
     
@@ -2344,23 +2335,13 @@ const processDimensions = (row) => {
       result.message += `7. En ölçüsü ${bestMultiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
       
       multiplied = true;
-      
-      // ÖNEMLİ: Çarpma sonrası En 126-149 aralığında mı kontrol et
-      const finalEn = parseFloat(row.uzunlukEn);
-      if (finalEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && finalEn < MACHINE_LIMITS.MIN_EN) {
-        row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-        row.modified.uzunlukEn = true;
-        
-        result.changed = true;
-        result.message += `8. Çarpma sonrası En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
-      }
     }
     
     // Çarpma işlemi yapılamadıysa ve hala limitler dışındaysa
     if (!multiplied && parseFloat(row.uzunlukEn) < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
       row.uretilemez = true;
       result.changed = true;
-      result.message += `9. En ölçüsü (${updatedEn}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_EN_ADJUSTABLE}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
+      result.message += `8. En ölçüsü (${updatedEn}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_EN_ADJUSTABLE}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
       return result;
     }
   }
@@ -2369,7 +2350,7 @@ const processDimensions = (row) => {
   if (!isMachineLimitsOk(row)) {
     row.uretilemez = true;
     result.changed = true;
-    result.message += "10. Yapılan işlemlerden sonra ürün hala makine limitlerine uygun boyutlara getirilemedi. ";
+    result.message += "9. Yapılan işlemlerden sonra ürün hala makine limitlerine uygun boyutlara getirilemedi. ";
   }
   
   return result;
