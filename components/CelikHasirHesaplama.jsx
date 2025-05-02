@@ -3226,6 +3226,24 @@ const processExtractedTextFromOCR = (extractedText) => {
 
 // Hasır Sayısı sütununu belirleme - Tamamen yenilenmiş versiyon
 function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol) {
+  // ÖNCELİKLİ KONTROL: HASIR SAYISI için kesin başlık kontrolü 
+  if (headerRowIndex >= 0) {
+    const headerRow = jsonData[headerRowIndex];
+    for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
+      // Zaten belli olan sütunları atla
+      if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
+      
+      if (!headerRow[colIndex]) continue;
+      
+      const header = String(headerRow[colIndex]).toUpperCase().trim();
+      
+      // Tam eşleşmeler için anında seç ve döndür
+      if (header === "HASIR SAYISI" || header === "HASIR SAYICI" || 
+          header === "HASIR ADEDİ" || header === "HASIR ADEDI") {
+        return colIndex; // Hemen döndür
+      }
+    }
+  }
   // 1. BAŞLIK ANALİZİ - EN YÜKSEK ÖNCELİK
   if (headerRowIndex >= 0) {
     const headerRow = jsonData[headerRowIndex];
@@ -3923,12 +3941,18 @@ const parseExcelData = (data) => {
           uzunlukEn = formatNumber(uzunlukEn);
         }
         
-        // Hasır Sayısı - Tüm değerleri eksiksiz al
+        // Hasır Sayısı - Geliştirilmiş değer alma
         if (hasirSayisiCol !== -1 && hasirSayisiCol < row.length) {
           const rawValue = row[hasirSayisiCol];
-          if (rawValue !== undefined && rawValue !== null) {
-            hasirSayisi = String(rawValue).trim();
-            hasirSayisi = formatNumber(hasirSayisi);
+          // Değer boş mu kontrol et
+          if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+            // Sayısal bir değer ya da metin mi kontrol et
+            if (typeof rawValue === 'number') {
+              hasirSayisi = rawValue.toString();
+            } else {
+              // Metin olarak işle
+              hasirSayisi = formatNumber(String(rawValue).trim());
+            }
           }
         }
         // Değerlerin geçerli olup olmadığını kontrol et (minimum 50cm kuralı)
