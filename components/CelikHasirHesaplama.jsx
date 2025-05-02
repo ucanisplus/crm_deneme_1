@@ -2158,7 +2158,6 @@ const iyilestirAll = async () => {
 };
 
 // Boyutları uyumlama işlemlerini tek bir fonksiyonda topla
-// Bu fonksiyon hem swap hem merge işlemlerini yönetir
 const processDimensions = (row) => {
   const result = {
     changed: false,
@@ -2188,114 +2187,157 @@ const processDimensions = (row) => {
   }
   
   // AŞAMA 2: En > MAX_EN ise SWAP deneme
-if (originalEn > MACHINE_LIMITS.MAX_EN) {
-  // ÖNEMLİ: Swap işlemi sadece En>MAX_EN durumunda ve makine limitlerini karşılayacaksa yapılır
-  if (originalEn <= MACHINE_LIMITS.MAX_BOY && originalBoy <= MACHINE_LIMITS.MAX_EN) {
-    // Boy ve En değerlerini değiştir
-    row.uzunlukBoy = originalEn.toString();
-    row.uzunlukEn = originalBoy.toString();
-    row.modified.uzunlukBoy = true;
-    row.modified.uzunlukEn = true;
-    
-    result.changed = true;
-    result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
-    
-    // Hasır türünü değiştirme sonrası güncelle
-    row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-  } else {
-    // En > MAX_EN ve Swap da çalışmadıysa, üretilemez olarak işaretle
-    row.uretilemez = true;
-    result.changed = true;
-    result.message = `3. En ölçüsü (${originalEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı ve swap yapılamadığı için üretilemez. `;
-    return result;
-  }
-}
-  
-  // AŞAMA 3: En 126-149 cm aralığında mı kontrol et (swap sonrası)
-  const currentEn = parseFloat(row.uzunlukEn);
-  
-  if (currentEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && currentEn < MACHINE_LIMITS.MIN_EN) {
-    row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
-    row.modified.uzunlukEn = true;
-    
-    result.changed = true;
-    result.message += `4. En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+  if (originalEn > MACHINE_LIMITS.MAX_EN) {
+    // ÖNEMLİ: Swap işlemi sadece En>MAX_EN durumunda ve makine limitlerini karşılayacaksa yapılır
+    if (originalEn <= MACHINE_LIMITS.MAX_BOY && originalBoy <= MACHINE_LIMITS.MAX_EN) {
+      // Boy ve En değerlerini değiştir
+      row.uzunlukBoy = originalEn.toString();
+      row.uzunlukEn = originalBoy.toString();
+      row.modified.uzunlukBoy = true;
+      row.modified.uzunlukEn = true;
+      
+      result.changed = true;
+      result.message = `2. En değeri (${originalEn}cm) makine limitini aştığı için Boy/En değerleri değiştirildi (${originalBoy} × ${originalEn} ➝ ${row.uzunlukBoy} × ${row.uzunlukEn}). `;
+      
+      // Hasır türünü değiştirme sonrası güncelle
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+    } else {
+      // En > MAX_EN ve Swap da çalışmadıysa, üretilemez olarak işaretle
+      row.uretilemez = true;
+      result.changed = true;
+      result.message = `3. En ölçüsü (${originalEn}cm) maksimum makine limitini (${MACHINE_LIMITS.MAX_EN}cm) aştığı ve swap yapılamadığı için üretilemez. `;
+      return result;
+    }
   }
   
-  // AŞAMA 4: Boy < MIN_BOY ise çarpma dene
+  // AŞAMA 3: Boy < MIN_BOY ise çarpma dene
   const currentBoy = parseFloat(row.uzunlukBoy);
   
   if (currentBoy < MACHINE_LIMITS.MIN_BOY) {
     let multiplied = false;
     
-    for (let multiplier of [2, 3, 4, 5, 6]) {
-      const newBoy = currentBoy * multiplier;
-      
-      if (newBoy >= MACHINE_LIMITS.MIN_BOY && newBoy <= MACHINE_LIMITS.MAX_BOY) {
-        row.uzunlukBoy = newBoy.toString();
-        // Hasır sayısını yukarı yuvarlayarak ayarla
-        const currentHasirSayisi = parseFloat(row.hasirSayisi);
-        const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
-        row.hasirSayisi = newHasirSayisi.toString();
-        row.modified.uzunlukBoy = true;
-        row.modified.hasirSayisi = true;
-        
-        result.changed = true;
-        result.message += `5. Boy ölçüsü ${multiplier} ile çarpılarak ${newBoy.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
-        
-        // Hasır türünü güncelle
-        row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-        
-        multiplied = true;
-        break; // İlk geçerli çarpanı bulduktan sonra çık
+    // ÖNEMLİ: Çarpıcıları küçükten büyüğe sırala
+    const multipliers = [2, 3, 4, 5, 6];
+    
+    // Her çarpan için minimum gereken değeri hesapla
+    const minRequired = MACHINE_LIMITS.MIN_BOY / currentBoy;
+    
+    // En uygun çarpıcıyı bul - makine limitlerine uyan en küçük çarpıcı
+    let bestMultiplier = null;
+    for (const multiplier of multipliers) {
+      if (multiplier >= minRequired && currentBoy * multiplier <= MACHINE_LIMITS.MAX_BOY) {
+        bestMultiplier = multiplier;
+        break;
       }
     }
     
+    // Uygun çarpıcı bulundu mu?
+    if (bestMultiplier) {
+      const newBoy = currentBoy * bestMultiplier;
+      
+      // Boy değerini ve hasır sayısını güncelle
+      row.uzunlukBoy = newBoy.toString();
+      const currentHasirSayisi = parseFloat(row.hasirSayisi);
+      const newHasirSayisi = Math.ceil(currentHasirSayisi / bestMultiplier);
+      row.hasirSayisi = newHasirSayisi.toString();
+      row.modified.uzunlukBoy = true;
+      row.modified.hasirSayisi = true;
+      
+      result.changed = true;
+      result.message += `4. Boy ölçüsü ${bestMultiplier} ile çarpılarak ${newBoy.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+      
+      // Hasır türünü güncelle
+      row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      
+      multiplied = true;
+    }
+    
     // Çarpma işlemi yapılamadıysa ve hala limitler dışındaysa
-    if (!multiplied && currentBoy < MACHINE_LIMITS.MIN_BOY) {
+    if (!multiplied && parseFloat(row.uzunlukBoy) < MACHINE_LIMITS.MIN_BOY) {
       row.uretilemez = true;
       result.changed = true;
-      result.message += `6. Boy ölçüsü (${currentBoy}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_BOY}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
+      result.message += `5. Boy ölçüsü (${currentBoy}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_BOY}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
       return result;
     }
   }
   
-  // AŞAMA 5: En < MIN_EN_ADJUSTABLE ise çarpma dene
-  const updatedEn = parseFloat(row.uzunlukEn);
+  // AŞAMA 4: En için işlemler - Tamamen yenilendi
+  const currentEn = parseFloat(row.uzunlukEn);
   
-  if (updatedEn < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
+  // ÖNEMLİ: İlk önce çarpma işlemi dene, sonra 126-149 aralığı kontrolü yap
+  if (currentEn < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
     let multiplied = false;
     
-    for (let multiplier of [2, 3, 4, 5, 6]) {
-      const newEn = updatedEn * multiplier;
-      
-      if (newEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && newEn <= MACHINE_LIMITS.MAX_EN) {
-        row.uzunlukEn = newEn.toString();
-        // Hasır sayısını yukarı yuvarlayarak ayarla
-        const currentHasirSayisi = parseFloat(row.hasirSayisi);
-        const newHasirSayisi = Math.ceil(currentHasirSayisi / multiplier);
-        row.hasirSayisi = newHasirSayisi.toString();
-        row.modified.uzunlukEn = true;
-        row.modified.hasirSayisi = true;
-        
-        result.changed = true;
-        result.message += `7. En ölçüsü ${multiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
-        
-        multiplied = true;
-        break; // İlk geçerli çarpanı bulduktan sonra çık
+    // ÖNEMLİ: En uygun çarpıcıyı bul - makine limitlerine uyan çarpıcı
+    const multipliers = [2, 3, 4, 5, 6];
+    
+    // Her çarpan için minimum gereken değeri hesapla
+    const minRequiredForAdjustable = MACHINE_LIMITS.MIN_EN_ADJUSTABLE / currentEn;
+    const minRequiredForFull = MACHINE_LIMITS.MIN_EN / currentEn;
+    
+    // En iyi çarpıcıyı bul:
+    // 1. Öncelikle MIN_EN (150cm) limitini karşılayan en küçük çarpıcı
+    // 2. Eğer yoksa, MIN_EN_ADJUSTABLE (126cm) limitini karşılayan en küçük çarpıcı
+    let bestMultiplier = null;
+    
+    // İlk önce MIN_EN (150) limitini karşılayan en küçük çarpıcıyı ara
+    for (const multiplier of multipliers) {
+      const newEn = currentEn * multiplier;
+      if (multiplier >= minRequiredForFull && newEn <= MACHINE_LIMITS.MAX_EN) {
+        bestMultiplier = multiplier;
+        break;
       }
     }
     
+    // Eğer MIN_EN (150) limitini karşılayan çarpıcı yoksa, MIN_EN_ADJUSTABLE (126) için ara
+    if (!bestMultiplier) {
+      for (const multiplier of multipliers) {
+        const newEn = currentEn * multiplier;
+        if (multiplier >= minRequiredForAdjustable && newEn <= MACHINE_LIMITS.MAX_EN) {
+          bestMultiplier = multiplier;
+          break;
+        }
+      }
+    }
+    
+    // Uygun çarpıcı bulundu mu?
+    if (bestMultiplier) {
+      const newEn = currentEn * bestMultiplier;
+      
+      row.uzunlukEn = newEn.toString();
+      // Hasır sayısını yukarı yuvarlayarak ayarla
+      const currentHasirSayisi = parseFloat(row.hasirSayisi);
+      const newHasirSayisi = Math.ceil(currentHasirSayisi / bestMultiplier);
+      row.hasirSayisi = newHasirSayisi.toString();
+      row.modified.uzunlukEn = true;
+      row.modified.hasirSayisi = true;
+      
+      result.changed = true;
+      result.message += `6. En ölçüsü ${bestMultiplier} ile çarpılarak ${newEn.toFixed(2)} cm yapıldı, hasır sayısı ${currentHasirSayisi} ➝ ${newHasirSayisi} olarak güncellendi. `;
+      
+      multiplied = true;
+    }
+    
     // Çarpma işlemi yapılamadıysa ve hala limitler dışındaysa
-    if (!multiplied && updatedEn < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
+    if (!multiplied && parseFloat(row.uzunlukEn) < MACHINE_LIMITS.MIN_EN_ADJUSTABLE) {
       row.uretilemez = true;
       result.changed = true;
-      result.message += `8. En ölçüsü (${updatedEn}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_EN_ADJUSTABLE}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
+      result.message += `7. En ölçüsü (${currentEn}cm) minimum makine limitinin (${MACHINE_LIMITS.MIN_EN_ADJUSTABLE}cm) altında ve çarpma işlemi yapılamadığı için üretilemez. `;
       return result;
     }
   }
+
+  // ÖNEMLİ: 126-149 aralığı kontrolü - çarpma ile büyütüldükten sonra yapılmalı
+  const finalEn = parseFloat(row.uzunlukEn);
+  if (finalEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && finalEn < MACHINE_LIMITS.MIN_EN) {
+    row.uzunlukEn = MACHINE_LIMITS.MIN_EN.toString();
+    row.modified.uzunlukEn = true;
+    
+    result.changed = true;
+    result.message += `8. En ölçüsü otomatik olarak ${MACHINE_LIMITS.MIN_EN} cm'e ayarlandı. `;
+  }
   
-  // AŞAMA 6: Final kontrol - hala makine limitleri dışındaysa
+  // AŞAMA 5: Final kontrol - hala makine limitleri dışındaysa
   if (!isMachineLimitsOk(row)) {
     row.uretilemez = true;
     result.changed = true;
