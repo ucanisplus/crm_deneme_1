@@ -3166,172 +3166,110 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
 
 
 
-// OCR sonuçlarını sütun eşleştirmesi ile işleme
-const processExtractedTextFromOCR = (extractedText) => {
-  try {
-    // İlk olarak satırlara böl
-    const lines = extractedText.split('\n').filter(line => line.trim() !== '');
-    
-    // Verileri tablo formatına getir
-    const tableData = [];
-    
-    for (const line of lines) {
-      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
-      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
-      if (rowData.length > 0) {
-        tableData.push(rowData);
-      }
-    }
-    
-    if (tableData.length === 0) {
-      alert('OCR sonuçlarında işlenebilir veri bulunamadı.');
-      return;
-    }
-    
-    // Başlıkları tespit et - OCR için genellikle başlık olmaz
-    const hasHeaders = false;
-    const headerRow = [];
-    
-    // Hasır Tipi sütununu bul (Q, R, TR deseni)
-    let hasirTipiCol = -1;
-    
-    // Tüm satırlarda deseni kontrol et
-    for (let rowIndex = 0; rowIndex < tableData.length; rowIndex++) {
-      const row = tableData[rowIndex];
+  // PaddleOCR sonuçlarını işle
+  const processExtractedTextWithPaddleOCR = (results) => {
+    try {
+      // Sonuçları doğru formatta işle
+      let textData = '';
       
-      for (let colIndex = 0; colIndex < row.length; colIndex++) {
-        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
-        
-        if (/^(Q|R|TR)\d+/.test(cellValue)) {
-          hasirTipiCol = colIndex;
-          break;
-        }
+      if (results && results.text) {
+        textData = results.text;
+      } else if (typeof results === 'string') {
+        textData = results;
+      } else if (results && Array.isArray(results.regions)) {
+        // Eski PaddleOCR API yapısı
+        textData = results.regions.map(region => 
+          region.lines.map(line => line.text).join('\n')
+        ).join('\n');
+      } else {
+        textData = JSON.stringify(results);
       }
       
-      if (hasirTipiCol !== -1) break;
-    }
-    
-    // Hasır tipi sütunu bulunamadıysa, her satırda tam değer ara
-    if (hasirTipiCol === -1) {
-      // Her satırı tek tek kontrol et
-      const processedData = [];
+      // Metni satırlara ayır
+      const lines = textData.split('\n');
       
-      for (const row of tableData) {
-        let hasirTipi = null;
-        
-        // Satırdaki her değeri kontrol et
-        for (const cell of row) {
-          if (/^(Q|R|TR)\d+/i.test(cell)) {
-            hasirTipi = cell;
-            break;
+      // Her satırı boşluklara göre ayırarak tablo oluştur
+      const tableData = [];
+      lines.forEach(line => {
+        if (line.trim()) {
+          // Tab, virgül veya birden fazla boşlukla ayır
+          const rowData = line.split(/\t|,|;|\s{2,}/).map(item => item.trim()).filter(item => item);
+          if (rowData.length > 0) {
+            tableData.push(rowData);
           }
         }
-        
-        // Hasır tipi bulunduysa, bu satırı işle
-        if (hasirTipi) {
-          // Sayısal değerleri bul
-          const numericValues = row
-            .filter(cell => cell !== hasirTipi)
-            .map(cell => {
-              const num = parseFloat(formatNumber(cell));
-              return isNaN(num) ? null : num;
-            })
-            .filter(num => num !== null);
-          
-          // En az 2 sayısal değer varsa geçerli satır
-          if (numericValues.length >= 2) {
-            processedData.push([hasirTipi, ...numericValues.map(num => num.toString())]);
-          }
-        }
-      }
+      });
       
-      // İşlenmiş verileri kullan
-      if (processedData.length > 0) {
-        const sheetsData = [{
-          sheetName: "OCR",
-          headers: [],
-          data: processedData,
-          hasirTipiCol: 0, // İlk sütun hasır tipi
-          hasHeaders: false
-        }];
-        
-        // Eşleştirme modalını göster
-        setSheetData(sheetsData);
-        setShowMappingModal(true);
-        return;
+      // Oluşan tabloyu işle
+      if (tableData.length > 0) {
+        validateAndProcessTabularData(tableData);
+      } else {
+        // Tablo oluşturulamadıysa düz metin olarak işle
+        parseTextData(textData);
+      }
+    } catch (error) {
+      console.error('PaddleOCR veri işleme hatası:', error);
+      
+      // Hata durumunda düz metin olarak işle
+      if (results && results.text) {
+        parseTextData(results.text);
+      } else if (typeof results === 'string') {
+        parseTextData(results);
+      } else {
+        parseTextData(JSON.stringify(results));
       }
     }
-    
-    const sheetsData = [{
-      sheetName: "OCR",
-      headers: headerRow,
-      data: tableData,
-      hasirTipiCol,
-      hasHeaders
-    }];
-    
-    // Eşleştirme modalını göster
-    setSheetData(sheetsData);
-    setShowMappingModal(true);
-    
-  } catch (error) {
-    console.error('OCR veri analiz hatası:', error);
-    // Hata durumunda basit metin işlemeye geri dön
-    parseTextData(extractedText);
-  }
-};
+  };
 
-// OCR.space API ile görüntüden metin çıkarma ve sütun eşleştirme uygulaması
-const processImageWithOCRSpace = async (imageFile) => {
-  try {
-    setOcrProgress(10);
-    setOcrProvider('ocr.space');
-    
-    // FormData oluştur
-    const formData = new FormData();
-    formData.append('apikey', OCR_SPACE_API_KEY);
-    formData.append('file', imageFile);
-    formData.append('language', 'tur');
-    formData.append('isTable', 'true');
-    formData.append('OCREngine', '2'); // Daha doğru motor
-    
-    setOcrProgress(30);
-    
-    // API isteği yap
-    const response = await fetch('https://api.ocr.space/parse/image', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    setOcrProgress(70);
-    
-    if (!response.ok) {
-      throw new Error(`OCR.space API hatası: ${response.status} ${response.statusText}`);
-    }
-    
-    const result = await response.json();
-    
-    if (result.ParsedResults && result.ParsedResults.length > 0) {
-      const extractedText = result.ParsedResults[0].ParsedText;
+  // OCR.space API ile görüntüden metin çıkarma - Hata yönetimi geliştirildi
+  const processImageWithOCRSpace = async (imageFile) => {
+    try {
+      setOcrProgress(10);
+      setOcrProvider('ocr.space');
       
-      // Sütun eşleştirmeli işleme fonksiyonunu kullan
-      processExtractedTextFromOCR(extractedText);
+      // FormData oluştur
+      const formData = new FormData();
+      formData.append('apikey', OCR_SPACE_API_KEY);
+      formData.append('file', imageFile);
+      formData.append('language', 'tur');
+      formData.append('isTable', 'true');
+      formData.append('OCREngine', '2'); // Daha doğru motor
       
-      setOcrProgress(100);
-      return true;
-    } else if (result.ErrorMessage) {
-      throw new Error(`OCR.space hata mesajı: ${result.ErrorMessage}`);
-    } else {
-      throw new Error('OCR sonuçları alınamadı');
+      setOcrProgress(30);
+      
+      // API isteği yap
+      const response = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      setOcrProgress(70);
+      
+      if (!response.ok) {
+        throw new Error(`OCR.space API hatası: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.ParsedResults && result.ParsedResults.length > 0) {
+        const extractedText = result.ParsedResults[0].ParsedText;
+        
+        // Özelleştirilmiş Q, R, TR hasır tipi ve boyut arama algoritması uygula
+        processExtractedTextFromOCR(extractedText);
+        
+        setOcrProgress(100);
+        setBulkInputVisible(true);
+        return true;
+      } else if (result.ErrorMessage) {
+        throw new Error(`OCR.space hata mesajı: ${result.ErrorMessage}`);
+      } else {
+        throw new Error('OCR sonuçları alınamadı');
+      }
+    } catch (error) {
+      console.error('OCR.space işleme hatası:', error);
+      return false;
     }
-  } catch (error) {
-    console.error('OCR.space işleme hatası:', error);
-    setOcrProgress(0);
-    setIsProcessingImage(false);
-    alert('Görüntü işleme hatası: ' + error.message);
-    return false;
-  }
-};
+  };
 
 // OCR.space'den gelen metni özel olarak işleme 
 const processExtractedTextFromOCR = (extractedText) => {
@@ -3569,68 +3507,28 @@ const processExtractedTextFromOCR = (extractedText) => {
   };
 
   // Metin verilerini işleme
-// Metin verilerini sütun eşleştirmesi ile işleme
-const parseTextData = (text) => {
-  try {
-    // Metni satırlara böl
-    const lines = text.split(/\r?\n/);
-    
-    // Boş satırları filtrele
-    const nonEmptyLines = lines.filter(line => line.trim() !== '');
-    
-    // Verileri düzelt ve tablo formatına getir
-    const tableData = nonEmptyLines.map(line => {
-      // Tab, virgül veya boşluklarla ayrılmış verileri parçala
-      const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
-      return rowData;
-    }).filter(row => row.length > 0);
-    
-    if (tableData.length === 0) {
-      alert('İşlenebilir veri bulunamadı.');
-      return;
-    }
-    
-    // Başlıkları tespit et
-    const hasHeaders = guessIfHasHeaders(tableData);
-    const headerRow = hasHeaders ? tableData[0] : [];
-    const dataStartRow = hasHeaders ? 1 : 0;
-    
-    // Hasır Tipi sütununu bul (Q, R, TR deseni)
-    let hasirTipiCol = -1;
-    
-    // Birkaç satırda deseni kontrol et
-    for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, tableData.length); rowIndex++) {
-      const row = tableData[rowIndex];
+  const parseTextData = (text) => {
+    try {
+      // Metni satırlara böl
+      const lines = text.split(/\r?\n/);
       
-      for (let colIndex = 0; colIndex < row.length; colIndex++) {
-        const cellValue = String(row[colIndex] || '').trim().toUpperCase();
-        
-        if (/^(Q|R|TR)\d+/.test(cellValue)) {
-          hasirTipiCol = colIndex;
-          break;
-        }
-      }
+      // Boş satırları filtrele
+      const nonEmptyLines = lines.filter(line => line.trim() !== '');
       
-      if (hasirTipiCol !== -1) break;
+      // Verileri düzelt ve tablo formatına getir
+      const tableData = nonEmptyLines.map(line => {
+        // Tab, virgül veya boşluklarla ayrılmış verileri parçala
+        const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
+        return rowData;
+      }).filter(row => row.length > 0);
+      
+      // Verileri işle
+      validateAndProcessTabularData(tableData);
+    } catch (error) {
+      console.error('Metin işleme hatası:', error);
+      alert('Metin işleme hatası: ' + error.message);
     }
-    
-    const sheetsData = [{
-      sheetName: "Metin",
-      headers: headerRow,
-      data: tableData.slice(dataStartRow),
-      hasirTipiCol,
-      hasHeaders
-    }];
-    
-    // Eşleştirme modalını göster
-    setSheetData(sheetsData);
-    setShowMappingModal(true);
-    
-  } catch (error) {
-    console.error('Metin işleme hatası:', error);
-    alert('Metin işleme hatası: ' + error.message);
-  }
-};
+  };
 
 
 
