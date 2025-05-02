@@ -3343,35 +3343,70 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
     // Yüksek öncelikli başlıklar
     const highPriorityKeywords = [
       "HASIR ADEDİ", "HASIR SAYISI", "HASIR ADEDI", "HASIR SAYISI", 
-      "HASIR ADET", "TOPLAM HASIR", "HASIR MIKTAR", "HASIR MİKTAR"
+      "HASIR ADET", "TOPLAM HASIR", "HASIR MIKTAR", "HASIR MİKTAR",
+      "HASIRADEDI", "HASIRSAYISI", "HASIRADET", "TOPLAMHASIR"
     ];
     
     // Orta öncelikli başlıklar
     const mediumPriorityKeywords = [
       "ADET SAYISI", "TOPLAM ADET", "SİPARİŞ ADEDİ", "SIPARIS ADEDI", 
-      "ADET MİKTARI", "ADET MIKTARI"
+      "ADET MİKTARI", "ADET MIKTARI", "TOPLAMADET", "SIPARISADEDI",
+      "SIPARISADETI", "TOPLAMADETI", "ADETSAYISI"
     ];
     
-    // Düşük öncelikli başlıklar
+    // Düşük öncelikli başlıklar (tam eşleşme aramak için)
     const lowPriorityKeywords = [
       "ADET", "MİKTAR", "MIKTAR", "SAYI", "SAYISI", "SİPARİŞ", "SIPARIS"
     ];
     
     // Önce yüksek öncelikli kelimeleri ara
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
-      const header = String(headerRow[colIndex] || '').toUpperCase().trim()
-                     .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Aksan işaretlerini kaldır
-      
       // Zaten belli olan sütunları atla
       if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
       
-      // Yüksek öncelikli eşleşme
+      // Orijinal header metni
+      const headerText = String(headerRow[colIndex] || '').toUpperCase().trim();
+      
+      // Boşlukları sil, normalize et
+      const compactHeader = headerText.replace(/\s+/g, '');
+      
+      // Türkçe karakterleri İngilizce eşdeğerleriyle değiştir
+      const normalizedHeader = headerText
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Aksan işaretlerini kaldır
+        .replace(/İ/g, "I")
+        .replace(/Ş/g, "S")
+        .replace(/Ü/g, "U")
+        .replace(/Ö/g, "O")
+        .replace(/Ç/g, "C")
+        .replace(/Ğ/g, "G");
+      
+      // Compact versiyonu da normalize et
+      const compactNormalizedHeader = compactHeader
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/İ/g, "I")
+        .replace(/Ş/g, "S")
+        .replace(/Ü/g, "U")
+        .replace(/Ö/g, "O")
+        .replace(/Ç/g, "C")
+        .replace(/Ğ/g, "G");
+      
+      // Yüksek öncelikli eşleşme - Hasır Adedi/Sayısı varyasyonları
       for (const keyword of highPriorityKeywords) {
-        if (header.includes(keyword) || 
-            header.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G").includes(
-              keyword.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G")
-            )) {
-          return colIndex; // En yüksek öncelik
+        const normalizedKeyword = keyword
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/İ/g, "I")
+          .replace(/Ş/g, "S")
+          .replace(/Ü/g, "U")
+          .replace(/Ö/g, "O")
+          .replace(/Ç/g, "C")
+          .replace(/Ğ/g, "G");
+        
+        // Orijinal, compact veya normalize edilmiş metinde eşleşme ara
+        if (headerText.includes(keyword) || 
+            compactHeader.includes(keyword.replace(/\s+/g, '')) ||
+            normalizedHeader.includes(normalizedKeyword) ||
+            compactNormalizedHeader.includes(normalizedKeyword.replace(/\s+/g, ''))) {
+          return colIndex; // En yüksek öncelik, hemen dön
         }
       }
     }
@@ -3381,14 +3416,41 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
       if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
       
-      const header = String(headerRow[colIndex] || '').toUpperCase().trim()
-                     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const headerText = String(headerRow[colIndex] || '').toUpperCase().trim();
+      const compactHeader = headerText.replace(/\s+/g, '');
+      
+      const normalizedHeader = headerText
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/İ/g, "I")
+        .replace(/Ş/g, "S")
+        .replace(/Ü/g, "U")
+        .replace(/Ö/g, "O")
+        .replace(/Ç/g, "C")
+        .replace(/Ğ/g, "G");
+      
+      const compactNormalizedHeader = compactHeader
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/İ/g, "I")
+        .replace(/Ş/g, "S")
+        .replace(/Ü/g, "U")
+        .replace(/Ö/g, "O")
+        .replace(/Ç/g, "C")
+        .replace(/Ğ/g, "G");
       
       for (const keyword of mediumPriorityKeywords) {
-        if (header.includes(keyword) || 
-            header.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G").includes(
-              keyword.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G")
-            )) {
+        const normalizedKeyword = keyword
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/İ/g, "I")
+          .replace(/Ş/g, "S")
+          .replace(/Ü/g, "U")
+          .replace(/Ö/g, "O")
+          .replace(/Ç/g, "C")
+          .replace(/Ğ/g, "G");
+        
+        if (headerText.includes(keyword) || 
+            compactHeader.includes(keyword.replace(/\s+/g, '')) ||
+            normalizedHeader.includes(normalizedKeyword) ||
+            compactNormalizedHeader.includes(normalizedKeyword.replace(/\s+/g, ''))) {
           mediumPriorityMatch = colIndex;
           break;
         }
@@ -3396,18 +3458,36 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
       if (mediumPriorityMatch !== -1) break;
     }
     
-    // Düşük öncelikli kelimeleri ara
+    // Düşük öncelikli kelimeleri ara - TAM EŞLEŞME İÇİN
     let lowPriorityMatch = -1;
     for (let colIndex = 0; colIndex < headerRow.length; colIndex++) {
       if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
       
-      const header = String(headerRow[colIndex] || '').toUpperCase().trim()
-                     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const headerText = String(headerRow[colIndex] || '').toUpperCase().trim();
+      const compactHeader = headerText.replace(/\s+/g, '');
+      
+      const normalizedHeader = headerText
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/İ/g, "I")
+        .replace(/Ş/g, "S")
+        .replace(/Ü/g, "U")
+        .replace(/Ö/g, "O")
+        .replace(/Ç/g, "C")
+        .replace(/Ğ/g, "G");
       
       for (const keyword of lowPriorityKeywords) {
-        if (header === keyword || 
-            header.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G") === 
-            keyword.replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C").replace(/Ğ/g, "G")) {
+        const normalizedKeyword = keyword
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/İ/g, "I")
+          .replace(/Ş/g, "S")
+          .replace(/Ü/g, "U")
+          .replace(/Ö/g, "O")
+          .replace(/Ç/g, "C")
+          .replace(/Ğ/g, "G");
+        
+        // Düşük öncelikli kelimeler için TAM EŞLEŞME ara (contains değil equality)
+        if (headerText === keyword || normalizedHeader === normalizedKeyword || 
+            compactHeader === keyword.replace(/\s+/g, '')) {
           lowPriorityMatch = colIndex;
           break;
         }
@@ -3427,14 +3507,14 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
   // Tüm sütunlardaki sayısal verileri analiz et
   const columnStats = {};
   
-  for (let colIndex = 0; colIndex < Math.max(...dataRows.map(row => row.length)); colIndex++) {
+  for (let colIndex = 0; colIndex < Math.max(...dataRows.map(row => row.length || 0)); colIndex++) {
     // Mevcut sütunları atla
     if (colIndex === boyCol || colIndex === enCol || colIndex === hasirTipiCol) continue;
     
     const values = [];
     
     for (const row of dataRows) {
-      if (colIndex >= row.length) continue;
+      if (!row || colIndex >= row.length) continue;
       
       const cellValue = String(row[colIndex] || '').trim();
       const numValue = parseFloat(formatNumber(cellValue));
@@ -3468,38 +3548,39 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
     
     // Tam sayı oranı (Hasır sayısı genellikle tam sayıdır)
     if (stats.integerRatio > 0.9) {
-      score += 20;
+      score += 30; // Daha yüksek puan
     } else if (stats.integerRatio > 0.7) {
-      score += 10;
+      score += 15;
     }
     
     // Büyük değerler için bonus (100+ değerler sıklıkla Hasır Sayısı'nda bulunur)
     if (stats.largeValues > 0) {
-      score += 15;
+      score += 20; // Daha yüksek puan
       
       // Büyük değerlerin oranı yüksekse ek puan
       if (stats.largeValues / stats.count > 0.3) {
-        score += 15;
+        score += 20;
       }
     }
     
     // Küçük değerler için ceza (zira Hasır Sayısı tipik olarak daha büyük değerlerdir)
     // ANCAK: 1, 2, 5, 10 gibi değerler normal Hasır Sayısı değerleri olabilir
+    // ÖNEMLİ: Eğer TÜM değerler küçükse, bu muhtemelen başka bir şeydir
     if (stats.smallValues === stats.count && stats.count > 2) {
-      // Tüm değerler küçükse ve birden fazla değer varsa, ceza puanı düşür
-      score -= 10;
+      // Küçük değer cezasını azalt
+      score -= 5; // Küçük değer cezasını azalt (önceki 10'dan)
     }
     
     // Maksimum değer çok büyükse bonus (1000+ tipik olarak adet değerleridir)
     if (stats.max > 1000) {
-      score += 20;
+      score += 25;
     } else if (stats.max > 500) {
-      score += 10;
+      score += 15;
     }
     
     // 1-10 arasındaki değerler varsa bonus (yaygın Hasır Sayısı değerleri)
     if (stats.values.some(v => v >= 1 && v <= 10 && (Number.isInteger(v) || Math.abs(v - Math.round(v)) < 0.001))) {
-      score += 10;
+      score += 15; // Daha yüksek puan
     }
     
     // En yüksek puanlı sütunu seç
