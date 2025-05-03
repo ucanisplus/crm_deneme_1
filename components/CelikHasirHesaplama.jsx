@@ -2975,6 +2975,11 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
   if (solFiliz >= 2 && solFiliz <= 8) score += 5;
   if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
   
+  // ÖNEMLİ: Sadece minimum değeri sağladığı için daha yüksek puan vermeyi önle
+  // Bunun yerine ideal filiz değerlerine daha yüksek puan ver
+  if (Math.abs(solFiliz - 2.5) < 0.3) score += 50;  // 2.5 değerine öncelik ver
+  if (Math.abs(sagFiliz - 2.5) < 0.3) score += 50;  // 2.5 değerine öncelik ver
+  
   if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
       // Perde hasırı için ön filiz min 2.5 olmalı
       if (onFiliz >= 2.5) score += 10;
@@ -3043,12 +3048,12 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
     const boyAraligi = parseFloat(row.boyAraligi);
     const enAraligi = parseFloat(row.enAraligi);
     
-    // Test edilecek çubuk sayısı aralığını belirle
-    const minBoyCount = Math.max(2, currentBoyCount - 10);
-    const maxBoyCount = currentBoyCount + 10;
-    const minEnCount = Math.max(2, currentEnCount - 10);
-    const maxEnCount = currentEnCount + 10;
-    
+    // Test edilecek çubuk sayısı aralığını daralt (±5)
+    const minBoyCount = Math.max(2, currentBoyCount - 5);
+    const maxBoyCount = currentBoyCount + 5;
+    const minEnCount = Math.max(2, currentEnCount - 5);
+    const maxEnCount = currentEnCount + 5;
+        
     // Perde ve DK Perde tipleri için En çubuk sayısını sabit tut
     if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
         row.hasirTipi.startsWith('Q')) {
