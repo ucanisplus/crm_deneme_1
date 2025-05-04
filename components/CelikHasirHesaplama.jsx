@@ -1739,7 +1739,7 @@ const calculateOptimalCubukCount = (totalLength, spacing, targetFiliz) => {
     }
   };
 
-// Yeni iyileştirme fonksiyonu - Hedef filiz değerlerini öncelikle kullanan yaklaşım
+// İyileştir fonksiyonu - Hedef filiz değerlerine göre doğrudan hesaplayan yaklaşım
 const iyilestir = async (rowIndex) => {
   try {
     // Başlangıçta satırı yedekle
@@ -1748,7 +1748,7 @@ const iyilestir = async (rowIndex) => {
     // İyileştirme işleminin başladığını göster
     setProcessingRowIndex(rowIndex);
     
-    // İşlemin asenkron çalışması için setTimeout kullan
+    // İşlemin asenkron çalışması için setTimeout kullan (daha kısa bir süre)
     await new Promise(resolve => setTimeout(resolve, 50));
     
     // Deep copy kullanarak satırları kopyala
@@ -1799,89 +1799,130 @@ const iyilestir = async (rowIndex) => {
     // AŞAMA 2: Hasır türünü güncelle
     row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
     
-    // AŞAMA 3: SADECE BOYUT UYUMLAMA
+    // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
     const processDimensionsResult = processDimensions(row);
     
     if (processDimensionsResult.changed) {
       newAciklama += processDimensionsResult.message;
     }
     
-    // AŞAMA 4: TAMAMEN YENİ YAKLAŞIM - Hedef filiz değerlerine göre doğrudan optimize et
+    // AŞAMA 4: YENİ - Direk hedef değerlere göre optimize et
     if (!row.uretilemez) {
-      // Hasir tipine ve türüne göre hedef filiz değerlerini belirle
-      const targetFilizValues = getTargetFilizValues(row.hasirTipi, row.hasirTuru);
-      
-      // Boş değilse çubuk sayılarını önceki değerleri koru
-      const previousBoyCount = row.cubukSayisiBoy || 0;
-      const previousEnCount = row.cubukSayisiEn || 0;
-      
-      // Aralık değerlerini al
+      // Hesaplama için gerekli değerleri al
       const boyAraligi = parseFloat(row.boyAraligi) || 15;
       const enAraligi = parseFloat(row.enAraligi) || 15;
       
-      // Bu hasır türü için çubuk sayısı sabit mi?
-      let isFixedEnCount = false;
-      let fixedEnCount = 0;
+      // Eski değerleri sakla
+      const oldCubukSayisiBoy = row.cubukSayisiBoy;
+      const oldCubukSayisiEn = row.cubukSayisiEn;
+      const oldSolFiliz = row.solFiliz;
+      const oldOnFiliz = row.onFiliz;
       
-      if (row.hasirTuru === 'Perde' && row.hasirTipi.startsWith('Q')) {
-        isFixedEnCount = true;
-        fixedEnCount = 18;
-      } else if (row.hasirTuru === 'DK Perde' && row.hasirTipi.startsWith('Q')) {
-        isFixedEnCount = true;
-        fixedEnCount = 21;
+      // Hedef Filiz değerlerini hesapla
+      let targetSolFiliz = 2.5; // Varsayılan
+      
+      // Hasır tipine göre hedef sol/sağ filiz değeri
+      if (row.hasirTipi.startsWith('Q')) {
+        if (row.hasirTipi.includes('257') || 
+            row.hasirTipi.includes('295') || 
+            row.hasirTipi.includes('317') || 
+            row.hasirTipi.includes('335')) {
+          targetSolFiliz = 7.5; // Q257/295/317/335 için 7.5cm
+        } else {
+          targetSolFiliz = 2.5; // Diğer Q tipleri için 2.5cm
+        }
+      } else if (row.hasirTipi.startsWith('TR')) {
+        targetSolFiliz = 16.5; // TR tipleri için 16.5cm
+      } else {
+        targetSolFiliz = 2.5; // R ve diğer tipler için 2.5cm
       }
       
-      // Boy çubuk sayısını hesapla - hedef sol filize göre
-      const boyCount = calculateOptimalCubukCount(uzunlukEn, boyAraligi, targetFilizValues.solFiliz);
+      // İdeal ön/arka filiz değeri
+      let targetOnFiliz = 21; // Varsayılan (Q tipi için)
       
-      // En çubuk sayısını hesapla - sabit değilse
-      let enCount = isFixedEnCount ? fixedEnCount : 
-                    calculateOptimalCubukCount(uzunlukBoy, enAraligi, targetFilizValues.onFiliz);
+      if (row.hasirTipi.startsWith('TR') || row.hasirTipi.startsWith('R')) {
+        targetOnFiliz = 15; // TR ve R tipleri için 15cm
+      }
       
-      // Çubuk sayılarını güncelle
-      row.cubukSayisiBoy = boyCount > 1 ? boyCount : 2;
-      row.cubukSayisiEn = enCount > 1 ? enCount : 2;
+      // Özel durumlar: Perde ve DK Perde
+      let isPerde = false;
+      if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
+          row.hasirTipi.startsWith('Q')) {
+        isPerde = true;
+      }
       
-      // Değişiklik yapıldı mı?
-      const boyCountChanged = row.cubukSayisiBoy !== previousBoyCount && previousBoyCount > 0;
-      const enCountChanged = row.cubukSayisiEn !== previousEnCount && previousEnCount > 0;
+      // Hedef filize göre optimal çubuk sayısını hesapla
+      const optimalBoyCount = Math.round((uzunlukEn - 2 * targetSolFiliz) / boyAraligi + 1);
+      
+      // Çubuk sayısını güncelle - en az 2 olmalı
+      row.cubukSayisiBoy = Math.max(2, optimalBoyCount);
+      
+      // Gerçek sol/sağ filiz değerini hesapla
+      const realSolFiliz = (uzunlukEn - ((row.cubukSayisiBoy - 1) * boyAraligi)) / 2;
+      row.solFiliz = Math.max(2, parseFloat(realSolFiliz.toFixed(5)));
+      row.sagFiliz = row.solFiliz;
+      
+      // Perde tipleri için sabit en çubuk sayısı, diğerleri için hesapla
+      if (isPerde) {
+        row.cubukSayisiEn = row.hasirTuru === 'Perde' ? 18 : 21;
+        
+        // Toplam filiz
+        const totalFiliz = uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi);
+        
+        // Arka filiz hedefi 70cm, ön filiz en az 2.5cm
+        const targetArkaFiliz = Math.min(totalFiliz - 2.5, 70);
+        row.arkaFiliz = parseFloat(targetArkaFiliz.toFixed(5));
+        row.onFiliz = Math.max(2.5, parseFloat((totalFiliz - targetArkaFiliz).toFixed(5)));
+      } else {
+        // Hedef ön/arka filiz değerine göre hesapla
+        const optimalEnCount = Math.round((uzunlukBoy - 2 * targetOnFiliz) / enAraligi + 1);
+        row.cubukSayisiEn = Math.max(2, optimalEnCount);
+        
+        // Gerçek ön/arka filiz değerini hesapla
+        const realOnFiliz = (uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi)) / 2;
+        row.onFiliz = Math.max(2, parseFloat(realOnFiliz.toFixed(5)));
+        row.arkaFiliz = row.onFiliz;
+      }
+      
+      // Değişiklik olup olmadığını kontrol et
+      const boyCountChanged = oldCubukSayisiBoy !== row.cubukSayisiBoy && oldCubukSayisiBoy > 0;
+      const enCountChanged = oldCubukSayisiEn !== row.cubukSayisiEn && oldCubukSayisiEn > 0;
       
       if (boyCountChanged || enCountChanged) {
         row.modified.cubukSayisiBoy = boyCountChanged;
         row.modified.cubukSayisiEn = enCountChanged;
         
-        newAciklama += `2. Çubuk sayıları optimize edildi: Boy: ${previousBoyCount || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${previousEnCount || "N/A"} ➝ ${row.cubukSayisiEn}. `;
+        newAciklama += `2. Çubuk sayıları güncellendi: `;
+        if (boyCountChanged) {
+          newAciklama += `Boy: ${oldCubukSayisiBoy} ➝ ${row.cubukSayisiBoy} `;
+        }
+        if (enCountChanged) {
+          newAciklama += `En: ${oldCubukSayisiEn} ➝ ${row.cubukSayisiEn} `;
+        }
+        newAciklama += `. `;
       }
       
-      // Filiz değerlerini hesapla
-      // Sol/Sağ filiz
-      const solFiliz = (uzunlukEn - ((row.cubukSayisiBoy - 1) * boyAraligi)) / 2;
-      row.solFiliz = parseFloat(Math.max(2, solFiliz).toFixed(5));
-      row.sagFiliz = row.solFiliz;
-      
-      // Ön/Arka filiz
-      if (isFixedEnCount) {
-        // Perde tipleri için özel hesaplama
-        const totalFiliz = uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi);
-        row.arkaFiliz = Math.min(totalFiliz - 2.5, 70); // Arka filiz max 70cm
-        row.onFiliz = Math.max(2.5, totalFiliz - row.arkaFiliz); // Ön filiz min 2.5cm
-      } else {
-        // Normal hesaplama
-        const onFiliz = (uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi)) / 2;
-        row.onFiliz = parseFloat(Math.max(2, onFiliz).toFixed(5));
-        row.arkaFiliz = row.onFiliz;
-      }
-      
-      // Değişiklikleri işaretle
+      // Filiz değişikliklerini işaretle
       row.modified.solFiliz = true;
       row.modified.sagFiliz = true;
       row.modified.onFiliz = true;
       row.modified.arkaFiliz = true;
       
-      // Ağırlık hesapla
-      calculateWeight(row);
+      // Filiz değerlerinde önemli değişiklik var mı kontrol et
+      const solFilizChanged = !oldSolFiliz || Math.abs(parseFloat(oldSolFiliz) - row.solFiliz) > 0.1;
+      const onFilizChanged = !oldOnFiliz || Math.abs(parseFloat(oldOnFiliz) - row.onFiliz) > 0.1;
       
-      newAciklama += `3. Filiz değerleri hesaplandı: Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm. `;
+      if (solFilizChanged || onFilizChanged) {
+        newAciklama += `3. Filiz değerleri hesaplandı: Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, `;
+        if (isPerde) {
+          newAciklama += `Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm. `;
+        } else {
+          newAciklama += `Ön/Arka: ${row.onFiliz.toFixed(2)}cm. `;
+        }
+      }
+      
+      // Ağırlık hesaplaması
+      calculateWeight(row);
     }
     
     // Eğer ürün üretilemez durumdaysa
@@ -1910,7 +1951,7 @@ const iyilestir = async (rowIndex) => {
     console.error('İyileştirme işlemi hatası:', error);
     return false;
   } finally {
-    // Her durumda işleme simgesini kaldır
+    // Her durumda işleme simgesini kaldır (hata olsa bile)
     setTimeout(() => {
       setProcessingRowIndex(null);
     }, 200);
@@ -1973,10 +2014,12 @@ const getTargetFilizValues = (hasirTipi, hasirTuru) => {
   return defaultValues;
 };
 
-// Tüm satırları iyileştir - Tamamen yenilenmiş sürüm
+// Tüm satırları iyileştir - Doğrudan hedef değerlere göre hesaplama
 const iyilestirAll = async () => {
-  // Yedekle
+  // İşlemden önce tüm satırları yedekle
   backupAllRows();
+  
+  // Toplu işleme durumunu başlat
   setBatchProcessing(true);
   
   try {
@@ -1994,14 +2037,20 @@ const iyilestirAll = async () => {
       return;
     }
     
-    // Her satır için iyileştirme uygula
+    // Her uygun satır için iyileştirme işlemini yap
     for (const rowIndex of eligibleRowIndexes) {
       setProcessingRowIndex(rowIndex);
+      
+      // İşlem için kısa bir bekletme
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Diğer kodla aynı mantık
+      // İyileştirme işlemini gerçekleştir - tekil iyileştirme fonksiyonuyla aynı mantık
       const row = updatedRows[rowIndex];
+      
+      // Mevcut açıklamayı sakla
       const previousAciklama = row.aciklama || '';
+      
+      // Yeni bir sürece başladığımızı belirtmek için timestamp ekle
       const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
       let newAciklama = `[${timestamp} Toplu İyileştirme] `;
       
@@ -2031,100 +2080,142 @@ const iyilestirAll = async () => {
         newAciklama += "1. Hasır tipi özellikleri güncellendi. ";
       }
       
-      // AŞAMA 3: SADECE BOYUT UYUMLAMA
+      // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
       const processDimensionsResult = processDimensions(row);
       
       if (processDimensionsResult.changed) {
         newAciklama += processDimensionsResult.message;
       }
       
-      // AŞAMA 4: YENİ DOĞRUDAN YAKLAŞIM - Hedef filiz değerlerine göre optimize et
+      // AŞAMA 4: YENİ - Doğrudan hedef değerlere göre optimize et
       if (!row.uretilemez) {
-        // Hasir tipine ve türüne göre hedef filiz değerlerini belirle
-        const targetFilizValues = getTargetFilizValues(row.hasirTipi, row.hasirTuru);
-        
-        // Boş değilse çubuk sayılarını önceki değerleri koru
-        const previousBoyCount = row.cubukSayisiBoy || 0;
-        const previousEnCount = row.cubukSayisiEn || 0;
-        
-        // Aralık değerlerini al
+        // Hesaplama için gerekli değerleri al
         const boyAraligi = parseFloat(row.boyAraligi) || 15;
         const enAraligi = parseFloat(row.enAraligi) || 15;
+        const uzunlukBoy = parseFloat(row.uzunlukBoy);
+        const uzunlukEn = parseFloat(row.uzunlukEn);
         
-        // Bu hasır türü için çubuk sayısı sabit mi?
-        let isFixedEnCount = false;
-        let fixedEnCount = 0;
+        // Eski değerleri sakla
+        const oldCubukSayisiBoy = row.cubukSayisiBoy;
+        const oldCubukSayisiEn = row.cubukSayisiEn;
+        const oldSolFiliz = row.solFiliz;
+        const oldOnFiliz = row.onFiliz;
         
-        if (row.hasirTuru === 'Perde' && row.hasirTipi.startsWith('Q')) {
-          isFixedEnCount = true;
-          fixedEnCount = 18;
-        } else if (row.hasirTuru === 'DK Perde' && row.hasirTipi.startsWith('Q')) {
-          isFixedEnCount = true;
-          fixedEnCount = 21;
+        // Hedef Filiz değerlerini hesapla
+        let targetSolFiliz = 2.5; // Varsayılan
+        
+        // Hasır tipine göre hedef sol/sağ filiz değeri
+        if (row.hasirTipi.startsWith('Q')) {
+          if (row.hasirTipi.includes('257') || 
+              row.hasirTipi.includes('295') || 
+              row.hasirTipi.includes('317') || 
+              row.hasirTipi.includes('335')) {
+            targetSolFiliz = 7.5; // Q257/295/317/335 için 7.5cm
+          } else {
+            targetSolFiliz = 2.5; // Diğer Q tipleri için 2.5cm
+          }
+        } else if (row.hasirTipi.startsWith('TR')) {
+          targetSolFiliz = 16.5; // TR tipleri için 16.5cm
+        } else {
+          targetSolFiliz = 2.5; // R ve diğer tipler için 2.5cm
         }
         
-        // Boy çubuk sayısını hesapla - hedef sol filize göre
-        const boyCount = calculateOptimalCubukCount(uzunlukEn, boyAraligi, targetFilizValues.solFiliz);
+        // İdeal ön/arka filiz değeri
+        let targetOnFiliz = 21; // Varsayılan (Q tipi için)
         
-        // En çubuk sayısını hesapla - sabit değilse
-        let enCount = isFixedEnCount ? fixedEnCount : 
-                        calculateOptimalCubukCount(uzunlukBoy, enAraligi, targetFilizValues.onFiliz);
+        if (row.hasirTipi.startsWith('TR') || row.hasirTipi.startsWith('R')) {
+          targetOnFiliz = 15; // TR ve R tipleri için 15cm
+        }
         
-        // Çubuk sayılarını güncelle
-        row.cubukSayisiBoy = boyCount > 1 ? boyCount : 2;
-        row.cubukSayisiEn = enCount > 1 ? enCount : 2;
+        // Özel durumlar: Perde ve DK Perde
+        let isPerde = false;
+        if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
+            row.hasirTipi.startsWith('Q')) {
+          isPerde = true;
+        }
         
-        // Değişiklik yapıldı mı?
-        const boyCountChanged = row.cubukSayisiBoy !== previousBoyCount && previousBoyCount > 0;
-        const enCountChanged = row.cubukSayisiEn !== previousEnCount && previousEnCount > 0;
+        // Hedef filize göre optimal çubuk sayısını hesapla
+        const optimalBoyCount = Math.round((uzunlukEn - 2 * targetSolFiliz) / boyAraligi + 1);
+        
+        // Çubuk sayısını güncelle - en az 2 olmalı
+        row.cubukSayisiBoy = Math.max(2, optimalBoyCount);
+        
+        // Gerçek sol/sağ filiz değerini hesapla
+        const realSolFiliz = (uzunlukEn - ((row.cubukSayisiBoy - 1) * boyAraligi)) / 2;
+        row.solFiliz = Math.max(2, parseFloat(realSolFiliz.toFixed(5)));
+        row.sagFiliz = row.solFiliz;
+        
+        // Perde tipleri için sabit en çubuk sayısı, diğerleri için hesapla
+        if (isPerde) {
+          row.cubukSayisiEn = row.hasirTuru === 'Perde' ? 18 : 21;
+          
+          // Toplam filiz
+          const totalFiliz = uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi);
+          
+          // Arka filiz hedefi 70cm, ön filiz en az 2.5cm
+          const targetArkaFiliz = Math.min(totalFiliz - 2.5, 70);
+          row.arkaFiliz = parseFloat(targetArkaFiliz.toFixed(5));
+          row.onFiliz = Math.max(2.5, parseFloat((totalFiliz - targetArkaFiliz).toFixed(5)));
+        } else {
+          // Hedef ön/arka filiz değerine göre hesapla
+          const optimalEnCount = Math.round((uzunlukBoy - 2 * targetOnFiliz) / enAraligi + 1);
+          row.cubukSayisiEn = Math.max(2, optimalEnCount);
+          
+          // Gerçek ön/arka filiz değerini hesapla
+          const realOnFiliz = (uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi)) / 2;
+          row.onFiliz = Math.max(2, parseFloat(realOnFiliz.toFixed(5)));
+          row.arkaFiliz = row.onFiliz;
+        }
+        
+        // Değişiklik olup olmadığını kontrol et
+        const boyCountChanged = oldCubukSayisiBoy !== row.cubukSayisiBoy && oldCubukSayisiBoy > 0;
+        const enCountChanged = oldCubukSayisiEn !== row.cubukSayisiEn && oldCubukSayisiEn > 0;
         
         if (boyCountChanged || enCountChanged) {
           row.modified.cubukSayisiBoy = boyCountChanged;
           row.modified.cubukSayisiEn = enCountChanged;
           
-          newAciklama += `2. Çubuk sayıları optimize edildi: Boy: ${previousBoyCount || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${previousEnCount || "N/A"} ➝ ${row.cubukSayisiEn}. `;
+          newAciklama += `2. Çubuk sayıları güncellendi: `;
+          if (boyCountChanged) {
+            newAciklama += `Boy: ${oldCubukSayisiBoy} ➝ ${row.cubukSayisiBoy} `;
+          }
+          if (enCountChanged) {
+            newAciklama += `En: ${oldCubukSayisiEn} ➝ ${row.cubukSayisiEn} `;
+          }
+          newAciklama += `. `;
         }
         
-        // Filiz değerlerini hesapla
-        // Sol/Sağ filiz
-        const solFiliz = (uzunlukEn - ((row.cubukSayisiBoy - 1) * boyAraligi)) / 2;
-        row.solFiliz = parseFloat(Math.max(2, solFiliz).toFixed(5));
-        row.sagFiliz = row.solFiliz;
-        
-        // Ön/Arka filiz
-        if (isFixedEnCount) {
-          // Perde tipleri için özel hesaplama
-          const totalFiliz = uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi);
-          row.arkaFiliz = Math.min(totalFiliz - 2.5, 70); // Arka filiz max 70cm
-          row.onFiliz = Math.max(2.5, totalFiliz - row.arkaFiliz); // Ön filiz min 2.5cm
-        } else {
-          // Normal hesaplama
-          const onFiliz = (uzunlukBoy - ((row.cubukSayisiEn - 1) * enAraligi)) / 2;
-          row.onFiliz = parseFloat(Math.max(2, onFiliz).toFixed(5));
-          row.arkaFiliz = row.onFiliz;
-        }
-        
-        // Değişiklikleri işaretle
+        // Filiz değişikliklerini işaretle
         row.modified.solFiliz = true;
         row.modified.sagFiliz = true;
         row.modified.onFiliz = true;
         row.modified.arkaFiliz = true;
         
-        // Ağırlık hesapla
-        calculateWeight(row);
+        // Filiz değerlerinde önemli değişiklik var mı kontrol et
+        const solFilizChanged = !oldSolFiliz || Math.abs(parseFloat(oldSolFiliz) - row.solFiliz) > 0.1;
+        const onFilizChanged = !oldOnFiliz || Math.abs(parseFloat(oldOnFiliz) - row.onFiliz) > 0.1;
         
-        newAciklama += `3. Filiz değerleri hesaplandı: Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm. `;
+        if (solFilizChanged || onFilizChanged) {
+          newAciklama += `3. Filiz değerleri hesaplandı: Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, `;
+          if (isPerde) {
+            newAciklama += `Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm. `;
+          } else {
+            newAciklama += `Ön/Arka: ${row.onFiliz.toFixed(2)}cm. `;
+          }
+        }
+        
+        // Ağırlık hesaplaması
+        calculateWeight(row);
       }
       
       // Eğer ürün üretilemez durumdaysa
       if (row.uretilemez) {
         newAciklama = 'ÜRETİLEMEZ! ' + newAciklama;
-      } else if (newAciklama.includes('1. Hasır tipi özellikleri güncellendi.') && 
-                !newAciklama.includes('Filiz değerleri hesaplandı')) {
-        newAciklama += 'Herhangi bir değişiklik yapılmadı, ürün zaten optimum durumda.';
+      } else if (newAciklama === '') {
+        newAciklama = 'İyileştirme işlemi tamamlandı. Ürün zaten optimize durumda.';
       }
       
-      // Önceki açıklama ile yeni açıklamayı akıllıca birleştir
+      // Önceki açıklama ile yeni açıklamayı birleştir
       if (previousAciklama) {
         // Eğer önceki açıklama zaten "ÜRETİLEMEZ!" içeriyorsa ve şimdi de üretilemezse tekrar ekleme
         if (row.uretilemez && previousAciklama.includes('ÜRETİLEMEZ!')) {
