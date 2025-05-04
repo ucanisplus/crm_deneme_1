@@ -2597,6 +2597,26 @@ const optimizeFilizValues = (row) => {
   }
   
   // Diğer hasır tipleri için genel optimizasyon - Kapsamlı arama
+  // İdeal değerleri hasır tipine göre belirle
+  let idealSolFiliz = 2.5; // Varsayılan değer
+  let idealOnFiliz = 21; // Varsayılan değer
+  
+  // Q tipleri için işlevleri
+  if (row.hasirTipi.startsWith('Q')) {
+    // Q257, Q295, Q317, Q335 gibi tipler için ideal 7.5cm
+    if (row.hasirTipi.includes('257') || 
+        row.hasirTipi.includes('295') || 
+        row.hasirTipi.includes('317') ||
+        row.hasirTipi.includes('335')) {
+      idealSolFiliz = 7.5;
+    }
+  }
+  // TR tipleri için özel değerler
+  else if (row.hasirTipi.startsWith('TR')) {
+    idealSolFiliz = 16.5;
+    idealOnFiliz = 15;
+  }
+  
   // Olası tüm çubuk sayısı kombinasyonlarını dene
   const validCombinations = [];
   
@@ -2604,25 +2624,32 @@ const optimizeFilizValues = (row) => {
   const currentBoyCount = parseInt(row.cubukSayisiBoy);
   const currentEnCount = parseInt(row.cubukSayisiEn);
   
-  // Test edilecek çubuk sayısı aralığını belirle (±10)
-  const minBoyCount = Math.max(2, currentBoyCount - 10);
-  const maxBoyCount = currentBoyCount + 10;
-  const minEnCount = Math.max(2, currentEnCount - 10);
-  const maxEnCount = currentEnCount + 10;
-  
+  // ÖNEMLİ: Teorik ideal çubuk sayılarını hesapla
   const uzunlukBoy = parseFloat(row.uzunlukBoy);
   const uzunlukEn = parseFloat(row.uzunlukEn);
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
-  // Tüm olası kombinasyonları dene - optimum kombinasyonu bulmak için
+  // İdeal çubuk sayılarını hesapla
+  const theoreticalBoyCount = Math.round((uzunlukEn - 2 * idealSolFiliz) / boyAraligi + 1);
+  const theoreticalEnCount = Math.round((uzunlukBoy - 2 * idealOnFiliz) / enAraligi + 1);
+  
+  // Test edilecek çubuk sayısı aralığını belirle (mevcut değerler etrafında ve teorik değerler etrafında)
+  const minBoyCount = Math.max(2, Math.min(currentBoyCount, theoreticalBoyCount) - 8);
+  const maxBoyCount = Math.max(currentBoyCount, theoreticalBoyCount) + 8;
+  const minEnCount = Math.max(2, Math.min(currentEnCount, theoreticalEnCount) - 8);
+  const maxEnCount = Math.max(currentEnCount, theoreticalEnCount) + 8;
+  
+  // Tüm olası kombinasyonları dene
   for (let boyCount = minBoyCount; boyCount <= maxBoyCount; boyCount++) {
     for (let enCount = minEnCount; enCount <= maxEnCount; enCount++) {
       // Bu kombinasyon için filiz değerlerini hesapla
       const testFilizValues = calculateTestFilizValues(uzunlukBoy, uzunlukEn, boyCount, enCount, boyAraligi, enAraligi);
       
-      // Filiz değerleri geçerli mi kontrol et
-      if (isFilizValuesValid(testFilizValues, filizLimits)) {
+      // ÖNEMLİ: Değiştirilmiş validasyon - tolerans eklenmiş
+      const isValid = isFilizValuesValid(testFilizValues, filizLimits);
+      
+      if (isValid) {
         // Kombinasyonu puan sistemiyle değerlendir
         const score = calculateFilizScore(testFilizValues, row.hasirTuru, row.hasirTipi);        
         validCombinations.push({
@@ -2905,22 +2932,30 @@ const isFilizValuesValid = (filizValues, limits) => {
     return false;
   }
   
-  // ÖNEMLİ: Negatif değerler için daha akıllı kontrol - negatif değerleri hemen reddetme
-  // Sol/Sağ filizler için daha esnek validasyon - düzeltilebilir negatif değerlere izin ver
-  const isSolValid = (solFiliz >= limits.SAG_SOL_MIN || (solFiliz < 0 && solFiliz > -30)) && solFiliz <= limits.SAG_SOL_MAX;
-  const isSagValid = (sagFiliz >= limits.SAG_SOL_MIN || (sagFiliz < 0 && sagFiliz > -30)) && sagFiliz <= limits.SAG_SOL_MAX;
+  // Negatif değerler olup olmadığını kontrol et - ciddi negatif değerleri reddet
+  if (solFiliz < -5 || sagFiliz < -5 || onFiliz < -5 || arkaFiliz < -5) {
+    return false;
+  }
+  
+  // ÖNEMLİ: Minimum sınıra yakın değerler için tolerans göster
+  // Bu, 1.5-2 aralığındaki değerlerin geçerli sayılmasını sağlar
+  const tolerance = 0.5; // 0.5 cm tolerans
+  
+  // Limitleri kontrol et
+  const isSolValid = (solFiliz >= limits.SAG_SOL_MIN - tolerance) && solFiliz <= limits.SAG_SOL_MAX;
+  const isSagValid = (sagFiliz >= limits.SAG_SOL_MIN - tolerance) && sagFiliz <= limits.SAG_SOL_MAX;
   
   let isOnValid = true;
   let isArkaValid = true;
   
   if (limits.hasOwnProperty('ON_ARKA_MIN')) {
     // Standart ön/arka limit kontrolü
-    isOnValid = onFiliz >= limits.ON_ARKA_MIN && (limits.ON_ARKA_MAX ? onFiliz <= limits.ON_ARKA_MAX : true);
-    isArkaValid = arkaFiliz >= limits.ON_ARKA_MIN && (limits.ON_ARKA_MAX ? arkaFiliz <= limits.ON_ARKA_MAX : true);
+    isOnValid = (onFiliz >= limits.ON_ARKA_MIN - tolerance) && (limits.ON_ARKA_MAX ? onFiliz <= limits.ON_ARKA_MAX : true);
+    isArkaValid = (arkaFiliz >= limits.ON_ARKA_MIN - tolerance) && (limits.ON_ARKA_MAX ? arkaFiliz <= limits.ON_ARKA_MAX : true);
   } else {
     // Perde tipi ön/arka limit kontrolü
-    isOnValid = onFiliz >= limits.ON_MIN;
-    isArkaValid = arkaFiliz >= limits.ARKA_MIN;
+    isOnValid = onFiliz >= limits.ON_MIN - tolerance;
+    isArkaValid = arkaFiliz >= limits.ARKA_MIN - tolerance;
   }
   
   return isSolValid && isSagValid && isOnValid && isArkaValid;
@@ -2930,68 +2965,109 @@ const calculateFilizScore = (filizValues, hasirTuru, hasirTipi) => {
   let score = 0;
   const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
   
-  // İdeal aralıklarda olması için puan ver
-  if (solFiliz >= 2 && solFiliz <= 8) score += 5;
-  if (sagFiliz >= 2 && sagFiliz <= 8) score += 5;
+  // Önemli hasır tipleri için ideal filiz değerleri
+  const idealFilizMap = {
+    'Q257': { solFiliz: 7.5, onFiliz: 21 },
+    'Q295': { solFiliz: 7.5, onFiliz: 21 },
+    'Q317': { solFiliz: 7.5, onFiliz: 21 },
+    'Q335': { solFiliz: 7.5, onFiliz: 21 },
+    'Q188': { solFiliz: 2.5, onFiliz: 21 },
+    'Q221': { solFiliz: 2.5, onFiliz: 21 },
+    'TR': { solFiliz: 16.5, onFiliz: 15 }
+  };
   
-  // ÖNEMLİ: Sadece minimum değeri sağladığı için daha yüksek puan vermeyi önle
-  // Bunun yerine ideal filiz değerlerine daha yüksek puan ver
-  if (Math.abs(solFiliz - 2.5) < 0.3) score += 50;  // 2.5 değerine öncelik ver
-  if (Math.abs(sagFiliz - 2.5) < 0.3) score += 50;  // 2.5 değerine öncelik ver
+  // ÖNEMLİ: Hasır tipine göre ideal değerleri bul
+  let idealSolFiliz = 2.5; // Varsayılan ideal değerler
+  let idealOnFiliz = 21;
+  
+  // Hasır tipine göre ideal değerleri seç
+  for (const [tipPrefix, idealValues] of Object.entries(idealFilizMap)) {
+    if (hasirTipi.includes(tipPrefix)) {
+      idealSolFiliz = idealValues.solFiliz;
+      idealOnFiliz = idealValues.onFiliz;
+      break;
+    }
+  }
+  
+  // TR tipi için özel kontrol
+  if (hasirTipi.startsWith('TR')) {
+    idealSolFiliz = idealFilizMap['TR'].solFiliz;
+    idealOnFiliz = idealFilizMap['TR'].onFiliz;
+  }
+  
+  // İdeal aralıklarda olması için puan ver
+  // Minimum değer kontrolü - 2 değerine yakın değerlere ceza yok
+  if (solFiliz >= 2) score += 5;
+  if (sagFiliz >= 2) score += 5;
+  
+  // ÖNEMLİ: Minimum değere yakın olan değerlere ceza verme
+  // Bu, 1.5-2 aralığındaki değerlerin düşük puanlanmamasını sağlar
+  if (solFiliz >= 1.5 && solFiliz < 2) score += 0; // Ne ceza ne bonus
+  if (sagFiliz >= 1.5 && sagFiliz < 2) score += 0; // Ne ceza ne bonus
+  
+  // ÖNEMLİ: İdeal filiz değerlerine yakınlık için YÜKSEK bonus - hasır tipine göre
+  // Değer, ideal değere yaklaştıkça daha yüksek puan alır
+  const solFilizDistance = Math.abs(solFiliz - idealSolFiliz);
+  if (solFilizDistance < 0.5) score += 100; // Çok yakın
+  else if (solFilizDistance < 1) score += 80; // Yakın
+  else if (solFilizDistance < 2) score += 50; // Orta
+  else if (solFilizDistance < 3) score += 30; // Biraz uzak
+  
+  // Sol ve sağ filizler eşit olmalı
+  if (Math.abs(solFiliz - sagFiliz) < 0.01) score += 10;
   
   if (hasirTuru === 'Perde' || hasirTuru === 'DK Perde') {
-      // Perde hasırı için ön filiz min 2.5 olmalı
-      if (onFiliz >= 2.5) score += 10;
-      
-      // Perde hasırı için arka filiz min 65 olmalı
-      if (arkaFiliz >= 65) score += 15;
-      
-      // IMPORTANT: Perde hasırı için düzenlendi - Artık 70cm tercih ediliyor
-      if (Math.abs(onFiliz - 15) < 1) score += 50; // Ön filiz ~15 için bonus
-      
-      // Ön filiz < 16 için ekstra bonus (gerekliliğe göre)
-      if (onFiliz < 16) score += 50;
-      
-      // Arka filiz 70 değeri için en yüksek bonus
-      if (Math.abs(arkaFiliz - 70) < 1) score += 150; // Arka filiz ~70 için çok yüksek bonus
-      
-      // Arka filiz 75 değeri için ikincil bonus (70'ten daha düşük)
-      if (Math.abs(arkaFiliz - 75) < 1) score += 100; // Arka filiz ~75 için bonus
-      
-      // Arka filiz 65 değeri için üçüncül bonus (75'ten daha düşük)
-      if (Math.abs(arkaFiliz - 65) < 1) score += 50; // Arka filiz ~65 için bonus
-      
-      // Arka filiz 5'in katı olması artık daha az önemli
-      const remainder = arkaFiliz % 5;
-      if (remainder < 0.1 || remainder > 4.9) {
-          score += 10; // 5'in katı için puan azaltıldı
-      }
+    // Perde hasırı için ön filiz min 2.5 olmalı
+    if (onFiliz >= 2.5) score += 10;
+    
+    // Perde hasırı için arka filiz min 65 olmalı
+    if (arkaFiliz >= 65) score += 15;
+    
+    // IMPORTANT: Perde hasırı için düzenlendi - Artık 70cm tercih ediliyor
+    if (Math.abs(onFiliz - 15) < 1) score += 50; // Ön filiz ~15 için bonus
+    
+    // Ön filiz < 16 için ekstra bonus (gerekliliğe göre)
+    if (onFiliz < 16) score += 50;
+    
+    // Arka filiz 70 değeri için en yüksek bonus
+    if (Math.abs(arkaFiliz - 70) < 1) score += 150; // Arka filiz ~70 için çok yüksek bonus
+    
+    // Arka filiz 75 değeri için ikincil bonus (70'ten daha düşük)
+    if (Math.abs(arkaFiliz - 75) < 1) score += 100; // Arka filiz ~75 için bonus
+    
+    // Arka filiz 65 değeri için üçüncül bonus (75'ten daha düşük)
+    if (Math.abs(arkaFiliz - 65) < 1) score += 50; // Arka filiz ~65 için bonus
+    
+    // Arka filiz 5'in katı olması artık daha az önemli
+    const remainder = arkaFiliz % 5;
+    if (remainder < 0.1 || remainder > 4.9) {
+      score += 10; // 5'in katı için puan azaltıldı
+    }
   } else if (hasirTipi?.startsWith('Q') && hasirTuru === 'Döşeme') {
-      // Q tipi Döşeme için daha katı kurallar (15-22 aralığında)
-      
-      // İdeal aralıkta mı? (15-22)
-      const isInIdealRange = onFiliz >= 15 && onFiliz <= 22 && arkaFiliz >= 15 && arkaFiliz <= 22;
-      if (isInIdealRange) score += 200; // İdeal aralık için yüksek bonus
-      
-      // 15-22 aralığı dışında ise büyük ceza
-      if (onFiliz < 15 || onFiliz > 22) score -= 300;
-      if (arkaFiliz < 15 || arkaFiliz > 22) score -= 300;
-      
-      // İdeal değer 22.5'e yakın olması için hafif bonus
-      if (Math.abs(onFiliz - 22.5) < 1) score += 20;
-      if (Math.abs(arkaFiliz - 22.5) < 1) score += 20;
-      
-      // İdeal değer 17.5'e yakın olması için de bonus
-      if (Math.abs(onFiliz - 17.5) < 1) score += 20;
-      if (Math.abs(arkaFiliz - 17.5) < 1) score += 20;
+    // Q tipi Döşeme için daha katı kurallar (15-22 aralığında)
+    
+    // İdeal aralıkta mı? (15-22)
+    const isInIdealRange = onFiliz >= 15 && onFiliz <= 22 && arkaFiliz >= 15 && arkaFiliz <= 22;
+    if (isInIdealRange) score += 200; // İdeal aralık için yüksek bonus
+    
+    // ÖNEMLİ: 15-22 aralığına yakınsa hala kabul edilebilir
+    if ((onFiliz >= 13 && onFiliz < 15) || (onFiliz > 22 && onFiliz <= 24)) score += 100; // Yakın ama dışında
+    
+    // İdeal değer idealOnFiliz'e yakın olması için bonus
+    if (Math.abs(onFiliz - idealOnFiliz) < 1) score += 50;
+    if (Math.abs(arkaFiliz - idealOnFiliz) < 1) score += 50;
   } else {
-      // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
-      if (onFiliz >= 15 && onFiliz <= 22) score += 10;
-      if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
+    // Diğer hasır tipleri için ön/arka filiz ideal aralıkları
+    if (onFiliz >= 15 && onFiliz <= 22) score += 10;
+    if (arkaFiliz >= 15 && arkaFiliz <= 22) score += 10;
+    
+    // İdeal değerlere yakınlık için bonus
+    if (Math.abs(onFiliz - idealOnFiliz) < 1) score += 30;
+    if (Math.abs(arkaFiliz - idealOnFiliz) < 1) score += 30;
   }
   
   return score;
-}
+};
 
 // En yakın geçerli filiz değerlerini bul
 const findBestApproximateFilizValues = (row, filizLimits) => {
@@ -3007,16 +3083,37 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
-  // ÖNEMLİ: İlk olarak teorik en iyi çubuk sayılarını hesapla
-  const optimalBoyCount = Math.floor((uzunlukEn - 4) / boyAraligi) + 1; // 2*2 filiz için
-  const optimalEnCount = Math.floor((uzunlukBoy - 4) / enAraligi) + 1;
+  // İdeal filiz değerlerini belirle
+  let idealSolFiliz = 2.5; // Varsayılan
+  let idealOnFiliz = 21;  // Varsayılan
   
-  // Eğer teorik optimum değerler mantıklıysa, direkt kullan
+  // Q tipleri için ideal değerler
+  if (row.hasirTipi.startsWith('Q')) {
+    if (row.hasirTipi.includes('257') || 
+        row.hasirTipi.includes('295') || 
+        row.hasirTipi.includes('317') ||
+        row.hasirTipi.includes('335')) {
+      idealSolFiliz = 7.5;
+    }
+  }
+  // TR tipleri için ideal değerler
+  else if (row.hasirTipi.startsWith('TR')) {
+    idealSolFiliz = 16.5;
+    idealOnFiliz = 15;
+  }
+  
+  // ÖNEMLİ: Teorik en iyi çubuk sayılarını hesapla
+  const optimalBoyCount = Math.round((uzunlukEn - 2 * idealSolFiliz) / boyAraligi + 1);
+  const optimalEnCount = (row.hasirTuru === 'Perde') ? 18 : 
+                         (row.hasirTuru === 'DK Perde') ? 21 : 
+                         Math.round((uzunlukBoy - 2 * idealOnFiliz) / enAraligi + 1);
+  
+  // Teorik optimum değerleri hemen dene
   if (optimalBoyCount >= 2 && optimalEnCount >= 2) {
     const testFilizValues = calculateTestFilizValues(uzunlukBoy, uzunlukEn, optimalBoyCount, optimalEnCount, boyAraligi, enAraligi);
     const error = calculateFilizError(testFilizValues, filizLimits);
     
-    // Kabul edilebilir hata
+    // Eğer hatası çok azsa, bu değerleri kullan
     if (error < 5) {
       bestBoyCount = optimalBoyCount;
       bestEnCount = optimalEnCount;
@@ -3024,25 +3121,28 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
     }
   }
   
-  // Eğer teorik optimum değerler uygun değilse, geniş aralıkta ara
+  // Eğer teorik optimum değerler uygun değilse, yakın değerleri ara  
   if (minFilizError === Number.MAX_VALUE) {
-    // Test edilecek çubuk sayısı aralığını belirle (±8)
-    const minBoyCount = Math.max(2, currentBoyCount - 8);
-    const maxBoyCount = currentBoyCount + 8;
-    const minEnCount = Math.max(2, currentEnCount - 8);
-    const maxEnCount = currentEnCount + 8;
-    
     // Perde ve DK Perde tipleri için En çubuk sayısını sabit tut
     if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
         row.hasirTipi.startsWith('Q')) {
       const fixedEnCount = row.hasirTuru === 'Perde' ? 18 : 21;
       
-      // ÖNEMLİ: Önce yakınlık sırasına göre sırala
-      const boyCountsToTry = Array.from({ length: maxBoyCount - minBoyCount + 1 }, (_, i) => minBoyCount + i)
-        .sort((a, b) => Math.abs(a - optimalBoyCount) - Math.abs(b - optimalBoyCount));
+      // Test edilecek boy çubuk sayılarını optimize edilen değere yakınlığa göre sırala
+      const boyCountsToTest = [];
+      for (let i = Math.max(2, optimalBoyCount - 10); i <= optimalBoyCount + 10; i++) {
+        boyCountsToTest.push({
+          count: i,
+          distance: Math.abs(i - optimalBoyCount)
+        });
+      }
       
-      // Sıralanmış değerleri dene
-      for (const boyCount of boyCountsToTry) {
+      // Optimum değere yakınlığa göre sırala
+      boyCountsToTest.sort((a, b) => a.distance - b.distance);
+      
+      // İlk 20 kombinasyonu dene (en yakın olanlar)
+      for (let i = 0; i < Math.min(20, boyCountsToTest.length); i++) {
+        const boyCount = boyCountsToTest[i].count;
         const testFilizValues = calculateTestFilizValues(uzunlukBoy, uzunlukEn, boyCount, fixedEnCount, boyAraligi, enAraligi);
         const error = calculateFilizError(testFilizValues, filizLimits);
         
@@ -3053,22 +3153,26 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
         }
       }
     } else {
-      // ÖNEMLİ: Optimum değerlere yakınlık sırasına göre tüm kombinasyonları sırala ve ilk 50'yi dene
-      const combinations = [];
+      // Diğer hasır tipleri için her iki çubuk sayısını da optimize et
+      // ÖNEMLİ: Optimum değerlere yakın kombinasyonları öncelikle dene
+      const combinationsToTest = [];
       
-      for (let boyCount = minBoyCount; boyCount <= maxBoyCount; boyCount++) {
-        for (let enCount = minEnCount; enCount <= maxEnCount; enCount++) {
-          const distanceToOptimal = Math.abs(boyCount - optimalBoyCount) + Math.abs(enCount - optimalEnCount);
-          combinations.push({ boyCount, enCount, distance: distanceToOptimal });
+      for (let boyCount = Math.max(2, optimalBoyCount - 10); boyCount <= optimalBoyCount + 10; boyCount++) {
+        for (let enCount = Math.max(2, optimalEnCount - 10); enCount <= optimalEnCount + 10; enCount++) {
+          combinationsToTest.push({
+            boyCount,
+            enCount,
+            distance: Math.abs(boyCount - optimalBoyCount) + Math.abs(enCount - optimalEnCount)
+          });
         }
       }
       
-      // Optimal kombinasyona yakınlık sırasına göre sırala
-      combinations.sort((a, b) => a.distance - b.distance);
+      // Optimum değerlere yakınlığa göre sırala
+      combinationsToTest.sort((a, b) => a.distance - b.distance);
       
-      // En iyi 50 kombinasyonu dene
-      for (let i = 0; i < Math.min(50, combinations.length); i++) {
-        const { boyCount, enCount } = combinations[i];
+      // İlk 50 kombinasyonu dene (en yakın olanlar)
+      for (let i = 0; i < Math.min(50, combinationsToTest.length); i++) {
+        const { boyCount, enCount } = combinationsToTest[i];
         const testFilizValues = calculateTestFilizValues(uzunlukBoy, uzunlukEn, boyCount, enCount, boyAraligi, enAraligi);
         const error = calculateFilizError(testFilizValues, filizLimits);
         
@@ -3096,6 +3200,7 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
     row.onFiliz = parseFloat(bestFilizValues.onFiliz.toFixed(5));
     row.arkaFiliz = parseFloat(bestFilizValues.arkaFiliz.toFixed(5));
     
+
     // Perde tipi için arka filizi 5'in katına yuvarla
     if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && 
         row.hasirTipi.startsWith('Q')) {
@@ -3115,59 +3220,121 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
       }
     }
   }
+  
+  // Minimum filiz değerlerini garanti et
+  validateMinimumFiliz(row);
 };
 
-  // Filiz limitlerine göre hata hesapla
-  const calculateFilizError = (filizValues, limits) => {
-    const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
-    let error = 0;
-    
-    // Sağ/sol filiz hata hesapla
-    if (solFiliz < limits.SAG_SOL_MIN) {
-      error += limits.SAG_SOL_MIN - solFiliz;
-    } else if (solFiliz > limits.SAG_SOL_MAX) {
-      error += solFiliz - limits.SAG_SOL_MAX;
-    }
-    
-    if (sagFiliz < limits.SAG_SOL_MIN) {
-      error += limits.SAG_SOL_MIN - sagFiliz;
-    } else if (sagFiliz > limits.SAG_SOL_MAX) {
-      error += sagFiliz - limits.SAG_SOL_MAX;
-    }
-    
-    // Ön/arka filiz hata hesapla
-    if (limits.hasOwnProperty('ON_ARKA_MIN')) {
-      // Standart ön/arka filiz kontrolü
-      if (onFiliz < limits.ON_ARKA_MIN) {
-        error += limits.ON_ARKA_MIN - onFiliz;
-      } else if (limits.ON_ARKA_MAX && onFiliz > limits.ON_ARKA_MAX) {
-        error += onFiliz - limits.ON_ARKA_MAX;
-      }
-      
-      if (arkaFiliz < limits.ON_ARKA_MIN) {
-        error += limits.ON_ARKA_MIN - arkaFiliz;
-      } else if (limits.ON_ARKA_MAX && arkaFiliz > limits.ON_ARKA_MAX) {
-        error += arkaFiliz - limits.ON_ARKA_MAX;
-      }
+// Minimum filiz değerlerini garanti et
+const validateMinimumFiliz = (row) => {
+  // Minimum filiz değeri kontrolü
+  if (row.solFiliz < 2) row.solFiliz = 2;
+  if (row.sagFiliz < 2) row.sagFiliz = 2;
+  if (row.onFiliz < 2) row.onFiliz = 2;
+  if (row.arkaFiliz < 2) row.arkaFiliz = 2;
+  
+  // Perde tipleri için özel kontrol
+  if ((row.hasirTuru === 'Perde' || row.hasirTuru === 'DK Perde') && row.onFiliz < 2.5) {
+    row.onFiliz = 2.5;
+  }
+};
+
+// Filiz limitlerine göre hata hesapla
+const calculateFilizError = (filizValues, limits) => {
+  const { solFiliz, sagFiliz, onFiliz, arkaFiliz } = filizValues;
+  let error = 0;
+  
+  // ÖNEMLİ: Minimum sınıra yakın değerler için tolerans göster
+  const tolerance = 0.5; // 0.5 cm tolerans
+  
+  // Sağ/sol filiz hata hesapla
+  if (solFiliz < limits.SAG_SOL_MIN - tolerance) {
+    // 1.5-2 aralığında daha az ceza
+    if (solFiliz >= limits.SAG_SOL_MIN - tolerance && solFiliz < limits.SAG_SOL_MIN) {
+      error += (limits.SAG_SOL_MIN - solFiliz) * 0.5; // Daha düşük hata
     } else {
-      // Perde tipi ön/arka kontrolü
-      if (onFiliz < limits.ON_MIN) {
+      error += limits.SAG_SOL_MIN - solFiliz; 
+    }
+  } else if (solFiliz > limits.SAG_SOL_MAX) {
+    error += solFiliz - limits.SAG_SOL_MAX;
+  }
+  
+  if (sagFiliz < limits.SAG_SOL_MIN - tolerance) {
+    // 1.5-2 aralığında daha az ceza
+    if (sagFiliz >= limits.SAG_SOL_MIN - tolerance && sagFiliz < limits.SAG_SOL_MIN) {
+      error += (limits.SAG_SOL_MIN - sagFiliz) * 0.5; // Daha düşük hata
+    } else {
+      error += limits.SAG_SOL_MIN - sagFiliz;
+    }
+  } else if (sagFiliz > limits.SAG_SOL_MAX) {
+    error += sagFiliz - limits.SAG_SOL_MAX;
+  }
+  
+  // Hasır tipine göre ideal filiz değerlerine uzaklık için ekstra hata ekle
+  // İdeal değerlerden uzaklaştıkça daha fazla hata ekler
+  
+  // Q257 için ideal sol/sağ filiz 7.5cm
+  if ((solFiliz > 0 && Math.abs(solFiliz - 7.5) < 3) || 
+      (sagFiliz > 0 && Math.abs(sagFiliz - 7.5) < 3)) {
+    // Yakın ama tam değil
+    error += Math.min(Math.abs(solFiliz - 7.5), Math.abs(sagFiliz - 7.5)) * 0.5;
+  }
+  
+  // TR için ideal sol/sağ filiz 16.5cm
+  if ((solFiliz > 0 && Math.abs(solFiliz - 16.5) < 3) || 
+      (sagFiliz > 0 && Math.abs(sagFiliz - 16.5) < 3)) {
+    // Yakın ama tam değil
+    error += Math.min(Math.abs(solFiliz - 16.5), Math.abs(sagFiliz - 16.5)) * 0.5;
+  }
+  
+  // Ön/arka filiz hata hesapla
+  if (limits.hasOwnProperty('ON_ARKA_MIN')) {
+    // Standart ön/arka filiz kontrolü
+    if (onFiliz < limits.ON_ARKA_MIN - tolerance) {
+      // 1.5-2 aralığında daha az ceza
+      if (onFiliz >= limits.ON_ARKA_MIN - tolerance && onFiliz < limits.ON_ARKA_MIN) {
+        error += (limits.ON_ARKA_MIN - onFiliz) * 0.5; // Daha düşük hata
+      } else {
+        error += limits.ON_ARKA_MIN - onFiliz;
+      }
+    } else if (limits.ON_ARKA_MAX && onFiliz > limits.ON_ARKA_MAX) {
+      error += onFiliz - limits.ON_ARKA_MAX;
+    }
+    
+    if (arkaFiliz < limits.ON_ARKA_MIN - tolerance) {
+      // 1.5-2 aralığında daha az ceza
+      if (arkaFiliz >= limits.ON_ARKA_MIN - tolerance && arkaFiliz < limits.ON_ARKA_MIN) {
+        error += (limits.ON_ARKA_MIN - arkaFiliz) * 0.5; // Daha düşük hata
+      } else {
+        error += limits.ON_ARKA_MIN - arkaFiliz;
+      }
+    } else if (limits.ON_ARKA_MAX && arkaFiliz > limits.ON_ARKA_MAX) {
+      error += arkaFiliz - limits.ON_ARKA_MAX;
+    }
+  } else {
+    // Perde tipi ön/arka kontrolü
+    if (onFiliz < limits.ON_MIN - tolerance) {
+      // 1.5-2 aralığında daha az ceza
+      if (onFiliz >= limits.ON_MIN - tolerance && onFiliz < limits.ON_MIN) {
+        error += (limits.ON_MIN - onFiliz) * 0.5; // Daha düşük hata
+      } else {
         error += limits.ON_MIN - onFiliz;
       }
-      
-      if (arkaFiliz < limits.ARKA_MIN) {
-        error += limits.ARKA_MIN - arkaFiliz;
-      }
-      
-      // Perde tipi için arka filiz 5'in katı olması ideal
-      const remainder = arkaFiliz % 5;
-      if (remainder > 0.1 && remainder < 4.9) {
-        error += Math.min(remainder, 5 - remainder) * 0.5; // 5'in katı olmaması için küçük ceza
-      }
     }
     
-    return error;
-  };
+    if (arkaFiliz < limits.ARKA_MIN - tolerance) {
+      error += limits.ARKA_MIN - arkaFiliz;
+    }
+    
+    // Perde tipi için arka filiz 5'in katı olması ideal
+    const remainder = arkaFiliz % 5;
+    if (remainder > 0.1 && remainder < 4.9) {
+      error += Math.min(remainder, 5 - remainder) * 0.5; // 5'in katı olmaması için çok küçük ceza
+    }
+  }
+  
+  return error;
+};
 
   // Hasır tipine göre filiz limitlerini al
   const getFilizLimits = (hasirTipi, hasirTuru) => {
