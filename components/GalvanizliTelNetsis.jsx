@@ -190,160 +190,231 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }
 
-  // MM GT kaydetme fonksiyonu
-  async function saveMMGT(values) {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Stok Kodu formatını oluştur
-      const stockCode = `GT.${values.kod_2}.${values.cap.toString().padStart(4, '0')}.${values.sequence.toString().padStart(2, '0')}`;
-      
-      // Gümrük tarife kodunu belirle
-      let gumrukTarifeKodu = '';
-      if (values.cap >= 0.8 && values.cap <= 1.5) {
-        gumrukTarifeKodu = '721720300011';
-      } else if (values.cap > 1.5 && values.cap <= 6.0) {
-        gumrukTarifeKodu = '721720300012';
-      } else if (values.cap > 6.0) {
-        gumrukTarifeKodu = '721720300013';
-      }
+// MM GT kaydetme fonksiyonu
+async function saveMMGT(values) {
+  setLoading(true);
+  setError(null);
 
-      // AMB.SHRİNK değerini belirle
-      let ambShrink = '';
-      if (values.ic_cap === 45 && values.dis_cap === 75) {
-        ambShrink = 'AMB.SHRİNK.200*140CM';
-      } else if (values.ic_cap === 50 && values.dis_cap === 90) {
-        ambShrink = 'AMB.SHRİNK.200*160CM';
-      } else if (values.ic_cap === 55 && values.dis_cap === 105) {
-        ambShrink = 'AMB.SHRİNK.200*190CM';
-      }
+  try {
+    // Stok Kodu formatını oluştur
+    const stockCode = `GT.${values.kod_2}.${values.cap.toString().padStart(4, '0')}.${values.sequence.toString().padStart(2, '0')}`;
 
-      // MM GT verilerini hazırla
-      const mmGtDataToSave = {
-        ...values,
-        stok_kodu: stockCode,
-        stok_adi: `Galvanizli Tel ${values.cap.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-        ingilizce_isim: `Galvanized Steel Wire ${values.cap.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-        grup_kodu: 'MM',
-        kod_1: 'GT',
-        muh_detay: '26',
-        depo_kodu: '36',
-        br_1: 'KG',
-        br_2: 'TN',
-        fiyat_birimi: 1,
-        satis_kdv_orani: 20,
-        alis_kdv_orani: 20,
-        stok_turu: 'D',
-        esnek_yapilandir: 'H',
-        super_recete_kullanilsin: 'H',
-        alis_doviz_tipi: 2,
-        gumruk_tarife_kodu: gumrukTarifeKodu,
-        mensei: '052',
-        material: 'Galvanizli Tel',
-        dia_mm: values.cap.toString().replace('.', ','),
-        dia_tol_mm_plus: values.tolerans_plus.toString().replace('.', ','),
-        dia_tol_mm_minus: values.tolerans_minus.toString().replace('.', ','),
-        zing_coating_gr_m2: values.kaplama.toString(),
-        tensile_st_mpa_min: values.min_mukavemet.toString(),
-        tensile_st_mpa_max: values.max_mukavemet.toString(),
-        wax: '+',
-        lifting_lugs: '+',
-        coil_dimensions_cm_id: values.ic_cap.toString(),
-        coil_dimensions_cm_od: values.dis_cap.toString(),
-        coil_weight_kg: values.kg.toString(),
-        amb_shrink: ambShrink,
-        created_by: user.id,
-        updated_by: user.id
-      };
-
-      let savedMmGtData;
-      
-      if (isEditMode && mmGtData && mmGtData.id) {
-        // Güncelleme işlemi
-        const { data, error } = await supabase
-          .from('gal_cost_cal_mm_gt')
-          .update(mmGtDataToSave)
-          .eq('id', mmGtData.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        savedMmGtData = data;
-        setSuccessMessage('MM GT kaydı başarıyla güncellendi');
-      } else {
-        // Yeni kayıt oluşturma
-        const { data, error } = await supabase
-          .from('gal_cost_cal_mm_gt')
-          .insert(mmGtDataToSave)
-          .select()
-          .single();
-
-        if (error) throw error;
-        savedMmGtData = data;
-        setSuccessMessage('MM GT kaydı başarıyla oluşturuldu');
-        
-        // Dizilim numarasını artır
-        await incrementSequence(values.kod_2, values.cap);
-      }
-
-      setMmGtData(savedMmGtData);
-      return savedMmGtData;
-      
-    } catch (error) {
-      console.error('MM GT kaydetme hatası:', error);
-      setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
-      return null;
-    } finally {
-      setLoading(false);
+    // Gümrük tarife kodunu belirle
+    let gumrukTarifeKodu = '';
+    if (values.cap >= 0.8 && values.cap <= 1.5) {
+      gumrukTarifeKodu = '721720300011';
+    } else if (values.cap > 1.5 && values.cap <= 6.0) {
+      gumrukTarifeKodu = '721720300012';
+    } else if (values.cap > 6.0) {
+      gumrukTarifeKodu = '721720300013';
     }
+
+    // AMB.SHRİNK değerini belirle
+    let ambShrink = '';
+    if (values.ic_cap === 45 && values.dis_cap === 75) {
+      ambShrink = 'AMB.SHRİNK.200*140CM';
+    } else if (values.ic_cap === 50 && values.dis_cap === 90) {
+      ambShrink = 'AMB.SHRİNK.200*160CM';
+    } else if (values.ic_cap === 55 && values.dis_cap === 105) {
+      ambShrink = 'AMB.SHRİNK.200*190CM';
+    }
+
+    // MM GT verilerini hazırla
+    const mmGtDataToSave = {
+      ...values,
+      stok_kodu: stockCode,
+      stok_adi: `Galvanizli Tel ${values.cap.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+      ingilizce_isim: `Galvanized Steel Wire ${values.cap.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+      grup_kodu: 'MM',
+      kod_1: 'GT',
+      muh_detay: '26',
+      depo_kodu: '36',
+      br_1: 'KG',
+      br_2: 'TN',
+      fiyat_birimi: 1,
+      satis_kdv_orani: 20,
+      alis_kdv_orani: 20,
+      stok_turu: 'D',
+      esnek_yapilandir: 'H',
+      super_recete_kullanilsin: 'H',
+      alis_doviz_tipi: 2,
+      gumruk_tarife_kodu: gumrukTarifeKodu,
+      mensei: '052',
+      material: 'Galvanizli Tel',
+      dia_mm: values.cap.toString().replace('.', ','),
+      dia_tol_mm_plus: values.tolerans_plus.toString().replace('.', ','),
+      dia_tol_mm_minus: values.tolerans_minus.toString().replace('.', ','),
+      zing_coating_gr_m2: values.kaplama.toString(),
+      tensile_st_mpa_min: values.min_mukavemet.toString(),
+      tensile_st_mpa_max: values.max_mukavemet.toString(),
+      wax: '+',
+      lifting_lugs: '+',
+      coil_dimensions_cm_id: values.ic_cap.toString(),
+      coil_dimensions_cm_od: values.dis_cap.toString(),
+      coil_weight_kg: values.kg.toString(),
+      amb_shrink: ambShrink,
+      created_by: user.id,
+      updated_by: user.id
+    };
+
+    const response = await fetchWithAuth(API_URLS.galMmGt, {
+      method: isEditMode ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mmGtDataToSave),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Error saving MM GT');
+    }
+
+    setMmGtData(result);
+    setSuccessMessage(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
+
+    // Eğer yeni kayıt yapıldıysa sequence'ı artır
+    if (!isEditMode) {
+      await incrementSequence(values.kod_2, values.cap);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('MM GT kaydetme hatası:', error);
+    setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
+    return null;
+  } finally {
+    setLoading(false);
   }
+}
 
-  // YM GT kaydetme fonksiyonu
-  async function saveYMGT(values, mmGtId) {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // MM GT verisini al
-      const { data: mmGt, error: mmGtError } = await supabase
-        .from('gal_cost_cal_mm_gt')
-        .select('*')
-        .eq('id', mmGtId)
-        .single();
 
-      if (mmGtError) throw mmGtError;
+  // YM GT kaydetme fonksiyonu (API üzerinden)
+async function saveYMGT(values, mmGtId) {
+  setLoading(true);
+  setError(null);
 
-      // Stok Kodu formatını oluştur
-      const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
-      
-      // YM GT verilerini hazırla
-      const ymGtDataToSave = {
-        ...values,
-        mm_gt_id: mmGtId,
+  try {
+    // MM GT verisini API'den al
+    const response = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
+    const mmGt = (await response.json())[0]; // backend returns array
+
+    if (!mmGt) throw new Error('MM GT bulunamadı');
+
+    // Stok kodunu üret
+    const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
+
+    // YM GT verisini oluştur
+    const ymGtDataToSave = {
+      ...values,
+      mm_gt_id: mmGtId,
+      stok_kodu: stockCode,
+      stok_adi: mmGt.stok_adi,
+      ingilizce_isim: mmGt.ingilizce_isim,
+      grup_kodu: 'YM',
+      kod_1: 'GT',
+      kod_2: mmGt.kod_2,
+      cap: mmGt.cap,
+      kaplama: mmGt.kaplama,
+      min_mukavemet: mmGt.min_mukavemet,
+      max_mukavemet: mmGt.max_mukavemet,
+      kg: mmGt.kg,
+      ic_cap_boy_cubuk_ad: mmGt.ic_cap_boy_cubuk_ad,
+      dis_cap_en_cubuk_ad: mmGt.dis_cap_en_cubuk_ad,
+      shrink: mmGt.shrink,
+      tolerans_plus: mmGt.tolerans_plus,
+      tolerans_minus: mmGt.tolerans_minus,
+      muh_detay: '83',
+      depo_kodu: '35',
+      br_1: 'KG',
+      br_2: 'TN',
+      fiyat_birimi: 1,
+      satis_kdv_orani: 20,
+      alis_kdv_orani: 20,
+      stok_turu: 'D',
+      esnek_yapilandir: 'H',
+      super_recete_kullanilsin: 'H',
+      created_by: user.id,
+      updated_by: user.id
+    };
+
+    // Önce var mı kontrol et
+    const checkRes = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGtId}`);
+    const existing = await checkRes.json();
+
+    let saveRes;
+    if (existing && existing.length > 0) {
+      // Güncelle
+      ymGtDataToSave.id = existing[0].id;
+      saveRes = await fetchWithAuth(API_URLS.galYmGt, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ymGtDataToSave),
+      });
+      setSuccessMessage('YM GT kaydı başarıyla güncellendi');
+    } else {
+      // Yeni kayıt
+      saveRes = await fetchWithAuth(API_URLS.galYmGt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ymGtDataToSave),
+      });
+      setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
+    }
+
+    const savedData = await saveRes.json();
+    setYmGtData(savedData);
+    return savedData;
+  } catch (error) {
+    console.error('YM GT kaydetme hatası:', error);
+    setError('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}
+
+// YM ST kaydetme fonksiyonu (API üzerinden)
+async function saveYMST(values, mmGtId) {
+  setLoading(true);
+  setError(null);
+
+  try {
+    let ymStId;
+
+    if (values.isNew) {
+      const stockCode = `YM.ST.${values.cap.toString().padStart(4, '0')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+      const stockName = `YM Siyah Tel ${values.cap.toString().padStart(4, '0')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+
+      let ozelSaha1;
+      if (values.cap < 2) ozelSaha1 = 1;
+      else if (values.cap < 3) ozelSaha1 = 2;
+      else if (values.cap < 4) ozelSaha1 = 3;
+      else if (values.cap < 5) ozelSaha1 = 4;
+      else if (values.cap < 6) ozelSaha1 = 5;
+      else if (values.cap < 7) ozelSaha1 = 6;
+      else if (values.cap < 8) ozelSaha1 = 7;
+      else ozelSaha1 = 8;
+
+      const ymStDataToSave = {
         stok_kodu: stockCode,
-        stok_adi: mmGt.stok_adi,
-        ingilizce_isim: mmGt.ingilizce_isim,
+        stok_adi: stockName,
         grup_kodu: 'YM',
-        kod_1: 'GT',
-        kod_2: mmGt.kod_2,
-        cap: mmGt.cap,
-        kaplama: mmGt.kaplama,
-        min_mukavemet: mmGt.min_mukavemet,
-        max_mukavemet: mmGt.max_mukavemet,
-        kg: mmGt.kg,
-        ic_cap_boy_cubuk_ad: mmGt.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: mmGt.dis_cap_en_cubuk_ad,
-        shrink: mmGt.shrink,
-        tolerans_plus: mmGt.tolerans_plus,
-        tolerans_minus: mmGt.tolerans_minus,
-        muh_detay: '83',
+        kod_1: 'ST',
+        muh_detay: '28',
         depo_kodu: '35',
+        satis_kdv_orani: '20',
+        ozel_saha_1_say: ozelSaha1,
         br_1: 'KG',
         br_2: 'TN',
-        fiyat_birimi: 1,
-        satis_kdv_orani: 20,
-        alis_kdv_orani: 20,
+        pay_1: 1,
+        payda_1: 1.0,
+        cevrim_degeri_1: 0,
+        cevrim_pay_2: 1,
+        cevrim_payda_2: 1,
+        cevrim_degeri_2: 1,
+        cap: values.cap,
+        filmasin: values.filmasin,
+        quality: values.quality,
         stok_turu: 'D',
         esnek_yapilandir: 'H',
         super_recete_kullanilsin: 'H',
@@ -351,186 +422,69 @@ export const GalvanizliTelProvider = ({ children }) => {
         updated_by: user.id
       };
 
-      // Mevcut YM GT kaydını kontrol et
-      const { data: existingYmGt, error: ymGtQueryError } = await supabase
-        .from('gal_cost_cal_ym_gt')
-        .select('*')
-        .eq('mm_gt_id', mmGtId)
-        .maybeSingle();
+      // Check if already exists
+      const checkRes = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${stockCode}`);
+      const existing = await checkRes.json();
 
-      if (ymGtQueryError && ymGtQueryError.code !== 'PGRST116') throw ymGtQueryError;
+      let savedData;
 
-      let savedYmGtData;
-
-      if (existingYmGt) {
-        // Güncelleme işlemi
-        const { data, error } = await supabase
-          .from('gal_cost_cal_ym_gt')
-          .update(ymGtDataToSave)
-          .eq('id', existingYmGt.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        savedYmGtData = data;
-        setSuccessMessage('YM GT kaydı başarıyla güncellendi');
+      if (existing && existing.length > 0) {
+        savedData = existing[0];
       } else {
-        // Yeni kayıt oluşturma
-        const { data, error } = await supabase
-          .from('gal_cost_cal_ym_gt')
-          .insert(ymGtDataToSave)
-          .select()
-          .single();
-
-        if (error) throw error;
-        savedYmGtData = data;
-        setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
+        const insertRes = await fetchWithAuth(API_URLS.galYmSt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ymStDataToSave),
+        });
+        savedData = await insertRes.json();
       }
 
-      setYmGtData(savedYmGtData);
-      return savedYmGtData;
-      
-    } catch (error) {
-      console.error('YM GT kaydetme hatası:', error);
-      setError('YM GT kaydedilirken bir hata oluştu: ' + error.message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }
+      ymStId = savedData.id;
 
-  // YM ST kaydetme fonksiyonu
-  async function saveYMST(values, mmGtId) {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Yeni YM ST kaydı
-      if (values.isNew) {
-        // Stok kodu oluştur
-        const stockCode = `YM.ST.${values.cap.toString().padStart(4, '0')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
-        
-        // Stok adı oluştur
-        const stockName = `YM Siyah Tel ${values.cap.toString().padStart(4, '0')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
-        
-        // Özel Saha 1 değerini ayarla
-        let ozelSaha1;
-        if (values.cap < 2) ozelSaha1 = 1;
-        else if (values.cap >= 2 && values.cap < 3) ozelSaha1 = 2;
-        else if (values.cap >= 3 && values.cap < 4) ozelSaha1 = 3;
-        else if (values.cap >= 4 && values.cap < 5) ozelSaha1 = 4;
-        else if (values.cap >= 5 && values.cap < 6) ozelSaha1 = 5;
-        else if (values.cap >= 6 && values.cap < 7) ozelSaha1 = 6;
-        else if (values.cap >= 7 && values.cap < 8) ozelSaha1 = 7;
-        else ozelSaha1 = 8;
-
-        // YM ST verilerini hazırla
-        const ymStDataToSave = {
-          stok_kodu: stockCode,
-          stok_adi: stockName,
-          grup_kodu: 'YM',
-          kod_1: 'ST',
-          muh_detay: '28',
-          depo_kodu: '35',
-          satis_kdv_orani: '20',
-          ozel_saha_1_say: ozelSaha1,
-          br_1: 'KG',
-          br_2: 'TN',
-          pay_1: 1,
-          payda_1: 1.000,
-          cevrim_degeri_1: 0,
-          cevrim_pay_2: 1,
-          cevrim_payda_2: 1,
-          cevrim_degeri_2: 1,
-          cap: values.cap,
-          filmasin: values.filmasin,
-          quality: values.quality,
-          stok_turu: 'D',
-          esnek_yapilandir: 'H',
-          super_recete_kullanilsin: 'H',
+      // Insert relation
+      await fetchWithAuth(API_URLS.galMmGtYmSt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mm_gt_id: mmGtId,
+          ym_st_id: ymStId,
           created_by: user.id,
           updated_by: user.id
-        };
+        }),
+      });
 
-        // İlk olarak mevcut bir kaydın olup olmadığını kontrol et
-        const { data: existingYmSt, error: existingError } = await supabase
-          .from('gal_cost_cal_ym_st')
-          .select('*')
-          .eq('stok_kodu', stockCode)
-          .maybeSingle();
+      setSelectedYmSt(prev => [...prev, savedData]);
+      setSuccessMessage('YM ST kaydı başarıyla eklendi');
+      return savedData;
+    } else {
+      // Existing selection, just insert relation
+      await fetchWithAuth(API_URLS.galMmGtYmSt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mm_gt_id: mmGtId,
+          ym_st_id: values.id,
+          created_by: user.id,
+          updated_by: user.id
+        }),
+      });
 
-        if (existingError && existingError.code !== 'PGRST116') throw existingError;
-
-        let savedYmStData;
-
-        if (existingYmSt) {
-          // Kayıt zaten var, mevcut kaydı kullan
-          savedYmStData = existingYmSt;
-        } else {
-          // Yeni kayıt oluştur
-          const { data, error } = await supabase
-            .from('gal_cost_cal_ym_st')
-            .insert(ymStDataToSave)
-            .select()
-            .single();
-
-          if (error) throw error;
-          savedYmStData = data;
-        }
-
-        // İlişki tablosu için kaydı ekle
-        const { error: relError } = await supabase
-          .from('gal_cost_cal_mm_gt_ym_st')
-          .insert({
-            mm_gt_id: mmGtId,
-            ym_st_id: savedYmStData.id,
-            created_by: user.id,
-            updated_by: user.id
-          });
-
-        if (relError) throw relError;
-
-        // Mevcut seçili YM ST listesini güncelle
-        setSelectedYmSt(prevList => [...prevList, savedYmStData]);
-        setSuccessMessage('YM ST kaydı başarıyla eklendi');
-        return savedYmStData;
-      } 
-      // Mevcut YM ST kaydını seç
-      else {
-        // Seçilen YM ST'nin ilişkisini kur
-        const { error: relError } = await supabase
-          .from('gal_cost_cal_mm_gt_ym_st')
-          .insert({
-            mm_gt_id: mmGtId,
-            ym_st_id: values.id,
-            created_by: user.id,
-            updated_by: user.id
-          });
-
-        if (relError) throw relError;
-
-        // Mevcut seçili YM ST listesini güncelle
-        const { data: ymStData, error: ymStError } = await supabase
-          .from('gal_cost_cal_ym_st')
-          .select('*')
-          .eq('id', values.id)
-          .single();
-
-        if (ymStError) throw ymStError;
-
-        setSelectedYmSt(prevList => [...prevList, ymStData]);
-        setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
-        return ymStData;
-      }
-      
-    } catch (error) {
-      console.error('YM ST kaydetme hatası:', error);
-      setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
-      return null;
-    } finally {
-      setLoading(false);
+      const res = await fetchWithAuth(`${API_URLS.galYmSt}?id=${values.id}`);
+      const data = (await res.json())[0];
+      setSelectedYmSt(prev => [...prev, data]);
+      setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
+      return data;
     }
+  } catch (error) {
+    console.error('YM ST kaydetme hatası:', error);
+    setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
+    return null;
+  } finally {
+    setLoading(false);
   }
+}
+
+
 
   // Excel Oluşturma Fonksiyonu
   async function generateExcel(mmGtId) {
