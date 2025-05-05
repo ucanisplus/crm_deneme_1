@@ -1552,6 +1552,8 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     row.cubukSayisiEn = cubukSayisiEn;
   };
         
+        // Filiz değerlerini hesaplama
+
 const calculateFilizValues = (row) => {
   const uzunlukBoy = parseFloat(row.uzunlukBoy) || 0;
   const uzunlukEn = parseFloat(row.uzunlukEn) || 0;
