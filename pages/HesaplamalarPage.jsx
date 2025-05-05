@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import dynamic from 'next/dynamic';
 import GalvanizliTelNetsis from '@/components/GalvanizliTelNetsis';
+import { GalvanizliTelProvider } from '@/components/GalvanizliTelNetsis';
 
 const HesaplamalarPage = () => {
   const { hasPermission, user } = useAuth();
