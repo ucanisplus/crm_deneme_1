@@ -595,18 +595,12 @@ async function saveYMST(values, mmGtId) {
     }
   }
 
-  // MM GT Reçete oluşturma fonksiyonu
-  async function createMMGTRecete(mmGtId, ymGtId) {
-    // MM GT verisini al
-    const { data: mmGt, error: mmGtError } = await supabase
-      .from('gal_cost_cal_mm_gt')
-      .select('*')
-      .eq('id', mmGtId)
-      .single();
+async function createMMGTRecete(mmGtId) {
+  try {
+    const response = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
+    const mmGt = (await response.json())[0];
+    if (!mmGt) throw new Error('MM GT verisi bulunamadı');
 
-    if (mmGtError) throw mmGtError;
-
-    // Reçete verileri
     const receteItems = [
       {
         mamul_kodu: mmGt.stok_kodu,
@@ -642,11 +636,7 @@ async function saveYMST(values, mmGtId) {
         created_by: user.id,
         updated_by: user.id,
         mm_gt_id: mmGtId
-
-//There was a break in the code so I dont know if the continuation is correct.
-
       },
-
       {
         mamul_kodu: mmGt.stok_kodu,
         recete_top: 1,
@@ -751,67 +741,43 @@ async function saveYMST(values, mmGtId) {
       }
     ];
 
-    // Reçeteleri veritabanına kaydet
-    const { error } = await supabase
-      .from('gal_cost_cal_mm_gt_recete')
-      .insert(receteItems);
+    const responseInsert = await fetchWithAuth(API_URLS.galMmGtRecete, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receteItems),
+    });
 
-    if (error) throw error;
+    const result = await responseInsert.json();
+    if (!responseInsert.ok) throw new Error(result.error || 'Reçete eklenemedi');
+
+    setSuccessMessage('MM GT reçetesi başarıyla kaydedildi');
+  } catch (error) {
+    console.error('createMMGTRecete error:', error);
+    setError('Reçete kaydedilemedi: ' + error.message);
   }
+}
 
-  // YM GT Reçete oluşturma fonksiyonu
-  async function createYMGTRecete(ymGtId) {
-    // YM GT verisini al
-    const { data: ymGt, error: ymGtError } = await supabase
-      .from('gal_cost_cal_ym_gt')
-      .select('*')
-      .eq('id', ymGtId)
-      .single();
 
-    if (ymGtError) throw ymGtError;
+async function createYMGTRecete(ymGtId) {
+  try {
+    const response = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+    const ymGt = (await response.json())[0];
+    if (!ymGt) throw new Error('YM GT verisi bulunamadı');
 
-    // Reçete hesaplamaları
-    // Çap değerine bağlı olarak hesaplamalar
     const diameter = parseFloat(ymGt.cap);
-    
-    // 150 03 değeri: 0.032 - (0.0029 * Diameter)
     const value15003 = Math.max(0.001, 0.032 - (0.0029 * diameter)).toFixed(6);
-    
-    // SM.HİDROLİK.ASİT değeri: Çapa ve kaplamaya göre karmaşık formül
+
     let asitValue = 0;
     if (ymGt.kod_2 === 'NIT') {
-      // NIT için değer
-      if (diameter < 1.5) {
-        asitValue = 0.002;
-      } else if (diameter >= 1.5 && diameter < 2.5) {
-        asitValue = 0.0025;
-      } else {
-        asitValue = 0.003;
-      }
+      asitValue = diameter < 1.5 ? 0.002 : diameter < 2.5 ? 0.0025 : 0.003;
     } else {
-      // PAD için değer
-      if (diameter < 1.5) {
-        asitValue = 0.001;
-      } else if (diameter >= 1.5 && diameter < 2.5) {
-        asitValue = 0.0015;
-      } else {
-        asitValue = 0.002;
-      }
+      asitValue = diameter < 1.5 ? 0.001 : diameter < 2.5 ? 0.0015 : 0.002;
     }
-    
-    // SM.DESİ.PAK değeri
+
     const desiValue = ymGt.kg > 800 ? 0.002 : 0.0013;
-    
-    // GTPKT01 değeri: Sabit 0.020
-    const gtpktValue = 0.020;
-    
-    // GLV01 değeri: 1.15 - (0.125 * Diameter)
     const glvValue = Math.max(0.001, 1.15 - (0.125 * diameter)).toFixed(6);
-    
-    // TLC01 değeri: 0.2/(Diameter^1.5)
     const tlcValue = (0.2 / Math.pow(diameter, 1.5)).toFixed(6);
 
-    // Reçete verileri
     const receteItems = [
       {
         mamul_kodu: ymGt.stok_kodu,
@@ -820,7 +786,7 @@ async function saveYMST(values, mmGtId) {
         olcu_br: 'KG',
         sira_no: 1,
         operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'YM.ST.0250.0600.1006', // Bu değer gerçekte dinamik olmalı, şimdilik sabit
+        bilesen_kodu: 'YM.ST.0250.0600.1006',
         olcu_br_bilesen: '1',
         miktar: 1,
         aciklama: 'Siyah Tel Tüketim Miktarı',
@@ -890,9 +856,9 @@ async function saveYMST(values, mmGtId) {
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GTPKT01',
         olcu_br_bilesen: '1',
-        miktar: gtpktValue,
+        miktar: 0.020,
         aciklama: 'Paketleme Operasyonu',
-        uretim_suresi: gtpktValue,
+        uretim_suresi: 0.020,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
         created_by: user.id,
@@ -919,30 +885,32 @@ async function saveYMST(values, mmGtId) {
       }
     ];
 
-    // Reçeteleri veritabanına kaydet
-    const { error } = await supabase
-      .from('gal_cost_cal_ym_gt_recete')
-      .insert(receteItems);
+    const save = await fetchWithAuth(API_URLS.galYmGtRecete, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receteItems),
+    });
 
-    if (error) throw error;
+    const result = await save.json();
+    if (!save.ok) throw new Error(result.error || 'Reçete kaydı başarısız');
+
+    setSuccessMessage('YM GT reçetesi başarıyla oluşturuldu');
+  } catch (error) {
+    console.error('createYMGTRecete error:', error);
+    setError('Reçete oluşturulamadı: ' + error.message);
   }
+}
 
-  // YM ST Reçete oluşturma fonksiyonu
-  async function createYMSTRecete(ymStId) {
-    // YM ST verisini al
-    const { data: ymSt, error: ymStError } = await supabase
-      .from('gal_cost_cal_ym_st')
-      .select('*')
-      .eq('id', ymStId)
-      .single();
 
-    if (ymStError) throw ymStError;
+async function createYMSTRecete(ymStId) {
+  try {
+    const response = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+    const ymSt = (await response.json())[0];
+    if (!ymSt) throw new Error('YM ST verisi bulunamadı');
 
-    // Çap değerine bağlı TLC01 değeri hesapla: 0.2/(Diameter^1.5)
     const diameter = parseFloat(ymSt.cap);
     const tlcValue = (0.2 / Math.pow(diameter, 1.5)).toFixed(9);
 
-    // Reçete verileri
     const receteItems = [
       {
         mamul_kodu: ymSt.stok_kodu,
@@ -967,21 +935,33 @@ async function saveYMST(values, mmGtId) {
         bilesen_kodu: 'TLC01',
         olcu_br_bilesen: '1',
         miktar: parseFloat(tlcValue),
-        aciklama: 'Tel Çekme Operasyonu',
         uretim_suresi: parseFloat(tlcValue),
+        aciklama: 'Tel Çekme Operasyonu',
         created_by: user.id,
         updated_by: user.id,
         ym_st_id: ymStId
       }
     ];
 
-    // Reçeteleri veritabanına kaydet
-    const { error } = await supabase
-      .from('gal_cost_cal_ym_st_recete')
-      .insert(receteItems);
+    const save = await fetchWithAuth(API_URLS.galYmStRecete, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receteItems),
+    });
 
-    if (error) throw error;
+    const result = await save.json();
+    if (!save.ok) throw new Error(result.error || 'Reçete eklenemedi');
+
+    setSuccessMessage('YM ST reçetesi başarıyla oluşturuldu');
+  } catch (error) {
+    console.error('createYMSTRecete error:', error);
+    setError('Reçete oluşturulamadı: ' + error.message);
   }
+}
+
+
+
+
 
   // Stok Kartı Excel oluşturma
   async function createStokKartiExcel(mmGt, ymGt, ymStList) {
