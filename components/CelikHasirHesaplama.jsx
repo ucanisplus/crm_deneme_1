@@ -503,7 +503,7 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Makine limitleri için sabitler
   const MACHINE_LIMITS = {
-    MIN_BOY: 275, // Minimum boy limiti (cm)
+    MIN_BOY: 272, // Minimum boy limiti (cm)
     MAX_BOY: 800, // Maksimum boy limiti (cm)
     MIN_EN: 150,  // Minimum en limiti (cm)
     MAX_EN: 250,  // Maksimum en limiti (cm)
@@ -933,7 +933,7 @@ const processExcelWithMapping = (sheets, mapping) => {
     
     // 4. Boy ve En sütunlarını belirle
     
-    // Boy aralığına uygun sütunları bul (275-800 cm)
+    // Boy aralığına uygun sütunları bul (272-800 cm)
     const boyCandidates = [];
     
     for (const [colIndex, stats] of Object.entries(columnStats)) {
@@ -2492,7 +2492,7 @@ const trySwapBoyEn = (row) => {
    
    // CRITICAL: İlk önce En > MAX_EN (250cm) durumunu kontrol et
    if (uzunlukEn > MACHINE_LIMITS.MAX_EN) {
-       // Durum 1: En > 250 fakat < 275 (doğrudan Boy olamaz)
+       // Durum 1: En > 250 fakat < 272 (doğrudan Boy olamaz)
        if (uzunlukEn < MACHINE_LIMITS.MIN_BOY) {
            // Takas + çarpma işlemini dene
            const tempBoy = uzunlukEn;
@@ -2521,7 +2521,7 @@ const trySwapBoyEn = (row) => {
                }
            }
        }
-       // Durum 2: En >= 275 (doğrudan Boy olabilir)
+       // Durum 2: En >= 272 (doğrudan Boy olabilir)
        else if (uzunlukEn >= MACHINE_LIMITS.MIN_BOY && uzunlukEn <= MACHINE_LIMITS.MAX_BOY) {
            // Boy and En değerlerini değiştir
            [row.uzunlukBoy, row.uzunlukEn] = [row.uzunlukEn, row.uzunlukBoy];
@@ -4238,16 +4238,16 @@ const analyzeColumnData = (data, hasHeaders) => {
       
       // Boy/En/Hasır Sayısı analizi
       
-      // Boy için aday mı? (Genellikle 275-800 cm arasında)
+      // Boy için aday mı? (Genellikle 272-800 cm arasında)
       stats.boyLikelihood = 0;
       if (stats.minValue >= 50 && stats.maxValue <= 850) {
-        // Çoğunluğu 275+ olmalı
-        const values275Plus = stats.values.filter(v => v >= 275).length;
-        const percentage275Plus = values275Plus / stats.values.length;
+        // Çoğunluğu 272+ olmalı
+        const values272Plus = stats.values.filter(v => v >= 272).length;
+        const percentage272Plus = values272Plus / stats.values.length;
         
-        if (percentage275Plus >= 0.7) {
+        if (percentage272Plus >= 0.7) {
           stats.boyLikelihood = 80; // Yüksek olasılık
-        } else if (percentage275Plus >= 0.5) {
+        } else if (percentage272Plus >= 0.5) {
           stats.boyLikelihood = 60; // Orta olasılık
         } else if (stats.minValue >= 100) {
           stats.boyLikelihood = 40; // Düşük olasılık
@@ -4651,7 +4651,7 @@ const extractRowData = (row, columnAnalysis) => {
   // Eksik değerleri akıllı varsayılanlarla doldur
   if (isNaN(boyValue) && !isNaN(enValue)) {
     // En değerinden Boy değerini tahmin et
-    uzunlukBoy = Math.min(800, Math.max(275, Math.floor(enValue * 2))).toString();
+    uzunlukBoy = Math.min(800, Math.max(272, Math.floor(enValue * 2))).toString();
   }
   
   if (isNaN(enValue) && !isNaN(boyValue)) {
@@ -5006,7 +5006,7 @@ const parseCsvData = (data) => {
           if (!uzunlukBoy && uzunlukEn) {
             // En'in yaklaşık 2 katı kadar
             const enValue = parseFloat(uzunlukEn);
-            uzunlukBoy = Math.min(800, Math.max(275, Math.floor(enValue * 2))).toString();
+            uzunlukBoy = Math.min(800, Math.max(272, Math.floor(enValue * 2))).toString();
           }
           
           // Hasır sayısı eksikse varsayılan 1 kullan
