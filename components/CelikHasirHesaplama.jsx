@@ -503,7 +503,7 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Makine limitleri için sabitler
   const MACHINE_LIMITS = {
-    MIN_BOY: 270, // Minimum boy limiti (cm)
+    MIN_BOY: 275, // Minimum boy limiti (cm)
     MAX_BOY: 800, // Maksimum boy limiti (cm)
     MIN_EN: 150,  // Minimum en limiti (cm)
     MAX_EN: 250,  // Maksimum en limiti (cm)
@@ -4238,16 +4238,16 @@ const analyzeColumnData = (data, hasHeaders) => {
       
       // Boy/En/Hasır Sayısı analizi
       
-      // Boy için aday mı? (Genellikle 270-800 cm arasında)
+      // Boy için aday mı? (Genellikle 275-800 cm arasında)
       stats.boyLikelihood = 0;
       if (stats.minValue >= 50 && stats.maxValue <= 850) {
-        // Çoğunluğu 270+ olmalı
-        const values270Plus = stats.values.filter(v => v >= 270).length;
-        const percentage270Plus = values270Plus / stats.values.length;
+        // Çoğunluğu 275+ olmalı
+        const values275Plus = stats.values.filter(v => v >= 275).length;
+        const percentage275Plus = values275Plus / stats.values.length;
         
-        if (percentage270Plus >= 0.7) {
+        if (percentage275Plus >= 0.7) {
           stats.boyLikelihood = 80; // Yüksek olasılık
-        } else if (percentage270Plus >= 0.5) {
+        } else if (percentage275Plus >= 0.5) {
           stats.boyLikelihood = 60; // Orta olasılık
         } else if (stats.minValue >= 100) {
           stats.boyLikelihood = 40; // Düşük olasılık
