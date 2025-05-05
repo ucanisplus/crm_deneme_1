@@ -5,6 +5,8 @@ import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import dynamic from 'next/dynamic';
+import GalvanizliTelNetsis from '@/components/GalvanizliTelNetsis';
+
 
 const HesaplamalarPage = () => {
   const { hasPermission, user } = useAuth();
@@ -87,13 +89,7 @@ const HesaplamalarPage = () => {
               {activeTab === 'panel-cit' && <PanelCitHesaplama />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
 
-              {activeTab === 'galvanizli-tel' && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Galvanizli Tel Maliyet Hesaplama</h3>
-                  <p className="text-gray-600">Galvanizli Tel için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-                </div>
-              )}
-
+              {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
               {activeTab === 'tavli-tel' && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-gray-800">Tavlı Tel Maliyet Hesaplama</h3>
