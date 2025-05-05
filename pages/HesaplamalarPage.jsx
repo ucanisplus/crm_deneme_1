@@ -87,7 +87,12 @@ const HesaplamalarPage = () => {
             <>
               {activeTab === 'panel-cit' && <PanelCitHesaplama />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
-              {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
+              {activeTab === 'galvanizli-tel' && (
+                <GalvanizliTelProvider>
+                  <GalvanizliTelNetsis />
+                </GalvanizliTelProvider>
+              )}
+
 
               {activeTab === 'tavli-tel' && (
                 <div className="space-y-4">
