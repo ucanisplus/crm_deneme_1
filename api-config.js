@@ -1,6 +1,6 @@
 // api-config.js
 export const API_URLS = {
-  // Existing table endpoints
+  // Panel ENdpointleri
   currency: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_currency',
   geciciHesaplar: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_gecici_hesaplar',
   genelDegiskenler: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_genel_degiskenler',
@@ -9,6 +9,19 @@ export const API_URLS = {
   panelList: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_panel_list',
   profilDegiskenler: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_profil_degiskenler',
   statikDegiskenler: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_statik_degiskenler',
+
+  // Galvanizli Tel
+  galMmGt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt',
+  galMmGtRecete: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt_recete',
+  galMmGtYmSt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt_ym_st',
+  galSequence: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sequence',
+  galYmGt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_gt',
+  galYmGtRecete: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_gt_recete',
+  galYmSt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st',
+  galYmStRecete: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st_recete',
+
+
+
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
