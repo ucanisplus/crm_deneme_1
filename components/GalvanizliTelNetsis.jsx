@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useContext, createContext } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
-import { useAuth } from '../../contexts/AuthContext';
-import { API_URLS } from '../../utils/api-config';
-import { supabase } from '../../utils/supabase-client';
+import { useAuth } from '@/contexts/AuthContext';
+import { API_URLS, fetchWithAuth } from '@/utils/api-config';
+import { supabase } from '@/utils/supabase-client';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { 
