@@ -1800,7 +1800,7 @@ const calculateFilizValues = (row) => {
     }
   };
 
-// İyileştirme işlemlerini gerçekleştirme - Tek tıklamada tam optimizasyon sağlayan versiyon
+// İyileştirme işlemlerini gerçekleştirme - İyileştirilmiş versiyon
 const iyilestir = async (rowIndex) => {
   try {
     // Başlangıçta satırı yedekle
@@ -1809,7 +1809,7 @@ const iyilestir = async (rowIndex) => {
     // İyileştirme işleminin başladığını göster
     setProcessingRowIndex(rowIndex);
     
-    // İşlemin asenkron çalışması için setTimeout kullan (daha kısa bir süre)
+    // İşlemin asenkron çalışması için kısa bir bekleme süresi
     await new Promise(resolve => setTimeout(resolve, 50));
     
     // Deep copy kullanarak satırları kopyala
@@ -1824,14 +1824,6 @@ const iyilestir = async (rowIndex) => {
     const uzunlukBoy = parseFloat(row.uzunlukBoy);
     const uzunlukEn = parseFloat(row.uzunlukEn);
     const hasirSayisi = parseFloat(row.hasirSayisi);
-    
-    // Başlangıç değerlerini hatırla
-    const originalValues = {
-      hasirTipi: hasirTipi,
-      uzunlukBoy: uzunlukBoy,
-      uzunlukEn: uzunlukEn,
-      hasirSayisi: hasirSayisi
-    };
     
     // Eksik bilgi varsa işlem yapma
     if (!hasirTipi || isNaN(uzunlukBoy) || isNaN(uzunlukEn) || isNaN(hasirSayisi)) {
@@ -1863,7 +1855,6 @@ const iyilestir = async (rowIndex) => {
     row.uretilemez = false;
     
     // AŞAMA 1: Hasır tipine göre özellikleri güncelle
-    // Eğer eksik bilgiler varsa hasır tipinden doldur
     if (!row.boyCap || !row.enCap || !row.boyAraligi || !row.enAraligi) {
       updateRowFromHasirTipi(updatedRows, rowIndex);
       isImproved = true;
@@ -1873,18 +1864,14 @@ const iyilestir = async (rowIndex) => {
     // AŞAMA 2: Hasır türünü güncelle
     row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
     
-    // AŞAMA 3: SADECE BOYUT UYUMLAMA - Swap ve Merge işlemleri
-    // Bu aşamada sadece makine limitlerine uygun hale getirme işlemi yapılır
-    
-    // processDimensions fonksiyonu çağrılıyor - kendi içinde sıralı işlemleri yapar
+    // AŞAMA 3: Boyut işleme - processDimensions fonksiyonu çağır
     const processDimensionsResult = processDimensions(row);
-    
     if (processDimensionsResult.changed) {
       isImproved = true;
       newAciklama += processDimensionsResult.message;
     }
     
-    // AŞAMA 4: İteratif iyileştirme süreci - birden fazla geçiş yaparak optimum sonuç elde et
+    // AŞAMA 4: İteratif iyileştirme süreci - iyilestirAll'dan alınan gelişmiş yaklaşım
     if (!row.uretilemez) {
       // İteratif optimizasyon için maksimum döngü sayısı
       const MAX_ITERATIONS = 3;
@@ -1947,7 +1934,7 @@ const iyilestir = async (rowIndex) => {
         // Ağırlık hesapla
         calculateWeight(row);
         
-        // ÖNEMLİ: Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
+        // Boy ve En değerlerinin optimizasyon sürecinde değişmediğinden emin ol
         if (parseFloat(row.uzunlukBoy) !== currentBoy) {
           row.uzunlukBoy = currentBoy.toString();
         }
