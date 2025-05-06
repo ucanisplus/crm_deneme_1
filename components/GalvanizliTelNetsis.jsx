@@ -2461,9 +2461,6 @@ const [receteFormValues, setReceteFormValues] = useState(initialReceteValues);
 useEffect(() => {
   if (!hasPermission('access:galvanizli-tel')) {
     setError('Bu modüle erişim izniniz bulunmamaktadır.');
-  } else {
-    loadYmStList();
-    fetchProductDatabase();
   }
 }, [hasPermission]);
 
