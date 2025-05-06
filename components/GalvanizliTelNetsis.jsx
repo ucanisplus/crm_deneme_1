@@ -1,5 +1,5 @@
 // GalvanizliTelNetsis.jsx
-import React, { useState, useEffect, useContext, createContext } from 'react';
+import React, { useState, useEffect, useContext, createContext, useCallback } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '@/context/AuthContext';
@@ -7,6 +7,7 @@ import { API_URLS, fetchWithAuth } from '@/api-config';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { toast } from 'react-toastify';
+
 
 // Galvanizli Tel Context
 const GalvanizliTelContext = createContext();
@@ -111,11 +112,12 @@ export const GalvanizliTelProvider = ({ children }) => {
     incrementSequence,
     fetchProductDatabase,
     deleteProduct,
-    checkProductExists
+    checkProductExists,
+    loadYmStList,
   };
 
   // Ürün veritabanını yükleme
-  async function fetchProductDatabase() {
+const fetchProductDatabase = useCallback(async () => {
     try {
       setLoading(true);
       // MM GT listesini al
@@ -150,7 +152,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   // Ürün silme fonksiyonu
   async function deleteProduct(type, id) {
@@ -2470,7 +2472,7 @@ useEffect(() => {
 }, [databaseFilter, productDatabase]);
 
 // YM ST listesini yükle - geliştirilmiş sürüm
-const loadYmStList = async () => {
+onst loadYmStList = useCallback(async () => {
   try {
     setLoading(true);
     
@@ -2512,7 +2514,9 @@ const loadYmStList = async () => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
+
+//buraya bakk
 
 // Veritabanı filtrele
 const filterDatabaseItems = () => {
