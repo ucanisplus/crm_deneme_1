@@ -6,9 +6,43 @@ import { useAuth } from '@/context/AuthContext';
 import { API_URLS, fetchWithAuth } from '@/api-config';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { toast } from 'react-toastify';
 
 // Galvanizli Tel Context
 const GalvanizliTelContext = createContext();
+
+// Validation Schema
+const mmGtValidationSchema = Yup.object().shape({
+  cap: Yup.number()
+    .required('Çap zorunludur')
+    .min(0.8, 'Çap en az 0.8 olmalıdır')
+    .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
+  kod_2: Yup.string().required('Kaplama türü zorunludur'),
+  kaplama: Yup.number()
+    .required('Kaplama zorunludur')
+    .min(50, 'Kaplama en az 50 olmalıdır')
+    .max(400, 'Kaplama en fazla 400 olmalıdır'),
+  min_mukavemet: Yup.number()
+    .required('Min mukavemet zorunludur')
+    .min(350, 'Min mukavemet en az 350 olmalıdır')
+    .max(1000, 'Min mukavemet en fazla 1000 olmalıdır'),
+  max_mukavemet: Yup.number()
+    .required('Max mukavemet zorunludur')
+    .min(350, 'Max mukavemet en az 350 olmalıdır')
+    .max(1000, 'Max mukavemet en fazla 1000 olmalıdır'),
+  tolerans_plus: Yup.number()
+    .required('Tolerans (+) zorunludur')
+    .min(0, 'Tolerans (+) en az 0 olmalıdır')
+    .max(0.1, 'Tolerans (+) en fazla 0.1 olmalıdır'),
+  tolerans_minus: Yup.number()
+    .required('Tolerans (-) zorunludur')
+    .min(0, 'Tolerans (-) en az 0 olmalıdır')
+    .max(0.1, 'Tolerans (-) en fazla 0.1 olmalıdır'),
+  kg: Yup.number()
+    .required('Ağırlık zorunludur')
+    .min(250, 'Ağırlık en az 250 olmalıdır')
+    .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
+});
 
 // Context Provider Bileşeni
 export const GalvanizliTelProvider = ({ children }) => {
@@ -259,6 +293,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const result = await response.json();
       setMmGtData(result);
       setSuccessMessage(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
+      toast.success(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
 
       // Eğer yeni kayıt yapıldıysa sequence'ı artır
       if (!isEditMode) {
@@ -269,6 +304,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     } catch (error) {
       console.error('MM GT kaydetme hatası:', error);
       setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
+      toast.error('MM GT kaydedilirken bir hata oluştu: ' + error.message);
       return null;
     } finally {
       setLoading(false);
@@ -355,6 +391,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         }
         
         setSuccessMessage('YM GT kaydı başarıyla güncellendi');
+        toast.success('YM GT kaydı başarıyla güncellendi');
       } else {
         // Yeni kayıt
         saveRes = await fetchWithAuth(API_URLS.galYmGt, {
@@ -368,6 +405,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         }
         
         setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
+        toast.success('YM GT kaydı başarıyla oluşturuldu');
       }
 
       const savedData = await saveRes.json();
@@ -376,6 +414,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     } catch (error) {
       console.error('YM GT kaydetme hatası:', error);
       setError('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
+      toast.error('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
       return null;
     } finally {
       setLoading(false);
@@ -481,6 +520,7 @@ export const GalvanizliTelProvider = ({ children }) => {
 
         setSelectedYmSt(prev => [...prev, savedData]);
         setSuccessMessage('YM ST kaydı başarıyla eklendi');
+        toast.success('YM ST kaydı başarıyla eklendi');
         return savedData;
       } else {
         // Mevcut YM ST için sadece ilişki kur
@@ -514,11 +554,13 @@ export const GalvanizliTelProvider = ({ children }) => {
         
         setSelectedYmSt(prev => [...prev, ymStData[0]]);
         setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
+        toast.success('YM ST ilişkisi başarıyla kuruldu');
         return ymStData[0];
       }
     } catch (error) {
       console.error('YM ST kaydetme hatası:', error);
       setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
+      toast.error('YM ST kaydedilirken bir hata oluştu: ' + error.message);
       return null;
     } finally {
       setLoading(false);
@@ -597,9 +639,11 @@ export const GalvanizliTelProvider = ({ children }) => {
       await createReceteExcel(mmGt, ymGt, ymStData);
 
       setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
+      toast.success('Excel dosyaları başarıyla oluşturuldu');
     } catch (error) {
       console.error('Excel oluşturma hatası:', error);
       setError('Excel oluşturulurken bir hata oluştu: ' + error.message);
+      toast.error('Excel oluşturulurken bir hata oluştu: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -977,7 +1021,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         mamul_kodu: ymGt.stok_kodu,
         recete_top: 1,
         fire_orani: 0.002,
-        olcu_br: 'KG',
+        olcu_br: 'DK',
         sira_no: 5,
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GTPKT01',
@@ -995,7 +1039,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         mamul_kodu: ymGt.stok_kodu,
         recete_top: 1,
         fire_orani: 0.002,
-        olcu_br: 'KG',
+        olcu_br: 'DK',
         sira_no: 6,
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GLV01',
@@ -1089,18 +1133,188 @@ export const GalvanizliTelProvider = ({ children }) => {
 
   // Excel oluşturma fonksiyonları
   async function createStokKartiExcel(mmGt, ymGt, ymStList) {
-    // Excel işlemleri burada yapılacak
+    // Excel workbook oluştur
     const workbook = new ExcelJS.Workbook();
     
-    // Excel sayfalarını ve verilerini ekle
+    // MM GT sayfasını ekle
     const mmGtSheet = workbook.addWorksheet('MM GT');
-    // MM GT verilerini ekle
     
+    // MM GT başlıkları
+    mmGtSheet.columns = [
+      { header: 'STOK KODU', key: 'stok_kodu', width: 20 },
+      { header: 'STOK ADI', key: 'stok_adi', width: 50 },
+      { header: 'İNGİLİZCE İSİM', key: 'ingilizce_isim', width: 50 },
+      { header: 'GRUP KODU', key: 'grup_kodu', width: 12 },
+      { header: 'KOD-1', key: 'kod_1', width: 10 },
+      { header: 'KOD-2', key: 'kod_2', width: 10 },
+      { header: 'MUH. DETAY', key: 'muh_detay', width: 12 },
+      { header: 'DEPO KODU', key: 'depo_kodu', width: 12 },
+      { header: 'BR.1', key: 'br_1', width: 10 },
+      { header: 'BR.2', key: 'br_2', width: 10 },
+      { header: 'FİYAT BİRİMİ', key: 'fiyat_birimi', width: 15 },
+      { header: 'SATIŞ KDV ORANI', key: 'satis_kdv_orani', width: 18 },
+      { header: 'ALIŞ KDV ORANI', key: 'alis_kdv_orani', width: 18 },
+      { header: 'STOK TÜRÜ', key: 'stok_turu', width: 12 },
+      { header: 'GÜMRÜK TARİFE KODU', key: 'gumruk_tarife_kodu', width: 22 },
+      { header: 'MENŞEİ', key: 'mensei', width: 10 },
+      { header: 'DIA (MM)', key: 'dia_mm', width: 10 },
+      { header: 'DIA TOL (MM) (+)', key: 'dia_tol_mm_plus', width: 18 },
+      { header: 'DIA TOL (MM) (-)', key: 'dia_tol_mm_minus', width: 18 },
+      { header: 'ZINC COATING (GR/M2)', key: 'zing_coating_gr_m2', width: 22 },
+      { header: 'TENSILE ST. (MPA) MIN', key: 'tensile_st_mpa_min', width: 22 },
+      { header: 'TENSILE ST. (MPA) MAX', key: 'tensile_st_mpa_max', width: 22 },
+      { header: 'WAX', key: 'wax', width: 10 },
+      { header: 'LIFTING LUGS', key: 'lifting_lugs', width: 15 },
+      { header: 'COIL DIMENSIONS (CM) ID', key: 'coil_dimensions_cm_id', width: 25 },
+      { header: 'COIL DIMENSIONS (CM) OD', key: 'coil_dimensions_cm_od', width: 25 },
+      { header: 'COIL WEIGHT (KG)', key: 'coil_weight_kg', width: 18 },
+      { header: 'AMB.SHRINK', key: 'amb_shrink', width: 20 },
+      { header: 'UNWINDING', key: 'unwinding', width: 15 },
+      { header: 'CAST KONT', key: 'cast_kont', width: 12 },
+      { header: 'HELIX KONT', key: 'helix_kont', width: 12 },
+      { header: 'ELONGATION', key: 'elongation', width: 12 }
+    ];
+    
+    // MM GT verisini ekle
+    mmGtSheet.addRow({
+      stok_kodu: mmGt.stok_kodu,
+      stok_adi: mmGt.stok_adi,
+      ingilizce_isim: mmGt.ingilizce_isim,
+      grup_kodu: mmGt.grup_kodu,
+      kod_1: mmGt.kod_1,
+      kod_2: mmGt.kod_2,
+      muh_detay: mmGt.muh_detay,
+      depo_kodu: mmGt.depo_kodu,
+      br_1: mmGt.br_1,
+      br_2: mmGt.br_2,
+      fiyat_birimi: mmGt.fiyat_birimi,
+      satis_kdv_orani: mmGt.satis_kdv_orani,
+      alis_kdv_orani: mmGt.alis_kdv_orani,
+      stok_turu: mmGt.stok_turu,
+      gumruk_tarife_kodu: mmGt.gumruk_tarife_kodu,
+      mensei: mmGt.mensei,
+      dia_mm: mmGt.dia_mm,
+      dia_tol_mm_plus: mmGt.dia_tol_mm_plus,
+      dia_tol_mm_minus: mmGt.dia_tol_mm_minus,
+      zing_coating_gr_m2: mmGt.zing_coating_gr_m2,
+      tensile_st_mpa_min: mmGt.tensile_st_mpa_min,
+      tensile_st_mpa_max: mmGt.tensile_st_mpa_max,
+      wax: mmGt.wax,
+      lifting_lugs: mmGt.lifting_lugs,
+      coil_dimensions_cm_id: mmGt.coil_dimensions_cm_id,
+      coil_dimensions_cm_od: mmGt.coil_dimensions_cm_od,
+      coil_weight_kg: mmGt.coil_weight_kg,
+      amb_shrink: mmGt.amb_shrink,
+      unwinding: mmGt.unwinding,
+      cast_kont: mmGt.cast_kont,
+      helix_kont: mmGt.helix_kont,
+      elongation: mmGt.elongation
+    });
+    
+    // YM GT sayfasını ekle
     const ymGtSheet = workbook.addWorksheet('YM GT');
-    // YM GT verilerini ekle
     
+    // YM GT başlıkları
+    ymGtSheet.columns = [
+      { header: 'STOK KODU', key: 'stok_kodu', width: 20 },
+      { header: 'STOK ADI', key: 'stok_adi', width: 50 },
+      { header: 'İNGİLİZCE İSİM', key: 'ingilizce_isim', width: 50 },
+      { header: 'GRUP KODU', key: 'grup_kodu', width: 12 },
+      { header: 'KOD-1', key: 'kod_1', width: 10 },
+      { header: 'KOD-2', key: 'kod_2', width: 10 },
+      { header: 'MUH. DETAY', key: 'muh_detay', width: 12 },
+      { header: 'DEPO KODU', key: 'depo_kodu', width: 12 },
+      { header: 'BR.1', key: 'br_1', width: 10 },
+      { header: 'BR.2', key: 'br_2', width: 10 },
+      { header: 'FİYAT BİRİMİ', key: 'fiyat_birimi', width: 15 },
+      { header: 'SATIŞ KDV ORANI', key: 'satis_kdv_orani', width: 18 },
+      { header: 'ALIŞ KDV ORANI', key: 'alis_kdv_orani', width: 18 },
+      { header: 'STOK TÜRÜ', key: 'stok_turu', width: 12 }
+    ];
+    
+   // Continuing from where we left off - Excel generation functions
+
+    // YM GT verisini ekle
+    ymGtSheet.addRow({
+      stok_kodu: ymGt.stok_kodu,
+      stok_adi: ymGt.stok_adi,
+      ingilizce_isim: ymGt.ingilizce_isim,
+      grup_kodu: ymGt.grup_kodu,
+      kod_1: ymGt.kod_1,
+      kod_2: ymGt.kod_2,
+      muh_detay: ymGt.muh_detay,
+      depo_kodu: ymGt.depo_kodu,
+      br_1: ymGt.br_1,
+      br_2: ymGt.br_2,
+      fiyat_birimi: ymGt.fiyat_birimi,
+      satis_kdv_orani: ymGt.satis_kdv_orani,
+      alis_kdv_orani: ymGt.alis_kdv_orani,
+      stok_turu: ymGt.stok_turu
+    });
+    
+    // YM ST sayfasını ekle
     const ymStSheet = workbook.addWorksheet('YM ST');
+    
+    // YM ST başlıkları
+    ymStSheet.columns = [
+      { header: 'STOK KODU', key: 'stok_kodu', width: 24 },
+      { header: 'STOK ADI', key: 'stok_adi', width: 40 },
+      { header: 'GRUP KODU', key: 'grup_kodu', width: 12 },
+      { header: 'KOD-1', key: 'kod_1', width: 10 },
+      { header: 'MUH. DETAY', key: 'muh_detay', width: 12 },
+      { header: 'DEPO KODU', key: 'depo_kodu', width: 12 },
+      { header: 'SATIŞ KDV ORANI', key: 'satis_kdv_orani', width: 18 },
+      { header: 'ÖZEL SAHA 1 (SAY.)', key: 'ozel_saha_1_say', width: 18 },
+      { header: 'ÇAP', key: 'cap', width: 10 },
+      { header: 'FİLMAŞİN', key: 'filmasin', width: 10 },
+      { header: 'KALİTE', key: 'quality', width: 10 }
+    ];
+    
     // YM ST verilerini ekle
+    ymStList.forEach(ymSt => {
+      ymStSheet.addRow({
+        stok_kodu: ymSt.stok_kodu,
+        stok_adi: ymSt.stok_adi,
+        grup_kodu: ymSt.grup_kodu,
+        kod_1: ymSt.kod_1,
+        muh_detay: ymSt.muh_detay,
+        depo_kodu: ymSt.depo_kodu,
+        satis_kdv_orani: ymSt.satis_kdv_orani,
+        ozel_saha_1_say: ymSt.ozel_saha_1_say,
+        cap: ymSt.cap,
+        filmasin: ymSt.filmasin,
+        quality: ymSt.quality
+      });
+    });
+    
+    // Stil ayarları
+    [mmGtSheet, ymGtSheet, ymStSheet].forEach(sheet => {
+      // Başlık satırı stilleri
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFCCCCCC' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+      
+      // Kenarlık ekle
+      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          
+          if (rowNumber > 1) {
+            cell.alignment = { vertical: 'middle' };
+          }
+        });
+      });
+    });
     
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -1108,18 +1322,162 @@ export const GalvanizliTelProvider = ({ children }) => {
   }
 
   async function createReceteExcel(mmGt, ymGt, ymStList) {
-    // Excel işlemleri burada yapılacak
+    // Excel workbook oluştur
     const workbook = new ExcelJS.Workbook();
     
-    // Excel sayfalarını ve verilerini ekle
+    // MM GT REÇETE sayfası
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
-    // MM GT REÇETE verilerini ekle
     
+    // MM GT REÇETE başlıkları
+    mmGtReceteSheet.columns = [
+      { header: 'MAMÜL KODU', key: 'mamul_kodu', width: 22 },
+      { header: 'REÇETE TOP.', key: 'recete_top', width: 12 },
+      { header: 'FİRE ORANI', key: 'fire_orani', width: 12 },
+      { header: 'ÖLÇÜ BR.', key: 'olcu_br', width: 10 },
+      { header: 'SIRA NO', key: 'sira_no', width: 10 },
+      { header: 'OPERASYON/BİLEŞEN', key: 'operasyon_bilesen', width: 20 },
+      { header: 'BİLEŞEN KODU', key: 'bilesen_kodu', width: 22 },
+      { header: 'ÖLÇÜ BR. BİLEŞEN', key: 'olcu_br_bilesen', width: 18 },
+      { header: 'MİKTAR', key: 'miktar', width: 10 },
+      { header: 'ÜRETİM SÜRESİ', key: 'uretim_suresi', width: 15 },
+      { header: 'AÇIKLAMA', key: 'aciklama', width: 35 },
+      { header: 'UA DAHİL EDİLSİN', key: 'ua_dahil_edilsin', width: 16 },
+      { header: 'SON OPERASYON', key: 'son_operasyon', width: 16 }
+    ];
+    
+    // MM GT REÇETE verilerini al ve ekle
+    const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+    if (mmGtReceteRes.ok) {
+      const mmGtReceteData = await mmGtReceteRes.json();
+      mmGtReceteData.forEach(item => {
+        mmGtReceteSheet.addRow({
+          mamul_kodu: item.mamul_kodu,
+          recete_top: item.recete_top,
+          fire_orani: item.fire_orani,
+          olcu_br: item.olcu_br,
+          sira_no: item.sira_no,
+          operasyon_bilesen: item.operasyon_bilesen,
+          bilesen_kodu: item.bilesen_kodu,
+          olcu_br_bilesen: item.olcu_br_bilesen,
+          miktar: item.miktar,
+          uretim_suresi: item.uretim_suresi || '',
+          aciklama: item.aciklama,
+          ua_dahil_edilsin: item.ua_dahil_edilsin,
+          son_operasyon: item.son_operasyon
+        });
+      });
+    }
+    
+    // YM GT REÇETE sayfası
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
-    // YM GT REÇETE verilerini ekle
     
+    // YM GT REÇETE başlıkları
+    ymGtReceteSheet.columns = [
+      { header: 'MAMÜL KODU', key: 'mamul_kodu', width: 22 },
+      { header: 'REÇETE TOP.', key: 'recete_top', width: 12 },
+      { header: 'FİRE ORANI', key: 'fire_orani', width: 12 },
+      { header: 'ÖLÇÜ BR.', key: 'olcu_br', width: 10 },
+      { header: 'SIRA NO', key: 'sira_no', width: 10 },
+      { header: 'OPERASYON/BİLEŞEN', key: 'operasyon_bilesen', width: 20 },
+      { header: 'BİLEŞEN KODU', key: 'bilesen_kodu', width: 22 },
+      { header: 'ÖLÇÜ BR. BİLEŞEN', key: 'olcu_br_bilesen', width: 18 },
+      { header: 'MİKTAR', key: 'miktar', width: 10 },
+      { header: 'ÜRETİM SÜRESİ', key: 'uretim_suresi', width: 15 },
+      { header: 'AÇIKLAMA', key: 'aciklama', width: 35 },
+      { header: 'UA DAHİL EDİLSİN', key: 'ua_dahil_edilsin', width: 16 },
+      { header: 'SON OPERASYON', key: 'son_operasyon', width: 16 }
+    ];
+    
+    // YM GT REÇETE verilerini al ve ekle
+    const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
+    if (ymGtReceteRes.ok) {
+      const ymGtReceteData = await ymGtReceteRes.json();
+      ymGtReceteData.forEach(item => {
+        ymGtReceteSheet.addRow({
+          mamul_kodu: item.mamul_kodu,
+          recete_top: item.recete_top,
+          fire_orani: item.fire_orani,
+          olcu_br: item.olcu_br,
+          sira_no: item.sira_no,
+          operasyon_bilesen: item.operasyon_bilesen,
+          bilesen_kodu: item.bilesen_kodu,
+          olcu_br_bilesen: item.olcu_br_bilesen,
+          miktar: item.miktar,
+          uretim_suresi: item.uretim_suresi || '',
+          aciklama: item.aciklama,
+          ua_dahil_edilsin: item.ua_dahil_edilsin,
+          son_operasyon: item.son_operasyon
+        });
+      });
+    }
+    
+    // YM ST REÇETE sayfası
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
-    // YM ST REÇETE verilerini ekle
+    
+    // YM ST REÇETE başlıkları
+    ymStReceteSheet.columns = [
+      { header: 'MAMÜL KODU', key: 'mamul_kodu', width: 22 },
+      { header: 'REÇETE TOP.', key: 'recete_top', width: 12 },
+      { header: 'ÖLÇÜ BR.', key: 'olcu_br', width: 10 },
+      { header: 'SIRA NO', key: 'sira_no', width: 10 },
+      { header: 'OPERASYON/BİLEŞEN', key: 'operasyon_bilesen', width: 20 },
+      { header: 'BİLEŞEN KODU', key: 'bilesen_kodu', width: 22 },
+      { header: 'ÖLÇÜ BR. BİLEŞEN', key: 'olcu_br_bilesen', width: 18 },
+      { header: 'MİKTAR', key: 'miktar', width: 10 },
+      { header: 'ÜRETİM SÜRESİ', key: 'uretim_suresi', width: 15 },
+      { header: 'AÇIKLAMA', key: 'aciklama', width: 35 }
+    ];
+    
+    // YM ST REÇETE verilerini al ve ekle
+    for (const ymSt of ymStList) {
+      const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+      if (ymStReceteRes.ok) {
+        const ymStReceteData = await ymStReceteRes.json();
+        ymStReceteData.forEach(item => {
+          ymStReceteSheet.addRow({
+            mamul_kodu: item.mamul_kodu,
+            recete_top: item.recete_top,
+            olcu_br: item.olcu_br,
+            sira_no: item.sira_no,
+            operasyon_bilesen: item.operasyon_bilesen,
+            bilesen_kodu: item.bilesen_kodu,
+            olcu_br_bilesen: item.olcu_br_bilesen,
+            miktar: item.miktar,
+            uretim_suresi: item.uretim_suresi || '',
+            aciklama: item.aciklama
+          });
+        });
+      }
+    }
+    
+    // Stil ayarları
+    [mmGtReceteSheet, ymGtReceteSheet, ymStReceteSheet].forEach(sheet => {
+      // Başlık satırı stilleri
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFCCCCCC' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+      
+      // Kenarlık ekle
+      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          
+          if (rowNumber > 1) {
+            cell.alignment = { vertical: 'middle' };
+          }
+        });
+      });
+    });
     
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -1174,7 +1532,7 @@ const GalvanizliTelNetsis = () => {
   const [selectedYmStToAdd, setSelectedYmStToAdd] = useState(null);
 
   // Form değerleri
-  const [formValues, setFormValues] = useState({
+  const initialFormValues = {
     cap: '',
     kod_2: 'NIT',
     kaplama: 120,
@@ -1191,7 +1549,9 @@ const GalvanizliTelNetsis = () => {
     helix_kont: '',
     elongation: '',
     sequence: 1
-  });
+  };
+  
+  const [formValues, setFormValues] = useState(initialFormValues);
 
   // İzin kontrolü
   useEffect(() => {
@@ -1324,8 +1684,10 @@ const GalvanizliTelNetsis = () => {
 
       setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
       setSuccessMessage('YM ST başarıyla kaldırıldı');
+      toast.success('YM ST başarıyla kaldırıldı');
     } catch (error) {
       setError('YM ST kaldırılırken bir hata oluştu');
+      toast.error('YM ST kaldırılırken bir hata oluştu');
     }
   };
 
@@ -1382,35 +1744,20 @@ const GalvanizliTelNetsis = () => {
     setIsEditMode(false);
     setDataExist(false);
     setActiveTab("mm-gt-tanimla");
-    setFormValues({
-      cap: '',
-      kod_2: 'NIT',
-      kaplama: 120,
-      min_mukavemet: 400,
-      max_mukavemet: 500,
-      tolerans_plus: 0,
-      tolerans_minus: 0.06,
-      ic_cap: 45,
-      dis_cap: 75,
-      kg: 750,
-      unwinding: null,
-      shrink: 'evet',
-      cast_kont: '',
-      helix_kont: '',
-      elongation: '',
-      sequence: 1
-    });
+    setFormValues(initialFormValues);
   };
 
   // Excel oluştur
   const handleGenerateExcel = async () => {
     if (!mmGtData) {
       setError('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
+      toast.error('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
       return;
     }
     
     if (selectedYmSt.length === 0) {
       setError('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
+      toast.error('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
       return;
     }
     
@@ -1419,17 +1766,26 @@ const GalvanizliTelNetsis = () => {
 
   if (error && error === 'YM ST listesi yüklenirken bir hata oluştu') {
     return (
-      <div>
-        <div style={{ color: 'red', marginBottom: '10px' }}>
+      <div className="flex flex-col items-center justify-center p-4 mt-6 rounded-md bg-red-50 text-red-800">
+        <div className="mb-4">
           YM ST listesi yüklenirken bir hata oluştu
         </div>
-        <button onClick={loadYmStList}>Tekrar Dene</button>
+        <button 
+          onClick={loadYmStList}
+          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+        >
+          Tekrar Dene
+        </button>
       </div>
     );
   }
 
   if (!hasPermission('access:galvanizli-tel')) {
-    return <div>Bu modüle erişim izniniz bulunmamaktadır.</div>;
+    return (
+      <div className="p-4 rounded-md bg-red-50 text-red-800 text-center">
+        Bu modüle erişim izniniz bulunmamaktadır.
+      </div>
+    );
   }
 
   // Ürün kodu oluştur
@@ -1438,471 +1794,648 @@ const GalvanizliTelNetsis = () => {
     : 'Oluşturulacak';
 
   return (
-    <div>
+    <div className="container mx-auto p-4 max-w-6xl">
       {error && (
-        <div style={{ color: 'red', marginBottom: '10px' }}>
-          {error}
-          <button onClick={() => setError(null)} style={{ marginLeft: '10px' }}>X</button>
+        <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-red-50 text-red-800">
+          <span>{error}</span>
+          <button 
+            onClick={() => setError(null)} 
+            className="ml-2 text-red-600 hover:text-red-800"
+          >
+            ✕
+          </button>
         </div>
       )}
       
       {successMessage && (
-        <div style={{ color: 'green', marginBottom: '10px' }}>
-          {successMessage}
-          <button onClick={() => setSuccessMessage('')} style={{ marginLeft: '10px' }}>X</button>
+        <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-green-50 text-green-800">
+          <span>{successMessage}</span>
+          <button 
+            onClick={() => setSuccessMessage('')} 
+            className="ml-2 text-green-600 hover:text-green-800"
+          >
+            ✕
+          </button>
         </div>
       )}
       
-      <div style={{ marginBottom: '20px' }}>
-        <div>Galvanizli Tel Netsis Entegrasyonu</div>
-        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-          <button onClick={() => setShowSearchModal(true)}>Ürün Ara</button>
-          <button onClick={handleNewProduct}>Yeni Ürün</button>
+      <div className="mb-6 bg-gray-100 p-4 rounded-md shadow-sm">
+        <h2 className="text-xl mb-4 font-bold text-gray-700">Galvanizli Tel Netsis Entegrasyonu</h2>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setShowSearchModal(true)}
+            className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
+          >
+            Ürün Ara
+          </button>
+          <button 
+            onClick={handleNewProduct}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Yeni Ürün
+          </button>
         </div>
       </div>
       
-      <div>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      <div className="mb-6">
+        <div className="flex border-b border-gray-300">
           <div 
             onClick={() => setActiveTab("mm-gt-tanimla")}
-            style={{ 
-              cursor: 'pointer', 
-              fontWeight: activeTab === "mm-gt-tanimla" ? 'bold' : 'normal',
-              textDecoration: activeTab === "mm-gt-tanimla" ? 'underline' : 'none'
-            }}
+            className={`px-4 py-2 cursor-pointer ${activeTab === "mm-gt-tanimla" 
+              ? "border-b-2 border-red-600 font-medium text-red-600" 
+              : "text-gray-600 hover:text-gray-800"}`}
           >
             MM GT Tanımla
           </div>
           <div 
             onClick={() => mmGtData && setActiveTab("ym-st-sec")}
-            style={{ 
-              cursor: mmGtData ? 'pointer' : 'not-allowed', 
-              opacity: mmGtData ? 1 : 0.5,
-              fontWeight: activeTab === "ym-st-sec" ? 'bold' : 'normal',
-              textDecoration: activeTab === "ym-st-sec" ? 'underline' : 'none'
-            }}
+            className={`px-4 py-2 cursor-pointer ${!mmGtData ? "opacity-50 cursor-not-allowed" : ""} ${
+              activeTab === "ym-st-sec" 
+                ? "border-b-2 border-red-600 font-medium text-red-600" 
+                : "text-gray-600 hover:text-gray-800"
+            }`}
           >
             YM ST Seç
           </div>
           <div 
             onClick={() => mmGtData && selectedYmSt.length > 0 && setActiveTab("excel-olustur")}
-            style={{ 
-              cursor: mmGtData && selectedYmSt.length > 0 ? 'pointer' : 'not-allowed', 
-              opacity: mmGtData && selectedYmSt.length > 0 ? 1 : 0.5,
-              fontWeight: activeTab === "excel-olustur" ? 'bold' : 'normal',
-              textDecoration: activeTab === "excel-olustur" ? 'underline' : 'none'
-            }}
+            className={`px-4 py-2 cursor-pointer ${!mmGtData || selectedYmSt.length === 0 ? "opacity-50 cursor-not-allowed" : ""} ${
+              activeTab === "excel-olustur" 
+                ? "border-b-2 border-red-600 font-medium text-red-600" 
+                : "text-gray-600 hover:text-gray-800"
+            }`}
           >
             Excel Oluştur
           </div>
         </div>
-        
-        {/* MM GT Tanımlama */}
-        {activeTab === "mm-gt-tanimla" && (
-          <div>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Çap (mm)
-                <input
-                  type="number"
-                  name="cap"
-                  value={formValues.cap}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  placeholder="2,50"
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Kaplama Türü
-                <select
-                  name="kod_2"
-                  value={formValues.kod_2}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                >
-                  <option value="NIT">NIT</option>
-                  <option value="PAD">PAD</option>
-                </select>
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Kaplama (gr/m²)
-                <input
-                  type="number"
-                  name="kaplama"
-                  value={formValues.kaplama}
-                  onChange={handleInputChange}
-                  disabled={formValues.kod_2 === 'PAD'}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Min Mukavemet (MPa)
-                <input
-                  type="number"
-                  name="min_mukavemet"
-                  value={formValues.min_mukavemet}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Max Mukavemet (MPa)
-                <input
-                  type="number"
-                  name="max_mukavemet"
-                  value={formValues.max_mukavemet}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Tolerans (+) (mm)
-                <input
-                  type="number"
-                  name="tolerans_plus"
-                  value={formValues.tolerans_plus}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Tolerans (-) (mm)
-                <input
-                  type="number"
-                  name="tolerans_minus"
-                  value={formValues.tolerans_minus}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                İç Çap (cm)
-                <select
-                  name="ic_cap"
-                  value={formValues.ic_cap}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                >
-                  <option value="45">45</option>
-                  <option value="50">50</option>
-                  <option value="55">55</option>
-                </select>
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Dış Çap (cm)
-                <input
-                  type="number"
-                  name="dis_cap"
-                  value={formValues.dis_cap}
-                  readOnly
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Ağırlık (kg)
-                <input
-                  type="number"
-                  name="kg"
-                  value={formValues.kg}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Sarım Yönü
-                <select
-                  name="unwinding"
-                  value={formValues.unwinding || ""}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                >
-                  <option value="">Anti-Clockwise (Varsayılan)</option>
-                  <option value="Clockwise">Clockwise</option>
-                </select>
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                Shrink
-                <select
-                  name="shrink"
-                  value={formValues.shrink}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                >
-                  <option value="evet">Evet</option>
-                  <option value="hayır">Hayır</option>
-                </select>
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                CAST KONT (İsteğe Bağlı)
-                <input
-                  type="text"
-                  name="cast_kont"
-                  value={formValues.cast_kont}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                HELIX KONT (İsteğe Bağlı)
-                <input
-                  type="text"
-                  name="helix_kont"
-                  value={formValues.helix_kont}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>
-                ELONGATION (İsteğe Bağlı)
-                <input
-                  type="text"
-                  name="elongation"
-                  value={formValues.elongation}
-                  onChange={handleInputChange}
-                  style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                />
-              </label>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-              <div>
-                <span>Ürün Kodu: </span>
-                <strong>{productCode}</strong>
-              </div>
-              
-              <button 
-                onClick={handleSaveMMGT}
-                disabled={loading}
-              >
-                {loading ? 'Kaydediliyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
-              </button>
-            </div>
+      </div>
+      
+      {/* MM GT Tanımlama */}
+      {activeTab === "mm-gt-tanimla" && (
+        <div className="bg-white rounded-md shadow-sm p-6">
+          <h3 className="text-lg font-medium mb-4 text-gray-700">MM GT Ürün Özellikleri</h3>
+          
+          <Formik
+            initialValues={formValues}
+            validationSchema={mmGtValidationSchema}
+            onSubmit={handleSaveMMGT}
+            enableReinitialize={true}
+          >
+            {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+              <Form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Çap */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Çap (mm) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="cap"
+                      value={values.cap}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      step="0.01"
+                      placeholder="2,50"
+                      className={`w-full p-2 border rounded-md ${
+                        errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.cap && touched.cap && (
+                      <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
+                    )}
+                  </div>
+                  
+                  {/* Kaplama Türü */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Kaplama Türü <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="kod_2"
+                      value={values.kod_2}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className={`w-full p-2 border rounded-md ${
+                        errors.kod_2 && touched.kod_2 ? "border-red-500" : "border-gray-300"
+                      }`}
+                    >
+                      <option value="NIT">NIT</option>
+                      <option value="PAD">PAD</option>
+                    </select>
+                    {errors.kod_2 && touched.kod_2 && (
+                      <div className="text-red-500 text-xs mt-1">{errors.kod_2}</div>
+                    )}
+                  </div>
+                  
+                  {/* Kaplama */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Kaplama (gr/m²) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="kaplama"
+                      value={values.kaplama}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      disabled={values.kod_2 === 'PAD'}
+                      className={`w-full p-2 border rounded-md ${
+                        errors.kaplama && touched.kaplama ? "border-red-500" : "border-gray-300"
+                      } ${values.kod_2 === 'PAD' ? "bg-gray-100" : ""}`}
+                    />
+                    {errors.kaplama && touched.kaplama && (
+                      <div className="text-red-500 text-xs mt-1">{errors.kaplama}</div>
+                    )}
+                  </div>
+                  
+                  {/* Min Mukavemet */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Min Mukavemet (MPa) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="min_mukavemet"
+                      value={values.min_mukavemet}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className={`w-full p-2 border rounded-md ${
+                        errors.min_mukavemet && touched.min_mukavemet ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.min_mukavemet && touched.min_mukavemet && (
+                      <div className="text-red-500 text-xs mt-1">{errors.min_mukavemet}</div>
+                    )}
+                  </div>
+                  
+                  {/* Max Mukavemet */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Max Mukavemet (MPa) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="max_mukavemet"
+                      value={values.max_mukavemet}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className={`w-full p-2 border rounded-md ${
+                        errors.max_mukavemet && touched.max_mukavemet ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.max_mukavemet && touched.max_mukavemet && (
+                      <div className="text-red-500 text-xs mt-1">{errors.max_mukavemet}</div>
+                    )}
+                  </div>
+                  
+                  {/* Tolerans (+) */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Tolerans (+) (mm) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="tolerans_plus"
+                      value={values.tolerans_plus}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      step="0.01"
+                      className={`w-full p-2 border rounded-md ${
+                        errors.tolerans_plus && touched.tolerans_plus ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.tolerans_plus && touched.tolerans_plus && (
+                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_plus}</div>
+                    )}
+                  </div>
+                  
+                  {/* Tolerans (-) */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Tolerans (-) (mm) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="tolerans_minus"
+                      value={values.tolerans_minus}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      step="0.01"
+                      className={`w-full p-2 border rounded-md ${
+                        errors.tolerans_minus && touched.tolerans_minus ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.tolerans_minus && touched.tolerans_minus && (
+                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_minus}</div>
+                    )}
+                  </div>
+                  
+                  {/* İç Çap */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      İç Çap (cm) <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="ic_cap"
+                      value={values.ic_cap}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="45">45</option>
+                      <option value="50">50</option>
+                      <option value="55">55</option>
+                    </select>
+                  </div>
+                  
+                  {/* Dış Çap */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Dış Çap (cm)
+                    </label>
+                    <input
+                      type="number"
+                      name="dis_cap"
+                      value={values.dis_cap}
+                      readOnly
+                      className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                    />
+                  </div>
+                  
+                  {/* Ağırlık */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Ağırlık (kg) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="kg"
+                      value={values.kg}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className={`w-full p-2 border rounded-md ${
+                        errors.kg && touched.kg ? "border-red-500" : "border-gray-300"
+                      }`}
+                    />
+                    {errors.kg && touched.kg && (
+                      <div className="text-red-500 text-xs mt-1">{errors.kg}</div>
+                    )}
+                  </div>
+                  
+                  {/* Sarım Yönü */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Sarım Yönü
+                    </label>
+                    <select
+                      name="unwinding"
+                      value={values.unwinding || ""}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Anti-Clockwise (Varsayılan)</option>
+                      <option value="Clockwise">Clockwise</option>
+                    </select>
+                  </div>
+                  
+                  {/* Shrink */}
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Shrink
+                    </label>
+                    <select
+                      name="shrink"
+                      value={values.shrink}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="evet">Evet</option>
+                      <option value="hayır">Hayır</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {/* İsteğe Bağlı Alanlar */}
+                <div className="mt-6 border-t pt-6">
+                  <h4 className="text-md font-medium mb-4 text-gray-700">İsteğe Bağlı Alanlar</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        CAST KONT
+                      </label>
+                      <input
+                        type="text"
+                        name="cast_kont"
+                        value={values.cast_kont}
+                        onChange={(e) => {
+                          handleChange(e);
+                          handleInputChange(e);
+                        }}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        HELIX KONT
+                      </label>
+                      <input
+                        type="text"
+                        name="helix_kont"
+                        value={values.helix_kont}
+                        onChange={(e) => {
+                          handleChange(e);
+                          handleInputChange(e);
+                        }}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        ELONGATION
+                      </label>
+                      <input
+                        type="text"
+                        name="elongation"
+                        value={values.elongation}
+                        onChange={(e) => {
+                          handleChange(e);
+                          handleInputChange(e);
+                        }}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center mt-8 pt-4 border-t">
+                  <div>
+                    <span className="text-gray-700 font-medium">Stok Kodu: </span>
+                    <span className="font-bold text-gray-800">{productCode}</span>
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting || loading}
+                    className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {loading ? 'İşleniyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
+                  </button>
+                </div>
+              </Form>
+            )}
+          </Formik>
+        </div>
+      )}
+      
+      {/* YM ST Seçme */}
+      {activeTab === "ym-st-sec" && (
+        <div className="bg-white rounded-md shadow-sm p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-medium text-gray-700">Seçilen Hammaddeler (YM ST)</h3>
+            <button 
+              onClick={() => setShowYmStSearchModal(true)}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Hammadde Ekle
+            </button>
           </div>
-        )}
-        
-        {/* YM ST Seçme */}
-        {activeTab === "ym-st-sec" && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <h3>Seçilen Hammaddeler (YM ST)</h3>
-              <button onClick={() => setShowYmStSearchModal(true)}>Hammadde Ekle</button>
+          
+          {selectedYmSt.length === 0 ? (
+            <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
+              Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
             </div>
-            
-            {selectedYmSt.length === 0 ? (
-              <div>
-                Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Stok Kodu</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Stok Adı</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Çap</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Filmaşin</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Kalite</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>İşlemler</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="bg-white divide-y divide-gray-200">
                   {selectedYmSt.map(item => (
-                    <tr key={item.id}>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.stok_kodu}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.stok_adi}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.cap}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.filmasin}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.quality}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                        <button onClick={() => handleRemoveYmSt(item.id)}>Kaldır</button>
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <button 
+                          onClick={() => handleRemoveYmSt(item.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Kaldır
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-              <button onClick={() => setActiveTab("mm-gt-tanimla")}>Geri</button>
-              <button 
-                onClick={() => setActiveTab("excel-olustur")}
-                disabled={selectedYmSt.length === 0}
-              >
-                İleri
-              </button>
             </div>
+          )}
+          
+          <div className="flex justify-between mt-8 pt-4 border-t">
+            <button 
+              onClick={() => setActiveTab("mm-gt-tanimla")}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            >
+              Geri
+            </button>
+            <button 
+              onClick={() => setActiveTab("excel-olustur")}
+              disabled={selectedYmSt.length === 0}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+            >
+              İleri
+            </button>
           </div>
-        )}
-        
-        {/* Excel Oluşturma */}
-        {activeTab === "excel-olustur" && (
-          <div>
-            <div style={{ marginBottom: '20px' }}>
-              <h3>Excel Oluşturmaya Hazır</h3>
-              <p>
-                Aşağıdaki Excel oluştur butonuna tıklayarak iki ayrı Excel dosyası oluşturabilirsiniz:
-              </p>
-              <ul>
-                <li><strong>Stok Kartı Excel</strong>: MM GT, YM GT ve YM ST sayfalarını içerir.</li>
-                <li><strong>Reçete Excel</strong>: MM GT REÇETE, YM GT REÇETE ve YM ST REÇETE sayfalarını içerir.</li>
-              </ul>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-              <button onClick={() => setActiveTab("ym-st-sec")}>Geri</button>
-              <button 
-                onClick={handleGenerateExcel}
-                disabled={loading}
-              >
-                {loading ? 'Excel Oluşturuluyor...' : 'Excel Oluştur'}
-              </button>
-            </div>
+        </div>
+      )}
+      
+      {/* Excel Oluşturma */}
+      {activeTab === "excel-olustur" && (
+        <div className="bg-white rounded-md shadow-sm p-6">
+          <h3 className="text-lg font-medium mb-4 text-gray-700">Excel Oluşturmaya Hazır</h3>
+          
+          <div className="p-4 bg-gray-50 rounded-md mb-6">
+            <p className="mb-4">
+              Aşağıdaki Excel oluştur butonuna tıklayarak iki ayrı Excel dosyası oluşturabilirsiniz:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li className="text-gray-700"><span className="font-medium">Stok Kartı Excel</span>: MM GT, YM GT ve YM ST sayfalarını içerir.</li>
+              <li className="text-gray-700"><span className="font-medium">Reçete Excel</span>: MM GT REÇETE, YM GT REÇETE ve YM ST REÇETE sayfalarını içerir.</li>
+            </ul>
           </div>
-        )}
-      </div>
+          
+          <div className="flex justify-between mt-8 pt-4 border-t">
+            <button 
+              onClick={() => setActiveTab("ym-st-sec")}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            >
+              Geri
+            </button>
+            <button 
+              onClick={handleGenerateExcel}
+              disabled={loading}
+              className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+            >
+              {loading ? 'Excel Oluşturuluyor...' : 'Excel Oluştur'}
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* YM ST Arama Modal */}
       {showYmStSearchModal && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center' 
-        }}>
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '20px', 
-            borderRadius: '5px', 
-            width: '80%', 
-            maxHeight: '80%',
-            overflowY: 'auto'
-          }}>
-            <h3>YM ST Seç</h3>
-            
-            <div style={{ marginBottom: '10px' }}>
-              <input
-                type="text"
-                placeholder="Ara..."
-                value={searchYmSt}
-                onChange={handleYmStSearch}
-                style={{ width: '100%', padding: '8px' }}
-              />
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
             
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Stok Kodu</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Stok Adı</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Çap</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Filmaşin</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Kalite</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Seç</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredYmStList.map(item => {
-                    const isSelected = selectedYmSt.some(sel => sel.id === item.id);
-                    const isActive = selectedYmStToAdd?.id === item.id;
-                    
-                    return (
-                      <tr key={item.id} style={{ backgroundColor: isSelected ? '#f0f0f0' : 'white' }}>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.stok_kodu}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.stok_adi}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.cap}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.filmasin}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.quality}</td>
-                        <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                          <button
-                            onClick={() => handleSelectYmSt(item)}
-                            disabled={isSelected}
-                            style={{ backgroundColor: isActive ? 'green' : 'initial', color: isActive ? 'white' : 'initial' }}
-                          >
-                            {isSelected ? 'Seçildi' : isActive ? 'Seçildi' : 'Seç'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  
-                  {filteredYmStList.length === 0 && (
-                    <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '10px' }}>
-                        Arama kriterine uygun YM ST bulunamadı
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-              <div>
-                <button onClick={() => setShowYmStCreateModal(true)}>Yeni YM ST Oluştur</button>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">YM ST Seç</h3>
               </div>
-              <div>
-                <button onClick={() => {
-                  setShowYmStSearchModal(false);
-                  setSelectedYmStToAdd(null);
-                  setSearchYmSt("");
-                }} style={{ marginRight: '10px' }}>
-                  İptal
-                </button>
+              
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Ara..."
+                    value={searchYmSt}
+                    onChange={handleYmStSearch}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seç</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredYmStList.map(item => {
+                        const isSelected = selectedYmSt.some(sel => sel.id === item.id);
+                        const isActive = selectedYmStToAdd?.id === item.id;
+                        
+                        return (
+                          <tr key={item.id} className={isSelected ? "bg-gray-100" : ""}>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => handleSelectYmSt(item)}
+                                disabled={isSelected}
+                                className={`px-3 py-1 rounded-md text-sm ${
+                                  isSelected 
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                                    : isActive
+                                      ? "bg-green-600 text-white"
+                                      : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                                }`}
+                              >
+                                {isSelected ? 'Seçildi' : isActive ? 'Seçildi' : 'Seç'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      
+                      {filteredYmStList.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="text-center py-4 text-gray-500">
+                            Arama kriterine uygun YM ST bulunamadı
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   onClick={handleAddYmSt}
                   disabled={!selectedYmStToAdd}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
                 >
                   Ekle
+                </button>
+                <button
+                  onClick={() => {
+                    setShowYmStSearchModal(false);
+                    setSelectedYmStToAdd(null);
+                    setSearchYmSt("");
+                  }}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  İptal
+                </button>
+                <button 
+                  onClick={() => setShowYmStCreateModal(true)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-gray-800 text-base font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+                >
+                  Yeni YM ST Oluştur
                 </button>
               </div>
             </div>
@@ -1912,207 +2445,227 @@ const GalvanizliTelNetsis = () => {
       
       {/* Yeni YM ST Oluşturma Modal */}
       {showYmStCreateModal && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          zIndex: 1001
-        }}>
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '20px', 
-            borderRadius: '5px', 
-            width: '50%'
-          }}>
-            <h3>Yeni YM ST Oluştur</h3>
+        <div className="fixed inset-0 z-20 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
             
-            <Formik
-              initialValues={{
-                cap: mmGtData?.cap || '',
-                filmasin: '',
-                quality: '1006'
-              }}
-              onSubmit={handleCreateYmSt}
-            >
-              {({ values, handleChange, handleSubmit, isSubmitting }) => (
-                <form onSubmit={handleSubmit}>
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Çap (mm)
-                      <input
-                        type="number"
-                        name="cap"
-                        value={values.cap}
-                        onChange={handleChange}
-                        step="0.01"
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Filmaşin Çapı (0550-1000)
-                      <input
-                        type="number"
-                        name="filmasin"
-                        value={values.filmasin}
-                        onChange={handleChange}
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Kalite
-                      <select
-                        name="quality"
-                        value={values.quality}
-                        onChange={handleChange}
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Yeni YM ST Oluştur</h3>
+              </div>
+              
+              <Formik
+                initialValues={{
+                  cap: mmGtData?.cap || '',
+                  filmasin: '',
+                  quality: '1006'
+                }}
+                onSubmit={handleCreateYmSt}
+                validationSchema={Yup.object({
+                  cap: Yup.number().required('Çap zorunludur'),
+                  filmasin: Yup.number().required('Filmaşin çapı zorunludur').min(550, 'En az 550').max(1000, 'En fazla 1000'),
+                  quality: Yup.string().required('Kalite zorunludur')
+                })}
+              >
+                {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                  <Form onSubmit={handleSubmit}>
+                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Çap (mm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="cap"
+                          value={values.cap}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          step="0.01"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.cap && touched.cap && (
+                          <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
+                        )}
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Filmaşin Çapı (0550-1000) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="filmasin"
+                          value={values.filmasin}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.filmasin && touched.filmasin ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.filmasin && touched.filmasin && (
+                          <div className="text-red-500 text-xs mt-1">{errors.filmasin}</div>
+                        )}
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Kalite <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="quality"
+                          value={values.quality}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="1006">1006</option>
+                          <option value="1008">1008</option>
+                          <option value="1010">1010</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
                       >
-                        <option value="1006">1006</option>
-                        <option value="1008">1008</option>
-                        <option value="1010">1010</option>
-                      </select>
-                    </label>
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowYmStCreateModal(false)}
-                      style={{ marginRight: '10px' }}
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? 'Oluşturuluyor...' : 'Oluştur'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </Formik>
+                        {isSubmitting ? 'Oluşturuluyor...' : 'Oluştur'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowYmStCreateModal(false)}
+                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
+            </div>
           </div>
         </div>
       )}
       
       {/* Ürün Arama Modal */}
       {showSearchModal && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          backgroundColor: 'rgba(0,0,0,0.5)', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center' 
-        }}>
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '20px', 
-            borderRadius: '5px', 
-            width: '50%'
-          }}>
-            <h3>Ürün Ara</h3>
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
             
-            <Formik
-              initialValues={{
-                stok_kodu: '',
-                cap: '',
-                kod_2: '',
-                kg: ''
-              }}
-              onSubmit={handleSearch}
-            >
-              {({ values, handleChange, handleSubmit, isSubmitting }) => (
-                <form onSubmit={handleSubmit}>
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Stok Kodu
-                      <input
-                        type="text"
-                        name="stok_kodu"
-                        value={values.stok_kodu}
-                        onChange={handleChange}
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Çap (mm)
-                      <input
-                        type="number"
-                        name="cap"
-                        value={values.cap}
-                        onChange={handleChange}
-                        step="0.01"
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Kaplama Türü
-                      <select
-                        name="kod_2"
-                        value={values.kod_2}
-                        onChange={handleChange}
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Ürün Ara</h3>
+              </div>
+              
+              <Formik
+                initialValues={{
+                  stok_kodu: '',
+                  cap: '',
+                  kod_2: '',
+                  kg: ''
+                }}
+                onSubmit={handleSearch}
+              >
+                {({ values, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                  <Form onSubmit={handleSubmit}>
+                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Stok Kodu
+                        </label>
+                        <input
+                          type="text"
+                          name="stok_kodu"
+                          value={values.stok_kodu}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                          placeholder="GT.NIT.0250.01"
+                        />
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Çap (mm)
+                        </label>
+                        <input
+                          type="number"
+                          name="cap"
+                          value={values.cap}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          step="0.01"
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                          placeholder="2.50"
+                        />
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Kaplama Türü
+                        </label>
+                        <select
+                          name="kod_2"
+                          value={values.kod_2}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="">Seçiniz</option>
+                          <option value="NIT">NIT</option>
+                          <option value="PAD">PAD</option>
+                        </select>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Ağırlık (kg)
+                        </label>
+                        <input
+                          type="number"
+                          name="kg"
+                          value={values.kg}
+                          onChange={handleChange}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                          placeholder="750"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || loading}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
                       >
-                        <option value="">Seçiniz</option>
-                        <option value="NIT">NIT</option>
-                        <option value="PAD">PAD</option>
-                      </select>
-                    </label>
-                  </div>
-                  
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>
-                      Ağırlık (kg)
-                      <input
-                        type="number"
-                        name="kg"
-                        value={values.kg}
-                        onChange={handleChange}
-                        style={{ display: 'block', width: '100%', marginTop: '5px' }}
-                      />
-                    </label>
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSearchModal(false)}
-                      style={{ marginRight: '10px' }}
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || loading}
-                    >
-                      {isSubmitting || loading ? 'Aranıyor...' : 'Ara'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </Formik>
+                        {isSubmitting || loading ? 'Aranıyor...' : 'Ara'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSearchModal(false)}
+                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
+            </div>
           </div>
         </div>
       )}
