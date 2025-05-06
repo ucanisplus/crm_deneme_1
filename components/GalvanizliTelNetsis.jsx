@@ -44,6 +44,28 @@ const mmGtValidationSchema = Yup.object().shape({
     .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
 });
 
+// YM ST formüllerine ait validation schema
+const receteValidationSchema = Yup.object().shape({
+  boraks_tuketimi: Yup.number()
+    .required('Boraks tüketimi zorunludur')
+    .min(0.001, 'Boraks tüketimi en az 0.001 olmalıdır'),
+  asit_tuketimi: Yup.number()
+    .required('Asit tüketimi zorunludur')
+    .min(0.001, 'Asit tüketimi en az 0.001 olmalıdır'),
+  desi_tuketimi: Yup.number()
+    .required('Desi tüketimi zorunludur')
+    .min(0.001, 'Desi tüketimi en az 0.001 olmalıdır'),
+  paketleme_suresi: Yup.number()
+    .required('Paketleme süresi zorunludur')
+    .min(0.001, 'Paketleme süresi en az 0.001 olmalıdır'),
+  galvanizleme_suresi: Yup.number()
+    .required('Galvanizleme süresi zorunludur')
+    .min(0.001, 'Galvanizleme süresi en az 0.001 olmalıdır'),
+  tel_cekme_suresi: Yup.number()
+    .required('Tel çekme süresi zorunludur')
+    .min(0.0001, 'Tel çekme süresi en az 0.0001 olmalıdır'),
+});
+
 // Context Provider Bileşeni
 export const GalvanizliTelProvider = ({ children }) => {
   // Form verilerini saklama state'leri
@@ -51,12 +73,18 @@ export const GalvanizliTelProvider = ({ children }) => {
   const [ymGtData, setYmGtData] = useState(null);
   const [ymStList, setYmStList] = useState([]);
   const [selectedYmSt, setSelectedYmSt] = useState([]);
+  const [receteData, setReceteData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [dataExist, setDataExist] = useState(false);
   const [activeTab, setActiveTab] = useState("mm-gt-tanimla");
+  const [productDatabase, setProductDatabase] = useState({
+    mmGtList: [],
+    ymGtList: [],
+    ymStList: []
+  });
   const { user } = useAuth();
 
   // Context değerleri
@@ -65,20 +93,128 @@ export const GalvanizliTelProvider = ({ children }) => {
     ymGtData, setYmGtData,
     ymStList, setYmStList,
     selectedYmSt, setSelectedYmSt,
+    receteData, setReceteData,
     loading, setLoading,
     error, setError,
     successMessage, setSuccessMessage,
     isEditMode, setIsEditMode,
     dataExist, setDataExist,
     activeTab, setActiveTab,
+    productDatabase, setProductDatabase,
     searchProducts,
     saveMMGT,
     saveYMGT,
     saveYMST,
+    saveRecete,
     generateExcel,
     getCurrentSequence,
     incrementSequence,
+    fetchProductDatabase,
+    deleteProduct,
+    checkProductExists
   };
+
+  // Ürün veritabanını yükleme
+  async function fetchProductDatabase() {
+    try {
+      setLoading(true);
+      // MM GT listesini al
+      const mmGtRes = await fetchWithAuth(API_URLS.galMmGt);
+      let mmGtList = [];
+      if (mmGtRes.ok) {
+        mmGtList = await mmGtRes.json();
+      }
+
+      // YM GT listesini al
+      const ymGtRes = await fetchWithAuth(API_URLS.galYmGt);
+      let ymGtList = [];
+      if (ymGtRes.ok) {
+        ymGtList = await ymGtRes.json();
+      }
+
+      // YM ST listesini al
+      const ymStRes = await fetchWithAuth(API_URLS.galYmSt);
+      let ymStList = [];
+      if (ymStRes.ok) {
+        ymStList = await ymStRes.json();
+      }
+
+      setProductDatabase({
+        mmGtList: Array.isArray(mmGtList) ? mmGtList : [],
+        ymGtList: Array.isArray(ymGtList) ? ymGtList : [],
+        ymStList: Array.isArray(ymStList) ? ymStList : []
+      });
+    } catch (error) {
+      console.error('Veritabanı yüklenirken hata oluştu:', error);
+      setError('Veritabanı yüklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Ürün silme fonksiyonu
+  async function deleteProduct(type, id) {
+    try {
+      setLoading(true);
+      let endpoint;
+      let successMessage;
+
+      switch (type) {
+        case 'mmGt':
+          endpoint = `${API_URLS.galMmGt}?id=${id}`;
+          successMessage = 'MM GT başarıyla silindi';
+          break;
+        case 'ymGt':
+          endpoint = `${API_URLS.galYmGt}?id=${id}`;
+          successMessage = 'YM GT başarıyla silindi';
+          break;
+        case 'ymSt':
+          endpoint = `${API_URLS.galYmSt}?id=${id}`;
+          successMessage = 'YM ST başarıyla silindi';
+          break;
+        default:
+          throw new Error('Geçersiz ürün tipi');
+      }
+
+      const response = await fetchWithAuth(endpoint, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Ürün silinemedi');
+      }
+
+      // Veritabanını tekrar yükle
+      await fetchProductDatabase();
+      toast.success(successMessage);
+      return true;
+    } catch (error) {
+      console.error('Ürün silme hatası:', error);
+      setError('Ürün silinirken bir hata oluştu: ' + error.message);
+      toast.error('Ürün silinirken bir hata oluştu: ' + error.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Ürün varlık kontrolü
+  async function checkProductExists(stokKodu) {
+    try {
+      const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stokKodu)}`);
+      
+      if (!response.ok && response.status !== 404) {
+        throw new Error('Ürün kontrolü yapılamadı');
+      }
+      
+      const data = await response.json();
+      
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Ürün kontrolü yapılırken hata oluştu:', error);
+      return false;
+    }
+  }
 
   // Mevcut ürün dizilimini alma fonksiyonu
   async function getCurrentSequence(kod2, cap) {
@@ -90,12 +226,12 @@ export const GalvanizliTelProvider = ({ children }) => {
       }
       
       const data = await response.json();
-      // Önemli değişiklik: Yeni ürünler için sıra numarası 0'dan başlar
+      // Yeni ürünler için sıra numarası 0'dan başlar
       return data.sequence !== undefined ? data.sequence : 0;
     } catch (error) {
       console.error('Sıra numarası alınırken hata oluştu:', error);
       setError('Sıra numarası alınırken hata oluştu');
-      // Önemli değişiklik: Hata durumunda varsayılan değer 0
+      // Hata durumunda varsayılan değer 0
       return 0;
     }
   }
@@ -197,6 +333,54 @@ export const GalvanizliTelProvider = ({ children }) => {
             setSelectedYmSt(ymStDetails);
           }
         }
+
+        // Reçete verilerini al
+        const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+        const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${mmGt.id}`);
+
+        if (mmGtReceteRes.ok && ymGtReceteRes.ok) {
+          const mmGtReceteData = await mmGtReceteRes.json();
+          const ymGtReceteData = await ymGtReceteRes.json();
+
+          // Reçete verilerini işle
+          if (mmGtReceteData && mmGtReceteData.length > 0 && ymGtReceteData && ymGtReceteData.length > 0) {
+            // Boraks bileşeni (150 03)
+            const boraksItem = ymGtReceteData.find(item => item.bilesen_kodu === '150 03');
+            // Asit bileşeni (SM.HİDROLİK.ASİT)
+            const asitItem = ymGtReceteData.find(item => item.bilesen_kodu === 'SM.HİDROLİK.ASİT');
+            // Desi bileşeni (SM.DESİ.PAK)
+            const desiItem = ymGtReceteData.find(item => item.bilesen_kodu === 'SM.DESİ.PAK');
+            // Paketleme operasyonu (GTPKT01)
+            const paketlemeItem = ymGtReceteData.find(item => item.bilesen_kodu === 'GTPKT01');
+            // Galvanizleme operasyonu (GLV01)
+            const galvanizlemeItem = ymGtReceteData.find(item => item.bilesen_kodu === 'GLV01');
+
+            // YM ST reçetesi için tel çekme süresi
+            let telCekmeSuresi = 0;
+            if (selectedYmSt.length > 0) {
+              const ymStId = selectedYmSt[0].id;
+              const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+              
+              if (ymStReceteRes.ok) {
+                const ymStReceteData = await ymStReceteRes.json();
+                const telCekmeItem = ymStReceteData.find(item => item.bilesen_kodu === 'TLC01');
+                if (telCekmeItem) {
+                  telCekmeSuresi = telCekmeItem.miktar;
+                }
+              }
+            }
+
+            // Reçete verilerini set et
+            setReceteData({
+              boraks_tuketimi: boraksItem ? boraksItem.miktar : 0,
+              asit_tuketimi: asitItem ? asitItem.miktar : 0,
+              desi_tuketimi: desiItem ? desiItem.miktar : 0,
+              paketleme_suresi: paketlemeItem ? paketlemeItem.miktar : 0,
+              galvanizleme_suresi: galvanizlemeItem ? galvanizlemeItem.miktar : 0,
+              tel_cekme_suresi: telCekmeSuresi
+            });
+          }
+        }
         
         setIsEditMode(true);
       } else {
@@ -204,6 +388,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         setMmGtData(null);
         setYmGtData(null);
         setSelectedYmSt([]);
+        setReceteData(null);
         setIsEditMode(false);
       }
     } catch (error) {
@@ -214,135 +399,172 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }
 
-// MM GT kaydetme fonksiyonu - güncellenmiş sürüm
-async function saveMMGT(values) {
-  setLoading(true);
-  setError(null);
+  // MM GT kaydetme fonksiyonu - güncellenmiş sürüm
+  async function saveMMGT(values) {
+    setLoading(true);
+    setError(null);
 
-  try {
-    // Çap değerini nokta ile tutuyoruz (JS için)
-    const capValue = parseFloat(values.cap);
-    
-    // Çap değerini doğru formatta (4 basamaklı) hazırlama
-    // Örnek: 2.5 -> "0250", 3.9 -> "0390", 12.34 -> "1234"
-    const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
-    
-    // Sıra numarasını API'den alma veya varsayılan 0 kullanma (değişiklik burada)
-    let sequenceNumber = 0;
     try {
-      const sequence = await getCurrentSequence(values.kod_2, capValue);
-      sequenceNumber = sequence || 0; // Varsayılan değer 0 olarak değiştirildi
-    } catch (error) {
-      console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
-    }
-    
-    // Sıra numarasını 2 basamaklı formata çevirme (0 -> "00")
-    const formattedSequence = sequenceNumber.toString().padStart(2, '0');
-    
-    // Stok Kodu formatını oluştur: GT.NIT.0250.00
-    const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
-
-    // Gümrük tarife kodunu belirle
-    let gumrukTarifeKodu = '';
-    if (capValue >= 0.8 && capValue <= 1.5) {
-      gumrukTarifeKodu = '721720300011';
-    } else if (capValue > 1.5 && capValue <= 6.0) {
-      gumrukTarifeKodu = '721720300012';
-    } else if (capValue > 6.0) {
-      gumrukTarifeKodu = '721720300013';
-    }
-
-    // AMB.SHRİNK değerini belirle
-    let ambShrink = '';
-    if (values.ic_cap === 45 && values.dis_cap === 75) {
-      ambShrink = 'AMB.SHRİNK.200*140CM';
-    } else if (values.ic_cap === 50 && values.dis_cap === 90) {
-      ambShrink = 'AMB.SHRİNK.200*160CM';
-    } else if (values.ic_cap === 55 && values.dis_cap === 105) {
-      ambShrink = 'AMB.SHRİNK.200*190CM';
-    }
-
-    // MM GT verilerini hazırla
-    const mmGtDataToSave = {
-      ...values,
-      stok_kodu: stockCode,
-      // Görüntüleme için virgül kullan, ama veritabanı için nokta ile tut
-      stok_adi: `Galvanizli Tel ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-      ingilizce_isim: `Galvanized Steel Wire ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-      grup_kodu: 'MM',
-      kod_1: 'GT',
-      muh_detay: '26',
-      depo_kodu: '36',
-      br_1: 'KG',
-      br_2: 'TN',
-      fiyat_birimi: 1,
-      satis_kdv_orani: 20,
-      alis_kdv_orani: 20,
-      stok_turu: 'D',
-      esnek_yapilandir: 'H',
-      super_recete_kullanilsin: 'H',
-      alis_doviz_tipi: 2,
-      gumruk_tarife_kodu: gumrukTarifeKodu,
-      mensei: '052',
-      metarial: 'Galvanizli Tel',
-      dia_mm: capValue.toString().replace('.', ','),
-      dia_tol_mm_plus: values.tolerans_plus.toString().replace('.', ','),
-      dia_tol_mm_minus: values.tolerans_minus.toString().replace('.', ','),
-      zing_coating: values.kaplama.toString(),
-      tensile_st_min: values.min_mukavemet.toString(),
-      tensile_st_max: values.max_mukavemet.toString(),
-      wax: '+',
-      lifting_lugs: '+',
-      coil_dimensions_id: values.ic_cap.toString(),
-      coil_dimensions_od: values.dis_cap.toString(),
-      coil_weight: values.kg.toString(),
-      amb_shrink: ambShrink,
-      created_by: null,
-      updated_by: null,
-    };
-
-    // sequence alanını kaldırıyoruz çünkü veritabanında bu alan yok
-    delete mmGtDataToSave.sequence;
-
-    console.log('Gönderilen veri:', mmGtDataToSave);
-
-    const response = await fetchWithAuth(API_URLS.galMmGt, {
-      method: isEditMode ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mmGtDataToSave),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'MM GT kaydedilemedi');
-    }
-
-    const result = await response.json();
-    setMmGtData(result);
-    setSuccessMessage(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
-    toast.success(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
-
-    // Eğer yeni kayıt yapıldıysa sequence'ı artırmayı dene
-    if (!isEditMode) {
+      // Çap değerini nokta ile tutuyoruz (JS için)
+      const capValue = parseFloat(values.cap);
+      
+      // Çap değerini doğru formatta (4 basamaklı) hazırlama
+      // Örnek: 2.5 -> "0250", 3.9 -> "0390", 12.34 -> "1234"
+      const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
+      
+      // Sıra numarasını API'den alma veya varsayılan 0 kullanma
+      let sequenceNumber = 0;
       try {
-        await incrementSequence(values.kod_2, capValue);
+        const sequence = await getCurrentSequence(values.kod_2, capValue);
+        sequenceNumber = sequence || 0;
       } catch (error) {
-        console.warn('Sıra numarası artırılamadı:', error);
+        console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
       }
+      
+      // Sıra numarasını 2 basamaklı formata çevirme (0 -> "00")
+      const formattedSequence = sequenceNumber.toString().padStart(2, '0');
+      
+      // Stok Kodu formatını oluştur: GT.NIT.0250.00
+      const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
+
+      // Ürünün zaten var olup olmadığını kontrol et
+      const productExists = await checkProductExists(stockCode);
+      if (productExists && !isEditMode) {
+        // Ürün zaten var, kullanıcıya sor
+        if (!window.confirm(`${stockCode} stok kodu ile bir ürün zaten mevcut. Bu ürünü düzenlemek için Evet'e, işlemi iptal etmek için Hayır'a tıklayın.`)) {
+          throw new Error('Ürün zaten mevcut, işlem iptal edildi');
+        }
+        
+        // Mevcut ürünü yükle
+        await searchProducts({ stok_kodu: stockCode });
+        return mmGtData; // Mevcut ürünü döndür
+      }
+
+      // Gümrük tarife kodunu belirle
+      let gumrukTarifeKodu = '';
+      if (capValue >= 0.8 && capValue <= 1.5) {
+        gumrukTarifeKodu = '721720300011';
+      } else if (capValue > 1.5 && capValue <= 6.0) {
+        gumrukTarifeKodu = '721720300012';
+      } else if (capValue > 6.0) {
+        gumrukTarifeKodu = '721720300013';
+      }
+
+      // AMB.SHRİNK değerini belirle
+      let ambShrink = '';
+      if (values.ic_cap === 45 && values.dis_cap === 75) {
+        ambShrink = 'AMB.SHRİNK.200*140CM';
+      } else if (values.ic_cap === 50 && values.dis_cap === 90) {
+        ambShrink = 'AMB.SHRİNK.200*160CM';
+      } else if (values.ic_cap === 55 && values.dis_cap === 105) {
+        ambShrink = 'AMB.SHRİNK.200*190CM';
+      }
+
+      // MM GT verilerini hazırla (tüm default değerler eklendi)
+      const mmGtDataToSave = {
+        ...values,
+        stok_kodu: stockCode,
+        // Görüntüleme için virgül kullan, ama veritabanı için nokta ile tut
+        stok_adi: `Galvanizli Tel ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+        ingilizce_isim: `Galvanized Steel Wire ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+        grup_kodu: 'MM',
+        kod_1: 'GT',
+        muh_detay: '26',
+        depo_kodu: '36',
+        br_1: 'KG',
+        br_2: 'TN',
+        pay_1: 1,
+        payda_1: 1000,
+        cevrim_degeri_1: 0.001,
+        cevrim_pay_2: 1,
+        cevrim_payda_2: 1,
+        cevrim_degeri_2: 1,
+        fiyat_birimi: 1,
+        satis_kdv_orani: 20,
+        alis_kdv_orani: 20,
+        alis_fiyati: 0,
+        satis_fiyati_1: 0,
+        satis_fiyati_2: 0,
+        satis_fiyati_3: 0,
+        satis_fiyati_4: 0,
+        doviz_alis: 0,
+        doviz_maliyeti: 0,
+        doviz_satis_fiyati: 0,
+        azami_stok: 0,
+        asgari_stok: 0,
+        dov_tipi: 0,
+        bekleme_suresi: 0,
+        temin_suresi: 0,
+        birim_agirlik: 0,
+        nakliye_tutar: 0,
+        stok_turu: 'D',
+        esnek_yapilandir: 'H',
+        super_recete_kullanilsin: 'H',
+        alis_doviz_tipi: 2,
+        gumruk_tarife_kodu: gumrukTarifeKodu,
+        mensei: '052',
+        metarial: 'Galvanizli Tel',
+        dia_mm: capValue.toString().replace('.', ','),
+        dia_tol_mm_plus: values.tolerans_plus.toString().replace('.', ','),
+        dia_tol_mm_minus: values.tolerans_minus.toString().replace('.', ','),
+        zing_coating: values.kaplama.toString(),
+        tensile_st_min: values.min_mukavemet.toString(),
+        tensile_st_max: values.max_mukavemet.toString(),
+        wax: '+',
+        lifting_lugs: '+',
+        coil_dimensions_id: values.ic_cap.toString(),
+        coil_dimensions_od: values.dis_cap.toString(),
+        coil_weight: values.kg.toString(),
+        amb_shrink: ambShrink,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
+      };
+
+      // sequence alanını kaldırıyoruz çünkü veritabanında bu alan yok
+      delete mmGtDataToSave.sequence;
+
+      console.log('Gönderilen veri:', mmGtDataToSave);
+
+      const response = await fetchWithAuth(API_URLS.galMmGt, {
+        method: isEditMode ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mmGtDataToSave),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'MM GT kaydedilemedi');
+      }
+
+      const result = await response.json();
+      setMmGtData(result);
+      setSuccessMessage(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
+      toast.success(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
+
+      // Eğer yeni kayıt yapıldıysa sequence'ı artırmayı dene
+      if (!isEditMode) {
+        try {
+          await incrementSequence(values.kod_2, capValue);
+        } catch (error) {
+          console.warn('Sıra numarası artırılamadı:', error);
+        }
+      }
+
+      // Veritabanını güncelle
+      await fetchProductDatabase();
+
+      return result;
+    } catch (error) {
+      console.error('MM GT kaydetme hatası:', error);
+      setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
+      toast.error('MM GT kaydedilirken bir hata oluştu: ' + error.message);
+      return null;
+    } finally {
+      setLoading(false);
     }
-
-    return result;
-  } catch (error) {
-    console.error('MM GT kaydetme hatası:', error);
-    setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
-    toast.error('MM GT kaydedilirken bir hata oluştu: ' + error.message);
-    return null;
-  } finally {
-    setLoading(false);
   }
-}
 
-  // YM GT kaydetme fonksiyonu
+  // YM GT kaydetme fonksiyonu (default değerlerle güncellendi)
   async function saveYMGT(values, mmGtId) {
     setLoading(true);
     setError(null);
@@ -365,7 +587,7 @@ async function saveMMGT(values) {
       // Stok kodunu üret
       const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
 
-      // YM GT verisini oluştur
+      // YM GT verisini oluştur (default değerlerle)
       const ymGtDataToSave = {
         mm_gt_id: mmGtId,
         stok_kodu: stockCode,
@@ -388,14 +610,36 @@ async function saveMMGT(values) {
         depo_kodu: '35',
         br_1: 'KG',
         br_2: 'TN',
+        pay_1: 1,
+        payda_1: 1000,
+        cevrim_degeri_1: 0.001,
+        cevrim_pay_2: 1,
+        cevrim_payda_2: 1,
+        cevrim_degeri_2: 1,
+        alis_fiyati: 0,
+        satis_fiyati_1: 0,
+        satis_fiyati_2: 0,
+        satis_fiyati_3: 0,
+        satis_fiyati_4: 0,
+        doviz_alis: 0,
+        doviz_maliyeti: 0,
+        doviz_satis_fiyati: 0,
+        azami_stok: 0,
+        asgari_stok: 0,
+        dov_tutar: 0,
+        dov_tipi: 0,
+        bekleme_suresi: 0,
+        temin_suresi: 0,
+        birim_agirlik: 0,
+        nakliye_tutar: 0,
         fiyat_birimi: 1,
         satis_kdv_orani: 20,
         alis_kdv_orani: 20,
         stok_turu: 'D',
         esnek_yapilandir: 'H',
         super_recete_kullanilsin: 'H',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
       };
 
       // Önce var mı kontrol et
@@ -441,6 +685,10 @@ async function saveMMGT(values) {
 
       const savedData = await saveRes.json();
       setYmGtData(savedData);
+
+      // Veritabanını güncelle
+      await fetchProductDatabase();
+
       return savedData;
     } catch (error) {
       console.error('YM GT kaydetme hatası:', error);
@@ -452,7 +700,7 @@ async function saveMMGT(values) {
     }
   }
 
-  // YM ST kaydetme fonksiyonu
+  // YM ST kaydetme fonksiyonu (default değerlerle güncellendi)
   async function saveYMST(values, mmGtId) {
     setLoading(true);
     setError(null);
@@ -488,19 +736,41 @@ async function saveMMGT(values) {
           br_1: 'KG',
           br_2: 'TN',
           pay_1: 1,
-          payda_1: 1.0,
-          cevrim_degeri_1: 0,
+          payda_1: 1000,
+          cevrim_degeri_1: 0.001,
           cevrim_pay_2: 1,
           cevrim_payda_2: 1,
           cevrim_degeri_2: 1,
+          alis_fiyati: 0,
+          satis_fiyati_1: 0,
+          satis_fiyati_2: 0,
+          satis_fiyati_3: 0,
+          satis_fiyati_4: 0,
+          doviz_alis: 0,
+          doviz_maliyeti: 0,
+          doviz_satis_fiyati: 0,
+          azami_stok: 0,
+          asgari_stok: 0,
+          dov_tipi: 0,
+          alis_doviz_tipi: 0,
+          bekleme_suresi: 0,
+          temin_suresi: 0,
+          birim_agirlik: 0,
+          nakliye_tutar: 0,
+          ozel_saha_2_say: 0,
+          ozel_saha_3_say: 0,
+          ozel_saha_4_say: 0,
+          ozel_saha_5_say: 0,
+          ozel_saha_6_say: 0,
+          ozel_saha_7_say: 0,
           cap: values.cap,
           filmasin: values.filmasin,
           quality: values.quality,
           stok_turu: 'D',
           esnek_yapilandir: 'H',
           super_recete_kullanilsin: 'H',
-          created_by: null,
-          updated_by: null,
+          created_by: user?.id || null,
+          updated_by: user?.id || null,
         };
 
         // Zaten var mı kontrol et
@@ -540,8 +810,8 @@ async function saveMMGT(values) {
           body: JSON.stringify({
             mm_gt_id: mmGtId,
             ym_st_id: ymStId,
-            created_by: null,
-            updated_by: null,
+            created_by: user?.id || null,
+            updated_by: user?.id || null,
           }),
         });
         
@@ -552,6 +822,10 @@ async function saveMMGT(values) {
         setSelectedYmSt(prev => [...prev, savedData]);
         setSuccessMessage('YM ST kaydı başarıyla eklendi');
         toast.success('YM ST kaydı başarıyla eklendi');
+
+        // Veritabanını güncelle
+        await fetchProductDatabase();
+
         return savedData;
       } else {
         // Mevcut YM ST için sadece ilişki kur
@@ -561,8 +835,8 @@ async function saveMMGT(values) {
           body: JSON.stringify({
             mm_gt_id: mmGtId,
             ym_st_id: values.id,
-            created_by: null,
-            updated_by: null,
+            created_by: user?.id || null,
+            updated_by: user?.id || null,
           }),
         });
         
@@ -586,6 +860,10 @@ async function saveMMGT(values) {
         setSelectedYmSt(prev => [...prev, ymStData[0]]);
         setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
         toast.success('YM ST ilişkisi başarıyla kuruldu');
+
+        // Veritabanını güncelle
+        await fetchProductDatabase();
+
         return ymStData[0];
       }
     } catch (error) {
@@ -593,6 +871,36 @@ async function saveMMGT(values) {
       setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
       toast.error('YM ST kaydedilirken bir hata oluştu: ' + error.message);
       return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Reçete kaydetme fonksiyonu
+  async function saveRecete(values, mmGtId, ymGtId) {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Reçete verileri oluşturma
+      await createMMGTRecete(mmGtId, ymGtId, values);
+      await createYMGTRecete(ymGtId, values);
+      
+      if (selectedYmSt.length > 0) {
+        for (const ymSt of selectedYmSt) {
+          await createYMSTRecete(ymSt.id, values);
+        }
+      }
+
+      setReceteData(values);
+      setSuccessMessage('Reçete verileri başarıyla kaydedildi');
+      toast.success('Reçete verileri başarıyla kaydedildi');
+      return true;
+    } catch (error) {
+      console.error('Reçete kaydetme hatası:', error);
+      setError('Reçete kaydedilirken bir hata oluştu: ' + error.message);
+      toast.error('Reçete kaydedilirken bir hata oluştu: ' + error.message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -693,7 +1001,7 @@ async function saveMMGT(values) {
     
     if (!mmGtReceteData || mmGtReceteData.length === 0) {
       // Reçete yoksa oluştur
-      await createMMGTRecete(mmGt.id, ymGt.id);
+      await createMMGTRecete(mmGt.id, ymGt.id, receteData);
     }
 
     // YM GT reçetesini kontrol et
@@ -707,7 +1015,7 @@ async function saveMMGT(values) {
     
     if (!ymGtReceteData || ymGtReceteData.length === 0) {
       // Reçete yoksa oluştur
-      await createYMGTRecete(ymGt.id);
+      await createYMGTRecete(ymGt.id, receteData);
     }
 
     // YM ST reçetelerini kontrol et
@@ -722,13 +1030,13 @@ async function saveMMGT(values) {
       
       if (!ymStReceteData || ymStReceteData.length === 0) {
         // Reçete yoksa oluştur
-        await createYMSTRecete(ymSt.id);
+        await createYMSTRecete(ymSt.id, receteData);
       }
     }
   }
 
   // MM GT Reçete oluşturma
-  async function createMMGTRecete(mmGtId, ymGtId) {
+  async function createMMGTRecete(mmGtId, ymGtId, receteData = null) {
     // MM GT verilerini al
     const mmGtRes = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
     
@@ -764,8 +1072,8 @@ async function saveMMGT(values) {
         aciklama: 'Galvanizli Tel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -777,13 +1085,13 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GTPKT01',
         olcu_br_bilesen: '1',
-        miktar: 0.02,
+        miktar: receteData ? receteData.paketleme_suresi : 0.02,
         aciklama: 'Paketleme Operasyonu',
-        uretim_suresi: 0.02,
+        uretim_suresi: receteData ? receteData.paketleme_suresi : 0.02,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -799,8 +1107,8 @@ async function saveMMGT(values) {
         aciklama: 'Karton Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -816,8 +1124,8 @@ async function saveMMGT(values) {
         aciklama: 'Naylon Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -833,8 +1141,8 @@ async function saveMMGT(values) {
         aciklama: 'Kaldırma Kancası Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -850,8 +1158,8 @@ async function saveMMGT(values) {
         aciklama: 'Çelik çember Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -867,8 +1175,8 @@ async function saveMMGT(values) {
         aciklama: 'Çember Tokası Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       },
       {
@@ -884,11 +1192,20 @@ async function saveMMGT(values) {
         aciklama: 'Slikajel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         mm_gt_id: mmGtId
       }
     ];
+
+    // Önce mevcut reçeteyi sil
+    try {
+      await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.warn('MM GT reçetesi silinirken hata oluştu:', error);
+    }
 
     // Reçeteyi veritabanına kaydet
     const receteRes = await fetchWithAuth(API_URLS.galMmGtRecete, {
@@ -903,7 +1220,7 @@ async function saveMMGT(values) {
   }
 
   // YM GT Reçete oluşturma
-  async function createYMGTRecete(ymGtId) {
+  async function createYMGTRecete(ymGtId, receteData = null) {
     // YM GT verilerini al
     const ymGtRes = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
     
@@ -944,39 +1261,43 @@ async function saveMMGT(values) {
     // Çap değerine bağlı hesaplamalar
     const diameter = parseFloat(ymGt.cap);
     
-    // 150 03 değeri: 0.032 - (0.0029 * Diameter)
-    const value15003 = Math.max(0.001, 0.032 - (0.0029 * diameter)).toFixed(6);
+    // Boraks değeri hesaplama: 0.032 - (0.0029 * Diameter)
+    const boraksTuketimi = receteData ? receteData.boraks_tuketimi : Math.max(0.001, 0.032 - (0.0029 * diameter));
     
-    // SM.HİDROLİK.ASİT değeri
-    let asitValue = 0;
-    if (ymGt.kod_2 === 'NIT') {
-      // NIT için değer
-      if (diameter < 1.5) {
-        asitValue = 0.002;
-      } else if (diameter >= 1.5 && diameter < 2.5) {
-        asitValue = 0.0025;
-      } else {
-        asitValue = 0.003;
-      }
+    // Asit değeri hesaplama
+    let asitTuketimi;
+    if (receteData) {
+      asitTuketimi = receteData.asit_tuketimi;
     } else {
-      // PAD için değer
-      if (diameter < 1.5) {
-        asitValue = 0.001;
-      } else if (diameter >= 1.5 && diameter < 2.5) {
-        asitValue = 0.0015;
+      if (ymGt.kod_2 === 'NIT') {
+        // NIT için değer
+        if (diameter < 1.5) {
+          asitTuketimi = 0.002;
+        } else if (diameter >= 1.5 && diameter < 2.5) {
+          asitTuketimi = 0.0025;
+        } else {
+          asitTuketimi = 0.003;
+        }
       } else {
-        asitValue = 0.002;
+        // PAD için değer
+        if (diameter < 1.5) {
+          asitTuketimi = 0.001;
+        } else if (diameter >= 1.5 && diameter < 2.5) {
+          asitTuketimi = 0.0015;
+        } else {
+          asitTuketimi = 0.002;
+        }
       }
     }
     
-    // SM.DESİ.PAK değeri
-    const desiValue = ymGt.kg > 800 ? 0.002 : 0.0013;
+    // Desi değeri hesaplama
+    const desiTuketimi = receteData ? receteData.desi_tuketimi : (ymGt.kg > 800 ? 0.002 : 0.0013);
     
-    // GTPKT01 değeri
-    const gtpktValue = 0.020;
+    // Paketleme süresi
+    const paketlemeSuresi = receteData ? receteData.paketleme_suresi : 0.020;
     
-    // GLV01 değeri: 1.15 - (0.125 * Diameter)
-    const glvValue = Math.max(0.001, 1.15 - (0.125 * diameter)).toFixed(6);
+    // Galvanizleme süresi hesaplama: 1.15 - (0.125 * Diameter)
+    const galvanizlemeSuresi = receteData ? receteData.galvanizleme_suresi : Math.max(0.001, 1.15 - (0.125 * diameter));
 
     // Reçete öğelerini oluştur
     const receteItems = [
@@ -993,8 +1314,8 @@ async function saveMMGT(values) {
         aciklama: 'Siyah Tel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       },
       {
@@ -1006,12 +1327,12 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Bileşen',
         bilesen_kodu: '150 03',
         olcu_br_bilesen: '1',
-        miktar: parseFloat(value15003),
+        miktar: boraksTuketimi,
         aciklama: 'Boraks Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       },
       {
@@ -1023,12 +1344,12 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Bileşen',
         bilesen_kodu: 'SM.HİDROLİK.ASİT',
         olcu_br_bilesen: '1',
-        miktar: asitValue,
+        miktar: asitTuketimi,
         aciklama: 'Asit Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       },
       {
@@ -1040,12 +1361,12 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Bileşen',
         bilesen_kodu: 'SM.DESİ.PAK',
         olcu_br_bilesen: '1',
-        miktar: desiValue,
+        miktar: desiTuketimi,
         aciklama: 'Desisifiye Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       },
       {
@@ -1057,13 +1378,13 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GTPKT01',
         olcu_br_bilesen: '1',
-        miktar: gtpktValue,
+        miktar: paketlemeSuresi,
         aciklama: 'Paketleme Operasyonu',
-        uretim_suresi: gtpktValue,
+        uretim_suresi: paketlemeSuresi,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       },
       {
@@ -1075,16 +1396,25 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'GLV01',
         olcu_br_bilesen: '1',
-        miktar: parseFloat(glvValue),
+        miktar: galvanizlemeSuresi,
         aciklama: 'Galvanizleme Operasyonu',
-        uretim_suresi: parseFloat(glvValue),
+        uretim_suresi: galvanizlemeSuresi,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_gt_id: ymGtId
       }
     ];
+
+    // Önce mevcut reçeteyi sil
+    try {
+      await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.warn('YM GT reçetesi silinirken hata oluştu:', error);
+    }
 
     // Reçeteyi veritabanına kaydet
     const receteRes = await fetchWithAuth(API_URLS.galYmGtRecete, {
@@ -1099,7 +1429,7 @@ async function saveMMGT(values) {
   }
 
   // YM ST Reçete oluşturma
-  async function createYMSTRecete(ymStId) {
+  async function createYMSTRecete(ymStId, receteData = null) {
     // YM ST verilerini al
     const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
     
@@ -1112,7 +1442,7 @@ async function saveMMGT(values) {
 
     // TLC01 değeri hesapla: 0.2/(Diameter^1.5)
     const diameter = parseFloat(ymSt.cap);
-    const tlcValue = (0.2 / Math.pow(diameter, 1.5)).toFixed(9);
+    const telCekmeSuresi = receteData ? receteData.tel_cekme_suresi : (0.2 / Math.pow(diameter, 1.5));
 
     // Filmaşin belirle
     let filmasinKod = `FLM.${ymSt.filmasin.toString().padStart(4, '0')}.${ymSt.quality}`;
@@ -1129,8 +1459,8 @@ async function saveMMGT(values) {
         olcu_br_bilesen: '1',
         miktar: 1,
         aciklama: 'Filmaşin Tüketimi',
-        created_by: null,
-        updated_by: null,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_st_id: ymStId
       },
       {
@@ -1141,14 +1471,23 @@ async function saveMMGT(values) {
         operasyon_bilesen: 'Operasyon',
         bilesen_kodu: 'TLC01',
         olcu_br_bilesen: '1',
-        miktar: parseFloat(tlcValue),
+        miktar: telCekmeSuresi,
         aciklama: 'Tel Çekme Operasyonu',
-        uretim_suresi: parseFloat(tlcValue),
-        created_by: null,
-        updated_by: null,
+        uretim_suresi: telCekmeSuresi,
+        created_by: user?.id || null,
+        updated_by: user?.id || null,
         ym_st_id: ymStId
       }
     ];
+
+    // Önce mevcut reçeteyi sil
+    try {
+      await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.warn('YM ST reçetesi silinirken hata oluştu:', error);
+    }
 
     // Reçeteyi veritabanına kaydet
     const receteRes = await fetchWithAuth(API_URLS.galYmStRecete, {
@@ -1162,7 +1501,7 @@ async function saveMMGT(values) {
     }
   }
 
-  // Stok Kartı Excel oluşturma fonksiyonu (Başlıklar All table headers.txt ile tam eşleşecek şekilde güncellendi)
+  // Stok Kartı Excel oluşturma fonksiyonu (decimal formatı korunarak)
   async function createStokKartiExcel(mmGt, ymGt, ymStList) {
     // Excel workbook oluştur
     const workbook = new ExcelJS.Workbook();
@@ -1278,13 +1617,13 @@ async function saveMMGT(values) {
       depo_kodu: mmGt.depo_kodu,
       br_1: mmGt.br_1,
       br_2: mmGt.br_2,
-      pay_1: mmGt.pay_1,
-      payda_1: mmGt.payda_1,
-      cevrim_degeri_1: mmGt.cevrim_degeri_1,
+      pay_1: mmGt.pay_1 || 1,
+      payda_1: mmGt.payda_1 || 1000,
+      cevrim_degeri_1: mmGt.cevrim_degeri_1 || 0.001,
       olcu_br_3: mmGt.olcu_br_3 || "",
-      cevrim_pay_2: mmGt.cevrim_pay_2,
-      cevrim_payda_2: mmGt.cevrim_payda_2,
-      cevrim_degeri_2: mmGt.cevrim_degeri_2,
+      cevrim_pay_2: mmGt.cevrim_pay_2 || 1,
+      cevrim_payda_2: mmGt.cevrim_payda_2 || 1,
+      cevrim_degeri_2: mmGt.cevrim_degeri_2 || 1,
       cap: mmGt.cap,
       kaplama: mmGt.kaplama,
       min_mukavemet: mmGt.min_mukavemet,
@@ -1451,13 +1790,13 @@ async function saveMMGT(values) {
       depo_kodu: ymGt.depo_kodu,
       br_1: ymGt.br_1,
       br_2: ymGt.br_2,
-      pay_1: ymGt.pay_1,
-      payda_1: ymGt.payda_1,
-      cevrim_degeri_1: ymGt.cevrim_degeri_1,
+      pay_1: ymGt.pay_1 || 1,
+      payda_1: ymGt.payda_1 || 1000,
+      cevrim_degeri_1: ymGt.cevrim_degeri_1 || 0.001,
       olcu_br_3: ymGt.olcu_br_3 || "",
-      cevrim_pay_2: ymGt.cevrim_pay_2,
-      cevrim_payda_2: ymGt.cevrim_payda_2,
-      cevrim_degeri_2: ymGt.cevrim_degeri_2,
+      cevrim_pay_2: ymGt.cevrim_pay_2 || 1,
+      cevrim_payda_2: ymGt.cevrim_payda_2 || 1,
+      cevrim_degeri_2: ymGt.cevrim_degeri_2 || 1,
       cap: ymGt.cap,
       kaplama: ymGt.kaplama,
       min_mukavemet: ymGt.min_mukavemet,
@@ -1486,7 +1825,7 @@ async function saveMMGT(values) {
       doviz_satis_fiyati: ymGt.doviz_satis_fiyati || 0,
       azami_stok: ymGt.azami_stok || 0,
       asgari_stok: ymGt.asgari_stok || 0,
-      dov_tutar: ymGt.dov_tutar || "",
+      dov_tutar: ymGt.dov_tutar || 0,
       dov_tipi: ymGt.dov_tipi || 0,
       bekleme_suresi: ymGt.bekleme_suresi || 0,
       temin_suresi: ymGt.temin_suresi || 0,
@@ -1597,13 +1936,13 @@ async function saveMMGT(values) {
         depo_kodu: ymSt.depo_kodu,
         br_1: ymSt.br_1,
         br_2: ymSt.br_2,
-        pay_1: ymSt.pay_1,
-        payda_1: ymSt.payda_1,
-        cevrim_degeri_1: ymSt.cevrim_degeri_1,
+        pay_1: ymSt.pay_1 || 1,
+        payda_1: ymSt.payda_1 || 1000,
+        cevrim_degeri_1: ymSt.cevrim_degeri_1 || 0.001,
         olcu_br_3: ymSt.olcu_br_3 || "",
-        cevrim_pay_2: ymSt.cevrim_pay_2,
-        cevrim_payda_2: ymSt.cevrim_payda_2,
-        cevrim_degeri_2: ymSt.cevrim_degeri_2,
+        cevrim_pay_2: ymSt.cevrim_pay_2 || 1,
+        cevrim_payda_2: ymSt.cevrim_payda_2 || 1,
+        cevrim_degeri_2: ymSt.cevrim_degeri_2 || 1,
         alis_fiyati: ymSt.alis_fiyati || 0,
         fiyat_birimi: ymSt.fiyat_birimi || 1,
         satis_fiyati_1: ymSt.satis_fiyati_1 || 0,
@@ -1616,7 +1955,7 @@ async function saveMMGT(values) {
         doviz_satis_fiyati: ymSt.doviz_satis_fiyati || 0,
         azami_stok: ymSt.azami_stok || 0,
         asgari_stok: ymSt.asgari_stok || 0,
-        dov_tutar: ymSt.dov_tutar || "",
+        dov_tutar: ymSt.dov_tutar || 0,
         dov_tipi: ymSt.dov_tipi || 0,
         alis_doviz_tipi: ymSt.alis_doviz_tipi || 0,
         bekleme_suresi: ymSt.bekleme_suresi || 0,
@@ -1626,7 +1965,7 @@ async function saveMMGT(values) {
         stok_turu: ymSt.stok_turu || "D",
         mali_grup_kodu: ymSt.mali_grup_kodu || "",
         ingilizce_isim: ymSt.ingilizce_isim || "",
-        ozel_saha_1_say: ymSt.ozel_saha_1_say,
+        ozel_saha_1_say: ymSt.ozel_saha_1_say || 0,
         ozel_saha_2_say: ymSt.ozel_saha_2_say || 0,
         ozel_saha_3_say: ymSt.ozel_saha_3_say || 0,
         ozel_saha_4_say: ymSt.ozel_saha_4_say || 0,
@@ -1651,6 +1990,32 @@ async function saveMMGT(values) {
         yap_aciklama: ymSt.yap_aciklama || ""
       });
     });
+    
+    // Decimal formatını düzelt (UI'da nokta, Excel'de virgül)
+    // Decimal alanları düzeltme fonksiyonu
+    const formatDecimalCellsWithComma = (sheet) => {
+      // Decimal değerlere sahip sütun indeksleri
+      const decimalColumns = ['cap', 'tolerans_plus', 'tolerans_minus', 'cevrim_degeri_1'];
+      
+      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        if (rowNumber > 1) { // Başlık satırını atla
+          decimalColumns.forEach(colName => {
+            const col = sheet.getColumn(colName);
+            if (col) {
+              const cell = row.getCell(col.number);
+              if (typeof cell.value === 'number') {
+                cell.value = cell.value.toString().replace('.', ',');
+              }
+            }
+          });
+        }
+      });
+    };
+    
+    // Her sayfa için decimal formatlarını düzelt
+    formatDecimalCellsWithComma(mmGtSheet);
+    formatDecimalCellsWithComma(ymGtSheet);
+    formatDecimalCellsWithComma(ymStSheet);
     
     // Stil ayarları
     [mmGtSheet, ymGtSheet, ymStSheet].forEach(sheet => {
@@ -1686,1662 +2051,2267 @@ async function saveMMGT(values) {
     saveAs(new Blob([buffer]), `StokKarti_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
   }
 
-  // Reçete Excel oluşturma fonksiyonu (Başlıklar All table headers.txt ile tam eşleşecek şekilde güncellendi)
-  async function createReceteExcel(mmGt, ymGt, ymStList) {
-    // Excel workbook oluştur
-    const workbook = new ExcelJS.Workbook();
-    
-    // MM GT REÇETE sayfası
-    const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
-    
-    // MM GT REÇETE başlıkları - "All table headers.txt" içindeki MM GT REÇETE başlıkları ile tam eşleşir
-    mmGtReceteSheet.columns = [
-      { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
-      { header: 'Reçete Top.', key: 'recete_top', width: 12 },
-      { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
-      { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
-      { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
-      { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
-      { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
-      { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
-      { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
-      { header: 'Miktar(*)', key: 'miktar', width: 10 },
-      { header: 'Açıklama', key: 'aciklama', width: 35 },
-      { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
-      { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
-      { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
-      { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
-      { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
-      { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
-      { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
-      { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
-      { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
-      { header: 'Öncelik', key: 'oncelik', width: 10 },
-      { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
-      { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
-      { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
-      { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
-      { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
-      { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
-    ];
-    
-    // MM GT REÇETE verilerini al ve ekle
-    const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
-    if (mmGtReceteRes.ok) {
-      const mmGtReceteData = await mmGtReceteRes.json();
-      mmGtReceteData.forEach(item => {
-        mmGtReceteSheet.addRow({
-          mamul_kodu: item.mamul_kodu,
-          recete_top: item.recete_top,
-          fire_orani: item.fire_orani,
-          oto_rec: item.oto_rec || "",
-          olcu_br: item.olcu_br,
-          sira_no: item.sira_no,
-          operasyon_bilesen: item.operasyon_bilesen,
-          bilesen_kodu: item.bilesen_kodu,
-          olcu_br_bilesen: item.olcu_br_bilesen,
-          miktar: item.miktar,
-          aciklama: item.aciklama || "",
-          miktar_sabitle: item.miktar_sabitle || "",
-          stok_maliyet: item.stok_maliyet || "",
-          fire_mik: item.fire_mik || "",
-          sabit_fire_mik: item.sabit_fire_mik || "",
-          istasyon_kodu: item.istasyon_kodu || "",
-          hazirlik_suresi: item.hazirlik_suresi || "",
-          uretim_suresi: item.uretim_suresi || "",
-          ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
-          son_operasyon: item.son_operasyon || "evet",
-          oncelik: item.oncelik || "",
-          planlama_orani: item.planlama_orani || "",
-          alt_pol_da_transfer: item.alt_pol_da_transfer || "",
-          alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
-          alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
-          alt_pol_mrp: item.alt_pol_mrp || "",
-          ic_dis: item.ic_dis || ""
-        });
-      });
-    }
-    
-    // YM GT REÇETE sayfası
-    const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
-    
-    // YM GT REÇETE başlıkları - "All table headers.txt" içindeki YM GT REÇETE başlıkları ile tam eşleşir
-    ymGtReceteSheet.columns = [
-      { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
-      { header: 'Reçete Top.', key: 'recete_top', width: 12 },
-      { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
-      { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
-      { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
-      { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
-      { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
-      { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
-      { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
-      { header: 'Miktar(*)', key: 'miktar', width: 10 },
-      { header: 'Açıklama', key: 'aciklama', width: 35 },
-      { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
-      { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
-      { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
-      { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
-      { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
-      { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
-      { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
-      { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
-      { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
-      { header: 'Öncelik', key: 'oncelik', width: 10 },
-      { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
-      { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
-      { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
-      { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
-      { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
-      { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
-    ];
-    
-    // YM GT REÇETE verilerini al ve ekle
-    const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
-    if (ymGtReceteRes.ok) {
-      const ymGtReceteData = await ymGtReceteRes.json();
-      ymGtReceteData.forEach(item => {
-        ymGtReceteSheet.addRow({
-          mamul_kodu: item.mamul_kodu,
-          recete_top: item.recete_top,
-          fire_orani: item.fire_orani,
-          oto_rec: item.oto_rec || "",
-          olcu_br: item.olcu_br,
-          sira_no: item.sira_no,
-          operasyon_bilesen: item.operasyon_bilesen,
-          bilesen_kodu: item.bilesen_kodu,
-          olcu_br_bilesen: item.olcu_br_bilesen,
-          miktar: item.miktar,
-          aciklama: item.aciklama || "",
-          miktar_sabitle: item.miktar_sabitle || "",
-          stok_maliyet: item.stok_maliyet || "",
-          fire_mik: item.fire_mik || "",
-          sabit_fire_mik: item.sabit_fire_mik || "",
-          istasyon_kodu: item.istasyon_kodu || "",
-          hazirlik_suresi: item.hazirlik_suresi || "",
-          uretim_suresi: item.uretim_suresi || "",
-          ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
-          son_operasyon: item.son_operasyon || "evet",
-          oncelik: item.oncelik || "",
-          planlama_orani: item.planlama_orani || "",
-          alt_pol_da_transfer: item.alt_pol_da_transfer || "",
-          alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
-          alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
-          alt_pol_mrp: item.alt_pol_mrp || "",
-          ic_dis: item.ic_dis || ""
-        });
-      });
-    }
-    
-    // YM ST REÇETE sayfası
-    const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
-    
-    // YM ST REÇETE başlıkları - "All table headers.txt" içindeki YM ST REÇETE başlıkları ile tam eşleşir
-    ymStReceteSheet.columns = [
-      { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
-      { header: 'Reçete Top.', key: 'recete_top', width: 12 },
-      { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
-      { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
-      { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
-      { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
-      { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
-      { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
-      { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
-      { header: 'Miktar(*)', key: 'miktar', width: 10 },
-      { header: 'Açıklama', key: 'aciklama', width: 35 },
-      { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
-      { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
-      { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
-      { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
-      { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
-      { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
-      { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
-      { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
-      { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
-      { header: 'Öncelik', key: 'oncelik', width: 10 },
-      { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
-      { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
-      { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
-      { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
-      { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
-      { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
-    ];
-    
-    // YM ST REÇETE verilerini al ve ekle
-    for (const ymSt of ymStList) {
-      const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
-      if (ymStReceteRes.ok) {
-        const ymStReceteData = await ymStReceteRes.json();
-        ymStReceteData.forEach(item => {
-          ymStReceteSheet.addRow({
-            mamul_kodu: item.mamul_kodu,
-            recete_top: item.recete_top,
-            fire_orani: item.fire_orani || "",
-            oto_rec: item.oto_rec || "",
-            olcu_br: item.olcu_br,
-            sira_no: item.sira_no,
-            operasyon_bilesen: item.operasyon_bilesen,
-            bilesen_kodu: item.bilesen_kodu,
-            olcu_br_bilesen: item.olcu_br_bilesen,
-            miktar: item.miktar,
-            aciklama: item.aciklama || "",
-            miktar_sabitle: item.miktar_sabitle || "",
-            stok_maliyet: item.stok_maliyet || "",
-            fire_mik: item.fire_mik || "",
-            sabit_fire_mik: item.sabit_fire_mik || "",
-            istasyon_kodu: item.istasyon_kodu || "",
-            hazirlik_suresi: item.hazirlik_suresi || "",
-            uretim_suresi: item.uretim_suresi || "",
-            ua_dahil_edilsin: item.ua_dahil_edilsin || "",
-            son_operasyon: item.son_operasyon || "",
-            oncelik: item.oncelik || "",
-            planlama_orani: item.planlama_orani || "",
-            alt_pol_da_transfer: item.alt_pol_da_transfer || "",
-            alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
-            alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
-            alt_pol_mrp: item.alt_pol_mrp || "",
-            ic_dis: item.ic_dis || ""
-          });
-        });
+// Reçete Excel oluşturma fonksiyonu (decimal formatı korunarak)
+async function createReceteExcel(mmGt, ymGt, ymStList) {
+  // Excel workbook oluştur
+  const workbook = new ExcelJS.Workbook();
+  
+  // MM GT REÇETE sayfası
+  const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
+  
+  // MM GT REÇETE başlıkları - "All table headers.txt" içindeki MM GT REÇETE başlıkları ile tam eşleşir
+  mmGtReceteSheet.columns = [
+    { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
+    { header: 'Reçete Top.', key: 'recete_top', width: 12 },
+    { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
+    { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
+    { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
+    { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
+    { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
+    { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
+    { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
+    { header: 'Miktar(*)', key: 'miktar', width: 10 },
+    { header: 'Açıklama', key: 'aciklama', width: 35 },
+    { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
+    { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
+    { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
+    { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
+    { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
+    { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
+    { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
+    { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
+    { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
+    { header: 'Öncelik', key: 'oncelik', width: 10 },
+    { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
+    { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
+    { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
+    { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
+    { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
+    { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
+  ];
+  
+  // MM GT REÇETE verilerini al ve ekle
+  const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+  if (mmGtReceteRes.ok) {
+    const mmGtReceteData = await mmGtReceteRes.json();
+    mmGtReceteData.forEach(item => {
+      // Miktar değerlerini string'e çevirip . yerine , kullan
+      let miktar = item.miktar;
+      if (typeof miktar === 'number') {
+        miktar = miktar.toString().replace('.', ',');
       }
-    }
-    
-    // Stil ayarları
-    [mmGtReceteSheet, ymGtReceteSheet, ymStReceteSheet].forEach(sheet => {
-      // Başlık satırı stilleri
-      const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true, size: 11 };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFCCCCCC' }
-      };
-      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
       
-      // Kenarlık ekle
-      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-          
-          if (rowNumber > 1) {
-            cell.alignment = { vertical: 'middle' };
-          }
-        });
+      let fireOrani = item.fire_orani;
+      if (typeof fireOrani === 'number') {
+        fireOrani = fireOrani.toString().replace('.', ',');
+      }
+      
+      let uretimSuresi = item.uretim_suresi;
+      if (typeof uretimSuresi === 'number') {
+        uretimSuresi = uretimSuresi.toString().replace('.', ',');
+      }
+      
+      mmGtReceteSheet.addRow({
+        mamul_kodu: item.mamul_kodu,
+        recete_top: item.recete_top,
+        fire_orani: fireOrani,
+        oto_rec: item.oto_rec || "",
+        olcu_br: item.olcu_br,
+        sira_no: item.sira_no,
+        operasyon_bilesen: item.operasyon_bilesen,
+        bilesen_kodu: item.bilesen_kodu,
+        olcu_br_bilesen: item.olcu_br_bilesen,
+        miktar: miktar,
+        aciklama: item.aciklama || "",
+        miktar_sabitle: item.miktar_sabitle || "",
+        stok_maliyet: item.stok_maliyet || "",
+        fire_mik: item.fire_mik || "",
+        sabit_fire_mik: item.sabit_fire_mik || "",
+        istasyon_kodu: item.istasyon_kodu || "",
+        hazirlik_suresi: item.hazirlik_suresi || "",
+        uretim_suresi: uretimSuresi || "",
+        ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
+        son_operasyon: item.son_operasyon || "evet",
+        oncelik: item.oncelik || "",
+        planlama_orani: item.planlama_orani || "",
+        alt_pol_da_transfer: item.alt_pol_da_transfer || "",
+        alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
+        alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
+        alt_pol_mrp: item.alt_pol_mrp || "",
+        ic_dis: item.ic_dis || ""
       });
     });
-    
-    // Excel dosyasını kaydet
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `Recete_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
   }
+  
+  // YM GT REÇETE sayfası
+  const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
+  
+  // YM GT REÇETE başlıkları - "All table headers.txt" içindeki YM GT REÇETE başlıkları ile tam eşleşir
+  ymGtReceteSheet.columns = [
+    { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
+    { header: 'Reçete Top.', key: 'recete_top', width: 12 },
+    { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
+    { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
+    { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
+    { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
+    { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
+    { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
+    { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
+    { header: 'Miktar(*)', key: 'miktar', width: 10 },
+    { header: 'Açıklama', key: 'aciklama', width: 35 },
+    { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
+    { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
+    { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
+    { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
+    { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
+    { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
+    { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
+    { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
+    { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
+    { header: 'Öncelik', key: 'oncelik', width: 10 },
+    { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
+    { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
+    { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
+    { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
+    { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
+    { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
+  ];
+  
+  // YM GT REÇETE verilerini al ve ekle
+  const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
+  if (ymGtReceteRes.ok) {
+    const ymGtReceteData = await ymGtReceteRes.json();
+    ymGtReceteData.forEach(item => {
+      // Miktar değerlerini string'e çevirip . yerine , kullan
+      let miktar = item.miktar;
+      if (typeof miktar === 'number') {
+        miktar = miktar.toString().replace('.', ',');
+      }
+      
+      let fireOrani = item.fire_orani;
+      if (typeof fireOrani === 'number') {
+        fireOrani = fireOrani.toString().replace('.', ',');
+      }
+      
+      let uretimSuresi = item.uretim_suresi;
+      if (typeof uretimSuresi === 'number') {
+        uretimSuresi = uretimSuresi.toString().replace('.', ',');
+      }
+      
+      ymGtReceteSheet.addRow({
+        mamul_kodu: item.mamul_kodu,
+        recete_top: item.recete_top,
+        fire_orani: fireOrani,
+        oto_rec: item.oto_rec || "",
+        olcu_br: item.olcu_br,
+        sira_no: item.sira_no,
+        operasyon_bilesen: item.operasyon_bilesen,
+        bilesen_kodu: item.bilesen_kodu,
+        olcu_br_bilesen: item.olcu_br_bilesen,
+        miktar: miktar,
+        aciklama: item.aciklama || "",
+        miktar_sabitle: item.miktar_sabitle || "",
+        stok_maliyet: item.stok_maliyet || "",
+        fire_mik: item.fire_mik || "",
+        sabit_fire_mik: item.sabit_fire_mik || "",
+        istasyon_kodu: item.istasyon_kodu || "",
+        hazirlik_suresi: item.hazirlik_suresi || "",
+        uretim_suresi: uretimSuresi || "",
+        ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
+        son_operasyon: item.son_operasyon || "evet",
+        oncelik: item.oncelik || "",
+        planlama_orani: item.planlama_orani || "",
+        alt_pol_da_transfer: item.alt_pol_da_transfer || "",
+        alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
+        alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
+        alt_pol_mrp: item.alt_pol_mrp || "",
+        ic_dis: item.ic_dis || ""
+      });
+    });
+  }
+  
+  // YM ST REÇETE sayfası
+  const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
+  
+  // YM ST REÇETE başlıkları - "All table headers.txt" içindeki YM ST REÇETE başlıkları ile tam eşleşir
+  ymStReceteSheet.columns = [
+    { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
+    { header: 'Reçete Top.', key: 'recete_top', width: 12 },
+    { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
+    { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
+    { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
+    { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
+    { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
+    { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
+    { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
+    { header: 'Miktar(*)', key: 'miktar', width: 10 },
+    { header: 'Açıklama', key: 'aciklama', width: 35 },
+    { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
+    { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
+    { header: 'Fire Mik.', key: 'fire_mik', width: 10 },
+    { header: 'Sabit Fire Mik.', key: 'sabit_fire_mik', width: 15 },
+    { header: 'İstasyon Kodu', key: 'istasyon_kodu', width: 15 },
+    { header: 'Hazırlık Süresi', key: 'hazirlik_suresi', width: 15 },
+    { header: 'Üretim Süresi', key: 'uretim_suresi', width: 15 },
+    { header: 'Ü.A.Dahil Edilsin', key: 'ua_dahil_edilsin', width: 18 },
+    { header: 'Son Operasyon', key: 'son_operasyon', width: 15 },
+    { header: 'Öncelik', key: 'oncelik', width: 10 },
+    { header: 'Planlama Oranı', key: 'planlama_orani', width: 15 },
+    { header: 'Alternatif Politika - D.A.Transfer Fişi', key: 'alt_pol_da_transfer', width: 30 },
+    { header: 'Alternatif Politika - Ambar Ç. Fişi', key: 'alt_pol_ambar_cikis', width: 30 },
+    { header: 'Alternatif Politika - Üretim S.Kaydı', key: 'alt_pol_uretim_kaydi', width: 30 },
+    { header: 'Alternatif Politika - MRP', key: 'alt_pol_mrp', width: 22 },
+    { header: 'İÇ/DIŞ', key: 'ic_dis', width: 10 }
+  ];
+  
+  // YM ST REÇETE verilerini al ve ekle
+  for (const ymSt of ymStList) {
+    const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+    if (ymStReceteRes.ok) {
+      const ymStReceteData = await ymStReceteRes.json();
+      ymStReceteData.forEach(item => {
+        // Miktar değerlerini string'e çevirip . yerine , kullan
+        let miktar = item.miktar;
+        if (typeof miktar === 'number') {
+          miktar = miktar.toString().replace('.', ',');
+        }
+        
+        let fireOrani = item.fire_orani;
+        if (typeof fireOrani === 'number') {
+          fireOrani = fireOrani.toString().replace('.', ',');
+        }
+        
+        let uretimSuresi = item.uretim_suresi;
+        if (typeof uretimSuresi === 'number') {
+          uretimSuresi = uretimSuresi.toString().replace('.', ',');
+        }
+        
+        ymStReceteSheet.addRow({
+          mamul_kodu: item.mamul_kodu,
+          recete_top: item.recete_top,
+          fire_orani: fireOrani || "",
+          oto_rec: item.oto_rec || "",
+          olcu_br: item.olcu_br,
+          sira_no: item.sira_no,
+          operasyon_bilesen: item.operasyon_bilesen,
+          bilesen_kodu: item.bilesen_kodu,
+          olcu_br_bilesen: item.olcu_br_bilesen,
+          miktar: miktar,
+          aciklama: item.aciklama || "",
+          miktar_sabitle: item.miktar_sabitle || "",
+          stok_maliyet: item.stok_maliyet || "",
+          fire_mik: item.fire_mik || "",
+          sabit_fire_mik: item.sabit_fire_mik || "",
+          istasyon_kodu: item.istasyon_kodu || "",
+          hazirlik_suresi: item.hazirlik_suresi || "",
+          uretim_suresi: uretimSuresi || "",
+          ua_dahil_edilsin: item.ua_dahil_edilsin || "",
+          son_operasyon: item.son_operasyon || "",
+          oncelik: item.oncelik || "",
+          planlama_orani: item.planlama_orani || "",
+          alt_pol_da_transfer: item.alt_pol_da_transfer || "",
+          alt_pol_ambar_cikis: item.alt_pol_ambar_cikis || "",
+          alt_pol_uretim_kaydi: item.alt_pol_uretim_kaydi || "",
+          alt_pol_mrp: item.alt_pol_mrp || "",
+          ic_dis: item.ic_dis || ""
+        });
+      });
+    }
+  }
+  
+  // Stil ayarları
+  [mmGtReceteSheet, ymGtReceteSheet, ymStReceteSheet].forEach(sheet => {
+    // Başlık satırı stilleri
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, size: 11 };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFCCCCCC' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    
+    // Kenarlık ekle
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        
+        if (rowNumber > 1) {
+          cell.alignment = { vertical: 'middle' };
+        }
+      });
+    });
+  });
+  
+  // Excel dosyasını kaydet
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `Recete_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
+}
 
-  return (
-    <GalvanizliTelContext.Provider value={contextValue}>
-      {children}
-    </GalvanizliTelContext.Provider>
-  );
+// Context başlangıcında verileri yükle
+useEffect(() => {
+  loadYmStList();
+  fetchProductDatabase();
+}, []);
+
+return (
+  <GalvanizliTelContext.Provider value={contextValue}>
+    {children}
+  </GalvanizliTelContext.Provider>
+);
 };
 
 // Context hook
 export const useGalvanizliTel = () => {
-  const context = useContext(GalvanizliTelContext);
-  if (!context) {
-    throw new Error('useGalvanizliTel must be used within a GalvanizliTelProvider');
-  }
-  return context;
+const context = useContext(GalvanizliTelContext);
+if (!context) {
+  throw new Error('useGalvanizliTel must be used within a GalvanizliTelProvider');
+}
+return context;
 };
 
 // Ana Galvanizli Tel bileşeni - Geliştirilmiş iş akışı
 const GalvanizliTelNetsis = () => {
-  const { user, hasPermission } = useAuth();
-  const {
-    mmGtData, setMmGtData,
-    ymGtData, setYmGtData,
-    ymStList, setYmStList,
-    selectedYmSt, setSelectedYmSt,
-    loading, setLoading,
-    error, setError,
-    successMessage, setSuccessMessage,
-    isEditMode, setIsEditMode,
-    dataExist, setDataExist,
-    searchProducts,
-    saveMMGT,
-    saveYMGT,
-    saveYMST,
-    generateExcel,
-    getCurrentSequence,
-  } = useGalvanizliTel();
+const { user, hasPermission } = useAuth();
+const {
+  mmGtData, setMmGtData,
+  ymGtData, setYmGtData,
+  ymStList, setYmStList,
+  selectedYmSt, setSelectedYmSt,
+  receteData, setReceteData,
+  loading, setLoading,
+  error, setError,
+  successMessage, setSuccessMessage,
+  isEditMode, setIsEditMode,
+  dataExist, setDataExist,
+  productDatabase, setProductDatabase,
+  searchProducts,
+  saveMMGT,
+  saveYMGT,
+  saveYMST,
+  saveRecete,
+  generateExcel,
+  getCurrentSequence,
+  fetchProductDatabase,
+  deleteProduct,
+  checkProductExists
+} = useGalvanizliTel();
 
-  // State'ler
-  const [showYmStSearchModal, setShowYmStSearchModal] = useState(false);
-  const [showYmStCreateModal, setShowYmStCreateModal] = useState(false);
-  const [showSearchModal, setShowSearchModal] = useState(false);
-  const [sequence, setSequence] = useState(0); // Başlangıç değeri 0 olarak değiştirildi
-  const [searchYmSt, setSearchYmSt] = useState("");
-  const [filteredYmStList, setFilteredYmStList] = useState([]);
-  const [selectedYmStToAdd, setSelectedYmStToAdd] = useState(null);
-  const [currentStep, setCurrentStep] = useState('form'); // 'form', 'ymst', 'summary'
-  const [excelCreated, setExcelCreated] = useState({
-    stokKarti: false,
-    recete: false
-  });
-  const [databaseSaved, setDatabaseSaved] = useState(false);
+// State'ler
+const [showYmStSearchModal, setShowYmStSearchModal] = useState(false);
+const [showYmStCreateModal, setShowYmStCreateModal] = useState(false);
+const [showDatabaseModal, setShowDatabaseModal] = useState(false);
+const [showSearchModal, setShowSearchModal] = useState(false);
+const [sequence, setSequence] = useState(0);
+const [searchYmSt, setSearchYmSt] = useState("");
+const [filteredYmStList, setFilteredYmStList] = useState([]);
+const [selectedYmStToAdd, setSelectedYmStToAdd] = useState(null);
+const [currentStep, setCurrentStep] = useState('form'); // 'form', 'ymst', 'recete', 'summary'
+const [excelCreated, setExcelCreated] = useState({
+  stokKarti: false,
+  recete: false
+});
+const [databaseSaved, setDatabaseSaved] = useState(false);
+const [databaseFilter, setDatabaseFilter] = useState({
+  type: 'mmGt',
+  search: ''
+});
+const [filteredDatabaseItems, setFilteredDatabaseItems] = useState([]);
 
-  // Form değerleri
-  const initialFormValues = {
-    cap: '',
-    kod_2: 'NIT',
-    kaplama: 120,
-    min_mukavemet: 400,
-    max_mukavemet: 500,
-    tolerans_plus: 0,
-    tolerans_minus: 0.06,
-    ic_cap: 45,
-    dis_cap: 75,
-    kg: 750,
-    unwinding: null,
-    shrink: 'evet',
-    cast_kont: '',
-    helix_kont: '',
-    elongation: '',
-    sequence: 0 // Başlangıç değeri 0 olarak değiştirildi
-  };
-  
-  const [formValues, setFormValues] = useState(initialFormValues);
+// Form değerleri
+const initialFormValues = {
+  cap: '',
+  kod_2: 'NIT',
+  kaplama: 120,
+  min_mukavemet: 400,
+  max_mukavemet: 500,
+  tolerans_plus: 0,
+  tolerans_minus: 0.06,
+  ic_cap: 45,
+  dis_cap: 75,
+  kg: 750,
+  unwinding: null,
+  shrink: 'evet',
+  cast_kont: '',
+  helix_kont: '',
+  elongation: '',
+  sequence: 0
+};
 
-  // İzin kontrolü
-  useEffect(() => {
-    if (!hasPermission('access:galvanizli-tel')) {
-      setError('Bu modüle erişim izniniz bulunmamaktadır.');
-    } else {
-      loadYmStList();
-    }
-  }, [hasPermission]);
+const [formValues, setFormValues] = useState(initialFormValues);
 
-  // YM ST listesini yükle - geliştirilmiş sürüm
-  const loadYmStList = async () => {
-    try {
-      setLoading(true);
-      
-      // API isteği yapılır
-      const response = await fetchWithAuth(API_URLS.galYmSt);
-      
-      // Eğer cevap 404 (bulunamadı) ise, bu normal bir durumdur ve boş liste kullanabiliriz
-      if (response.status === 404) {
-        console.log('YM ST listesi boş veya tablo mevcut değil, boş liste kullanılıyor');
-        setYmStList([]);
-        setFilteredYmStList([]);
-        return;
-      }
-      
-      // Diğer hata durumları için
-      if (!response.ok) {
-        throw new Error(`YM ST listesi alınamadı: ${response.status} ${response.statusText}`);
-      }
-      
-      // Başarılı cevap işlenir
-      const data = await response.json();
-      
-      // Veri dizi değilse veya boşsa, boş dizi kullan
-      if (!data || !Array.isArray(data)) {
-        console.log('YM ST verisi dizi değil, boş liste kullanılıyor');
-        setYmStList([]);
-        setFilteredYmStList([]);
-      } else {
-        // Veriler başarıyla alındı
-        setYmStList(data);
-        setFilteredYmStList(data);
-      }
-    } catch (error) {
-      console.error('YM ST listesi yüklenirken hata oluştu:', error);
-      // Hata durumunda da boş dizi ile devam et, böylece uygulama çalışmaya devam eder
+// Reçete değerleri için initial değerler
+const initialReceteValues = {
+  boraks_tuketimi: 0.02, // 0.032 - (0.0029 * Diameter)
+  asit_tuketimi: 0.002,  // Çapa göre farklı değer alır
+  desi_tuketimi: 0.0013, // Ağırlığa göre farklı değer alır
+  paketleme_suresi: 0.02, // Sabit değer
+  galvanizleme_suresi: 0.9, // 1.15 - (0.125 * Diameter)
+  tel_cekme_suresi: 0.15  // 0.2/(Diameter^1.5)
+};
+
+const [receteFormValues, setReceteFormValues] = useState(initialReceteValues);
+
+// İzin kontrolü
+useEffect(() => {
+  if (!hasPermission('access:galvanizli-tel')) {
+    setError('Bu modüle erişim izniniz bulunmamaktadır.');
+  } else {
+    loadYmStList();
+    fetchProductDatabase();
+  }
+}, [hasPermission]);
+
+// Veritabanı verilerini filtrele
+useEffect(() => {
+  filterDatabaseItems();
+}, [databaseFilter, productDatabase]);
+
+// YM ST listesini yükle - geliştirilmiş sürüm
+const loadYmStList = async () => {
+  try {
+    setLoading(true);
+    
+    // API isteği yapılır
+    const response = await fetchWithAuth(API_URLS.galYmSt);
+    
+    // Eğer cevap 404 (bulunamadı) ise, bu normal bir durumdur ve boş liste kullanabiliriz
+    if (response.status === 404) {
+      console.log('YM ST listesi boş veya tablo mevcut değil, boş liste kullanılıyor');
       setYmStList([]);
       setFilteredYmStList([]);
-      setError('YM ST listesi yüklenirken bir hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Dizilim numarasını al
-  const fetchSequence = async (kod2, cap) => {
-    try {
-      const seq = await getCurrentSequence(kod2, cap);
-      setSequence(seq);
-      setFormValues(prev => ({ ...prev, sequence: seq }));
-    } catch (error) {
-      console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error); // 0 olarak değiştirildi
-      setSequence(0); // 0 olarak değiştirildi
-      setFormValues(prev => ({ ...prev, sequence: 0 })); // 0 olarak değiştirildi
-    }
-  };
-
-  // Form değerlerini güncelle
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    const newValue = name === 'kod_2' && value === 'PAD' ? { ...formValues, kaplama: 50 } : {};
-    
-    // İç çap değişirse dış çapı otomatik ayarla
-    if (name === 'ic_cap') {
-      const icCap = parseInt(value);
-      let disCap = 75;
-      
-      if (icCap === 50) disCap = 90;
-      else if (icCap === 55) disCap = 105;
-      
-      newValue.dis_cap = disCap;
-    }
-
-    setFormValues({ ...formValues, ...newValue, [name]: value });
-    
-    // Kaplama türü ve çap değişirse dizilim numarasını güncelle
-    if (name === 'kod_2' || name === 'cap') {
-      if (formValues.kod_2 && formValues.cap) {
-        fetchSequence(
-          name === 'kod_2' ? value : formValues.kod_2, 
-          name === 'cap' ? value : formValues.cap
-        );
-      }
-    }
-  };
-
-  // MM GT oluştur/güncelle ve sonraki adıma geç
-  const handleSubmit = async (values) => {
-    const savedMmGt = await saveMMGT(values);
-    
-    if (savedMmGt) {
-      // YM GT kaydet
-      await saveYMGT(values, savedMmGt.id);
-      setIsEditMode(true);
-      setCurrentStep('ymst'); // YM ST seçim adımına geç
-    }
-  };
-
-  // YM ST filtrele
-  const handleYmStSearch = (e) => {
-    const searchTerm = e.target.value.toLowerCase();
-    setSearchYmSt(searchTerm);
-    
-    if (searchTerm.trim() === '') {
-      setFilteredYmStList(ymStList);
-    } else {
-      const filtered = ymStList.filter(item => 
-        (item.stok_kodu && item.stok_kodu.toLowerCase().includes(searchTerm)) ||
-        (item.stok_adi && item.stok_adi.toLowerCase().includes(searchTerm)) ||
-        (item.cap && item.cap.toString().includes(searchTerm)) ||
-        (item.filmasin && item.filmasin.toString().includes(searchTerm))
-      );
-      setFilteredYmStList(filtered);
-    }
-  };
-
-  // YM ST seç
-  const handleSelectYmSt = (ymSt) => {
-    setSelectedYmStToAdd(ymSt);
-  };
-
-  // YM ST ekle
-  const handleAddYmSt = async () => {
-    if (!mmGtData) {
-      setError('Önce MM GT kaydı oluşturmalısınız');
       return;
     }
     
-    if (selectedYmStToAdd) {
-      await saveYMST(selectedYmStToAdd, mmGtData.id);
+    // Diğer hata durumları için
+    if (!response.ok) {
+      throw new Error(`YM ST listesi alınamadı: ${response.status} ${response.statusText}`);
+    }
+    
+    // Başarılı cevap işlenir
+    const data = await response.json();
+    
+    // Veri dizi değilse veya boşsa, boş dizi kullan
+    if (!data || !Array.isArray(data)) {
+      console.log('YM ST verisi dizi değil, boş liste kullanılıyor');
+      setYmStList([]);
+      setFilteredYmStList([]);
+    } else {
+      // Veriler başarıyla alındı
+      setYmStList(data);
+      setFilteredYmStList(data);
+    }
+  } catch (error) {
+    console.error('YM ST listesi yüklenirken hata oluştu:', error);
+    // Hata durumunda da boş dizi ile devam et, böylece uygulama çalışmaya devam eder
+    setYmStList([]);
+    setFilteredYmStList([]);
+    setError('YM ST listesi yüklenirken bir hata oluştu');
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Veritabanı filtrele
+const filterDatabaseItems = () => {
+  const { type, search } = databaseFilter;
+  const searchTerm = search.toLowerCase();
+  
+  let filteredData = [];
+  
+  switch (type) {
+    case 'mmGt':
+      filteredData = productDatabase.mmGtList.filter(item => 
+        !searchTerm || 
+        (item.stok_kodu && item.stok_kodu.toLowerCase().includes(searchTerm)) ||
+        (item.stok_adi && item.stok_adi.toLowerCase().includes(searchTerm)) ||
+        (item.cap && item.cap.toString().includes(searchTerm))
+      );
+      break;
+    case 'ymGt':
+      filteredData = productDatabase.ymGtList.filter(item => 
+        !searchTerm || 
+        (item.stok_kodu && item.stok_kodu.toLowerCase().includes(searchTerm)) ||
+        (item.stok_adi && item.stok_adi.toLowerCase().includes(searchTerm)) ||
+        (item.cap && item.cap.toString().includes(searchTerm))
+      );
+      break;
+    case 'ymSt':
+      filteredData = productDatabase.ymStList.filter(item => 
+        !searchTerm || 
+        (item.stok_kodu && item.stok_kodu.toLowerCase().includes(searchTerm)) ||
+        (item.stok_adi && item.stok_adi.toLowerCase().includes(searchTerm)) ||
+        (item.cap && item.cap.toString().includes(searchTerm))
+      );
+      break;
+    default:
+      filteredData = [];
+  }
+  
+  setFilteredDatabaseItems(filteredData);
+};
+
+// Dizilim numarasını al
+const fetchSequence = async (kod2, cap) => {
+  try {
+    const seq = await getCurrentSequence(kod2, cap);
+    setSequence(seq);
+    setFormValues(prev => ({ ...prev, sequence: seq }));
+  } catch (error) {
+    console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
+    setSequence(0);
+    setFormValues(prev => ({ ...prev, sequence: 0 }));
+  }
+};
+
+// Form değerlerini güncelle
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+  const newValue = name === 'kod_2' && value === 'PAD' ? { ...formValues, kaplama: 50 } : {};
+  
+  // İç çap değişirse dış çapı otomatik ayarla
+  if (name === 'ic_cap') {
+    const icCap = parseInt(value);
+    let disCap = 75;
+    
+    if (icCap === 50) disCap = 90;
+    else if (icCap === 55) disCap = 105;
+    
+    newValue.dis_cap = disCap;
+  }
+
+  setFormValues({ ...formValues, ...newValue, [name]: value });
+  
+  // Kaplama türü ve çap değişirse dizilim numarasını güncelle
+  if (name === 'kod_2' || name === 'cap') {
+    if (formValues.kod_2 && formValues.cap) {
+      fetchSequence(
+        name === 'kod_2' ? value : formValues.kod_2, 
+        name === 'cap' ? value : formValues.cap
+      );
+    }
+  }
+  
+  // Çap değişirse reçete değerlerini otomatik güncelle
+  if (name === 'cap' && value) {
+    const capValue = parseFloat(value);
+    if (!isNaN(capValue)) {
+      // Boraks değeri: 0.032 - (0.0029 * Diameter)
+      const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue)).toFixed(6);
+      
+      // Asit değeri
+      let asitTuketimi;
+      if (formValues.kod_2 === 'NIT') {
+        // NIT için değer
+        if (capValue < 1.5) {
+          asitTuketimi = 0.002;
+        } else if (capValue >= 1.5 && capValue < 2.5) {
+          asitTuketimi = 0.0025;
+        } else {
+          asitTuketimi = 0.003;
+        }
+      } else {
+        // PAD için değer
+        if (capValue < 1.5) {
+          asitTuketimi = 0.001;
+        } else if (capValue >= 1.5 && capValue < 2.5) {
+          asitTuketimi = 0.0015;
+        } else {
+          asitTuketimi = 0.002;
+        }
+      }
+      
+      // Galvanizleme süresi: 1.15 - (0.125 * Diameter)
+      const galvanizlemeSuresi = Math.max(0.001, 1.15 - (0.125 * capValue)).toFixed(6);
+      
+      // Tel çekme süresi: 0.2/(Diameter^1.5)
+      const telCekmeSuresi = (0.2 / Math.pow(capValue, 1.5)).toFixed(6);
+      
+      setReceteFormValues(prev => ({
+        ...prev,
+        boraks_tuketimi: parseFloat(boraksTuketimi),
+        asit_tuketimi: asitTuketimi,
+        galvanizleme_suresi: parseFloat(galvanizlemeSuresi),
+        tel_cekme_suresi: parseFloat(telCekmeSuresi)
+      }));
+    }
+  }
+  
+  // Ağırlık değişirse desi değerini güncelle
+  if (name === 'kg' && value) {
+    const kgValue = parseFloat(value);
+    if (!isNaN(kgValue)) {
+      // Desi değeri
+      const desiTuketimi = kgValue > 800 ? 0.002 : 0.0013;
+      
+      setReceteFormValues(prev => ({
+        ...prev,
+        desi_tuketimi: desiTuketimi
+      }));
+    }
+  }
+};
+
+// Reçete form değerlerini güncelle
+const handleReceteInputChange = (e) => {
+  const { name, value } = e.target;
+  setReceteFormValues({ ...receteFormValues, [name]: parseFloat(value) });
+};
+
+// MM GT oluştur/güncelle ve sonraki adıma geç
+const handleSubmit = async (values) => {
+  const savedMmGt = await saveMMGT(values);
+  
+  if (savedMmGt) {
+    // YM GT kaydet
+    const savedYmGt = await saveYMGT(values, savedMmGt.id);
+    
+    if (savedYmGt) {
+      setIsEditMode(true);
+      setCurrentStep('ymst'); // YM ST seçim adımına geç
+    } else {
+      setError('YM GT kaydedilemedi. Lütfen tekrar deneyin.');
+    }
+  } else {
+    setError('MM GT kaydedilemedi. Lütfen tekrar deneyin.');
+  }
+};
+
+// YM ST filtrele
+const handleYmStSearch = (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  setSearchYmSt(searchTerm);
+  
+  if (searchTerm.trim() === '') {
+    setFilteredYmStList(ymStList);
+  } else {
+    const filtered = ymStList.filter(item => 
+      (item.stok_kodu && item.stok_kodu.toLowerCase().includes(searchTerm)) ||
+      (item.stok_adi && item.stok_adi.toLowerCase().includes(searchTerm)) ||
+      (item.cap && item.cap.toString().includes(searchTerm)) ||
+      (item.filmasin && item.filmasin.toString().includes(searchTerm))
+    );
+    setFilteredYmStList(filtered);
+  }
+};
+
+// YM ST seç
+const handleSelectYmSt = (ymSt) => {
+  // Zaten seçili olan öğeye tekrar tıklanırsa seçimi kaldır
+  if (selectedYmStToAdd && selectedYmStToAdd.id === ymSt.id) {
+    setSelectedYmStToAdd(null);
+  } else {
+    setSelectedYmStToAdd(ymSt);
+  }
+};
+
+// YM ST ekle
+const handleAddYmSt = async () => {
+  if (!mmGtData) {
+    setError('Önce MM GT kaydı oluşturmalısınız');
+    return;
+  }
+  
+  if (selectedYmStToAdd) {
+    // Zaten eklenmiş mi kontrol et
+    const alreadyAdded = selectedYmSt.some(item => item.id === selectedYmStToAdd.id);
+    
+    if (alreadyAdded) {
+      toast.warning('Bu YM ST zaten eklenmiş');
+      return;
+    }
+    
+    const result = await saveYMST(selectedYmStToAdd, mmGtData.id);
+    if (result) {
       setShowYmStSearchModal(false);
       setSelectedYmStToAdd(null);
       setSearchYmSt("");
-    } else {
-      setError('Lütfen bir YM ST seçin');
     }
-  };
+  } else {
+    setError('Lütfen bir YM ST seçin');
+  }
+};
 
-  // YM ST kaldır
-  const handleRemoveYmSt = async (ymStId) => {
-    try {
-      const response = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtData.id}&ym_st_id=${ymStId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error('YM ST ilişkisi silinemedi');
-      }
-
-      setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
-      setSuccessMessage('YM ST başarıyla kaldırıldı');
-      toast.success('YM ST başarıyla kaldırıldı');
-    } catch (error) {
-      setError('YM ST kaldırılırken bir hata oluştu');
-      toast.error('YM ST kaldırılırken bir hata oluştu');
-    }
-  };
-
-  // Yeni YM ST oluştur
-  const handleCreateYmSt = async (values) => {
-    if (!mmGtData) {
-      setError('Önce MM GT kaydı oluşturmalısınız');
-      return;
-    }
-    
-    const ymStData = {
-      ...values,
-      isNew: true
-    };
-    
-    await saveYMST(ymStData, mmGtData.id);
-    setShowYmStCreateModal(false);
-    loadYmStList();
-  };
-
-  // Ürün ara
-  const handleSearch = async (values) => {
-    await searchProducts(values);
-    setShowSearchModal(false);
-    
-    // Eğer ürün bulunduysa form değerlerini güncelle
-    if (mmGtData) {
-      setFormValues({
-        cap: mmGtData.cap || '',
-        kod_2: mmGtData.kod_2 || 'NIT',
-        kaplama: mmGtData.kaplama || 120,
-        min_mukavemet: mmGtData.min_mukavemet || 400,
-        max_mukavemet: mmGtData.max_mukavemet || 500,
-        tolerans_plus: mmGtData.tolerans_plus || 0,
-        tolerans_minus: mmGtData.tolerans_minus || 0.06,
-        ic_cap: mmGtData.ic_cap || 45,
-        dis_cap: mmGtData.dis_cap || 75,
-        kg: mmGtData.kg || 750,
-        unwinding: mmGtData.unwinding || null,
-        shrink: mmGtData.shrink || 'evet',
-        cast_kont: mmGtData.cast_kont || '',
-        helix_kont: mmGtData.helix_kont || '',
-        elongation: mmGtData.elongation || '',
-        sequence: sequence
-      });
-    }
-  };
-
-  // Ürün temizle
-  const handleNewProduct = () => {
-    setMmGtData(null);
-    setYmGtData(null);
-    setSelectedYmSt([]);
-    setIsEditMode(false);
-    setDataExist(false);
-    setCurrentStep('form');
-    setFormValues(initialFormValues);
-    setExcelCreated({
-      stokKarti: false,
-      recete: false
+// YM ST kaldır
+const handleRemoveYmSt = async (ymStId) => {
+  try {
+    const response = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtData.id}&ym_st_id=${ymStId}`, {
+      method: 'DELETE'
     });
-    setDatabaseSaved(false);
-  };
-
-  // YM ST seçimini tamamla ve özet adımına geç
-  const handleYmStSelectionComplete = () => {
-    if (selectedYmSt.length === 0) {
-      setError('Lütfen en az bir YM ST seçin');
-      toast.error('Lütfen en az bir YM ST seçin');
-      return;
-    }
     
+    if (!response.ok) {
+      throw new Error('YM ST ilişkisi silinemedi');
+    }
+
+    setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
+    setSuccessMessage('YM ST başarıyla kaldırıldı');
+    toast.success('YM ST başarıyla kaldırıldı');
+  } catch (error) {
+    setError('YM ST kaldırılırken bir hata oluştu');
+    toast.error('YM ST kaldırılırken bir hata oluştu');
+  }
+};
+
+// Yeni YM ST oluştur
+const handleCreateYmSt = async (values) => {
+  if (!mmGtData) {
+    setError('Önce MM GT kaydı oluşturmalısınız');
+    return;
+  }
+  
+  const ymStData = {
+    ...values,
+    isNew: true
+  };
+  
+  const result = await saveYMST(ymStData, mmGtData.id);
+  if (result) {
+    setShowYmStCreateModal(false);
+    await loadYmStList();
+  }
+};
+
+// Ürün ara
+const handleSearch = async (values) => {
+  await searchProducts(values);
+  setShowSearchModal(false);
+  
+  // Eğer ürün bulunduysa form değerlerini güncelle
+  if (mmGtData) {
+    setFormValues({
+      cap: mmGtData.cap || '',
+      kod_2: mmGtData.kod_2 || 'NIT',
+      kaplama: mmGtData.kaplama || 120,
+      min_mukavemet: mmGtData.min_mukavemet || 400,
+      max_mukavemet: mmGtData.max_mukavemet || 500,
+      tolerans_plus: mmGtData.tolerans_plus || 0,
+      tolerans_minus: mmGtData.tolerans_minus || 0.06,
+      ic_cap: mmGtData.ic_cap || 45,
+      dis_cap: mmGtData.dis_cap || 75,
+      kg: mmGtData.kg || 750,
+      unwinding: mmGtData.unwinding || null,
+      shrink: mmGtData.shrink || 'evet',
+      cast_kont: mmGtData.cast_kont || '',
+      helix_kont: mmGtData.helix_kont || '',
+      elongation: mmGtData.elongation || '',
+      sequence: sequence
+    });
+    
+    // Reçete verilerini de güncelle
+    if (receteData) {
+      setReceteFormValues({
+        boraks_tuketimi: receteData.boraks_tuketimi || initialReceteValues.boraks_tuketimi,
+        asit_tuketimi: receteData.asit_tuketimi || initialReceteValues.asit_tuketimi,
+        desi_tuketimi: receteData.desi_tuketimi || initialReceteValues.desi_tuketimi,
+        paketleme_suresi: receteData.paketleme_suresi || initialReceteValues.paketleme_suresi,
+        galvanizleme_suresi: receteData.galvanizleme_suresi || initialReceteValues.galvanizleme_suresi,
+        tel_cekme_suresi: receteData.tel_cekme_suresi || initialReceteValues.tel_cekme_suresi
+      });
+    }
+  }
+};
+
+// Ürün temizle
+const handleNewProduct = () => {
+  setMmGtData(null);
+  setYmGtData(null);
+  setSelectedYmSt([]);
+  setReceteData(null);
+  setIsEditMode(false);
+  setDataExist(false);
+  setCurrentStep('form');
+  setFormValues(initialFormValues);
+  setReceteFormValues(initialReceteValues);
+  setExcelCreated({
+    stokKarti: false,
+    recete: false
+  });
+  setDatabaseSaved(false);
+};
+
+// YM ST seçimini tamamla ve reçete adımına geç
+const handleYmStSelectionComplete = () => {
+  if (selectedYmSt.length === 0) {
+    setError('Lütfen en az bir YM ST seçin');
+    toast.error('Lütfen en az bir YM ST seçin');
+    return;
+  }
+  
+  setCurrentStep('recete');
+};
+
+// Reçete tamamla ve özet adımına geç
+const handleReceteComplete = async (values) => {
+  if (!mmGtData || !ymGtData) {
+    setError('Ürün bilgileri eksik. Lütfen baştan başlayın.');
+    return;
+  }
+  
+  // Reçete verilerini kaydet
+  const result = await saveRecete(values, mmGtData.id, ymGtData.id);
+  
+  if (result) {
     setCurrentStep('summary');
-  };
+  } else {
+    setError('Reçete verileri kaydedilemedi. Lütfen tekrar deneyin.');
+  }
+};
 
-  // Yalnızca veritabanına ekle
-  const handleSaveToDatabase = async () => {
-    try {
-      setLoading(true);
-      
-      // Veritabanı kaydetme işlemleri zaten yapılmış olabilir
-      // saveMMGT ve saveYMGT fonksiyonları formu gönderdiğimizde çağrılıyor
-      // Fakat eğer önceden yapılmayan bir işlem varsa burada yapılabilir
-      
-      setDatabaseSaved(true);
-      toast.success('Veriler başarıyla veritabanına kaydedildi');
-    } catch (error) {
-      toast.error('Veritabanına kayıt sırasında hata oluştu: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Yalnızca Excel oluştur
-  const handleCreateExcelOnly = async (type) => {
-    if (!mmGtData) {
-      setError('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
-      toast.error('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
-      return;
-    }
-    
-    if (selectedYmSt.length === 0) {
-      setError('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
-      toast.error('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
-      return;
-    }
-    
+// Veritabanına kaydet
+const handleSaveToDatabase = async () => {
+  try {
     setLoading(true);
     
-    try {
-      if (type === 'stokKarti' || type === 'both') {
-        // Stok Kartı Excel oluştur
-        await createStokKartiExcel(mmGtData, ymGtData, selectedYmSt);
-        setExcelCreated(prev => ({ ...prev, stokKarti: true }));
-        toast.success('Stok Kartı Excel dosyası başarıyla oluşturuldu');
+    // Veritabanı kaydetme işlemleri
+    if (!isEditMode) {
+      const savedMmGt = await saveMMGT(formValues);
+      if (savedMmGt) {
+        const savedYmGt = await saveYMGT(formValues, savedMmGt.id);
+        if (savedYmGt) {
+          for (const ymSt of selectedYmSt) {
+            await saveYMST(ymSt, savedMmGt.id);
+          }
+          await saveRecete(receteFormValues, savedMmGt.id, savedYmGt.id);
+        }
       }
-      
-      if (type === 'recete' || type === 'both') {
-        // Reçete Excel oluştur
-        await createReceteExcel(mmGtData, ymGtData, selectedYmSt);
-        setExcelCreated(prev => ({ ...prev, recete: true }));
-        toast.success('Reçete Excel dosyası başarıyla oluşturuldu');
-      }
-    } catch (error) {
-      toast.error('Excel oluşturulurken hata oluştu: ' + error.message);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    setDatabaseSaved(true);
+    toast.success('Veriler başarıyla veritabanına kaydedildi');
+  } catch (error) {
+    toast.error('Veritabanına kayıt sırasında hata oluştu: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Düzenleme moduna dön
-  const handleEditProduct = () => {
-    setCurrentStep('form');
-  };
+// Excel oluştur
+const handleCreateExcelOnly = async (type) => {
+  if (!mmGtData) {
+    setError('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
+    toast.error('Excel oluşturmak için önce MM GT kaydı oluşturmalısınız');
+    return;
+  }
+  
+  if (selectedYmSt.length === 0) {
+    setError('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
+    toast.error('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
+    return;
+  }
+  
+  setLoading(true);
+  
+  try {
+    if (type === 'stokKarti' || type === 'both') {
+      // Stok Kartı Excel oluştur
+      await createStokKartiExcel(mmGtData, ymGtData, selectedYmSt);
+      setExcelCreated(prev => ({ ...prev, stokKarti: true }));
+      toast.success('Stok Kartı Excel dosyası başarıyla oluşturuldu');
+    }
+    
+    if (type === 'recete' || type === 'both') {
+      // Reçete Excel oluştur
+      await createReceteExcel(mmGtData, ymGtData, selectedYmSt);
+      setExcelCreated(prev => ({ ...prev, recete: true }));
+      toast.success('Reçete Excel dosyası başarıyla oluşturuldu');
+    }
+  } catch (error) {
+    toast.error('Excel oluşturulurken hata oluştu: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // İptal et
-  const handleCancel = () => {
-    // Düzenleme yapıldıysa kullanıcıya sor
-    if (isEditMode || mmGtData) {
-      if (window.confirm('Değişiklikler kaydedilmeyecek. Devam etmek istiyor musunuz?')) {
-        handleNewProduct();
-      }
-    } else {
+// Hem veritabanına kaydet hem de Excel oluştur
+const handleSaveAndCreateExcel = async (type) => {
+  await handleSaveToDatabase();
+  await handleCreateExcelOnly(type);
+};
+
+// Düzenleme moduna dön
+const handleEditProduct = () => {
+  setCurrentStep('form');
+};
+
+// İptal et
+const handleCancel = () => {
+  // Düzenleme yapıldıysa kullanıcıya sor
+  if (isEditMode || mmGtData) {
+    if (window.confirm('Değişiklikler kaydedilmeyecek. Devam etmek istiyor musunuz?')) {
       handleNewProduct();
     }
-  };
+  } else {
+    handleNewProduct();
+  }
+};
 
-  // Hem veritabanına kaydet hem de Excel oluştur
-  const handleSaveAndCreateExcel = async (type) => {
-    await handleSaveToDatabase();
-    await handleCreateExcelOnly(type);
-  };
+// Veritabanı ürününü seç
+const handleSelectDatabaseItem = async (item) => {
+  await searchProducts({ stok_kodu: item.stok_kodu });
+  setShowDatabaseModal(false);
+};
 
-  // Stok kodu formatını göster
-  const getFormattedStokKodu = () => {
-    if (!formValues.kod_2 || !formValues.cap) return 'Oluşturulacak';
-    
-    const capValue = parseFloat(formValues.cap);
-    const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
-    const formattedSequence = sequence.toString().padStart(2, '0');
-    
-    return `GT.${formValues.kod_2}.${formattedCap}.${formattedSequence}`;
-  };
+// Veritabanı ürününü sil
+const handleDeleteDatabaseItem = async (type, id) => {
+  if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
+    const result = await deleteProduct(type, id);
+    if (result) {
+      await fetchProductDatabase();
+    }
+  }
+};
 
-  if (error && error === 'YM ST listesi yüklenirken bir hata oluştu') {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 mt-6 rounded-md bg-red-50 text-red-800">
-        <div className="mb-4">
-          YM ST listesi yüklenirken bir hata oluştu
-        </div>
+// Stok kodu formatını göster
+const getFormattedStokKodu = () => {
+  if (!formValues.kod_2 || !formValues.cap) return 'Oluşturulacak';
+  
+  const capValue = parseFloat(formValues.cap);
+  const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
+  const formattedSequence = sequence.toString().padStart(2, '0');
+  
+  return `GT.${formValues.kod_2}.${formattedCap}.${formattedSequence}`;
+};
+
+if (error && error === 'YM ST listesi yüklenirken bir hata oluştu') {
+  return (
+    <div className="flex flex-col items-center justify-center p-4 mt-6 rounded-md bg-red-50 text-red-800">
+      <div className="mb-4">
+        YM ST listesi yüklenirken bir hata oluştu
+      </div>
+      <button 
+        onClick={loadYmStList}
+        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+      >
+        Tekrar Dene
+      </button>
+    </div>
+  );
+}
+
+if (!hasPermission('access:galvanizli-tel')) {
+  return (
+    <div className="p-4 rounded-md bg-red-50 text-red-800 text-center">
+      Bu modüle erişim izniniz bulunmamaktadır.
+    </div>
+  );
+}
+
+return (
+  <div className="container mx-auto p-4 max-w-6xl">
+    {error && (
+      <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-red-50 text-red-800">
+        <span>{error}</span>
         <button 
-          onClick={loadYmStList}
-          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          onClick={() => setError(null)} 
+          className="ml-2 text-red-600 hover:text-red-800"
         >
-          Tekrar Dene
+          ✕
         </button>
       </div>
-    );
-  }
-
-  if (!hasPermission('access:galvanizli-tel')) {
-    return (
-      <div className="p-4 rounded-md bg-red-50 text-red-800 text-center">
-        Bu modüle erişim izniniz bulunmamaktadır.
+    )}
+    
+    {successMessage && (
+      <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-green-50 text-green-800">
+        <span>{successMessage}</span>
+        <button 
+          onClick={() => setSuccessMessage('')} 
+          className="ml-2 text-green-600 hover:text-green-800"
+        >
+          ✕
+        </button>
       </div>
-    );
-  }
-
-  return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      {error && (
-        <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-red-50 text-red-800">
-          <span>{error}</span>
-          <button 
-            onClick={() => setError(null)} 
-            className="ml-2 text-red-600 hover:text-red-800"
+    )}
+    
+    <div className="mb-6 bg-gray-100 p-4 rounded-md shadow-sm">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-700">Galvanizli Tel Netsis Entegrasyonu</h2>
+        <div>
+          <button
+            onClick={() => setShowDatabaseModal(true)}
+            className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
           >
-            ✕
+            Veritabanı
           </button>
         </div>
-      )}
-      
-      {successMessage && (
-        <div className="flex justify-between items-center mb-4 p-3 rounded-md bg-green-50 text-green-800">
-          <span>{successMessage}</span>
-          <button 
-            onClick={() => setSuccessMessage('')} 
-            className="ml-2 text-green-600 hover:text-green-800"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-      
-      <div className="mb-6 bg-gray-100 p-4 rounded-md shadow-sm">
-        <h2 className="text-xl mb-4 font-bold text-gray-700">Galvanizli Tel Netsis Entegrasyonu</h2>
       </div>
-      
-      {/* Adımlar Gösterimi */}
-      <div className="mb-6 flex items-center">
-        <div className={`flex-1 pb-2 ${currentStep === 'form' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          1. Ürün Bilgileri
-        </div>
-        <div className="mx-2 text-gray-400">→</div>
-        <div className={`flex-1 pb-2 ${currentStep === 'ymst' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          2. Hammadde Seçimi
-        </div>
-        <div className="mx-2 text-gray-400">→</div>
-        <div className={`flex-1 pb-2 ${currentStep === 'summary' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          3. Özet ve İşlemler
-        </div>
+    </div>
+    
+    {/* Adımlar Gösterimi */}
+    <div className="mb-6 flex items-center">
+      <div className={`flex-1 pb-2 ${currentStep === 'form' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+        1. Ürün Bilgileri
       </div>
-      
-      {/* Adım 1: Ürün Bilgileri Formu */}
-      {currentStep === 'form' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-700">MM GT Ürün Özellikleri</h3>
-          
-          <Formik
-            initialValues={formValues}
-            validationSchema={mmGtValidationSchema}
-            onSubmit={handleSubmit}
-            enableReinitialize={true}
-          >
-            {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
-              <Form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Çap (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="cap"
-                      value={values.cap}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      placeholder="2.50"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.cap && touched.cap && (
-                      <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
-                    )}
-                  </div>
-                  
-                  {/* Kaplama Türü */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Kaplama Türü <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="kod_2"
-                      value={values.kod_2}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kod_2 && touched.kod_2 ? "border-red-500" : "border-gray-300"
-                      }`}
-                    >
-                      <option value="NIT">NIT</option>
-                      <option value="PAD">PAD</option>
-                    </select>
-                    {errors.kod_2 && touched.kod_2 && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kod_2}</div>
-                    )}
-                  </div>
-                  
-                  {/* Kaplama */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Kaplama (gr/m²) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="kaplama"
-                      value={values.kaplama}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      disabled={values.kod_2 === 'PAD'}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kaplama && touched.kaplama ? "border-red-500" : "border-gray-300"
-                      } ${values.kod_2 === 'PAD' ? "bg-gray-100" : ""}`}
-                    />
-                    {errors.kaplama && touched.kaplama && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kaplama}</div>
-                    )}
-                  </div>
-                  
-                  {/* Min Mukavemet */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Min Mukavemet (MPa) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="min_mukavemet"
-                      value={values.min_mukavemet}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.min_mukavemet && touched.min_mukavemet ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.min_mukavemet && touched.min_mukavemet && (
-                      <div className="text-red-500 text-xs mt-1">{errors.min_mukavemet}</div>
-                    )}
-                  </div>
-                  
-                  {/* Max Mukavemet */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Max Mukavemet (MPa) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="max_mukavemet"
-                      value={values.max_mukavemet}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.max_mukavemet && touched.max_mukavemet ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.max_mukavemet && touched.max_mukavemet && (
-                      <div className="text-red-500 text-xs mt-1">{errors.max_mukavemet}</div>
-                    )}
-                  </div>
-                  
-                  {/* Tolerans (+) */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Tolerans (+) (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tolerans_plus"
-                      value={values.tolerans_plus}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.tolerans_plus && touched.tolerans_plus ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.tolerans_plus && touched.tolerans_plus && (
-                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_plus}</div>
-                    )}
-                  </div>
-                  
-                  {/* Tolerans (-) */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Tolerans (-) (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tolerans_minus"
-                      value={values.tolerans_minus}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.tolerans_minus && touched.tolerans_minus ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.tolerans_minus && touched.tolerans_minus && (
-                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_minus}</div>
-                    )}
-                  </div>
-                  
-                  {/* İç Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      İç Çap (cm) <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="ic_cap"
-                      value={values.ic_cap}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="45">45</option>
-                      <option value="50">50</option>
-                      <option value="55">55</option>
-                    </select>
-                  </div>
-                  
-                  {/* Dış Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Dış Çap (cm)
-                    </label>
-                    <input
-                      type="number"
-                      name="dis_cap"
-                      value={values.dis_cap}
-                      readOnly
-                      className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
-                    />
-                  </div>
-                  
-                  {/* Ağırlık */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Ağırlık (kg) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="kg"
-                      value={values.kg}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kg && touched.kg ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.kg && touched.kg && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kg}</div>
-                    )}
-                  </div>
-                  
-                  {/* Sarım Yönü */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Sarım Yönü
-                    </label>
-                    <select
-                      name="unwinding"
-                      value={values.unwinding || ""}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Anti-Clockwise (Varsayılan)</option>
-                      <option value="Clockwise">Clockwise</option>
-                    </select>
-                  </div>
-                  
-                  {/* Shrink */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Shrink
-                    </label>
-                    <select
-                      name="shrink"
-                      value={values.shrink}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="evet">Evet</option>
-                      <option value="hayır">Hayır</option>
-                    </select>
-                  </div>
-                </div>
-                
-                {/* İsteğe Bağlı Alanlar */}
-                <div className="mt-6 border-t pt-6">
-                  <h4 className="text-md font-medium mb-4 text-gray-700">İsteğe Bağlı Alanlar</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        CAST KONT
-                      </label>
-                      <input
-                        type="text"
-                        name="cast_kont"
-                        value={values.cast_kont}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        HELIX KONT
-                      </label>
-                      <input
-                        type="text"
-                        name="helix_kont"
-                        value={values.helix_kont}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        ELONGATION
-                      </label>
-                      <input
-                        type="text"
-                        name="elongation"
-                        value={values.elongation}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center mt-8 pt-4 border-t">
-                  <div>
-                    <span className="text-gray-700 font-medium">Stok Kodu: </span>
-                    <span className="font-bold text-gray-800">{getFormattedStokKodu()}</span>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <button 
-                      type="button"
-                      onClick={() => setShowSearchModal(true)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
-                    >
-                      Ürün Ara
-                    </button>
-                    
-                    <button
-                      type="button" 
-                      onClick={handleCancel}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                    >
-                      İptal
-                    </button>
-                    
-                    <button 
-                      type="submit"
-                      disabled={isSubmitting || loading}
-                      className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                    >
-                      {loading ? 'İşleniyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
-                    </button>
-                  </div>
-                </div>
-              </Form>
-            )}
-          </Formik>
-        </div>
-      )}
-      
-      {/* Adım 2: YM ST Seçimi */}
-      {currentStep === 'ymst' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-medium text-gray-700">Hammadde Seçimi (YM ST)</h3>
-            <button 
-              onClick={() => setShowYmStSearchModal(true)}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Hammadde Ekle
-            </button>
-          </div>
-          
-          {selectedYmSt.length === 0 ? (
-            <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
-              Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {selectedYmSt.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <button 
-                          onClick={() => handleRemoveYmSt(item.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Kaldır
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          
-          <div className="flex justify-between mt-8 pt-4 border-t">
-            <button 
-              onClick={() => setCurrentStep('form')}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-            >
-              Geri
-            </button>
-            <button 
-              onClick={handleYmStSelectionComplete}
-              disabled={selectedYmSt.length === 0}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-            >
-              Devam Et
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Adım 3: Özet ve İşlem Seçenekleri */}
-      {currentStep === 'summary' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-700">İşlem Özeti</h3>
-          
-          <div className="p-4 bg-gray-50 rounded-md mb-6">
-            <div className="mb-2">
-              <span className="font-medium">MM GT Stok Kodu:</span> {mmGtData?.stok_kodu}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">MM GT Stok Adı:</span> {mmGtData?.stok_adi}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">YM GT Stok Kodu:</span> {ymGtData?.stok_kodu}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">Seçilen YM ST Sayısı:</span> {selectedYmSt.length}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Stok Kartı Excel Bölümü */}
-            <div className="border p-4 rounded-md">
-              <h4 className="font-medium text-gray-700 mb-3">Stok Kartı Excel</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                MM GT, YM GT ve YM ST bilgilerini içeren Excel dosyası
-              </p>
-              
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => handleCreateExcelOnly('stokKarti')}
-                  disabled={loading}
-                  className={`px-3 py-2 text-sm rounded-md ${
-                    excelCreated.stokKarti 
-                      ? "bg-green-600 text-white hover:bg-green-700" 
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  } transition-colors disabled:bg-gray-400`}
-                >
-                  {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
-                </button>
-                
-                <button 
-                  onClick={() => handleSaveAndCreateExcel('stokKarti')}
-                  disabled={loading || databaseSaved}
-                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                >
-                  {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
-                </button>
-              </div>
-            </div>
-            
-            {/* Reçete Excel Bölümü */}
-            <div className="border p-4 rounded-md">
-              <h4 className="font-medium text-gray-700 mb-3">Reçete Excel</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                MM GT, YM GT ve YM ST reçete bilgilerini içeren Excel dosyası
-              </p>
-              
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => handleCreateExcelOnly('recete')}
-                  disabled={loading}
-                  className={`px-3 py-2 text-sm rounded-md ${
-                    excelCreated.recete 
-                      ? "bg-green-600 text-white hover:bg-green-700" 
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  } transition-colors disabled:bg-gray-400`}
-                >
-                  {loading ? 'İşleniyor...' : excelCreated.recete ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
-                </button>
-                
-                <button 
-                  onClick={() => handleSaveAndCreateExcel('recete')}
-                  disabled={loading || databaseSaved}
-                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                >
-                  {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Tüm İşlemler */}
-          <div className="mt-6 pt-6 border-t">
-            <h4 className="font-medium text-gray-700 mb-3">Hızlı İşlemler</h4>
-            
-            <div className="flex flex-wrap gap-2">
-              <button 
-                onClick={() => handleSaveToDatabase()}
-                disabled={loading || databaseSaved}
-                className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors disabled:bg-gray-400"
-              >
-                {databaseSaved ? 'Veritabanına Kaydedildi' : 'Yalnızca Veritabanına Kaydet'}
-              </button>
-              
-              <button 
-                onClick={() => handleCreateExcelOnly('both')}
-                disabled={loading}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-              >
-                Tüm Excel Dosyalarını Oluştur
-              </button>
-              
-              <button 
-                onClick={() => handleSaveAndCreateExcel('both')}
-                disabled={loading || databaseSaved}
-                className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-              >
-                Kaydet ve Tüm Excel Dosyalarını Oluştur
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex justify-between mt-8 pt-4 border-t">
-            <div>
-              <button 
-                onClick={handleCancel}
-                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors mr-2"
-              >
-                İptal
-              </button>
-              
-              <button 
-                onClick={handleEditProduct}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
-              >
-                Düzenle
-              </button>
-            </div>
-            
-            <button 
-              onClick={handleNewProduct}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              Yeni Ürün
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* YM ST Arama Modal */}
-      {showYmStSearchModal && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">YM ST Seç</h3>
-              </div>
-              
-              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+      <div className="mx-2 text-gray-400">→</div>
+      <div className={`flex-1 pb-2 ${currentStep === 'ymst' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+        2. Hammadde Seçimi
+      </div>
+      <div className="mx-2 text-gray-400">→</div>
+      <div className={`flex-1 pb-2 ${currentStep === 'recete' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+        3. Reçete Bilgileri
+      </div>
+      <div className="mx-2 text-gray-400">→</div>
+      <div className={`flex-1 pb-2 ${currentStep === 'summary' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+        4. Özet ve İşlemler
+      </div>
+    </div>
+    
+    {/* Adım 1: Ürün Bilgileri Formu */}
+    {currentStep === 'form' && (
+      <div className="bg-white rounded-md shadow-sm p-6">
+        <h3 className="text-lg font-medium mb-4 text-gray-700">MM GT Ürün Özellikleri</h3>
+        
+        <Formik
+          initialValues={formValues}
+          validationSchema={mmGtValidationSchema}
+          onSubmit={handleSubmit}
+          enableReinitialize={true}
+        >
+          {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+            <Form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Çap */}
                 <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Çap (mm) <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    type="text"
-                    placeholder="Ara..."
-                    value={searchYmSt}
-                    onChange={handleYmStSearch}
+                    type="number"
+                    name="cap"
+                    value={values.cap}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.01"
+                    placeholder="2.50"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.cap && touched.cap && (
+                    <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
+                  )}
+                </div>
+                
+                {/* Kaplama Türü */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Kaplama Türü <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="kod_2"
+                    value={values.kod_2}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className={`w-full p-2 border rounded-md ${
+                      errors.kod_2 && touched.kod_2 ? "border-red-500" : "border-gray-300"
+                    }`}
+                  >
+                    <option value="NIT">NIT</option>
+                    <option value="PAD">PAD</option>
+                  </select>
+                  {errors.kod_2 && touched.kod_2 && (
+                    <div className="text-red-500 text-xs mt-1">{errors.kod_2}</div>
+                  )}
+                </div>
+                
+                {/* Kaplama */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Kaplama (gr/m²) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="kaplama"
+                    value={values.kaplama}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    disabled={values.kod_2 === 'PAD'}
+                    className={`w-full p-2 border rounded-md ${
+                      errors.kaplama && touched.kaplama ? "border-red-500" : "border-gray-300"
+                    } ${values.kod_2 === 'PAD' ? "bg-gray-100" : ""}`}
+                  />
+                  {errors.kaplama && touched.kaplama && (
+                    <div className="text-red-500 text-xs mt-1">{errors.kaplama}</div>
+                  )}
+                </div>
+                
+                {/* Min Mukavemet */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Min Mukavemet (MPa) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="min_mukavemet"
+                    value={values.min_mukavemet}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className={`w-full p-2 border rounded-md ${
+                      errors.min_mukavemet && touched.min_mukavemet ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.min_mukavemet && touched.min_mukavemet && (
+                    <div className="text-red-500 text-xs mt-1">{errors.min_mukavemet}</div>
+                  )}
+                </div>
+                
+                {/* Max Mukavemet */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Max Mukavemet (MPa) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="max_mukavemet"
+                    value={values.max_mukavemet}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className={`w-full p-2 border rounded-md ${
+                      errors.max_mukavemet && touched.max_mukavemet ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.max_mukavemet && touched.max_mukavemet && (
+                    <div className="text-red-500 text-xs mt-1">{errors.max_mukavemet}</div>
+                  )}
+                </div>
+                
+                {/* Tolerans (+) */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Tolerans (+) (mm) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="tolerans_plus"
+                    value={values.tolerans_plus}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.01"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.tolerans_plus && touched.tolerans_plus ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.tolerans_plus && touched.tolerans_plus && (
+                    <div className="text-red-500 text-xs mt-1">{errors.tolerans_plus}</div>
+                  )}
+                </div>
+                
+                {/* Tolerans (-) */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Tolerans (-) (mm) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="tolerans_minus"
+                    value={values.tolerans_minus}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.01"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.tolerans_minus && touched.tolerans_minus ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.tolerans_minus && touched.tolerans_minus && (
+                    <div className="text-red-500 text-xs mt-1">{errors.tolerans_minus}</div>
+                  )}
+                </div>
+                
+                {/* İç Çap */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    İç Çap (cm) <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="ic_cap"
+                    value={values.ic_cap}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
                     className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="45">45</option>
+                    <option value="50">50</option>
+                    <option value="55">55</option>
+                  </select>
+                </div>
+                
+                {/* Dış Çap */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Dış Çap (cm)
+                  </label>
+                  <input
+                    type="number"
+                    name="dis_cap"
+                    value={values.dis_cap}
+                    readOnly
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
                   />
                 </div>
                 
-                <div className="max-h-96 overflow-y-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seç</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredYmStList.map(item => {
-                        const isSelected = selectedYmSt.some(sel => sel.id === item.id);
-                        const isActive = selectedYmStToAdd?.id === item.id;
-                        
-                        return (
-                          <tr key={item.id} className={isSelected ? "bg-gray-100" : ""}>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                              <button
-                                onClick={() => handleSelectYmSt(item)}
-                                disabled={isSelected}
-                                className={`px-3 py-1 rounded-md text-sm ${
-                                  isSelected 
-                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
-                                    : isActive
-                                      ? "bg-green-600 text-white"
-                                      : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                                }`}
-                              >
-                                {isSelected ? 'Seçildi' : isActive ? 'Seçildi' : 'Seç'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      
-                      {filteredYmStList.length === 0 && (
-                        <tr>
-                          <td colSpan="6" className="text-center py-4 text-gray-500">
-                            Arama kriterine uygun YM ST bulunamadı
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                {/* Ağırlık */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Ağırlık (kg) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="kg"
+                    value={values.kg}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className={`w-full p-2 border rounded-md ${
+                      errors.kg && touched.kg ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.kg && touched.kg && (
+                    <div className="text-red-500 text-xs mt-1">{errors.kg}</div>
+                  )}
+                </div>
+                
+                {/* Sarım Yönü */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Sarım Yönü
+                  </label>
+                  <select
+                    name="unwinding"
+                    value={values.unwinding || ""}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Anti-Clockwise (Varsayılan)</option>
+                    <option value="Clockwise">Clockwise</option>
+                  </select>
+                </div>
+                
+                {/* Shrink */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Shrink
+                  </label>
+                  <select
+                    name="shrink"
+                    value={values.shrink}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="evet">Evet</option>
+                    <option value="hayır">Hayır</option>
+                  </select>
                 </div>
               </div>
               
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  onClick={handleAddYmSt}
-                  disabled={!selectedYmStToAdd}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+              {/* İsteğe Bağlı Alanlar */}
+              <div className="mt-6 border-t pt-6">
+                <h4 className="text-md font-medium mb-4 text-gray-700">İsteğe Bağlı Alanlar</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      CAST KONT
+                    </label>
+                    <input
+                      type="text"
+                      name="cast_kont"
+                      value={values.cast_kont}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      HELIX KONT
+                    </label>
+                    <input
+                      type="text"
+                      name="helix_kont"
+                      value={values.helix_kont}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      ELONGATION
+                    </label>
+                    <input
+                      type="text"
+                      name="elongation"
+                      value={values.elongation}
+                      onChange={(e) => {
+                        handleChange(e);
+                        handleInputChange(e);
+                      }}
+                      onBlur={handleBlur}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mt-8 pt-4 border-t">
+                <div>
+                  <span className="text-gray-700 font-medium">Stok Kodu: </span>
+                  <span className="font-bold text-gray-800">{getFormattedStokKodu()}</span>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    type="button" 
+                    onClick={handleCancel}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                  >
+                    İptal
+                  </button>
+                  
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting || loading}
+                    className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {loading ? 'İşleniyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
+                  </button>
+                </div>
+              </div>
+            </Form>
+          )}
+        </Formik>
+      </div>
+    )}
+    
+    {/* Adım 2: YM ST Seçimi */}
+    {currentStep === 'ymst' && (
+      <div className="bg-white rounded-md shadow-sm p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-medium text-gray-700">Hammadde Seçimi (YM ST)</h3>
+          <button 
+            onClick={() => setShowYmStSearchModal(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          >
+            Hammadde Ekle
+          </button>
+        </div>
+        
+        {selectedYmSt.length === 0 ? (
+          <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
+            Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {selectedYmSt.map(item => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <button 
+                        onClick={() => handleRemoveYmSt(item.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Kaldır
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        <div className="flex justify-between mt-8 pt-4 border-t">
+          <button 
+            onClick={() => setCurrentStep('form')}
+            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+          >
+            Geri
+          </button>
+          <button 
+            onClick={handleYmStSelectionComplete}
+            disabled={selectedYmSt.length === 0}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+          >
+            Devam Et
+          </button>
+        </div>
+      </div>
+    )}
+    
+    {/* Adım 3: Reçete Bilgileri */}
+    {currentStep === 'recete' && (
+      <div className="bg-white rounded-md shadow-sm p-6">
+        <h3 className="text-lg font-medium mb-4 text-gray-700">Reçete Bilgileri</h3>
+        
+        <Formik
+          initialValues={receteFormValues}
+          validationSchema={receteValidationSchema}
+          onSubmit={handleReceteComplete}
+          enableReinitialize={true}
+        >
+          {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+            <Form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Boraks Tüketimi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Boraks Tüketimi (150 03) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="boraks_tuketimi"
+                    value={values.boraks_tuketimi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.000001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.boraks_tuketimi && touched.boraks_tuketimi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Önerilen: {(0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
+                  </div>
+                  {errors.boraks_tuketimi && touched.boraks_tuketimi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.boraks_tuketimi}</div>
+                  )}
+                </div>
+                
+                {/* Asit Tüketimi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Asit Tüketimi (SM.HİDROLİK.ASİT) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="asit_tuketimi"
+                    value={values.asit_tuketimi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.0001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.asit_tuketimi && touched.asit_tuketimi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {formValues.kod_2 === 'NIT' ? (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Önerilen: {
+                        parseFloat(formValues.cap) < 1.5 ? "0.002" :
+                        parseFloat(formValues.cap) < 2.5 ? "0.0025" : "0.003"
+                      }
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Önerilen: {
+                        parseFloat(formValues.cap) < 1.5 ? "0.001" :
+                        parseFloat(formValues.cap) < 2.5 ? "0.0015" : "0.002"
+                      }
+                    </div>
+                  )}
+                  {errors.asit_tuketimi && touched.asit_tuketimi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.asit_tuketimi}</div>
+                  )}
+                </div>
+                
+                {/* Desi Tüketimi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Desi Tüketimi (SM.DESİ.PAK) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="desi_tuketimi"
+                    value={values.desi_tuketimi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.0001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.desi_tuketimi && touched.desi_tuketimi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Önerilen: {parseInt(formValues.kg) > 800 ? "0.002" : "0.0013"}
+                  </div>
+                  {errors.desi_tuketimi && touched.desi_tuketimi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.desi_tuketimi}</div>
+                  )}
+                </div>
+                
+                {/* Paketleme Süresi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Paketleme Süresi (GTPKT01) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="paketleme_suresi"
+                    value={values.paketleme_suresi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.paketleme_suresi && touched.paketleme_suresi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Önerilen: 0.020
+                  </div>
+                  {errors.paketleme_suresi && touched.paketleme_suresi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.paketleme_suresi}</div>
+                  )}
+                </div>
+                
+                {/* Galvanizleme Süresi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Galvanizleme Süresi (GLV01) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="galvanizleme_suresi"
+                    value={values.galvanizleme_suresi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.000001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.galvanizleme_suresi && touched.galvanizleme_suresi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Önerilen: {Math.max(0.001, 1.15 - (0.125 * parseFloat(formValues.cap))).toFixed(6)}
+                  </div>
+                  {errors.galvanizleme_suresi && touched.galvanizleme_suresi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.galvanizleme_suresi}</div>
+                  )}
+                </div>
+                
+                {/* Tel Çekme Süresi */}
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Tel Çekme Süresi (TLC01) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="tel_cekme_suresi"
+                    value={values.tel_cekme_suresi}
+                    onChange={(e) => {
+                      handleChange(e);
+                      handleReceteInputChange(e);
+                    }}
+                    onBlur={handleBlur}
+                    step="0.000001"
+                    className={`w-full p-2 border rounded-md ${
+                      errors.tel_cekme_suresi && touched.tel_cekme_suresi ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Önerilen: {(0.2 / Math.pow(parseFloat(formValues.cap), 1.5)).toFixed(6)}
+                  </div>
+                  {errors.tel_cekme_suresi && touched.tel_cekme_suresi && (
+                    <div className="text-red-500 text-xs mt-1">{errors.tel_cekme_suresi}</div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-8 pt-4 border-t">
+                <button 
+                  onClick={() => setCurrentStep('ymst')}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
                 >
-                  Ekle
-                </button>
-                <button
-                  onClick={() => {
-                    setShowYmStSearchModal(false);
-                    setSelectedYmStToAdd(null);
-                    setSearchYmSt("");
-                  }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  İptal
+                  Geri
                 </button>
                 <button 
-                  onClick={() => setShowYmStCreateModal(true)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-gray-800 text-base font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  type="submit"
+                  disabled={isSubmitting || loading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
                 >
-                  Yeni YM ST Oluştur
+                  {loading ? 'İşleniyor...' : 'Devam Et'}
                 </button>
               </div>
+            </Form>
+          )}
+        </Formik>
+      </div>
+    )}
+    
+    {/* Adım 4: Özet ve İşlem Seçenekleri */}
+    {currentStep === 'summary' && (
+      <div className="bg-white rounded-md shadow-sm p-6">
+        <h3 className="text-lg font-medium mb-4 text-gray-700">İşlem Özeti</h3>
+        
+        <div className="p-4 bg-gray-50 rounded-md mb-6">
+          <div className="mb-2">
+            <span className="font-medium">MM GT Stok Kodu:</span> {mmGtData?.stok_kodu}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">MM GT Stok Adı:</span> {mmGtData?.stok_adi}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">YM GT Stok Kodu:</span> {ymGtData?.stok_kodu}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Seçilen YM ST Sayısı:</span> {selectedYmSt.length}
+          </div>
+          <div className="mb-2">
+            <span className="font-medium">Reçete:</span> Tamamlandı
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Stok Kartı Excel Bölümü */}
+          <div className="border p-4 rounded-md">
+            <h4 className="font-medium text-gray-700 mb-3">Stok Kartı Excel</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              MM GT, YM GT ve YM ST bilgilerini içeren Excel dosyası
+            </p>
+            
+            <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => handleCreateExcelOnly('stokKarti')}
+                disabled={loading}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  excelCreated.stokKarti 
+                    ? "bg-green-600 text-white hover:bg-green-700" 
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                } transition-colors disabled:bg-gray-400`}
+              >
+                {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
+              </button>
+              
+              <button 
+                onClick={() => handleSaveAndCreateExcel('stokKarti')}
+                disabled={loading || databaseSaved}
+                className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+              >
+                {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+              </button>
+            </div>
+          </div>
+          
+          {/* Reçete Excel Bölümü */}
+          <div className="border p-4 rounded-md">
+            <h4 className="font-medium text-gray-700 mb-3">Reçete Excel</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              MM GT, YM GT ve YM ST reçete bilgilerini içeren Excel dosyası
+            </p>
+            
+            <div className="flex flex-wrap gap-2">
+              <button 
+                onClick={() => handleCreateExcelOnly('recete')}
+                disabled={loading}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  excelCreated.recete 
+                    ? "bg-green-600 text-white hover:bg-green-700" 
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                } transition-colors disabled:bg-gray-400`}
+              >
+                {loading ? 'İşleniyor...' : excelCreated.recete ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
+              </button>
+              
+              <button 
+                onClick={() => handleSaveAndCreateExcel('recete')}
+                disabled={loading || databaseSaved}
+                className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+              >
+                {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+              </button>
             </div>
           </div>
         </div>
-      )}
-      
-      {/* YM ST Oluşturma Modal */}
-      {showYmStCreateModal && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+        
+        {/* Tüm İşlemler */}
+        <div className="mt-6 pt-6 border-t">
+          <h4 className="font-medium text-gray-700 mb-3">Hızlı İşlemler</h4>
+          
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => handleSaveToDatabase()}
+              disabled={loading || databaseSaved}
+              className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors disabled:bg-gray-400"
+            >
+              {databaseSaved ? 'Veritabanına Kaydedildi' : 'Yalnızca Veritabanına Kaydet'}
+            </button>
+            
+            <button 
+              onClick={() => handleCreateExcelOnly('both')}
+              disabled={loading}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+            >
+              Tüm Excel Dosyalarını Oluştur
+            </button>
+            
+            <button 
+              onClick={() => handleSaveAndCreateExcel('both')}
+              disabled={loading || databaseSaved}
+              className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+            >
+              Kaydet ve Tüm Excel Dosyalarını Oluştur
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex justify-between mt-8 pt-4 border-t">
+          <div>
+            <button 
+              onClick={handleCancel}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors mr-2"
+            >
+              İptal
+            </button>
+            
+            <button 
+              onClick={handleEditProduct}
+              className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+            >
+              Düzenle
+            </button>
+          </div>
+          
+          <button 
+            onClick={handleNewProduct}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            Yeni Ürün
+          </button>
+        </div>
+      </div>
+    )}
+    
+    {/* YM ST Arama Modal */}
+    {showYmStSearchModal && (
+      <div className="fixed inset-0 z-10 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          </div>
+          
+          <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+          
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">YM ST Seç</h3>
             </div>
             
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Yeni YM ST Oluştur</h3>
+            <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Ara..."
+                  value={searchYmSt}
+                  onChange={handleYmStSearch}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
               </div>
               
-              <Formik
-                initialValues={{
-                  cap: mmGtData?.cap || '',
-                  filmasin: '550',
-                  quality: '1006'
-                }}
-                validationSchema={Yup.object().shape({
-                  cap: Yup.number()
-                    .required('Çap zorunludur')
-                    .min(0.8, 'Çap en az 0.8 olmalıdır')
-                    .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
-                  filmasin: Yup.string()
-                    .required('Filmaşin zorunludur'),
-                  quality: Yup.string()
-                    .required('Kalite zorunludur')
-                })}
-                onSubmit={handleCreateYmSt}
-              >
-                {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
-                  <Form onSubmit={handleSubmit}>
-                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Çap (mm) <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          name="cap"
-                          value={values.cap}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          step="0.01"
-                          className={`w-full p-2 border rounded-md ${
-                            errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
-                          }`}
-                        />
-                        {errors.cap && touched.cap && (
-                          <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
-                        )}
-                      </div>
+              <div className="max-h-96 overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seç</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredYmStList.map(item => {
+                      const isSelected = selectedYmSt.some(sel => sel.id === item.id);
+                      const isActive = selectedYmStToAdd?.id === item.id;
                       
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Filmaşin <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="filmasin"
-                          value={values.filmasin}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className={`w-full p-2 border rounded-md ${
-                            errors.filmasin && touched.filmasin ? "border-red-500" : "border-gray-300"
-                          }`}
-                        />
-                        {errors.filmasin && touched.filmasin && (
-                          <div className="text-red-500 text-xs mt-1">{errors.filmasin}</div>
-                        )}
-                      </div>
-                      
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Kalite <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="quality"
-                          value={values.quality}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className={`w-full p-2 border rounded-md ${
-                            errors.quality && touched.quality ? "border-red-500" : "border-gray-300"
-                          }`}
-                        />
-                        {errors.quality && touched.quality && (
-                          <div className="text-red-500 text-xs mt-1">{errors.quality}</div>
-                        )}
-                      </div>
-                    </div>
+                      return (
+                        <tr key={item.id} className={isSelected ? "bg-gray-100" : ""}>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            <button
+                              onClick={() => handleSelectYmSt(item)}
+                              disabled={isSelected}
+                              className={`px-3 py-1 rounded-md text-sm ${
+                                isSelected 
+                                  ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                                  : isActive
+                                    ? "bg-green-600 text-white"
+                                    : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                              }`}
+                            >
+                              {isSelected ? 'Seçildi' : isActive ? 'Seçildi' : 'Seç'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || loading}
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
-                      >
-                        {loading ? 'İşleniyor...' : 'Oluştur'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowYmStCreateModal(false)}
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                      >
-                        İptal
-                      </button>
-                    </div>
-                  </Form>
-                )}
-              </Formik>
+                    {filteredYmStList.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="text-center py-4 text-gray-500">
+                          Arama kriterine uygun YM ST bulunamadı
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <button
+                onClick={handleAddYmSt}
+                disabled={!selectedYmStToAdd}
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+              >
+                Ekle
+              </button>
+              <button
+                onClick={() => {
+                  setShowYmStSearchModal(false);
+                  setSelectedYmStToAdd(null);
+                  setSearchYmSt("");
+                }}
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+              >
+                İptal
+              </button>
+              <button 
+                onClick={() => setShowYmStCreateModal(true)}
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-gray-800 text-base font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Yeni YM ST Oluştur
+              </button>
             </div>
           </div>
         </div>
-      )}
-      
-      {/* Ürün Arama Modal */}
-      {showSearchModal && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+    )}
+    
+    {/* YM ST Oluşturma Modal */}
+    {showYmStCreateModal && (
+      <div className="fixed inset-0 z-10 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          </div>
+          
+          <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+          
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Yeni YM ST Oluştur</h3>
             </div>
             
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <Formik
+              initialValues={{
+                cap: mmGtData?.cap || '',
+                filmasin: '550',
+                quality: '1006'
+              }}
+              validationSchema={Yup.object().shape({
+                cap: Yup.number()
+                  .required('Çap zorunludur')
+                  .min(0.8, 'Çap en az 0.8 olmalıdır')
+                  .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
+                filmasin: Yup.string()
+                  .required('Filmaşin zorunludur'),
+                quality: Yup.string()
+                  .required('Kalite zorunludur')
+              })}
+              onSubmit={handleCreateYmSt}
+            >
+              {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                <Form onSubmit={handleSubmit}>
+                  <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Çap (mm) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="cap"
+                        value={values.cap}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        step="0.01"
+                        className={`w-full p-2 border rounded-md ${
+                          errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      {errors.cap && touched.cap && (
+                        <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
+                      )}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Filmaşin <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="filmasin"
+                        value={values.filmasin}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={`w-full p-2 border rounded-md ${
+                          errors.filmasin && touched.filmasin ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      {errors.filmasin && touched.filmasin && (
+                        <div className="text-red-500 text-xs mt-1">{errors.filmasin}</div>
+                      )}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Kalite <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="quality"
+                        value={values.quality}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={`w-full p-2 border rounded-md ${
+                          errors.quality && touched.quality ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      {errors.quality && touched.quality && (
+                        <div className="text-red-500 text-xs mt-1">{errors.quality}</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || loading}
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+                    >
+                      {loading ? 'İşleniyor...' : 'Oluştur'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowYmStCreateModal(false)}
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    >
+                      İptal
+                    </button>
+                  </div>
+                </Form>
+              )}
+            </Formik>
+          </div>
+        </div>
+      </div>
+    )}
+    
+    {/* Veritabanı Yönetim Modal */}
+    {showDatabaseModal && (
+      <div className="fixed inset-0 z-10 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          </div>
+          
+          <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+          
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+            <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Veritabanı Yönetimi</h3>
+            </div>
             
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Ürün Ara</h3>
+            <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div className="mb-4 flex items-center space-x-4">
+                <div className="flex-1">
+                  <select
+                    value={databaseFilter.type}
+                    onChange={(e) => setDatabaseFilter({...databaseFilter, type: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="mmGt">MM GT</option>
+                    <option value="ymGt">YM GT</option>
+                    <option value="ymSt">YM ST</option>
+                  </select>
+                </div>
+                <div className="flex-3">
+                  <input
+                    type="text"
+                    placeholder="Ara..."
+                    value={databaseFilter.search}
+                    onChange={(e) => setDatabaseFilter({...databaseFilter, search: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  />
+                </div>
+                <div>
+                  <button 
+                    onClick={() => fetchProductDatabase()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Yenile
+                  </button>
+                </div>
               </div>
               
-              <Formik
-                initialValues={{
-                  stok_kodu: '',
-                  cap: '',
-                  kod_2: '',
-                  kg: ''
-                }}
-                onSubmit={handleSearch}
-              >
-                {({ values, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
-                  <Form onSubmit={handleSubmit}>
-                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Stok Kodu
-                        </label>
-                        <input
-                          type="text"
-                          name="stok_kodu"
-                          value={values.stok_kodu}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className="w-full p-2 border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Çap
-                        </label>
-                        <input
-                          type="number"
-                          name="cap"
-                          value={values.cap}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          step="0.01"
-                          className="w-full p-2 border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Kaplama Türü
-                        </label>
-                        <select
-                          name="kod_2"
-                          value={values.kod_2}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className="w-full p-2 border border-gray-300 rounded-md"
-                        >
-                          <option value="">Seçiniz</option>
-                          <option value="NIT">NIT</option>
-                          <option value="PAD">PAD</option>
-                        </select>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Ağırlık (KG)
-                        </label>
-                        <input
-                          type="number"
-                          name="kg"
-                          value={values.kg}
-                          onChange={handleChange}
-                          onBlur={handleBlur}
-                          className="w-full p-2 border border-gray-300 rounded-md"
-                        />
-                      </div>
-                    </div>
+              <div className="max-h-96 overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                      {databaseFilter.type === 'ymSt' && (
+                        <>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                        </>
+                      )}
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredDatabaseItems.map(item => (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                        {databaseFilter.type === 'ymSt' && (
+                          <>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                          </>
+                        )}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm flex space-x-2">
+                          <button 
+                            onClick={() => handleSelectDatabaseItem(item)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            Seç
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteDatabaseItem(databaseFilter.type, item.id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                     
-                    <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || loading}
-                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
-                      >
-                        {loading ? 'Aranıyor...' : 'Ara'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowSearchModal(false)}
-                        className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                      >
-                        İptal
-                      </button>
-                    </div>
-                  </Form>
-                )}
-              </Formik>
+                    {filteredDatabaseItems.length === 0 && (
+                      <tr>
+                        <td colSpan={databaseFilter.type === 'ymSt' ? 6 : 4} className="text-center py-4 text-gray-500">
+                          Arama kriterine uygun ürün bulunamadı
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <button
+                onClick={() => setShowDatabaseModal(false)}
+                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:w-auto sm:text-sm"
+              >
+                Kapat
+              </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+    
+    {/* Arama Modal (Artık kullanılmıyor, ama ileride gerekebilir diye silmedim) */}
+    {showSearchModal && (
+      <div className="fixed inset-0 z-10 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+          </div>
+          
+          <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+          
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Ürün Ara</h3>
+            </div>
+            
+            <Formik
+              initialValues={{
+                stok_kodu: '',
+                cap: '',
+                kod_2: '',
+                kg: ''
+              }}
+              onSubmit={handleSearch}
+            >
+              {({ values, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                <Form onSubmit={handleSubmit}>
+                  <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Stok Kodu
+                      </label>
+                      <input
+                        type="text"
+                        name="stok_kodu"
+                        value={values.stok_kodu}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Çap
+                      </label>
+                      <input
+                        type="number"
+                        name="cap"
+                        value={values.cap}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        step="0.01"
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Kaplama Türü
+                      </label>
+                      <select
+                        name="kod_2"
+                        value={values.kod_2}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      >
+                        <option value="">Seçiniz</option>
+                        <option value="NIT">NIT</option>
+                        <option value="PAD">PAD</option>
+                      </select>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-2">
+                        Ağırlık (KG)
+                      </label>
+                      <input
+                        type="number"
+                        name="kg"
+                        value={values.kg}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || loading}
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+                    >
+                      {loading ? 'Aranıyor...' : 'Ara'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSearchModal(false)}
+                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    >
+                      İptal
+                    </button>
+                  </div>
+                </Form>
+              )}
+            </Formik>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
 };
 
 export default GalvanizliTelNetsis;
