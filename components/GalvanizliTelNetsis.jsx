@@ -297,8 +297,8 @@ async function saveMMGT(values) {
       coil_dimensions_od: values.dis_cap.toString(),
       coil_weight: values.kg.toString(),
       amb_shrink: ambShrink,
-      created_by: user ? (user.uuid || user.id || null) : null,
-      updated_by: user ? (user.uuid || user.id || null) : null,
+      created_by: null,
+      updated_by: null,
     };
 
     // sequence alanını kaldırıyoruz çünkü veritabanında bu alan yok
@@ -394,8 +394,8 @@ async function saveMMGT(values) {
         stok_turu: 'D',
         esnek_yapilandir: 'H',
         super_recete_kullanilsin: 'H',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
       };
 
       // Önce var mı kontrol et
@@ -499,8 +499,8 @@ async function saveMMGT(values) {
           stok_turu: 'D',
           esnek_yapilandir: 'H',
           super_recete_kullanilsin: 'H',
-          created_by: user ? (user.uuid || user.id || null) : null,
-          updated_by: user ? (user.uuid || user.id || null) : null,
+          created_by: null,
+          updated_by: null,
         };
 
         // Zaten var mı kontrol et
@@ -540,8 +540,8 @@ async function saveMMGT(values) {
           body: JSON.stringify({
             mm_gt_id: mmGtId,
             ym_st_id: ymStId,
-            created_by: user ? (user.uuid || user.id || null) : null,
-            updated_by: user ? (user.uuid || user.id || null) : null,
+            created_by: null,
+            updated_by: null,
           }),
         });
         
@@ -561,8 +561,8 @@ async function saveMMGT(values) {
           body: JSON.stringify({
             mm_gt_id: mmGtId,
             ym_st_id: values.id,
-            created_by: user ? (user.uuid || user.id || null) : null,
-            updated_by: user ? (user.uuid || user.id || null) : null,
+            created_by: null,
+            updated_by: null,
           }),
         });
         
@@ -764,8 +764,8 @@ async function saveMMGT(values) {
         aciklama: 'Galvanizli Tel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -782,8 +782,8 @@ async function saveMMGT(values) {
         uretim_suresi: 0.02,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -799,8 +799,8 @@ async function saveMMGT(values) {
         aciklama: 'Karton Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -816,8 +816,8 @@ async function saveMMGT(values) {
         aciklama: 'Naylon Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -833,8 +833,8 @@ async function saveMMGT(values) {
         aciklama: 'Kaldırma Kancası Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -850,8 +850,8 @@ async function saveMMGT(values) {
         aciklama: 'Çelik çember Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -867,8 +867,8 @@ async function saveMMGT(values) {
         aciklama: 'Çember Tokası Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       },
       {
@@ -884,8 +884,8 @@ async function saveMMGT(values) {
         aciklama: 'Slikajel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         mm_gt_id: mmGtId
       }
     ];
@@ -993,8 +993,8 @@ async function saveMMGT(values) {
         aciklama: 'Siyah Tel Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       },
       {
@@ -1010,8 +1010,8 @@ async function saveMMGT(values) {
         aciklama: 'Boraks Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       },
       {
@@ -1027,8 +1027,8 @@ async function saveMMGT(values) {
         aciklama: 'Asit Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       },
       {
@@ -1044,8 +1044,8 @@ async function saveMMGT(values) {
         aciklama: 'Desisifiye Tüketim Miktarı',
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       },
       {
@@ -1062,8 +1062,8 @@ async function saveMMGT(values) {
         uretim_suresi: gtpktValue,
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       },
       {
@@ -1080,8 +1080,8 @@ async function saveMMGT(values) {
         uretim_suresi: parseFloat(glvValue),
         ua_dahil_edilsin: 'evet',
         son_operasyon: 'evet',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_gt_id: ymGtId
       }
     ];
@@ -1129,8 +1129,8 @@ async function saveMMGT(values) {
         olcu_br_bilesen: '1',
         miktar: 1,
         aciklama: 'Filmaşin Tüketimi',
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_st_id: ymStId
       },
       {
@@ -1144,8 +1144,8 @@ async function saveMMGT(values) {
         miktar: parseFloat(tlcValue),
         aciklama: 'Tel Çekme Operasyonu',
         uretim_suresi: parseFloat(tlcValue),
-        created_by: user ? (user.uuid || user.id || null) : null,
-        updated_by: user ? (user.uuid || user.id || null) : null,
+        created_by: null,
+        updated_by: null,
         ym_st_id: ymStId
       }
     ];
