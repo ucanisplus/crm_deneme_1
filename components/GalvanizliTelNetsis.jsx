@@ -1562,26 +1562,50 @@ const GalvanizliTelNetsis = () => {
     }
   }, [hasPermission]);
 
-  // YM ST listesini yükle
-  const loadYmStList = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchWithAuth(API_URLS.galYmSt);
-      
-      if (!response.ok) {
-        throw new Error('YM ST listesi alınamadı');
-      }
-      
-      const data = await response.json();
-      setYmStList(data || []);
-      setFilteredYmStList(data || []);
-    } catch (error) {
-      console.error('YM ST listesi yüklenirken hata oluştu:', error);
-      setError('YM ST listesi yüklenirken bir hata oluştu');
-    } finally {
-      setLoading(false);
+// Boş veritabanı tablolarıyla çalışabilecek şekilde iyileştirilmiş loadYmStList fonksiyonu
+const loadYmStList = async () => {
+  try {
+    setLoading(true);
+    
+    // API isteği yapılır
+    const response = await fetchWithAuth(API_URLS.galYmSt);
+    
+    // Eğer cevap 404 (bulunamadı) ise, bu normal bir durumdur ve boş liste kullanabiliriz
+    if (response.status === 404) {
+      console.log('YM ST listesi boş veya tablo mevcut değil, boş liste kullanılıyor');
+      setYmStList([]);
+      setFilteredYmStList([]);
+      return;
     }
-  };
+    
+    // Diğer hata durumları için
+    if (!response.ok) {
+      throw new Error(`YM ST listesi alınamadı: ${response.status} ${response.statusText}`);
+    }
+    
+    // Başarılı cevap işlenir
+    const data = await response.json();
+    
+    // Veri dizi değilse veya boşsa, boş dizi kullan
+    if (!data || !Array.isArray(data)) {
+      console.log('YM ST verisi dizi değil, boş liste kullanılıyor');
+      setYmStList([]);
+      setFilteredYmStList([]);
+    } else {
+      // Veriler başarıyla alındı
+      setYmStList(data);
+      setFilteredYmStList(data);
+    }
+  } catch (error) {
+    console.error('YM ST listesi yüklenirken hata oluştu:', error);
+    // Hata durumunda da boş dizi ile devam et, böylece uygulama çalışmaya devam eder
+    setYmStList([]);
+    setFilteredYmStList([]);
+    setError('YM ST listesi yüklenirken bir hata oluştu');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Dizilim numarasını al
   const fetchSequence = async (kod2, cap) => {
