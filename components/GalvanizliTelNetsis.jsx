@@ -601,7 +601,41 @@ const testApiEndpoints = async () => {
 };
 
 //EKLEME
-
+// Bu fonksiyon, stok kodunun veritabanında olup olmadığını kontrol eder
+const checkProductExists = async (stokKodu) => {
+  try {
+    console.log(`Ürün kontrolü yapılıyor: ${stokKodu}`); // Kontrol edilen stok kodunu logla
+    
+    // API isteği yap
+    const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stokKodu)}`);
+    
+    // 404 hatası gelirse ürün yoktur, false döndür
+    if (response.status === 404) {
+      console.log('Ürün bulunamadı (404)');
+      return false;
+    }
+    
+    // Başka bir hata varsa loglayıp false döndür
+    if (!response.ok) {
+      console.error('Ürün kontrolü hatası:', response.status, response.statusText);
+      return false;
+    }
+    
+    // Yanıtı JSON olarak okuyup kontrol et
+    const data = await response.json();
+    console.log('Ürün kontrolü sonucu:', data); // Sonucu logla
+    
+    // Veri bir dizi ise ve içinde eleman varsa ürün vardır
+    const exists = Array.isArray(data) && data.length > 0;
+    console.log(`Ürün ${exists ? 'var' : 'yok'}`);
+    return exists;
+  } catch (error) {
+    console.error('Ürün kontrolü yapılırken hata oluştu:', error);
+    // Hata durumunda false döndür - ürün yokmuş gibi davran
+    return false;
+  }
+};
+//EKLEME
 
 // Bu fonksiyon MM GT kaydeder veya günceller
 const saveMMGT = async (values) => {
