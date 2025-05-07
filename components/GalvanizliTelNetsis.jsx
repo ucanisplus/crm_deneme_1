@@ -125,46 +125,123 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }, []);
 
-// Bu fonksiyon veritabanından ürün siler
+
+//Silinecek
+// Bu fonksiyonu component içine ekleyin
+window.testFunctions = {
+  // Ürün aramayı test et
+  searchTest: async (stockCode) => {
+    try {
+      console.log(`${stockCode} için arama testi yapılıyor...`);
+      const url = `${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stockCode)}`;
+      console.log('Test URL:', url);
+      
+      const response = await fetchWithAuth(url);
+      console.log('Yanıt durumu:', response.status);
+      
+      const data = await response.json();
+      console.log('Ürün verileri:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('Arama testi hatası:', error);
+      return null;
+    }
+  },
+  
+  // Silme işlemini test et
+  deleteTest: async (id) => {
+    try {
+      // Önce sorgu parametresi dene
+      const queryUrl = `${API_URLS.galMmGt}?id=${id}`;
+      console.log('Sorgu parametresi testi:', queryUrl);
+      
+      const queryResponse = await fetch(queryUrl, {
+        method: 'DELETE'
+      });
+      console.log('Sorgu parametresi yanıtı:', queryResponse.status);
+      
+      // Sonra yol parametresi dene
+      const pathUrl = `${API_URLS.galMmGt}/${id}`;
+      console.log('Yol parametresi testi:', pathUrl);
+      
+      const pathResponse = await fetch(pathUrl, {
+        method: 'DELETE'
+      });
+      console.log('Yol parametresi yanıtı:', pathResponse.status);
+      
+      return {
+        query: queryResponse.status,
+        path: pathResponse.status
+      };
+    } catch (error) {
+      console.error('Silme testi hatası:', error);
+      return null;
+    }
+  }
+};
+//Silinecek
+
+
+// Ürün silme fonksiyonu - geliştirilmiş hata yakalama ile
 const deleteProduct = async (type, id) => {
   try {
     setLoading(true);
     let endpoint;
     let successMsg;
     
-    // Ürün tipine göre endpoint belirle - doğru path parameter kullanımı
     switch (type) {
       case 'mmGt':
-        endpoint = `${API_URLS.galMmGt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
+        // İlk olarak ?id= sorgu parametresi ile deneyelim
+        endpoint = `${API_URLS.galMmGt}?id=${id}`;
         successMsg = 'MM GT başarıyla silindi';
         break;
       case 'ymGt':
-        endpoint = `${API_URLS.galYmGt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
+        endpoint = `${API_URLS.galYmGt}?id=${id}`;
         successMsg = 'YM GT başarıyla silindi';
         break;
       case 'ymSt':
-        endpoint = `${API_URLS.galYmSt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
+        endpoint = `${API_URLS.galYmSt}?id=${id}`;
         successMsg = 'YM ST başarıyla silindi';
         break;
       default:
         throw new Error('Geçersiz ürün tipi');
     }
     
-    // Alternatif olarak API_URLS.getUrlWithId kullanılabilir
-    // endpoint = API_URLS.getUrlWithId(API_URLS.galMmGt, id);
-    
-    console.log(`Silme endpointi: ${endpoint}`);
+    console.log(`Silme endpointi (sorgu parametresi): ${endpoint}`);
     
     // Silme isteği gönder
     const response = await fetchWithAuth(endpoint, {
       method: 'DELETE'
     });
     
+    // Başarısız ise, alternatif yol parametresi dene
     if (!response.ok) {
-      throw new Error(`Silme işlemi başarısız: ${response.status}`);
+      console.log('Sorgu parametresi silme başarısız, yol parametresi deneniyor');
+      
+      switch (type) {
+        case 'mmGt':
+          endpoint = `${API_URLS.galMmGt}/${id}`;
+          break;
+        case 'ymGt':
+          endpoint = `${API_URLS.galYmGt}/${id}`;
+          break;
+        case 'ymSt':
+          endpoint = `${API_URLS.galYmSt}/${id}`;
+          break;
+      }
+      
+      console.log(`Silme endpointi (yol parametresi): ${endpoint}`);
+      
+      const altResponse = await fetchWithAuth(endpoint, {
+        method: 'DELETE'
+      });
+      
+      if (!altResponse.ok) {
+        throw new Error(`Silme işlemi başarısız: ${altResponse.status}`);
+      }
     }
     
-    // Veritabanını yeniden yükle
     await fetchProductDatabase();
     toast.success(successMsg);
     return true;
@@ -307,33 +384,22 @@ const handleSelectDatabaseItem = async (item) => {
     }
   }, []);
 
-// Bu fonksiyon ürün arar ve ilgili tüm verileri getirir
+// Ürün arama fonksiyonu - düzeltilmiş ve basitleştirilmiş
 const searchProducts = async (searchParams) => {
   setLoading(true);
   setError(null);
   setDataExist(false);
 
   try {
-    // Log arama parametrelerini
     console.log('Arama parametreleri:', searchParams);
     
     // Parametreleri URL'ye dönüştür
     const queryParams = new URLSearchParams();
     
-    if (searchParams.stok_kodu) {
-      queryParams.append('stok_kodu', searchParams.stok_kodu);
-    }
-    if (searchParams.cap) {
-      queryParams.append('cap', searchParams.cap);
-    }
-    if (searchParams.kod_2) {
-      queryParams.append('kod_2', searchParams.kod_2);
-    }
-    if (searchParams.kg) {
-      queryParams.append('kg', searchParams.kg);
-    }
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (value) queryParams.append(key, value);
+    });
     
-    // API çağrı URL'sini logla
     const url = `${API_URLS.galMmGt}?${queryParams.toString()}`;
     console.log('MM GT sorgu URL:', url);
     
@@ -341,176 +407,68 @@ const searchProducts = async (searchParams) => {
     const mmGtResponse = await fetchWithAuth(url);
     console.log('MM GT yanıt durumu:', mmGtResponse.status);
     
-    if (!mmGtResponse.ok && mmGtResponse.status !== 404) {
+    if (!mmGtResponse.ok) {
       throw new Error('MM GT verileri getirilemedi');
     }
     
-    // Eğer 404 ise, ürün bulunamadı demektir
-    if (mmGtResponse.status === 404) {
-      console.log('MM GT ürünü bulunamadı');
-      setMmGtData(null);
-      setYmGtData(null);
-      setSelectedYmSt([]);
-      setReceteData(null);
-      setIsEditMode(false);
-      setDataExist(false);
-      return;
-    }
-    
-    // MM GT yanıtını parse et
     const mmGtResults = await mmGtResponse.json();
     console.log('MM GT sonuçları:', mmGtResults);
     
-    // MM GT verisi varsa işle
     if (mmGtResults && Array.isArray(mmGtResults) && mmGtResults.length > 0) {
       const mmGt = mmGtResults[0];
       
-      // Form değerlerini güncellemek için MM GT verilerini set et
+      // Form değerlerini güncelle (setFormValues KULLANMA)
+      if (formValues) {
+        console.log('Form değerleri direkt güncelleniyor');
+        
+        // formValues.cap = mmGt.cap || ''; gibi atamalar YAPMA
+        // Bunun yerine setFormValues hook'unu kullan
+      }
+      
+      // State güncellemeleri
       setMmGtData(mmGt);
-      console.log('MM GT verisi bulundu, form değerleri güncelleniyor');
-      
-      // Form değerlerini güncelle
-      setFormValues({
-        cap: mmGt.cap || '',
-        kod_2: mmGt.kod_2 || 'NIT',
-        kaplama: mmGt.kaplama || 120,
-        min_mukavemet: mmGt.min_mukavemet || 400,
-        max_mukavemet: mmGt.max_mukavemet || 500,
-        tolerans_plus: mmGt.tolerans_plus || 0,
-        tolerans_minus: mmGt.tolerans_minus || 0.06,
-        ic_cap: mmGt.ic_cap || 45,
-        dis_cap: mmGt.dis_cap || 75,
-        kg: mmGt.kg || 750,
-        unwinding: mmGt.unwinding || null,
-        shrink: mmGt.shrink || 'evet',
-        cast_kont: mmGt.cast_kont || '',
-        helix_kont: mmGt.helix_kont || '',
-        elongation: mmGt.elongation || '',
-        sequence: sequence
-      });
-      
       setDataExist(true);
+      setIsEditMode(true);
       
       // YM GT verisini al
-      console.log('YM GT verisi alınıyor, MM GT ID:', mmGt.id);
-      const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGt.id}`);
-      console.log('YM GT yanıt durumu:', ymGtResponse.status);
-      
-      if (!ymGtResponse.ok && ymGtResponse.status !== 404) {
-        throw new Error('YM GT verileri getirilemedi');
-      }
-      
-      // YM GT verisi varsa işle
-      if (ymGtResponse.ok) {
-        const ymGtResults = await ymGtResponse.json();
-        console.log('YM GT sonuçları:', ymGtResults);
-        
-        if (ymGtResults && Array.isArray(ymGtResults) && ymGtResults.length > 0) {
-          setYmGtData(ymGtResults[0]);
-        }
-      }
-      
-      // İlişkili YM ST verilerini al
-      console.log('YM ST ilişkileri alınıyor, MM GT ID:', mmGt.id);
-      const ymStRelResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-      console.log('YM ST ilişki yanıt durumu:', ymStRelResponse.status);
-      
-      if (!ymStRelResponse.ok && ymStRelResponse.status !== 404) {
-        throw new Error('YM ST ilişkileri getirilemedi');
-      }
-      
-      // YM ST ilişkileri varsa işle
-      if (ymStRelResponse.ok) {
-        const ymStRelResults = await ymStRelResponse.json();
-        console.log('YM ST ilişki sonuçları:', ymStRelResults);
-        
-        if (ymStRelResults && Array.isArray(ymStRelResults) && ymStRelResults.length > 0) {
-          const ymStIds = ymStRelResults.map(item => item.ym_st_id);
-          console.log('YM ST ID listesi:', ymStIds);
-          
-          // YM ST detaylarını al
-          const ymStDetailsResponse = await fetchWithAuth(`${API_URLS.galYmSt}?ids=${ymStIds.join(',')}`);
-          console.log('YM ST detay yanıt durumu:', ymStDetailsResponse.status);
-          
-          if (!ymStDetailsResponse.ok) {
-            throw new Error('YM ST detayları getirilemedi');
-          }
-          
-          const ymStDetails = await ymStDetailsResponse.json();
-          console.log('YM ST detayları:', ymStDetails);
-          
-          if (ymStDetails && Array.isArray(ymStDetails) && ymStDetails.length > 0) {
-            setSelectedYmSt(ymStDetails);
-          }
-        }
-      }
-
-      // Reçete verilerini al
-      console.log('Reçete verileri alınıyor');
       try {
-        const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
-        const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${mmGt.id}`);
-
-        console.log('MM GT Reçete yanıt durumu:', mmGtReceteRes.status);
-        console.log('YM GT Reçete yanıt durumu:', ymGtReceteRes.status);
-
-        if (mmGtReceteRes.ok && ymGtReceteRes.ok) {
-          const mmGtReceteData = await mmGtReceteRes.json();
-          const ymGtReceteData = await ymGtReceteRes.json();
-
-          // Reçete verilerini işle
-          if (mmGtReceteData && Array.isArray(mmGtReceteData) && mmGtReceteData.length > 0 && 
-              ymGtReceteData && Array.isArray(ymGtReceteData) && ymGtReceteData.length > 0) {
+        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGt.id}`);
+        
+        if (ymGtResponse.ok) {
+          const ymGtResults = await ymGtResponse.json();
+          if (Array.isArray(ymGtResults) && ymGtResults.length > 0) {
+            setYmGtData(ymGtResults[0]);
+          }
+        }
+      } catch (error) {
+        console.error('YM GT verisi alınırken hata:', error);
+      }
+      
+      // YM ST ilişkilerini al
+      try {
+        const ymStRelResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+        
+        if (ymStRelResponse.ok) {
+          const ymStRelResults = await ymStRelResponse.json();
+          
+          if (Array.isArray(ymStRelResults) && ymStRelResults.length > 0) {
+            const ymStIds = ymStRelResults.map(item => item.ym_st_id);
             
-            // Boraks bileşeni (150 03)
-            const boraksItem = ymGtReceteData.find(item => item.bilesen_kodu === '150 03');
-            // Asit bileşeni (SM.HİDROLİK.ASİT)
-            const asitItem = ymGtReceteData.find(item => item.bilesen_kodu === 'SM.HİDROLİK.ASİT');
-            // Desi bileşeni (SM.DESİ.PAK)
-            const desiItem = ymGtReceteData.find(item => item.bilesen_kodu === 'SM.DESİ.PAK');
-            // Paketleme operasyonu (GTPKT01)
-            const paketlemeItem = ymGtReceteData.find(item => item.bilesen_kodu === 'GTPKT01');
-            // Galvanizleme operasyonu (GLV01)
-            const galvanizlemeItem = ymGtReceteData.find(item => item.bilesen_kodu === 'GLV01');
-
-            // YM ST reçetesi için tel çekme süresi
-            let telCekmeSuresi = 0;
-            if (selectedYmSt.length > 0) {
-              const ymStId = selectedYmSt[0].id;
-              const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
-              
-              if (ymStReceteRes.ok) {
-                const ymStReceteData = await ymStReceteRes.json();
-                const telCekmeItem = ymStReceteData.find(item => item.bilesen_kodu === 'TLC01');
-                if (telCekmeItem) {
-                  telCekmeSuresi = telCekmeItem.miktar;
-                }
+            const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?ids=${ymStIds.join(',')}`);
+            
+            if (ymStResponse.ok) {
+              const ymStDetails = await ymStResponse.json();
+              if (Array.isArray(ymStDetails) && ymStDetails.length > 0) {
+                setSelectedYmSt(ymStDetails);
               }
             }
-
-            // Reçete verilerini set et
-            const receteValues = {
-              boraks_tuketimi: boraksItem ? boraksItem.miktar : 0,
-              asit_tuketimi: asitItem ? asitItem.miktar : 0,
-              desi_tuketimi: desiItem ? desiItem.miktar : 0,
-              paketleme_suresi: paketlemeItem ? paketlemeItem.miktar : 0,
-              galvanizleme_suresi: galvanizlemeItem ? galvanizlemeItem.miktar : 0,
-              tel_cekme_suresi: telCekmeSuresi
-            };
-            
-            setReceteData(receteValues);
-            setReceteFormValues(receteValues);
-            console.log('Reçete verileri güncellendi:', receteValues);
           }
         }
-      } catch (receteError) {
-        console.error('Reçete verileri alınırken hata:', receteError);
+      } catch (error) {
+        console.error('YM ST ilişkileri alınırken hata:', error);
       }
-      
-      setIsEditMode(true);
-      console.log('Ürün verileri başarıyla yüklendi, düzenleme modu aktif');
     } else {
-      console.log('MM GT verisi bulunamadı');
+      // Ürün bulunamadı
       setDataExist(false);
       setMmGtData(null);
       setYmGtData(null);
@@ -3267,11 +3225,47 @@ const handleRemoveYmSt = async (ymStId) => {
     }
   };
 
-  // Veritabanı ürününü seç
-  const handleSelectDatabaseItem = async (item) => {
-    await searchProducts({ stok_kodu: item.stok_kodu });
+// Veritabanından ürün seçme
+const handleSelectDatabaseItem = async (item) => {
+  try {
+    setLoading(true);
     setShowDatabaseModal(false);
-  };
+    
+    console.log('Seçilen ürün:', item);
+    
+    if (item.stok_kodu) {
+      await searchProducts({ stok_kodu: item.stok_kodu });
+      
+      // Formları manuel olarak güncelle
+      if (mmGtData) {
+        // useState hook'unu kullan, direkt değişiklik yapma
+        setFormValues({
+          cap: mmGtData.cap || '',
+          kod_2: mmGtData.kod_2 || 'NIT',
+          kaplama: mmGtData.kaplama || 120,
+          min_mukavemet: mmGtData.min_mukavemet || 400,
+          max_mukavemet: mmGtData.max_mukavemet || 500,
+          tolerans_plus: mmGtData.tolerans_plus || 0,
+          tolerans_minus: mmGtData.tolerans_minus || 0.06,
+          ic_cap: mmGtData.ic_cap || 45,
+          dis_cap: mmGtData.dis_cap || 75,
+          kg: mmGtData.kg || 750,
+          unwinding: mmGtData.unwinding || null,
+          shrink: mmGtData.shrink || 'evet',
+          cast_kont: mmGtData.cast_kont || '',
+          helix_kont: mmGtData.helix_kont || '',
+          elongation: mmGtData.elongation || '',
+          sequence: 0
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Ürün seçme hatası:', error);
+    toast.error("Ürün yüklenirken bir hata oluştu");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Veritabanı ürününü sil
   const handleDeleteDatabaseItem = async (type, id) => {
