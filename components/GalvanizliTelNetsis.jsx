@@ -125,35 +125,39 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }, []);
 
-// Bu fonksiyon veritabanından ürün siler - query parameter düzeltmesi
+// Bu fonksiyon veritabanından ürün siler
 const deleteProduct = async (type, id) => {
   try {
     setLoading(true);
     let endpoint;
     let successMsg;
     
-    // Ürün tipine göre endpoint belirle - sorgu parametresi kullan
+    // Ürün tipine göre endpoint belirle - doğru path parameter kullanımı
     switch (type) {
       case 'mmGt':
-        endpoint = `${API_URLS.galMmGt}?id=${id}`;  // /id yerine ?id=
+        endpoint = `${API_URLS.galMmGt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'MM GT başarıyla silindi';
         break;
       case 'ymGt':
-        endpoint = `${API_URLS.galYmGt}?id=${id}`;  // /id yerine ?id=
+        endpoint = `${API_URLS.galYmGt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'YM GT başarıyla silindi';
         break;
       case 'ymSt':
-        endpoint = `${API_URLS.galYmSt}?id=${id}`;  // /id yerine ?id=
+        endpoint = `${API_URLS.galYmSt}/${id}`;  // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'YM ST başarıyla silindi';
         break;
       default:
         throw new Error('Geçersiz ürün tipi');
     }
     
+    // Alternatif olarak API_URLS.getUrlWithId kullanılabilir
+    // endpoint = API_URLS.getUrlWithId(API_URLS.galMmGt, id);
+    
+    console.log(`Silme endpointi: ${endpoint}`);
+    
     // Silme isteği gönder
     const response = await fetchWithAuth(endpoint, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+      method: 'DELETE'
     });
     
     if (!response.ok) {
@@ -629,10 +633,9 @@ const saveMMGT = async (values) => {
     const capValue = parseFloat(values.cap);
     
     // Çap değerini doğru formatta (4 basamaklı) hazırlama
-    // Örnek: 2.5 -> "0250", 3.9 -> "0390", 12.34 -> "1234"
     const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
     
-    // Sıra numarasını API'den alma veya varsayılan 0 kullanma
+    // Sıra numarasını al
     let sequenceNumber = 0;
     try {
       const sequence = await getCurrentSequence(values.kod_2, capValue);
@@ -641,14 +644,24 @@ const saveMMGT = async (values) => {
       console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
     }
     
-    // Sıra numarasını 2 basamaklı formata çevirme (0 -> "00")
+    // Sıra numarasını formatla
     const formattedSequence = sequenceNumber.toString().padStart(2, '0');
     
     // Stok Kodu formatını oluştur: GT.NIT.0250.00
     const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
+    console.log('Oluşturulan stok kodu:', stockCode);
 
     // Ürünün zaten var olup olmadığını kontrol et
-    const productExists = await checkProductExists(stockCode);
+    let productExists = false;
+    try {
+      const existingCheck = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stockCode)}`);
+      if (existingCheck.ok) {
+        const existingData = await existingCheck.json();
+        productExists = Array.isArray(existingData) && existingData.length > 0;
+      }
+    } catch (error) {
+      console.error('Ürün kontrolü hatası:', error);
+    }
     
     if (productExists && !isEditMode) {
       // Ürün zaten var, hata döndür
@@ -678,11 +691,10 @@ const saveMMGT = async (values) => {
       ambShrink = 'AMB.SHRİNK.200*190CM';
     }
 
-    // MM GT verilerini hazırla (tüm default değerler eklendi)
+    // MM GT verilerini hazırla
     const mmGtDataToSave = {
       ...values,
       stok_kodu: stockCode,
-      // Görüntüleme için virgül kullan, ama veritabanı için nokta ile tut
       stok_adi: `Galvanizli Tel ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
       ingilizce_isim: `Galvanized Steel Wire ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
       grup_kodu: 'MM',
@@ -738,17 +750,19 @@ const saveMMGT = async (values) => {
       updated_by: user?.id || null,
     };
 
-    // sequence alanını kaldırıyoruz çünkü veritabanında bu alan yok
     delete mmGtDataToSave.sequence;
 
     // API endpoint'ini ve metodu belirle
     let apiMethod = isEditMode ? 'PUT' : 'POST';
     let apiUrl = API_URLS.galMmGt;
     
-    // Güncelleme için ID'yi sorgu parametresi olarak ekle
+    // Güncelleme için doğru yol parametresi kullan
     if (isEditMode && mmGtData && mmGtData.id) {
-      apiUrl = `${API_URLS.galMmGt}?id=${mmGtData.id}`;
+      apiUrl = `${API_URLS.galMmGt}/${mmGtData.id}`;
     }
+    
+    console.log(`API isteği: ${apiMethod} ${apiUrl}`);
+    console.log('Gönderilen veri:', mmGtDataToSave);
 
     // API isteğini gönder
     const response = await fetchWithAuth(apiUrl, {
@@ -756,21 +770,30 @@ const saveMMGT = async (values) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(mmGtDataToSave),
     });
+    
+    console.log('API yanıt durumu:', response.status);
 
-    // Hata durumunu kontrol et
     if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(errorData || 'MM GT kaydedilemedi');
+      let errorMessage = 'MM GT kaydedilemedi';
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = errorText;
+        }
+      } catch (e) {}
+      
+      throw new Error(errorMessage);
     }
 
     // Başarılı yanıt
     const result = await response.json();
+    console.log('Kaydedilen MM GT:', result);
     
     setMmGtData(result);
     setSuccessMessage(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
     toast.success(isEditMode ? 'MM GT kaydı başarıyla güncellendi' : 'MM GT kaydı başarıyla oluşturuldu');
 
-    // Eğer yeni kayıt yapıldıysa sequence'ı artırmayı dene
+    // Eğer yeni kayıt yapıldıysa sequence'ı artır
     if (!isEditMode) {
       try {
         await incrementSequence(values.kod_2, capValue);
@@ -792,32 +815,40 @@ const saveMMGT = async (values) => {
     setLoading(false);
   }
 };
+   
 // Bu fonksiyon YM GT kaydeder
 const saveYMGT = async (values, mmGtId) => {
   setLoading(true);
   setError(null);
 
   try {
-    // MM GT verisini API'den al - sorgu parametresi olarak ID kullan
+    console.log('YM GT kaydediliyor, MM GT ID:', mmGtId);
+    
+    // MM GT verisini API'den al - sorgu parametresi olarak
     const response = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
     
     if (!response.ok) {
       throw new Error('MM GT bulunamadı');
     }
     
-    const mmGtResults = await response.json();
+    let mmGtResults = await response.json();
     
-    // Sonuç boş ise veya dizi değilse hata döndür
-    if (!mmGtResults || !Array.isArray(mmGtResults) || mmGtResults.length === 0) {
+    // API yanıtı dizi değilse diziyi zorla
+    if (!Array.isArray(mmGtResults)) {
+      mmGtResults = [mmGtResults];
+    }
+    
+    if (mmGtResults.length === 0) {
       throw new Error('MM GT bulunamadı');
     }
     
-    const mmGt = mmGtResults[0]; // Dizinin ilk elemanını al
+    const mmGt = mmGtResults[0];
+    console.log('Bulunan MM GT:', mmGt);
 
     // Stok kodunu üret
     const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
 
-    // YM GT verisini oluştur (default değerlerle)
+    // YM GT verisini oluştur
     const ymGtDataToSave = {
       mm_gt_id: mmGtId,
       stok_kodu: stockCode,
@@ -873,19 +904,30 @@ const saveYMGT = async (values, mmGtId) => {
     };
 
     // Önce var mı kontrol et
+    console.log('YM GT varlığı kontrol ediliyor, MM GT ID:', mmGtId);
     const checkRes = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGtId}`);
     
     if (!checkRes.ok && checkRes.status !== 404) {
       throw new Error('YM GT kontrolü yapılamadı');
     }
     
-    const existing = await checkRes.json();
+    let existing = await checkRes.json();
+    
+    // API yanıtı dizi değilse diziyi zorla
+    if (!Array.isArray(existing)) {
+      existing = [existing];
+    }
     
     let saveRes;
-    if (existing && Array.isArray(existing) && existing.length > 0) {
-      // Güncelleme - sorgu parametresi kullan
-      ymGtDataToSave.id = existing[0].id;
-      saveRes = await fetchWithAuth(`${API_URLS.galYmGt}?id=${existing[0].id}`, {
+    if (existing.length > 0) {
+      // Güncelleme
+      console.log('Mevcut YM GT güncelleniyor, ID:', existing[0].id);
+      
+      // Path parametre kullanan endpoint
+      const updateUrl = `${API_URLS.galYmGt}/${existing[0].id}`;
+      console.log('Güncelleme URL:', updateUrl);
+      
+      saveRes = await fetchWithAuth(updateUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ymGtDataToSave),
@@ -899,6 +941,7 @@ const saveYMGT = async (values, mmGtId) => {
       toast.success('YM GT kaydı başarıyla güncellendi');
     } else {
       // Yeni kayıt
+      console.log('Yeni YM GT oluşturuluyor');
       saveRes = await fetchWithAuth(API_URLS.galYmGt, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -914,6 +957,7 @@ const saveYMGT = async (values, mmGtId) => {
     }
 
     const savedData = await saveRes.json();
+    console.log('Kaydedilen YM GT:', savedData);
     setYmGtData(savedData);
 
     // Veritabanını güncelle
@@ -929,6 +973,7 @@ const saveYMGT = async (values, mmGtId) => {
     setLoading(false);
   }
 };
+
 
   // YM ST kaydetme fonksiyonu
   const saveYMST = async (values, mmGtId) => {
