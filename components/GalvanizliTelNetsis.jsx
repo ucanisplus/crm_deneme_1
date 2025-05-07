@@ -131,7 +131,7 @@ const deleteProduct = async (type, id) => {
     setLoading(true);
     let endpoint;
     let successMsg;
-
+    
     // Ürün tipine göre endpoint belirle - sorgu parametresi kullan
     switch (type) {
       case 'mmGt':
@@ -149,17 +149,17 @@ const deleteProduct = async (type, id) => {
       default:
         throw new Error('Geçersiz ürün tipi');
     }
-
+    
     // Silme isteği gönder
     const response = await fetchWithAuth(endpoint, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' }
     });
-
+    
     if (!response.ok) {
       throw new Error(`Silme işlemi başarısız: ${response.status}`);
     }
-
+    
     // Veritabanını yeniden yükle
     await fetchProductDatabase();
     toast.success(successMsg);
@@ -591,22 +591,30 @@ const testApiEndpoints = async () => {
 };
 
 //EKLEME
-// Ürün var mı kontrolü - tamamen yeniden yazılmış ve düzeltilmiş
+// Bu fonksiyon, stok kodunun veritabanında olup olmadığını kontrol eder
 const checkProductExists = async (stokKodu) => {
   try {
+    // API isteği yap
     const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stokKodu)}`);
     
-    // API başarılı yanıt verirse ve veri varsa ürün mevcuttur
-    if (response.ok) {
-      const data = await response.json();
-      // Sunucu boş dizi dönüyorsa ürün yoktur
-      return Array.isArray(data) && data.length > 0;
+    // Yanıt başarılı değilse ürün yoktur
+    if (!response.ok) {
+      return false;
     }
     
-    // Diğer tüm durumlarda ürün yok
-    return false;
+    // Yanıt boş olabilir, JSON olarak çözümle
+    const data = await response.json();
+    
+    // Hiç veri yoksa veya boş dizi ise ürün yoktur
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      return false;
+    }
+    
+    // Veri varsa ürün vardır
+    return true;
   } catch (error) {
-    return false; // Hata durumunda ürün yok kabul et
+    // Hata durumunda ürün yoktur
+    return false;
   }
 };
 //EKLEME
@@ -643,14 +651,11 @@ const saveMMGT = async (values) => {
     const productExists = await checkProductExists(stockCode);
     
     if (productExists && !isEditMode) {
-      // Ürün zaten var, kullanıcıya sor
-      if (!window.confirm(`${stockCode} stok kodu ile bir ürün zaten mevcut. Bu ürünü düzenlemek için Evet'e, işlemi iptal etmek için Hayır'a tıklayın.`)) {
-        throw new Error('Ürün zaten mevcut, işlem iptal edildi');
-      }
-      
-      // Mevcut ürünü yükle
-      await searchProducts({ stok_kodu: stockCode });
-      return mmGtData; // Mevcut ürünü döndür
+      // Ürün zaten var, hata döndür
+      setError(`${stockCode} stok kodu ile bir ürün zaten mevcut.`);
+      toast.error(`${stockCode} stok kodu ile bir ürün zaten mevcut.`);
+      setLoading(false);
+      return null;
     }
 
     // Gümrük tarife kodunu belirle
@@ -740,9 +745,8 @@ const saveMMGT = async (values) => {
     let apiMethod = isEditMode ? 'PUT' : 'POST';
     let apiUrl = API_URLS.galMmGt;
     
-    // DÜZELTME: Güncelleme için ID'yi sorgu parametresi olarak ekle
+    // Güncelleme için ID'yi sorgu parametresi olarak ekle
     if (isEditMode && mmGtData && mmGtData.id) {
-      // Sorgu parametresi olarak ID'yi ekle - /:id yerine ?id=
       apiUrl = `${API_URLS.galMmGt}?id=${mmGtData.id}`;
     }
 
@@ -802,8 +806,9 @@ const saveYMGT = async (values, mmGtId) => {
     }
     
     const mmGtResults = await response.json();
-    // Sonuç bir dizi olmalı
-    if (!Array.isArray(mmGtResults) || mmGtResults.length === 0) {
+    
+    // Sonuç boş ise veya dizi değilse hata döndür
+    if (!mmGtResults || !Array.isArray(mmGtResults) || mmGtResults.length === 0) {
       throw new Error('MM GT bulunamadı');
     }
     
@@ -877,8 +882,8 @@ const saveYMGT = async (values, mmGtId) => {
     const existing = await checkRes.json();
     
     let saveRes;
-    if (existing && existing.length > 0) {
-      // Güncelle - sorgu parametresi kullan
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+      // Güncelleme - sorgu parametresi kullan
       ymGtDataToSave.id = existing[0].id;
       saveRes = await fetchWithAuth(`${API_URLS.galYmGt}?id=${existing[0].id}`, {
         method: 'PUT',
@@ -2988,46 +2993,32 @@ const handleSubmit = async (values) => {
     }
   };
 
-// Bu fonksiyon YM ST ilişkisini kaldırır (MM GT ile bağlantısını keser)
+// Bu fonksiyon YM ST ilişkisini kaldırır
 const handleRemoveYmSt = async (ymStId) => {
   try {
-    console.log(`YM ST kaldırılıyor, ID: ${ymStId}, MM GT ID: ${mmGtData.id}`);
-    
     // İlişki tablosundaki kaydın ID'sini bul
     const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtData.id}&ym_st_id=${ymStId}`);
     
     if (!relationResponse.ok) {
-      console.error('YM ST ilişkisi bulunamadı, yanıt durumu:', relationResponse.status);
       throw new Error('YM ST ilişkisi bulunamadı');
     }
     
     const relations = await relationResponse.json();
-    console.log('İlişki sorgusu sonucu:', relations);
     
-    if (!relations || !relations.length) {
+    if (!relations || !Array.isArray(relations) || relations.length === 0) {
       throw new Error('YM ST ilişkisi bulunamadı');
     }
     
-    // İlişki ID'sini kullanarak silme işlemi yap
+    // İlişki ID'sini kullanarak silme işlemi yap - sorgu parametresi kullan
     const relationId = relations[0].id;
-    console.log(`İlişki kaydı siliniyor, ID: ${relationId}`);
-    
-    // DÜZELTME: Endpointi /:id formatında oluştur
-    const deleteUrl = `${API_URLS.galMmGtYmSt}/${relationId}`;
-    console.log('Silme endpointi:', deleteUrl);
-    
-    const response = await fetchWithAuth(deleteUrl, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+    const response = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?id=${relationId}`, {
+      method: 'DELETE'
     });
-    
-    console.log('Silme yanıtı:', response.status);
     
     if (!response.ok) {
       throw new Error('YM ST ilişkisi silinemedi');
     }
 
-    // UI'dan YM ST'yi kaldır
     setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
     setSuccessMessage('YM ST başarıyla kaldırıldı');
     toast.success('YM ST başarıyla kaldırıldı');
