@@ -116,43 +116,43 @@ export const GalvanizliTelProvider = ({ children }) => {
     loadYmStList,
   };
 
-  // Ürün veritabanını yükleme
+// Ürün veritabanını yükleme
 const fetchProductDatabase = useCallback(async () => {
-    try {
-      setLoading(true);
-      // MM GT listesini al
-      const mmGtRes = await fetchWithAuth(API_URLS.galMmGt);
-      let mmGtList = [];
-      if (mmGtRes.ok) {
-        mmGtList = await mmGtRes.json();
-      }
-
-      // YM GT listesini al
-      const ymGtRes = await fetchWithAuth(API_URLS.galYmGt);
-      let ymGtList = [];
-      if (ymGtRes.ok) {
-        ymGtList = await ymGtRes.json();
-      }
-
-      // YM ST listesini al
-      const ymStRes = await fetchWithAuth(API_URLS.galYmSt);
-      let ymStList = [];
-      if (ymStRes.ok) {
-        ymStList = await ymStRes.json();
-      }
-
-      setProductDatabase({
-        mmGtList: Array.isArray(mmGtList) ? mmGtList : [],
-        ymGtList: Array.isArray(ymGtList) ? ymGtList : [],
-        ymStList: Array.isArray(ymStList) ? ymStList : []
-      });
-    } catch (error) {
-      console.error('Veritabanı yüklenirken hata oluştu:', error);
-      setError('Veritabanı yüklenirken bir hata oluştu');
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    // MM GT listesini al
+    const mmGtRes = await fetchWithAuth(API_URLS.galMmGt);
+    let mmGtList = [];
+    if (mmGtRes.ok) {
+      mmGtList = await mmGtRes.json();
     }
-  }, []);
+
+    // YM GT listesini al
+    const ymGtRes = await fetchWithAuth(API_URLS.galYmGt);
+    let ymGtList = [];
+    if (ymGtRes.ok) {
+      ymGtList = await ymGtRes.json();
+    }
+
+    // YM ST listesini al
+    const ymStRes = await fetchWithAuth(API_URLS.galYmSt);
+    let ymStList = [];
+    if (ymStRes.ok) {
+      ymStList = await ymStRes.json();
+    }
+
+    setProductDatabase({
+      mmGtList: Array.isArray(mmGtList) ? mmGtList : [],
+      ymGtList: Array.isArray(ymGtList) ? ymGtList : [],
+      ymStList: Array.isArray(ymStList) ? ymStList : []
+    });
+  } catch (error) {
+    console.error('Veritabanı yüklenirken hata oluştu:', error);
+    setError('Veritabanı yüklenirken bir hata oluştu');
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   // Ürün silme fonksiyonu
   async function deleteProduct(type, id) {
@@ -2357,9 +2357,17 @@ async function createReceteExcel(mmGt, ymGt, ymStList) {
 
 // Context başlangıcında verileri yükle
 useEffect(() => {
-  loadYmStList();
-  fetchProductDatabase();
-}, []);
+  const initData = async () => {
+    try {
+      await loadYmStList();
+      await fetchProductDatabase();
+    } catch (error) {
+      console.error('Veri yüklenirken hata oluştu:', error);
+    }
+  };
+  
+  initData();
+}, [loadYmStList, fetchProductDatabase]);
 
 return (
   <GalvanizliTelContext.Provider value={contextValue}>
@@ -2472,7 +2480,7 @@ useEffect(() => {
 }, [databaseFilter, productDatabase]);
 
 // YM ST listesini yükle - geliştirilmiş sürüm
-onst loadYmStList = useCallback(async () => {
+const loadYmStList = useCallback(async () => {
   try {
     setLoading(true);
     
