@@ -586,7 +586,7 @@ const checkProductExists = async (stokKodu) => {
 };
 //EKLEME
 
-// Tamamen yeniden yazılmış MM GT kaydetme fonksiyonu
+// Düzeltilmiş saveMMGT fonksiyonu - UUID hatası giderildi
 const saveMMGT = async (values) => {
   setLoading(true);
   setError(null);
@@ -614,9 +614,6 @@ const saveMMGT = async (values) => {
     const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
     console.log('Oluşturulan stok kodu:', stockCode);
 
-    // Ürün var mı kontrolünü ATLA - doğrudan kaydet
-    // Varlık kontrolü sorun çıkardığı için kaldırıldı
-
     // Gümrük tarife kodunu belirle
     let gumrukTarifeKodu = '';
     if (capValue >= 0.8 && capValue <= 1.5) {
@@ -637,13 +634,10 @@ const saveMMGT = async (values) => {
       ambShrink = 'AMB.SHRİNK.200*190CM';
     }
 
-    // Yeni tarih ekle - veritabanında benzersiz kayıt oluşturmaya yardımcı olur
-    const timestamp = new Date().getTime();
-
     // MM GT verilerini hazırla
     const mmGtDataToSave = {
       ...values,
-      stok_kodu: `${stockCode}_${timestamp}`, // Benzersiz olmasını sağla
+      stok_kodu: stockCode,
       stok_adi: `Galvanizli Tel ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
       ingilizce_isim: `Galvanized Steel Wire ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
       grup_kodu: 'MM',
@@ -695,15 +689,18 @@ const saveMMGT = async (values) => {
       coil_dimensions_od: values.dis_cap.toString(),
       coil_weight: values.kg.toString(),
       amb_shrink: ambShrink,
-      created_by: user?.id || null,
-      updated_by: user?.id || null,
+      // ÖNEMLİ: UUID hatası için bu alanları ÇIKAR
+      // created_by: user?.id || null,
+      // updated_by: user?.id || null,
     };
 
+    // Sequence ve ID'yi çıkar
     delete mmGtDataToSave.sequence;
+    delete mmGtDataToSave.id;
 
     // API endpoint'ini ve metodu belirle
-    const apiMethod = 'POST'; // Her zaman POST kullan
-    const apiUrl = API_URLS.galMmGt; // Her zaman yeni oluştur
+    const apiMethod = 'POST';
+    const apiUrl = API_URLS.galMmGt;
     
     console.log(`API isteği: ${apiMethod} ${apiUrl}`);
     console.log('Gönderilen veri:', mmGtDataToSave);
