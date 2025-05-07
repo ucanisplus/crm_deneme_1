@@ -61,6 +61,7 @@ export const normalizeDecimalValues = (data) => {
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === 'string' && value.includes(',')) {
         // Virgül içeren string değerlerini kontrol et
+        // Global flag ile TÜM virgülleri değiştir - önemli düzeltme
         const numericValue = value.replace(/,/g, '.');
         if (!isNaN(parseFloat(numericValue))) {
           // Geçerli sayısal değer ise, sayıya dönüştür
@@ -76,6 +77,15 @@ export const normalizeDecimalValues = (data) => {
       }
     }
     return normalizedData;
+  }
+  
+  // String değer ise ve virgül içeriyorsa sayıya dönüştür
+  if (typeof data === 'string' && data.includes(',')) {
+    // Global flag ile TÜM virgülleri değiştir
+    const numericValue = data.replace(/,/g, '.');
+    if (!isNaN(parseFloat(numericValue))) {
+      return parseFloat(numericValue);
+    }
   }
   
   return data;
@@ -127,6 +137,7 @@ export const fetchWithAuth = async (url, options = {}) => {
   try {
     const response = await fetch(url, config);
     
+    // API yanıtlarının tutarlı formatta olmasını sağla
     if (response.status === 401) {
       // Yetkisiz - kullanıcı verilerini temizle ve giriş sayfasına yönlendir
       if (typeof window !== 'undefined') {
@@ -142,6 +153,42 @@ export const fetchWithAuth = async (url, options = {}) => {
     console.error('API isteği başarısız:', error);
     throw error;
   }
+};
+
+/**
+ * Form giriş değerlerini anında normalleştiren yardımcı fonksiyon
+ * @param {string|number} value - Normalleştirilecek değer
+ * @returns {number|string} - Normalleştirilmiş değer
+ */
+export const normalizeInputValue = (value) => {
+  // Sayı zaten ise doğrudan döndür
+  if (typeof value === 'number') {
+    return value;
+  }
+  
+  // String ise ve virgül içeriyorsa noktaya çevir
+  if (typeof value === 'string') {
+    // Tüm virgülleri noktalara çevir
+    if (value.includes(',')) {
+      const normalized = value.replace(/,/g, '.');
+      
+      // Sayısal değer olup olmadığını kontrol et
+      if (!isNaN(parseFloat(normalized))) {
+        return parseFloat(normalized);
+      }
+      
+      // Sayısal değilse, normalleştirilmiş string'i döndür
+      return normalized;
+    }
+    
+    // Sayısal string ise sayıya çevir
+    if (!isNaN(parseFloat(value)) && !isNaN(value)) {
+      return parseFloat(value);
+    }
+  }
+  
+  // Diğer durumlarda orijinal değeri döndür
+  return value;
 };
 
 /**
