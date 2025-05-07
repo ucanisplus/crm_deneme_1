@@ -14,7 +14,7 @@ const mmGtValidationSchema = Yup.object().shape({
     .required('Çap zorunludur')
     .min(0.8, 'Çap en az 0.8 olmalıdır')
     .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
-  kod_2: Yup.string().required('Kaplama türü zorunludur'),f
+  kod_2: Yup.string().required('Kaplama türü zorunludur'),
   kaplama: Yup.number()
     .required('Kaplama zorunludur')
     .min(50, 'Kaplama en az 50 olmalıdır')
