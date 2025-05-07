@@ -2356,10 +2356,6 @@ async function createReceteExcel(mmGt, ymGt, ymStList) {
 }
 
 
-  
-  initData();
-}, [loadYmStList, fetchProductDatabase]);
-
 return (
   <GalvanizliTelContext.Provider value={contextValue}>
     {children}
