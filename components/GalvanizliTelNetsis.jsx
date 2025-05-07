@@ -601,37 +601,54 @@ const testApiEndpoints = async () => {
 };
 
 //EKLEME
-// Bu fonksiyon, stok kodunun veritabanında olup olmadığını kontrol eder
+// Bu fonksiyon, stok kodunun veritabanında olup olmadığını kontrol eder - tamamen yeniden yazıldı
 const checkProductExists = async (stokKodu) => {
   try {
-    console.log(`Ürün kontrolü yapılıyor: ${stokKodu}`); // Kontrol edilen stok kodunu logla
+    console.log(`Ürün kontrolü yapılıyor: ${stokKodu}`);
     
-    // API isteği yap
     const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stokKodu)}`);
     
-    // 404 hatası gelirse ürün yoktur, false döndür
-    if (response.status === 404) {
-      console.log('Ürün bulunamadı (404)');
+    // Yanıtı önce text olarak al ve logla
+    const responseText = await response.text();
+    console.log('Ham API yanıtı:', responseText);
+    
+    // Boş yanıt kontrolü
+    if (!responseText || responseText.trim() === '' || responseText === '[]') {
+      console.log('Boş yanıt, ürün mevcut değil');
       return false;
     }
     
-    // Başka bir hata varsa loglayıp false döndür
-    if (!response.ok) {
-      console.error('Ürün kontrolü hatası:', response.status, response.statusText);
+    // JSON'a çevir
+    try {
+      const data = JSON.parse(responseText);
+      console.log('Çözümlenmiş veri:', data);
+      
+      // Dizi ise içeriğini kontrol et
+      if (Array.isArray(data)) {
+        if (data.length === 0) {
+          console.log('Boş dizi, ürün mevcut değil');
+          return false;
+        } else {
+          console.log(`Ürün bulundu: ${data[0].stok_kodu}`);
+          return true;
+        }
+      } 
+      
+      // Tekil nesne döndüyse
+      if (data && typeof data === 'object' && data.stok_kodu) {
+        console.log(`Ürün bulundu: ${data.stok_kodu}`);
+        return true;
+      }
+      
+      // Başka bir durumda
+      console.log('Tanımlanamayan yanıt formatı, ürün yok kabul ediliyor');
+      return false;
+    } catch (jsonError) {
+      console.error('JSON çözümleme hatası:', jsonError);
       return false;
     }
-    
-    // Yanıtı JSON olarak okuyup kontrol et
-    const data = await response.json();
-    console.log('Ürün kontrolü sonucu:', data); // Sonucu logla
-    
-    // Veri bir dizi ise ve içinde eleman varsa ürün vardır
-    const exists = Array.isArray(data) && data.length > 0;
-    console.log(`Ürün ${exists ? 'var' : 'yok'}`);
-    return exists;
   } catch (error) {
     console.error('Ürün kontrolü yapılırken hata oluştu:', error);
-    // Hata durumunda false döndür - ürün yokmuş gibi davran
     return false;
   }
 };
