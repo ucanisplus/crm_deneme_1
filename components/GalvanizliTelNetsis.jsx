@@ -125,7 +125,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }, []);
 
-// Bu fonksiyon veritabanından ürün siler
+// Bu fonksiyon veritabanından ürün siler - endpoint formatını düzeltilmiş hali
 const deleteProduct = async (type, id) => {
   try {
     setLoading(true); // Yükleniyor durumunu aktifleştir
@@ -135,16 +135,16 @@ const deleteProduct = async (type, id) => {
     // Ürün tipine göre endpoint belirle
     switch (type) {
       case 'mmGt':
-        // Endpoint format değişikliği
-        endpoint = `${API_URLS.galMmGt}/${id}`; // Endpoint format olarak /{id} şeklinde olabilir
+        // DÜZELTME: ID'yi URL yoluna ekle, sorgu parametresi olarak değil
+        endpoint = `${API_URLS.galMmGt}/${id}`; // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'MM GT başarıyla silindi';
         break;
       case 'ymGt':
-        endpoint = `${API_URLS.galYmGt}/${id}`; // Endpoint format değişikliği
+        endpoint = `${API_URLS.galYmGt}/${id}`; // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'YM GT başarıyla silindi';
         break;
       case 'ymSt':
-        endpoint = `${API_URLS.galYmSt}/${id}`; // Endpoint format değişikliği
+        endpoint = `${API_URLS.galYmSt}/${id}`; // URL yolunda ID kullanımı /:id şeklinde
         successMsg = 'YM ST başarıyla silindi';
         break;
       default:
@@ -532,6 +532,77 @@ const searchProducts = async (searchParams) => {
   }
 };
 
+//EKLEME
+// API endpoint'lerini test et - hata ayıklama için kullanışlı
+const testApiEndpoints = async () => {
+  console.log("API Endpoint Testi Başlatılıyor...");
+  
+  try {
+    // MM GT endpoint test
+    console.log("MM GT endpoint testi:");
+    const mmGtTest = await fetchWithAuth(API_URLS.galMmGt);
+    console.log("- GET yanıtı:", mmGtTest.status);
+    
+    if (mmGtTest.ok) {
+      const data = await mmGtTest.json();
+      console.log(`- ${data.length} adet kayıt bulundu`);
+      
+      if (data.length > 0) {
+        // Bir kaydı al ve PUT/DELETE test et
+        const testId = data[0].id;
+        console.log(`- ID: ${testId} ile PUT/DELETE testi`);
+        
+        // PUT endpointi oluştur
+        const putUrl = `${API_URLS.galMmGt}/${testId}`;
+        console.log(`- PUT URL: ${putUrl}`);
+        
+        // DELETE endpointi oluştur
+        const deleteUrl = `${API_URLS.galMmGt}/${testId}`;
+        console.log(`- DELETE URL: ${deleteUrl} (gerçek silme yapılmayacak)`);
+      }
+    }
+    
+    // YM GT endpoint test
+    console.log("\nYM GT endpoint testi:");
+    const ymGtTest = await fetchWithAuth(API_URLS.galYmGt);
+    console.log("- GET yanıtı:", ymGtTest.status);
+    
+    // YM ST endpoint test
+    console.log("\nYM ST endpoint testi:");
+    const ymStTest = await fetchWithAuth(API_URLS.galYmSt);
+    console.log("- GET yanıtı:", ymStTest.status);
+    
+    // MM GT - YM ST ilişki tablosu testi
+    console.log("\nMM GT - YM ST ilişki tablosu testi:");
+    const relationTest = await fetchWithAuth(API_URLS.galMmGtYmSt);
+    console.log("- GET yanıtı:", relationTest.status);
+    
+    // Reçete tabloları testi
+    console.log("\nMM GT Reçete tablosu testi:");
+    const mmGtReceteTest = await fetchWithAuth(API_URLS.galMmGtRecete);
+    console.log("- GET yanıtı:", mmGtReceteTest.status);
+    
+    console.log("\nYM GT Reçete tablosu testi:");
+    const ymGtReceteTest = await fetchWithAuth(API_URLS.galYmGtRecete);
+    console.log("- GET yanıtı:", ymGtReceteTest.status);
+    
+    console.log("\nYM ST Reçete tablosu testi:");
+    const ymStReceteTest = await fetchWithAuth(API_URLS.galYmStRecete);
+    console.log("- GET yanıtı:", ymStReceteTest.status);
+    
+    console.log("\nSıra numarası tablosu testi:");
+    const sequenceTest = await fetchWithAuth(API_URLS.galSequence);
+    console.log("- GET yanıtı:", sequenceTest.status);
+    
+    console.log("\nAPI Endpoint Testi Tamamlandı");
+  } catch (error) {
+    console.error("API endpoint testi hatası:", error);
+  }
+};
+
+//EKLEME
+
+
 // Bu fonksiyon MM GT kaydeder veya günceller
 const saveMMGT = async (values) => {
   setLoading(true);
@@ -564,7 +635,7 @@ const saveMMGT = async (values) => {
     const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
     console.log('Oluşturulan stok kodu:', stockCode);
 
-    // Ürünün zaten var olup olmadığını kontrol et - geliştirilmiş kontrol
+    // Ürünün zaten var olup olmadığını kontrol et
     const productExists = await checkProductExists(stockCode);
     console.log('Ürün var mı kontrolü:', productExists);
     
@@ -670,9 +741,11 @@ const saveMMGT = async (values) => {
     let apiMethod = isEditMode ? 'PUT' : 'POST';
     let apiUrl = API_URLS.galMmGt;
     
-    // Eğer güncelleme yapılıyorsa ve ID varsa, ID'yi ekle
+    // DÜZELTME: Güncelleme için ID'yi URL yoluna ekle
     if (isEditMode && mmGtData && mmGtData.id) {
-      mmGtDataToSave.id = mmGtData.id;
+      apiUrl = `${API_URLS.galMmGt}/${mmGtData.id}`; // ID'yi URL yoluna ekle
+      // ID bilgisi URL'de olduğu için data içinden kaldır
+      delete mmGtDataToSave.id;
     }
     
     console.log(`API isteği: ${apiMethod} ${apiUrl}`);
@@ -724,141 +797,151 @@ const saveMMGT = async (values) => {
     setLoading(false);
   }
 };
-  // YM GT kaydetme fonksiyonu
-  const saveYMGT = async (values, mmGtId) => {
-    setLoading(true);
-    setError(null);
+// Bu fonksiyon YM GT kaydeder veya günceller
+const saveYMGT = async (values, mmGtId) => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      // MM GT verisini API'den al
-      const response = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
-      
-      if (!response.ok) {
-        throw new Error('MM GT bulunamadı');
-      }
-      
-      const mmGtResult = await response.json();
-      const mmGt = mmGtResult[0]; // API dizi döndürüyor
-      
-      if (!mmGt) {
-        throw new Error('MM GT bulunamadı');
-      }
-
-      // Stok kodunu üret
-      const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
-
-      // YM GT verisini oluştur (default değerlerle)
-      const ymGtDataToSave = {
-        mm_gt_id: mmGtId,
-        stok_kodu: stockCode,
-        stok_adi: mmGt.stok_adi,
-        ingilizce_isim: mmGt.ingilizce_isim,
-        grup_kodu: 'YM',
-        kod_1: 'GT',
-        kod_2: mmGt.kod_2,
-        cap: mmGt.cap,
-        kaplama: mmGt.kaplama,
-        min_mukavemet: mmGt.min_mukavemet,
-        max_mukavemet: mmGt.max_mukavemet,
-        kg: mmGt.kg,
-        ic_cap: mmGt.ic_cap,
-        dis_cap: mmGt.dis_cap,
-        shrink: mmGt.shrink,
-        tolerans_plus: mmGt.tolerans_plus,
-        tolerans_minus: mmGt.tolerans_minus,
-        muh_detay: '83',
-        depo_kodu: '35',
-        br_1: 'KG',
-        br_2: 'TN',
-        pay_1: 1,
-        payda_1: 1000,
-        cevrim_degeri_1: 0.001,
-        cevrim_pay_2: 1,
-        cevrim_payda_2: 1,
-        cevrim_degeri_2: 1,
-        alis_fiyati: 0,
-        satis_fiyati_1: 0,
-        satis_fiyati_2: 0,
-        satis_fiyati_3: 0,
-        satis_fiyati_4: 0,
-        doviz_alis: 0,
-        doviz_maliyeti: 0,
-        doviz_satis_fiyati: 0,
-        azami_stok: 0,
-        asgari_stok: 0,
-        dov_tutar: 0,
-        dov_tipi: 0,
-        bekleme_suresi: 0,
-        temin_suresi: 0,
-        birim_agirlik: 0,
-        nakliye_tutar: 0,
-        fiyat_birimi: 1,
-        satis_kdv_orani: 20,
-        alis_kdv_orani: 20,
-        stok_turu: 'D',
-        esnek_yapilandir: 'H',
-        super_recete_kullanilsin: 'H',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-      };
-
-      // Önce var mı kontrol et
-      const checkRes = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGtId}`);
-      
-      if (!checkRes.ok && checkRes.status !== 404) {
-        throw new Error('YM GT kontrolü yapılamadı');
-      }
-      
-      const existing = await checkRes.json();
-      
-      let saveRes;
-      if (existing && existing.length > 0) {
-        // Güncelle
-        ymGtDataToSave.id = existing[0].id;
-        saveRes = await fetchWithAuth(API_URLS.galYmGt, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ymGtDataToSave),
-        });
-        
-        if (!saveRes.ok) {
-          throw new Error('YM GT güncellenemedi');
-        }
-        
-        setSuccessMessage('YM GT kaydı başarıyla güncellendi');
-        toast.success('YM GT kaydı başarıyla güncellendi');
-      } else {
-        // Yeni kayıt
-        saveRes = await fetchWithAuth(API_URLS.galYmGt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ymGtDataToSave),
-        });
-        
-        if (!saveRes.ok) {
-          throw new Error('YM GT oluşturulamadı');
-        }
-        
-        setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
-        toast.success('YM GT kaydı başarıyla oluşturuldu');
-      }
-
-      const savedData = await saveRes.json();
-      setYmGtData(savedData);
-
-      // Veritabanını güncelle
-      await fetchProductDatabase();
-
-      return savedData;
-    } catch (error) {
-      console.error('YM GT kaydetme hatası:', error);
-      setError('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
-      toast.error('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
-      return null;
-    } finally {
-      setLoading(false);
+  try {
+    // MM GT verisini API'den al
+    const response = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
+    
+    if (!response.ok) {
+      throw new Error('MM GT bulunamadı');
     }
-  };
+    
+    const mmGtResult = await response.json();
+    const mmGt = mmGtResult; // Tek bir kayıt dönecek
+    
+    if (!mmGt) {
+      throw new Error('MM GT bulunamadı');
+    }
+
+    // Stok kodunu üret
+    const stockCode = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
+
+    // YM GT verisini oluştur (default değerlerle)
+    const ymGtDataToSave = {
+      mm_gt_id: mmGtId,
+      stok_kodu: stockCode,
+      stok_adi: mmGt.stok_adi,
+      ingilizce_isim: mmGt.ingilizce_isim,
+      grup_kodu: 'YM',
+      kod_1: 'GT',
+      kod_2: mmGt.kod_2,
+      cap: mmGt.cap,
+      kaplama: mmGt.kaplama,
+      min_mukavemet: mmGt.min_mukavemet,
+      max_mukavemet: mmGt.max_mukavemet,
+      kg: mmGt.kg,
+      ic_cap: mmGt.ic_cap,
+      dis_cap: mmGt.dis_cap,
+      shrink: mmGt.shrink,
+      tolerans_plus: mmGt.tolerans_plus,
+      tolerans_minus: mmGt.tolerans_minus,
+      muh_detay: '83',
+      depo_kodu: '35',
+      br_1: 'KG',
+      br_2: 'TN',
+      pay_1: 1,
+      payda_1: 1000,
+      cevrim_degeri_1: 0.001,
+      cevrim_pay_2: 1,
+      cevrim_payda_2: 1,
+      cevrim_degeri_2: 1,
+      alis_fiyati: 0,
+      satis_fiyati_1: 0,
+      satis_fiyati_2: 0,
+      satis_fiyati_3: 0,
+      satis_fiyati_4: 0,
+      doviz_alis: 0,
+      doviz_maliyeti: 0,
+      doviz_satis_fiyati: 0,
+      azami_stok: 0,
+      asgari_stok: 0,
+      dov_tutar: 0,
+      dov_tipi: 0,
+      bekleme_suresi: 0,
+      temin_suresi: 0,
+      birim_agirlik: 0,
+      nakliye_tutar: 0,
+      fiyat_birimi: 1,
+      satis_kdv_orani: 20,
+      alis_kdv_orani: 20,
+      stok_turu: 'D',
+      esnek_yapilandir: 'H',
+      super_recete_kullanilsin: 'H',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+    };
+
+    // Önce var mı kontrol et
+    const checkRes = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGtId}`);
+    
+    if (!checkRes.ok && checkRes.status !== 404) {
+      throw new Error('YM GT kontrolü yapılamadı');
+    }
+    
+    const existing = await checkRes.json();
+    
+    let saveRes;
+    if (existing && existing.length > 0) {
+      // Güncelle
+      console.log('Mevcut YM GT güncelleniyor:', existing[0].id);
+      
+      // DÜZELTME: Endpointi /:id formatında oluştur
+      const updateUrl = `${API_URLS.galYmGt}/${existing[0].id}`;
+      
+      // Veritabanında olan kaydın ID'sini objeden kaldır
+      const updateData = { ...ymGtDataToSave };
+      delete updateData.id; // ID URL'de olduğu için objeden kaldır
+      
+      console.log('YM GT güncelleme endpointi:', updateUrl);
+      
+      saveRes = await fetchWithAuth(updateUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      
+      if (!saveRes.ok) {
+        throw new Error('YM GT güncellenemedi');
+      }
+      
+      setSuccessMessage('YM GT kaydı başarıyla güncellendi');
+      toast.success('YM GT kaydı başarıyla güncellendi');
+    } else {
+      // Yeni kayıt
+      saveRes = await fetchWithAuth(API_URLS.galYmGt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ymGtDataToSave),
+      });
+      
+      if (!saveRes.ok) {
+        throw new Error('YM GT oluşturulamadı');
+      }
+      
+      setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
+      toast.success('YM GT kaydı başarıyla oluşturuldu');
+    }
+
+    const savedData = await saveRes.json();
+    setYmGtData(savedData);
+
+    // Veritabanını güncelle
+    await fetchProductDatabase();
+
+    return savedData;
+  } catch (error) {
+    console.error('YM GT kaydetme hatası:', error);
+    setError('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
+    toast.error('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+};
 
   // YM ST kaydetme fonksiyonu
   const saveYMST = async (values, mmGtId) => {
@@ -1036,189 +1119,208 @@ const saveMMGT = async (values) => {
     }
   };
 
-  // MM GT Reçete oluşturma
-  const createMMGTRecete = async (mmGtId, ymGtId, receteData = null) => {
-    // MM GT verilerini al
-    const mmGtRes = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
-    
-    if (!mmGtRes.ok) {
-      throw new Error('MM GT verisi alınamadı');
-    }
-    
-    const mmGtData = await mmGtRes.json();
-    const mmGt = mmGtData[0];
+// MM GT Reçete oluşturma (mevcut olanı siler, yenisini ekler)
+const createMMGTRecete = async (mmGtId, ymGtId, receteData = null) => {
+  // MM GT verilerini al
+  const mmGtRes = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
+  
+  if (!mmGtRes.ok) {
+    throw new Error('MM GT verisi alınamadı');
+  }
+  
+  const mmGt = await mmGtRes.json();
 
-    // YM GT stok kodunu al
-    const ymGtRes = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
-    
-    if (!ymGtRes.ok) {
-      throw new Error('YM GT verisi alınamadı');
-    }
-    
-    const ymGtData = await ymGtRes.json();
-    const ymGt = ymGtData[0];
+  // YM GT stok kodunu al
+  const ymGtRes = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+  
+  if (!ymGtRes.ok) {
+    throw new Error('YM GT verisi alınamadı');
+  }
+  
+  const ymGt = await ymGtRes.json();
 
-    // Reçete öğelerini oluştur
-    const receteItems = [
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'KG',
-        sira_no: 1,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: ymGt.stok_kodu,
-        olcu_br_bilesen: '1',
-        miktar: 1,
-        aciklama: 'Galvanizli Tel Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'DK',
-        sira_no: 2,
-        operasyon_bilesen: 'Operasyon',
-        bilesen_kodu: 'GTPKT01',
-        olcu_br_bilesen: '1',
-        miktar: receteData ? receteData.paketleme_suresi : 0.02,
-        aciklama: 'Paketleme Operasyonu',
-        uretim_suresi: receteData ? receteData.paketleme_suresi : 0.02,
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'AD',
-        sira_no: 3,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'AMB.ÇEM.KARTON.GAL',
-        olcu_br_bilesen: '1',
-        miktar: 0.016,
-        aciklama: 'Karton Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'KG',
-        sira_no: 4,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: mmGt.amb_shrink,
-        olcu_br_bilesen: '1',
-        miktar: 0.002,
-        aciklama: 'Naylon Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'AD',
-        sira_no: 5,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'SM.7MMHALKA',
-        olcu_br_bilesen: '1',
-        miktar: 0.008,
-        aciklama: 'Kaldırma Kancası Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'KG',
-        sira_no: 6,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'AMB.APEX CEMBER 38X080',
-        olcu_br_bilesen: '1',
-        miktar: 0.0024,
-        aciklama: 'Çelik çember Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'AD',
-        sira_no: 7,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'AMB.TOKA.SIGNODE.114P. DKP',
-        olcu_br_bilesen: '1',
-        miktar: 0.008,
-        aciklama: 'Çember Tokası Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
-      },
-      {
-        mamul_kodu: mmGt.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0.0004,
-        olcu_br: 'AD',
-        sira_no: 8,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'SM.DESİ.PAK',
-        olcu_br_bilesen: '1',
-        miktar: 0.002,
-        aciklama: 'Slikajel Tüketim Miktarı',
-        ua_dahil_edilsin: 'evet',
-        son_operasyon: 'evet',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
-        mm_gt_id: mmGtId
+  // Reçete öğelerini oluştur
+  const receteItems = [
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'KG',
+      sira_no: 1,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: ymGt.stok_kodu,
+      olcu_br_bilesen: '1',
+      miktar: 1,
+      aciklama: 'Galvanizli Tel Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'DK',
+      sira_no: 2,
+      operasyon_bilesen: 'Operasyon',
+      bilesen_kodu: 'GTPKT01',
+      olcu_br_bilesen: '1',
+      miktar: receteData ? receteData.paketleme_suresi : 0.02,
+      aciklama: 'Paketleme Operasyonu',
+      uretim_suresi: receteData ? receteData.paketleme_suresi : 0.02,
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'AD',
+      sira_no: 3,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: 'AMB.ÇEM.KARTON.GAL',
+      olcu_br_bilesen: '1',
+      miktar: 0.016,
+      aciklama: 'Karton Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'KG',
+      sira_no: 4,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: mmGt.amb_shrink,
+      olcu_br_bilesen: '1',
+      miktar: 0.002,
+      aciklama: 'Naylon Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'AD',
+      sira_no: 5,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: 'SM.7MMHALKA',
+      olcu_br_bilesen: '1',
+      miktar: 0.008,
+      aciklama: 'Kaldırma Kancası Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'KG',
+      sira_no: 6,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: 'AMB.APEX CEMBER 38X080',
+      olcu_br_bilesen: '1',
+      miktar: 0.0024,
+      aciklama: 'Çelik çember Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'AD',
+      sira_no: 7,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: 'AMB.TOKA.SIGNODE.114P. DKP',
+      olcu_br_bilesen: '1',
+      miktar: 0.008,
+      aciklama: 'Çember Tokası Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    },
+    {
+      mamul_kodu: mmGt.stok_kodu,
+      recete_top: 1,
+      fire_orani: 0.0004,
+      olcu_br: 'AD',
+      sira_no: 8,
+      operasyon_bilesen: 'Bileşen',
+      bilesen_kodu: 'SM.DESİ.PAK',
+      olcu_br_bilesen: '1',
+      miktar: 0.002,
+      aciklama: 'Slikajel Tüketim Miktarı',
+      ua_dahil_edilsin: 'evet',
+      son_operasyon: 'evet',
+      created_by: user?.id || null,
+      updated_by: user?.id || null,
+      mm_gt_id: mmGtId
+    }
+  ];
+
+  // DÜZELTME: Mevcut reçeteleri doğru şekilde sil
+  try {
+    // Önce mevcut reçeteleri al
+    const existingRecetesRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
+    
+    if (existingRecetesRes.ok) {
+      const existingRecetes = await existingRecetesRes.json();
+      console.log(`${existingRecetes.length} adet mevcut reçete bulundu, siliniyor...`);
+      
+      // Her bir reçeteyi tek tek sil
+      for (const recete of existingRecetes) {
+        const deleteUrl = `${API_URLS.galMmGtRecete}/${recete.id}`;
+        console.log(`Reçete siliniyor: ${deleteUrl}`);
+        
+        const deleteRes = await fetchWithAuth(deleteUrl, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!deleteRes.ok) {
+          console.warn(`Reçete silinemedi, ID: ${recete.id}, durum: ${deleteRes.status}`);
+        }
       }
-    ];
-
-    // Önce mevcut reçeteyi sil
-    try {
-      await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`, {
-        method: 'DELETE'
-      });
-    } catch (error) {
-      console.warn('MM GT reçetesi silinirken hata oluştu:', error);
     }
+  } catch (error) {
+    console.warn('MM GT reçetesi silinirken hata oluştu:', error);
+  }
 
-    // Reçeteyi veritabanına kaydet
-    const receteRes = await fetchWithAuth(API_URLS.galMmGtRecete, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(receteItems),
-    });
-    
-    if (!receteRes.ok) {
-      throw new Error('MM GT reçetesi kaydedilemedi');
-    }
-  };
+  // Reçeteyi veritabanına kaydet
+  const receteRes = await fetchWithAuth(API_URLS.galMmGtRecete, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(receteItems),
+  });
+  
+  if (!receteRes.ok) {
+    throw new Error('MM GT reçetesi kaydedilemedi');
+  }
+  
+  console.log('MM GT reçetesi başarıyla kaydedildi');
+};
 
   // YM GT Reçete oluşturma
   const createYMGTRecete = async (ymGtId, receteData = null) => {
@@ -2541,6 +2643,14 @@ const saveMMGT = async (values) => {
     loadYmStList,
   };
 
+
+useEffect(() => {
+  // baslangıcta calıstır
+  console.log("Running API endpoint tests...");
+  testApiEndpoints();
+  
+}, []);
+
   // İlk yüklemede veritabanını ve YM ST listesini getir
   useEffect(() => {
     fetchProductDatabase();
@@ -2896,25 +3006,55 @@ const handleSubmit = async (values) => {
     }
   };
 
-  // YM ST kaldır
-  const handleRemoveYmSt = async (ymStId) => {
-    try {
-      const response = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtData.id}&ym_st_id=${ymStId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error('YM ST ilişkisi silinemedi');
-      }
-
-      setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
-      setSuccessMessage('YM ST başarıyla kaldırıldı');
-      toast.success('YM ST başarıyla kaldırıldı');
-    } catch (error) {
-      setError('YM ST kaldırılırken bir hata oluştu');
-      toast.error('YM ST kaldırılırken bir hata oluştu');
+// Bu fonksiyon YM ST ilişkisini kaldırır (MM GT ile bağlantısını keser)
+const handleRemoveYmSt = async (ymStId) => {
+  try {
+    console.log(`YM ST kaldırılıyor, ID: ${ymStId}, MM GT ID: ${mmGtData.id}`);
+    
+    // İlişki tablosundaki kaydın ID'sini bul
+    const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtData.id}&ym_st_id=${ymStId}`);
+    
+    if (!relationResponse.ok) {
+      console.error('YM ST ilişkisi bulunamadı, yanıt durumu:', relationResponse.status);
+      throw new Error('YM ST ilişkisi bulunamadı');
     }
-  };
+    
+    const relations = await relationResponse.json();
+    console.log('İlişki sorgusu sonucu:', relations);
+    
+    if (!relations || !relations.length) {
+      throw new Error('YM ST ilişkisi bulunamadı');
+    }
+    
+    // İlişki ID'sini kullanarak silme işlemi yap
+    const relationId = relations[0].id;
+    console.log(`İlişki kaydı siliniyor, ID: ${relationId}`);
+    
+    // DÜZELTME: Endpointi /:id formatında oluştur
+    const deleteUrl = `${API_URLS.galMmGtYmSt}/${relationId}`;
+    console.log('Silme endpointi:', deleteUrl);
+    
+    const response = await fetchWithAuth(deleteUrl, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    console.log('Silme yanıtı:', response.status);
+    
+    if (!response.ok) {
+      throw new Error('YM ST ilişkisi silinemedi');
+    }
+
+    // UI'dan YM ST'yi kaldır
+    setSelectedYmSt(prev => prev.filter(item => item.id !== ymStId));
+    setSuccessMessage('YM ST başarıyla kaldırıldı');
+    toast.success('YM ST başarıyla kaldırıldı');
+  } catch (error) {
+    console.error('YM ST kaldırma hatası:', error);
+    setError('YM ST kaldırılırken bir hata oluştu: ' + error.message);
+    toast.error('YM ST kaldırılırken bir hata oluştu: ' + error.message);
+  }
+};
 
   // Yeni YM ST oluştur
   const handleCreateYmSt = async (values) => {
