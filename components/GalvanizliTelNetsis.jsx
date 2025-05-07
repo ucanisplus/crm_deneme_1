@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { toast } from 'react-toastify';
 
-// Validation Schema tanımlamaları
+// Doğrulama Şeması tanımlamaları
 const mmGtValidationSchema = Yup.object().shape({
   cap: Yup.number()
     .required('Çap zorunludur')
@@ -40,7 +40,7 @@ const mmGtValidationSchema = Yup.object().shape({
     .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
 });
 
-// YM ST formüllerine ait validation schema
+// YM ST formüllerine ait doğrulama şeması
 const receteValidationSchema = Yup.object().shape({
   boraks_tuketimi: Yup.number()
     .required('Boraks tüketimi zorunludur')
@@ -124,7 +124,134 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }, []);
 
-  // Ürün silme fonksiyonu - ilişkili kayıtlar için önlem eklenmiş
+  // İlişkileri kontrol et ve sil
+  const checkAndDeleteRelations = async (type, id) => {
+    try {
+      // MM GT silinecekse, ilişkili YM GT ve MM GT-YM ST ilişkilerini sil
+      if (type === 'mmGt') {
+        // YM GT ilişkilerini bul
+        const ymGtRes = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${id}`);
+        
+        if (ymGtRes.ok) {
+          const ymGtList = await ymGtRes.json();
+          
+          if (Array.isArray(ymGtList) && ymGtList.length > 0) {
+            // Her bir YM GT'yi sil
+            for (const ymGt of ymGtList) {
+              // Önce YM GT reçetelerini sil
+              const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
+              
+              if (ymGtReceteRes.ok) {
+                const ymGtRecetes = await ymGtReceteRes.json();
+                
+                if (Array.isArray(ymGtRecetes) && ymGtRecetes.length > 0) {
+                  for (const recete of ymGtRecetes) {
+                    await fetchWithAuth(`${API_URLS.galYmGtRecete}/${recete.id}`, {
+                      method: 'DELETE'
+                    });
+                  }
+                }
+              }
+              
+              // YM GT'yi sil
+              await fetchWithAuth(`${API_URLS.galYmGt}/${ymGt.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+        
+        // MM GT-YM ST ilişkilerini bul ve sil
+        const mmGtYmStRes = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${id}`);
+        
+        if (mmGtYmStRes.ok) {
+          const mmGtYmStList = await mmGtYmStRes.json();
+          
+          if (Array.isArray(mmGtYmStList) && mmGtYmStList.length > 0) {
+            // Her bir ilişkiyi sil
+            for (const relation of mmGtYmStList) {
+              await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+        
+        // MM GT reçetelerini sil
+        const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${id}`);
+        
+        if (mmGtReceteRes.ok) {
+          const mmGtRecetes = await mmGtReceteRes.json();
+          
+          if (Array.isArray(mmGtRecetes) && mmGtRecetes.length > 0) {
+            for (const recete of mmGtRecetes) {
+              await fetchWithAuth(`${API_URLS.galMmGtRecete}/${recete.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+      }
+      
+      // YM GT silinecekse, ilişkili reçeteleri sil
+      if (type === 'ymGt') {
+        const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${id}`);
+        
+        if (ymGtReceteRes.ok) {
+          const ymGtRecetes = await ymGtReceteRes.json();
+          
+          if (Array.isArray(ymGtRecetes) && ymGtRecetes.length > 0) {
+            for (const recete of ymGtRecetes) {
+              await fetchWithAuth(`${API_URLS.galYmGtRecete}/${recete.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+      }
+      
+      // YM ST silinecekse, ilişkili reçeteleri ve MM GT-YM ST ilişkilerini sil
+      if (type === 'ymSt') {
+        // YM ST reçetelerini sil
+        const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${id}`);
+        
+        if (ymStReceteRes.ok) {
+          const ymStRecetes = await ymStReceteRes.json();
+          
+          if (Array.isArray(ymStRecetes) && ymStRecetes.length > 0) {
+            for (const recete of ymStRecetes) {
+              await fetchWithAuth(`${API_URLS.galYmStRecete}/${recete.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+        
+        // MM GT-YM ST ilişkilerini bul ve sil
+        const mmGtYmStRes = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?ym_st_id=${id}`);
+        
+        if (mmGtYmStRes.ok) {
+          const mmGtYmStList = await mmGtYmStRes.json();
+          
+          if (Array.isArray(mmGtYmStList) && mmGtYmStList.length > 0) {
+            // Her bir ilişkiyi sil
+            for (const relation of mmGtYmStList) {
+              await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
+                method: 'DELETE'
+              });
+            }
+          }
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('İlişkiler silinirken hata:', error);
+      return false;
+    }
+  };
+
+  // Ürün silme fonksiyonu - ilişkili kayıtlar için kademeli silme eklenmiş
   const deleteProduct = async (type, id) => {
     try {
       setLoading(true);
@@ -148,36 +275,29 @@ export const GalvanizliTelProvider = ({ children }) => {
           throw new Error('Geçersiz ürün tipi');
       }
       
-      // İlişkili kayıtlar için kullanıcıyı uyar
-      if (type === 'mmGt') {
-        // Önce ilişkileri kontrol et
-        const relationsCheck = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${id}`);
-        let hasRelations = false;
-        
-        if (relationsCheck.ok) {
-          const relations = await relationsCheck.json();
-          hasRelations = Array.isArray(relations) && relations.length > 0;
-        }
-        
-        if (hasRelations) {
-          const confirmed = window.confirm(
-            "Bu ürünün ilişkili YM GT ve YM ST kayıtları var. Silme işlemi gerçekleştirilemeyebilir. Yine de denemek istiyor musunuz?"
-          );
-          
-          if (!confirmed) {
-            setLoading(false);
-            return false;
-          }
-        }
+      // İlişkili kayıtlar için kullanıcıyı uyar ve onay al
+      const confirmed = window.confirm(
+        "Bu işlem, ürün ve ilişkili tüm kayıtları silecektir. Devam etmek istiyor musunuz?"
+      );
+      
+      if (!confirmed) {
+        setLoading(false);
+        return false;
       }
       
-      // Silme isteği gönder
+      // Önce ilişkili kayıtları sil
+      const relationsDeleted = await checkAndDeleteRelations(type, id);
+      
+      if (!relationsDeleted) {
+        throw new Error("İlişkili kayıtlar silinemedi. İşlem iptal edildi.");
+      }
+      
+      // Ürünü sil
       const response = await fetchWithAuth(endpoint, {
         method: 'DELETE'
       });
       
       if (!response.ok) {
-        // Hata durumunda daha anlamlı mesaj göster
         if (response.status === 500) {
           throw new Error(
             "Bu ürün diğer kayıtlarla ilişkili olduğu için silinemedi. " +
@@ -192,6 +312,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       toast.success(successMsg);
       return true;
     } catch (error) {
+      console.error('Ürün silme hatası:', error);
       setError('Ürün silinirken bir hata oluştu: ' + error.message);
       toast.error('Ürün silinirken bir hata oluştu: ' + error.message);
       return false;
@@ -213,6 +334,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       // Yeni ürünler için sıra numarası 0'dan başlar
       return data.sequence !== undefined ? data.sequence : 0;
     } catch (error) {
+      console.error('Sıra numarası alınırken hata:', error);
       setError('Sıra numarası alınırken hata oluştu');
       // Hata durumunda varsayılan değer 0
       return 0;
@@ -235,6 +357,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const data = await response.json();
       return data.sequence;
     } catch (error) {
+      console.error('Sıra numarası güncelleme hatası:', error);
       setError('Sıra numarası güncellenirken hata oluştu');
       return null;
     }
@@ -270,6 +393,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         setYmStList(data);
       }
     } catch (error) {
+      console.error('YM ST listesi yükleme hatası:', error);
       // Hata durumunda da boş dizi ile devam et, böylece uygulama çalışmaya devam eder
       setYmStList([]);
       setError('YM ST listesi yüklenirken bir hata oluştu');
@@ -285,6 +409,170 @@ export const GalvanizliTelProvider = ({ children }) => {
     setDataExist(false);
 
     try {
+      // Eğer stok kodu arama parametresi varsa, önce mevcut mu kontrol et
+      if (searchParams.stok_kodu) {
+        // Stok koduna göre arama yapmak için onu düzgün şekilde encode et
+        const stokKodu = encodeURIComponent(searchParams.stok_kodu.trim());
+        const checkUrl = `${API_URLS.galMmGt}?stok_kodu=${stokKodu}`;
+        
+        const checkResponse = await fetchWithAuth(checkUrl);
+        
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          
+          if (Array.isArray(checkData) && checkData.length > 0) {
+            // MM GT verisini al
+            const mmGt = checkData[0];
+            
+            // State'leri güncelle
+            setMmGtData(mmGt);
+            setDataExist(true);
+            setIsEditMode(true);
+            
+            // YM GT verisini al
+            try {
+              const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?mm_gt_id=${mmGt.id}`);
+              
+              if (ymGtResponse.ok) {
+                const ymGtResults = await ymGtResponse.json();
+                
+                if (Array.isArray(ymGtResults) && ymGtResults.length > 0) {
+                  setYmGtData(ymGtResults[0]);
+                }
+              }
+            } catch (error) {
+              console.error('YM GT verisi alınırken hata:', error);
+            }
+            
+            // YM ST ilişkilerini al
+            try {
+              const ymStRelResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+              
+              if (ymStRelResponse.ok) {
+                const ymStRelResults = await ymStRelResponse.json();
+                
+                if (Array.isArray(ymStRelResults) && ymStRelResults.length > 0) {
+                  const ymStIds = ymStRelResults.map(item => item.ym_st_id);
+                  
+                  // İlişkili YM ST'leri al
+                  if (ymStIds.length > 0) {
+                    // Tekil sorgular için
+                    const ymStDetails = [];
+                    
+                    for (const ymStId of ymStIds) {
+                      const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+                      
+                      if (ymStResponse.ok) {
+                        const ymStData = await ymStResponse.json();
+                        
+                        if (Array.isArray(ymStData) && ymStData.length > 0) {
+                          ymStDetails.push(ymStData[0]);
+                        } else if (ymStData && ymStData.id) {
+                          ymStDetails.push(ymStData);
+                        }
+                      }
+                    }
+                    
+                    if (ymStDetails.length > 0) {
+                      setSelectedYmSt(ymStDetails);
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('YM ST ilişkileri alınırken hata:', error);
+            }
+            
+            // Reçete verilerini al
+            try {
+              // MM GT reçete verilerinden formülleri almaya çalış
+              const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+              
+              if (mmGtReceteRes.ok) {
+                const mmGtReceteData = await mmGtReceteRes.json();
+                
+                if (Array.isArray(mmGtReceteData) && mmGtReceteData.length > 0) {
+                  // Paketleme süresi verisini bul
+                  const paketlemeSuresi = mmGtReceteData.find(
+                    item => item.operasyon_bilesen === 'Operasyon' && 
+                    item.bilesen_kodu === 'GTPKT01'
+                  )?.miktar || 0.02;
+                  
+                  // YM GT reçetelerini kontrol et
+                  const ymGtId = ymGtResults[0]?.id;
+                  
+                  if (ymGtId) {
+                    const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                    
+                    if (ymGtReceteRes.ok) {
+                      const ymGtReceteData = await ymGtReceteRes.json();
+                      
+                      if (Array.isArray(ymGtReceteData) && ymGtReceteData.length > 0) {
+                        // Boraks, asit, desi ve galvanizleme verilerini bul
+                        const boraksTuketimi = ymGtReceteData.find(
+                          item => item.bilesen_kodu === '150 03'
+                        )?.miktar || 0.02;
+                        
+                        const asitTuketimi = ymGtReceteData.find(
+                          item => item.bilesen_kodu === 'SM.HİDROLİK.ASİT'
+                        )?.miktar || 0.002;
+                        
+                        const desiTuketimi = ymGtReceteData.find(
+                          item => item.bilesen_kodu === 'SM.DESİ.PAK'
+                        )?.miktar || 0.0013;
+                        
+                        const galvanizlemeSuresi = ymGtReceteData.find(
+                          item => item.operasyon_bilesen === 'Operasyon' && 
+                          item.bilesen_kodu === 'GLV01'
+                        )?.miktar || 0.9;
+                        
+                        // YM ST reçetelerinden tel çekme süresini bul
+                        let telCekmeSuresi = 0.15;
+                        
+                        if (selectedYmSt.length > 0) {
+                          const ymStId = selectedYmSt[0].id;
+                          const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+                          
+                          if (ymStReceteRes.ok) {
+                            const ymStReceteData = await ymStReceteRes.json();
+                            
+                            if (Array.isArray(ymStReceteData) && ymStReceteData.length > 0) {
+                              const telCekmeItem = ymStReceteData.find(
+                                item => item.operasyon_bilesen === 'Operasyon' && 
+                                item.bilesen_kodu === 'TLC01'
+                              );
+                              
+                              if (telCekmeItem) {
+                                telCekmeSuresi = telCekmeItem.miktar;
+                              }
+                            }
+                          }
+                        }
+                        
+                        // Reçete verilerini ayarla
+                        setReceteData({
+                          boraks_tuketimi: parseFloat(boraksTuketimi),
+                          asit_tuketimi: parseFloat(asitTuketimi),
+                          desi_tuketimi: parseFloat(desiTuketimi),
+                          paketleme_suresi: parseFloat(paketlemeSuresi),
+                          galvanizleme_suresi: parseFloat(galvanizlemeSuresi),
+                          tel_cekme_suresi: parseFloat(telCekmeSuresi)
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Reçete verileri alınırken hata:', error);
+            }
+            
+            return true;
+          }
+        }
+      }
+      
+      // Eğer stok kodu araması başarısız olursa veya farklı parametrelerle arama yapılıyorsa
       // Parametreleri URL'ye dönüştür
       const queryParams = new URLSearchParams();
       
@@ -298,6 +586,17 @@ export const GalvanizliTelProvider = ({ children }) => {
       const mmGtResponse = await fetchWithAuth(url);
       
       if (!mmGtResponse.ok) {
+        if (mmGtResponse.status === 404) {
+          // Ürün bulunamadı, kullanıcıya bildir
+          setDataExist(false);
+          setMmGtData(null);
+          setYmGtData(null);
+          setSelectedYmSt([]);
+          setReceteData(null);
+          setIsEditMode(false);
+          setError('Arama kriterlerine uygun ürün bulunamadı.');
+          return false;
+        }
         throw new Error('MM GT verileri getirilemedi');
       }
       
@@ -337,19 +636,115 @@ export const GalvanizliTelProvider = ({ children }) => {
               
               // İlişkili YM ST'leri al
               if (ymStIds.length > 0) {
-                const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?ids=${ymStIds.join(',')}`);
+                // Tekil sorgular için
+                const ymStDetails = [];
                 
-                if (ymStResponse.ok) {
-                  const ymStDetails = await ymStResponse.json();
-                  if (Array.isArray(ymStDetails) && ymStDetails.length > 0) {
-                    setSelectedYmSt(ymStDetails);
+                for (const ymStId of ymStIds) {
+                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+                  
+                  if (ymStResponse.ok) {
+                    const ymStData = await ymStResponse.json();
+                    
+                    if (Array.isArray(ymStData) && ymStData.length > 0) {
+                      ymStDetails.push(ymStData[0]);
+                    } else if (ymStData && ymStData.id) {
+                      ymStDetails.push(ymStData);
+                    }
                   }
+                }
+                
+                if (ymStDetails.length > 0) {
+                  setSelectedYmSt(ymStDetails);
                 }
               }
             }
           }
         } catch (error) {
           console.error('YM ST ilişkileri alınırken hata:', error);
+        }
+        
+        // Reçete verilerini al
+        try {
+          // MM GT reçete verilerinden formülleri almaya çalış
+          const mmGtReceteRes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+          
+          if (mmGtReceteRes.ok) {
+            const mmGtReceteData = await mmGtReceteRes.json();
+            
+            if (Array.isArray(mmGtReceteData) && mmGtReceteData.length > 0) {
+              // Paketleme süresi verisini bul
+              const paketlemeSuresi = mmGtReceteData.find(
+                item => item.operasyon_bilesen === 'Operasyon' && 
+                item.bilesen_kodu === 'GTPKT01'
+              )?.miktar || 0.02;
+              
+              // YM GT reçetelerini kontrol et
+              const ymGtId = ymGtResults[0]?.id;
+              
+              if (ymGtId) {
+                const ymGtReceteRes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                
+                if (ymGtReceteRes.ok) {
+                  const ymGtReceteData = await ymGtReceteRes.json();
+                  
+                  if (Array.isArray(ymGtReceteData) && ymGtReceteData.length > 0) {
+                    // Boraks, asit, desi ve galvanizleme verilerini bul
+                    const boraksTuketimi = ymGtReceteData.find(
+                      item => item.bilesen_kodu === '150 03'
+                    )?.miktar || 0.02;
+                    
+                    const asitTuketimi = ymGtReceteData.find(
+                      item => item.bilesen_kodu === 'SM.HİDROLİK.ASİT'
+                    )?.miktar || 0.002;
+                    
+                    const desiTuketimi = ymGtReceteData.find(
+                      item => item.bilesen_kodu === 'SM.DESİ.PAK'
+                    )?.miktar || 0.0013;
+                    
+                    const galvanizlemeSuresi = ymGtReceteData.find(
+                      item => item.operasyon_bilesen === 'Operasyon' && 
+                      item.bilesen_kodu === 'GLV01'
+                    )?.miktar || 0.9;
+                    
+                    // YM ST reçetelerinden tel çekme süresini bul
+                    let telCekmeSuresi = 0.15;
+                    
+                    if (selectedYmSt.length > 0) {
+                      const ymStId = selectedYmSt[0].id;
+                      const ymStReceteRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+                      
+                      if (ymStReceteRes.ok) {
+                        const ymStReceteData = await ymStReceteRes.json();
+                        
+                        if (Array.isArray(ymStReceteData) && ymStReceteData.length > 0) {
+                          const telCekmeItem = ymStReceteData.find(
+                            item => item.operasyon_bilesen === 'Operasyon' && 
+                            item.bilesen_kodu === 'TLC01'
+                          );
+                          
+                          if (telCekmeItem) {
+                            telCekmeSuresi = telCekmeItem.miktar;
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Reçete verilerini ayarla
+                    setReceteData({
+                      boraks_tuketimi: parseFloat(boraksTuketimi),
+                      asit_tuketimi: parseFloat(asitTuketimi),
+                      desi_tuketimi: parseFloat(desiTuketimi),
+                      paketleme_suresi: parseFloat(paketlemeSuresi),
+                      galvanizleme_suresi: parseFloat(galvanizlemeSuresi),
+                      tel_cekme_suresi: parseFloat(telCekmeSuresi)
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Reçete verileri alınırken hata:', error);
         }
       } else {
         // Ürün bulunamadı
@@ -359,9 +754,14 @@ export const GalvanizliTelProvider = ({ children }) => {
         setSelectedYmSt([]);
         setReceteData(null);
         setIsEditMode(false);
+        setError('Arama kriterlerine uygun ürün bulunamadı');
       }
+      
+      return true;
     } catch (error) {
+      console.error('Ürün arama hatası:', error);
       setError('Ürün arama sırasında bir hata oluştu: ' + error.message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -421,6 +821,21 @@ export const GalvanizliTelProvider = ({ children }) => {
       // Stok Kodu formatını oluştur: GT.NIT.0250.00
       const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
 
+      // Eğer düzenleme modu değilse, var olan stok kodunu kontrol et
+      if (!isEditMode) {
+        const exists = await checkProductExists(stockCode);
+        
+        if (exists) {
+          // Ürün zaten var, kullanıcıya bildir ve düzenleme moduna geç
+          toast.info(`${stockCode} kodlu ürün zaten mevcut. Düzenleme moduna geçiliyor.`);
+          
+          // Mevcut ürünü getir
+          await searchProducts({ stok_kodu: stockCode });
+          
+          return mmGtData; // Mevcut ürünü döndür
+        }
+      }
+
       // Gümrük tarife kodunu belirle
       let gumrukTarifeKodu = '';
       if (capValue >= 0.8 && capValue <= 1.5) {
@@ -445,8 +860,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       const mmGtDataToSave = {
         ...values,
         stok_kodu: stockCode,
-        stok_adi: `Galvanizli Tel ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-        ingilizce_isim: `Galvanized Steel Wire ${capValue.toString().replace('.', ',')} mm -${values.tolerans_minus.toString().replace('.', ',')}/+${values.tolerans_plus.toString().replace('.', ',')} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+        stok_adi: `Galvanizli Tel ${capValue} mm -${values.tolerans_minus}/+${values.tolerans_plus} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+        ingilizce_isim: `Galvanized Steel Wire ${capValue} mm -${values.tolerans_minus}/+${values.tolerans_plus} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
         grup_kodu: 'MM',
         kod_1: 'GT',
         muh_detay: '26',
@@ -484,9 +899,9 @@ export const GalvanizliTelProvider = ({ children }) => {
         gumruk_tarife_kodu: gumrukTarifeKodu,
         mensei: '052',
         metarial: 'Galvanizli Tel',
-        dia_mm: capValue.toString().replace('.', ','),
-        dia_tol_mm_plus: values.tolerans_plus.toString().replace('.', ','),
-        dia_tol_mm_minus: values.tolerans_minus.toString().replace('.', ','),
+        dia_mm: capValue.toString(),
+        dia_tol_mm_plus: values.tolerans_plus.toString(),
+        dia_tol_mm_minus: values.tolerans_minus.toString(),
         zing_coating: values.kaplama.toString(),
         tensile_st_min: values.min_mukavemet.toString(),
         tensile_st_max: values.max_mukavemet.toString(),
@@ -523,11 +938,22 @@ export const GalvanizliTelProvider = ({ children }) => {
       if (!response.ok) {
         let errorMessage = 'MM GT kaydedilemedi';
         try {
-          const errorText = await response.text();
-          if (errorText) {
-            errorMessage = errorText;
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error;
           }
-        } catch (e) {}
+        } catch (e) {
+          // JSON çözümleme hatası, response.text() dene
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (e2) {
+            // Text olarak da alınamadı, status kodunu kullan
+            errorMessage = `MM GT kaydedilemedi (${response.status})`;
+          }
+        }
         
         throw new Error(errorMessage);
       }
@@ -549,6 +975,7 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       return result;
     } catch (error) {
+      console.error('MM GT kaydetme hatası:', error);
       setError('MM GT kaydedilirken bir hata oluştu: ' + error.message);
       toast.error('MM GT kaydedilirken bir hata oluştu: ' + error.message);
       return null;
@@ -665,7 +1092,24 @@ export const GalvanizliTelProvider = ({ children }) => {
         });
         
         if (!saveRes.ok) {
-          throw new Error('YM GT güncellenemedi');
+          let errorMessage = 'YM GT güncellenemedi';
+          try {
+            const errorData = await saveRes.json();
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            try {
+              const errorText = await saveRes.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e2) {
+              errorMessage = `YM GT güncellenemedi (${saveRes.status})`;
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
         
         setSuccessMessage('YM GT kaydı başarıyla güncellendi');
@@ -679,8 +1123,24 @@ export const GalvanizliTelProvider = ({ children }) => {
         });
         
         if (!saveRes.ok) {
-          const errorText = await saveRes.text();
-          throw new Error('YM GT oluşturulamadı: ' + errorText);
+          let errorMessage = 'YM GT oluşturulamadı';
+          try {
+            const errorData = await saveRes.json();
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            try {
+              const errorText = await saveRes.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e2) {
+              errorMessage = `YM GT oluşturulamadı (${saveRes.status})`;
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
         
         setSuccessMessage('YM GT kaydı başarıyla oluşturuldu');
@@ -695,6 +1155,7 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       return savedData;
     } catch (error) {
+      console.error('YM GT kaydetme hatası:', error);
       setError('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
       toast.error('YM GT kaydı sırasında bir hata oluştu: ' + error.message);
       return null;
@@ -713,18 +1174,19 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       if (values.isNew) {
         // Yeni YM ST oluştur
-        const stockCode = `YM.ST.${values.cap.toString().padStart(4, '0')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
-        const stockName = `YM Siyah Tel ${values.cap.toString().padStart(4, '0')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+        const diameter = parseFloat(values.cap);
+        const stockCode = `YM.ST.${diameter.toFixed(2).replace('.', '')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+        const stockName = `YM Siyah Tel ${diameter.toFixed(2).replace('.', '')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
 
         // Özel saha 1 değerini belirle
         let ozelSaha1;
-        if (values.cap < 2) ozelSaha1 = 1;
-        else if (values.cap < 3) ozelSaha1 = 2;
-        else if (values.cap < 4) ozelSaha1 = 3;
-        else if (values.cap < 5) ozelSaha1 = 4;
-        else if (values.cap < 6) ozelSaha1 = 5;
-        else if (values.cap < 7) ozelSaha1 = 6;
-        else if (values.cap < 8) ozelSaha1 = 7;
+        if (diameter < 2) ozelSaha1 = 1;
+        else if (diameter < 3) ozelSaha1 = 2;
+        else if (diameter < 4) ozelSaha1 = 3;
+        else if (diameter < 5) ozelSaha1 = 4;
+        else if (diameter < 6) ozelSaha1 = 5;
+        else if (diameter < 7) ozelSaha1 = 6;
+        else if (diameter < 8) ozelSaha1 = 7;
         else ozelSaha1 = 8;
 
         const ymStDataToSave = {
@@ -766,7 +1228,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           ozel_saha_5_say: 0,
           ozel_saha_6_say: 0,
           ozel_saha_7_say: 0,
-          cap: values.cap,
+          cap: diameter,
           filmasin: values.filmasin,
           quality: values.quality,
           stok_turu: 'D',
@@ -789,6 +1251,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         if (existing.length > 0) {
           // Varsa mevcut kayıt kullan
           savedData = existing[0];
+          toast.info(`${stockCode} kodlu YM ST zaten mevcut. Mevcut kayıt kullanılacak.`);
         } else {
           // Yoksa yeni oluştur
           const insertRes = await fetchWithAuth(API_URLS.galYmSt, {
@@ -798,11 +1261,28 @@ export const GalvanizliTelProvider = ({ children }) => {
           });
           
           if (!insertRes.ok) {
-            const errorText = await insertRes.text();
-            throw new Error('YM ST oluşturulamadı: ' + errorText);
+            let errorMessage = 'YM ST oluşturulamadı';
+            try {
+              const errorData = await insertRes.json();
+              if (errorData && errorData.error) {
+                errorMessage = errorData.error;
+              }
+            } catch (e) {
+              try {
+                const errorText = await insertRes.text();
+                if (errorText) {
+                  errorMessage = errorText;
+                }
+              } catch (e2) {
+                errorMessage = `YM ST oluşturulamadı (${insertRes.status})`;
+              }
+            }
+            
+            throw new Error(errorMessage);
           }
           
           savedData = await insertRes.json();
+          toast.success(`${stockCode} kodlu YM ST başarıyla oluşturuldu.`);
         }
 
         ymStId = savedData.id;
@@ -814,13 +1294,18 @@ export const GalvanizliTelProvider = ({ children }) => {
       // İlişki zaten var mı kontrol et
       const checkRelationRes = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}&ym_st_id=${ymStId}`);
       let relationExists = false;
+      let existingRelation = null;
       
       if (checkRelationRes.ok) {
         const existingRelations = await checkRelationRes.json();
-        relationExists = Array.isArray(existingRelations) && existingRelations.length > 0;
+        
+        if (Array.isArray(existingRelations) && existingRelations.length > 0) {
+          relationExists = true;
+          existingRelation = existingRelations[0];
+        }
       }
       
-      // İlişki zaten varsa, tekrar oluşturmaya çalışma
+      // İlişki zaten varsa, UI'ya ekle ama yeniden oluşturma
       if (relationExists) {
         // İlişkili YM ST'yi al
         const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
@@ -840,12 +1325,12 @@ export const GalvanizliTelProvider = ({ children }) => {
             // Eğer UI'da yoksa ekle
             if (!selectedYmSt.some(item => item.id === ymStId)) {
               setSelectedYmSt(prev => [...prev, ymStItem]);
+              toast.info(`${ymStItem.stok_kodu} YM ST eklendi.`);
+            } else {
+              toast.info(`${ymStItem.stok_kodu} YM ST zaten eklenmiş.`);
             }
           }
         }
-        
-        setSuccessMessage('YM ST ilişkisi zaten mevcut');
-        toast.success('YM ST başarıyla eklendi');
         
         return true;
       }
@@ -863,8 +1348,24 @@ export const GalvanizliTelProvider = ({ children }) => {
       });
       
       if (!relationRes.ok) {
-        const errorText = await relationRes.text();
-        throw new Error('YM ST ilişkisi kurulamadı: ' + errorText);
+        let errorMessage = 'YM ST ilişkisi kurulamadı';
+        try {
+          const errorData = await relationRes.json();
+          if (errorData && errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (e) {
+          try {
+            const errorText = await relationRes.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (e2) {
+            errorMessage = `YM ST ilişkisi kurulamadı (${relationRes.status})`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // İlişkili YM ST'yi al ve UI'a ekle
@@ -888,13 +1389,14 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       setSelectedYmSt(prev => [...prev, ymStItem]);
       setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
-      toast.success('YM ST başarıyla eklendi');
+      toast.success(`${ymStItem.stok_kodu} YM ST başarıyla eklendi.`);
 
       // Veritabanını güncelle
       await fetchProductDatabase();
 
       return ymStItem;
     } catch (error) {
+      console.error('YM ST kaydetme hatası:', error);
       setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
       toast.error('YM ST kaydedilirken bir hata oluştu: ' + error.message);
       return null;
@@ -942,7 +1444,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         throw new Error('YM GT verisi alınamadı');
       }
 
-      // Reçete öğelerini oluştur
+      // Reçete öğelerini oluştur - Ondalık sayıları nokta formatında kaydet
       const receteItems = [
         {
           mamul_kodu: mmGt.stok_kodu,
@@ -968,9 +1470,9 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Operasyon',
           bilesen_kodu: 'GTPKT01',
           olcu_br_bilesen: '1',
-          miktar: receteData ? receteData.paketleme_suresi : 0.02,
+          miktar: receteData ? parseFloat(receteData.paketleme_suresi) : 0.02,
           aciklama: 'Paketleme Operasyonu',
-          uretim_suresi: receteData ? receteData.paketleme_suresi : 0.02,
+          uretim_suresi: receteData ? parseFloat(receteData.paketleme_suresi) : 0.02,
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           mm_gt_id: mmGtId
@@ -1088,18 +1590,37 @@ export const GalvanizliTelProvider = ({ children }) => {
         console.warn('MM GT reçetesi silinirken hata oluştu:', error);
       }
 
-      // Reçeteyi veritabanına kaydet
-      const receteRes = await fetchWithAuth(API_URLS.galMmGtRecete, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(receteItems),
-      });
-      
-      if (!receteRes.ok) {
-        const errorText = await receteRes.text();
-        throw new Error('MM GT reçetesi kaydedilemedi: ' + errorText);
+      // Her bir reçete öğesini ayrı ayrı kaydet
+      for (const item of receteItems) {
+        const receteRes = await fetchWithAuth(API_URLS.galMmGtRecete, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        });
+        
+        if (!receteRes.ok) {
+          let errorMessage = 'MM GT reçetesi kaydedilemedi';
+          try {
+            const errorData = await receteRes.json();
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            try {
+              const errorText = await receteRes.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e2) {
+              errorMessage = `MM GT reçetesi kaydedilemedi (${receteRes.status})`;
+            }
+          }
+          
+          throw new Error(errorMessage);
+        }
       }
       
+      return true;
     } catch (error) {
       console.error('MM GT reçete oluşturma hatası:', error);
       throw error;
@@ -1143,31 +1664,39 @@ export const GalvanizliTelProvider = ({ children }) => {
       const ymStIds = ymStRelData.map(rel => rel.ym_st_id);
 
       // YM ST detaylarını al
-      const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?ids=${ymStIds.join(',')}`);
+      const ymStDetails = [];
       
-      if (!ymStRes.ok) {
-        throw new Error('YM ST verileri alınamadı');
+      for (const ymStId of ymStIds) {
+        const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+        
+        if (ymStRes.ok) {
+          const ymStData = await ymStRes.json();
+          
+          if (Array.isArray(ymStData) && ymStData.length > 0) {
+            ymStDetails.push(ymStData[0]);
+          } else if (ymStData && ymStData.id) {
+            ymStDetails.push(ymStData);
+          }
+        }
       }
       
-      const ymStData = await ymStRes.json();
-      
-      if (!Array.isArray(ymStData) || ymStData.length === 0) {
+      if (ymStDetails.length === 0) {
         throw new Error('YM ST verileri alınamadı');
       }
       
       // Birincil YM ST'yi seç (normalde kullanıcı belirlemeli)
-      const primaryYmSt = ymStData[0];
+      const primaryYmSt = ymStDetails[0];
 
       // Çap değerine bağlı hesaplamalar
       const diameter = parseFloat(ymGt.cap);
       
       // Boraks değeri hesaplama: 0.032 - (0.0029 * Diameter)
-      const boraksTuketimi = receteData ? receteData.boraks_tuketimi : Math.max(0.001, 0.032 - (0.0029 * diameter));
+      const boraksTuketimi = receteData ? parseFloat(receteData.boraks_tuketimi) : Math.max(0.001, 0.032 - (0.0029 * diameter));
       
       // Asit değeri hesaplama
       let asitTuketimi;
       if (receteData) {
-        asitTuketimi = receteData.asit_tuketimi;
+        asitTuketimi = parseFloat(receteData.asit_tuketimi);
       } else {
         if (ymGt.kod_2 === 'NIT') {
           // NIT için değer
@@ -1191,13 +1720,13 @@ export const GalvanizliTelProvider = ({ children }) => {
       }
       
       // Desi değeri hesaplama
-      const desiTuketimi = receteData ? receteData.desi_tuketimi : (ymGt.kg > 800 ? 0.002 : 0.0013);
+      const desiTuketimi = receteData ? parseFloat(receteData.desi_tuketimi) : (ymGt.kg > 800 ? 0.002 : 0.0013);
       
       // Paketleme süresi
-      const paketlemeSuresi = receteData ? receteData.paketleme_suresi : 0.020;
+      const paketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : 0.020;
       
       // Galvanizleme süresi hesaplama: 1.15 - (0.125 * Diameter)
-      const galvanizlemeSuresi = receteData ? receteData.galvanizleme_suresi : Math.max(0.001, 1.15 - (0.125 * diameter));
+      const galvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : Math.max(0.001, 1.15 - (0.125 * diameter));
 
       // Reçete öğelerini oluştur
       const receteItems = [
@@ -1316,17 +1845,37 @@ export const GalvanizliTelProvider = ({ children }) => {
         console.warn('YM GT reçetesi silinirken hata oluştu:', error);
       }
 
-      // Reçeteyi veritabanına kaydet
-      const receteRes = await fetchWithAuth(API_URLS.galYmGtRecete, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(receteItems),
-      });
-      
-      if (!receteRes.ok) {
-        const errorText = await receteRes.text();
-        throw new Error('YM GT reçetesi kaydedilemedi: ' + errorText);
+      // Her bir reçete öğesini ayrı ayrı kaydet
+      for (const item of receteItems) {
+        const receteRes = await fetchWithAuth(API_URLS.galYmGtRecete, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        });
+        
+        if (!receteRes.ok) {
+          let errorMessage = 'YM GT reçetesi kaydedilemedi';
+          try {
+            const errorData = await receteRes.json();
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            try {
+              const errorText = await receteRes.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e2) {
+              errorMessage = `YM GT reçetesi kaydedilemedi (${receteRes.status})`;
+            }
+          }
+          
+          throw new Error(errorMessage);
+        }
       }
+      
+      return true;
     } catch (error) {
       console.error('YM GT reçete oluşturma hatası:', error);
       throw error;
@@ -1356,7 +1905,7 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       // TLC01 değeri hesapla: 0.2/(Diameter^1.5)
       const diameter = parseFloat(ymSt.cap);
-      const telCekmeSuresi = receteData ? receteData.tel_cekme_suresi : (0.2 / Math.pow(diameter, 1.5));
+      const telCekmeSuresi = receteData ? parseFloat(receteData.tel_cekme_suresi) : (0.2 / Math.pow(diameter, 1.5));
 
       // Filmaşin belirle
       let filmasinKod = `FLM.${ymSt.filmasin.toString().padStart(4, '0')}.${ymSt.quality}`;
@@ -1411,17 +1960,37 @@ export const GalvanizliTelProvider = ({ children }) => {
         console.warn('YM ST reçetesi silinirken hata oluştu:', error);
       }
 
-      // Reçeteyi veritabanına kaydet
-      const receteRes = await fetchWithAuth(API_URLS.galYmStRecete, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(receteItems),
-      });
-      
-      if (!receteRes.ok) {
-        const errorText = await receteRes.text();
-        throw new Error('YM ST reçetesi kaydedilemedi: ' + errorText);
+      // Her bir reçete öğesini ayrı ayrı kaydet
+      for (const item of receteItems) {
+        const receteRes = await fetchWithAuth(API_URLS.galYmStRecete, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        });
+        
+        if (!receteRes.ok) {
+          let errorMessage = 'YM ST reçetesi kaydedilemedi';
+          try {
+            const errorData = await receteRes.json();
+            if (errorData && errorData.error) {
+              errorMessage = errorData.error;
+            }
+          } catch (e) {
+            try {
+              const errorText = await receteRes.text();
+              if (errorText) {
+                errorMessage = errorText;
+              }
+            } catch (e2) {
+              errorMessage = `YM ST reçetesi kaydedilemedi (${receteRes.status})`;
+            }
+          }
+          
+          throw new Error(errorMessage);
+        }
       }
+      
+      return true;
     } catch (error) {
       console.error('YM ST reçete oluşturma hatası:', error);
       throw error;
@@ -1449,6 +2018,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       toast.success('Reçete verileri başarıyla kaydedildi');
       return true;
     } catch (error) {
+      console.error('Reçete kaydetme hatası:', error);
       setError('Reçete kaydedilirken bir hata oluştu: ' + error.message);
       toast.error('Reçete kaydedilirken bir hata oluştu: ' + error.message);
       return false;
@@ -2006,7 +2576,9 @@ export const GalvanizliTelProvider = ({ children }) => {
             if (col) {
               const cell = row.getCell(col.number);
               if (typeof cell.value === 'number') {
-                cell.value = cell.value.toString().replace('.', ',');
+                // Her ülkenin yerel formatına ayarlama yapabiliriz
+                // Burada Excel'de virgül ile göstermek için formatla
+                cell.numFmt = '0.00';
               }
             }
           });
@@ -2098,33 +2670,18 @@ export const GalvanizliTelProvider = ({ children }) => {
     const mmGtReceteData = await mmGtReceteRes.json();
     if (Array.isArray(mmGtReceteData)) {
       mmGtReceteData.forEach(item => {
-        // Miktar değerlerini string'e çevirip . yerine , kullan
-        let miktar = item.miktar;
-        if (typeof miktar === 'number') {
-          miktar = miktar.toString().replace('.', ',');
-        }
-        
-        let fireOrani = item.fire_orani;
-        if (typeof fireOrani === 'number') {
-          fireOrani = fireOrani.toString().replace('.', ',');
-        }
-        
-        let uretimSuresi = item.uretim_suresi;
-        if (typeof uretimSuresi === 'number') {
-          uretimSuresi = uretimSuresi.toString().replace('.', ',');
-        }
-        
+        // Miktar değerlerini formatlı şekilde al
         mmGtReceteSheet.addRow({
           mamul_kodu: item.mamul_kodu,
           recete_top: item.recete_top,
-          fire_orani: fireOrani,
+          fire_orani: item.fire_orani,
           oto_rec: item.oto_rec || "",
           olcu_br: item.olcu_br,
           sira_no: item.sira_no,
           operasyon_bilesen: item.operasyon_bilesen,
           bilesen_kodu: item.bilesen_kodu,
           olcu_br_bilesen: item.olcu_br_bilesen,
-          miktar: miktar,
+          miktar: item.miktar,
           aciklama: item.aciklama || "",
           miktar_sabitle: item.miktar_sabitle || "",
           stok_maliyet: item.stok_maliyet || "",
@@ -2132,7 +2689,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           sabit_fire_mik: item.sabit_fire_mik || "",
           istasyon_kodu: item.istasyon_kodu || "",
           hazirlik_suresi: item.hazirlik_suresi || "",
-          uretim_suresi: uretimSuresi || "",
+          uretim_suresi: item.uretim_suresi || "",
           ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
           son_operasyon: item.son_operasyon || "evet",
           oncelik: item.oncelik || "",
@@ -2159,33 +2716,17 @@ export const GalvanizliTelProvider = ({ children }) => {
     const ymGtReceteData = await ymGtReceteRes.json();
     if (Array.isArray(ymGtReceteData)) {
       ymGtReceteData.forEach(item => {
-        // Miktar değerlerini string'e çevirip . yerine , kullan
-        let miktar = item.miktar;
-        if (typeof miktar === 'number') {
-          miktar = miktar.toString().replace('.', ',');
-        }
-        
-        let fireOrani = item.fire_orani;
-        if (typeof fireOrani === 'number') {
-          fireOrani = fireOrani.toString().replace('.', ',');
-        }
-        
-        let uretimSuresi = item.uretim_suresi;
-        if (typeof uretimSuresi === 'number') {
-          uretimSuresi = uretimSuresi.toString().replace('.', ',');
-        }
-        
         ymGtReceteSheet.addRow({
           mamul_kodu: item.mamul_kodu,
           recete_top: item.recete_top,
-          fire_orani: fireOrani,
+          fire_orani: item.fire_orani,
           oto_rec: item.oto_rec || "",
           olcu_br: item.olcu_br,
           sira_no: item.sira_no,
           operasyon_bilesen: item.operasyon_bilesen,
           bilesen_kodu: item.bilesen_kodu,
           olcu_br_bilesen: item.olcu_br_bilesen,
-          miktar: miktar,
+          miktar: item.miktar,
           aciklama: item.aciklama || "",
           miktar_sabitle: item.miktar_sabitle || "",
           stok_maliyet: item.stok_maliyet || "",
@@ -2193,7 +2734,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           sabit_fire_mik: item.sabit_fire_mik || "",
           istasyon_kodu: item.istasyon_kodu || "",
           hazirlik_suresi: item.hazirlik_suresi || "",
-          uretim_suresi: uretimSuresi || "",
+          uretim_suresi: item.uretim_suresi || "",
           ua_dahil_edilsin: item.ua_dahil_edilsin || "evet",
           son_operasyon: item.son_operasyon || "evet",
           oncelik: item.oncelik || "",
@@ -2221,33 +2762,17 @@ export const GalvanizliTelProvider = ({ children }) => {
       const ymStReceteData = await ymStReceteRes.json();
       if (Array.isArray(ymStReceteData)) {
         ymStReceteData.forEach(item => {
-          // Miktar değerlerini string'e çevirip . yerine , kullan
-          let miktar = item.miktar;
-          if (typeof miktar === 'number') {
-            miktar = miktar.toString().replace('.', ',');
-          }
-          
-          let fireOrani = item.fire_orani;
-          if (typeof fireOrani === 'number') {
-            fireOrani = fireOrani.toString().replace('.', ',');
-          }
-          
-          let uretimSuresi = item.uretim_suresi;
-          if (typeof uretimSuresi === 'number') {
-            uretimSuresi = uretimSuresi.toString().replace('.', ',');
-          }
-          
           ymStReceteSheet.addRow({
             mamul_kodu: item.mamul_kodu,
             recete_top: item.recete_top,
-            fire_orani: fireOrani || "",
+            fire_orani: item.fire_orani || "",
             oto_rec: item.oto_rec || "",
             olcu_br: item.olcu_br,
             sira_no: item.sira_no,
             operasyon_bilesen: item.operasyon_bilesen,
             bilesen_kodu: item.bilesen_kodu,
             olcu_br_bilesen: item.olcu_br_bilesen,
-            miktar: miktar,
+            miktar: item.miktar,
             aciklama: item.aciklama || "",
             miktar_sabitle: item.miktar_sabitle || "",
             stok_maliyet: item.stok_maliyet || "",
@@ -2255,7 +2780,7 @@ export const GalvanizliTelProvider = ({ children }) => {
             sabit_fire_mik: item.sabit_fire_mik || "",
             istasyon_kodu: item.istasyon_kodu || "",
             hazirlik_suresi: item.hazirlik_suresi || "",
-            uretim_suresi: uretimSuresi || "",
+            uretim_suresi: item.uretim_suresi || "",
             ua_dahil_edilsin: item.ua_dahil_edilsin || "",
             son_operasyon: item.son_operasyon || "",
             oncelik: item.oncelik || "",
@@ -2363,28 +2888,37 @@ export const GalvanizliTelProvider = ({ children }) => {
       const ymStIds = ymStRelData.map(rel => rel.ym_st_id);
 
       // YM ST detaylarını al
-      const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?ids=${ymStIds.join(',')}`);
+      const ymStDetails = [];
       
-      if (!ymStRes.ok) {
-        throw new Error('YM ST verileri alınamadı');
+      for (const ymStId of ymStIds) {
+        const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+        
+        if (ymStRes.ok) {
+          const ymStData = await ymStRes.json();
+          
+          if (Array.isArray(ymStData) && ymStData.length > 0) {
+            ymStDetails.push(ymStData[0]);
+          } else if (ymStData && ymStData.id) {
+            ymStDetails.push(ymStData);
+          }
+        }
       }
       
-      const ymStData = await ymStRes.json();
-      
-      if (!Array.isArray(ymStData) || ymStData.length === 0) {
+      if (ymStDetails.length === 0) {
         throw new Error('YM ST verileri bulunamadı');
       }
 
       // Reçete verilerini kontrol et ve gerekirse oluştur
-      await checkAndCreateRecipes(mmGt, ymGt, ymStData);
+      await checkAndCreateRecipes(mmGt, ymGt, ymStDetails);
 
       // Excel dosyalarını oluştur
-      await createStokKartiExcel(mmGt, ymGt, ymStData);
-      await createReceteExcel(mmGt, ymGt, ymStData);
+      await createStokKartiExcel(mmGt, ymGt, ymStDetails);
+      await createReceteExcel(mmGt, ymGt, ymStDetails);
 
       setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
       toast.success('Excel dosyaları başarıyla oluşturuldu');
     } catch (error) {
+      console.error('Excel oluşturma hatası:', error);
       setError('Excel oluşturulurken bir hata oluştu: ' + error.message);
       toast.error('Excel oluşturulurken bir hata oluştu: ' + error.message);
     } finally {
@@ -2542,6 +3076,42 @@ const GalvanizliTelNetsis = () => {
     setFilteredYmStList(ymStList);
   }, [ymStList]);
 
+  // Sayfa yüklendiğinde ve mmGtData değiştiğinde form değerlerini güncelle
+  useEffect(() => {
+    if (mmGtData && isEditMode) {
+      setFormValues({
+        cap: mmGtData.cap || '',
+        kod_2: mmGtData.kod_2 || 'NIT',
+        kaplama: mmGtData.kaplama || 120,
+        min_mukavemet: mmGtData.min_mukavemet || 400,
+        max_mukavemet: mmGtData.max_mukavemet || 500,
+        tolerans_plus: mmGtData.tolerans_plus || 0,
+        tolerans_minus: mmGtData.tolerans_minus || 0.06,
+        ic_cap: mmGtData.ic_cap || 45,
+        dis_cap: mmGtData.dis_cap || 75,
+        kg: mmGtData.kg || 750,
+        unwinding: mmGtData.unwinding || null,
+        shrink: mmGtData.shrink || 'evet',
+        cast_kont: mmGtData.cast_kont || '',
+        helix_kont: mmGtData.helix_kont || '',
+        elongation: mmGtData.elongation || '',
+        sequence: sequence
+      });
+      
+      // Reçete verilerini de güncelle
+      if (receteData) {
+        setReceteFormValues({
+          boraks_tuketimi: receteData.boraks_tuketimi || initialReceteValues.boraks_tuketimi,
+          asit_tuketimi: receteData.asit_tuketimi || initialReceteValues.asit_tuketimi,
+          desi_tuketimi: receteData.desi_tuketimi || initialReceteValues.desi_tuketimi,
+          paketleme_suresi: receteData.paketleme_suresi || initialReceteValues.paketleme_suresi,
+          galvanizleme_suresi: receteData.galvanizleme_suresi || initialReceteValues.galvanizleme_suresi,
+          tel_cekme_suresi: receteData.tel_cekme_suresi || initialReceteValues.tel_cekme_suresi
+        });
+      }
+    }
+  }, [mmGtData, isEditMode, receteData, sequence]);
+
   // Veritabanı filtrele
   const filterDatabaseItems = () => {
     const { type, search } = databaseFilter;
@@ -2634,7 +3204,7 @@ const GalvanizliTelNetsis = () => {
       const capValue = parseFloat(value);
       if (!isNaN(capValue)) {
         // Boraks değeri: 0.032 - (0.0029 * Diameter)
-        const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue)).toFixed(6);
+        const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
         
         // Asit değeri
         let asitTuketimi;
@@ -2659,17 +3229,17 @@ const GalvanizliTelNetsis = () => {
         }
         
         // Galvanizleme süresi: 1.15 - (0.125 * Diameter)
-        const galvanizlemeSuresi = Math.max(0.001, 1.15 - (0.125 * capValue)).toFixed(6);
+        const galvanizlemeSuresi = Math.max(0.001, 1.15 - (0.125 * capValue));
         
         // Tel çekme süresi: 0.2/(Diameter^1.5)
-        const telCekmeSuresi = (0.2 / Math.pow(capValue, 1.5)).toFixed(6);
+        const telCekmeSuresi = (0.2 / Math.pow(capValue, 1.5));
         
         setReceteFormValues(prev => ({
           ...prev,
-          boraks_tuketimi: parseFloat(boraksTuketimi),
+          boraks_tuketimi: boraksTuketimi,
           asit_tuketimi: asitTuketimi,
-          galvanizleme_suresi: parseFloat(galvanizlemeSuresi),
-          tel_cekme_suresi: parseFloat(telCekmeSuresi)
+          galvanizleme_suresi: galvanizlemeSuresi,
+          tel_cekme_suresi: telCekmeSuresi
         }));
       }
     }
@@ -2715,6 +3285,7 @@ const GalvanizliTelNetsis = () => {
         setError('MM GT kaydedilemedi. Lütfen tekrar deneyin.');
       }
     } catch (error) {
+      console.error('Form gönderme hatası:', error);
       setError('Form gönderilirken bir hata oluştu: ' + error.message);
       toast.error('Form gönderilirken bir hata oluştu: ' + error.message);
     }
@@ -2806,6 +3377,7 @@ const GalvanizliTelNetsis = () => {
       setSuccessMessage('YM ST başarıyla kaldırıldı');
       toast.success('YM ST başarıyla kaldırıldı');
     } catch (error) {
+      console.error('YM ST kaldırma hatası:', error);
       setError('YM ST kaldırılırken bir hata oluştu: ' + error.message);
       toast.error('YM ST kaldırılırken bir hata oluştu: ' + error.message);
     }
@@ -2834,40 +3406,6 @@ const GalvanizliTelNetsis = () => {
   const handleSearch = async (values) => {
     await searchProducts(values);
     setShowSearchModal(false);
-    
-    // Eğer ürün bulunduysa form değerlerini güncelle
-    if (mmGtData) {
-      setFormValues({
-        cap: mmGtData.cap || '',
-        kod_2: mmGtData.kod_2 || 'NIT',
-        kaplama: mmGtData.kaplama || 120,
-        min_mukavemet: mmGtData.min_mukavemet || 400,
-        max_mukavemet: mmGtData.max_mukavemet || 500,
-        tolerans_plus: mmGtData.tolerans_plus || 0,
-        tolerans_minus: mmGtData.tolerans_minus || 0.06,
-        ic_cap: mmGtData.ic_cap || 45,
-        dis_cap: mmGtData.dis_cap || 75,
-        kg: mmGtData.kg || 750,
-        unwinding: mmGtData.unwinding || null,
-        shrink: mmGtData.shrink || 'evet',
-        cast_kont: mmGtData.cast_kont || '',
-        helix_kont: mmGtData.helix_kont || '',
-        elongation: mmGtData.elongation || '',
-        sequence: sequence
-      });
-      
-      // Reçete verilerini de güncelle
-      if (receteData) {
-        setReceteFormValues({
-          boraks_tuketimi: receteData.boraks_tuketimi || initialReceteValues.boraks_tuketimi,
-          asit_tuketimi: receteData.asit_tuketimi || initialReceteValues.asit_tuketimi,
-          desi_tuketimi: receteData.desi_tuketimi || initialReceteValues.desi_tuketimi,
-          paketleme_suresi: receteData.paketleme_suresi || initialReceteValues.paketleme_suresi,
-          galvanizleme_suresi: receteData.galvanizleme_suresi || initialReceteValues.galvanizleme_suresi,
-          tel_cekme_suresi: receteData.tel_cekme_suresi || initialReceteValues.tel_cekme_suresi
-        });
-      }
-    }
   };
 
   // Yeni ürün oluşturma
@@ -2938,6 +3476,7 @@ const GalvanizliTelNetsis = () => {
       setDatabaseSaved(true);
       toast.success('Veriler başarıyla veritabanına kaydedildi');
     } catch (error) {
+      console.error('Veritabanı kaydetme hatası:', error);
       toast.error('Veritabanına kayıt sırasında hata oluştu: ' + error.message);
     } finally {
       setLoading(false);
@@ -2975,6 +3514,7 @@ const GalvanizliTelNetsis = () => {
         toast.success('Reçete Excel dosyası başarıyla oluşturuldu');
       }
     } catch (error) {
+      console.error('Excel oluşturma hatası:', error);
       toast.error('Excel oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setLoading(false);
@@ -3015,6 +3555,7 @@ const GalvanizliTelNetsis = () => {
         await searchProducts({ stok_kodu: item.stok_kodu });
       }
     } catch (error) {
+      console.error("Ürün yükleme hatası:", error);
       toast.error("Ürün yüklenirken bir hata oluştu");
     } finally {
       setLoading(false);
@@ -3023,7 +3564,7 @@ const GalvanizliTelNetsis = () => {
 
   // Veritabanı ürününü sil
   const handleDeleteDatabaseItem = async (type, id) => {
-    if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
+    if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz? Bu işlem tüm ilişkili kayıtları da silecektir.')) {
       const result = await deleteProduct(type, id);
       if (result) {
         await fetchProductDatabase();
@@ -3095,7 +3636,13 @@ const GalvanizliTelNetsis = () => {
       <div className="mb-6 bg-gray-100 p-4 rounded-md shadow-sm">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-700">Galvanizli Tel Netsis Entegrasyonu</h2>
-          <div>
+          <div className="space-x-2">
+            <button
+              onClick={() => setShowSearchModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Ara
+            </button>
             <button
               onClick={() => setShowDatabaseModal(true)}
               className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
@@ -3528,7 +4075,7 @@ const GalvanizliTelNetsis = () => {
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
@@ -3598,7 +4145,7 @@ const GalvanizliTelNetsis = () => {
                       }`}
                     />
                     <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: {(0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
+                      Önerilen: {Math.max(0.001, 0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
                     </div>
                     {errors.boraks_tuketimi && touched.boraks_tuketimi && (
                       <div className="text-red-500 text-xs mt-1">{errors.boraks_tuketimi}</div>
@@ -3964,7 +4511,7 @@ const GalvanizliTelNetsis = () => {
                           <tr key={item.id} className={isSelected ? "bg-gray-100" : ""}>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
                             <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
@@ -4039,6 +4586,7 @@ const GalvanizliTelNetsis = () => {
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            ```javascript
               <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">Yeni YM ST Oluştur</h3>
               </div>
@@ -4215,7 +4763,7 @@ const GalvanizliTelNetsis = () => {
                         <tr key={item.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
                           <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap?.toString().replace('.', ',')}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
                           {databaseFilter.type === 'ymSt' && (
                             <>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
