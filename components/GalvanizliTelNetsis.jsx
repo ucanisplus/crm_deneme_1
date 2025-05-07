@@ -2355,16 +2355,7 @@ async function createReceteExcel(mmGt, ymGt, ymStList) {
   saveAs(new Blob([buffer]), `Recete_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
 }
 
-// Context başlangıcında verileri yükle
-useEffect(() => {
-  const initData = async () => {
-    try {
-      await loadYmStList();
-      await fetchProductDatabase();
-    } catch (error) {
-      console.error('Veri yüklenirken hata oluştu:', error);
-    }
-  };
+
   
   initData();
 }, [loadYmStList, fetchProductDatabase]);
@@ -2480,7 +2471,7 @@ useEffect(() => {
 }, [databaseFilter, productDatabase]);
 
 // YM ST listesini yükle - geliştirilmiş sürüm
-const loadYmStList = useCallback(async () => {
+const loadYmStList = async () => {
   try {
     setLoading(true);
     
@@ -2522,7 +2513,7 @@ const loadYmStList = useCallback(async () => {
   } finally {
     setLoading(false);
   }
-}, []);
+};
 
 //buraya bakk
 
