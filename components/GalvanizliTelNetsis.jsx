@@ -14,7 +14,7 @@ const mmGtValidationSchema = Yup.object().shape({
     .required('Çap zorunludur')
     .min(0.8, 'Çap en az 0.8 olmalıdır')
     .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
-  kod_2: Yup.string().required('Kaplama türü zorunludur'),
+  kod_2: Yup.string().required('Kaplama türü zorunludur'),f
   kaplama: Yup.number()
     .required('Kaplama zorunludur')
     .min(50, 'Kaplama en az 50 olmalıdır')
@@ -748,7 +748,7 @@ const saveMMGT = async (values) => {
   }
 };
    
-// Bu fonksiyon YM GT kaydeder
+// Bu fonksiyon YM GT kaydeder - UUID hatası giderilmiş
 const saveYMGT = async (values, mmGtId) => {
   setLoading(true);
   setError(null);
@@ -756,7 +756,7 @@ const saveYMGT = async (values, mmGtId) => {
   try {
     console.log('YM GT kaydediliyor, MM GT ID:', mmGtId);
     
-    // MM GT verisini API'den al - sorgu parametresi olarak
+    // MM GT verisini API'den al
     const response = await fetchWithAuth(`${API_URLS.galMmGt}?id=${mmGtId}`);
     
     if (!response.ok) {
@@ -831,9 +831,13 @@ const saveYMGT = async (values, mmGtId) => {
       stok_turu: 'D',
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
-      created_by: user?.id || null,
-      updated_by: user?.id || null,
+      // ÖNEMLİ: UUID hatası için bu alanları kaldır
+      // created_by: user?.id || null,
+      // updated_by: user?.id || null,
     };
+
+    // ID'yi temizle
+    delete ymGtDataToSave.id;
 
     // Önce var mı kontrol et
     console.log('YM GT varlığı kontrol ediliyor, MM GT ID:', mmGtId);
@@ -874,6 +878,8 @@ const saveYMGT = async (values, mmGtId) => {
     } else {
       // Yeni kayıt
       console.log('Yeni YM GT oluşturuluyor');
+      console.log('Gönderilen veri:', ymGtDataToSave);
+      
       saveRes = await fetchWithAuth(API_URLS.galYmGt, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -881,6 +887,8 @@ const saveYMGT = async (values, mmGtId) => {
       });
       
       if (!saveRes.ok) {
+        const errorText = await saveRes.text();
+        console.error('YM GT oluşturma yanıtı:', saveRes.status, errorText);
         throw new Error('YM GT oluşturulamadı');
       }
       
