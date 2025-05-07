@@ -915,181 +915,201 @@ const saveYMGT = async (values, mmGtId) => {
 };
 
 
-  // YM ST kaydetme fonksiyonu
-  const saveYMST = async (values, mmGtId) => {
-    setLoading(true);
-    setError(null);
+// Bu fonksiyon YM ST kaydeder ve MM GT ile ilişkilendirir - UUID hatası giderilmiş
+const saveYMST = async (values, mmGtId) => {
+  setLoading(true);
+  setError(null);
 
-    try {
-      let ymStId;
+  try {
+    let ymStId;
 
-      if (values.isNew) {
-        // Yeni YM ST oluştur
-        const stockCode = `YM.ST.${values.cap.toString().padStart(4, '0')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
-        const stockName = `YM Siyah Tel ${values.cap.toString().padStart(4, '0')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+    if (values.isNew) {
+      // Yeni YM ST oluştur
+      const stockCode = `YM.ST.${values.cap.toString().padStart(4, '0')}.${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
+      const stockName = `YM Siyah Tel ${values.cap.toString().padStart(4, '0')} mm HM:${values.filmasin.toString().padStart(4, '0')}.${values.quality}`;
 
-        // Özel saha 1 değerini belirle
-        let ozelSaha1;
-        if (values.cap < 2) ozelSaha1 = 1;
-        else if (values.cap < 3) ozelSaha1 = 2;
-        else if (values.cap < 4) ozelSaha1 = 3;
-        else if (values.cap < 5) ozelSaha1 = 4;
-        else if (values.cap < 6) ozelSaha1 = 5;
-        else if (values.cap < 7) ozelSaha1 = 6;
-        else if (values.cap < 8) ozelSaha1 = 7;
-        else ozelSaha1 = 8;
+      // Özel saha 1 değerini belirle
+      let ozelSaha1;
+      if (values.cap < 2) ozelSaha1 = 1;
+      else if (values.cap < 3) ozelSaha1 = 2;
+      else if (values.cap < 4) ozelSaha1 = 3;
+      else if (values.cap < 5) ozelSaha1 = 4;
+      else if (values.cap < 6) ozelSaha1 = 5;
+      else if (values.cap < 7) ozelSaha1 = 6;
+      else if (values.cap < 8) ozelSaha1 = 7;
+      else ozelSaha1 = 8;
 
-        const ymStDataToSave = {
-          stok_kodu: stockCode,
-          stok_adi: stockName,
-          grup_kodu: 'YM',
-          kod_1: 'ST',
-          muh_detay: '28',
-          depo_kodu: '35',
-          satis_kdv_orani: '20',
-          ozel_saha_1_say: ozelSaha1,
-          br_1: 'KG',
-          br_2: 'TN',
-          pay_1: 1,
-          payda_1: 1000,
-          cevrim_degeri_1: 0.001,
-          cevrim_pay_2: 1,
-          cevrim_payda_2: 1,
-          cevrim_degeri_2: 1,
-          alis_fiyati: 0,
-          satis_fiyati_1: 0,
-          satis_fiyati_2: 0,
-          satis_fiyati_3: 0,
-          satis_fiyati_4: 0,
-          doviz_alis: 0,
-          doviz_maliyeti: 0,
-          doviz_satis_fiyati: 0,
-          azami_stok: 0,
-          asgari_stok: 0,
-          dov_tipi: 0,
-          alis_doviz_tipi: 0,
-          bekleme_suresi: 0,
-          temin_suresi: 0,
-          birim_agirlik: 0,
-          nakliye_tutar: 0,
-          ozel_saha_2_say: 0,
-          ozel_saha_3_say: 0,
-          ozel_saha_4_say: 0,
-          ozel_saha_5_say: 0,
-          ozel_saha_6_say: 0,
-          ozel_saha_7_say: 0,
-          cap: values.cap,
-          filmasin: values.filmasin,
-          quality: values.quality,
-          stok_turu: 'D',
-          esnek_yapilandir: 'H',
-          super_recete_kullanilsin: 'H',
-          created_by: user?.id || null,
-          updated_by: user?.id || null,
-        };
+      const ymStDataToSave = {
+        stok_kodu: stockCode,
+        stok_adi: stockName,
+        grup_kodu: 'YM',
+        kod_1: 'ST',
+        muh_detay: '28',
+        depo_kodu: '35',
+        satis_kdv_orani: '20',
+        ozel_saha_1_say: ozelSaha1,
+        br_1: 'KG',
+        br_2: 'TN',
+        pay_1: 1,
+        payda_1: 1000,
+        cevrim_degeri_1: 0.001,
+        cevrim_pay_2: 1,
+        cevrim_payda_2: 1,
+        cevrim_degeri_2: 1,
+        alis_fiyati: 0,
+        satis_fiyati_1: 0,
+        satis_fiyati_2: 0,
+        satis_fiyati_3: 0,
+        satis_fiyati_4: 0,
+        doviz_alis: 0,
+        doviz_maliyeti: 0,
+        doviz_satis_fiyati: 0,
+        azami_stok: 0,
+        asgari_stok: 0,
+        dov_tipi: 0,
+        alis_doviz_tipi: 0,
+        bekleme_suresi: 0,
+        temin_suresi: 0,
+        birim_agirlik: 0,
+        nakliye_tutar: 0,
+        ozel_saha_2_say: 0,
+        ozel_saha_3_say: 0,
+        ozel_saha_4_say: 0,
+        ozel_saha_5_say: 0,
+        ozel_saha_6_say: 0,
+        ozel_saha_7_say: 0,
+        cap: values.cap,
+        filmasin: values.filmasin,
+        quality: values.quality,
+        stok_turu: 'D',
+        esnek_yapilandir: 'H',
+        super_recete_kullanilsin: 'H',
+        // UUID hatası için bu alanları kaldır
+        // created_by: user?.id || null,
+        // updated_by: user?.id || null,
+      };
 
-        // Zaten var mı kontrol et
-        const checkRes = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(stockCode)}`);
-        
-        if (!checkRes.ok && checkRes.status !== 404) {
-          throw new Error('YM ST kontrolü yapılamadı');
-        }
-        
-        const existing = await checkRes.json();
-        
-        let savedData;
-        if (existing && existing.length > 0) {
-          // Varsa mevcut kayıt kullan
-          savedData = existing[0];
-        } else {
-          // Yoksa yeni oluştur
-          const insertRes = await fetchWithAuth(API_URLS.galYmSt, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ymStDataToSave),
-          });
-          
-          if (!insertRes.ok) {
-            throw new Error('YM ST oluşturulamadı');
-          }
-          
-          savedData = await insertRes.json();
-        }
-
-        ymStId = savedData.id;
-
-        // MM GT - YM ST ilişkisini oluştur
-        const relationRes = await fetchWithAuth(API_URLS.galMmGtYmSt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mm_gt_id: mmGtId,
-            ym_st_id: ymStId,
-            created_by: user?.id || null,
-            updated_by: user?.id || null,
-          }),
-        });
-        
-        if (!relationRes.ok) {
-          throw new Error('YM ST ilişkisi kurulamadı');
-        }
-
-        setSelectedYmSt(prev => [...prev, savedData]);
-        setSuccessMessage('YM ST kaydı başarıyla eklendi');
-        toast.success('YM ST kaydı başarıyla eklendi');
-
-        // Veritabanını güncelle
-        await fetchProductDatabase();
-
-        return savedData;
-      } else {
-        // Mevcut YM ST için sadece ilişki kur
-        const relationRes = await fetchWithAuth(API_URLS.galMmGtYmSt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mm_gt_id: mmGtId,
-            ym_st_id: values.id,
-            created_by: user?.id || null,
-            updated_by: user?.id || null,
-          }),
-        });
-        
-        if (!relationRes.ok) {
-          throw new Error('YM ST ilişkisi kurulamadı');
-        }
-
-        // YM ST detaylarını al
-        const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${values.id}`);
-        
-        if (!ymStRes.ok) {
-          throw new Error('YM ST detayları alınamadı');
-        }
-        
-        const ymStData = await ymStRes.json();
-        
-        if (!ymStData || ymStData.length === 0) {
-          throw new Error('YM ST bulunamadı');
-        }
-        
-        setSelectedYmSt(prev => [...prev, ymStData[0]]);
-        setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
-        toast.success('YM ST ilişkisi başarıyla kuruldu');
-
-        // Veritabanını güncelle
-        await fetchProductDatabase();
-
-        return ymStData[0];
+      // Zaten var mı kontrol et
+      const checkRes = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(stockCode)}`);
+      
+      if (!checkRes.ok && checkRes.status !== 404) {
+        throw new Error('YM ST kontrolü yapılamadı');
       }
-    } catch (error) {
-      console.error('YM ST kaydetme hatası:', error);
-      setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
-      toast.error('YM ST kaydedilirken bir hata oluştu: ' + error.message);
-      return null;
-    } finally {
-      setLoading(false);
+      
+      const existing = await checkRes.json();
+      
+      let savedData;
+      if (existing && existing.length > 0) {
+        // Varsa mevcut kayıt kullan
+        savedData = existing[0];
+      } else {
+        // Yoksa yeni oluştur
+        console.log('Yeni YM ST oluşturuluyor:', ymStDataToSave);
+        
+        const insertRes = await fetchWithAuth(API_URLS.galYmSt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ymStDataToSave),
+        });
+        
+        if (!insertRes.ok) {
+          const errorText = await insertRes.text();
+          console.error('YM ST oluşturma hatası:', insertRes.status, errorText);
+          throw new Error('YM ST oluşturulamadı');
+        }
+        
+        savedData = await insertRes.json();
+      }
+
+      ymStId = savedData.id;
+      console.log('YM ST kaydedildi, ID:', ymStId);
+
+      // MM GT - YM ST ilişkisini oluştur
+      const relationData = {
+        mm_gt_id: mmGtId,
+        ym_st_id: ymStId,
+        // UUID hatası için bu alanları kaldır
+        // created_by: user?.id || null,
+        // updated_by: user?.id || null,
+      };
+      
+      console.log('İlişki oluşturuluyor:', relationData);
+      
+      const relationRes = await fetchWithAuth(API_URLS.galMmGtYmSt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(relationData),
+      });
+      
+      if (!relationRes.ok) {
+        const errorText = await relationRes.text();
+        console.error('YM ST ilişki oluşturma hatası:', relationRes.status, errorText);
+        throw new Error('YM ST ilişkisi kurulamadı');
+      }
+
+      setSelectedYmSt(prev => [...prev, savedData]);
+      setSuccessMessage('YM ST kaydı başarıyla eklendi');
+      toast.success('YM ST kaydı başarıyla eklendi');
+
+      // Veritabanını güncelle
+      await fetchProductDatabase();
+
+      return savedData;
+    } else {
+      // Mevcut YM ST için sadece ilişki kur
+      const relationData = {
+        mm_gt_id: mmGtId,
+        ym_st_id: values.id,
+        // UUID hatası için bu alanları kaldır
+        // created_by: user?.id || null,
+        // updated_by: user?.id || null,
+      };
+      
+      console.log('Mevcut YM ST için ilişki oluşturuluyor:', relationData);
+      
+      const relationRes = await fetchWithAuth(API_URLS.galMmGtYmSt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(relationData),
+      });
+      
+      if (!relationRes.ok) {
+        const errorText = await relationRes.text();
+        console.error('YM ST ilişki oluşturma hatası:', relationRes.status, errorText);
+        throw new Error('YM ST ilişkisi kurulamadı');
+      }
+
+      // YM ST detaylarını al
+      const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${values.id}`);
+      
+      if (!ymStRes.ok) {
+        throw new Error('YM ST detayları alınamadı');
+      }
+      
+      const ymStData = await ymStRes.json();
+      
+      if (!ymStData || ymStData.length === 0) {
+        throw new Error('YM ST bulunamadı');
+      }
+      
+      setSelectedYmSt(prev => [...prev, ymStData[0]]);
+      setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
+      toast.success('YM ST ilişkisi başarıyla kuruldu');
+
+      // Veritabanını güncelle
+      await fetchProductDatabase();
+
+      return ymStData[0];
     }
-  };
+  } catch (error) {
+    console.error('YM ST kaydetme hatası:', error);
+    setError('YM ST kaydedilirken bir hata oluştu: ' + error.message);
+    toast.error('YM ST kaydedilirken bir hata oluştu: ' + error.message);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+};
 
 // MM GT Reçete oluşturma (mevcut olanı siler, yenisini ekler)
 const createMMGTRecete = async (mmGtId, ymGtId, receteData = null) => {
