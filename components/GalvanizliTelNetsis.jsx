@@ -1542,9 +1542,10 @@ const createYMGTRecete = async (ymGtId, receteData = null) => {
   }
 };
 
-  // YM ST Reçete oluşturma
-  const createYMSTRecete = async (ymStId, receteData = null) => {
-    // YM ST verilerini al
+// YM ST Reçete oluşturma - sorgu parametresi kullanarak
+const createYMSTRecete = async (ymStId, receteData = null) => {
+  try {
+    // YM ST verilerini al - sorgu parametresi kullan
     const ymStRes = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
     
     if (!ymStRes.ok) {
@@ -1552,7 +1553,13 @@ const createYMGTRecete = async (ymGtId, receteData = null) => {
     }
     
     const ymStData = await ymStRes.json();
-    const ymSt = ymStData[0];
+    let ymSt;
+    
+    if (Array.isArray(ymStData) && ymStData.length > 0) {
+      ymSt = ymStData[0];
+    } else {
+      throw new Error('YM ST verisi alınamadı');
+    }
 
     // TLC01 değeri hesapla: 0.2/(Diameter^1.5)
     const diameter = parseFloat(ymSt.cap);
@@ -1573,8 +1580,6 @@ const createYMGTRecete = async (ymGtId, receteData = null) => {
         olcu_br_bilesen: '1',
         miktar: 1,
         aciklama: 'Filmaşin Tüketimi',
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
         ym_st_id: ymStId
       },
       {
@@ -1588,22 +1593,33 @@ const createYMGTRecete = async (ymGtId, receteData = null) => {
         miktar: telCekmeSuresi,
         aciklama: 'Tel Çekme Operasyonu',
         uretim_suresi: telCekmeSuresi,
-        created_by: user?.id || null,
-        updated_by: user?.id || null,
         ym_st_id: ymStId
       }
     ];
 
     // Önce mevcut reçeteyi sil
     try {
-      await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`, {
-        method: 'DELETE'
-      });
+      // Mevcut reçeteleri al
+      const existingRecetesRes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+      
+      if (existingRecetesRes.ok) {
+        const existingRecetes = await existingRecetesRes.json();
+        console.log(`${existingRecetes.length} adet mevcut YM ST reçetesi bulundu, siliniyor...`);
+        
+        // Her bir reçeteyi sil - sorgu parametresi kullan
+        for (const recete of existingRecetes) {
+          console.log(`Reçete siliniyor: ID=${recete.id}`);
+          await fetchWithAuth(`${API_URLS.galYmStRecete}?id=${recete.id}`, {
+            method: 'DELETE'
+          });
+        }
+      }
     } catch (error) {
       console.warn('YM ST reçetesi silinirken hata oluştu:', error);
     }
 
     // Reçeteyi veritabanına kaydet
+    console.log('YM ST reçetesi oluşturuluyor...');
     const receteRes = await fetchWithAuth(API_URLS.galYmStRecete, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1611,9 +1627,17 @@ const createYMGTRecete = async (ymGtId, receteData = null) => {
     });
     
     if (!receteRes.ok) {
+      const errorText = await receteRes.text();
+      console.error('YM ST reçete oluşturma hatası:', receteRes.status, errorText);
       throw new Error('YM ST reçetesi kaydedilemedi');
     }
-  };
+    
+    console.log('YM ST reçetesi başarıyla kaydedildi');
+  } catch (error) {
+    console.error('YM ST reçete oluşturma hatası:', error);
+    throw error;
+  }
+};
 
  // Reçete kaydetme fonksiyonu
 const saveRecete = async (values, mmGtId, ymGtId) => {
