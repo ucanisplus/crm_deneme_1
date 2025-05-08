@@ -42,9 +42,9 @@ const mmGtValidationSchema = Yup.object().shape({
 
 // YM ST formüllerine ait doğrulama şeması
 const receteValidationSchema = Yup.object().shape({
-  boraks_tuketimi: Yup.number()
-    .required('Boraks tüketimi zorunludur')
-    .min(0.001, 'Boraks tüketimi en az 0.001 olmalıdır'),
+  cinko_tuketimi: Yup.number()
+    .required('Cinko tüketimi zorunludur')
+    .min(0.001, 'cinko tüketimi en az 0.001 olmalıdır'),
   asit_tuketimi: Yup.number()
     .required('Asit tüketimi zorunludur')
     .min(0.001, 'Asit tüketimi en az 0.001 olmalıdır'),
@@ -716,8 +716,8 @@ export const GalvanizliTelProvider = ({ children }) => {
                       const ymGtReceteData = await ymGtReceteRes.json();
                       
                       if (Array.isArray(ymGtReceteData) && ymGtReceteData.length > 0) {
-                        // Boraks, asit, desi ve galvanizleme verilerini bul
-                        const boraksTuketimi = ymGtReceteData.find(
+                        // cinko, asit, desi ve galvanizleme verilerini bul
+                        const cinkoTuketimi = ymGtReceteData.find(
                           item => item.bilesen_kodu === '150 03'
                         )?.miktar || 0.02;
                         
@@ -759,7 +759,7 @@ export const GalvanizliTelProvider = ({ children }) => {
                         
                         // Reçete verilerini ayarla
                         setReceteData({
-                          boraks_tuketimi: parseFloat(boraksTuketimi),
+                          cinko_tuketimi: parseFloat(cinkoTuketimi),
                           asit_tuketimi: parseFloat(asitTuketimi),
                           desi_tuketimi: parseFloat(desiTuketimi),
                           paketleme_suresi: parseFloat(paketlemeSuresi),
@@ -896,8 +896,8 @@ export const GalvanizliTelProvider = ({ children }) => {
                   const ymGtReceteData = await ymGtReceteRes.json();
                   
                   if (Array.isArray(ymGtReceteData) && ymGtReceteData.length > 0) {
-                    // Boraks, asit, desi ve galvanizleme verilerini bul
-                    const boraksTuketimi = ymGtReceteData.find(
+                    // cinko, asit, desi ve galvanizleme verilerini bul
+                    const cinkoTuketimi = ymGtReceteData.find(
                       item => item.bilesen_kodu === '150 03'
                     )?.miktar || 0.02;
                     
@@ -939,7 +939,7 @@ export const GalvanizliTelProvider = ({ children }) => {
                     
                     // Reçete verilerini ayarla
                     setReceteData({
-                      boraks_tuketimi: parseFloat(boraksTuketimi),
+                      cinko_tuketimi: parseFloat(cinkoTuketimi),
                       asit_tuketimi: parseFloat(asitTuketimi),
                       desi_tuketimi: parseFloat(desiTuketimi),
                       paketleme_suresi: parseFloat(paketlemeSuresi),
@@ -1558,8 +1558,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       // Yüzey Alanı hesaplama: 1000*4000/PI()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*PI()/1000
       const yuzeyAlani = 1000 * 4000 / Math.PI / capValue / capValue / 7.85 * capValue * Math.PI / 1000;
       
-      // Boraks tüketimi: 0.032 - (0.0029 * Diameter)
-      const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
+      // cinko tüketimi: 0.032 - (0.0029 * Diameter)
+      const cinkoTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
       
       // Asit tüketimi hesaplama
       let asitTuketimi;
@@ -1620,7 +1620,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       // Reçete verilerini ayarla
       const calculatedReceteData = {
-        boraks_tuketimi: parseFloat(boraksTuketimi.toFixed(6)),
+        cinko_tuketimi: parseFloat(cinkoTuketimi.toFixed(6)),
         asit_tuketimi: parseFloat(asitTuketimi.toFixed(6)),
         desi_tuketimi: parseFloat(desiTuketimi.toFixed(6)),
         paketleme_suresi: parseFloat(paketlemeSuresi.toFixed(6)),
@@ -2211,7 +2211,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const paketlemeDkAdet = 10;
       
       // Formülle 150 03 hesaplama
-      const boraksTuketimi = ((1000 * 4000 / 3.14 / 7.85 / capValue / capValue * capValue * 3.14 / 1000 * zingCoating / 1000) + (ash * 0.6) + (lapa * 0.7)) / 1000;
+      const cinkoTuketimi = ((1000 * 4000 / 3.14 / 7.85 / capValue / capValue * capValue * 3.14 / 1000 * zingCoating / 1000) + (ash * 0.6) + (lapa * 0.7)) / 1000;
       
       // Asit değeri hesaplama: Yüzey alanı * Tüketilen asit / 1000
       const asitTuketimi = (yuzeyAlani * tuketilenAsit) / 1000;
@@ -2223,7 +2223,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const galvanizlemeSuresi = 1.159 / capValue;
       
       // Reçete verilerini belirle (formüllerden veya manuel girilen değerlerden)
-      const finalBoraksTuketimi = receteData ? parseFloat(receteData.boraks_tuketimi) : boraksTuketimi;
+      const finalcinkoTuketimi = receteData ? parseFloat(receteData.cinko_tuketimi) : cinkoTuketimi;
       const finalAsitTuketimi = receteData ? parseFloat(receteData.asit_tuketimi) : asitTuketimi;
       const finalDesiTuketimi = receteData ? parseFloat(receteData.desi_tuketimi) : getPaketDesiValue(coilWeight, capValue);
       const finalPaketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : paketlemeSuresi;
@@ -2255,8 +2255,8 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: '150 03',
           olcu_br_bilesen: '1',
-          miktar: finalBoraksTuketimi,
-          aciklama: 'Boraks Tüketim Miktarı',
+          miktar: finalcinkoTuketimi,
+          aciklama: 'cinko Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           ym_gt_id: ymGtId
@@ -3627,7 +3627,7 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete değerleri için initial değerler
   const initialReceteValues = {
-    boraks_tuketimi: 0.02, // 0.032 - (0.0029 * Diameter)
+    cinko_tuketimi: 0.02, // 0.032 - (0.0029 * Diameter)
     asit_tuketimi: 0.002,  // Çapa göre farklı değer alır
     desi_tuketimi: 0.0013, // Ağırlığa göre farklı değer alır
     paketleme_suresi: 0.02, // Sabit değer
@@ -3684,7 +3684,7 @@ const GalvanizliTelNetsis = () => {
       // Reçete verilerini de güncelle
       if (receteData) {
         setReceteFormValues({
-          boraks_tuketimi: receteData.boraks_tuketimi || initialReceteValues.boraks_tuketimi,
+          cinko_tuketimi: receteData.cinko_tuketimi || initialReceteValues.cinko_tuketimi,
           asit_tuketimi: receteData.asit_tuketimi || initialReceteValues.asit_tuketimi,
           desi_tuketimi: receteData.desi_tuketimi || initialReceteValues.desi_tuketimi,
           paketleme_suresi: receteData.paketleme_suresi || initialReceteValues.paketleme_suresi,
@@ -3801,8 +3801,8 @@ const GalvanizliTelNetsis = () => {
     if (name === 'cap' && value) {
       const capValue = parseFloat(value);
       if (!isNaN(capValue)) {
-        // Boraks değeri: 0.032 - (0.0029 * Diameter)
-        const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
+        // cinko değeri: 0.032 - (0.0029 * Diameter)
+        const cinkoTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
         
         // Asit değeri
         let asitTuketimi;
@@ -3834,7 +3834,7 @@ const GalvanizliTelNetsis = () => {
         
         setReceteFormValues(prev => ({
           ...prev,
-          boraks_tuketimi: boraksTuketimi,
+          cinko_tuketimi: cinkoTuketimi,
           asit_tuketimi: asitTuketimi,
           galvanizleme_suresi: galvanizlemeSuresi,
           tel_cekme_suresi: telCekmeSuresi
@@ -4867,15 +4867,15 @@ const GalvanizliTelNetsis = () => {
                 {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
                   <Form onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Boraks Tüketimi */}
+                      {/* cinko Tüketimi */}
                       <div className="mb-4">
                         <label className="block text-gray-700 text-sm font-medium mb-2">
-                          Boraks Tüketimi (150 03) <span className="text-red-500">*</span>
+                          cinko Tüketimi (150 03) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="number"
-                          name="boraks_tuketimi"
-                          value={values.boraks_tuketimi}
+                          name="cinko_tuketimi"
+                          value={values.cinko_tuketimi}
                           onChange={(e) => {
                             handleChange(e);
                             handleReceteInputChange(e);
@@ -4883,14 +4883,14 @@ const GalvanizliTelNetsis = () => {
                           onBlur={handleBlur}
                           step="0.000001"
                           className={`w-full p-2 border rounded-md ${
-                            errors.boraks_tuketimi && touched.boraks_tuketimi ? "border-red-500" : "border-gray-300"
+                            errors.cinko_tuketimi && touched.cinko_tuketimi ? "border-red-500" : "border-gray-300"
                           }`}
                         />
                         <div className="text-xs text-gray-500 mt-1">
                           Önerilen: {Math.max(0.001, 0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
                         </div>
-                        {errors.boraks_tuketimi && touched.boraks_tuketimi && (
-                          <div className="text-red-500 text-xs mt-1">{errors.boraks_tuketimi}</div>
+                        {errors.cinko_tuketimi && touched.cinko_tuketimi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.cinko_tuketimi}</div>
                         )}
                       </div>
                       
@@ -5878,7 +5878,7 @@ const GalvanizliTelNetsis = () => {
                       <div className="mb-4">
                         <h4 className="font-medium text-gray-800 mb-2">Reçete Değerleri</h4>
                         <div className="grid grid-cols-3 gap-4">
-                          <p><span className="font-medium">Boraks Tüketimi:</span> {receteFormValues.boraks_tuketimi}</p>
+                          <p><span className="font-medium">cinko Tüketimi:</span> {receteFormValues.cinko_tuketimi}</p>
                           <p><span className="font-medium">Asit Tüketimi:</span> {receteFormValues.asit_tuketimi}</p>
                           <p><span className="font-medium">Desi Tüketimi:</span> {receteFormValues.desi_tuketimi}</p>
                           <p><span className="font-medium">Paketleme Süresi:</span> {receteFormValues.paketleme_suresi}</p>
