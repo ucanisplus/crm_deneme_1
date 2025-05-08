@@ -62,6 +62,39 @@ const receteValidationSchema = Yup.object().shape({
     .min(0.0001, 'Tel çekme süresi en az 0.0001 olmalıdır'),
 });
 
+// Talep doğrulama şeması
+const talepValidationSchema = Yup.object().shape({
+  cap: Yup.number()
+    .required('Çap zorunludur')
+    .min(0.8, 'Çap en az 0.8 olmalıdır')
+    .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
+  kod_2: Yup.string().required('Kaplama türü zorunludur'),
+  kaplama: Yup.number()
+    .required('Kaplama zorunludur')
+    .min(50, 'Kaplama en az 50 olmalıdır')
+    .max(400, 'Kaplama en fazla 400 olmalıdır'),
+  min_mukavemet: Yup.number()
+    .required('Min mukavemet zorunludur')
+    .min(350, 'Min mukavemet en az 350 olmalıdır')
+    .max(1000, 'Min mukavemet en fazla 1000 olmalıdır'),
+  max_mukavemet: Yup.number()
+    .required('Max mukavemet zorunludur')
+    .min(350, 'Max mukavemet en az 350 olmalıdır')
+    .max(1000, 'Max mukavemet en fazla 1000 olmalıdır'),
+  tolerans_plus: Yup.number()
+    .required('Tolerans (+) zorunludur')
+    .min(0, 'Tolerans (+) en az 0 olmalıdır')
+    .max(0.1, 'Tolerans (+) en fazla 0.1 olmalıdır'),
+  tolerans_minus: Yup.number()
+    .required('Tolerans (-) zorunludur')
+    .min(0, 'Tolerans (-) en az 0 olmalıdır')
+    .max(0.1, 'Tolerans (-) en fazla 0.1 olmalıdır'),
+  kg: Yup.number()
+    .required('Ağırlık zorunludur')
+    .min(250, 'Ağırlık en az 250 olmalıdır')
+    .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
+});
+
 // Galvanizli Tel Context
 const GalvanizliTelContext = createContext();
 
@@ -84,6 +117,8 @@ export const GalvanizliTelProvider = ({ children }) => {
     ymGtList: [],
     ymStList: []
   });
+  const [talepList, setTalepList] = useState([]);
+  const [selectedTalep, setSelectedTalep] = useState(null);
   const { user } = useAuth();
 
   // Ürün veritabanını yükleme
@@ -118,11 +153,184 @@ export const GalvanizliTelProvider = ({ children }) => {
         ymStList: Array.isArray(ymStList) ? ymStList : []
       });
     } catch (error) {
+      console.error('Veritabanı yüklenirken hata:', error);
       setError('Veritabanı yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Talep Listesini Yükleme
+  const fetchTalepList = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetchWithAuth(API_URLS.galSalRequests);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTalepList(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Talep listesi alınamadı:', response.status);
+        setTalepList([]);
+      }
+    } catch (error) {
+      console.error('Talep listesi yüklenirken hata:', error);
+      setError('Talep listesi yüklenirken bir hata oluştu');
+      setTalepList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Talep Detaylarını Yükleme
+  const fetchTalepDetails = useCallback(async (talepId) => {
+    try {
+      setLoading(true);
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedTalep(data);
+        
+        // Talep verilerini form değerlerine dönüştür
+        const formValues = {
+          cap: data.cap,
+          kod_2: data.kod_2,
+          kaplama: data.kaplama,
+          min_mukavemet: data.min_mukavemet,
+          max_mukavemet: data.max_mukavemet,
+          tolerans_plus: data.tolerans_plus,
+          tolerans_minus: data.tolerans_minus,
+          ic_cap: data.ic_cap,
+          dis_cap: data.dis_cap,
+          kg: data.kg,
+          unwinding: data.unwinding,
+          shrink: data.shrink
+        };
+        
+        // Form değerlerini ayarla
+        setMmGtData(null);
+        setYmGtData(null);
+        setSelectedYmSt([]);
+        setReceteData(null);
+        setIsEditMode(false);
+        setDataExist(false);
+        
+        // YM ST önerilerini otomatik olarak belirle
+        await autoSelectYmSt(formValues);
+        
+        // Reçete değerlerini otomatik olarak hesapla
+        calculateReceteValues(formValues);
+        
+        return formValues;
+      } else {
+        throw new Error(`Talep detayları alınamadı: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Talep detayları yüklenirken hata:', error);
+      setError('Talep detayları yüklenirken bir hata oluştu');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Talebi onayla ve ürün oluştur
+  const approveTalep = useCallback(async (talepId, mmGtData, ymGtData, selectedYmSt, receteData) => {
+    try {
+      setLoading(true);
+      
+      // Önce MM GT'yi kaydet
+      const savedMmGt = await saveMMGT(mmGtData);
+      
+      if (!savedMmGt) {
+        throw new Error('MM GT kaydedilemedi');
+      }
+      
+      // Sonra YM GT'yi kaydet
+      const savedYmGt = await saveYMGT(mmGtData, savedMmGt.id);
+      
+      if (!savedYmGt) {
+        throw new Error('YM GT kaydedilemedi');
+      }
+      
+      // Seçilen YM ST'leri kaydet
+      for (const ymSt of selectedYmSt) {
+        await saveYMST(ymSt, savedMmGt.id);
+      }
+      
+      // Reçeteleri kaydet
+      await saveRecete(receteData, savedMmGt.id, savedYmGt.id);
+      
+      // Talebi onayla
+      const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'approved',
+          processed_by: user?.id || 'system',
+          processed_at: new Date().toISOString(),
+          mm_gt_id: savedMmGt.id
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        throw new Error('Talep durumu güncellenemedi');
+      }
+      
+      setSuccessMessage('Talep başarıyla onaylandı ve ürün oluşturuldu');
+      toast.success('Talep başarıyla onaylandı ve ürün oluşturuldu');
+      
+      // Talep listesini güncelle
+      await fetchTalepList();
+      
+      return true;
+    } catch (error) {
+      console.error('Talep onaylama hatası:', error);
+      setError(`Talep onaylanırken bir hata oluştu: ${error.message}`);
+      toast.error(`Talep onaylanırken bir hata oluştu: ${error.message}`);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Talebi reddet
+  const rejectTalep = useCallback(async (talepId, rejectionReason) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'rejected',
+          processed_by: user?.id || 'system',
+          processed_at: new Date().toISOString(),
+          rejection_reason: rejectionReason
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Talep durumu güncellenemedi');
+      }
+      
+      setSuccessMessage('Talep başarıyla reddedildi');
+      toast.success('Talep başarıyla reddedildi');
+      
+      // Talep listesini güncelle
+      await fetchTalepList();
+      
+      return true;
+    } catch (error) {
+      console.error('Talep reddetme hatası:', error);
+      setError(`Talep reddedilirken bir hata oluştu: ${error.message}`);
+      toast.error(`Talep reddedilirken bir hata oluştu: ${error.message}`);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   // İlişkileri kontrol et ve sil
   const checkAndDeleteRelations = async (type, id) => {
@@ -402,7 +610,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   }, []);
 
-  // Ürün arama fonksiyonu - düzeltilmiş
+  // Ürün arama fonksiyonu
   const searchProducts = async (searchParams) => {
     setLoading(true);
     setError(null);
@@ -767,7 +975,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // Bu fonksiyon, stok kodunun veritabanında olup olmadığını kontrol eder
+  // Ürün var mı kontrolü
   const checkProductExists = async (stokKodu) => {
     try {
       // API isteği yap - tam eşleşme için encodeURIComponent kullan
@@ -794,7 +1002,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // MM GT kaydetme fonksiyonu - düzeltilmiş
+  // MM GT kaydetme fonksiyonu
   const saveMMGT = async (values) => {
     setLoading(true);
     setError(null);
@@ -848,11 +1056,11 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       // AMB.SHRİNK değerini belirle
       let ambShrink = '';
-      if (values.ic_cap === 45 && values.dis_cap === 75) {
+      if (values.ic_cap === 45) {
         ambShrink = 'AMB.SHRİNK.200*140CM';
-      } else if (values.ic_cap === 50 && values.dis_cap === 90) {
+      } else if (values.ic_cap === 50) {
         ambShrink = 'AMB.SHRİNK.200*160CM';
-      } else if (values.ic_cap === 55 && values.dis_cap === 105) {
+      } else if (values.ic_cap === 55) {
         ambShrink = 'AMB.SHRİNK.200*190CM';
       }
 
@@ -984,7 +1192,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
    
-  // YM GT kaydetme fonksiyonu - düzeltilmiş
+  // YM GT kaydetme fonksiyonu
   const saveYMGT = async (values, mmGtId) => {
     setLoading(true);
     setError(null);
@@ -1164,7 +1372,271 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // YM ST kaydetme ve MM GT ile ilişkilendirme fonksiyonu - düzeltilmiş
+  // YM ST'lerin otomatik seçimi
+  const autoSelectYmSt = async (values) => {
+    try {
+      setLoading(true);
+      
+      // Mevcut YM ST'leri temizle
+      setSelectedYmSt([]);
+      
+      // Ürün tipi ve çapına göre YM ST önerileri bul
+      const capValue = parseFloat(values.cap);
+      const kod2 = values.kod_2;
+      
+      // Tüm YM ST'leri yükle (eğer yoksa)
+      if (ymStList.length === 0) {
+        await loadYmStList();
+      }
+      
+      let filteredYmSt = [];
+      
+      // YM ST seçme kurallarına göre filtreleme
+      if (kod2 === 'PAD') {
+        // PAD tipi ürünler için
+        if (capValue >= 0.8 && capValue <= 1.4) {
+          // 0.120-0.140 için 0550.1006 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 550 &&
+            item.quality === '1006'
+          );
+        } else if (capValue > 1.4 && capValue <= 2.55) {
+          // 0.150-0.255 için 0600.1006 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 600 &&
+            item.quality === '1006'
+          );
+        } else if (capValue > 2.55 && capValue <= 4.25) {
+          // 0.260-0.425 için 0600.1008 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 600 &&
+            item.quality === '1008'
+          );
+        } else if (capValue > 4.25 && capValue <= 5.9) {
+          // 0.430-0.590 için 0700.1010 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 700 &&
+            item.quality === '1010'
+          );
+        } else if (capValue > 5.9 && capValue <= 7.0) {
+          // 0.600-0.700 için 0800.1010 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 800 &&
+            item.quality === '1010'
+          );
+        } else if (capValue > 7.0 && capValue <= 7.4) {
+          // 0.730-0.740 için 0900.1010 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 900 &&
+            item.quality === '1010'
+          );
+        } else if (capValue > 7.4 && capValue <= 8.0) {
+          // 0.770-0.800 için 1000.1010 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= capValue * 0.95 &&
+            parseFloat(item.cap) <= capValue * 1.05 &&
+            item.filmasin === 1000 &&
+            item.quality === '1010'
+          );
+        }
+      } else if (kod2 === 'NIT') {
+        // NIT tipi ürünler için
+        // Çaptan %0-6.5 daha küçük YM ST ürünlerini bul
+        const minCap = capValue * 0.935; // %6.5 küçültme
+        const maxCap = capValue * 0.995; // %0.5 küçültme
+        
+        if (capValue >= 0.8 && capValue <= 1.7) {
+          // 0.150-0.170 için 0600.1006 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= minCap &&
+            parseFloat(item.cap) <= maxCap &&
+            item.filmasin === 600 &&
+            item.quality === '1006'
+          );
+        } else if (capValue > 1.7 && capValue <= 2.5) {
+          // 0.240-0.250 için 0600.1006 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= minCap &&
+            parseFloat(item.cap) <= maxCap &&
+            item.filmasin === 600 &&
+            item.quality === '1006'
+          );
+        } else if (capValue > 2.5 && capValue <= 3.0) {
+          // 0.270-0.300 için 0600.1008 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= minCap &&
+            parseFloat(item.cap) <= maxCap &&
+            item.filmasin === 600 &&
+            item.quality === '1008'
+          );
+        } else if (capValue > 3.0 && capValue <= 4.0) {
+          // 0.340-0.400 için 0600.1008 kalitede olanları bul
+          filteredYmSt = ymStList.filter(item => 
+            parseFloat(item.cap) >= minCap &&
+            parseFloat(item.cap) <= maxCap &&
+            item.filmasin === 600 &&
+            item.quality === '1008'
+          );
+        }
+      }
+      
+      // Eğer tam eşleşen YM ST bulunamazsa, çapa göre en yakın olanları bul
+      if (filteredYmSt.length === 0) {
+        // Çapa göre tüm YM ST'leri filtrele (±%5 tolerans ile)
+        filteredYmSt = ymStList.filter(item => 
+          parseFloat(item.cap) >= capValue * 0.95 &&
+          parseFloat(item.cap) <= capValue * 1.05
+        );
+        
+        // Çapa göre sırala
+        filteredYmSt.sort((a, b) => {
+          const diffA = Math.abs(parseFloat(a.cap) - capValue);
+          const diffB = Math.abs(parseFloat(b.cap) - capValue);
+          return diffA - diffB;
+        });
+      }
+      
+      // En fazla ilk 5 YM ST'yi seç
+      const selectedItems = filteredYmSt.slice(0, 5);
+      
+      // YM ST bulunamazsa, önceden tanımlanmış eşleşmeleri kontrol et
+      if (selectedItems.length === 0) {
+        // Önceden tanımlanmış eşleşmeleri bul
+        // Örnek: 'YM.GT.NIT.0150.00 → YM.ST.0142.0600.1006'
+        const predefinedMatches = productDatabase.ymStList.filter(item => {
+          const matchPattern = `YM.GT.${kod2}.${capValue.toFixed(2).replace('.', '')}.`;
+          const itemCode = item.stok_kodu;
+          return itemCode && itemCode.startsWith(matchPattern);
+        });
+        
+        if (predefinedMatches.length > 0) {
+          // En fazla ilk 5 eşleşmeyi seç
+          const selectedPredefItems = predefinedMatches.slice(0, 5);
+          setSelectedYmSt(selectedPredefItems);
+          return selectedPredefItems;
+        }
+        
+        // Yeni YM ST oluştur önerisi (varsayılan değerler ile)
+        // Burada yeni bir YM ST oluşturma mantığı eklenebilir
+      }
+      
+      // Seçilen YM ST'leri ayarla
+      setSelectedYmSt(selectedItems);
+      return selectedItems;
+    } catch (error) {
+      console.error('YM ST otomatik seçme hatası:', error);
+      setError('YM ST otomatik seçme sırasında bir hata oluştu');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reçete değerlerini otomatik hesaplama
+  const calculateReceteValues = (values) => {
+    try {
+      const capValue = parseFloat(values.cap);
+      const kgValue = parseFloat(values.kg);
+      
+      if (isNaN(capValue) || isNaN(kgValue)) {
+        console.warn('Reçete değerleri hesaplanamadı: Geçersiz çap veya ağırlık değeri');
+        return null;
+      }
+      
+      // Yüzey Alanı hesaplama: 1000*4000/PI()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*PI()/1000
+      const yuzeyAlani = 1000 * 4000 / Math.PI / capValue / capValue / 7.85 * capValue * Math.PI / 1000;
+      
+      // Boraks tüketimi: 0.032 - (0.0029 * Diameter)
+      const boraksTuketimi = Math.max(0.001, 0.032 - (0.0029 * capValue));
+      
+      // Asit tüketimi hesaplama
+      let asitTuketimi;
+      if (values.kod_2 === 'NIT') {
+        if (capValue < 1.5) {
+          asitTuketimi = 0.002;
+        } else if (capValue >= 1.5 && capValue < 2.5) {
+          asitTuketimi = 0.0025;
+        } else {
+          asitTuketimi = 0.003;
+        }
+      } else {
+        // PAD için değer
+        if (capValue < 1.5) {
+          asitTuketimi = 0.001;
+        } else if (capValue >= 1.5 && capValue < 2.5) {
+          asitTuketimi = 0.0015;
+        } else {
+          asitTuketimi = 0.002;
+        }
+      }
+      
+      // Desi tüketimi ağırlığa göre hesaplama
+      let desiTuketimi;
+      if (kgValue === 500) {
+        desiTuketimi = 0.0020;
+      } else if (kgValue === 600) {
+        desiTuketimi = 0.0017;
+      } else if (kgValue === 650) {
+        desiTuketimi = 0.0015;
+      } else if (kgValue >= 750 && kgValue <= 800) {
+        desiTuketimi = 0.0013;
+      } else if (kgValue === 850) {
+        desiTuketimi = 0.0012;
+      } else if (kgValue === 900) {
+        desiTuketimi = 0.0011;
+      } else if (kgValue === 1100) {
+        desiTuketimi = 0.0009;
+      } else {
+        // Çapa göre varsayılan desi tüketimi
+        if (capValue < 2.0) {
+          desiTuketimi = 0.0020;
+        } else if (capValue >= 2.0 && capValue <= 4.0) {
+          desiTuketimi = 0.0013;
+        } else {
+          desiTuketimi = 0.0011;
+        }
+      }
+      
+      // Paketleme süresi (sabit değer)
+      const paketlemeSuresi = 0.02;
+      
+      // Galvanizleme süresi: 1.159 / Çap
+      const galvanizlemeSuresi = 1.159 / capValue;
+      
+      // Tel çekme süresi: 0.2 / Çap^1.7 + 0.02
+      const telCekmeSuresi = 0.2 / Math.pow(capValue, 1.7) + 0.02;
+      
+      // Reçete verilerini ayarla
+      const calculatedReceteData = {
+        boraks_tuketimi: parseFloat(boraksTuketimi.toFixed(6)),
+        asit_tuketimi: parseFloat(asitTuketimi.toFixed(6)),
+        desi_tuketimi: parseFloat(desiTuketimi.toFixed(6)),
+        paketleme_suresi: parseFloat(paketlemeSuresi.toFixed(6)),
+        galvanizleme_suresi: parseFloat(galvanizlemeSuresi.toFixed(6)),
+        tel_cekme_suresi: parseFloat(telCekmeSuresi.toFixed(6))
+      };
+      
+      setReceteData(calculatedReceteData);
+      return calculatedReceteData;
+    } catch (error) {
+      console.error('Reçete değerleri hesaplama hatası:', error);
+      return null;
+    }
+  };
+
+  // YM ST kaydetme ve MM GT ile ilişkilendirme fonksiyonu
   const saveYMST = async (values, mmGtId) => {
     setLoading(true);
     setError(null);
@@ -1391,6 +1863,9 @@ export const GalvanizliTelProvider = ({ children }) => {
       setSuccessMessage('YM ST ilişkisi başarıyla kuruldu');
       toast.success(`${ymStItem.stok_kodu} YM ST başarıyla eklendi.`);
 
+      // YM ST reçetesini oluştur
+      await createYMSTRecete(ymStId, receteData);
+
       // Veritabanını güncelle
       await fetchProductDatabase();
 
@@ -1405,7 +1880,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // MM GT Reçete oluşturma - düzeltilmiş
+  // MM GT Reçete oluşturma
   const createMMGTRecete = async (mmGtId, ymGtId, receteData = null) => {
     try {
       // MM GT verilerini al
@@ -1444,7 +1919,25 @@ export const GalvanizliTelProvider = ({ children }) => {
         throw new Error('YM GT verisi alınamadı');
       }
 
-      // Reçete öğelerini oluştur - Ondalık sayıları nokta formatında kaydet
+      // Kilo bilgisi
+      const coilWeight = parseFloat(mmGt.coil_weight || mmGt.kg);
+
+      // NAYLON (KG/TON): =(1*(1000/coilWeight))/1000
+      const naylonMiktar = (1 * (1000 / coilWeight)) / 1000;
+
+      // AMB.APEX CEMBER 38X080: =(1.2*(1000/coilWeight))/1000
+      const cemberMiktar = (1.2 * (1000 / coilWeight)) / 1000;
+
+      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/coilWeight))/1000
+      const tokaMiktar = (4 * (1000 / coilWeight)) / 1000;
+
+      // SM.7MMHALKA: =(4*(1000/coilWeight))/1000
+      const halkaMiktar = (4 * (1000 / coilWeight)) / 1000;
+
+      // AMB.ÇEM.KARTON.GAL: (8*(1000/coilWeight))/1000
+      const kartonMiktar = (8 * (1000 / coilWeight)) / 1000;
+      
+      // Reçete öğelerini oluştur
       const receteItems = [
         {
           mamul_kodu: mmGt.stok_kodu,
@@ -1486,7 +1979,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'AMB.ÇEM.KARTON.GAL',
           olcu_br_bilesen: '1',
-          miktar: 0.016,
+          miktar: kartonMiktar,
           aciklama: 'Karton Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1501,7 +1994,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: mmGt.amb_shrink,
           olcu_br_bilesen: '1',
-          miktar: 0.002,
+          miktar: naylonMiktar,
           aciklama: 'Naylon Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1516,7 +2009,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'SM.7MMHALKA',
           olcu_br_bilesen: '1',
-          miktar: 0.008,
+          miktar: halkaMiktar,
           aciklama: 'Kaldırma Kancası Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1531,7 +2024,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'AMB.APEX CEMBER 38X080',
           olcu_br_bilesen: '1',
-          miktar: 0.0024,
+          miktar: cemberMiktar,
           aciklama: 'Çelik çember Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1546,7 +2039,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'AMB.TOKA.SIGNODE.114P. DKP',
           olcu_br_bilesen: '1',
-          miktar: 0.008,
+          miktar: tokaMiktar,
           aciklama: 'Çember Tokası Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1561,7 +2054,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'SM.DESİ.PAK',
           olcu_br_bilesen: '1',
-          miktar: 0.002,
+          miktar: receteData ? parseFloat(receteData.desi_tuketimi) : 0.002,
           aciklama: 'Slikajel Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1627,7 +2120,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // YM GT Reçete oluşturma - düzeltilmiş
+  // YM GT Reçete oluşturma
   const createYMGTRecete = async (ymGtId, receteData = null) => {
     try {
       // YM GT verilerini al
@@ -1646,6 +2139,24 @@ export const GalvanizliTelProvider = ({ children }) => {
         ymGt = ymGtData;
       } else {
         throw new Error('YM GT verisi alınamadı');
+      }
+
+      // MM GT verilerini al
+      const mmGtRes = await fetchWithAuth(`${API_URLS.galMmGt}?id=${ymGt.mm_gt_id}`);
+      
+      if (!mmGtRes.ok) {
+        throw new Error('MM GT verisi alınamadı');
+      }
+      
+      const mmGtData = await mmGtRes.json();
+      let mmGt;
+      
+      if (Array.isArray(mmGtData) && mmGtData.length > 0) {
+        mmGt = mmGtData[0];
+      } else if (mmGtData && mmGtData.id) {
+        mmGt = mmGtData;
+      } else {
+        throw new Error('MM GT verisi alınamadı');
       }
 
       // İlişkili YM ST'leri al
@@ -1684,49 +2195,39 @@ export const GalvanizliTelProvider = ({ children }) => {
         throw new Error('YM ST verileri alınamadı');
       }
       
-      // Birincil YM ST'yi seç (normalde kullanıcı belirlemeli)
+      // Birincil YM ST'yi seç
       const primaryYmSt = ymStDetails[0];
 
-      // Çap değerine bağlı hesaplamalar
-      const diameter = parseFloat(ymGt.cap);
+      // Çap değeri
+      const capValue = parseFloat(ymGt.cap);
+      const zingCoating = parseFloat(mmGt.zing_coating || ymGt.kaplama);
+      const coilWeight = parseFloat(mmGt.coil_weight || ymGt.kg);
       
-      // Boraks değeri hesaplama: 0.032 - (0.0029 * Diameter)
-      const boraksTuketimi = receteData ? parseFloat(receteData.boraks_tuketimi) : Math.max(0.001, 0.032 - (0.0029 * diameter));
+      // Orta değişkenler hesaplama
+      const ash = 5.54; // Kg/tonne
+      const lapa = 2.73; // Kg/tonne
+      const yuzeyAlani = 1000 * 4000 / Math.PI / capValue / capValue / 7.85 * capValue * Math.PI / 1000;
+      const tuketilenAsit = 0.0647625; // kg/m2
+      const paketlemeDkAdet = 10;
       
-      // Asit değeri hesaplama
-      let asitTuketimi;
-      if (receteData) {
-        asitTuketimi = parseFloat(receteData.asit_tuketimi);
-      } else {
-        if (ymGt.kod_2 === 'NIT') {
-          // NIT için değer
-          if (diameter < 1.5) {
-            asitTuketimi = 0.002;
-          } else if (diameter >= 1.5 && diameter < 2.5) {
-            asitTuketimi = 0.0025;
-          } else {
-            asitTuketimi = 0.003;
-          }
-        } else {
-          // PAD için değer
-          if (diameter < 1.5) {
-            asitTuketimi = 0.001;
-          } else if (diameter >= 1.5 && diameter < 2.5) {
-            asitTuketimi = 0.0015;
-          } else {
-            asitTuketimi = 0.002;
-          }
-        }
-      }
+      // Formülle 150 03 hesaplama
+      const boraksTuketimi = ((1000 * 4000 / 3.14 / 7.85 / capValue / capValue * capValue * 3.14 / 1000 * zingCoating / 1000) + (ash * 0.6) + (lapa * 0.7)) / 1000;
       
-      // Desi değeri hesaplama
-      const desiTuketimi = receteData ? parseFloat(receteData.desi_tuketimi) : (ymGt.kg > 800 ? 0.002 : 0.0013);
+      // Asit değeri hesaplama: Yüzey alanı * Tüketilen asit / 1000
+      const asitTuketimi = (yuzeyAlani * tuketilenAsit) / 1000;
       
-      // Paketleme süresi
-      const paketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : 0.020;
+      // Paketleme süresi: (1000/Coil Weight * PaketlemeDkAdet) / 1000
+      const paketlemeSuresi = (1000 / coilWeight * paketlemeDkAdet) / 1000;
       
-      // Galvanizleme süresi hesaplama: 1.15 - (0.125 * Diameter)
-      const galvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : Math.max(0.001, 1.15 - (0.125 * diameter));
+      // Galvanizleme süresi: 1.159 / Çap
+      const galvanizlemeSuresi = 1.159 / capValue;
+      
+      // Reçete verilerini belirle (formüllerden veya manuel girilen değerlerden)
+      const finalBoraksTuketimi = receteData ? parseFloat(receteData.boraks_tuketimi) : boraksTuketimi;
+      const finalAsitTuketimi = receteData ? parseFloat(receteData.asit_tuketimi) : asitTuketimi;
+      const finalDesiTuketimi = receteData ? parseFloat(receteData.desi_tuketimi) : getPaketDesiValue(coilWeight, capValue);
+      const finalPaketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : paketlemeSuresi;
+      const finalGalvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : galvanizlemeSuresi;
 
       // Reçete öğelerini oluştur
       const receteItems = [
@@ -1754,7 +2255,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: '150 03',
           olcu_br_bilesen: '1',
-          miktar: boraksTuketimi,
+          miktar: finalBoraksTuketimi,
           aciklama: 'Boraks Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1769,7 +2270,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'SM.HİDROLİK.ASİT',
           olcu_br_bilesen: '1',
-          miktar: asitTuketimi,
+          miktar: finalAsitTuketimi,
           aciklama: 'Asit Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1784,7 +2285,7 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'SM.DESİ.PAK',
           olcu_br_bilesen: '1',
-          miktar: desiTuketimi,
+          miktar: finalDesiTuketimi,
           aciklama: 'Desisifiye Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -1799,9 +2300,9 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Operasyon',
           bilesen_kodu: 'GTPKT01',
           olcu_br_bilesen: '1',
-          miktar: paketlemeSuresi,
+          miktar: finalPaketlemeSuresi,
           aciklama: 'Paketleme Operasyonu',
-          uretim_suresi: paketlemeSuresi,
+          uretim_suresi: finalPaketlemeSuresi,
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           ym_gt_id: ymGtId
@@ -1815,9 +2316,9 @@ export const GalvanizliTelProvider = ({ children }) => {
           operasyon_bilesen: 'Operasyon',
           bilesen_kodu: 'GLV01',
           olcu_br_bilesen: '1',
-          miktar: galvanizlemeSuresi,
+          miktar: finalGalvanizlemeSuresi,
           aciklama: 'Galvanizleme Operasyonu',
-          uretim_suresi: galvanizlemeSuresi,
+          uretim_suresi: finalGalvanizlemeSuresi,
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           ym_gt_id: ymGtId
@@ -1881,8 +2382,25 @@ export const GalvanizliTelProvider = ({ children }) => {
       throw error;
     }
   };
+  
+  // Desi değerini ağırlık ve çapa göre hesaplama
+  const getPaketDesiValue = (weight, diameter) => {
+    // Ağırlığa göre kontrol
+    if (weight === 500) return 0.0020;
+    if (weight === 600) return 0.0017;
+    if (weight === 650) return 0.0015;
+    if (weight >= 750 && weight <= 800) return 0.0013;
+    if (weight === 850) return 0.0012;
+    if (weight === 900) return 0.0011;
+    if (weight === 1100) return 0.0009;
+    
+    // Çapa göre varsayılan değerler
+    if (diameter < 2.0) return 0.0020;
+    if (diameter >= 2.0 && diameter <= 4.0) return 0.0013;
+    return 0.0011;
+  };
 
-  // YM ST Reçete oluşturma - düzeltilmiş
+  // YM ST Reçete oluşturma
   const createYMSTRecete = async (ymStId, receteData = null) => {
     try {
       // YM ST verilerini al
@@ -1903,12 +2421,48 @@ export const GalvanizliTelProvider = ({ children }) => {
         throw new Error('YM ST verisi alınamadı');
       }
 
-      // TLC01 değeri hesapla: 0.2/(Diameter^1.5)
-      const diameter = parseFloat(ymSt.cap);
-      const telCekmeSuresi = receteData ? parseFloat(receteData.tel_cekme_suresi) : (0.2 / Math.pow(diameter, 1.5));
+      // Çap değeri
+      const capValue = parseFloat(ymSt.cap);
+      
+      // Tel çekme süresi: 0.2 / Çap^1.7 + 0.02
+      const telCekmeSuresi = receteData ? parseFloat(receteData.tel_cekme_suresi) : (0.2 / Math.pow(capValue, 1.7) + 0.02);
 
-      // Filmaşin belirle
+      // Filmaşin kodu belirle
       let filmasinKod = `FLM.${ymSt.filmasin.toString().padStart(4, '0')}.${ymSt.quality}`;
+      
+      // Alternatif filmaşin kodları belirleme
+      let filmasinCods = [];
+      
+      // Çap aralıklarına göre filmaşin ve kalite belirleme (örneğin)
+      if (capValue >= 0.88 && capValue <= 1.19) {
+        filmasinCods.push(`FLM.0550.1005`);
+      } else if (capValue >= 1.20 && capValue <= 1.49) {
+        filmasinCods.push(`FLM.0550.1006`);
+        filmasinCods.push(`FLM.0600.1006`);
+      } else if (capValue >= 1.50 && capValue <= 4.50) {
+        filmasinCods.push(`FLM.0600.1006`);
+      } else if (capValue >= 2.00 && capValue <= 4.49) {
+        filmasinCods.push(`FLM.0600.1008`);
+      } else if (capValue >= 4.50 && capValue <= 6.10) {
+        filmasinCods.push(`FLM.0700.1008`);
+        filmasinCods.push(`FLM.0700.1010`);
+      } else if (capValue >= 3.50 && capValue <= 6.10) {
+        filmasinCods.push(`FLM.0700.1010`);
+      } else if (capValue >= 5.50 && capValue <= 6.90) {
+        filmasinCods.push(`FLM.0800.1010`);
+      } else if (capValue >= 7.00 && capValue <= 7.50) {
+        filmasinCods.push(`FLM.0900.1010`);
+      }
+      
+      // Eğer filmaşin kodu tabloda belirtilmemişse, mevcut filmaşin kodunu kullan
+      if (filmasinCods.length === 0) {
+        filmasinCods.push(filmasinKod);
+      }
+      
+      // Filmaşin kodunu ilk maddedeki kod ile değiştir (varsa)
+      if (filmasinCods.length > 0) {
+        filmasinKod = filmasinCods[0];
+      }
 
       // Reçete öğelerini oluştur
       const receteItems = [
@@ -1938,6 +2492,24 @@ export const GalvanizliTelProvider = ({ children }) => {
           ym_st_id: ymStId
         }
       ];
+      
+      // Alternatif filmaşin kodları için de reçete öğeleri ekle
+      let siraNo = 3;
+      for (let i = 1; i < filmasinCods.length; i++) {
+        receteItems.push({
+          mamul_kodu: ymSt.stok_kodu,
+          recete_top: 1,
+          olcu_br: 'KG',
+          sira_no: siraNo++,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: filmasinCods[i],
+          olcu_br_bilesen: '1',
+          miktar: 1,
+          aciklama: 'Alternatif Filmaşin Tüketimi',
+          ym_st_id: ymStId,
+          alternatif_no: i
+        });
+      }
 
       // Önce mevcut reçeteyi sil
       try {
@@ -1997,7 +2569,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // Reçete kaydetme fonksiyonu - düzeltilmiş
+  // Reçete kaydetme fonksiyonu
   const saveRecete = async (values, mmGtId, ymGtId) => {
     setLoading(true);
     setError(null);
@@ -2084,7 +2656,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // MM GT başlıkları
     mmGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 20 },
       { header: 'Stok Adı', key: 'stok_adi', width: 50 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -2275,7 +2847,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // YM GT başlıkları
     ymGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 22 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 22 },
       { header: 'Stok Adı', key: 'stok_adi', width: 50 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -2430,7 +3002,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // YM ST başlıkları
     ymStSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 24 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 24 },
       { header: 'Stok Adı', key: 'stok_adi', width: 40 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -2496,7 +3068,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     ];
     
     // YM ST verilerini ekle
-    ymStList.forEach(ymSt => {
+    for (const ymSt of ymStList) {
       ymStSheet.addRow({
         stok_kodu: ymSt.stok_kodu,
         stok_adi: ymSt.stok_adi,
@@ -2562,34 +3134,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         yapilandirma_kodu: ymSt.yapilandirma_kodu || "",
         yap_aciklama: ymSt.yap_aciklama || ""
       });
-    });
-    
-    // Decimal formatını düzelt (UI'da nokta, Excel'de virgül)
-    const formatDecimalCellsWithComma = (sheet) => {
-      // Decimal değerlere sahip sütun indeksleri
-      const decimalColumns = ['cap', 'tolerans_plus', 'tolerans_minus', 'cevrim_degeri_1'];
-      
-      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-        if (rowNumber > 1) { // Başlık satırını atla
-          decimalColumns.forEach(colName => {
-            const col = sheet.getColumn(colName);
-            if (col) {
-              const cell = row.getCell(col.number);
-              if (typeof cell.value === 'number') {
-                // Her ülkenin yerel formatına ayarlama yapabiliriz
-                // Burada Excel'de virgül ile göstermek için formatla
-                cell.numFmt = '0.00';
-              }
-            }
-          });
-        }
-      });
-    };
-    
-    // Her sayfa için decimal formatlarını düzelt
-    formatDecimalCellsWithComma(mmGtSheet);
-    formatDecimalCellsWithComma(ymGtSheet);
-    formatDecimalCellsWithComma(ymStSheet);
+    }
     
     // Stil ayarları
     [mmGtSheet, ymGtSheet, ymStSheet].forEach(sheet => {
@@ -2623,6 +3168,8 @@ export const GalvanizliTelProvider = ({ children }) => {
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `StokKarti_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
+    
+    return true;
   };
 
   // Reçete Excel oluşturma fonksiyonu
@@ -2828,6 +3375,8 @@ export const GalvanizliTelProvider = ({ children }) => {
   // Excel dosyasını kaydet
   const buffer = await workbook.xlsx.writeBuffer();
   saveAs(new Blob([buffer]), `Recete_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
+  
+  return true;
 };
 
   // Excel oluşturma fonksiyonu
@@ -2917,10 +3466,12 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
       toast.success('Excel dosyaları başarıyla oluşturuldu');
+      return true;
     } catch (error) {
       console.error('Excel oluşturma hatası:', error);
       setError('Excel oluşturulurken bir hata oluştu: ' + error.message);
       toast.error('Excel oluşturulurken bir hata oluştu: ' + error.message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -2940,12 +3491,20 @@ export const GalvanizliTelProvider = ({ children }) => {
     dataExist, setDataExist,
     activeTab, setActiveTab,
     productDatabase, setProductDatabase,
+    talepList, setTalepList,
+    selectedTalep, setSelectedTalep,
+    fetchTalepList,
+    fetchTalepDetails,
+    approveTalep,
+    rejectTalep,
     searchProducts,
     saveMMGT,
     saveYMGT,
     saveYMST,
     saveRecete,
     generateExcel,
+    autoSelectYmSt,
+    calculateReceteValues,
     getCurrentSequence,
     incrementSequence,
     fetchProductDatabase,
@@ -2954,11 +3513,12 @@ export const GalvanizliTelProvider = ({ children }) => {
     loadYmStList,
   };
 
-  // İlk yüklemede veritabanını ve YM ST listesini getir
+  // İlk yüklemede veritabanını, YM ST listesini ve talepleri getir
   useEffect(() => {
     fetchProductDatabase();
     loadYmStList();
-  }, [fetchProductDatabase, loadYmStList]);
+    fetchTalepList();
+  }, [fetchProductDatabase, loadYmStList, fetchTalepList]);
 
   return (
     <GalvanizliTelContext.Provider value={contextValue}>
@@ -2991,12 +3551,20 @@ const GalvanizliTelNetsis = () => {
     isEditMode, setIsEditMode,
     dataExist, setDataExist,
     productDatabase, setProductDatabase,
+    talepList, setTalepList,
+    selectedTalep, setSelectedTalep,
+    fetchTalepList,
+    fetchTalepDetails,
+    approveTalep,
+    rejectTalep,
     searchProducts,
     saveMMGT,
     saveYMGT,
     saveYMST,
     saveRecete,
     generateExcel,
+    autoSelectYmSt,
+    calculateReceteValues,
     getCurrentSequence,
     fetchProductDatabase,
     deleteProduct,
@@ -3009,10 +3577,14 @@ const GalvanizliTelNetsis = () => {
   const [showYmStCreateModal, setShowYmStCreateModal] = useState(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showTalepDetailModal, setShowTalepDetailModal] = useState(false);
+  const [showRejectTalepModal, setShowRejectTalepModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [sequence, setSequence] = useState(0);
   const [searchYmSt, setSearchYmSt] = useState("");
   const [filteredYmStList, setFilteredYmStList] = useState([]);
   const [selectedYmStToAdd, setSelectedYmStToAdd] = useState(null);
+  const [activePage, setActivePage] = useState('uretim'); // 'uretim', 'talepler'
   const [currentStep, setCurrentStep] = useState('form'); // 'form', 'ymst', 'recete', 'summary'
   const [excelCreated, setExcelCreated] = useState({
     stokKarti: false,
@@ -3023,7 +3595,13 @@ const GalvanizliTelNetsis = () => {
     type: 'mmGt',
     search: ''
   });
+  const [talepFilter, setTalepFilter] = useState({
+    status: 'pending',
+    search: ''
+  });
   const [filteredDatabaseItems, setFilteredDatabaseItems] = useState([]);
+  const [filteredTalepItems, setFilteredTalepItems] = useState([]);
+  const [selectedTalepId, setSelectedTalepId] = useState(null);
 
   // Form değerleri
   const initialFormValues = {
@@ -3054,7 +3632,7 @@ const GalvanizliTelNetsis = () => {
     desi_tuketimi: 0.0013, // Ağırlığa göre farklı değer alır
     paketleme_suresi: 0.02, // Sabit değer
     galvanizleme_suresi: 0.9, // 1.15 - (0.125 * Diameter)
-    tel_cekme_suresi: 0.15  // 0.2/(Diameter^1.5)
+    tel_cekme_suresi: 0.15  // 0.2/(Diameter^1.7) + 0.02
   };
 
   const [receteFormValues, setReceteFormValues] = useState(initialReceteValues);
@@ -3070,6 +3648,11 @@ const GalvanizliTelNetsis = () => {
   useEffect(() => {
     filterDatabaseItems();
   }, [databaseFilter, productDatabase]);
+
+  // Talep listesini filtrele
+  useEffect(() => {
+    filterTalepItems();
+  }, [talepFilter, talepList]);
 
   // filteredYmStList ayarla
   useEffect(() => {
@@ -3151,6 +3734,21 @@ const GalvanizliTelNetsis = () => {
     setFilteredDatabaseItems(filteredData);
   };
 
+  // Talep listesi filtrele
+  const filterTalepItems = () => {
+    const { status, search } = talepFilter;
+    const searchTerm = search.toLowerCase();
+    
+    const filteredData = talepList.filter(item => 
+      (status === 'all' || item.status === status) &&
+      (!searchTerm || 
+        (item.cap && item.cap.toString().includes(searchTerm)) ||
+        (item.kod_2 && item.kod_2.toLowerCase().includes(searchTerm)))
+    );
+    
+    setFilteredTalepItems(filteredData);
+  };
+
   // Dizilim numarasını al
   const fetchSequence = async (kod2, cap) => {
     try {
@@ -3228,11 +3826,11 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
-        // Galvanizleme süresi: 1.15 - (0.125 * Diameter)
-        const galvanizlemeSuresi = Math.max(0.001, 1.15 - (0.125 * capValue));
+        // Galvanizleme süresi: 1.159 / Çap
+        const galvanizlemeSuresi = 1.159 / capValue;
         
-        // Tel çekme süresi: 0.2/(Diameter^1.5)
-        const telCekmeSuresi = (0.2 / Math.pow(capValue, 1.5));
+        // Tel çekme süresi: 0.2/(Diameter^1.7) + 0.02
+        const telCekmeSuresi = 0.2 / Math.pow(capValue, 1.7) + 0.02;
         
         setReceteFormValues(prev => ({
           ...prev,
@@ -3249,7 +3847,21 @@ const GalvanizliTelNetsis = () => {
       const kgValue = parseFloat(value);
       if (!isNaN(kgValue)) {
         // Desi değeri
-        const desiTuketimi = kgValue > 800 ? 0.002 : 0.0013;
+        let desiTuketimi;
+        if (kgValue === 500) desiTuketimi = 0.0020;
+        else if (kgValue === 600) desiTuketimi = 0.0017;
+        else if (kgValue === 650) desiTuketimi = 0.0015;
+        else if (kgValue >= 750 && kgValue <= 800) desiTuketimi = 0.0013;
+        else if (kgValue === 850) desiTuketimi = 0.0012;
+        else if (kgValue === 900) desiTuketimi = 0.0011;
+        else if (kgValue === 1100) desiTuketimi = 0.0009;
+        else {
+          // Çapa göre varsayılan değerler
+          const capValue = parseFloat(newValues.cap);
+          if (capValue < 2.0) desiTuketimi = 0.0020;
+          else if (capValue >= 2.0 && capValue <= 4.0) desiTuketimi = 0.0013;
+          else desiTuketimi = 0.0011;
+        }
         
         setReceteFormValues(prev => ({
           ...prev,
@@ -3265,7 +3877,7 @@ const GalvanizliTelNetsis = () => {
     setReceteFormValues({ ...receteFormValues, [name]: parseFloat(value) });
   };
 
-  // Bu fonksiyon form gönderildiğinde çalışır
+  // Form gönderildiğinde çalışır
   const handleSubmit = async (values) => {
     try {
       // MM GT kaydet
@@ -3278,6 +3890,9 @@ const GalvanizliTelNetsis = () => {
         if (savedYmGt) {
           setIsEditMode(true);
           setCurrentStep('ymst'); // YM ST seçim adımına geç
+          
+          // Otomatik YM ST seçimi
+          await autoSelectYmSt(values);
         } else {
           setError('YM GT kaydedilemedi. Lütfen tekrar deneyin.');
         }
@@ -3527,6 +4142,11 @@ const GalvanizliTelNetsis = () => {
     await handleCreateExcelOnly(type);
   };
 
+  // Tüm Excel'leri oluştur
+  const handleGenerateAllExcels = async () => {
+    await generateExcel(mmGtData.id);
+  };
+
   // Düzenleme moduna dön
   const handleEditProduct = () => {
     setCurrentStep('form');
@@ -3570,6 +4190,111 @@ const GalvanizliTelNetsis = () => {
         await fetchProductDatabase();
       }
     }
+  };
+
+  // Talep detaylarını görüntüleme
+  const handleViewTalepDetails = async (talepId) => {
+    setSelectedTalepId(talepId);
+    const talepData = await fetchTalepDetails(talepId);
+    if (talepData) {
+      setShowTalepDetailModal(true);
+    }
+  };
+
+  // Talebi onaylama
+  const handleApproveTalep = async () => {
+    if (!selectedTalep) {
+      setError('İşlenecek talep seçilmedi');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const result = await approveTalep(
+        selectedTalep.id,
+        formValues,
+        ymGtData,
+        selectedYmSt,
+        receteFormValues
+      );
+      
+      if (result) {
+        setShowTalepDetailModal(false);
+        setSelectedTalep(null);
+        setSelectedTalepId(null);
+        
+        // Formları sıfırla
+        handleNewProduct();
+        
+        // Talep listesini güncelle
+        await fetchTalepList();
+      }
+    } catch (error) {
+      console.error('Talep onaylama hatası:', error);
+      setError('Talep onaylanırken bir hata oluştu: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Talep reddetme modalını göster
+  const handleShowRejectModal = () => {
+    if (!selectedTalep) {
+      setError('İşlenecek talep seçilmedi');
+      return;
+    }
+    
+    setShowRejectTalepModal(true);
+  };
+
+  // Talebi reddetme
+  const handleRejectTalep = async () => {
+    if (!selectedTalep) {
+      setError('İşlenecek talep seçilmedi');
+      return;
+    }
+    
+    if (!rejectionReason.trim()) {
+      setError('Lütfen red nedeni belirtin');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const result = await rejectTalep(selectedTalep.id, rejectionReason);
+      
+      if (result) {
+        setShowRejectTalepModal(false);
+        setShowTalepDetailModal(false);
+        setSelectedTalep(null);
+        setSelectedTalepId(null);
+        setRejectionReason('');
+        
+        // Talep listesini güncelle
+        await fetchTalepList();
+      }
+    } catch (error) {
+      console.error('Talep reddetme hatası:', error);
+      setError('Talep reddedilirken bir hata oluştu: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Talep durum filtresi değiştirme
+  const handleTalepStatusChange = (e) => {
+    setTalepFilter({
+      ...talepFilter,
+      status: e.target.value
+    });
+  };
+
+  // Talep arama filtresi değiştirme
+  const handleTalepSearchChange = (e) => {
+    setTalepFilter({
+      ...talepFilter,
+      search: e.target.value
+    });
   };
 
   // Stok kodu formatını göster
@@ -3638,6 +4363,21 @@ const GalvanizliTelNetsis = () => {
           <h2 className="text-xl font-bold text-gray-700">Galvanizli Tel Netsis Entegrasyonu</h2>
           <div className="space-x-2">
             <button
+              onClick={() => setActivePage('uretim')}
+              className={`px-4 py-2 ${activePage === 'uretim' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'} rounded-md hover:bg-red-700 hover:text-white transition-colors`}
+            >
+              Üretim
+            </button>
+            <button
+              onClick={() => {
+                setActivePage('talepler');
+                fetchTalepList();
+              }}
+              className={`px-4 py-2 ${activePage === 'talepler' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'} rounded-md hover:bg-red-700 hover:text-white transition-colors`}
+            >
+              Talepler
+            </button>
+            <button
               onClick={() => setShowSearchModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
@@ -3653,813 +4393,929 @@ const GalvanizliTelNetsis = () => {
         </div>
       </div>
       
-      {/* Adımlar Gösterimi */}
-      <div className="mb-6 flex items-center">
-        <div className={`flex-1 pb-2 ${currentStep === 'form' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          1. Ürün Bilgileri
-        </div>
-        <div className="mx-2 text-gray-400">→</div>
-        <div className={`flex-1 pb-2 ${currentStep === 'ymst' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          2. Hammadde Seçimi
-        </div>
-        <div className="mx-2 text-gray-400">→</div>
-        <div className={`flex-1 pb-2 ${currentStep === 'recete' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          3. Reçete Bilgileri
-        </div>
-        <div className="mx-2 text-gray-400">→</div>
-        <div className={`flex-1 pb-2 ${currentStep === 'summary' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
-          4. Özet ve İşlemler
-        </div>
-      </div>
-      
-      {/* Adım 1: Ürün Bilgileri Formu */}
-      {currentStep === 'form' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-700">MM GT Ürün Özellikleri</h3>
-          
-          <Formik
-            initialValues={formValues}
-            validationSchema={mmGtValidationSchema}
-            onSubmit={handleSubmit}
-            enableReinitialize={true}
-          >
-            {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
-              <Form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Çap (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="cap"
-                      value={values.cap}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      placeholder="2.50"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.cap && touched.cap && (
-                      <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
-                    )}
-                  </div>
-                  
-                  {/* Kaplama Türü */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Kaplama Türü <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="kod_2"
-                      value={values.kod_2}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kod_2 && touched.kod_2 ? "border-red-500" : "border-gray-300"
-                      }`}
-                    >
-                      <option value="NIT">NIT</option>
-                      <option value="PAD">PAD</option>
-                    </select>
-                    {errors.kod_2 && touched.kod_2 && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kod_2}</div>
-                    )}
-                  </div>
-                  
-                  {/* Kaplama */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Kaplama (gr/m²) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="kaplama"
-                      value={values.kaplama}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      disabled={values.kod_2 === 'PAD'}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kaplama && touched.kaplama ? "border-red-500" : "border-gray-300"
-                      } ${values.kod_2 === 'PAD' ? "bg-gray-100" : ""}`}
-                    />
-                    {errors.kaplama && touched.kaplama && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kaplama}</div>
-                    )}
-                  </div>
-                  
-                  {/* Min Mukavemet */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Min Mukavemet (MPa) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="min_mukavemet"
-                      value={values.min_mukavemet}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.min_mukavemet && touched.min_mukavemet ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.min_mukavemet && touched.min_mukavemet && (
-                      <div className="text-red-500 text-xs mt-1">{errors.min_mukavemet}</div>
-                    )}
-                  </div>
-                  
-                  {/* Max Mukavemet */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Max Mukavemet (MPa) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="max_mukavemet"
-                      value={values.max_mukavemet}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.max_mukavemet && touched.max_mukavemet ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.max_mukavemet && touched.max_mukavemet && (
-                      <div className="text-red-500 text-xs mt-1">{errors.max_mukavemet}</div>
-                    )}
-                  </div>
-                  
-                  {/* Tolerans (+) */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Tolerans (+) (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tolerans_plus"
-                      value={values.tolerans_plus}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.tolerans_plus && touched.tolerans_plus ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.tolerans_plus && touched.tolerans_plus && (
-                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_plus}</div>
-                    )}
-                  </div>
-                  
-                  {/* Tolerans (-) */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Tolerans (-) (mm) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tolerans_minus"
-                      value={values.tolerans_minus}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.01"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.tolerans_minus && touched.tolerans_minus ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.tolerans_minus && touched.tolerans_minus && (
-                      <div className="text-red-500 text-xs mt-1">{errors.tolerans_minus}</div>
-                    )}
-                  </div>
-                  
-                  {/* İç Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      İç Çap (cm) <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="ic_cap"
-                      value={values.ic_cap}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="45">45</option>
-                      <option value="50">50</option>
-                      <option value="55">55</option>
-                    </select>
-                  </div>
-                  
-                  {/* Dış Çap */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Dış Çap (cm)
-                    </label>
-                    <input
-                      type="number"
-                      name="dis_cap"
-                      value={values.dis_cap}
-                      readOnly
-                      className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
-                    />
-                  </div>
-                  
-                  {/* Ağırlık */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Ağırlık (kg) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="kg"
-                      value={values.kg}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className={`w-full p-2 border rounded-md ${
-                        errors.kg && touched.kg ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.kg && touched.kg && (
-                      <div className="text-red-500 text-xs mt-1">{errors.kg}</div>
-                    )}
-                  </div>
-                  
-                  {/* Sarım Yönü */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Sarım Yönü
-                    </label>
-                    <select
-                      name="unwinding"
-                      value={values.unwinding || ""}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Anti-Clockwise (Varsayılan)</option>
-                      <option value="Clockwise">Clockwise</option>
-                    </select>
-                  </div>
-                  
-                  {/* Shrink */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Shrink
-                    </label>
-                    <select
-                      name="shrink"
-                      value={values.shrink}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      className="w-full p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="evet">Evet</option>
-                      <option value="hayır">Hayır</option>
-                    </select>
-                  </div>
-                </div>
-                
-                {/* İsteğe Bağlı Alanlar */}
-                <div className="mt-6 border-t pt-6">
-                  <h4 className="text-md font-medium mb-4 text-gray-700">İsteğe Bağlı Alanlar</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        CAST KONT
-                      </label>
-                      <input
-                        type="text"
-                        name="cast_kont"
-                        value={values.cast_kont}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        HELIX KONT
-                      </label>
-                      <input
-                        type="text"
-                        name="helix_kont"
-                        value={values.helix_kont}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-2">
-                        ELONGATION
-                      </label>
-                      <input
-                        type="text"
-                        name="elongation"
-                        value={values.elongation}
-                        onChange={(e) => {
-                          handleChange(e);
-                          handleInputChange(e);
-                        }}
-                        onBlur={handleBlur}
-                        className="w-full p-2 border border-gray-300 rounded-md"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center mt-8 pt-4 border-t">
-                  <div>
-                    <span className="text-gray-700 font-medium">Stok Kodu: </span>
-                    <span className="font-bold text-gray-800">{getFormattedStokKodu()}</span>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <button
-                      type="button" 
-                      onClick={handleCancel}
-                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                    >
-                      İptal
-                    </button>
-                    
-                    <button 
-                      type="submit"
-                      disabled={isSubmitting || loading}
-                      className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                    >
-                      {loading ? 'İşleniyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
-                    </button>
-                  </div>
-                </div>
-              </Form>
-            )}
-          </Formik>
-        </div>
-      )}
-      
-      {/* Adım 2: YM ST Seçimi */}
-      {currentStep === 'ymst' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-medium text-gray-700">Hammadde Seçimi (YM ST)</h3>
-            <button 
-              onClick={() => setShowYmStSearchModal(true)}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Hammadde Ekle
-            </button>
+      {activePage === 'uretim' && (
+        <>
+          {/* Adımlar Gösterimi */}
+          <div className="mb-6 flex items-center">
+            <div className={`flex-1 pb-2 ${currentStep === 'form' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+              1. Ürün Bilgileri
+            </div>
+            <div className="mx-2 text-gray-400">→</div>
+            <div className={`flex-1 pb-2 ${currentStep === 'ymst' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+              2. Hammadde Seçimi
+            </div>
+            <div className="mx-2 text-gray-400">→</div>
+            <div className={`flex-1 pb-2 ${currentStep === 'recete' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+              3. Reçete Bilgileri
+            </div>
+            <div className="mx-2 text-gray-400">→</div>
+            <div className={`flex-1 pb-2 ${currentStep === 'summary' ? 'border-b-2 border-red-600 text-red-600 font-medium' : 'border-b text-gray-500'}`}>
+              4. Özet ve İşlemler
+            </div>
           </div>
           
-          {selectedYmSt.length === 0 ? (
-            <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
-              Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {selectedYmSt.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <button 
-                          onClick={() => handleRemoveYmSt(item.id)}
-                          className="text-red-600 hover:text-red-800"
+          {/* Adım 1: Ürün Bilgileri Formu */}
+          {currentStep === 'form' && (
+            <div className="bg-white rounded-md shadow-sm p-6">
+              <h3 className="text-lg font-medium mb-4 text-gray-700">MM GT Ürün Özellikleri</h3>
+              
+              <Formik
+                initialValues={formValues}
+                validationSchema={mmGtValidationSchema}
+                onSubmit={handleSubmit}
+                enableReinitialize={true}
+              >
+                {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                  <Form onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {/* Çap */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Çap (mm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="cap"
+                          value={values.cap}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.01"
+                          placeholder="2.50"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.cap && touched.cap ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.cap && touched.cap && (
+                          <div className="text-red-500 text-xs mt-1">{errors.cap}</div>
+                        )}
+                      </div>
+                      
+                      {/* Kaplama Türü */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Kaplama Türü <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="kod_2"
+                          value={values.kod_2}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.kod_2 && touched.kod_2 ? "border-red-500" : "border-gray-300"
+                          }`}
                         >
-                          Kaldır
+                          <option value="NIT">NIT</option>
+                          <option value="PAD">PAD</option>
+                        </select>
+                        {errors.kod_2 && touched.kod_2 && (
+                          <div className="text-red-500 text-xs mt-1">{errors.kod_2}</div>
+                        )}
+                      </div>
+                      
+                      {/* Kaplama */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Kaplama (gr/m²) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="kaplama"
+                          value={values.kaplama}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          disabled={values.kod_2 === 'PAD'}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.kaplama && touched.kaplama ? "border-red-500" : "border-gray-300"
+                          } ${values.kod_2 === 'PAD' ? "bg-gray-100" : ""}`}
+                        />
+                        {errors.kaplama && touched.kaplama && (
+                          <div className="text-red-500 text-xs mt-1">{errors.kaplama}</div>
+                        )}
+                      </div>
+                      
+                      {/* Min Mukavemet */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Min Mukavemet (MPa) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="min_mukavemet"
+                          value={values.min_mukavemet}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.min_mukavemet && touched.min_mukavemet ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.min_mukavemet && touched.min_mukavemet && (
+                          <div className="text-red-500 text-xs mt-1">{errors.min_mukavemet}</div>
+                        )}
+                      </div>
+                      
+                      {/* Max Mukavemet */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Max Mukavemet (MPa) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="max_mukavemet"
+                          value={values.max_mukavemet}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.max_mukavemet && touched.max_mukavemet ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.max_mukavemet && touched.max_mukavemet && (
+                          <div className="text-red-500 text-xs mt-1">{errors.max_mukavemet}</div>
+                        )}
+                      </div>
+                      
+                      {/* Tolerans (+) */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Tolerans (+) (mm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="tolerans_plus"
+                          value={values.tolerans_plus}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.01"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.tolerans_plus && touched.tolerans_plus ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.tolerans_plus && touched.tolerans_plus && (
+                          <div className="text-red-500 text-xs mt-1">{errors.tolerans_plus}</div>
+                        )}
+                      </div>
+                      
+                      {/* Tolerans (-) */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Tolerans (-) (mm) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="tolerans_minus"
+                          value={values.tolerans_minus}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.01"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.tolerans_minus && touched.tolerans_minus ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.tolerans_minus && touched.tolerans_minus && (
+                          <div className="text-red-500 text-xs mt-1">{errors.tolerans_minus}</div>
+                        )}
+                      </div>
+                      
+                      {/* İç Çap */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          İç Çap (cm) <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="ic_cap"
+                          value={values.ic_cap}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="45">45</option>
+                          <option value="50">50</option>
+                          <option value="55">55</option>
+                        </select>
+                      </div>
+                      
+                      {/* Dış Çap */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Dış Çap (cm)
+                        </label>
+                        <input
+                          type="number"
+                          name="dis_cap"
+                          value={values.dis_cap}
+                          readOnly
+                          className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                        />
+                      </div>
+                      
+                      {/* Ağırlık */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Ağırlık (kg) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="kg"
+                          value={values.kg}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className={`w-full p-2 border rounded-md ${
+                            errors.kg && touched.kg ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {errors.kg && touched.kg && (
+                          <div className="text-red-500 text-xs mt-1">{errors.kg}</div>
+                        )}
+                      </div>
+                      
+                      {/* Sarım Yönü */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Sarım Yönü
+                        </label>
+                        <select
+                          name="unwinding"
+                          value={values.unwinding || ""}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="">Anti-Clockwise (Varsayılan)</option>
+                          <option value="Clockwise">Clockwise</option>
+                        </select>
+                      </div>
+                      
+                      {/* Shrink */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Shrink
+                        </label>
+                        <select
+                          name="shrink"
+                          value={values.shrink}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="evet">Evet</option>
+                          <option value="hayır">Hayır</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* İsteğe Bağlı Alanlar */}
+                    <div className="mt-6 border-t pt-6">
+                      <h4 className="text-md font-medium mb-4 text-gray-700">İsteğe Bağlı Alanlar</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="mb-4">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">
+                            CAST KONT
+                          </label>
+                          <input
+                            type="text"
+                            name="cast_kont"
+                            value={values.cast_kont}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleInputChange(e);
+                            }}
+                            onBlur={handleBlur}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">
+                            HELIX KONT
+                          </label>
+                          <input
+                            type="text"
+                            name="helix_kont"
+                            value={values.helix_kont}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleInputChange(e);
+                            }}
+                            onBlur={handleBlur}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">
+                            ELONGATION
+                          </label>
+                          <input
+                            type="text"
+                            name="elongation"
+                            value={values.elongation}
+                            onChange={(e) => {
+                              handleChange(e);
+                              handleInputChange(e);
+                            }}
+                            onBlur={handleBlur}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-8 pt-4 border-t">
+                      <div>
+                        <span className="text-gray-700 font-medium">Stok Kodu: </span>
+                        <span className="font-bold text-gray-800">{getFormattedStokKodu()}</span>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <button
+                          type="button" 
+                          onClick={handleCancel}
+                          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                        >
+                          İptal
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        
+                        <button 
+                          type="submit"
+                          disabled={isSubmitting || loading}
+                          className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                        >
+                          {loading ? 'İşleniyor...' : isEditMode ? 'Güncelle' : 'Oluştur'}
+                        </button>
+                      </div>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
             </div>
           )}
           
-          <div className="flex justify-between mt-8 pt-4 border-t">
-            <button 
-              onClick={() => setCurrentStep('form')}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-            >
-              Geri
-            </button>
-            <button 
-              onClick={handleYmStSelectionComplete}
-              disabled={selectedYmSt.length === 0}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-            >
-              Devam Et
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Adım 3: Reçete Bilgileri */}
-      {currentStep === 'recete' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-700">Reçete Bilgileri</h3>
-          
-          <Formik
-            initialValues={receteFormValues}
-            validationSchema={receteValidationSchema}
-            onSubmit={handleReceteComplete}
-            enableReinitialize={true}
-          >
-            {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
-              <Form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Boraks Tüketimi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Boraks Tüketimi (150 03) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="boraks_tuketimi"
-                      value={values.boraks_tuketimi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.000001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.boraks_tuketimi && touched.boraks_tuketimi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: {Math.max(0.001, 0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
-                    </div>
-                    {errors.boraks_tuketimi && touched.boraks_tuketimi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.boraks_tuketimi}</div>
-                    )}
-                  </div>
-                  
-                  {/* Asit Tüketimi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Asit Tüketimi (SM.HİDROLİK.ASİT) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="asit_tuketimi"
-                      value={values.asit_tuketimi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.0001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.asit_tuketimi && touched.asit_tuketimi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    {formValues.kod_2 === 'NIT' ? (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Önerilen: {
-                          parseFloat(formValues.cap) < 1.5 ? "0.002" :
-                          parseFloat(formValues.cap) < 2.5 ? "0.0025" : "0.003"
-                        }
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Önerilen: {
-                          parseFloat(formValues.cap) < 1.5 ? "0.001" :
-                          parseFloat(formValues.cap) < 2.5 ? "0.0015" : "0.002"
-                        }
-                      </div>
-                    )}
-                    {errors.asit_tuketimi && touched.asit_tuketimi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.asit_tuketimi}</div>
-                    )}
-                  </div>
-                  
-                  {/* Desi Tüketimi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Desi Tüketimi (SM.DESİ.PAK) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="desi_tuketimi"
-                      value={values.desi_tuketimi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.0001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.desi_tuketimi && touched.desi_tuketimi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: {parseInt(formValues.kg) > 800 ? "0.002" : "0.0013"}
-                    </div>
-                    {errors.desi_tuketimi && touched.desi_tuketimi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.desi_tuketimi}</div>
-                    )}
-                  </div>
-                  
-                  {/* Paketleme Süresi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Paketleme Süresi (GTPKT01) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="paketleme_suresi"
-                      value={values.paketleme_suresi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.paketleme_suresi && touched.paketleme_suresi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: 0.020
-                    </div>
-                    {errors.paketleme_suresi && touched.paketleme_suresi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.paketleme_suresi}</div>
-                    )}
-                  </div>
-                  
-                  {/* Galvanizleme Süresi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Galvanizleme Süresi (GLV01) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="galvanizleme_suresi"
-                      value={values.galvanizleme_suresi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.000001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.galvanizleme_suresi && touched.galvanizleme_suresi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: {Math.max(0.001, 1.15 - (0.125 * parseFloat(formValues.cap))).toFixed(6)}
-                    </div>
-                    {errors.galvanizleme_suresi && touched.galvanizleme_suresi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.galvanizleme_suresi}</div>
-                    )}
-                  </div>
-                  
-                  {/* Tel Çekme Süresi */}
-                  <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-2">
-                      Tel Çekme Süresi (TLC01) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="tel_cekme_suresi"
-                      value={values.tel_cekme_suresi}
-                      onChange={(e) => {
-                        handleChange(e);
-                        handleReceteInputChange(e);
-                      }}
-                      onBlur={handleBlur}
-                      step="0.000001"
-                      className={`w-full p-2 border rounded-md ${
-                        errors.tel_cekme_suresi && touched.tel_cekme_suresi ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Önerilen: {(0.2 / Math.pow(parseFloat(formValues.cap), 1.5)).toFixed(6)}
-                    </div>
-                    {errors.tel_cekme_suresi && touched.tel_cekme_suresi && (
-                      <div className="text-red-500 text-xs mt-1">{errors.tel_cekme_suresi}</div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex justify-between mt-8 pt-4 border-t">
-                  <button 
-                    onClick={() => setCurrentStep('ymst')}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                  >
-                    Geri
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting || loading}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-                  >
-                    {loading ? 'İşleniyor...' : 'Devam Et'}
-                  </button>
-                </div>
-              </Form>
-            )}
-          </Formik>
-        </div>
-      )}
-      
-      {/* Adım 4: Özet ve İşlem Seçenekleri */}
-      {currentStep === 'summary' && (
-        <div className="bg-white rounded-md shadow-sm p-6">
-          <h3 className="text-lg font-medium mb-4 text-gray-700">İşlem Özeti</h3>
-          
-          <div className="p-4 bg-gray-50 rounded-md mb-6">
-            <div className="mb-2">
-              <span className="font-medium">MM GT Stok Kodu:</span> {mmGtData?.stok_kodu}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">MM GT Stok Adı:</span> {mmGtData?.stok_adi}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">YM GT Stok Kodu:</span> {ymGtData?.stok_kodu}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">Seçilen YM ST Sayısı:</span> {selectedYmSt.length}
-            </div>
-            <div className="mb-2">
-              <span className="font-medium">Reçete:</span> Tamamlandı
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Stok Kartı Excel Bölümü */}
-            <div className="border p-4 rounded-md">
-              <h4 className="font-medium text-gray-700 mb-3">Stok Kartı Excel</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                MM GT, YM GT ve YM ST bilgilerini içeren Excel dosyası
-              </p>
-              
-              <div className="flex flex-wrap gap-2">
+          {/* Adım 2: YM ST Seçimi */}
+          {currentStep === 'ymst' && (
+            <div className="bg-white rounded-md shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-medium text-gray-700">Hammadde Seçimi (YM ST)</h3>
                 <button 
-                  onClick={() => handleCreateExcelOnly('stokKarti')}
-                  disabled={loading}
-                  className={`px-3 py-2 text-sm rounded-md ${
-                    excelCreated.stokKarti 
-                      ? "bg-green-600 text-white hover:bg-green-700" 
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  } transition-colors disabled:bg-gray-400`}
+                  onClick={() => setShowYmStSearchModal(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                 >
-                  {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
+                  Hammadde Ekle
                 </button>
-                
+              </div>
+              
+              {selectedYmSt.length === 0 ? (
+                <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md">
+                  Henüz hammadde seçilmemiş. En az bir YM ST kaydı eklemelisiniz.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kalite</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {selectedYmSt.map(item => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{item.stok_adi}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.quality}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            <button 
+                              onClick={() => handleRemoveYmSt(item.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Kaldır
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              <div className="flex justify-between mt-8 pt-4 border-t">
                 <button 
-                  onClick={() => handleSaveAndCreateExcel('stokKarti')}
-                  disabled={loading || databaseSaved}
-                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                  onClick={() => setCurrentStep('form')}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
                 >
-                  {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+                  Geri
+                </button>
+                <button 
+                  onClick={handleYmStSelectionComplete}
+                  disabled={selectedYmSt.length === 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                >
+                  Devam Et
                 </button>
               </div>
             </div>
-            
-            {/* Reçete Excel Bölümü */}
-            <div className="border p-4 rounded-md">
-              <h4 className="font-medium text-gray-700 mb-3">Reçete Excel</h4>
-              <p className="text-sm text-gray-600 mb-4">
-                MM GT, YM GT ve YM ST reçete bilgilerini içeren Excel dosyası
-              </p>
+          )}
+          
+          {/* Adım 3: Reçete Bilgileri */}
+          {currentStep === 'recete' && (
+            <div className="bg-white rounded-md shadow-sm p-6">
+              <h3 className="text-lg font-medium mb-4 text-gray-700">Reçete Bilgileri</h3>
               
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => handleCreateExcelOnly('recete')}
-                  disabled={loading}
-                  className={`px-3 py-2 text-sm rounded-md ${
-                    excelCreated.recete 
-                      ? "bg-green-600 text-white hover:bg-green-700" 
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                  } transition-colors disabled:bg-gray-400`}
-                >
-                  {loading ? 'İşleniyor...' : excelCreated.recete ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
-                </button>
+              <Formik
+                initialValues={receteFormValues}
+                validationSchema={receteValidationSchema}
+                onSubmit={handleReceteComplete}
+                enableReinitialize={true}
+              >
+                {({ values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting }) => (
+                  <Form onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Boraks Tüketimi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Boraks Tüketimi (150 03) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="boraks_tuketimi"
+                          value={values.boraks_tuketimi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.000001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.boraks_tuketimi && touched.boraks_tuketimi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Önerilen: {Math.max(0.001, 0.032 - (0.0029 * parseFloat(formValues.cap))).toFixed(6)}
+                        </div>
+                        {errors.boraks_tuketimi && touched.boraks_tuketimi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.boraks_tuketimi}</div>
+                        )}
+                      </div>
+                      
+                      {/* Asit Tüketimi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Asit Tüketimi (SM.HİDROLİK.ASİT) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="asit_tuketimi"
+                          value={values.asit_tuketimi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.0001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.asit_tuketimi && touched.asit_tuketimi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        {formValues.kod_2 === 'NIT' ? (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Önerilen: {
+                              parseFloat(formValues.cap) < 1.5 ? "0.002" :
+                              parseFloat(formValues.cap) < 2.5 ? "0.0025" : "0.003"
+                            }
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Önerilen: {
+                              parseFloat(formValues.cap) < 1.5 ? "0.001" :
+                              parseFloat(formValues.cap) < 2.5 ? "0.0015" : "0.002"
+                            }
+                          </div>
+                        )}
+                        {errors.asit_tuketimi && touched.asit_tuketimi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.asit_tuketimi}</div>
+                        )}
+                      </div>
+                      
+                      {/* Desi Tüketimi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Desi Tüketimi (SM.DESİ.PAK) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="desi_tuketimi"
+                          value={values.desi_tuketimi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.0001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.desi_tuketimi && touched.desi_tuketimi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Önerilen: {parseInt(formValues.kg) > 800 ? "0.002" : "0.0013"}
+                        </div>
+                        {errors.desi_tuketimi && touched.desi_tuketimi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.desi_tuketimi}</div>
+                        )}
+                      </div>
+                      
+                      {/* Paketleme Süresi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Paketleme Süresi (GTPKT01) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="paketleme_suresi"
+                          value={values.paketleme_suresi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.paketleme_suresi && touched.paketleme_suresi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Önerilen: 0.020
+                        </div>
+                        {errors.paketleme_suresi && touched.paketleme_suresi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.paketleme_suresi}</div>
+                        )}
+                      </div>
+                      
+                      {/* Galvanizleme Süresi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Galvanizleme Süresi (GLV01) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="galvanizleme_suresi"
+                          value={values.galvanizleme_suresi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.000001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.galvanizleme_suresi && touched.galvanizleme_suresi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Önerilen: {(1.159 / parseFloat(formValues.cap)).toFixed(6)}
+                        </div>
+                        {errors.galvanizleme_suresi && touched.galvanizleme_suresi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.galvanizleme_suresi}</div>
+                        )}
+                      </div>
+                      
+                      {/* Tel Çekme Süresi */}
+                      <div className="mb-4">
+                        <label className="block text-gray-700 text-sm font-medium mb-2">
+                          Tel Çekme Süresi (TLC01) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="tel_cekme_suresi"
+                          value={values.tel_cekme_suresi}
+                          onChange={(e) => {
+                            handleChange(e);
+                            handleReceteInputChange(e);
+                          }}
+                          onBlur={handleBlur}
+                          step="0.000001"
+                          className={`w-full p-2 border rounded-md ${
+                            errors.tel_cekme_suresi && touched.tel_cekme_suresi ? "border-red-500" : "border-gray-300"
+                          }`}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Önerilen: {(0.2 / Math.pow(parseFloat(formValues.cap), 1.7) + 0.02).toFixed(6)}
+                        </div>
+                        {errors.tel_cekme_suresi && touched.tel_cekme_suresi && (
+                          <div className="text-red-500 text-xs mt-1">{errors.tel_cekme_suresi}</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between mt-8 pt-4 border-t">
+                      <button 
+                        onClick={() => setCurrentStep('ymst')}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                      >
+                        Geri
+                      </button>
+                      <button 
+                        type="submit"
+                        disabled={isSubmitting || loading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                      >
+                        {loading ? 'İşleniyor...' : 'Devam Et'}
+                      </button>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
+            </div>
+          )}
+          
+          {/* Adım 4: Özet ve İşlem Seçenekleri */}
+          {currentStep === 'summary' && (
+            <div className="bg-white rounded-md shadow-sm p-6">
+              <h3 className="text-lg font-medium mb-4 text-gray-700">İşlem Özeti</h3>
+              
+              <div className="p-4 bg-gray-50 rounded-md mb-6">
+                <div className="mb-2">
+                  <span className="font-medium">MM GT Stok Kodu:</span> {mmGtData?.stok_kodu}
+                </div>
+                <div className="mb-2">
+                  <span className="font-medium">MM GT Stok Adı:</span> {mmGtData?.stok_adi}
+                </div>
+                <div className="mb-2">
+                  <span className="font-medium">YM GT Stok Kodu:</span> {ymGtData?.stok_kodu}
+                </div>
+                <div className="mb-2">
+                  <span className="font-medium">Seçilen YM ST Sayısı:</span> {selectedYmSt.length}
+                </div>
+                <div className="mb-2">
+                  <span className="font-medium">Reçete:</span> Tamamlandı
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Stok Kartı Excel Bölümü */}
+                <div className="border p-4 rounded-md">
+                  <h4 className="font-medium text-gray-700 mb-3">Stok Kartı Excel</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    MM GT, YM GT ve YM ST bilgilerini içeren Excel dosyası
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => handleCreateExcelOnly('stokKarti')}
+                      disabled={loading}
+                      className={`px-3 py-2 text-sm rounded-md ${
+                        excelCreated.stokKarti 
+                          ? "bg-green-600 text-white hover:bg-green-700" 
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                      } transition-colors disabled:bg-gray-400`}
+                    >
+                      {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleSaveAndCreateExcel('stokKarti')}
+                      disabled={loading || databaseSaved}
+                      className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                    >
+                      {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Reçete Excel Bölümü */}
+                <div className="border p-4 rounded-md">
+                  <h4 className="font-medium text-gray-700 mb-3">Reçete Excel</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    MM GT, YM GT ve YM ST reçete bilgilerini içeren Excel dosyası
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => handleCreateExcelOnly('recete')}
+                      disabled={loading}
+                      className={`px-3 py-2 text-sm rounded-md ${
+                        excelCreated.recete 
+                          ? "bg-green-600 text-white hover:bg-green-700" 
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                      } transition-colors disabled:bg-gray-400`}
+                    >
+                      {loading ? 'İşleniyor...' : excelCreated.recete ? 'Yeniden Oluştur' : 'Yalnızca Excel Oluştur'}
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleSaveAndCreateExcel('recete')}
+                      disabled={loading || databaseSaved}
+                      className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                    >
+                      {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tüm İşlemler */}
+              <div className="mt-6 pt-6 border-t">
+                <h4 className="font-medium text-gray-700 mb-3">Hızlı İşlemler</h4>
+                
+                <div className="flex flex-wrap gap-2">
+                  <button 
+                    onClick={() => handleSaveToDatabase()}
+                    disabled={loading || databaseSaved}
+                    className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {databaseSaved ? 'Veritabanına Kaydedildi' : 'Yalnızca Veritabanına Kaydet'}
+                  </button>
+                  
+                  <button 
+                    onClick={handleGenerateAllExcels}
+                    disabled={loading}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                    Tüm Excel Dosyalarını Oluştur
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleSaveAndCreateExcel('both')}
+                    disabled={loading || databaseSaved}
+                    className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                  >
+                    Kaydet ve Tüm Excel Dosyalarını Oluştur
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-8 pt-4 border-t">
+                <div>
+                  <button 
+                    onClick={handleCancel}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors mr-2"
+                  >
+                    İptal
+                  </button>
+                  
+                  <button 
+                    onClick={handleEditProduct}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+                  >
+                    Düzenle
+                  </button>
+                </div>
                 
                 <button 
-                  onClick={() => handleSaveAndCreateExcel('recete')}
-                  disabled={loading || databaseSaved}
-                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
+                  onClick={handleNewProduct}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                 >
-                  {loading ? 'İşleniyor...' : 'Veritabanına Kaydet ve Excel Oluştur'}
+                  Yeni Ürün
                 </button>
               </div>
             </div>
-          </div>
+          )}
+        </>
+      )}
+      
+      {/* Talepler Sayfası */}
+      {activePage === 'talepler' && (
+        <div className="bg-white rounded-md shadow-sm p-6">
+          <h3 className="text-lg font-medium mb-6 text-gray-700">Satış Talepleri</h3>
           
-          {/* Tüm İşlemler */}
-          <div className="mt-6 pt-6 border-t">
-            <h4 className="font-medium text-gray-700 mb-3">Hızlı İşlemler</h4>
-            
-            <div className="flex flex-wrap gap-2">
-              <button 
-                onClick={() => handleSaveToDatabase()}
-                disabled={loading || databaseSaved}
-                className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors disabled:bg-gray-400"
+          <div className="flex items-center mb-4 space-x-4">
+            <div className="flex-1">
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                Durum
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={talepFilter.status}
+                onChange={handleTalepStatusChange}
               >
-                {databaseSaved ? 'Veritabanına Kaydedildi' : 'Yalnızca Veritabanına Kaydet'}
-              </button>
-              
-              <button 
-                onClick={() => handleCreateExcelOnly('both')}
-                disabled={loading}
-                className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                <option value="all">Tümü</option>
+                <option value="pending">Bekleyen</option>
+                <option value="approved">Onaylanan</option>
+                <option value="rejected">Reddedilen</option>
+              </select>
+            </div>
+            <div className="flex-3">
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                Ara
+              </label>
+              <input
+                type="text"
+                className="w-full p-2 border border-gray-300 rounded-md"
+                placeholder="Ara..."
+                value={talepFilter.search}
+                onChange={handleTalepSearchChange}
+              />
+            </div>
+            <div className="flex-1 flex items-end">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                onClick={fetchTalepList}
               >
-                Tüm Excel Dosyalarını Oluştur
-              </button>
-              
-              <button 
-                onClick={() => handleSaveAndCreateExcel('both')}
-                disabled={loading || databaseSaved}
-                className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400"
-              >
-                Kaydet ve Tüm Excel Dosyalarını Oluştur
+                Yenile
               </button>
             </div>
           </div>
           
-          <div className="flex justify-between mt-8 pt-4 border-t">
-            <div>
-              <button 
-                onClick={handleCancel}
-                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors mr-2"
-              >
-                İptal
-              </button>
-              
-              <button 
-                onClick={handleEditProduct}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
-              >
-                Düzenle
-              </button>
-            </div>
-            
-            <button 
-              onClick={handleNewProduct}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              Yeni Ürün
-            </button>
+          <div className="overflow-x-auto mt-4">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Oluşturulma</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
+                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredTalepItems.length > 0 ? (
+                  filteredTalepItems.map(item => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.id}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(item.created_at).toLocaleDateString('tr-TR')}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium 
+                          ${item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                            item.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                            'bg-red-100 text-red-800'}`}>
+                          {item.status === 'pending' ? 'Bekliyor' : 
+                           item.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.kod_2} / {item.kaplama}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{item.min_mukavemet}-{item.max_mukavemet}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <button 
+                          onClick={() => handleViewTalepDetails(item.id)}
+                          className="text-blue-600 hover:text-blue-800 mr-2"
+                        >
+                          Görüntüle
+                        </button>
+                        {item.status === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handleViewTalepDetails(item.id)}
+                              className="text-green-600 hover:text-green-800 mr-2"
+                            >
+                              İşle
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-6 text-center text-gray-500">
+                      {talepFilter.status === 'all' 
+                        ? 'Henüz hiç talep bulunmamaktadır' 
+                        : `${talepFilter.status === 'pending' ? 'Bekleyen' : 
+                           talepFilter.status === 'approved' ? 'Onaylanan' : 'Reddedilen'} talep bulunmamaktadır`}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -4586,7 +5442,6 @@ const GalvanizliTelNetsis = () => {
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            ```javascript
               <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">Yeni YM ST Oluştur</h3>
               </div>
@@ -4636,8 +5491,7 @@ const GalvanizliTelNetsis = () => {
                         <label className="block text-gray-700 text-sm font-medium mb-2">
                           Filmaşin <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           name="filmasin"
                           value={values.filmasin}
                           onChange={handleChange}
@@ -4645,7 +5499,14 @@ const GalvanizliTelNetsis = () => {
                           className={`w-full p-2 border rounded-md ${
                             errors.filmasin && touched.filmasin ? "border-red-500" : "border-gray-300"
                           }`}
-                        />
+                        >
+                          <option value="550">550</option>
+                          <option value="600">600</option>
+                          <option value="700">700</option>
+                          <option value="800">800</option>
+                          <option value="900">900</option>
+                          <option value="1000">1000</option>
+                        </select>
                         {errors.filmasin && touched.filmasin && (
                           <div className="text-red-500 text-xs mt-1">{errors.filmasin}</div>
                         )}
@@ -4655,8 +5516,7 @@ const GalvanizliTelNetsis = () => {
                         <label className="block text-gray-700 text-sm font-medium mb-2">
                           Kalite <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
+                        <select
                           name="quality"
                           value={values.quality}
                           onChange={handleChange}
@@ -4664,7 +5524,12 @@ const GalvanizliTelNetsis = () => {
                           className={`w-full p-2 border rounded-md ${
                             errors.quality && touched.quality ? "border-red-500" : "border-gray-300"
                           }`}
-                        />
+                        >
+                          <option value="1005">1005</option>
+                          <option value="1006">1006</option>
+                          <option value="1008">1008</option>
+                          <option value="1010">1010</option>
+                        </select>
                         {errors.quality && touched.quality && (
                           <div className="text-red-500 text-xs mt-1">{errors.quality}</div>
                         )}
@@ -4919,6 +5784,231 @@ const GalvanizliTelNetsis = () => {
                   </Form>
                 )}
               </Formik>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Talep Detay Modal */}
+      {showTalepDetailModal && selectedTalep && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Talep Detayları</h3>
+              </div>
+              
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">Talep Bilgileri</h4>
+                    <p><span className="font-medium">ID:</span> {selectedTalep.id}</p>
+                    <p><span className="font-medium">Oluşturulma:</span> {new Date(selectedTalep.created_at).toLocaleString('tr-TR')}</p>
+                    <p>
+                      <span className="font-medium">Durum:</span> 
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium 
+                        ${selectedTalep.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          selectedTalep.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                          'bg-red-100 text-red-800'}`}>
+                        {selectedTalep.status === 'pending' ? 'Bekliyor' : 
+                         selectedTalep.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
+                      </span>
+                    </p>
+                    {selectedTalep.status === 'rejected' && (
+                      <p><span className="font-medium">Red Nedeni:</span> {selectedTalep.rejection_reason}</p>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800 mb-2">Ürün Bilgileri</h4>
+                    <p><span className="font-medium">Çap:</span> {selectedTalep.cap} mm</p>
+                    <p><span className="font-medium">Kaplama Türü:</span> {selectedTalep.kod_2}</p>
+                    <p><span className="font-medium">Kaplama:</span> {selectedTalep.kaplama} gr/m²</p>
+                    <p><span className="font-medium">Mukavemet:</span> {selectedTalep.min_mukavemet}-{selectedTalep.max_mukavemet} MPa</p>
+                    <p><span className="font-medium">Ağırlık:</span> {selectedTalep.kg} kg</p>
+                  </div>
+                </div>
+                
+                {selectedTalep.status === 'pending' && (
+                  <div className="mb-4 p-4 bg-yellow-50 rounded-md">
+                    <h4 className="font-medium text-yellow-800 mb-2">Bu talep henüz işlenmemiş</h4>
+                    <p className="text-yellow-800 text-sm">
+                      Talebi onaylamak için ürün bilgilerini kontrol edin. 
+                      Gerekirse YM ST'leri ekleyebilir ve reçete değerlerini düzenleyebilirsiniz.
+                    </p>
+                  </div>
+                )}
+                
+                {selectedTalep.status === 'pending' && currentStep !== 'form' && (
+                  <div className="mt-4">
+                    {currentStep === 'ymst' && (
+                      <div className="mb-4">
+                        <h4 className="font-medium text-gray-800 mb-2">Hammadde Seçimi</h4>
+                        {selectedYmSt.length === 0 ? (
+                          <p className="text-yellow-600">Henüz hammadde seçilmemiş</p>
+                        ) : (
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                                <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filmaşin</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {selectedYmSt.map(item => (
+                                <tr key={item.id}>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.stok_kodu}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.cap}</td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.filmasin}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
+                    
+                    {currentStep === 'recete' && (
+                      <div className="mb-4">
+                        <h4 className="font-medium text-gray-800 mb-2">Reçete Değerleri</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <p><span className="font-medium">Boraks Tüketimi:</span> {receteFormValues.boraks_tuketimi}</p>
+                          <p><span className="font-medium">Asit Tüketimi:</span> {receteFormValues.asit_tuketimi}</p>
+                          <p><span className="font-medium">Desi Tüketimi:</span> {receteFormValues.desi_tuketimi}</p>
+                          <p><span className="font-medium">Paketleme Süresi:</span> {receteFormValues.paketleme_suresi}</p>
+                          <p><span className="font-medium">Galvanizleme Süresi:</span> {receteFormValues.galvanizleme_suresi}</p>
+                          <p><span className="font-medium">Tel Çekme Süresi:</span> {receteFormValues.tel_cekme_suresi}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {currentStep === 'summary' && (
+                      <div className="mb-4">
+                        <h4 className="font-medium text-gray-800 mb-2">Özet</h4>
+                        <p>Tüm bilgiler tamamlandı. Talebi onaylayabilirsiniz.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                {selectedTalep.status === 'pending' && (
+                  <>
+                    {currentStep === 'form' ? (
+                      <button
+                        onClick={() => setCurrentStep('ymst')}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        Hammadde Seçimine Geç
+                      </button>
+                    ) : currentStep === 'ymst' ? (
+                      <button
+                        onClick={() => setCurrentStep('recete')}
+                        disabled={selectedYmSt.length === 0}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+                      >
+                        Reçete Bilgilerine Geç
+                      </button>
+                    ) : currentStep === 'recete' ? (
+                      <button
+                        onClick={() => setCurrentStep('summary')}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                      >
+                        Özete Geç
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleApproveTalep}
+                          disabled={loading}
+                          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          {loading ? 'İşleniyor...' : 'Talebi Onayla'}
+                        </button>
+                        <button
+                          onClick={handleShowRejectModal}
+                          disabled={loading}
+                          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          Talebi Reddet
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setShowTalepDetailModal(false);
+                    if (selectedTalep.status === 'pending') {
+                      setCurrentStep('form');
+                    }
+                  }}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Talep Reddetme Modal */}
+      {showRejectTalepModal && (
+        <div className="fixed inset-0 z-20 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Talebi Reddet</h3>
+              </div>
+              
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Red Nedeni <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    rows={4}
+                    placeholder="Talebin reddedilme nedenini açıklayın..."
+                  ></textarea>
+                  {!rejectionReason.trim() && (
+                    <div className="text-red-500 text-xs mt-1">Red nedeni belirtilmelidir</div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  onClick={handleRejectTalep}
+                  disabled={loading || !rejectionReason.trim()}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-400"
+                >
+                  {loading ? 'İşleniyor...' : 'Reddet'}
+                </button>
+                <button
+                  onClick={() => setShowRejectTalepModal(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  İptal
+                </button>
+              </div>
             </div>
           </div>
         </div>
