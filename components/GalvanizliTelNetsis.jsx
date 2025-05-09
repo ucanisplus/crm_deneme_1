@@ -4083,14 +4083,6 @@ export const GalvanizliTelProvider = ({ children }) => {
   );
 };
 
-// Context hook
-export const useGalvanizliTel = () => {
-  const context = useContext(GalvanizliTelContext);
-  if (!context) {
-    throw new Error('useGalvanizliTel must be used within a GalvanizliTelProvider');
-  }
-  return context;
-};
 
 // GalvanizliTelNetsis Bileşeni - Ana UI Kodu
 export const useGalvanizliTel = () => {
