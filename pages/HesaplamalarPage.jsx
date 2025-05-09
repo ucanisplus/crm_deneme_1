@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Grid, Link, Link2, Hammer } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import PanelCitHesaplama from '@/components/PanelCitHesaplama';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
-import dynamic from 'next/dynamic';
-import GalvanizliTelNetsis from '@/components/GalvanizliTelNetsis';
 import { GalvanizliTelProvider } from '@/components/GalvanizliTelNetsis';
+
+// Import components with dynamic loading to prevent SSR issues
+const GalvanizliTelNetsis = dynamic(
+  () => import('@/components/GalvanizliTelNetsis').then(mod => mod.default), 
+  { ssr: false }
+);
 
 const HesaplamalarPage = () => {
   const { hasPermission, user } = useAuth();
