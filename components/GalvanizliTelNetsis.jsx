@@ -1751,6 +1751,9 @@ export const GalvanizliTelProvider = ({ children }) => {
       // Mevcut YM ST'leri temizle
       setSelectedYmSt([]);
 
+      // YM ST parametrelerini hesapla
+      const params = calculateYmStParameters(values);
+
       // Ürün tipi ve çapına göre YM ST önerileri bul
       const capValue = parseFloat(values.cap);
       const kod2 = values.kod_2;
@@ -1816,23 +1819,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       // 2. Eğer özel eşleşme yoksa veya bulunamadıysa, çap ve türe göre hesapla
       if (selectedItems.length < 3) { // En az 3 öneri yapmaya çalış
         if (kod2 === 'NIT') {
-          // NIT için YM ST çapı, MM GT çapından %0-6.5 daha küçük olmalı
-          const minCap = capValue * 0.935; // %6.5 küçültme
-          const maxCap = capValue * 0.995; // %0.5 küçültme
-
-          // NIT için çap aralıklarına göre filtre
-          let filmasin, quality;
-
-          if (capValue >= 0.8 && capValue <= 1.7) {
-            filmasin = 600;
-            quality = '1006';
-          } else if (capValue > 1.7 && capValue <= 3.0) {
-            filmasin = 600;
-            quality = capValue <= 2.5 ? '1006' : '1008';
-          } else if (capValue > 3.0 && capValue <= 4.0) {
-            filmasin = 600;
-            quality = '1008';
-          }
+          // Hesaplanmış parametreleri kullan
+          const { minCap, maxCap, filmasin, quality } = params;
 
           // Uygun YM ST'leri bul
           const matches = ymStLookupList.filter(item => {
@@ -1855,39 +1843,16 @@ export const GalvanizliTelProvider = ({ children }) => {
             selectedItems = [...selectedItems, ...matchesToAdd];
           }
         } else if (kod2 === 'PAD') {
-          // PAD tipi için özel çap aralıkları
-          let filmasin, quality;
+          // Hesaplanmış parametreleri kullan
+          const { minCap, maxCap, filmasin, quality } = params;
 
-          if (capValue >= 0.8 && capValue <= 1.4) {
-            filmasin = 550;
-            quality = '1006';
-          } else if (capValue > 1.4 && capValue <= 2.55) {
-            filmasin = 600;
-            quality = '1006';
-          } else if (capValue > 2.55 && capValue <= 4.25) {
-            filmasin = 600;
-            quality = '1008';
-          } else if (capValue > 4.25 && capValue <= 5.9) {
-            filmasin = 700;
-            quality = '1010';
-          } else if (capValue > 5.9 && capValue <= 7.0) {
-            filmasin = 800;
-            quality = '1010';
-          } else if (capValue > 7.0 && capValue <= 7.4) {
-            filmasin = 900;
-            quality = '1010';
-          } else if (capValue > 7.4 && capValue <= 8.0) {
-            filmasin = 1000;
-            quality = '1010';
-          }
-
-          // PAD için aynı çap değerinde YM ST ara
+          // PAD için hesaplanmış çap aralığında YM ST ara
           const matches = ymStLookupList.filter(item => {
             const itemCap = parseFloat(item.cap);
-            // PAD için çap tam eşleşmesi veya yakın değerleri kullan
+            // PAD için hesaplanmış çap aralığını kullan
             return !isNaN(itemCap) &&
-                   itemCap >= capValue * 0.95 &&
-                   itemCap <= capValue * 1.05 &&
+                   itemCap >= minCap &&
+                   itemCap <= maxCap &&
                    (!filmasin || item.filmasin === filmasin) &&
                    (!quality || item.quality === quality) &&
                    !selectedItems.some(selected => selected.stok_kodu === item.stok_kodu); // Zaten eklenmiş olanları hariç tut
@@ -4896,28 +4861,27 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // YM ST önerilerini otomatik hesapla ve seç
-  const handleYmStAutoSelect = async (values) => {
-    try {
-      // Galvanizleme mantığına göre YM ST çapı, MM GT çapından daha küçük olmalı
-      const capValue = parseFloat(values.cap);
-      const kod2 = values.kod_2;
-      
-      // YM ST için çap aralığı hesapla (MM GT çapının %3.5-6.5 daha küçük)
-      let minCap, maxCap;
-      
-      if (kod2 === 'NIT') {
-        // NIT için çap hesabı
-        minCap = capValue * 0.935; // %6.5 küçültme
-        maxCap = capValue * 0.965; // %3.5 küçültme
-      } else {
-        // PAD için çap hesabı - daha az küçültme
-        minCap = capValue * 0.95; // %5 küçültme
-        maxCap = capValue * 0.98; // %2 küçültme
-      }
-      
-      // Filmaşin ve kalite belirle
-      let filmasin, quality;
+  // YM ST parametrelerini hesaplama fonksiyonu
+  const calculateYmStParameters = (values) => {
+    // Galvanizleme mantığına göre YM ST çapı, MM GT çapından daha küçük olmalı
+    const capValue = parseFloat(values.cap);
+    const kod2 = values.kod_2;
+
+    // YM ST için çap aralığı hesapla (MM GT çapının %3.5-6.5 daha küçük)
+    let minCap, maxCap;
+
+    if (kod2 === 'NIT') {
+      // NIT için çap hesabı
+      minCap = capValue * 0.935; // %6.5 küçültme
+      maxCap = capValue * 0.965; // %3.5 küçültme
+    } else {
+      // PAD için çap hesabı - daha az küçültme
+      minCap = capValue * 0.95; // %5 küçültme
+      maxCap = capValue * 0.98; // %2 küçültme
+    }
+
+    // Filmaşin ve kalite belirle
+    let filmasin, quality;
       
       if (capValue < 1.5) {
         filmasin = 550;
