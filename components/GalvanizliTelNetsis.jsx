@@ -165,21 +165,30 @@ export const GalvanizliTelProvider = ({ children }) => {
   const fetchTalepList = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(API_URLS.galSalRequests);
       
-      if (response.ok) {
+      let response;
+      try {
+        response = await fetchWithAuth(API_URLS.galSalRequests);
+      } catch (error) {
+        // API endpoint bulunamadıysa boş liste döndür
+        console.warn('Talep listesi alınamadı:', error);
+        setTalepList([]);
+        setLoading(false);
+        return;
+      }
+      
+      if (response && response.ok) {
         const data = await response.json();
         setTalepList(Array.isArray(data) ? data : []);
         
         // Talep sayılarını da getir
         await fetchTalepCount();
       } else {
-        console.error('Talep listesi alınamadı:', response.status);
+        console.warn('Talep listesi alınamadı:', response ? response.status : 'Yanıt yok');
         setTalepList([]);
       }
     } catch (error) {
-      console.error('Talep listesi yüklenirken hata:', error);
-      setError('Talep listesi yüklenirken bir hata oluştu');
+      console.warn('Talep listesi yüklenirken hata:', error);
       setTalepList([]);
     } finally {
       setLoading(false);
@@ -189,24 +198,35 @@ export const GalvanizliTelProvider = ({ children }) => {
   // Talep sayısını getir
   const fetchTalepCount = useCallback(async () => {
     try {
-      // Bekleyen talep sayısını al
-      const pendingRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count?status=pending`);
-      if (pendingRes.ok) {
-        const pendingData = await pendingRes.json();
+      // Endpoint kontrolü yap
+      let pendingRes, allRes;
+      
+      try {
+        // Bekleyen talep sayısını al
+        pendingRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count?status=pending`);
         
         // Toplam talep sayısını al
-        const allRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count`);
-        if (allRes.ok) {
-          const allData = await allRes.json();
-          
-          setTalepCount({
-            pending: pendingData.count || 0,
-            all: allData.count || 0
-          });
-        }
+        allRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count`);
+      } catch (error) {
+        console.warn('Talep sayısı endpoint erişimi hatası:', error);
+        setTalepCount({ pending: 0, all: 0 });
+        return;
+      }
+      
+      if (pendingRes && pendingRes.ok && allRes && allRes.ok) {
+        const pendingData = await pendingRes.json();
+        const allData = await allRes.json();
+        
+        setTalepCount({
+          pending: pendingData.count || 0,
+          all: allData.count || 0
+        });
+      } else {
+        setTalepCount({ pending: 0, all: 0 });
       }
     } catch (error) {
-      console.error('Talep sayısı getirme hatası:', error);
+      console.warn('Talep sayısı getirme hatası:', error);
+      setTalepCount({ pending: 0, all: 0 });
     }
   }, []);
 
@@ -214,24 +234,32 @@ export const GalvanizliTelProvider = ({ children }) => {
   const fetchTalepDetails = useCallback(async (talepId) => {
     try {
       setLoading(true);
-      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
       
-      if (response.ok) {
+      let response;
+      try {
+        response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
+      } catch (error) {
+        console.warn('Talep detayları endpoint erişimi hatası:', error);
+        setError('Talep detayları yüklenirken bir hata oluştu');
+        return null;
+      }
+      
+      if (response && response.ok) {
         const data = await response.json();
         setSelectedTalep(data);
         
         // Talep değerlerini form verilerine dönüştür
         const formValues = {
-          cap: data.cap,
+          cap: parseFloat(data.cap),
           kod_2: data.kod_2,
-          kaplama: data.kaplama,
-          min_mukavemet: data.min_mukavemet,
-          max_mukavemet: data.max_mukavemet,
-          tolerans_plus: data.tolerans_plus,
-          tolerans_minus: data.tolerans_minus,
-          ic_cap: data.ic_cap,
-          dis_cap: data.dis_cap,
-          kg: data.kg,
+          kaplama: parseInt(data.kaplama),
+          min_mukavemet: parseInt(data.min_mukavemet),
+          max_mukavemet: parseInt(data.max_mukavemet),
+          tolerans_plus: parseFloat(data.tolerans_plus),
+          tolerans_minus: parseFloat(data.tolerans_minus),
+          ic_cap: parseInt(data.ic_cap),
+          dis_cap: parseInt(data.dis_cap),
+          kg: parseInt(data.kg),
           unwinding: data.unwinding,
           shrink: data.shrink
         };
@@ -249,7 +277,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         
         return formValues;
       } else {
-        throw new Error(`Talep detayları alınamadı: ${response.status}`);
+        throw new Error(`Talep detayları alınamadı: ${response ? response.status : 'Yanıt yok'}`);
       }
     } catch (error) {
       console.error('Talep detayları yüklenirken hata:', error);
@@ -263,19 +291,33 @@ export const GalvanizliTelProvider = ({ children }) => {
   // Otomatik hesaplamaları işle
   const processAutomaticCalculations = async (formValues) => {
     try {
+      // Sayısal değerleri doğru formatta olduğundan emin ol
+      const processedValues = {
+        ...formValues,
+        cap: parseFloat(formValues.cap),
+        kaplama: parseInt(formValues.kaplama),
+        min_mukavemet: parseInt(formValues.min_mukavemet),
+        max_mukavemet: parseInt(formValues.max_mukavemet),
+        tolerans_plus: parseFloat(formValues.tolerans_plus),
+        tolerans_minus: parseFloat(formValues.tolerans_minus),
+        ic_cap: parseInt(formValues.ic_cap),
+        dis_cap: parseInt(formValues.dis_cap),
+        kg: parseInt(formValues.kg),
+      };
+      
       // 1. Önce MM GT verilerini oluştur (kaydetmeden)
-      const mmGtPreview = createMmGtPreview(formValues);
+      const mmGtPreview = createMmGtPreview(processedValues);
       setMmGtData(mmGtPreview);
       
       // 2. YM GT verilerini oluştur
-      const ymGtPreview = createYmGtPreview(formValues, mmGtPreview);
+      const ymGtPreview = createYmGtPreview(processedValues, mmGtPreview);
       setYmGtData(ymGtPreview);
       
       // 3. YM ST seçimini yap
-      const selectedItems = await autoSelectYmSt(formValues);
+      const selectedItems = await autoSelectYmSt(processedValues);
       
       // 4. Reçete değerlerini hesapla
-      const calculatedReceteData = calculateReceteValues(formValues);
+      const calculatedReceteData = calculateReceteValues(processedValues);
       setReceteData(calculatedReceteData);
       
       return {
@@ -454,16 +496,16 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       // Form değerlerine dönüştür
       const formValues = {
-        cap: talepData.cap,
+        cap: parseFloat(talepData.cap),
         kod_2: talepData.kod_2,
-        kaplama: talepData.kaplama,
-        min_mukavemet: talepData.min_mukavemet, 
-        max_mukavemet: talepData.max_mukavemet,
-        tolerans_plus: talepData.tolerans_plus,
-        tolerans_minus: talepData.tolerans_minus,
-        ic_cap: talepData.ic_cap,
-        dis_cap: talepData.dis_cap,
-        kg: talepData.kg,
+        kaplama: parseInt(talepData.kaplama),
+        min_mukavemet: parseInt(talepData.min_mukavemet), 
+        max_mukavemet: parseInt(talepData.max_mukavemet),
+        tolerans_plus: parseFloat(talepData.tolerans_plus),
+        tolerans_minus: parseFloat(talepData.tolerans_minus),
+        ic_cap: parseInt(talepData.ic_cap),
+        dis_cap: parseInt(talepData.dis_cap),
+        kg: parseInt(talepData.kg),
         unwinding: talepData.unwinding,
         shrink: talepData.shrink
       };
@@ -1261,8 +1303,22 @@ export const GalvanizliTelProvider = ({ children }) => {
     setError(null);
 
     try {
+      // Sayısal değerleri doğru formatta olduğundan emin ol
+      const processedValues = {
+        ...values,
+        cap: parseFloat(values.cap),
+        kaplama: parseInt(values.kaplama),
+        min_mukavemet: parseInt(values.min_mukavemet),
+        max_mukavemet: parseInt(values.max_mukavemet),
+        tolerans_plus: parseFloat(values.tolerans_plus),
+        tolerans_minus: parseFloat(values.tolerans_minus),
+        ic_cap: parseInt(values.ic_cap),
+        dis_cap: parseInt(values.dis_cap),
+        kg: parseInt(values.kg),
+      };
+      
       // Çap değerini nokta ile tutuyoruz (JS için)
-      const capValue = parseFloat(values.cap);
+      const capValue = parseFloat(processedValues.cap);
       
       // Çap değerini doğru formatta (4 basamaklı) hazırlama
       const formattedCap = capValue.toFixed(2).replace('.', '').padStart(4, '0');
@@ -1270,7 +1326,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       // Sıra numarasını al
       let sequenceNumber = 0;
       try {
-        const sequence = await getCurrentSequence(values.kod_2, capValue);
+        const sequence = await getCurrentSequence(processedValues.kod_2, capValue);
         sequenceNumber = sequence || 0;
       } catch (error) {
         console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
@@ -1280,7 +1336,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const formattedSequence = sequenceNumber.toString().padStart(2, '0');
       
       // Stok Kodu formatını oluştur: GT.NIT.0250.00
-      const stockCode = `GT.${values.kod_2}.${formattedCap}.${formattedSequence}`;
+      const stockCode = `GT.${processedValues.kod_2}.${formattedCap}.${formattedSequence}`;
 
       // Eğer düzenleme modu değilse, var olan stok kodunu kontrol et
       if (!isEditMode) {
@@ -1309,20 +1365,20 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       // AMB.SHRİNK değerini belirle
       let ambShrink = '';
-      if (values.ic_cap === 45) {
+      if (processedValues.ic_cap === 45) {
         ambShrink = 'AMB.SHRİNK.200*140CM';
-      } else if (values.ic_cap === 50) {
+      } else if (processedValues.ic_cap === 50) {
         ambShrink = 'AMB.SHRİNK.200*160CM';
-      } else if (values.ic_cap === 55) {
+      } else if (processedValues.ic_cap === 55) {
         ambShrink = 'AMB.SHRİNK.200*190CM';
       }
 
       // MM GT verilerini hazırla
       const mmGtDataToSave = {
-        ...values,
+        ...processedValues,
         stok_kodu: stockCode,
-        stok_adi: `Galvanizli Tel ${capValue} mm -${values.tolerans_minus}/+${values.tolerans_plus} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
-        ingilizce_isim: `Galvanized Steel Wire ${capValue} mm -${values.tolerans_minus}/+${values.tolerans_plus} ${values.kaplama} gr/m²${values.min_mukavemet}-${values.max_mukavemet} MPa ID:${values.ic_cap} cm OD:${values.dis_cap} cm ${values.kg} kg`,
+        stok_adi: `Galvanizli Tel ${capValue} mm -${processedValues.tolerans_minus}/+${processedValues.tolerans_plus} ${processedValues.kaplama} gr/m²${processedValues.min_mukavemet}-${processedValues.max_mukavemet} MPa ID:${processedValues.ic_cap} cm OD:${processedValues.dis_cap} cm ${processedValues.kg} kg`,
+        ingilizce_isim: `Galvanized Steel Wire ${capValue} mm -${processedValues.tolerans_minus}/+${processedValues.tolerans_plus} ${processedValues.kaplama} gr/m²${processedValues.min_mukavemet}-${processedValues.max_mukavemet} MPa ID:${processedValues.ic_cap} cm OD:${processedValues.dis_cap} cm ${processedValues.kg} kg`,
         grup_kodu: 'MM',
         kod_1: 'GT',
         muh_detay: '26',
@@ -1361,16 +1417,16 @@ export const GalvanizliTelProvider = ({ children }) => {
         mensei: '052',
         metarial: 'Galvanizli Tel',
         dia_mm: capValue.toString(),
-        dia_tol_mm_plus: values.tolerans_plus.toString(),
-        dia_tol_mm_minus: values.tolerans_minus.toString(),
-        zing_coating: values.kaplama.toString(),
-        tensile_st_min: values.min_mukavemet.toString(),
-        tensile_st_max: values.max_mukavemet.toString(),
+        dia_tol_mm_plus: processedValues.tolerans_plus.toString(),
+        dia_tol_mm_minus: processedValues.tolerans_minus.toString(),
+        zing_coating: processedValues.kaplama.toString(),
+        tensile_st_min: processedValues.min_mukavemet.toString(),
+        tensile_st_max: processedValues.max_mukavemet.toString(),
         wax: '+',
         lifting_lugs: '+',
-        coil_dimensions_id: values.ic_cap.toString(),
-        coil_dimensions_od: values.dis_cap.toString(),
-        coil_weight: values.kg.toString(),
+        coil_dimensions_id: processedValues.ic_cap.toString(),
+        coil_dimensions_od: processedValues.dis_cap.toString(),
+        coil_weight: processedValues.kg.toString(),
         amb_shrink: ambShrink,
       };
 
@@ -1440,7 +1496,7 @@ export const GalvanizliTelProvider = ({ children }) => {
 
       // Sıra numarasını artır (yeni kayıt ise)
       if (!isEditMode) {
-        await incrementSequence(values.kod_2, capValue);
+        await incrementSequence(processedValues.kod_2, capValue);
       }
 
       return result;
@@ -1900,10 +1956,18 @@ export const GalvanizliTelProvider = ({ children }) => {
     try {
       const capValue = parseFloat(values.cap);
       const kgValue = parseFloat(values.kg);
+      const kaplamaValue = parseInt(values.kaplama);
       
-      if (isNaN(capValue) || isNaN(kgValue)) {
-        console.warn('Reçete değerleri hesaplanamadı: Geçersiz çap veya ağırlık değeri');
-        return null;
+      if (isNaN(capValue) || isNaN(kgValue) || isNaN(kaplamaValue)) {
+        console.warn('Reçete değerleri hesaplanamadı: Geçersiz çap, kaplama veya ağırlık değeri');
+        return {
+          boraks_tuketimi: 0.02,
+          asit_tuketimi: 0.002,
+          desi_tuketimi: 0.0013,
+          paketleme_suresi: 0.02,
+          galvanizleme_suresi: 0.9,
+          tel_cekme_suresi: 0.15
+        };
       }
       
       // Ara değişkenler
@@ -1914,7 +1978,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const paketlemeDkAdet = 10;
       
       // 150 03 (Çinko): =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
-      const caplaraTuketimi = ((1000 * 4000 / Math.PI / 7.85 / capValue / capValue * capValue * Math.PI / 1000 * values.kaplama / 1000) + (ash * 0.6) + (lapa * 0.7)) / 1000;
+      const boraksTuketimi = ((1000 * 4000 / Math.PI / 7.85 / capValue / capValue * capValue * Math.PI / 1000 * kaplamaValue / 1000) + (ash * 0.6) + (lapa * 0.7)) / 1000;
       
       // Asit tüketimi: =('YuzeyAlani'*'TuketilenAsit')/1000
       const asitTuketimi = (yuzeyAlani * tuketilenAsit) / 1000;
@@ -1957,7 +2021,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       // Reçete verilerini ayarla
       const calculatedReceteData = {
-        boraks_tuketimi: parseFloat(caplaraTuketimi.toFixed(6)),
+        boraks_tuketimi: parseFloat(boraksTuketimi.toFixed(6)),
         asit_tuketimi: parseFloat(asitTuketimi.toFixed(6)),
         desi_tuketimi: parseFloat(desiTuketimi.toFixed(6)),
         paketleme_suresi: parseFloat(paketlemeSuresi.toFixed(6)),
@@ -2037,8 +2101,8 @@ export const GalvanizliTelProvider = ({ children }) => {
           doviz_satis_fiyati: 0,
           azami_stok: 0,
           asgari_stok: 0,
+          dov_tutar: 0,
           dov_tipi: 0,
-          alis_doviz_tipi: 0,
           bekleme_suresi: 0,
           temin_suresi: 0,
           birim_agirlik: 0,
@@ -3175,8 +3239,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       dis_cap: mmGt.dis_cap,
       cap2: mmGt.cap2 || "",
       shrink: mmGt.shrink,
-      tolerans_plus: 0, // Tam sayı olarak formatla
-      tolerans_minus: mmGt.tolerans_minus,
+      tolerans_plus: parseFloat(mmGt.tolerans_plus) || 0, // Sayısal değer olarak formatla
+      tolerans_minus: parseFloat(mmGt.tolerans_minus) || 0,
       ebat_en: mmGt.ebat_en || "",
       goz_araligi: mmGt.goz_araligi || "",
       ebat_boy: mmGt.ebat_boy || "",
@@ -3350,8 +3414,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       dis_cap: ymGt.dis_cap,
       cap2: ymGt.cap2 || "",
       shrink: ymGt.shrink,
-      tolerans_plus: 0, // Tam sayı olarak
-      tolerans_minus: ymGt.tolerans_minus,
+      tolerans_plus: parseFloat(ymGt.tolerans_plus) || 0, // Sayısal değer olarak
+      tolerans_minus: parseFloat(ymGt.tolerans_minus) || 0,
       ebat_en: ymGt.ebat_en || "",
       goz_araligi: ymGt.goz_araligi || "",
       ebat_boy: ymGt.ebat_boy || "",
@@ -3963,7 +4027,7 @@ export const useGalvanizliTel = () => {
   return context;
 };
 
-// Ana Galvanizli Tel bileşeni - Yeni Otomatik İş Akışı
+// Ana Galvanizli Tel bileşeni - Kullanıcı Arayüzü
 const GalvanizliTelNetsis = () => {
   const { user, hasPermission } = useAuth();
   const {
@@ -4031,10 +4095,12 @@ const GalvanizliTelNetsis = () => {
   const [filteredDatabaseItems, setFilteredDatabaseItems] = useState([]);
   const [filteredTalepItems, setFilteredTalepItems] = useState([]);
   const [selectedTalepId, setSelectedTalepId] = useState(null);
+  const [showExcelWithoutSaveWarning, setShowExcelWithoutSaveWarning] = useState(false);
+  const [excelTypeToGenerate, setExcelTypeToGenerate] = useState(null);
 
   // Form değerleri
   const initialFormValues = {
-    cap: '',
+    cap: '2.50', // Varsayılan çap değeri
     kod_2: 'NIT',
     kaplama: 120,
     min_mukavemet: 400,
@@ -4056,12 +4122,12 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete değerleri için initial değerler
   const initialReceteValues = {
-    boraks_tuketimi: 0.02, // 0.032 - (0.0029 * Diameter)
-    asit_tuketimi: 0.002,  // Çapa göre farklı değer alır
-    desi_tuketimi: 0.0013, // Ağırlığa göre farklı değer alır
-    paketleme_suresi: 0.02, // Sabit değer
-    galvanizleme_suresi: 0.9, // 1.15 - (0.125 * Diameter)
-    tel_cekme_suresi: 0.15  // 0.2/(Diameter^1.7) + 0.02
+    boraks_tuketimi: 0.02, 
+    asit_tuketimi: 0.002,  
+    desi_tuketimi: 0.0013, 
+    paketleme_suresi: 0.02, 
+    galvanizleme_suresi: 0.9, 
+    tel_cekme_suresi: 0.15  
   };
 
   const [receteFormValues, setReceteFormValues] = useState(initialReceteValues);
@@ -4092,7 +4158,7 @@ const GalvanizliTelNetsis = () => {
   useEffect(() => {
     if (mmGtData && isEditMode) {
       setFormValues({
-        cap: mmGtData.cap || '',
+        cap: mmGtData.cap.toString() || '2.50',
         kod_2: mmGtData.kod_2 || 'NIT',
         kaplama: mmGtData.kaplama || 120,
         min_mukavemet: mmGtData.min_mukavemet || 400,
@@ -4196,6 +4262,14 @@ const GalvanizliTelNetsis = () => {
     const { name, value } = e.target;
     let newValues = { ...formValues };
     
+    // Sayısal değerler için virgül yerine nokta kullan
+    if (['cap', 'tolerans_plus', 'tolerans_minus', 'kaplama', 'min_mukavemet', 
+         'max_mukavemet', 'kg'].includes(name)) {
+      newValues[name] = value.replace(',', '.');
+    } else {
+      newValues[name] = value;
+    }
+    
     // Kod_2 PAD ise kaplamayı otomatik ayarla
     if (name === 'kod_2' && value === 'PAD') {
       newValues.kaplama = 50;
@@ -4213,7 +4287,6 @@ const GalvanizliTelNetsis = () => {
     }
     
     // Ana değeri güncelle
-    newValues[name] = value;
     setFormValues(newValues);
     
     // Kaplama türü ve çap değişirse dizilim numarasını güncelle
@@ -4221,17 +4294,20 @@ const GalvanizliTelNetsis = () => {
       if (newValues.kod_2 && newValues.cap) {
         fetchSequence(
           newValues.kod_2, 
-          newValues.cap
+          parseFloat(newValues.cap)
         );
       }
     }
     
     // Çap değişirse reçete değerlerini otomatik güncelle
     if (name === 'cap' && value) {
-      const capValue = parseFloat(value);
+      const capValue = parseFloat(value.replace(',', '.'));
       if (!isNaN(capValue)) {
         // Çap değeri değiştiğinde otomatik hesaplama başlat
-        const calculatedRecete = calculateReceteValues(newValues);
+        const calculatedRecete = calculateReceteValues({
+          ...newValues,
+          cap: capValue,
+        });
         if (calculatedRecete) {
           setReceteFormValues(calculatedRecete);
         }
@@ -4240,12 +4316,12 @@ const GalvanizliTelNetsis = () => {
     
     // Ağırlık değişirse desi değerini güncelle
     if (name === 'kg' && value) {
-      const kgValue = parseFloat(value);
+      const kgValue = parseFloat(value.replace(',', '.'));
       if (!isNaN(kgValue)) {
         // Ağırlık değiştiğinde otomatik hesaplama başlat
         const calculatedRecete = calculateReceteValues({
           ...newValues,
-          kg: kgValue
+          kg: kgValue,
         });
         if (calculatedRecete) {
           setReceteFormValues(calculatedRecete);
@@ -4257,14 +4333,30 @@ const GalvanizliTelNetsis = () => {
   // Reçete form değerlerini güncelle
   const handleReceteInputChange = (e) => {
     const { name, value } = e.target;
-    setReceteFormValues({ ...receteFormValues, [name]: parseFloat(value) });
+    // Virgül yerine nokta kullan
+    const formattedValue = value.replace(',', '.');
+    setReceteFormValues({ ...receteFormValues, [name]: parseFloat(formattedValue) });
   };
 
   // Form gönderildiğinde çalışır
   const handleSubmit = async (values) => {
     try {
+      // Sayısal değerlerin doğru formatta olduğundan emin ol
+      const processedValues = {
+        ...values,
+        cap: parseFloat(values.cap),
+        kaplama: parseInt(values.kaplama),
+        min_mukavemet: parseInt(values.min_mukavemet),
+        max_mukavemet: parseInt(values.max_mukavemet),
+        tolerans_plus: parseFloat(values.tolerans_plus),
+        tolerans_minus: parseFloat(values.tolerans_minus),
+        ic_cap: parseInt(values.ic_cap),
+        dis_cap: parseInt(values.dis_cap),
+        kg: parseInt(values.kg),
+      };
+      
       // Otomatik hesaplamalar yap
-      await processAutomaticCalculations(values);
+      await processAutomaticCalculations(processedValues);
       
       // Özet ekranına geç
       setCurrentStep('summary');
@@ -4452,14 +4544,19 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Excel oluştur
-  const handleCreateExcelOnly = async (type) => {
+  // Excel oluştur (Kaydedilmemiş durumlarda uyarı göster)
+  const handleCreateExcelRequest = (type) => {
     if (!mmGtData || !mmGtData.id) {
-      setError('Excel oluşturmak için önce kaydetmeniz gerekiyor');
-      toast.error('Excel oluşturmak için önce veritabanına kaydet butonuna tıklayın');
+      setExcelTypeToGenerate(type);
+      setShowExcelWithoutSaveWarning(true);
       return;
     }
     
+    handleCreateExcelOnly(type);
+  };
+
+  // Excel oluştur
+  const handleCreateExcelOnly = async (type) => {
     if (selectedYmSt.length === 0) {
       setError('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
       toast.error('Excel oluşturmak için en az bir YM ST kaydı gereklidir');
@@ -4487,6 +4584,7 @@ const GalvanizliTelNetsis = () => {
       toast.error('Excel oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setLoading(false);
+      setShowExcelWithoutSaveWarning(false);
     }
   };
 
@@ -4499,8 +4597,8 @@ const GalvanizliTelNetsis = () => {
   // Tüm Excel'leri oluştur
   const handleGenerateAllExcels = async () => {
     if (!mmGtData || !mmGtData.id) {
-      setError('Excel oluşturmak için önce kaydetmeniz gerekiyor');
-      toast.error('Excel oluşturmak için önce veritabanına kaydet butonuna tıklayın');
+      setExcelTypeToGenerate('both');
+      setShowExcelWithoutSaveWarning(true);
       return;
     }
     
@@ -4652,7 +4750,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Talep durum filtresi değiştirme
+// Talep durum filtresi değiştirme
   const handleTalepStatusChange = (e) => {
     setTalepFilter({
       ...talepFilter,
@@ -4792,10 +4890,10 @@ const GalvanizliTelNetsis = () => {
                           Çap (mm)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="cap"
-                          step="0.01"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="cap" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4808,9 +4906,7 @@ const GalvanizliTelNetsis = () => {
                           as="select"
                           name="kod_2"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
-                          onChange={(e) => {
-                            handleInputChange(e);
-                          }}
+                          onChange={handleInputChange}
                         >
                           <option value="NIT">NIT</option>
                           <option value="PAD">PAD</option>
@@ -4823,9 +4919,10 @@ const GalvanizliTelNetsis = () => {
                           Kaplama (gr/m²)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="kaplama"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="kaplama" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4835,9 +4932,10 @@ const GalvanizliTelNetsis = () => {
                           Min Mukavemet (MPa)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="min_mukavemet"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="min_mukavemet" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4847,9 +4945,10 @@ const GalvanizliTelNetsis = () => {
                           Max Mukavemet (MPa)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="max_mukavemet"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="max_mukavemet" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4859,10 +4958,11 @@ const GalvanizliTelNetsis = () => {
                           Tolerans (+)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="tolerans_plus"
                           step="0.01"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="tolerans_plus" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4872,10 +4972,11 @@ const GalvanizliTelNetsis = () => {
                           Tolerans (-)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="tolerans_minus"
                           step="0.01"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="tolerans_minus" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4885,10 +4986,10 @@ const GalvanizliTelNetsis = () => {
                           Ağırlık (kg)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="kg"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
-                          onChange={(e) => handleInputChange(e)}
+                          onChange={handleInputChange}
                         />
                         <ErrorMessage name="kg" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -4901,7 +5002,7 @@ const GalvanizliTelNetsis = () => {
                           as="select"
                           name="ic_cap"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
-                          onChange={(e) => handleInputChange(e)}
+                          onChange={handleInputChange}
                         >
                           <option value={45}>45</option>
                           <option value={50}>50</option>
@@ -4915,7 +5016,7 @@ const GalvanizliTelNetsis = () => {
                           Dış Çap (cm)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="dis_cap"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
                           disabled
@@ -4931,6 +5032,7 @@ const GalvanizliTelNetsis = () => {
                           as="select"
                           name="shrink"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleInputChange}
                         >
                           <option value="evet">Evet</option>
                           <option value="hayır">Hayır</option>
@@ -5181,43 +5283,45 @@ const GalvanizliTelNetsis = () => {
                   
                   <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                     <button
-                      onClick={() => handleCreateExcelOnly('stokKarti')}
+                      onClick={() => handleCreateExcelRequest('stokKarti')}
                       className={`px-4 py-2 ${excelCreated.stokKarti ? 'bg-green-600' : 'bg-orange-600'} text-white rounded-md hover:bg-orange-700 transition-colors`}
                       disabled={loading}
                     >
-                      {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Stok Kartı Excel Oluşturuldu' : 'Yalnızca Stok Kartı Excel Oluştur'}
+                      {loading ? 'İşleniyor...' : excelCreated.stokKarti ? 'Stok Kartı Excel Oluşturuldu' : 'Stok Kartı Excel Oluştur'}
                     </button>
                     
                     <button
-                      onClick={() => handleCreateExcelOnly('recete')}
+                      onClick={() => handleCreateExcelRequest('recete')}
                       className={`px-4 py-2 ${excelCreated.recete ? 'bg-green-600' : 'bg-orange-600'} text-white rounded-md hover:bg-orange-700 transition-colors`}
                       disabled={loading}
                     >
-                      {loading ? 'İşleniyor...' : excelCreated.recete ? 'Reçete Excel Oluşturuldu' : 'Yalnızca Reçete Excel Oluştur'}
+                      {loading ? 'İşleniyor...' : excelCreated.recete ? 'Reçete Excel Oluşturuldu' : 'Reçete Excel Oluştur'}
                     </button>
                     
                     <button
                       onClick={handleGenerateAllExcels}
                       className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                      disabled={loading || (!mmGtData?.id && !databaseSaved)}
+                      disabled={loading}
                     >
                       {loading ? 'İşleniyor...' : 'Tüm Excel Dosyalarını Oluştur'}
                     </button>
                   </div>
                 </div>
-                
-                {!mmGtData?.id && !databaseSaved && (
-                  <div className="text-center text-amber-600 mt-2">
-                    Excel dosyaları oluşturmak için önce veritabanına kaydetmelisiniz.
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {currentStep === 'edit-ymst' && (
             <div className="bg-white p-6 rounded-md shadow-md">
-              <h3 className="text-lg font-bold mb-4">YM ST Düzenleme</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">YM ST Düzenleme</h3>
+                <button
+                  onClick={handleEditComplete}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  ← Geri
+                </button>
+              </div>
               
               <div className="space-y-4">
                 {/* Seçili YM ST'ler */}
@@ -5288,7 +5392,15 @@ const GalvanizliTelNetsis = () => {
 
           {currentStep === 'edit-recete' && (
             <div className="bg-white p-6 rounded-md shadow-md">
-              <h3 className="text-lg font-bold mb-4">Reçete Düzenleme</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">Reçete Düzenleme</h3>
+                <button
+                  onClick={handleEditComplete}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  ← Geri
+                </button>
+              </div>
               
               <Formik
                 initialValues={receteFormValues}
@@ -5305,78 +5417,78 @@ const GalvanizliTelNetsis = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Çinko Tüketimi
+                          Çinko Tüketimi (150 03)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="boraks_tuketimi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="boraks_tuketimi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Asit Tüketimi
+                          Asit Tüketimi (SM.HİDROLİK.ASİT)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="asit_tuketimi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="asit_tuketimi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Desi Tüketimi
+                          Desi Tüketimi (SM.DESİ.PAK)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="desi_tuketimi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="desi_tuketimi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Paketleme Süresi
+                          Paketleme Süresi (GTPKT01)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="paketleme_suresi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="paketleme_suresi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Galvanizleme Süresi
+                          Galvanizleme Süresi (GLV01)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="galvanizleme_suresi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="galvanizleme_suresi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Tel Çekme Süresi
+                          Tel Çekme Süresi (TLC01)
                         </label>
                         <Field
-                          type="number"
+                          type="text"
                           name="tel_cekme_suresi"
-                          step="0.000001"
                           className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                          onChange={handleReceteInputChange}
                         />
                         <ErrorMessage name="tel_cekme_suresi" component="div" className="text-red-500 text-sm mt-1" />
                       </div>
@@ -5587,9 +5699,8 @@ const GalvanizliTelNetsis = () => {
                       Çap (mm)
                     </label>
                     <Field
-                      type="number"
+                      type="text"
                       name="cap"
-                      step="0.01"
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
                     />
                   </div>
@@ -5614,7 +5725,7 @@ const GalvanizliTelNetsis = () => {
                       Kaplama (gr/m²)
                     </label>
                     <Field
-                      type="number"
+                      type="text"
                       name="kaplama"
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
                     />
@@ -5890,7 +6001,7 @@ const GalvanizliTelNetsis = () => {
             
             <Formik
               initialValues={{
-                cap: formValues.cap * 0.96, // NIT için %4 küçültme
+                cap: formValues.kod_2 === 'NIT' ? (parseFloat(formValues.cap) * 0.96).toFixed(2) : formValues.cap, // NIT için %4 küçültme
                 filmasin: 600,
                 quality: '1006'
               }}
@@ -5903,9 +6014,8 @@ const GalvanizliTelNetsis = () => {
                       Çap (mm)
                     </label>
                     <Field
-                      type="number"
+                      type="text"
                       name="cap"
-                      step="0.01"
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
                     />
                   </div>
