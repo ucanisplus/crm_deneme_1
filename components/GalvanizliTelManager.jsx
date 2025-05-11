@@ -185,9 +185,7 @@ const GalvanizliTelManager = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const [searchParams, setSearchParams] = useState({ kod_2: '', cap: '' });
-  const [searchResults, setSearchResults] = useState([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  // Arama sekmesi kaldırıldı
 
   const { user } = useAuth();
 
@@ -461,7 +459,7 @@ const GalvanizliTelManager = () => {
     };
   };
 
-  // Excel dosyası oluştur
+  // Excel dosyası oluştur - orijinal formata uygun
   const createReceteExcel = async () => {
     try {
       if (!mmGtData || !ymGtData || selectedYmSt.length === 0) {
@@ -1002,50 +1000,6 @@ const GalvanizliTelManager = () => {
     fetchTalepList();
   }, [fetchTalepList]);
   
-  // Arama isteği gönder
-  const handleSearch = async () => {
-    try {
-      setLoading(true);
-      
-      let url = API_URLS.galMmGt;
-      const params = new URLSearchParams();
-      
-      if (searchParams.kod_2) {
-        params.append('kod_2', searchParams.kod_2);
-      }
-      
-      if (searchParams.cap) {
-        params.append('cap', searchParams.cap);
-      }
-      
-      if (params.toString()) {
-        url = `${url}?${params.toString()}`;
-      }
-      
-      const response = await fetchWithAuth(url);
-      
-      if (!response || !response.ok) {
-        throw new Error(`Arama başarısız: ${response?.status}`);
-      }
-      
-      const data = await response.json();
-      
-      setSearchResults(data);
-      setShowSearchResults(true);
-      setLoading(false);
-    } catch (error) {
-      handleError(`Arama hatası: ${error.message}`, error);
-    }
-  };
-  
-  // Arama parametrelerini değiştirme işleyicisi
-  const handleSearchParamChange = (field, value) => {
-    setSearchParams(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-  
   // Seçilen kayıt için düzenleme moduna geç
   const handleEditItem = async (item) => {
     try {
@@ -1174,7 +1128,6 @@ const GalvanizliTelManager = () => {
       
       // Düzenleme moduna geç ve ana sekmeye dön
       setActiveTab('main');
-      setShowSearchResults(false);
     } catch (error) {
       handleError(`Kayıt yüklenirken hata oluştu: ${error.message}`, error);
     }
@@ -1285,10 +1238,9 @@ const GalvanizliTelManager = () => {
           
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="main">Ana İşlemler</TabsTrigger>
                 <TabsTrigger value="talepler">Talepler {talepCount.pending > 0 && `(${talepCount.pending})`}</TabsTrigger>
-                <TabsTrigger value="search">Arama</TabsTrigger>
               </TabsList>
               
               {/* Ana İşlemler Sekmesi */}
@@ -1727,98 +1679,6 @@ const GalvanizliTelManager = () => {
                         Görüntülenecek talep bulunamadı.
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              {/* Arama Sekmesi */}
-              <TabsContent value="search">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Galvanizli Tel Arama</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-end space-x-4">
-                        <div className="space-y-2 flex-1">
-                          <Label htmlFor="search-kod-2">Kod 2</Label>
-                          <Select
-                            value={searchParams.kod_2}
-                            onValueChange={value => handleSearchParamChange('kod_2', value)}
-                          >
-                            <SelectTrigger id="search-kod-2">
-                              <SelectValue placeholder="Kod 2 seçin" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">Tümü</SelectItem>
-                              <SelectItem value="NIT">NIT</SelectItem>
-                              <SelectItem value="ZN-P">ZN-P</SelectItem>
-                              <SelectItem value="SY">SY</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2 flex-1">
-                          <Label htmlFor="search-cap">Çap (mm)</Label>
-                          <Input
-                            id="search-cap"
-                            value={searchParams.cap}
-                            onChange={e => handleSearchParamChange('cap', e.target.value)}
-                            placeholder="örn. 2,50"
-                          />
-                        </div>
-                        
-                        <Button
-                          onClick={handleSearch}
-                          disabled={loading}
-                        >
-                          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                          Ara
-                        </Button>
-                      </div>
-                      
-                      {showSearchResults && (
-                        <div className="mt-4">
-                          {searchResults.length > 0 ? (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Stok Kodu</TableHead>
-                                  <TableHead>Açıklama</TableHead>
-                                  <TableHead>Çap</TableHead>
-                                  <TableHead>Kod</TableHead>
-                                  <TableHead></TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {searchResults.map(item => (
-                                  <TableRow key={item.id}>
-                                    <TableCell className="font-mono">{item.stok_kodu}</TableCell>
-                                    <TableCell>{item.aciklama}</TableCell>
-                                    <TableCell>{item.cap}</TableCell>
-                                    <TableCell>{item.kod_2}</TableCell>
-                                    <TableCell>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleEditItem(item)}
-                                      >
-                                        <Edit className="h-4 w-4 mr-1" />
-                                        Düzenle
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500">
-                              Arama kriterlerinize uygun sonuç bulunamadı.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
