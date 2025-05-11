@@ -20,6 +20,8 @@ export const API_URLS = {
   galYmSt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st',
   galYmStRecete: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st_recete',
   galSalRequests: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
+  // Endpoint alias for talepler
+  galTaleplerEndpoint: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
