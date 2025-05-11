@@ -192,11 +192,11 @@ export const GalvanizliTelProvider = ({ children }) => {
   const fetchTalepList = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       let response;
       try {
-        // Doğrudan API URL'ini kullan
-        response = await fetchWithAuth('/api/gal_sal_requests');
+        // API URL'ini API_URLS'den al
+        response = await fetchWithAuth(API_URLS.galSalRequests);
       } catch (error) {
         // API endpoint bulunamadıysa boş liste döndür
         console.warn('Talep listesi alınamadı:', error);
@@ -262,10 +262,10 @@ export const GalvanizliTelProvider = ({ children }) => {
   const fetchTalepDetails = useCallback(async (talepId) => {
     try {
       setLoading(true);
-      
+
       let response;
       try {
-        response = await fetchWithAuth(`/api/gal_sal_requests/${talepId}`);
+        response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
       } catch (error) {
         console.warn('Talep detayları endpoint erişimi hatası:', error);
         setError('Talep detayları yüklenirken bir hata oluştu');
@@ -515,13 +515,32 @@ export const GalvanizliTelProvider = ({ children }) => {
   const approveTalep = useCallback(async (talepId) => {
     try {
       setLoading(true);
-      
+
       // Talep bilgilerini al
       const talepData = selectedTalep || await fetchTalepDetails(talepId);
       if (!talepData) {
         throw new Error('Talep bilgileri alınamadı');
       }
-      
+
+      // Talebi onayla - API isteği gönder
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' })
+      });
+
+      if (!response || !response.ok) {
+        throw new Error('Talep onaylanamadı');
+      }
+
+      // Talep lisesini yenile
+      await fetchTalepList();
+      setSelectedTalep(null);
+      setSelectedTalepId(null);
+      setShowTalepDetailModal(false);
+      toast.success('Talep başarıyla onaylandı');
+
+      return true;
+
       // Form değerlerine dönüştür
       const formValues = {
         cap: parseFloat(talepData.cap),
@@ -598,16 +617,17 @@ export const GalvanizliTelProvider = ({ children }) => {
   const rejectTalep = useCallback(async (talepId, rejectionReason) => {
     try {
       setLoading(true);
-      
-      const response = await fetchWithAuth(`/api/gal_sal_requests/${talepId}/reject`, {
+
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           processed_by: user?.id || 'system',
+          status: 'rejected',
           rejection_reason: rejectionReason
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Talep durumu güncellenemedi');
       }
@@ -2433,7 +2453,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       // AMB.ÇEM.KARTON.GAL: (8*(1000/coilWeight))/1000
       const kartonMiktar = (8 * (1000 / coilWeight)) / 1000;
       
-      // Reçete öğelerini oluştur - MM GT için doğru kategorizasyon
+      // Reçete öğelerini oluştur - MM GT için doğru kategorizasyon (9 satır)
       const receteItems = [
         {
           mamul_kodu: mmGt.stok_kodu,
@@ -2549,6 +2569,21 @@ export const GalvanizliTelProvider = ({ children }) => {
           sira_no: 8,
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'SM.DESİ.PAK', // MM GT Reçete kategori
+          olcu_br_bilesen: '1',
+          miktar: "0.00125",
+          aciklama: 'Desi Tüketim Miktarı',
+          ua_dahil_edilsin: 'evet',
+          son_operasyon: 'evet',
+          mm_gt_id: mmGtId
+        },
+        {
+          mamul_kodu: mmGt.stok_kodu,
+          recete_top: "1",
+          fire_orani: "0.0004",
+          olcu_br: 'KG',
+          sira_no: 9,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: 'Naylon', // MM GT Reçete kategori
           olcu_br_bilesen: '1',
           miktar: receteData ? parseFloat(receteData.desi_tuketimi) : 0.002,
           aciklama: 'Slikajel Tüketim Miktarı',
@@ -2735,7 +2770,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const finalPaketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : paketlemeSuresi;
       const finalGalvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : galvanizlemeSuresi;
 
-      // Reçete öğelerini oluştur - YM GT için doğru kategorizasyon
+      // Reçete öğelerini oluştur - YM GT için doğru kategorizasyon (4 satır)
       const receteItems = [
         {
           mamul_kodu: ymGt.stok_kodu,
@@ -2945,7 +2980,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         filmasinKod = filmasinCods[0];
       }
 
-      // Reçete öğelerini oluştur - YM ST için doğru kategorizasyon
+      // Reçete öğelerini oluştur - YM ST için doğru kategorizasyon (2 satır)
       const receteItems = [
         {
           mamul_kodu: ymSt.stok_kodu,
@@ -6138,16 +6173,36 @@ const GalvanizliTelNetsis = () => {
                         <h5 className="font-semibold text-blue-700 mb-2">MM GT Reçete</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           <div>
-                            <span className="text-sm text-gray-500">Çinko Tüketimi ({receteGosterimValues.cinko.kod}):</span>
-                            <p>{receteGosterimValues.cinko.deger} {receteGosterimValues.cinko.birim}</p>
+                            <span className="text-sm text-gray-500">Paket (GTPKT01):</span>
+                            <p>{receteGosterimValues.paketleme.deger} {receteGosterimValues.paketleme.birim}</p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">HCl Asit ({receteGosterimValues.asit.kod}):</span>
-                            <p>{receteGosterimValues.asit.deger} {receteGosterimValues.asit.birim}</p>
+                            <span className="text-sm text-gray-500">Karton (AMB.ÇEM.KARTON.GAL):</span>
+                            <p>{receteGosterimValues.karton.deger} {receteGosterimValues.karton.birim}</p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">Silkajel ({receteGosterimValues.silkajel.kod}):</span>
+                            <span className="text-sm text-gray-500">Shrink (AMB.SHRİNK.200*140CM):</span>
+                            <p>{receteGosterimValues.naylon.deger} {receteGosterimValues.naylon.birim}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">Halka (SM.7MMHALKA):</span>
+                            <p>{receteGosterimValues.kaldirma_kancasi.deger} {receteGosterimValues.kaldirma_kancasi.birim}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">Çember (AMB.APEX CEMBER 38X080):</span>
+                            <p>{receteGosterimValues.celik_cember.deger} {receteGosterimValues.celik_cember.birim}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">Toka (AMB.TOKA.SIGNODE.114P.DKP):</span>
+                            <p>{receteGosterimValues.cember_tokasi.deger} {receteGosterimValues.cember_tokasi.birim}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">Desi (SM.DESİ.PAK):</span>
                             <p>{receteGosterimValues.silkajel.deger} {receteGosterimValues.silkajel.birim}</p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-500">Naylon:</span>
+                            <p>{receteGosterimValues.naylon.deger} {receteGosterimValues.naylon.birim}</p>
                           </div>
                         </div>
                       </div>
@@ -6157,53 +6212,33 @@ const GalvanizliTelNetsis = () => {
                         <h5 className="font-semibold text-green-700 mb-2">YM GT Reçete</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           <div>
-                            <span className="text-sm text-gray-500">Galvanizleme ({receteGosterimValues.galvanizleme.kod}):</span>
+                            <span className="text-sm text-gray-500">Galvanizleme (GLV01):</span>
                             <p>{receteGosterimValues.galvanizleme.deger} {receteGosterimValues.galvanizleme.birim}</p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">Tel Çekme ({receteGosterimValues.tel_cekme.kod}):</span>
-                            <p>{receteGosterimValues.tel_cekme.deger} {receteGosterimValues.tel_cekme.birim}</p>
+                            <span className="text-sm text-gray-500">Çinko (150 03):</span>
+                            <p>{receteGosterimValues.cinko.deger} {receteGosterimValues.cinko.birim}</p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">Filmaşin:</span>
-                            <p>{selectedYmSt && selectedYmSt.length > 0 ?
-                                `FLM.${selectedYmSt[0].filmasin || '0600'}.${selectedYmSt[0].quality || '1006'}` :
-                                receteGosterimValues.filmasin.kod}</p>
+                            <span className="text-sm text-gray-500">Asit (SM.HİDROLİK.ASİT):</span>
+                            <p>{receteGosterimValues.asit.deger} {receteGosterimValues.asit.birim}</p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Ambalaj Reçetesi */}
+                      {/* YM ST Reçete Kategorisi */}
                       <div className="border-l-4 border-purple-500 pl-3">
-                        <h5 className="font-semibold text-purple-700 mb-2">Ambalaj Reçetesi</h5>
+                        <h5 className="font-semibold text-purple-700 mb-2">YM ST Reçete</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           <div>
-                            <span className="text-sm text-gray-500">Paketleme ({receteGosterimValues.paketleme.kod}):</span>
-                            <p>{receteGosterimValues.paketleme.deger} {receteGosterimValues.paketleme.birim}</p>
+                            <span className="text-sm text-gray-500">Filmaşin:</span>
+                            <p>{selectedYmSt && selectedYmSt.length > 0 ?
+                                `FLM.${selectedYmSt[0].filmasin || '0600'}.${selectedYmSt[0].quality || '1006'}` :
+                                receteGosterimValues.filmasin ? receteGosterimValues.filmasin.kod : 'Filmaşin'}</p>
                           </div>
                           <div>
-                            <span className="text-sm text-gray-500">Çelik Çember ({receteGosterimValues.celik_cember.kod}):</span>
-                            <p>{receteGosterimValues.celik_cember.deger} {receteGosterimValues.celik_cember.birim}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-500">Çember Tokası ({receteGosterimValues.cember_tokasi.kod}):</span>
-                            <p>{receteGosterimValues.cember_tokasi.deger} {receteGosterimValues.cember_tokasi.birim}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-500">Kaldırma Kancası ({receteGosterimValues.kaldirma_kancasi.kod}):</span>
-                            <p>{receteGosterimValues.kaldirma_kancasi.deger} {receteGosterimValues.kaldirma_kancasi.birim}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-500">Karton ({receteGosterimValues.karton.kod}):</span>
-                            <p>{receteGosterimValues.karton.deger} {receteGosterimValues.karton.birim}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-500">Naylon:</span>
-                            <p>{receteGosterimValues.naylon.deger} {receteGosterimValues.naylon.birim}</p>
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-500">Shrink:</span>
-                            <p>{receteGosterimValues.naylon.kod}</p>
+                            <span className="text-sm text-gray-500">Tel Çekme (TLC01):</span>
+                            <p>{receteGosterimValues.tel_cekme ? receteGosterimValues.tel_cekme.deger : '0.02'} DK</p>
                           </div>
                         </div>
                       </div>
