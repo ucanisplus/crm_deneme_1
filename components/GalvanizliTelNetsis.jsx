@@ -260,56 +260,143 @@ export const GalvanizliTelProvider = ({ children }) => {
 
   // Talep Detaylarını Yükleme
   const fetchTalepDetails = useCallback(async (talepId) => {
+    // İşlem başlamadan hata durumlarını sıfırla
+    setError(null);
+
+    // Talep ID'si kontrolü
+    if (!talepId) {
+      const errorMessage = 'İşlenecek talep seçilmedi';
+      console.warn(errorMessage);
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return null;
+    }
+
     try {
       setLoading(true);
 
+      // API isteği gönderme
       let response;
       try {
         response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
       } catch (error) {
-        console.warn('Talep detayları endpoint erişimi hatası:', error);
-        setError('Talep detayları yüklenirken bir hata oluştu');
+        const errorMessage = `Talep detayları alınamadı: ${error.message || 'Bağlantı hatası'}`;
+        console.error('Talep detayları endpoint erişimi hatası:', error);
+        setError(errorMessage);
+        toast.error(errorMessage);
         return null;
       }
-      
-      if (response && response.ok) {
+
+      // API yanıtını kontrol et
+      if (!response) {
+        const errorMessage = 'Sunucudan yanıt alınamadı';
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return null;
+      }
+
+      // HTTP durum kodunu kontrol et
+      if (!response.ok) {
+        const errorStatus = response.status;
+        let errorMessage;
+
+        try {
+          // API'den hata mesajını almaya çalış
+          const errorData = await response.json();
+          errorMessage = errorData.message || `Talep detayları alınamadı: HTTP ${errorStatus}`;
+        } catch {
+          // JSON parse hatası durumunda genel hata mesajı
+          errorMessage = `Talep detayları alınamadı: HTTP ${errorStatus}`;
+        }
+
+        console.error(errorMessage);
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return null;
+      }
+
+      // Başarılı yanıt işleme
+      try {
         const data = await response.json();
+
+        // Veri bütünlüğü kontrolü
+        if (!data || typeof data !== 'object') {
+          const errorMessage = 'Geçersiz talep verisi alındı';
+          setError(errorMessage);
+          toast.error(errorMessage);
+          return null;
+        }
+
+        // Gerekli alanların kontrolü
+        const requiredFields = ['cap', 'kod_2', 'kaplama', 'min_mukavemet', 'max_mukavemet',
+          'tolerans_plus', 'tolerans_minus', 'ic_cap', 'dis_cap', 'kg'];
+
+        const missingFields = requiredFields.filter(field => data[field] === undefined || data[field] === null);
+
+        if (missingFields.length > 0) {
+          const errorMessage = `Talep verisinde eksik alanlar: ${missingFields.join(', ')}`;
+          setError(errorMessage);
+          toast.error(errorMessage);
+          return null;
+        }
+
+        // Talep verisini kaydet
         setSelectedTalep(data);
-        
-        // Talep değerlerini form verilerine dönüştür
+
+        // Form değerlerini güvenli bir şekilde dönüştür
         const formValues = {
-          cap: parseFloat(data.cap),
-          kod_2: data.kod_2,
-          kaplama: parseInt(data.kaplama),
-          min_mukavemet: parseInt(data.min_mukavemet),
-          max_mukavemet: parseInt(data.max_mukavemet),
-          tolerans_plus: parseFloat(data.tolerans_plus),
-          tolerans_minus: parseFloat(data.tolerans_minus),
-          ic_cap: parseInt(data.ic_cap),
-          dis_cap: parseInt(data.dis_cap),
-          kg: parseInt(data.kg),
-          unwinding: data.unwinding,
-          shrink: data.shrink
+          cap: parseFloat(data.cap) || 0,
+          kod_2: data.kod_2 || '',
+          kaplama: parseInt(data.kaplama) || 0,
+          min_mukavemet: parseInt(data.min_mukavemet) || 0,
+          max_mukavemet: parseInt(data.max_mukavemet) || 0,
+          tolerans_plus: parseFloat(data.tolerans_plus) || 0,
+          tolerans_minus: parseFloat(data.tolerans_minus) || 0,
+          ic_cap: parseInt(data.ic_cap) || 0,
+          dis_cap: parseInt(data.dis_cap) || 0,
+          kg: parseInt(data.kg) || 0,
+          unwinding: data.unwinding || false,
+          shrink: data.shrink || false
         };
-        
-        // Form değerlerini ayarla ve otomatik hesaplamaları yap
+
+        // Mantıksal doğrulama kontrolleri
+        if (formValues.min_mukavemet > formValues.max_mukavemet) {
+          const errorMessage = 'Minimum mukavemet değeri maksimum değerden büyük olamaz';
+          setError(errorMessage);
+          toast.warning(errorMessage);
+          // Hata ciddi değil, işleme devam edebiliriz
+        }
+
+        // Form değerlerini sıfırla ve otomatik hesaplamaları yap
         setMmGtData(null);
         setYmGtData(null);
         setSelectedYmSt([]);
         setReceteData(null);
         setIsEditMode(false);
         setDataExist(false);
-        
+
         // Reçete ve YM ST değerlerini otomatik olarak hesapla
-        await processAutomaticCalculations(formValues);
-        
+        try {
+          await processAutomaticCalculations(formValues);
+          toast.success('Talep detayları başarıyla yüklendi');
+        } catch (error) {
+          console.error('Otomatik hesaplama hatası:', error);
+          toast.warning('Talep detayları yüklendi ancak hesaplamalar tamamlanamadı');
+        }
+
         return formValues;
-      } else {
-        throw new Error(`Talep detayları alınamadı: ${response ? response.status : 'Yanıt yok'}`);
+      } catch (error) {
+        const errorMessage = `Talep verisi işlenirken hata oluştu: ${error.message || 'Bilinmeyen hata'}`;
+        console.error(errorMessage, error);
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return null;
       }
     } catch (error) {
-      console.error('Talep detayları yüklenirken hata:', error);
-      setError('Talep detayları yüklenirken bir hata oluştu');
+      const errorMessage = `Talep detayları yüklenirken beklenmeyen bir hata oluştu: ${error.message || 'Bilinmeyen hata'}`;
+      console.error(errorMessage, error);
+      setError(errorMessage);
+      toast.error(errorMessage);
       return null;
     } finally {
       setLoading(false);
@@ -5694,11 +5781,27 @@ const GalvanizliTelNetsis = () => {
 
   // Talep detaylarını görüntüleme
   const handleViewTalepDetails = async (talepId) => {
-    setSelectedTalepId(talepId);
-    const talepData = await fetchTalepDetails(talepId);
-    if (talepData) {
-      setShowTalepDetailModal(true);
-      setCurrentStep('summary');
+    if (!talepId) {
+      toast.error('İşlenecek talep seçilmedi');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setSelectedTalepId(talepId);
+      const talepData = await fetchTalepDetails(talepId);
+
+      if (talepData) {
+        setShowTalepDetailModal(true);
+        setCurrentStep('summary');
+      } else {
+        toast.error('Talep detayları yüklenemedi');
+      }
+    } catch (error) {
+      console.error('Talep detayları yükleme hatası:', error);
+      toast.error('Talep detayları yüklenirken bir hata oluştu');
+    } finally {
+      setLoading(false);
     }
   };
 
