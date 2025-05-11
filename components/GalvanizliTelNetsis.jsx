@@ -2770,7 +2770,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       const finalPaketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : paketlemeSuresi;
       const finalGalvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : galvanizlemeSuresi;
 
-      // Reçete öğelerini oluştur - YM GT için doğru kategorizasyon (4 satır)
+      // Reçete öğelerini oluştur - YM GT için doğru kategorizasyon, without SM.DESİ.PAK and GTPKT01
       const receteItems = [
         {
           mamul_kodu: ymGt.stok_kodu,
@@ -5330,6 +5330,32 @@ const GalvanizliTelNetsis = () => {
   // Veritabanına kaydet
   const handleSaveToDatabase = async () => {
     try {
+      // Tüm gerekli alanların dolu olduğunu kontrol et
+      const requiredFields = [
+        { field: formValues.cap, name: 'Çap' },
+        { field: formValues.tolerans_minus, name: 'Tolerans -' },
+        { field: formValues.tolerans_plus, name: 'Tolerans +' },
+        { field: formValues.kaplama, name: 'Kaplama' },
+        { field: formValues.min_mukavemet, name: 'Min Mukavemet' },
+        { field: formValues.max_mukavemet, name: 'Max Mukavemet' },
+        { field: formValues.ic_cap, name: 'İç Çap' },
+        { field: formValues.dis_cap, name: 'Dış Çap' },
+        { field: formValues.kg, name: 'Ağırlık (kg)' }
+      ];
+
+      const missingFields = requiredFields.filter(item => !item.field).map(item => item.name);
+
+      if (missingFields.length > 0) {
+        toast.error(`Lütfen tüm zorunlu alanları doldurun: ${missingFields.join(', ')}`);
+        return;
+      }
+
+      // YM ST seçili mi kontrol et
+      if (selectedYmSt.length === 0) {
+        toast.error('En az bir YM ST seçmelisiniz');
+        return;
+      }
+
       setLoading(true);
 
       // Performans ölçümü için zaman hesaplama
@@ -5349,46 +5375,115 @@ const GalvanizliTelNetsis = () => {
       // Eğer seçili YM ST tekrarlanıyorsa güncelle
       if (uniqueYmSt.length !== selectedYmSt.length) {
         setSelectedYmSt(uniqueYmSt);
+        toast.info(`${selectedYmSt.length - uniqueYmSt.length} adet tekrarlanan YM ST kaydı temizlendi`);
       }
 
-      // Veritabanı kaydetme işlemleri
-      // MM GT kaydet
-      const savedMmGt = await saveMMGT(formValues);
+      // Oluşturulan ürünleri saklayacak dizi
+      const createdProducts = [];
+      let lastMmGt = null;
+      let lastYmGt = null;
+      let hasErrors = false;
 
-      if (savedMmGt) {
-        // YM GT kaydet
-        const savedYmGt = await saveYMGT(formValues, savedMmGt.id);
+      // Her YM ST için ayrı MM GT ve YM GT oluştur (1-to-1-to-1 model)
+      for (let i = 0; i < uniqueYmSt.length; i++) {
+        try {
+          const ymSt = uniqueYmSt[i];
+          const currentFormValues = {...formValues};
 
-        if (savedYmGt) {
-          // 1-to-1-to-1 ilişki modeli: Her MM GT için yalnızca bir YM ST kaydet
-          if (uniqueYmSt.length > 0) {
-            // Sadece ilk YM ST'yi kaydet
-            await saveYMST(uniqueYmSt[0], savedMmGt.id);
+          // Her ürün için benzersiz bir sequence numarası olmasını sağla
+          // İlk ürün için form değerlerini doğrudan kullan, diğerleri için sequence artırılacak
+          if (i > 0) {
+            // saveMMGT() fonksiyonu zaten sequence'ı artıracak, bu nedenle burada bir şey yapmaya gerek yok
+            // Her iterasyonda yeni bir MM GT için yeni bir sequence oluşturulacak
+          }
+
+          // MM GT kaydet
+          const savedMmGt = await saveMMGT(currentFormValues);
+          if (!savedMmGt) {
+            console.error(`${i+1}. ürün için MM GT kaydedilemedi`);
+            toast.error(`${i+1}. ürün için MM GT kaydedilemedi`);
+            hasErrors = true;
+            continue;
+          }
+
+          // YM GT kaydet
+          const savedYmGt = await saveYMGT(currentFormValues, savedMmGt.id);
+          if (!savedYmGt) {
+            console.error(`${i+1}. ürün için YM GT kaydedilemedi`);
+            toast.error(`${i+1}. ürün için YM GT kaydedilemedi`);
+            hasErrors = true;
+            continue;
+          }
+
+          // İlgili YM ST'yi kaydet - her MM GT için bir YM ST
+          const savedYmSt = await saveYMST(ymSt, savedMmGt.id);
+          if (!savedYmSt) {
+            console.error(`${i+1}. ürün için YM ST kaydedilemedi`);
+            toast.error(`${i+1}. ürün için YM ST kaydedilemedi`);
+            hasErrors = true;
+            continue;
           }
 
           // Reçeteleri kaydet
-          await saveRecete(receteFormValues, savedMmGt.id, savedYmGt.id);
+          const savedRecete = await saveRecete(receteFormValues, savedMmGt.id, savedYmGt.id);
+          if (!savedRecete) {
+            console.error(`${i+1}. ürün için reçete kaydedilemedi`);
+            toast.error(`${i+1}. ürün için reçete kaydedilemedi`);
+            hasErrors = true;
+            continue;
+          }
 
-          setDatabaseSaved(true);
-          setIsEditMode(true);
-          setMmGtData(savedMmGt);
-          setYmGtData(savedYmGt);
-          setReceteData(receteFormValues);
+          // Oluşturulan ürünü diziye ekle
+          createdProducts.push({
+            mmGt: savedMmGt,
+            ymGt: savedYmGt,
+            ymSt: ymSt
+          });
 
-          // Veritabanı verilerini güncelle
-          await fetchProductDatabase();
+          // Son ürünü sakla - UI güncellemesi için
+          lastMmGt = savedMmGt;
+          lastYmGt = savedYmGt;
 
-          // Performans ölçümü sonucu
-          const endTime = Date.now();
-          const elapsedTime = (endTime - startTime) / 1000;
-          setSavingTime(elapsedTime);
-
-          toast.success(`Veriler başarıyla veritabanına kaydedildi (${elapsedTime.toFixed(2)} saniye)`);
+          console.log(`${i+1}/${uniqueYmSt.length} ürün başarıyla kaydedildi`);
+        } catch (innerError) {
+          console.error(`${i+1}. ürün kaydedilirken hata oluştu:`, innerError);
+          toast.error(`${i+1}. ürün kaydedilirken hata oluştu: ${innerError.message}`);
+          hasErrors = true;
         }
+      }
+
+      // En az bir ürün başarıyla oluşturulduysa
+      if (createdProducts.length > 0) {
+        setDatabaseSaved(true);
+        setIsEditMode(true);
+        // Son oluşturulan ürünün bilgilerini UI'da göster
+        setMmGtData(lastMmGt);
+        setYmGtData(lastYmGt);
+        setReceteData(receteFormValues);
+
+        // Veritabanı verilerini güncelle
+        await fetchProductDatabase();
+
+        // Performans ölçümü sonucu
+        const endTime = Date.now();
+        const elapsedTime = (endTime - startTime) / 1000;
+        setSavingTime(elapsedTime);
+
+        if (hasErrors) {
+          toast.warning(`${createdProducts.length}/${uniqueYmSt.length} ürün veritabanına kaydedildi (${elapsedTime.toFixed(2)} saniye), bazı ürünlerde hatalar oluştu`);
+        } else {
+          toast.success(`${createdProducts.length} ürün başarıyla veritabanına kaydedildi (${elapsedTime.toFixed(2)} saniye)`);
+        }
+
+        return true;
+      } else {
+        toast.error('Hiçbir ürün kaydedilemedi.');
+        return false;
       }
     } catch (error) {
       console.error('Veritabanı kaydetme hatası:', error);
       toast.error('Veritabanına kayıt sırasında hata oluştu: ' + error.message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -5497,8 +5592,12 @@ const GalvanizliTelNetsis = () => {
 
   // Hem veritabanına kaydet hem de Excel oluştur
   const handleSaveAndCreateExcel = async (type) => {
-    await handleSaveToDatabase();
-    await handleCreateExcelOnly(type);
+    const saveSuccess = await handleSaveToDatabase();
+    if (saveSuccess) {
+      await handleCreateExcelOnly(type);
+    } else {
+      toast.error('Veritabanına kaydedilmeden Excel oluşturulamadı');
+    }
   };
 
   // Tüm Excel'leri oluştur
