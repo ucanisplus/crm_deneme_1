@@ -1,21 +1,111 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout3 from './MainLayout3';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertCircle, Calculator, Check, Download, Edit, FileText, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
 import { useAuth } from '@/context/AuthContext';
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter
+} from '@/components/ui/card';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent
+} from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+
+// Create simple UI components instead of using shadcn components that might be missing
+const Input = ({ id, value, onChange, placeholder, className }) => (
+  <input
+    id={id}
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder}
+    className={`w-full p-2 border rounded-md ${className || ''}`}
+  />
+);
+
+const Label = ({ htmlFor, children, className }) => (
+  <label
+    htmlFor={htmlFor}
+    className={`block text-sm font-medium text-gray-700 mb-1 ${className || ''}`}
+  >
+    {children}
+  </label>
+);
+
+const Button = ({ children, onClick, disabled, className, variant }) => {
+  let buttonClass = 'px-4 py-2 rounded-md font-medium text-sm';
+
+  if (variant === 'outline') {
+    buttonClass += ' border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+  } else if (variant === 'ghost') {
+    buttonClass += ' bg-transparent text-gray-600 hover:bg-gray-100';
+  } else if (variant === 'secondary') {
+    buttonClass += ' bg-gray-200 text-gray-800 hover:bg-gray-300';
+  } else {
+    buttonClass += ' bg-blue-600 text-white hover:bg-blue-700';
+  }
+
+  if (disabled) {
+    buttonClass += ' opacity-50 cursor-not-allowed';
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`${buttonClass} ${className || ''}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Checkbox = ({ id, checked, onCheckedChange, className }) => (
+  <input
+    type="checkbox"
+    id={id}
+    checked={checked}
+    onChange={(e) => onCheckedChange(e.target.checked)}
+    className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${className || ''}`}
+  />
+);
+
+const Separator = ({ className }) => (
+  <div className={`h-px bg-gray-200 my-4 ${className || ''}`} />
+);
 
 // YM ST durum göstergesi bileşeni
 const YmStStatusIndicator = ({ ymSt }) => {
