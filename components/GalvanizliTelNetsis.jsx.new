@@ -12,12 +12,12 @@ const GalvanizliTelContext = createContext();
 // GalvanizliTelProvider
 export const GalvanizliTelProvider = ({ children }) => {
 
-  // ... [Mevcut durum ve fonksiyonları olduğu gibi koru]
+  // ... [Keep existing state and functions as is]
 
   // YM ST için otomatik hesaplama
   const handleAutoCalculateYmSt = (ymStId) => {
-    // YM ST'yi bul
-    const ymStToCalculate = selectedYmSt.find(item =>
+    // Find the YM ST
+    const ymStToCalculate = selectedYmSt.find(item => 
       (item.id === ymStId) || (item.stok_kodu === ymStId)
     );
     
@@ -27,7 +27,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
     
     try {
-      // YmStToCalculate özelliklerine göre otomatik hesaplama yap
+      // Perform automatic calculations based on ymStToCalculate properties
       const calculatedRecete = {
         fire_orani: 3,
         miktar: 1.03,
@@ -35,17 +35,17 @@ export const GalvanizliTelProvider = ({ children }) => {
         aciklama: 'Otomatik hesaplanmış reçete',
       };
       
-      // Reçete form değerlerini güncelle
+      // Update the reçete form values
       setReceteFormValues(prevValues => ({
         ...prevValues,
         [ymStId]: calculatedRecete
       }));
-
-      // Bu YM ST'yi reçetesi var olarak işaretle
-      setSelectedYmSt(prevYmStList =>
-        prevYmStList.map(item =>
-          (item.id === ymStId || item.stok_kodu === ymStId)
-            ? { ...item, hasRecete: true }
+      
+      // Mark this YM ST as having reçete
+      setSelectedYmSt(prevYmStList => 
+        prevYmStList.map(item => 
+          (item.id === ymStId || item.stok_kodu === ymStId) 
+            ? { ...item, hasRecete: true } 
             : item
         )
       );
@@ -57,7 +57,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // Çoklu YM ST'leri işlemek için handleSaveToDatabase düzeltmesi
+  // Fix for handleSaveToDatabase to handle multiple YM STs
   const handleSaveToDatabase = async () => {
     try {
       // Tüm gerekli alanların dolu olduğunu kontrol et
@@ -230,7 +230,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     }
   };
 
-  // Daha iyi hata yönetimi için handleSaveAndCreateExcel düzeltmesi
+  // Fix handleSaveAndCreateExcel for better error handling
   const handleSaveAndCreateExcel = async (type) => {
     try {
       setLoading(true);
@@ -308,10 +308,10 @@ export const GalvanizliTelProvider = ({ children }) => {
     // Excel workbook oluştur
     const workbook = new ExcelJS.Workbook();
 
-    // ============== MM GT REÇETE SAYFASI (tam olarak 8 satır) ==============
+    // ============== MM GT REÇETE SAYFASI (exactly 8 rows) ==============
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
 
-    // MM GT REÇETE başlıkları - tam formattan alındı
+    // MM GT REÇETE başlıkları - from the exact format
     mmGtReceteSheet.columns = [
       { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
       { header: 'Reçete Top.', key: 'recete_top', width: 12 },
@@ -662,7 +662,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       });
     }
 
-    // ============== YM GT REÇETE SAYFASI (tam olarak 4 satır) ==============
+    // ============== YM GT REÇETE SAYFASI (exactly 4 rows) ==============
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
 
     // YM GT REÇETE başlıkları - aynı başlıkları kullan
@@ -867,7 +867,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       });
     }
 
-    // ============== YM ST REÇETE SAYFASI (her YM ST için tam olarak 2 satır) ==============
+    // ============== YM ST REÇETE SAYFASI (exactly 2 rows for each YM ST) ==============
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
 
     // YM ST REÇETE başlıkları - aynı başlıkları kullan
@@ -1063,106 +1063,15 @@ export const GalvanizliTelProvider = ({ children }) => {
 
   // ... [Keep the rest of the component as is] ...
 
-  // Göstergeleri eklemek için özet ekranında YM ST görüntüsünü güncelle
-  // Durum göstergeleri ve "Otomatik Hesapla" butonu ile güncellenmiş versiyon
-  const renderYmStList = () => {
-    return (
-      <>
-        {selectedYmSt.map((ymSt, index) => (
-          <div key={ymSt.id || ymSt.stok_kodu || index} className="border rounded-md p-3 relative">
-            {/* Durum göstergeleri */}
-            <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
-              <span className={`text-xs px-2 py-1 rounded-full ${ymSt.id ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-white'}`}>
-                {ymSt.id ? 'Veritabanından Alındı' : 'Oluşturuldu'}
-              </span>
+  // Update the YM ST display in summary screen to add indicators
+  // Find the section in the component's render where selectedYmSt.map is used
+  // and replace it with the version that has indicators
 
-              {ymSt.hasRecete && (
-                <span className="text-xs px-2 py-1 rounded-full bg-green-500 text-white">
-                  Reçetesi Var
-                </span>
-              )}
-            </div>
+  // Add "Otomatik Hesapla" button to reçete edit screen
+  // Find the reçete edit screen header and add the button next to the "Geri" button
 
-            {/* Mevcut YM ST içeriğini koru */}
-            <div className="font-bold">{ymSt.stok_kodu}</div>
-            <div className="text-sm">{ymSt.stok_adi || 'Siyah Tel'}</div>
-            <div className="mt-1 text-sm">
-              <span className="font-semibold">Çap:</span> {ymSt.cap} mm
-              {ymSt.filmasin && <span> | <span className="font-semibold">Filmaşin:</span> {ymSt.filmasin}</span>}
-              {ymSt.quality && <span> | <span className="font-semibold">Kalite:</span> {ymSt.quality}</span>}
-            </div>
-
-            {/* "Otomatik Hesapla" butonu ekle */}
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={() => handleAutoCalculateYmSt(ymSt.id || ymSt.stok_kodu)}
-                className="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 transition-colors"
-              >
-                Otomatik Hesapla
-              </button>
-            </div>
-          </div>
-        ))}
-      </>
-    );
-  };
-
-  // Reçete düzenleme ekranına "Otomatik Hesapla" butonu ekle
-  // "Otomatik Hesapla" butonu ile güncellenmiş reçete düzenleme ekranı başlığı
-  const renderReceteEditHeader = (handleEditComplete) => {
-    return (
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Reçete Düzenleme</h3>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              // Otomatik Hesapla fonksiyonu
-              try {
-                // MM GT, YM GT ve YM ST reçete verilerini hesapla
-                // Adapt this to use your actual calculation logic
-                const updatedValues = {...receteFormValues};
-
-                // For each YM ST, calculate reçete
-                selectedYmSt.forEach(ymSt => {
-                  updatedValues[ymSt.stok_kodu] = {
-                    fire_orani: 3,
-                    miktar: 1.03,
-                    olcu_br: 'KG',
-                    aciklama: 'Otomatik hesaplanmış reçete',
-                  };
-                });
-
-                // Update YM ST hasRecete flags
-                setSelectedYmSt(prevList =>
-                  prevList.map(item => ({...item, hasRecete: true}))
-                );
-
-                // Reçete form değerlerini güncelle
-                setReceteFormValues(updatedValues);
-
-                toast.success('Reçete değerleri otomatik hesaplandı');
-              } catch (error) {
-                console.error('Otomatik hesaplama hatası:', error);
-                toast.error('Reçete hesaplanamadı: ' + error.message);
-              }
-            }}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            Otomatik Hesapla
-          </button>
-          <button
-            onClick={handleEditComplete}
-            className="text-gray-600 hover:text-gray-800"
-          >
-            ← Geri
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // ... [Geri kalan context ve return ifadesini koru] ...
+  // ... [Keep remaining context and return statement] ...
 
 };
 
-// ... [Dosyanın geri kalanını olduğu gibi koru] ...
+// ... [Keep rest of file as is] ...
