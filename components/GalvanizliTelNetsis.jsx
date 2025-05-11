@@ -1367,7 +1367,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       let sequenceNumber = 0;
       try {
         const sequence = await getCurrentSequence(processedValues.kod_2, capValue);
-        sequenceNumber = sequence || 0;
+        // Always increment sequence to ensure unique products with different variables
+        sequenceNumber = (sequence || 0) + 1;
       } catch (error) {
         console.warn('Sıra numarası alınamadı, varsayılan 0 kullanılıyor', error);
       }
@@ -4584,7 +4585,31 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete görüntüleme değerlerini güncelle
   const updateReceteGosterimValues = (receteData, kg) => {
-    if (!receteData) return;
+    // If no reçete data exists, create default values
+    if (!receteData) {
+      // Calculate default values
+      const defaultTelCekmeSuresi = 0.02;
+      const defaultPaketlemeSuresi = 0.02;
+      const defaultGalvanizlemeSuresi = 1.159 / parseFloat(formValues.cap);
+      const defaultBoraksTuketimi = 0.001;
+      const defaultAsitTuketimi = 0.001;
+      const defaultDesiTuketimi = 0.002;
+
+      // Create default reçete data
+      receteData = {
+        tel_cekme_suresi: defaultTelCekmeSuresi,
+        paketleme_suresi: defaultPaketlemeSuresi,
+        galvanizleme_suresi: defaultGalvanizlemeSuresi,
+        boraks_tuketimi: defaultBoraksTuketimi,
+        asit_tuketimi: defaultAsitTuketimi,
+        desi_tuketimi: defaultDesiTuketimi,
+        karton_tuketimi: calculateKartonTuketimi(kg),
+        naylon_tuketimi: calculateNaylonTuketimi(kg)
+      };
+
+      // Update state with default values
+      setReceteFormValues(receteData);
+    }
     
     const gosterimValues = {
       celik_cember: {
@@ -6184,7 +6209,15 @@ const GalvanizliTelNetsis = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">Reçete verileri henüz oluşturulmadı</p>
+                    <div>
+                      <p className="text-gray-500 italic mb-2">Reçete verileri hesaplanıyor...</p>
+                      <button
+                        onClick={() => updateReceteGosterimValues(receteFormValues, formValues.kg)}
+                        className="px-2 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors"
+                      >
+                        Reçete Verilerini Oluştur
+                      </button>
+                    </div>
                   )}
                 </div>
                 
