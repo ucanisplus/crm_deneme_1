@@ -7,8 +7,8 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { toast } from 'react-toastify';
 
-// Doğrulama Şeması tanımlamaları
-const mmGtValidationSchema = Yup.object().shape({
+// Ortak galvanizli tel doğrulama şeması - Hem MM GT hem de Talep için kullanılacak
+const galvanizliTelValidationSchema = Yup.object().shape({
   cap: Yup.number()
     .required('Çap zorunludur')
     .min(0.8, 'Çap en az 0.8 olmalıdır')
@@ -39,6 +39,9 @@ const mmGtValidationSchema = Yup.object().shape({
     .min(250, 'Ağırlık en az 250 olmalıdır')
     .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
 });
+
+// MM GT validation şeması (şimdi ortak şemayı kullanıyor)
+const mmGtValidationSchema = galvanizliTelValidationSchema;
 
 // YM ST formüllerine ait doğrulama şeması
 const receteValidationSchema = Yup.object().shape({
@@ -62,38 +65,8 @@ const receteValidationSchema = Yup.object().shape({
     .min(0.0001, 'Tel çekme süresi en az 0.0001 olmalıdır'),
 });
 
-// Talep doğrulama şeması
-const talepValidationSchema = Yup.object().shape({
-  cap: Yup.number()
-    .required('Çap zorunludur')
-    .min(0.8, 'Çap en az 0.8 olmalıdır')
-    .max(8.0, 'Çap en fazla 8.0 olmalıdır'),
-  kod_2: Yup.string().required('Kaplama türü zorunludur'),
-  kaplama: Yup.number()
-    .required('Kaplama zorunludur')
-    .min(50, 'Kaplama en az 50 olmalıdır')
-    .max(400, 'Kaplama en fazla 400 olmalıdır'),
-  min_mukavemet: Yup.number()
-    .required('Min mukavemet zorunludur')
-    .min(350, 'Min mukavemet en az 350 olmalıdır')
-    .max(1000, 'Min mukavemet en fazla 1000 olmalıdır'),
-  max_mukavemet: Yup.number()
-    .required('Max mukavemet zorunludur')
-    .min(350, 'Max mukavemet en az 350 olmalıdır')
-    .max(1000, 'Max mukavemet en fazla 1000 olmalıdır'),
-  tolerans_plus: Yup.number()
-    .required('Tolerans (+) zorunludur')
-    .min(0, 'Tolerans (+) en az 0 olmalıdır')
-    .max(0.1, 'Tolerans (+) en fazla 0.1 olmalıdır'),
-  tolerans_minus: Yup.number()
-    .required('Tolerans (-) zorunludur')
-    .min(0, 'Tolerans (-) en az 0 olmalıdır')
-    .max(0.1, 'Tolerans (-) en fazla 0.1 olmalıdır'),
-  kg: Yup.number()
-    .required('Ağırlık zorunludur')
-    .min(250, 'Ağırlık en az 250 olmalıdır')
-    .max(1250, 'Ağırlık en fazla 1250 olmalıdır'),
-});
+// Talep doğrulama şeması (şimdi ortak şemayı kullanıyor)
+const talepValidationSchema = galvanizliTelValidationSchema;
 
 // Galvanizli Tel Context
 const GalvanizliTelContext = createContext();
@@ -129,57 +102,45 @@ export const GalvanizliTelProvider = ({ children }) => {
   const fetchProductDatabase = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // MM GT listesini al
-      const mmGtRes = await fetchWithAuth(API_URLS.galMmGt);
-      let mmGtList = [];
-      if (mmGtRes.ok) {
-        mmGtList = await mmGtRes.json();
-      }
 
-      // YM GT listesini al
-      const ymGtRes = await fetchWithAuth(API_URLS.galYmGt);
-      let ymGtList = [];
-      if (ymGtRes.ok) {
-        ymGtList = await ymGtRes.json();
-      }
+      // Tüm API çağrılarını paralel olarak gerçekleştir
+      const endpoints = [
+        { key: 'mmGtList', url: API_URLS.galMmGt },
+        { key: 'ymGtList', url: API_URLS.galYmGt },
+        { key: 'ymStList', url: API_URLS.galYmSt },
+        { key: 'mmGtReceteList', url: API_URLS.galMmGtRecete },
+        { key: 'ymGtReceteList', url: API_URLS.galYmGtRecete },
+        { key: 'ymStReceteList', url: API_URLS.galYmStRecete }
+      ];
 
-      // YM ST listesini al
-      const ymStRes = await fetchWithAuth(API_URLS.galYmSt);
-      let ymStList = [];
-      if (ymStRes.ok) {
-        ymStList = await ymStRes.json();
-      }
-      
-      // MM GT Reçete listesini al
-      const mmGtReceteRes = await fetchWithAuth(API_URLS.galMmGtRecete);
-      let mmGtReceteList = [];
-      if (mmGtReceteRes.ok) {
-        mmGtReceteList = await mmGtReceteRes.json();
-      }
-      
-      // YM GT Reçete listesini al
-      const ymGtReceteRes = await fetchWithAuth(API_URLS.galYmGtRecete);
-      let ymGtReceteList = [];
-      if (ymGtReceteRes.ok) {
-        ymGtReceteList = await ymGtReceteRes.json();
-      }
-      
-      // YM ST Reçete listesini al
-      const ymStReceteRes = await fetchWithAuth(API_URLS.galYmStRecete);
-      let ymStReceteList = [];
-      if (ymStReceteRes.ok) {
-        ymStReceteList = await ymStReceteRes.json();
-      }
+      // Tüm API çağrılarını bir arada yap
+      const responses = await Promise.all(
+        endpoints.map(endpoint => fetchWithAuth(endpoint.url))
+      );
 
-      setProductDatabase({
-        mmGtList: Array.isArray(mmGtList) ? mmGtList : [],
-        ymGtList: Array.isArray(ymGtList) ? ymGtList : [],
-        ymStList: Array.isArray(ymStList) ? ymStList : [],
-        mmGtReceteList: Array.isArray(mmGtReceteList) ? mmGtReceteList : [],
-        ymGtReceteList: Array.isArray(ymGtReceteList) ? ymGtReceteList : [],
-        ymStReceteList: Array.isArray(ymStReceteList) ? ymStReceteList : []
-      });
+      // Tüm yanıtları paralel olarak JSON olarak işle
+      const results = await Promise.all(
+        responses.map(async (res, index) => {
+          if (res && res.ok) {
+            try {
+              return await res.json();
+            } catch (error) {
+              console.error(`${endpoints[index].key} işlenirken hata:`, error);
+              return [];
+            }
+          }
+          return [];
+        })
+      );
+
+      // Sonuçları endpointlerin sırasına göre bir nesne içinde topla
+      const data = endpoints.reduce((acc, endpoint, index) => {
+        acc[endpoint.key] = Array.isArray(results[index]) ? results[index] : [];
+        return acc;
+      }, {});
+
+      // Ürün veritabanını güncelle
+      setProductDatabase(data);
     } catch (error) {
       console.error('Veritabanı yüklenirken hata:', error);
       setError('Veritabanı yüklenirken bir hata oluştu');
@@ -229,24 +190,29 @@ export const GalvanizliTelProvider = ({ children }) => {
   // Talep sayısını getir
   const fetchTalepCount = useCallback(async () => {
     try {
-      // Endpoint kontrolü yap
-      let pendingRes, allRes;
-      
+      // Endpoint listesi oluştur
+      const endpoints = [
+        { key: 'pending', url: `${API_URLS.galSalRequests}/count?status=pending` },
+        { key: 'all', url: `${API_URLS.galSalRequests}/count` }
+      ];
+
       try {
-        // Bekleyen talep sayısını al
-        pendingRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count?status=pending`);
-        
-        // Toplam talep sayısını al
-        allRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count`);
-      } catch (error) {
-        console.warn('Talep sayısı endpoint erişimi hatası:', error);
-        setTalepCount({ pending: 0, all: 0 });
-        return;
-      }
-      
-      if (pendingRes && pendingRes.ok && allRes && allRes.ok) {
-        const pendingData = await pendingRes.json();
-        const allData = await allRes.json();
+        // Talep sayımlarını paralel olarak getir
+        const responses = await Promise.all(
+          endpoints.map(endpoint => fetchWithAuth(endpoint.url))
+        );
+
+        // Tüm yanıtları kontrol et
+        const allResponsesOk = responses.every(res => res && res.ok);
+
+        if (allResponsesOk) {
+          // Yanıtları paralel olarak JSON olarak işle
+          const results = await Promise.all(
+            responses.map(res => res.json())
+          );
+
+          // İndeksler üzerinden veriyi çıkar
+          const [pendingData, allData] = results;
         
         setTalepCount({
           pending: pendingData.count || 0,
@@ -3252,516 +3218,15 @@ export const GalvanizliTelProvider = ({ children }) => {
   };
 
   // Stok Kartı Excel oluşturma fonksiyonu - Netsis formatına uygun şekilde revize edildi
-  const createStokKartiExcel = async (mmGt, ymGt, ymStList) => {
-    // Excel workbook oluştur
-    const workbook = new ExcelJS.Workbook();
-    
-    // MM GT sayfasını ekle
-    const mmGtSheet = workbook.addWorksheet('MM GT');
-    
-    // MM GT başlıkları
-    mmGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
-      { header: 'Stok Adı', key: 'stok_adi', width: 50 },
-      { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
-      { header: 'Kod-1', key: 'kod_1', width: 10 },
-      { header: 'Kod-2', key: 'kod_2', width: 10 },
-      { header: 'Cari/Satıcı Kodu', key: 'cari_satici_kodu', width: 15 },
-      { header: 'İngilizce İsim', key: 'ingilizce_isim', width: 50 },
-      { header: 'Satıcı İsmi', key: 'satici_ismi', width: 20 },
-      { header: 'Muh. Detay', key: 'muh_detay', width: 12 },
-      { header: 'Depo Kodu', key: 'depo_kodu', width: 12 },
-      { header: 'Br-1', key: 'br_1', width: 10 },
-      { header: 'Br-2', key: 'br_2', width: 10 },
-      { header: 'Pay-1', key: 'pay_1', width: 10 },
-      { header: 'Payda-1', key: 'payda_1', width: 10 },
-      { header: 'Çevrim Değeri-1', key: 'cevrim_degeri_1', width: 15 },
-      { header: 'Ölçü Br-3', key: 'olcu_br_3', width: 10 },
-      { header: 'Çevrim Pay-2', key: 'cevrim_pay_2', width: 15 },
-      { header: 'Çevrim Payda-2', key: 'cevrim_payda_2', width: 15 },
-      { header: 'Çevrim Değeri-2', key: 'cevrim_degeri_2', width: 15 },
-      { header: 'Çap', key: 'cap', width: 10 },
-      { header: 'Kaplama', key: 'kaplama', width: 10 },
-      { header: 'Min Mukavemet', key: 'min_mukavemet', width: 15 },
-      { header: 'Max Mukavemet', key: 'max_mukavemet', width: 15 },
-      { header: 'KG', key: 'kg', width: 10 },
-      { header: 'İç Çap/Boy Çubuk AD', key: 'ic_cap', width: 20 },
-      { header: 'Dış Çap/En Çubuk AD', key: 'dis_cap', width: 20 },
-      { header: 'Çap2', key: 'cap2', width: 10 },
-      { header: 'Shrink', key: 'shrink', width: 10 },
-      { header: 'Tolerans(+)', key: 'tolerans_plus', width: 12 },
-      { header: 'Tolerans(-)', key: 'tolerans_minus', width: 12 },
-      { header: 'Ebat(En)', key: 'ebat_en', width: 10 },
-      { header: 'Göz Aralığı', key: 'goz_araligi', width: 12 },
-      { header: 'Ebat(Boy)', key: 'ebat_boy', width: 10 },
-      { header: 'Hasır Tipi', key: 'hasir_tipi', width: 12 },
-      { header: 'Özel Saha 8 (Alf.)', key: 'ozel_saha_8_alf', width: 20 },
-      { header: 'Alış Fiyatı', key: 'alis_fiyati', width: 12 },
-      { header: 'Fiyat Birimi', key: 'fiyat_birimi', width: 12 },
-      { header: 'Satış Fiyatı-1', key: 'satis_fiyati_1', width: 15 },
-      { header: 'Satış Fiyatı-2', key: 'satis_fiyati_2', width: 15 },
-      { header: 'Satış Fiyatı-3', key: 'satis_fiyati_3', width: 15 },
-      { header: 'Satış Fiyatı-4', key: 'satis_fiyati_4', width: 15 },
-      { header: 'Satış Tipi', key: 'satis_tipi', width: 12 },
-      { header: 'Döviz Alış', key: 'doviz_alis', width: 12 },
-      { header: 'Döviz Maliyeti', key: 'doviz_maliyeti', width: 15 },
-      { header: 'Döviz Satış Fiyatı', key: 'doviz_satis_fiyati', width: 18 },
-      { header: 'Azami Stok', key: 'azami_stok', width: 12 },
-      { header: 'Asgari Stok', key: 'asgari_stok', width: 12 },
-      { header: 'Döv.Tutar', key: 'dov_tutar', width: 12 },
-      { header: 'Döv.Tipi', key: 'dov_tipi', width: 10 },
-      { header: 'Bekleme Süresi', key: 'bekleme_suresi', width: 15 },
-      { header: 'Temin Süresi', key: 'temin_suresi', width: 12 },
-      { header: 'Birim Ağırlık', key: 'birim_agirlik', width: 12 },
-      { header: 'Nakliye Tutar', key: 'nakliye_tutar', width: 12 },
-      { header: 'Satış KDV Oranı', key: 'satis_kdv_orani', width: 15 },
-      { header: 'Alış KDV Oranı', key: 'alis_kdv_orani', width: 15 },
-      { header: 'Stok Türü', key: 'stok_turu', width: 10 },
-      { header: 'Mali Grup Kodu', key: 'mali_grup_kodu', width: 15 },
-      { header: 'Barkod 1', key: 'barkod_1', width: 12 },
-      { header: 'Barkod 2', key: 'barkod_2', width: 12 },
-      { header: 'Barkod 3', key: 'barkod_3', width: 12 },
-      { header: 'Kod-3', key: 'kod_3', width: 10 },
-      { header: 'Kod-4', key: 'kod_4', width: 10 },
-      { header: 'Kod-5', key: 'kod_5', width: 10 },
-      { header: 'Esnek Yapılandır', key: 'esnek_yapilandir', width: 18 },
-      { header: 'Süper Reçete Kullanılsın', key: 'super_recete_kullanilsin', width: 22 },
-      { header: 'Bağlı Stok Kodu', key: 'bagli_stok_kodu', width: 18 },
-      { header: 'Yapılandırma Kodu', key: 'yapilandirma_kodu', width: 18 },
-      { header: 'Yap. Açıklama', key: 'yap_aciklama', width: 15 },
-      { header: 'Alış Döviz Tipi', key: 'alis_doviz_tipi', width: 15 },
-      { header: 'Gümrük Tarife Kodu', key: 'gumruk_tarife_kodu', width: 18 },
-      { header: 'Dağıtıcı Kodu', key: 'dagitici_kodu', width: 15 },
-      { header: 'Menşei', key: 'mensei', width: 10 },
-      { header: 'METARIAL', key: 'metarial', width: 12 },
-      { header: 'DIA (MM)', key: 'dia_mm', width: 10 },
-      { header: 'DIA TOL (MM) +', key: 'dia_tol_mm_plus', width: 15 },
-      { header: 'DIA TOL (MM) -', key: 'dia_tol_mm_minus', width: 15 },
-      { header: 'ZING COATING (GR/M2)', key: 'zing_coating', width: 20 },
-      { header: 'TENSILE ST. (MPA) MIN', key: 'tensile_st_min', width: 20 },
-      { header: 'TENSILE ST. (MPA) MAX', key: 'tensile_st_max', width: 20 },
-      { header: 'WAX', key: 'wax', width: 10 },
-      { header: 'LIFTING LUGS', key: 'lifting_lugs', width: 15 },
-      { header: 'UNWINDING', key: 'unwinding', width: 15 },
-      { header: 'CAST KONT. (CM)', key: 'cast_kont', width: 15 },
-      { header: 'HELIX KONT. (CM)', key: 'helix_kont', width: 15 },
-      { header: 'ELONGATION (%) MIN', key: 'elongation', width: 18 },
-      { header: 'COIL DIMENSIONS (CM) ID', key: 'coil_dimensions_id', width: 22 },
-      { header: 'COIL DIMENSIONS (CM) OD', key: 'coil_dimensions_od', width: 22 },
-      { header: 'COIL WEIGHT (KG)', key: 'coil_weight', width: 18 },
-      { header: 'COIL WEIGHT (KG) MIN', key: 'coil_weight_min', width: 20 },
-      { header: 'COIL WEIGHT (KG) MAX', key: 'coil_weight_max', width: 20 }
-    ];
-    
-    // MM GT verisini doğru formatlanmış olarak ekle
-    const mmGtRow = {
-      stok_kodu: mmGt.stok_kodu,
-      stok_adi: mmGt.stok_adi.replace(/(\d+)\.(\d+)/g, '$1,$2'),
-      grup_kodu: mmGt.grup_kodu,
-      kod_1: mmGt.kod_1,
-      kod_2: mmGt.kod_2,
-      cari_satici_kodu: mmGt.cari_satici_kodu || "",
-      ingilizce_isim: mmGt.ingilizce_isim ? mmGt.ingilizce_isim.replace(/(\d+)\.(\d+)/g, '$1,$2') : "",
-      satici_ismi: mmGt.satici_ismi || "",
-      muh_detay: mmGt.muh_detay,
-      depo_kodu: mmGt.depo_kodu,
-      br_1: mmGt.br_1,
-      br_2: mmGt.br_2,
-      pay_1: 1, // Tam sayı
-      payda_1: 1000, // Tam sayı
-      cevrim_degeri_1: 0.001, // Decimal değer
-      olcu_br_3: mmGt.olcu_br_3 || "",
-      cevrim_pay_2: 1, // Tam sayı
-      cevrim_payda_2: 1, // Tam sayı
-      cevrim_degeri_2: 1, // Tam sayı
-      cap: mmGt.cap ? parseFloat(mmGt.cap).toFixed(2).replace('.', ',') : '',
-      kaplama: mmGt.kaplama,
-      min_mukavemet: mmGt.min_mukavemet,
-      max_mukavemet: mmGt.max_mukavemet,
-      kg: mmGt.kg,
-      ic_cap: mmGt.ic_cap,
-      dis_cap: mmGt.dis_cap,
-      cap2: mmGt.cap2 || "",
-      shrink: mmGt.shrink,
-      tolerans_plus: mmGt.tolerans_plus ? parseFloat(mmGt.tolerans_plus).toFixed(2).replace('.', ',') : '0,00', // Virgüllü ve ilgili sayıda sıfır ile
-      tolerans_minus: mmGt.tolerans_minus ? parseFloat(mmGt.tolerans_minus).toFixed(2).replace('.', ',') : '0,00',
-      ebat_en: mmGt.ebat_en || "",
-      goz_araligi: mmGt.goz_araligi || "",
-      ebat_boy: mmGt.ebat_boy || "",
-      hasir_tipi: mmGt.hasir_tipi || "",
-      ozel_saha_8_alf: mmGt.ozel_saha_8_alf || "",
-      alis_fiyati: 0, // Tam sayı
-      fiyat_birimi: 1, // Tam sayı
-      satis_fiyati_1: 0, // Tam sayı
-      satis_fiyati_2: 0, // Tam sayı
-      satis_fiyati_3: 0, // Tam sayı
-      satis_fiyati_4: 0, // Tam sayı
-      satis_tipi: mmGt.satis_tipi || 1, // Tam sayı
-      doviz_alis: 0, // Tam sayı
-      doviz_maliyeti: 0, // Tam sayı
-      doviz_satis_fiyati: 0, // Tam sayı
-      azami_stok: 0, // Tam sayı
-      asgari_stok: 0, // Tam sayı
-      dov_tutar: mmGt.dov_tutar || "", 
-      dov_tipi: 0, // Tam sayı
-      bekleme_suresi: 0, // Tam sayı
-      temin_suresi: 0, // Tam sayı
-      birim_agirlik: 0, // Tam sayı
-      nakliye_tutar: 0, // Tam sayı
-      satis_kdv_orani: 20, // Tam sayı (%)
-      alis_kdv_orani: 20, // Tam sayı (%)
-      stok_turu: "D",
-      mali_grup_kodu: mmGt.mali_grup_kodu || "",
-      barkod_1: mmGt.barkod_1 || "",
-      barkod_2: mmGt.barkod_2 || "",
-      barkod_3: mmGt.barkod_3 || "",
-      kod_3: mmGt.kod_3 || "",
-      kod_4: mmGt.kod_4 || "",
-      kod_5: mmGt.kod_5 || "",
-      esnek_yapilandir: "H",
-      super_recete_kullanilsin: "H",
-      bagli_stok_kodu: mmGt.bagli_stok_kodu || "",
-      yapilandirma_kodu: mmGt.yapilandirma_kodu || "",
-      yap_aciklama: mmGt.yap_aciklama || "",
-      alis_doviz_tipi: 2, // Tam sayı
-      gumruk_tarife_kodu: mmGt.gumruk_tarife_kodu,
-      dagitici_kodu: mmGt.dagitici_kodu || "",
-      mensei: mmGt.mensei || "",
-      metarial: mmGt.metarial || "Galvanizli Tel",
-      dia_mm: mmGt.dia_mm || "",
-      dia_tol_mm_plus: mmGt.dia_tol_mm_plus || "",
-      dia_tol_mm_minus: mmGt.dia_tol_mm_minus || "",
-      zing_coating: mmGt.zing_coating || "",
-      tensile_st_min: mmGt.tensile_st_min || "",
-      tensile_st_max: mmGt.tensile_st_max || "",
-      wax: mmGt.wax || "",
-      lifting_lugs: mmGt.lifting_lugs || "",
-      unwinding: mmGt.unwinding || "",
-      cast_kont: mmGt.cast_kont || "",
-      helix_kont: mmGt.helix_kont || "",
-      elongation: mmGt.elongation || "",
-      coil_dimensions_id: mmGt.coil_dimensions_id || "",
-      coil_dimensions_od: mmGt.coil_dimensions_od || "",
-      coil_weight: mmGt.coil_weight || "",
-      coil_weight_min: mmGt.coil_weight_min || "",
-      coil_weight_max: mmGt.coil_weight_max || ""
-    };
-    
-    mmGtSheet.addRow(mmGtRow);
-    
-    // YM GT sayfasını ekle
-    const ymGtSheet = workbook.addWorksheet('YM GT');
-    
-    // YM GT başlıkları
-    ymGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 22 },
-      { header: 'Stok Adı', key: 'stok_adi', width: 50 },
-      { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
-      { header: 'Kod-1', key: 'kod_1', width: 10 },
-      { header: 'Kod-2', key: 'kod_2', width: 10 },
-      { header: 'Cari/Satıcı Kodu', key: 'cari_satici_kodu', width: 18 },
-      { header: 'İngilizce İsim', key: 'ingilizce_isim', width: 50 },
-      { header: 'Satıcı İsmi', key: 'satici_ismi', width: 15 },
-      { header: 'Muh. Detay', key: 'muh_detay', width: 12 },
-      { header: 'Depo Kodu', key: 'depo_kodu', width: 12 },
-      { header: 'Br-1', key: 'br_1', width: 10 },
-      { header: 'Br-2', key: 'br_2', width: 10 },
-      { header: 'Pay-1', key: 'pay_1', width: 10 },
-      { header: 'Payda-1', key: 'payda_1', width: 10 },
-      { header: 'Çevrim Değeri-1', key: 'cevrim_degeri_1', width: 15 },
-      { header: 'Ölçü Br-3', key: 'olcu_br_3', width: 10 },
-      { header: 'Çevrim Pay-2', key: 'cevrim_pay_2', width: 15 },
-      { header: 'Çevrim Payda-2', key: 'cevrim_payda_2', width: 15 },
-      { header: 'Çevrim Değeri-2', key: 'cevrim_degeri_2', width: 15 },
-      { header: 'Çap', key: 'cap', width: 10 },
-      { header: 'Kaplama', key: 'kaplama', width: 10 },
-      { header: 'Min Mukavemet', key: 'min_mukavemet', width: 15 },
-      { header: 'Max Mukavemet', key: 'max_mukavemet', width: 15 },
-      { header: 'KG', key: 'kg', width: 10 },
-      { header: 'İç Çap/Boy Çubuk AD', key: 'ic_cap', width: 20 },
-      { header: 'Dış Çap/En Çubuk AD', key: 'dis_cap', width: 20 },
-      { header: 'Çap2', key: 'cap2', width: 10 },
-      { header: 'Shrink', key: 'shrink', width: 10 },
-      { header: 'Tolerans(+)', key: 'tolerans_plus', width: 12 },
-      { header: 'Tolerans(-)', key: 'tolerans_minus', width: 12 },
-      { header: 'Ebat(En)', key: 'ebat_en', width: 10 },
-      { header: 'Göz Aralığı', key: 'goz_araligi', width: 12 },
-      { header: 'Ebat(Boy)', key: 'ebat_boy', width: 10 },
-      { header: 'Hasır Tipi', key: 'hasir_tipi', width: 12 },
-      { header: 'Özel Saha 8 (Alf.)', key: 'ozel_saha_8_alf', width: 20 },
-      { header: 'Alış Fiyatı', key: 'alis_fiyati', width: 12 },
-      { header: 'Fiyat Birimi', key: 'fiyat_birimi', width: 12 },
-      { header: 'Satış Fiyatı-1', key: 'satis_fiyati_1', width: 15 },
-      { header: 'Satış Fiyatı-2', key: 'satis_fiyati_2', width: 15 },
-      { header: 'Satış Fiyatı-3', key: 'satis_fiyati_3', width: 15 },
-      { header: 'Satış Fiyatı-4', key: 'satis_fiyati_4', width: 15 },
-      { header: 'Satış Tipi', key: 'satis_tipi', width: 12 },
-      { header: 'Döviz Alış', key: 'doviz_alis', width: 12 },
-      { header: 'Döviz Maliyeti', key: 'doviz_maliyeti', width: 15 },
-      { header: 'Döviz Satış Fiyatı', key: 'doviz_satis_fiyati', width: 18 },
-      { header: 'Azami Stok', key: 'azami_stok', width: 12 },
-      { header: 'Asgari Stok', key: 'asgari_stok', width: 12 },
-      { header: 'Döv.Tutar', key: 'dov_tutar', width: 12 },
-      { header: 'Döv.Tipi', key: 'dov_tipi', width: 10 },
-      { header: 'Bekleme Süresi', key: 'bekleme_suresi', width: 15 },
-      { header: 'Temin Süresi', key: 'temin_suresi', width: 12 },
-      { header: 'Birim Ağırlık', key: 'birim_agirlik', width: 12 },
-      { header: 'Nakliye Tutar', key: 'nakliye_tutar', width: 12 },
-      { header: 'Satış KDV Oranı', key: 'satis_kdv_orani', width: 15 },
-      { header: 'Alış KDV Oranı', key: 'alis_kdv_orani', width: 15 },
-      { header: 'Stok Türü', key: 'stok_turu', width: 10 },
-      { header: 'Mali Grup Kodu', key: 'mali_grup_kodu', width: 15 },
-      { header: 'Barkod 1', key: 'barkod_1', width: 12 },
-      { header: 'Barkod 2', key: 'barkod_2', width: 12 },
-      { header: 'Barkod 3', key: 'barkod_3', width: 12 },
-      { header: 'Kod-3', key: 'kod_3', width: 10 },
-      { header: 'Kod-4', key: 'kod_4', width: 10 },
-      { header: 'Kod-5', key: 'kod_5', width: 10 },
-      { header: 'Esnek Yapılandır', key: 'esnek_yapilandir', width: 18 },
-      { header: 'Süper Reçete Kullanılsın', key: 'super_recete_kullanilsin', width: 22 },
-      { header: 'Bağlı Stok Kodu', key: 'bagli_stok_kodu', width: 18 },
-      { header: 'Yapılandırma Kodu', key: 'yapilandirma_kodu', width: 18 },
-      { header: 'Yap. Açıklama', key: 'yap_aciklama', width: 15 },
-      { header: 'Alış Döviz Tipi', key: 'alis_doviz_tipi', width: 15 },
-      { header: 'Gümrük Tarife Kodu', key: 'gumruk_tarife_kodu', width: 18 },
-      { header: 'Dağıtıcı Kodu', key: 'dagitici_kodu', width: 15 },
-      { header: 'Menşei', key: 'mensei', width: 10 }
-    ];
-    
-    // YM GT verisini ekle
-    const ymGtRow = {
-      stok_kodu: ymGt.stok_kodu,
-      stok_adi: ymGt.stok_adi.replace(/^Galvanizli/, 'YM Galvanizli').replace(/(\d+)\.(\d+)/g, '$1,$2'),
-      grup_kodu: ymGt.grup_kodu,
-      kod_1: ymGt.kod_1,
-      kod_2: ymGt.kod_2,
-      cari_satici_kodu: ymGt.cari_satici_kodu || "",
-      ingilizce_isim: ymGt.ingilizce_isim ? ymGt.ingilizce_isim.replace(/(\d+)\.(\d+)/g, '$1,$2') : "",
-      satici_ismi: ymGt.satici_ismi || "",
-      muh_detay: ymGt.muh_detay,
-      depo_kodu: ymGt.depo_kodu,
-      br_1: ymGt.br_1,
-      br_2: ymGt.br_2,
-      pay_1: 1, // Tam sayı
-      payda_1: 1000, // Tam sayı
-      cevrim_degeri_1: "0", // YM GT için 0 olmalı
-      olcu_br_3: ymGt.olcu_br_3 || "",
-      cevrim_pay_2: 1, // Tam sayı
-      cevrim_payda_2: 1, // Tam sayı
-      cevrim_degeri_2: 1, // Tam sayı
-      cap: ymGt.cap,
-      kaplama: ymGt.kaplama,
-      min_mukavemet: ymGt.min_mukavemet,
-      max_mukavemet: ymGt.max_mukavemet,
-      kg: ymGt.kg,
-      ic_cap: ymGt.ic_cap,
-      dis_cap: ymGt.dis_cap,
-      cap2: ymGt.cap2 || "",
-      shrink: ymGt.shrink,
-      tolerans_plus: parseFloat(ymGt.tolerans_plus) || 0, // Sayısal değer olarak
-      tolerans_minus: parseFloat(ymGt.tolerans_minus) || 0,
-      ebat_en: ymGt.ebat_en || "",
-      goz_araligi: ymGt.goz_araligi || "",
-      ebat_boy: ymGt.ebat_boy || "",
-      hasir_tipi: ymGt.hasir_tipi || "",
-      ozel_saha_8_alf: ymGt.ozel_saha_8_alf || "",
-      alis_fiyati: 0, // Tam sayı
-      fiyat_birimi: 1, // Tam sayı
-      satis_fiyati_1: 0, // Tam sayı
-      satis_fiyati_2: 0, // Tam sayı
-      satis_fiyati_3: 0, // Tam sayı
-      satis_fiyati_4: 0, // Tam sayı
-      satis_tipi: ymGt.satis_tipi || 1, // Tam sayı
-      doviz_alis: 0, // Tam sayı
-      doviz_maliyeti: 0, // Tam sayı
-      doviz_satis_fiyati: 0, // Tam sayı
-      azami_stok: 0, // Tam sayı
-      asgari_stok: 0, // Tam sayı
-      dov_tutar: 0, // Tam sayı
-      dov_tipi: 0, // Tam sayı
-      bekleme_suresi: 0, // Tam sayı
-      temin_suresi: 0, // Tam sayı
-      birim_agirlik: 0, // Tam sayı
-      nakliye_tutar: 0, // Tam sayı
-      satis_kdv_orani: 20, // Tam sayı (%)
-      alis_kdv_orani: 20, // Tam sayı (%)
-      stok_turu: "D",
-      mali_grup_kodu: ymGt.mali_grup_kodu || "",
-      barkod_1: ymGt.barkod_1 || "",
-      barkod_2: ymGt.barkod_2 || "",
-      barkod_3: ymGt.barkod_3 || "",
-      kod_3: ymGt.kod_3 || "",
-      kod_4: ymGt.kod_4 || "",
-      kod_5: ymGt.kod_5 || "",
-      esnek_yapilandir: "H",
-      super_recete_kullanilsin: "H",
-      bagli_stok_kodu: ymGt.bagli_stok_kodu || "",
-      yapilandirma_kodu: ymGt.yapilandirma_kodu || "",
-      yap_aciklama: ymGt.yap_aciklama || "",
-      alis_doviz_tipi: "", // YM GT'de boş
-      gumruk_tarife_kodu: "", // YM GT'de boş
-      dagitici_kodu: "", // YM GT'de boş
-      mensei: "" // YM GT'de boş
-    };
-    
-    ymGtSheet.addRow(ymGtRow);
-    
-    // YM ST sayfasını ekle
-    const ymStSheet = workbook.addWorksheet('YM ST');
-    
-    // YM ST başlıkları
-    ymStSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 24 },
-      { header: 'Stok Adı', key: 'stok_adi', width: 40 },
-      { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
-      { header: 'Kod-1', key: 'kod_1', width: 10 },
-      { header: 'Kod-2', key: 'kod_2', width: 10 },
-      { header: 'Kod-3', key: 'kod_3', width: 10 },
-      { header: 'Satış KDV Oranı', key: 'satis_kdv_orani', width: 15 },
-      { header: 'Muh.Detay', key: 'muh_detay', width: 12 },
-      { header: 'Depo Kodu', key: 'depo_kodu', width: 12 },
-      { header: 'Br-1', key: 'br_1', width: 10 },
-      { header: 'Br-2', key: 'br_2', width: 10 },
-      { header: 'Pay-1', key: 'pay_1', width: 10 },
-      { header: 'Payda-1', key: 'payda_1', width: 10 },
-      { header: 'Çevrim Değeri-1', key: 'cevrim_degeri_1', width: 15 },
-      { header: 'Ölçü Br-3', key: 'olcu_br_3', width: 10 },
-      { header: 'Çevrim Pay-2', key: 'cevrim_pay_2', width: 15 },
-      { header: 'Çevrim Payda-2', key: 'cevrim_payda_2', width: 15 },
-      { header: 'Çevrim Değeri-2', key: 'cevrim_degeri_2', width: 15 },
-      { header: 'Alış Fiyatı', key: 'alis_fiyati', width: 12 },
-      { header: 'Fiyat Birimi', key: 'fiyat_birimi', width: 12 },
-      { header: 'Satış Fiyatı-1', key: 'satis_fiyati_1', width: 15 },
-      { header: 'Satış Fiyatı-2', key: 'satis_fiyati_2', width: 15 },
-      { header: 'Satış Fiyatı-3', key: 'satis_fiyati_3', width: 15 },
-      { header: 'Satış Fiyatı-4', key: 'satis_fiyati_4', width: 15 },
-      { header: 'Döviz Tip', key: 'doviz_tip', width: 12 },
-      { header: 'Döviz Alış', key: 'doviz_alis', width: 12 },
-      { header: 'Döviz Maliyeti', key: 'doviz_maliyeti', width: 15 },
-      { header: 'Döviz Satış Fiyatı', key: 'doviz_satis_fiyati', width: 18 },
-      { header: 'Azami Stok', key: 'azami_stok', width: 12 },
-      { header: 'Asgari Stok', key: 'asgari_stok', width: 12 },
-      { header: 'Döv.Tutar', key: 'dov_tutar', width: 12 },
-      { header: 'Döv.Tipi', key: 'dov_tipi', width: 10 },
-      { header: 'Alış Döviz Tipi', key: 'alis_doviz_tipi', width: 15 },
-      { header: 'Bekleme Süresi', key: 'bekleme_suresi', width: 15 },
-      { header: 'Temin Süresi', key: 'temin_suresi', width: 12 },
-      { header: 'Birim Ağırlık', key: 'birim_agirlik', width: 12 },
-      { header: 'Nakliye Tutar', key: 'nakliye_tutar', width: 12 },
-      { header: 'Stok Türü', key: 'stok_turu', width: 10 },
-      { header: 'Mali Grup Kodu', key: 'mali_grup_kodu', width: 15 },
-      { header: 'İngilizce İsim', key: 'ingilizce_isim', width: 20 },
-      { header: 'Özel Saha 1 (Say.)', key: 'ozel_saha_1_say', width: 18 },
-      { header: 'Özel Saha 2 (Say.)', key: 'ozel_saha_2_say', width: 18 },
-      { header: 'Özel Saha 3 (Say.)', key: 'ozel_saha_3_say', width: 18 },
-      { header: 'Özel Saha 4 (Say.)', key: 'ozel_saha_4_say', width: 18 },
-      { header: 'Özel Saha 5 (Say.)', key: 'ozel_saha_5_say', width: 18 },
-      { header: 'Özel Saha 6 (Say.)', key: 'ozel_saha_6_say', width: 18 },
-      { header: 'Özel Saha 7 (Say.)', key: 'ozel_saha_7_say', width: 18 },
-      { header: 'Özel Saha 8 (Say.)', key: 'ozel_saha_8_say', width: 18 },
-      { header: 'Özel Saha 1 (Alf.)', key: 'ozel_saha_1_alf', width: 18 },
-      { header: 'Özel Saha 2 (Alf.)', key: 'ozel_saha_2_alf', width: 18 },
-      { header: 'Özel Saha 3 (Alf.)', key: 'ozel_saha_3_alf', width: 18 },
-      { header: 'Özel Saha 4 (Alf.)', key: 'ozel_saha_4_alf', width: 18 },
-      { header: 'Özel Saha 5 (Alf.)', key: 'ozel_saha_5_alf', width: 18 },
-      { header: 'Özel Saha 6 (Alf.)', key: 'ozel_saha_6_alf', width: 18 },
-      { header: 'Özel Saha 7 (Alf.)', key: 'ozel_saha_7_alf', width: 18 },
-      { header: 'Özel Saha 8 (Alf.)', key: 'ozel_saha_8_alf', width: 18 },
-      { header: 'Kod-4', key: 'kod_4', width: 10 },
-      { header: 'Kod-5', key: 'kod_5', width: 10 },
-      { header: 'Esnek Yapılandır', key: 'esnek_yapilandir', width: 18 },
-      { header: 'Süper Reçete Kullanılsın', key: 'super_recete_kullanilsin', width: 22 },
-      { header: 'Bağlı Stok Kodu', key: 'bagli_stok_kodu', width: 18 },
-      { header: 'Yapılandırma Kodu', key: 'yapilandirma_kodu', width: 18 },
-      { header: 'Yap. Açıklama', key: 'yap_aciklama', width: 15 }
-    ];
-    
-    // YM ST verilerini ekle
-    for (const ymSt of ymStList) {
-      // Özel sahalar için doğru değer ataması
-      let ozelSaha1Say = 0;
-      const capValue = parseFloat(ymSt.cap);
-      
-      if (capValue < 2) ozelSaha1Say = 1;
-      else if (capValue < 3) ozelSaha1Say = 2;
-      else if (capValue < 4) ozelSaha1Say = 3;
-      else if (capValue < 5) ozelSaha1Say = 4;
-      else if (capValue < 6) ozelSaha1Say = 5;
-      else if (capValue < 7) ozelSaha1Say = 6;
-      else if (capValue < 8) ozelSaha1Say = 7;
-      else ozelSaha1Say = 8;
-      
-      const ymStRow = {
-        stok_kodu: ymSt.stok_kodu,
-        stok_adi: ymSt.stok_adi.startsWith('YM Siyah Tel') ? ymSt.stok_adi : `YM Siyah Tel  ${ymSt.stok_kodu.substring(6, 10)} mm HM:${ymSt.stok_kodu.substring(11, 22)}`,
-        grup_kodu: ymSt.grup_kodu,
-        kod_1: ymSt.kod_1,
-        kod_2: ymSt.kod_2 || "",
-        kod_3: ymSt.kod_3 || "",
-        satis_kdv_orani: 20, // Tam sayı (%)
-        muh_detay: ymSt.muh_detay,
-        depo_kodu: ymSt.depo_kodu,
-        br_1: ymSt.br_1,
-        br_2: ymSt.br_2,
-        pay_1: 1, // Tam sayı
-        payda_1: 1000, // Tam sayı
-        cevrim_degeri_1: 0.001, // Decimal değer
-        olcu_br_3: ymSt.olcu_br_3 || "",
-        cevrim_pay_2: 1, // Tam sayı
-        cevrim_payda_2: 1, // Tam sayı
-        cevrim_degeri_2: 1, // Tam sayı
-        alis_fiyati: 0, // Tam sayı
-        fiyat_birimi: 1, // Tam sayı
-        satis_fiyati_1: 0, // Tam sayı
-        satis_fiyati_2: 0, // Tam sayı
-        satis_fiyati_3: 0, // Tam sayı
-        satis_fiyati_4: 0, // Tam sayı
-        doviz_tip: 1, // Tam sayı
-        doviz_alis: 0, // Tam sayı
-        doviz_maliyeti: 0, // Tam sayı
-        doviz_satis_fiyati: 0, // Tam sayı
-        azami_stok: 0, // Tam sayı
-        asgari_stok: 0, // Tam sayı
-        dov_tutar: 0, // Tam sayı
-        dov_tipi: 0, // Tam sayı
-        alis_doviz_tipi: 0, // Tam sayı
-        bekleme_suresi: 0, // Tam sayı
-        temin_suresi: 0, // Tam sayı
-        birim_agirlik: 0, // Tam sayı
-        nakliye_tutar: 0, // Tam sayı
-        stok_turu: "D",
-        mali_grup_kodu: ymSt.mali_grup_kodu || "",
-        ingilizce_isim: ymSt.ingilizce_isim || "",
-        ozel_saha_1_say: ozelSaha1Say, // Dinamik değer
-        ozel_saha_2_say: 0, // Tam sayı
-        ozel_saha_3_say: 0, // Tam sayı
-        ozel_saha_4_say: 0, // Tam sayı
-        ozel_saha_5_say: 0, // Tam sayı
-        ozel_saha_6_say: 0, // Tam sayı
-        ozel_saha_7_say: 0, // Tam sayı
-        ozel_saha_8_say: 0, // Tam sayı
-        ozel_saha_1_alf: ymSt.ozel_saha_1_alf || "",
-        ozel_saha_2_alf: ymSt.ozel_saha_2_alf || "",
-        ozel_saha_3_alf: ymSt.ozel_saha_3_alf || "",
-        ozel_saha_4_alf: ymSt.ozel_saha_4_alf || "",
-        ozel_saha_5_alf: ymSt.ozel_saha_5_alf || "",
-        ozel_saha_6_alf: ymSt.ozel_saha_6_alf || "",
-        ozel_saha_7_alf: ymSt.ozel_saha_7_alf || "",
-        ozel_saha_8_alf: ymSt.ozel_saha_8_alf || "",
-        kod_4: ymSt.kod_4 || "",
-        kod_5: ymSt.kod_5 || "",
-        esnek_yapilandir: "H",
-        super_recete_kullanilsin: "H",
-        bagli_stok_kodu: ymSt.bagli_stok_kodu || "",
-        yapilandirma_kodu: ymSt.yapilandirma_kodu || "",
-        yap_aciklama: ymSt.yap_aciklama || ""
-      };
-      
-      ymStSheet.addRow(ymStRow);
-    }
-    
-    // Stil ayarları
-    [mmGtSheet, ymGtSheet, ymStSheet].forEach(sheet => {
+  // Excel yardımcı fonksiyonları
+  const setupWorksheet = (workbook, sheetName, columns) => {
+    const sheet = workbook.addWorksheet(sheetName);
+    sheet.columns = columns;
+    return sheet;
+  };
+
+  const applyWorksheetStyles = (sheets) => {
+    sheets.forEach(sheet => {
       // Başlık satırı stilleri
       const headerRow = sheet.getRow(1);
       headerRow.font = { bold: true, size: 11 };
@@ -3771,7 +3236,7 @@ export const GalvanizliTelProvider = ({ children }) => {
         fgColor: { argb: 'FFCCCCCC' }
       };
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-      
+
       // Kenarlık ekle
       sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
         row.eachCell({ includeEmpty: true }, (cell) => {
@@ -3781,22 +3246,623 @@ export const GalvanizliTelProvider = ({ children }) => {
             bottom: { style: 'thin' },
             right: { style: 'thin' }
           };
-          
+
           if (rowNumber > 1) {
             cell.alignment = { vertical: 'middle' };
           }
         });
       });
     });
-    
-    // Excel dosyasını kaydet
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `StokKarti_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
-    
-    return true;
   };
 
-  // Reçete Excel oluşturma fonksiyonu - Netsis formatına uygun şekilde revize edildi
+  const saveExcelFile = async (workbook, fileName) => {
+    try {
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), fileName);
+      return true;
+    } catch (error) {
+      console.error("Excel indirme hatası: ", error);
+      toast.error("Excel dosyası oluşturulurken bir hata oluştu.");
+      return false;
+    }
+  };
+
+  const formatDecimal = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value).indexOf('.') === -1 ? String(value) + ',0' : String(value).replace('.', ',');
+  };
+
+  // Excel kolon tanımları
+  const mmGtColumns = [
+    { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
+    { header: 'Stok Adı', key: 'stok_adi', width: 50 },
+    { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
+    { header: 'Kod-1', key: 'kod_1', width: 10 },
+    { header: 'Kod-2', key: 'kod_2', width: 10 },
+    { header: 'Cari/Satıcı Kodu', key: 'cari_satici_kodu', width: 15 },
+    { header: 'İngilizce İsim', key: 'ingilizce_isim', width: 50 },
+    { header: 'Satıcı İsmi', key: 'satici_ismi', width: 20 },
+    { header: 'Muh. Detay', key: 'muh_detay', width: 12 },
+    { header: 'Depo Kodu', key: 'depo_kodu', width: 12 },
+    { header: 'Br-1', key: 'br_1', width: 10 },
+    { header: 'Br-2', key: 'br_2', width: 10 },
+    { header: 'Çrp.Kt.1', key: 'crp_kt_1', width: 10 },
+    { header: 'Çrp.Kt.2', key: 'crp_kt_2', width: 10 },
+    { header: 'Kod-3', key: 'kod_3', width: 10 },
+    { header: 'Kod-4', key: 'kod_4', width: 10 },
+    { header: 'Kod-5', key: 'kod_5', width: 10 },
+    { header: 'Peş.Fiy', key: 'pes_fiy', width: 12 },
+    { header: 'Cri.Fiy', key: 'cri_fiy', width: 12 },
+    { header: 'Lis.Fiy', key: 'lis_fiy', width: 12 },
+    { header: 'Dov.Sat', key: 'dov_sat', width: 10 },
+    { header: 'İhr.Fiy', key: 'ihr_fiy', width: 12 },
+    { header: 'Dov.Alış', key: 'dov_alis', width: 10 },
+    { header: 'K.D.V', key: 'kdv', width: 10 },
+    { header: 'Raf', key: 'raf', width: 10 },
+    { header: 'Desi/Kg', key: 'desi_kg', width: 10 },
+    { header: 'Max', key: 'max', width: 10 },
+    { header: 'Min', key: 'min', width: 10 },
+    { header: 'Al.Sip', key: 'al_sip', width: 10 },
+    { header: 'E.K.Noktası', key: 'ek_noktasi', width: 10 },
+    { header: 'Gereksinim', key: 'gereksinim', width: 10 },
+    { header: 'Em.Kts', key: 'em_kts', width: 10 },
+    { header: 'Ka.Yön', key: 'ka_yon', width: 10 },
+    { header: 'Kal.Yön', key: 'kal_yon', width: 10 },
+    { header: 'Uzn.Boy', key: 'uzn_boy', width: 10 },
+    { header: 'Gn.Boy', key: 'gn_boy', width: 10 },
+    { header: 'Yük.Boy', key: 'yuk_boy', width: 10 },
+    { header: 'Ö.S.1Say', key: 'ozel_saha_1_say', width: 12 },
+    { header: 'Ö.S.1Carp', key: 'ozel_saha_1_carp', width: 12 },
+    { header: 'Ö.S.2Say', key: 'ozel_saha_2_say', width: 12 },
+    { header: 'Ö.S.3Say', key: 'ozel_saha_3_say', width: 12 },
+    { header: 'Ö.S.4Say', key: 'ozel_saha_4_say', width: 12 },
+    { header: 'Ö.S.5Say', key: 'ozel_saha_5_say', width: 12 },
+    { header: 'Ö.S.6Say', key: 'ozel_saha_6_say', width: 12 },
+    { header: 'Ö.S.7Say', key: 'ozel_saha_7_say', width: 12 },
+    { header: 'Ö.S.8Say', key: 'ozel_saha_8_say', width: 12 },
+    { header: 'Ö.S.9Say', key: 'ozel_saha_9_say', width: 12 },
+    { header: 'Ö.S.10Say', key: 'ozel_saha_10_say', width: 12 },
+    { header: 'Ö.A.1', key: 'ozel_alan_1', width: 12 },
+    { header: 'Ö.A.2', key: 'ozel_alan_2', width: 12 },
+    { header: 'Ö.A.3', key: 'ozel_alan_3', width: 12 },
+    { header: 'Ö.A.4', key: 'ozel_alan_4', width: 12 },
+    { header: 'Ö.A.5', key: 'ozel_alan_5', width: 12 },
+    { header: 'Ö.A.6', key: 'ozel_alan_6', width: 12 },
+    { header: 'Ö.A.7', key: 'ozel_alan_7', width: 12 },
+    { header: 'Ö.A.8', key: 'ozel_alan_8', width: 12 },
+    { header: 'Ö.A.9', key: 'ozel_alan_9', width: 12 },
+    { header: 'Ö.A.10', key: 'ozel_alan_10', width: 12 },
+    { header: 'Not 1', key: 'not_1', width: 20 },
+    { header: 'Not 2', key: 'not_2', width: 20 },
+    { header: 'Not 3', key: 'not_3', width: 20 },
+    { header: 'Not 4', key: 'not_4', width: 20 },
+    { header: 'Note 1', key: 'note_1', width: 20 },
+    { header: 'Note 2', key: 'note_2', width: 20 },
+    { header: 'Note 3', key: 'note_3', width: 20 },
+    { header: 'Note 4', key: 'note_4', width: 20 },
+    { header: 'Ürt.Çev.Sür', key: 'uretim_cevirim_suresi', width: 15 },
+    { header: 'Parti Ol.Mi.', key: 'parti_olcum_miktari', width: 15 },
+    { header: 'Fire Oranı', key: 'fire_orani', width: 15 },
+    { header: 'İhtiyaç Hesabı', key: 'ihtiyac_hesabi', width: 15 },
+    { header: 'Planlamaya Dâhil', key: 'planlamaya_dahil', width: 15 },
+    { header: 'Y.Talep Oranı', key: 'y_talep_orani', width: 15 },
+    { header: 'Raf Ölçüleri', key: 'raf_olculeri', width: 15 },
+    { header: 'Kalite Not', key: 'kalite_not', width: 20 },
+    { header: 'Açıklama', key: 'aciklama', width: 30 },
+    { header: 'Etiket Kodu', key: 'etiket_kodu', width: 15 },
+    { header: 'Etiket Metni', key: 'etiket_metni', width: 20 },
+    { header: 'Etiket Metni (İng.)', key: 'etiket_metni_ing', width: 20 },
+    { header: 'Dur.Tut.', key: 'dur_tut', width: 10 },
+    { header: 'Hur.Sip', key: 'hur_sip', width: 10 },
+    { header: 'Hur.Lot', key: 'hur_lot', width: 10 },
+    { header: 'Sev.Onay', key: 'sev_onay', width: 10 },
+    { header: 'Gün.End', key: 'gun_end', width: 10 },
+    { header: 'Web.Onay', key: 'web_onay', width: 10 },
+    { header: 'Mas.Merk', key: 'mas_merk', width: 10 },
+    { header: 'Ok.Yaz.End.', key: 'ok_yaz_end', width: 15 },
+    { header: 'Men.Ülk.', key: 'men_ulk', width: 10 },
+    { header: 'G.T.İ.P', key: 'gtip', width: 15 },
+    { header: 'Kilogram', key: 'kilogram', width: 10 },
+    { header: 'GTIP Adı (T)', key: 'gtip_adi_t', width: 20 },
+    { header: 'GTIP Adı (E)', key: 'gtip_adi_e', width: 20 },
+    { header: 'GTIP Açk.', key: 'gtip_ack', width: 20 },
+    { header: 'G-Servis', key: 'g_servis', width: 12 },
+    { header: 'G-Kapasite', key: 'g_kapasite', width: 12 },
+    { header: 'G-PozSatış', key: 'g_poz_satis', width: 12 },
+    { header: 'G-Etiket', key: 'g_etiket', width: 12 },
+    { header: 'G-Krlt', key: 'g_krlt', width: 12 },
+    { header: 'Müş.Sip.Krl', key: 'mus_sip_krl', width: 15 },
+    { header: 'E-Fat.Tipi', key: 'e_fat_tipi', width: 12 },
+    { header: 'Vrs.Cd.', key: 'vrs_cd', width: 10 },
+    { header: 'Sür.G-Grup', key: 'sur_g_grup', width: 12 },
+    { header: 'Kur Cinsi', key: 'kur_cinsi', width: 12 },
+    { header: 'Gümrük Değeri', key: 'gumruk_degeri', width: 15 },
+    { header: 'Gümrük Birim', key: 'gumruk_birim', width: 15 },
+    { header: 'Gümrük Kıymet', key: 'gumruk_kiymet', width: 15 },
+    { header: 'Maliyet Yönt.', key: 'maliyet_yont', width: 15 },
+    { header: 'Vergi Istisnası', key: 'vergi_istisnasi', width: 15 },
+    { header: 'UTS Bil.', key: 'uts_bil', width: 12 },
+    { header: 'Dur', key: 'dur', width: 8 },
+    { header: 'Lot Tak', key: 'lot_tak', width: 12 },
+    { header: 'G-Oto Üret', key: 'g_oto_uret', width: 12 },
+    { header: 'KY Kuralı 1', key: 'ky_kurali_1', width: 12 },
+    { header: 'KY Kuralı 2', key: 'ky_kurali_2', width: 12 },
+    { header: 'KY Kuralı 3', key: 'ky_kurali_3', width: 12 },
+    { header: 'KY Kuralı 4', key: 'ky_kurali_4', width: 12 },
+    { header: 'KY Kuralı 5', key: 'ky_kurali_5', width: 12 },
+    { header: 'Parti Büt.', key: 'parti_but', width: 12 },
+    { header: 'Var. Analiz', key: 'var_analiz', width: 12 },
+    { header: 'Men.Şeh.', key: 'men_seh', width: 12 },
+    { header: 'Karş. Mas. Mrk', key: 'kars_mas_mrk', width: 15 },
+    { header: 'Dep.Pos', key: 'dep_pos', width: 10 },
+    { header: 'Teslim Lim.', key: 'teslim_lim', width: 12 },
+  ];
+
+  const receteColumns = [
+    { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
+    { header: 'Reçete Top.', key: 'recete_top', width: 12 },
+    { header: 'Fire Oranı (%)', key: 'fire_orani', width: 15 },
+    { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
+    { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
+    { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
+    { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
+    { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
+    { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
+    { header: 'Miktar(*)', key: 'miktar', width: 10 },
+    { header: 'Açıklama', key: 'aciklama', width: 35 },
+    { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
+    { header: 'Seri Girilecek', key: 'seri_girilecek', width: 15 },
+    { header: 'Alt Menü Üret', key: 'alt_menu_uret', width: 15 },
+    { header: 'Talep Oluşacak', key: 'talep_olusacak', width: 15 },
+    { header: 'İhtiyaç Değil', key: 'ihtiyac_degil', width: 15 },
+    { header: 'Rota İstasyon No', key: 'rota_istasyon_no', width: 17 },
+    { header: 'Hurda', key: 'hurda', width: 10 },
+    { header: 'İlk Miktar(*)', key: 'ilk_miktar', width: 12 },
+    { header: 'Son Miktar(*)', key: 'son_miktar', width: 12 },
+    { header: 'Opr.Krl.', key: 'opr_krl', width: 10 },
+    { header: 'Opr.Br.Kat', key: 'opr_br_kat', width: 12 },
+    { header: 'Opr.Br.', key: 'opr_br', width: 10 },
+    { header: 'F.M.Kar.Bel', key: 'fm_kar_bel', width: 12 },
+    { header: 'Miktar Maliyet', key: 'miktar_maliyet', width: 15 },
+    { header: 'Firma Alternatif', key: 'firma_alternatif', width: 17 },
+  ];
+
+  // Veri işleme yardımcı fonksiyonları
+  const formatMmGtData = (mmGt) => ({
+    stok_kodu: mmGt.stok_kodu,
+    stok_adi: mmGt.stok_adi.replace(/(\d+)\.(\d+)/g, '$1,$2'),
+    grup_kodu: '711', // MAMÜL - KANGAL
+    kod_1: 'HASIR',
+    kod_2: mmGt.kod_2, // ZN60 / ZN70 / ZN80 (kaplama türü)
+    cari_satici_kodu: '',
+    ingilizce_isim: (mmGt.stok_adi + ' WIRE').replace(/(\d+)\.(\d+)/g, '$1,$2'),
+    satici_ismi: '',
+    muh_detay: '411',
+    depo_kodu: '131',
+    br_1: 'KG',
+    br_2: 'KG',
+    crp_kt_1: '1',
+    crp_kt_2: '1',
+    kod_3: '',
+    kod_4: '',
+    kod_5: '',
+    pes_fiy: '0',
+    cri_fiy: '0',
+    lis_fiy: '0',
+    dov_sat: 'TRL',
+    ihr_fiy: '0',
+    dov_alis: 'TRL',
+    kdv: '10',
+    raf: '',
+    desi_kg: '0',
+    max: '999999',
+    min: '0',
+    al_sip: '',
+    ek_noktasi: '',
+    gereksinim: '0',
+    em_kts: '1', // Emniyet katsayısı
+    ka_yon: '1', // Kalite yönetimi
+    kal_yon: '1', // Kalınlık oranı?
+    uzn_boy: '0',
+    gn_boy: '0',
+    yuk_boy: '0',
+    ozel_saha_1_say: formatDecimal(mmGt.cap),
+    ozel_saha_1_carp: '',
+    ozel_saha_2_say: formatDecimal(mmGt.kaplama),
+    ozel_saha_3_say: formatDecimal(mmGt.min_mukavemet),
+    ozel_saha_4_say: formatDecimal(mmGt.max_mukavemet),
+    ozel_saha_5_say: formatDecimal(mmGt.tolerans_plus),
+    ozel_saha_6_say: formatDecimal(mmGt.tolerans_minus),
+    ozel_saha_7_say: '',
+    ozel_saha_8_say: '',
+    ozel_saha_9_say: '',
+    ozel_saha_10_say: '',
+    ozel_alan_1: mmGt.stok_kodu, // ÇAP
+    ozel_alan_2: '', // KATKI
+    ozel_alan_3: '', // MENŞE-PAKET TİPİ
+    ozel_alan_4: '', // ISIL İŞLEM
+    ozel_alan_5: '', // ANKARA
+    ozel_alan_6: mmGt.stok_kodu,
+    ozel_alan_7: '', // STOK ADI
+    ozel_alan_8: '', // MENŞE
+    ozel_alan_9: '', // REZERVE EDİLECEK
+    ozel_alan_10: '', // PARTI NO
+    not_1: 'ÇAP: ' + formatDecimal(mmGt.cap),
+    not_2: 'KAPLAMA GR/M2: ' + formatDecimal(mmGt.kaplama),
+    not_3: 'MİN MUKAVEMET: ' + formatDecimal(mmGt.min_mukavemet),
+    not_4: 'MAX MUKAVEMET: ' + formatDecimal(mmGt.max_mukavemet),
+    note_1: 'DIAMETER: ' + formatDecimal(mmGt.cap),
+    note_2: 'COATING GR/M2: ' + formatDecimal(mmGt.kaplama),
+    note_3: 'MIN STRENGTH: ' + formatDecimal(mmGt.min_mukavemet),
+    note_4: 'MAX STRENGTH: ' + formatDecimal(mmGt.max_mukavemet),
+    uretim_cevirim_suresi: '0',
+    parti_olcum_miktari: '0',
+    fire_orani: '0',
+    ihtiyac_hesabi: '0',
+    planlamaya_dahil: 'E',
+    y_talep_orani: '1',
+    raf_olculeri: '',
+    kalite_not: '',
+    aciklama: '',
+    etiket_kodu: '',
+    etiket_metni: '',
+    etiket_metni_ing: '',
+    dur_tut: '0',
+    hur_sip: '0',
+    hur_lot: '0',
+    sev_onay: '0',
+    gun_end: '0',
+    web_onay: '0',
+    mas_merk: '',
+    ok_yaz_end: '0',
+    men_ulk: 'TR',
+    gtip: '72172030000000',
+    kilogram: '1',
+    gtip_adi_t: 'GALVANİZLİ DEMİR/ÇELİK TELLER',
+    gtip_adi_e: 'GALVANIZED IRON/STEEL WIRE',
+    gtip_ack: 'Karbon < %0.25, 0.8mm < çap < 1.5mm',
+    g_servis: '0',
+    g_kapasite: '0',
+    g_poz_satis: '0',
+    g_etiket: '0',
+    g_krlt: '0',
+    mus_sip_krl: '0',
+    e_fat_tipi: '',
+    vrs_cd: '0',
+    sur_g_grup: '',
+    kur_cinsi: '',
+    gumruk_degeri: '0',
+    gumruk_birim: '',
+    gumruk_kiymet: '0',
+    maliyet_yont: '',
+    vergi_istisnasi: '',
+    uts_bil: '0',
+    dur: 'A',
+    lot_tak: '1',
+    g_oto_uret: '0',
+    ky_kurali_1: '0',
+    ky_kurali_2: '0',
+    ky_kurali_3: '0',
+    ky_kurali_4: '0',
+    ky_kurali_5: '0',
+    parti_but: '0',
+    var_analiz: '0',
+    men_seh: '',
+    kars_mas_mrk: '',
+    dep_pos: '0',
+    teslim_lim: '0',
+  });
+
+  const formatYmGtData = (ymGt) => ({
+    stok_kodu: ymGt.stok_kodu,
+    stok_adi: ymGt.stok_adi.replace(/^Galvanizli/, 'YM Galvanizli').replace(/(\d+)\.(\d+)/g, '$1,$2'),
+    grup_kodu: '731', // YARI MAMÜL - KANGAL
+    kod_1: 'HASIR',
+    kod_2: ymGt.kod_2, // ZN60 / ZN70 / ZN80 (kaplama türü)
+    cari_satici_kodu: '',
+    ingilizce_isim: (ymGt.stok_adi + ' WIRE').replace(/^Galvanizli/, 'YM Galvanizli').replace(/(\d+)\.(\d+)/g, '$1,$2'),
+    satici_ismi: '',
+    muh_detay: '411',
+    depo_kodu: '131',
+    br_1: 'KG',
+    br_2: 'KG',
+    crp_kt_1: '1',
+    crp_kt_2: '1',
+    kod_3: '',
+    kod_4: '',
+    kod_5: '',
+    pes_fiy: '0',
+    cri_fiy: '0',
+    lis_fiy: '0',
+    dov_sat: 'TRL',
+    ihr_fiy: '0',
+    dov_alis: 'TRL',
+    kdv: '10',
+    raf: '',
+    desi_kg: '0',
+    max: '0',
+    min: '0',
+    al_sip: '',
+    ek_noktasi: '',
+    gereksinim: '0',
+    em_kts: '1',
+    ka_yon: '1',
+    kal_yon: '1',
+    uzn_boy: '0',
+    gn_boy: '0',
+    yuk_boy: '0',
+    ozel_saha_1_say: formatDecimal(ymGt.cap),
+    ozel_saha_1_carp: '',
+    ozel_saha_2_say: formatDecimal(ymGt.kaplama),
+    ozel_saha_3_say: formatDecimal(ymGt.min_mukavemet),
+    ozel_saha_4_say: formatDecimal(ymGt.max_mukavemet),
+    ozel_saha_5_say: formatDecimal(ymGt.tolerans_plus),
+    ozel_saha_6_say: formatDecimal(ymGt.tolerans_minus),
+    ozel_saha_7_say: '',
+    ozel_saha_8_say: '',
+    ozel_saha_9_say: '',
+    ozel_saha_10_say: '',
+    ozel_alan_1: ymGt.stok_kodu,
+    ozel_alan_2: '',
+    ozel_alan_3: '',
+    ozel_alan_4: '',
+    ozel_alan_5: '',
+    ozel_alan_6: ymGt.stok_kodu,
+    ozel_alan_7: '',
+    ozel_alan_8: '',
+    ozel_alan_9: '',
+    ozel_alan_10: '',
+    not_1: 'ÇAP: ' + formatDecimal(ymGt.cap),
+    not_2: 'KAPLAMA GR/M2: ' + formatDecimal(ymGt.kaplama),
+    not_3: 'MİN MUKAVEMET: ' + formatDecimal(ymGt.min_mukavemet),
+    not_4: 'MAX MUKAVEMET: ' + formatDecimal(ymGt.max_mukavemet),
+    note_1: 'DIAMETER: ' + formatDecimal(ymGt.cap),
+    note_2: 'COATING GR/M2: ' + formatDecimal(ymGt.kaplama),
+    note_3: 'MIN STRENGTH: ' + formatDecimal(ymGt.min_mukavemet),
+    note_4: 'MAX STRENGTH: ' + formatDecimal(ymGt.max_mukavemet),
+    uretim_cevirim_suresi: '0',
+    parti_olcum_miktari: '0',
+    fire_orani: '0',
+    ihtiyac_hesabi: '0',
+    planlamaya_dahil: '',
+    y_talep_orani: '1',
+    raf_olculeri: '',
+    kalite_not: '',
+    aciklama: '',
+    etiket_kodu: '',
+    etiket_metni: '',
+    etiket_metni_ing: '',
+    dur_tut: '0',
+    hur_sip: '0',
+    hur_lot: '0',
+    sev_onay: '0',
+    gun_end: '0',
+    web_onay: '0',
+    mas_merk: '',
+    ok_yaz_end: '0',
+    men_ulk: 'TR',
+    gtip: '72172030000000',
+    kilogram: '1',
+    gtip_adi_t: 'GALVANİZLİ DEMİR/ÇELİK TELLER',
+    gtip_adi_e: 'GALVANIZED IRON/STEEL WIRE',
+    gtip_ack: 'Karbon < %0.25, 0.8mm < çap < 1.5mm',
+    g_servis: '0',
+    g_kapasite: '0',
+    g_poz_satis: '0',
+    g_etiket: '0',
+    g_krlt: '0',
+    mus_sip_krl: '0',
+    e_fat_tipi: '',
+    vrs_cd: '0',
+    sur_g_grup: '',
+    kur_cinsi: '',
+    gumruk_degeri: '0',
+    gumruk_birim: '',
+    gumruk_kiymet: '0',
+    maliyet_yont: '',
+    vergi_istisnasi: '',
+    uts_bil: '0',
+    dur: 'A',
+    lot_tak: '1',
+    g_oto_uret: '0',
+    ky_kurali_1: '0',
+    ky_kurali_2: '0',
+    ky_kurali_3: '0',
+    ky_kurali_4: '0',
+    ky_kurali_5: '0',
+    parti_but: '0',
+    var_analiz: '0',
+    men_seh: '',
+    kars_mas_mrk: '',
+    dep_pos: '0',
+    teslim_lim: '0',
+  });
+
+  const formatYmStData = (ymSt) => {
+    // ÇAP değerine göre Özel Saha1 değerini ayarla
+    let ozelSaha1Say = 0;
+    const capValue = parseFloat(ymSt.cap);
+
+    if (capValue < 2) {
+      ozelSaha1Say = 1;
+    } else if (capValue < 3) {
+      ozelSaha1Say = 2;
+    } else if (capValue < 4) {
+      ozelSaha1Say = 3;
+    } else if (capValue < 5) {
+      ozelSaha1Say = 4;
+    } else if (capValue < 6) {
+      ozelSaha1Say = 5;
+    } else if (capValue < 7) {
+      ozelSaha1Say = 6;
+    } else if (capValue < 8) {
+      ozelSaha1Say = 7;
+    } else if (capValue < 9) {
+      ozelSaha1Say = 8;
+    } else if (capValue < 10) {
+      ozelSaha1Say = 9;
+    } else {
+      ozelSaha1Say = 10;
+    }
+
+    return {
+      stok_kodu: ymSt.stok_kodu,
+      stok_adi: ymSt.stok_adi.startsWith('YM Siyah Tel') ? ymSt.stok_adi : `YM Siyah Tel ${ymSt.stok_kodu.substring(6, 10)} mm HM:${ymSt.stok_kodu.substring(11, 22)}`,
+      grup_kodu: '731', // YARI MAMÜL - KANGAL
+      kod_1: 'HASIR',
+      kod_2: 'ST', // Siyah Tel
+      cari_satici_kodu: '',
+      ingilizce_isim: (ymSt.stok_adi.startsWith('YM Siyah Tel') ? ymSt.stok_adi : `YM Siyah Tel ${ymSt.stok_kodu.substring(6, 10)} mm HM:${ymSt.stok_kodu.substring(11, 22)}`) + ' WIRE',
+      satici_ismi: '',
+      muh_detay: '411',
+      depo_kodu: '131',
+      br_1: 'KG',
+      br_2: 'KG',
+      crp_kt_1: '1',
+      crp_kt_2: '1',
+      kod_3: '',
+      kod_4: '',
+      kod_5: '',
+      pes_fiy: '0',
+      cri_fiy: '0',
+      lis_fiy: '0',
+      dov_sat: 'TRL',
+      ihr_fiy: '0',
+      dov_alis: 'TRL',
+      kdv: '10',
+      raf: '',
+      desi_kg: '0',
+      max: '0',
+      min: '0',
+      al_sip: '',
+      ek_noktasi: '',
+      gereksinim: '0',
+      em_kts: '1',
+      ka_yon: '1',
+      kal_yon: '1',
+      uzn_boy: '0',
+      gn_boy: '0',
+      yuk_boy: '0',
+      ozel_saha_1_say: ozelSaha1Say,
+      ozel_saha_1_carp: '',
+      ozel_saha_2_say: '',
+      ozel_saha_3_say: formatDecimal(ymSt.min_mukavemet),
+      ozel_saha_4_say: formatDecimal(ymSt.max_mukavemet),
+      ozel_saha_5_say: '',
+      ozel_saha_6_say: '',
+      ozel_saha_7_say: '',
+      ozel_saha_8_say: '',
+      ozel_saha_9_say: '',
+      ozel_saha_10_say: '',
+      ozel_alan_1: ymSt.stok_kodu,
+      ozel_alan_2: '',
+      ozel_alan_3: '',
+      ozel_alan_4: '',
+      ozel_alan_5: '',
+      ozel_alan_6: ymSt.stok_kodu,
+      ozel_alan_7: '',
+      ozel_alan_8: '',
+      ozel_alan_9: '',
+      ozel_alan_10: '',
+      not_1: 'ÇAP: ' + formatDecimal(ymSt.cap),
+      not_2: '',
+      not_3: 'MİN MUKAVEMET: ' + formatDecimal(ymSt.min_mukavemet),
+      not_4: 'MAX MUKAVEMET: ' + formatDecimal(ymSt.max_mukavemet),
+      note_1: 'DIAMETER: ' + formatDecimal(ymSt.cap),
+      note_2: '',
+      note_3: 'MIN STRENGTH: ' + formatDecimal(ymSt.min_mukavemet),
+      note_4: 'MAX STRENGTH: ' + formatDecimal(ymSt.max_mukavemet),
+      uretim_cevirim_suresi: '0',
+      parti_olcum_miktari: '0',
+      fire_orani: '0',
+      ihtiyac_hesabi: '0',
+      planlamaya_dahil: '',
+      y_talep_orani: '1',
+      raf_olculeri: '',
+      kalite_not: '',
+      aciklama: '',
+      etiket_kodu: '',
+      etiket_metni: '',
+      etiket_metni_ing: '',
+      dur_tut: '0',
+      hur_sip: '0',
+      hur_lot: '0',
+      sev_onay: '0',
+      gun_end: '0',
+      web_onay: '0',
+      mas_merk: '',
+      ok_yaz_end: '0',
+      men_ulk: 'TR',
+      gtip: '72171080000000',
+      kilogram: '1',
+      gtip_adi_t: 'DEMİR/ÇELİK TELLER-KAPLANMAMIŞ',
+      gtip_adi_e: 'IRON/STEEL WIRE-NOT COATED',
+      gtip_ack: 'Karbon < %0.25, 0.8mm < çap',
+      g_servis: '0',
+      g_kapasite: '0',
+      g_poz_satis: '0',
+      g_etiket: '0',
+      g_krlt: '0',
+      mus_sip_krl: '0',
+      e_fat_tipi: '',
+      vrs_cd: '0',
+      sur_g_grup: '',
+      kur_cinsi: '',
+      gumruk_degeri: '0',
+      gumruk_birim: '',
+      gumruk_kiymet: '0',
+      maliyet_yont: '',
+      vergi_istisnasi: '',
+      uts_bil: '0',
+      dur: 'A',
+      lot_tak: '1',
+      g_oto_uret: '0',
+      ky_kurali_1: '0',
+      ky_kurali_2: '0',
+      ky_kurali_3: '0',
+      ky_kurali_4: '0',
+      ky_kurali_5: '0',
+      parti_but: '0',
+      var_analiz: '0',
+      men_seh: '',
+      kars_mas_mrk: '',
+      dep_pos: '0',
+      teslim_lim: '0',
+    };
+  };
+
+  const createStokKartiExcel = async (mmGt, ymGt, ymStList) => {
+    // Excel workbook oluştur
+    const workbook = new ExcelJS.Workbook();
+
+    // Sayfaları oluştur ve kolon tanımlarını ayarla
+    const mmGtSheet = setupWorksheet(workbook, 'MM GT', mmGtColumns);
+    const ymGtSheet = setupWorksheet(workbook, 'YM GT', mmGtColumns);
+    const ymStSheet = setupWorksheet(workbook, 'YM ST', mmGtColumns);
+
+    try {
+      // MM GT verisini ekle
+      mmGtSheet.addRow(formatMmGtData(mmGt));
+
+      // YM GT verisini ekle
+      ymGtSheet.addRow(formatYmGtData(ymGt));
+
+      // YM ST verilerini ekle
+      for (const ymSt of ymStList) {
+        ymStSheet.addRow(formatYmStData(ymSt));
+      }
+
+      // Stilleri uygula
+      applyWorksheetStyles([mmGtSheet, ymGtSheet, ymStSheet]);
+
+      // Excel'i indir
+      return await saveExcelFile(workbook, `StokKarti_${mmGt.stok_kodu.replace(/\./g, '_')}.xlsx`);
+    } catch (error) {
+      console.error("Excel oluşturulurken hata: ", error);
+      toast.error("Excel dosyası oluşturulurken bir hata oluştu.");
+      return false;
+    }
+  };
 
 const createReceteExcel = async (mmGt, ymGt, ymStList) => {
   // Excel workbook oluştur
@@ -4847,12 +4913,12 @@ const GalvanizliTelNetsis = () => {
   // Veritabanı verilerini filtrele
   useEffect(() => {
     filterDatabaseItems();
-  }, [databaseFilter, productDatabase]);
+  }, [databaseFilter, productDatabase, filterDatabaseItems]);
 
   // Talep listesini filtrele
   useEffect(() => {
     filterTalepItems();
-  }, [talepFilter, talepList]);
+  }, [talepFilter, talepList, filterTalepItems]);
 
   // filteredYmStList ayarla
   useEffect(() => {
@@ -4870,12 +4936,12 @@ const GalvanizliTelNetsis = () => {
         window.API_URLS.galTalepCount = `${apiRoot}/api/gal_cost_cal_sal_requests/count`;
       }
     }
-    
+
     // Talep listesini yükle
     if (activePage === 'talepler') {
       fetchTalepList();
     }
-  }, []);
+  }, [activePage, fetchTalepList]);
 
   // Sayfa yüklendiğinde ve mmGtData değiştiğinde form değerlerini güncelle
   useEffect(() => {
@@ -4920,7 +4986,10 @@ const GalvanizliTelNetsis = () => {
         updateReceteGosterimValues(receteData, mmGtData.kg || 750);
       }
     }
-  }, [mmGtData, isEditMode, receteData, sequence]);
+  }, [mmGtData, isEditMode, receteData, sequence, initialReceteValues,
+     calculateCelikCemberTuketimi, calculateCemberTokasiTuketimi,
+     calculateKaldirmaKancasiTuketimi, calculateKartonTuketimi,
+     calculateNaylonTuketimi, updateReceteGosterimValues]);
 
   // Reçete görüntüleme değerlerini güncelle
   const updateReceteGosterimValues = (receteData, kg) => {
