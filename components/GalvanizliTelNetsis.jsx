@@ -231,10 +231,10 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       try {
         // Bekleyen talep sayısını al
-        pendingRes = await fetchWithAuth('/api/gal_sal_requests/count?status=pending');
+        pendingRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count?status=pending`);
         
         // Toplam talep sayısını al
-        allRes = await fetchWithAuth('/api/gal_sal_requests/count');
+        allRes = await fetchWithAuth(`${API_URLS.galSalRequests}/count`);
       } catch (error) {
         console.warn('Talep sayısı endpoint erişimi hatası:', error);
         setTalepCount({ pending: 0, all: 0 });
@@ -670,7 +670,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       await saveRecete(receteData, savedMmGt.id, savedYmGt.id);
       
       // Talebi onayla
-      const updateResponse = await fetchWithAuth(`/api/gal_sal_requests/${talepId}/approve`, {
+      const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3809,17 +3809,15 @@ export const GalvanizliTelProvider = ({ children }) => {
   };
 
   // Reçete Excel oluşturma fonksiyonu - Netsis formatına uygun şekilde revize edildi
-// Updated createReceteExcel function with exact format matching
-// Replace the existing createReceteExcel function with this implementation
 
 const createReceteExcel = async (mmGt, ymGt, ymStList) => {
   // Excel workbook oluştur
   const workbook = new ExcelJS.Workbook();
 
-  // ============== MM GT REÇETE SAYFASI (exactly 8 rows) ==============
+  // ============== MM GT REÇETE SAYFASI (tam olarak 8 satır) ==============
   const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
 
-  // MM GT REÇETE başlıkları - from the exact format
+  // MM GT REÇETE başlıkları - tam formattan alındı
   mmGtReceteSheet.columns = [
     { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
     { header: 'Reçete Top.', key: 'recete_top', width: 12 },
@@ -4170,7 +4168,7 @@ const createReceteExcel = async (mmGt, ymGt, ymStList) => {
     });
   }
 
-  // ============== YM GT REÇETE SAYFASI (exactly 4 rows) ==============
+  // ============== YM GT REÇETE SAYFASI (tam olarak 4 satır) ==============
   const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
 
   // YM GT REÇETE başlıkları - aynı başlıkları kullan
@@ -4371,7 +4369,7 @@ const createReceteExcel = async (mmGt, ymGt, ymStList) => {
     });
   }
 
-  // ============== YM ST REÇETE SAYFASI (exactly 2 rows for each YM ST) ==============
+  // ============== YM ST REÇETE SAYFASI (her YM ST için tam olarak 2 satır) ==============
   const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
 
   // YM ST REÇETE başlıkları - aynı başlıkları kullan
