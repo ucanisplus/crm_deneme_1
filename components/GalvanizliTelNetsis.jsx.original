@@ -1743,12 +1743,10 @@ export const GalvanizliTelProvider = ({ children }) => {
   const autoSelectYmSt = async (values) => {
     try {
       setLoading(true);
-
-      toast.info('YM ST önerileri oluşturuluyor...', { autoClose: 2000 });
-
+      
       // Mevcut YM ST'leri temizle
       setSelectedYmSt([]);
-
+      
       // Ürün tipi ve çapına göre YM ST önerileri bul
       const capValue = parseFloat(values.cap);
       const kod2 = values.kod_2;
@@ -2432,18 +2430,18 @@ export const GalvanizliTelProvider = ({ children }) => {
       // AMB.ÇEM.KARTON.GAL: (8*(1000/coilWeight))/1000
       const kartonMiktar = (8 * (1000 / coilWeight)) / 1000;
       
-      // Reçete öğelerini oluştur - MM GT için doğru kategorizasyon
+      // Reçete öğelerini oluştur
       const receteItems = [
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'KG',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: ymGt.stok_kodu,
           olcu_br_bilesen: '1',
-          miktar: "1",
+          miktar: 1,
           aciklama: 'Galvanizli Tel Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2451,30 +2449,30 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'DK',
           sira_no: 2,
           operasyon_bilesen: 'Operasyon',
-          bilesen_kodu: 'GTPKT01', // MM GT Reçete kategori
+          bilesen_kodu: 'GTPKT01',
           olcu_br_bilesen: '1',
-          miktar: receteData ? parseFloat(receteData.paketleme_suresi).toString() : "0.0125",
+          miktar: receteData ? parseFloat(receteData.paketleme_suresi) : 0.02,
           aciklama: 'Paketleme Operasyonu',
-          uretim_suresi: receteData ? parseFloat(receteData.paketleme_suresi) : 0.0125,
+          uretim_suresi: receteData ? parseFloat(receteData.paketleme_suresi) : 0.02,
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           mm_gt_id: mmGtId
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'AD',
           sira_no: 3,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'AMB.ÇEM.KARTON.GAL', // MM GT Reçete kategori
+          bilesen_kodu: 'AMB.ÇEM.KARTON.GAL',
           olcu_br_bilesen: '1',
-          miktar: "0.01",
+          miktar: kartonMiktar,
           aciklama: 'Karton Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2482,29 +2480,29 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'KG',
           sira_no: 4,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'AMB.SHRİNK.200*140CM', // MM GT Reçete kategori
+          bilesen_kodu: mmGt.amb_shrink,
           olcu_br_bilesen: '1',
-          miktar: "0.00125",
-          aciklama: 'Naylon Tüketim Miktarı (Shrink)',
+          miktar: naylonMiktar,
+          aciklama: 'Naylon Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           mm_gt_id: mmGtId
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'AD',
           sira_no: 5,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'SM.7MMHALKA', // MM GT Reçete kategori
+          bilesen_kodu: 'SM.7MMHALKA',
           olcu_br_bilesen: '1',
-          miktar: "0.005",
+          miktar: halkaMiktar,
           aciklama: 'Kaldırma Kancası Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2512,14 +2510,14 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'KG',
           sira_no: 6,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'AMB.APEX CEMBER 38X080', // MM GT Reçete kategori
+          bilesen_kodu: 'AMB.APEX CEMBER 38X080',
           olcu_br_bilesen: '1',
-          miktar: "0.0015",
+          miktar: cemberMiktar,
           aciklama: 'Çelik çember Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2527,14 +2525,14 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'AD',
           sira_no: 7,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'AMB.TOKA.SIGNODE.114P. DKP', // MM GT Reçete kategori
+          bilesen_kodu: 'AMB.TOKA.SIGNODE.114P. DKP',
           olcu_br_bilesen: '1',
-          miktar: "0.005",
+          miktar: tokaMiktar,
           aciklama: 'Çember Tokası Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2542,12 +2540,12 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: mmGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0.0004",
+          recete_top: 1,
+          fire_orani: 0.0004,
           olcu_br: 'AD',
           sira_no: 8,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'SM.DESİ.PAK', // MM GT Reçete kategori
+          bilesen_kodu: 'SM.DESİ.PAK',
           olcu_br_bilesen: '1',
           miktar: receteData ? parseFloat(receteData.desi_tuketimi) : 0.002,
           aciklama: 'Slikajel Tüketim Miktarı',
@@ -2734,48 +2732,33 @@ export const GalvanizliTelProvider = ({ children }) => {
       const finalPaketlemeSuresi = receteData ? parseFloat(receteData.paketleme_suresi) : paketlemeSuresi;
       const finalGalvanizlemeSuresi = receteData ? parseFloat(receteData.galvanizleme_suresi) : galvanizlemeSuresi;
 
-      // Reçete öğelerini oluştur - YM GT için doğru kategorizasyon
+      // Reçete öğelerini oluştur
       const receteItems = [
         {
           mamul_kodu: ymGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0",
+          recete_top: 1,
+          fire_orani: 0.002,
           olcu_br: 'KG',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: primaryYmSt.stok_kodu, // YM GT Reçete kategori
+          bilesen_kodu: primaryYmSt.stok_kodu,
           olcu_br_bilesen: '1',
-          miktar: "1",
-          aciklama: 'Galvanizli Tel Tüketim Miktarı',
+          miktar: 1,
+          aciklama: 'Siyah Tel Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           ym_gt_id: ymGtId
         },
         {
           mamul_kodu: ymGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0",
+          recete_top: 1,
+          fire_orani: 0.002,
           olcu_br: 'KG',
           sira_no: 2,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'GLV01', // YM GT Reçete kategori
+          bilesen_kodu: '150 03',
           olcu_br_bilesen: '1',
-          miktar: finalGalvanizlemeSuresi.toString(),
-          aciklama: 'Galvanizleme Operasyonu',
-          ua_dahil_edilsin: 'evet',
-          son_operasyon: 'evet',
-          ym_gt_id: ymGtId
-        },
-        {
-          mamul_kodu: ymGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0",
-          olcu_br: 'KG',
-          sira_no: 3,
-          operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: '150 03', // YM GT Reçete kategori
-          olcu_br_bilesen: '1',
-          miktar: finalBoraksTuketimi.toString(),
+          miktar: finalBoraksTuketimi,
           aciklama: 'Çinko Tüketim Miktarı',
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
@@ -2783,15 +2766,62 @@ export const GalvanizliTelProvider = ({ children }) => {
         },
         {
           mamul_kodu: ymGt.stok_kodu,
-          recete_top: "1",
-          fire_orani: "0",
+          recete_top: 1,
+          fire_orani: 0.002,
+          olcu_br: 'KG',
+          sira_no: 3,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: 'SM.HİDROLİK.ASİT',
+          olcu_br_bilesen: '1',
+          miktar: finalAsitTuketimi,
+          aciklama: 'Asit Tüketim Miktarı',
+          ua_dahil_edilsin: 'evet',
+          son_operasyon: 'evet',
+          ym_gt_id: ymGtId
+        },
+        {
+          mamul_kodu: ymGt.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0.002,
           olcu_br: 'KG',
           sira_no: 4,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'SM.HİDROLİK.ASİT', // YM GT Reçete kategori
+          bilesen_kodu: 'SM.DESİ.PAK',
           olcu_br_bilesen: '1',
-          miktar: finalAsitTuketimi.toString(),
-          aciklama: 'Asit Tüketim Miktarı',
+          miktar: finalDesiTuketimi,
+          aciklama: 'Desisifiye Tüketim Miktarı',
+          ua_dahil_edilsin: 'evet',
+          son_operasyon: 'evet',
+          ym_gt_id: ymGtId
+        },
+        {
+          mamul_kodu: ymGt.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0.002,
+          olcu_br: 'DK',
+          sira_no: 5,
+          operasyon_bilesen: 'Operasyon',
+          bilesen_kodu: 'GTPKT01',
+          olcu_br_bilesen: '1',
+          miktar: finalPaketlemeSuresi,
+          aciklama: 'Paketleme Operasyonu',
+          uretim_suresi: finalPaketlemeSuresi,
+          ua_dahil_edilsin: 'evet',
+          son_operasyon: 'evet',
+          ym_gt_id: ymGtId
+        },
+        {
+          mamul_kodu: ymGt.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0.002,
+          olcu_br: 'DK',
+          sira_no: 6,
+          operasyon_bilesen: 'Operasyon',
+          bilesen_kodu: 'GLV01',
+          olcu_br_bilesen: '1',
+          miktar: finalGalvanizlemeSuresi,
+          aciklama: 'Galvanizleme Operasyonu',
+          uretim_suresi: finalGalvanizlemeSuresi,
           ua_dahil_edilsin: 'evet',
           son_operasyon: 'evet',
           ym_gt_id: ymGtId
@@ -2944,29 +2974,29 @@ export const GalvanizliTelProvider = ({ children }) => {
         filmasinKod = filmasinCods[0];
       }
 
-      // Reçete öğelerini oluştur - YM ST için doğru kategorizasyon
+      // Reçete öğelerini oluştur
       const receteItems = [
         {
           mamul_kodu: ymSt.stok_kodu,
-          recete_top: "1",
+          recete_top: 1,
           olcu_br: 'KG',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: filmasinKod, // YM ST Reçete kategori: "Filmaşin"
+          bilesen_kodu: filmasinKod,
           olcu_br_bilesen: '1',
-          miktar: "1",
+          miktar: 1,
           aciklama: 'Filmaşin Tüketimi',
           ym_st_id: ymStId
         },
         {
           mamul_kodu: ymSt.stok_kodu,
-          recete_top: "1",
+          recete_top: 1,
           olcu_br: 'DK',
           sira_no: 2,
           operasyon_bilesen: 'Operasyon',
-          bilesen_kodu: 'TLC01', // YM ST Reçete kategori
+          bilesen_kodu: 'TLC01',
           olcu_br_bilesen: '1',
-          miktar: telCekmeSuresi.toString(),
+          miktar: telCekmeSuresi,
           aciklama: 'Tel Çekme Operasyonu',
           uretim_suresi: telCekmeSuresi,
           ym_st_id: ymStId
@@ -3150,7 +3180,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // MM GT başlıkları
     mmGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 20 },
       { header: 'Stok Adı', key: 'stok_adi', width: 50 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -3245,12 +3275,12 @@ export const GalvanizliTelProvider = ({ children }) => {
     // MM GT verisini doğru formatlanmış olarak ekle
     const mmGtRow = {
       stok_kodu: mmGt.stok_kodu,
-      stok_adi: mmGt.stok_adi.replace(/(\d+)\.(\d+)/g, '$1,$2'),
+      stok_adi: mmGt.stok_adi,
       grup_kodu: mmGt.grup_kodu,
       kod_1: mmGt.kod_1,
       kod_2: mmGt.kod_2,
       cari_satici_kodu: mmGt.cari_satici_kodu || "",
-      ingilizce_isim: mmGt.ingilizce_isim ? mmGt.ingilizce_isim.replace(/(\d+)\.(\d+)/g, '$1,$2') : "",
+      ingilizce_isim: mmGt.ingilizce_isim || "",
       satici_ismi: mmGt.satici_ismi || "",
       muh_detay: mmGt.muh_detay,
       depo_kodu: mmGt.depo_kodu,
@@ -3263,7 +3293,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       cevrim_pay_2: 1, // Tam sayı
       cevrim_payda_2: 1, // Tam sayı
       cevrim_degeri_2: 1, // Tam sayı
-      cap: mmGt.cap ? parseFloat(mmGt.cap).toFixed(2).replace('.', ',') : '',
+      cap: mmGt.cap,
       kaplama: mmGt.kaplama,
       min_mukavemet: mmGt.min_mukavemet,
       max_mukavemet: mmGt.max_mukavemet,
@@ -3272,8 +3302,8 @@ export const GalvanizliTelProvider = ({ children }) => {
       dis_cap: mmGt.dis_cap,
       cap2: mmGt.cap2 || "",
       shrink: mmGt.shrink,
-      tolerans_plus: mmGt.tolerans_plus ? parseFloat(mmGt.tolerans_plus).toFixed(2).replace('.', ',') : '0,00', // Virgüllü ve ilgili sayıda sıfır ile
-      tolerans_minus: mmGt.tolerans_minus ? parseFloat(mmGt.tolerans_minus).toFixed(2).replace('.', ',') : '0,00',
+      tolerans_plus: parseFloat(mmGt.tolerans_plus) || 0, // Sayısal değer olarak formatla
+      tolerans_minus: parseFloat(mmGt.tolerans_minus) || 0,
       ebat_en: mmGt.ebat_en || "",
       goz_araligi: mmGt.goz_araligi || "",
       ebat_boy: mmGt.ebat_boy || "",
@@ -3343,7 +3373,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // YM GT başlıkları
     ymGtSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 22 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 22 },
       { header: 'Stok Adı', key: 'stok_adi', width: 50 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -3420,12 +3450,12 @@ export const GalvanizliTelProvider = ({ children }) => {
     // YM GT verisini ekle
     const ymGtRow = {
       stok_kodu: ymGt.stok_kodu,
-      stok_adi: ymGt.stok_adi.replace(/^Galvanizli/, 'YM Galvanizli').replace(/(\d+)\.(\d+)/g, '$1,$2'),
+      stok_adi: ymGt.stok_adi,
       grup_kodu: ymGt.grup_kodu,
       kod_1: ymGt.kod_1,
       kod_2: ymGt.kod_2,
       cari_satici_kodu: ymGt.cari_satici_kodu || "",
-      ingilizce_isim: ymGt.ingilizce_isim ? ymGt.ingilizce_isim.replace(/(\d+)\.(\d+)/g, '$1,$2') : "",
+      ingilizce_isim: ymGt.ingilizce_isim || "",
       satici_ismi: ymGt.satici_ismi || "",
       muh_detay: ymGt.muh_detay,
       depo_kodu: ymGt.depo_kodu,
@@ -3433,7 +3463,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       br_2: ymGt.br_2,
       pay_1: 1, // Tam sayı
       payda_1: 1000, // Tam sayı
-      cevrim_degeri_1: "0", // YM GT için 0 olmalı
+      cevrim_degeri_1: 0.001, // Decimal değer
       olcu_br_3: ymGt.olcu_br_3 || "",
       cevrim_pay_2: 1, // Tam sayı
       cevrim_payda_2: 1, // Tam sayı
@@ -3500,7 +3530,7 @@ export const GalvanizliTelProvider = ({ children }) => {
     
     // YM ST başlıkları
     ymStSheet.columns = [
-      { header: 'Stok Kodu', key: 'stok_kodu', width: 24 },
+      { header: 'Stok Kodu(*)', key: 'stok_kodu', width: 24 },
       { header: 'Stok Adı', key: 'stok_adi', width: 40 },
       { header: 'Grup Kodu', key: 'grup_kodu', width: 12 },
       { header: 'Kod-1', key: 'kod_1', width: 10 },
@@ -3582,7 +3612,7 @@ export const GalvanizliTelProvider = ({ children }) => {
       
       const ymStRow = {
         stok_kodu: ymSt.stok_kodu,
-        stok_adi: ymSt.stok_adi.startsWith('YM Siyah Tel') ? ymSt.stok_adi : `YM Siyah Tel  ${ymSt.stok_kodu.substring(6, 10)} mm HM:${ymSt.stok_kodu.substring(11, 22)}`,
+        stok_adi: ymSt.stok_adi,
         grup_kodu: ymSt.grup_kodu,
         kod_1: ymSt.kod_1,
         kod_2: ymSt.kod_2 || "",
@@ -3695,16 +3725,16 @@ export const GalvanizliTelProvider = ({ children }) => {
 
     // MM GT REÇETE başlıkları
     mmGtReceteSheet.columns = [
-      { header: 'Mamul Kodu', key: 'mamul_kodu', width: 22 },
+      { header: 'Mamul Kodu(*)', key: 'mamul_kodu', width: 22 },
       { header: 'Reçete Top.', key: 'recete_top', width: 12 },
       { header: 'Fire Oranı (%)', key: 'fire_orani', width: 12 },
       { header: 'Oto.Reç.', key: 'oto_rec', width: 10 },
       { header: 'Ölçü Br.', key: 'olcu_br', width: 10 },
-      { header: 'Sıra No', key: 'sira_no', width: 10 },
+      { header: 'Sıra No(*)', key: 'sira_no', width: 10 },
       { header: 'Operasyon Bileşen', key: 'operasyon_bilesen', width: 18 },
-      { header: 'Bileşen Kodu', key: 'bilesen_kodu', width: 18 },
+      { header: 'Bileşen Kodu(*)', key: 'bilesen_kodu', width: 18 },
       { header: 'Ölçü Br. - Bileşen', key: 'olcu_br_bilesen', width: 18 },
-      { header: 'Miktar', key: 'miktar', width: 10 },
+      { header: 'Miktar(*)', key: 'miktar', width: 10 },
       { header: 'Açıklama', key: 'aciklama', width: 35 },
       { header: 'Miktar Sabitle', key: 'miktar_sabitle', width: 15 },
       { header: 'Stok/Maliyet', key: 'stok_maliyet', width: 15 },
@@ -5300,11 +5330,9 @@ const GalvanizliTelNetsis = () => {
         const savedYmGt = await saveYMGT(formValues, savedMmGt.id);
 
         if (savedYmGt) {
-          // 1-to-1-to-1 ilişki modeli: Her MM GT için yalnızca bir YM ST kaydet
-          if (uniqueYmSt.length > 0) {
-            // Sadece ilk YM ST'yi kaydet
-            await saveYMST(uniqueYmSt[0], savedMmGt.id);
-          }
+          // Seçilen YM ST'leri paralel olarak kaydet (performans optimizasyonu)
+          const ymStPromises = uniqueYmSt.map(ymSt => saveYMST(ymSt, savedMmGt.id));
+          await Promise.all(ymStPromises);
 
           // Reçeteleri kaydet
           await saveRecete(receteFormValues, savedMmGt.id, savedYmGt.id);
@@ -6029,21 +6057,12 @@ const GalvanizliTelNetsis = () => {
                 <div className="bg-gray-50 p-4 rounded-md">
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-md font-semibold">YM ST Bilgileri</h4>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => autoSelectYmSt(formValues)}
-                        type="button"
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        Otomatik Oluştur
-                      </button>
-                      <button
-                        onClick={handleEditYmSt}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Düzenle
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleEditYmSt}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Düzenle
+                    </button>
                   </div>
                   
                   {selectedYmSt.length > 0 ? (
