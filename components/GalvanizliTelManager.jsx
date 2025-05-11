@@ -2296,5 +2296,6 @@ const GalvanizliTelManager = () => {
       )}
     </div>
   );
+};
 
 export default GalvanizliTelManager;
