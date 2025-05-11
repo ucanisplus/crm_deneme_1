@@ -4835,8 +4835,8 @@ const GalvanizliTelNetsis = () => {
       const apiRoot = window.location.origin;
       // API URL'lerini güncelle - API dosyasında tanımlanmışsa
       if (window.API_URLS) {
-        window.API_URLS.galTalepList = `${apiRoot}/api/gal_sal_requests`;
-        window.API_URLS.galTalepCount = `${apiRoot}/api/gal_sal_requests/count`;
+        window.API_URLS.galTalepList = `${apiRoot}/api/gal_cost_cal_sal_requests`;
+        window.API_URLS.galTalepCount = `${apiRoot}/api/gal_cost_cal_sal_requests/count`;
       }
     }
     
