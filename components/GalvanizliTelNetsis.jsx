@@ -278,7 +278,11 @@ export const GalvanizliTelProvider = ({ children }) => {
       // API isteği gönderme
       let response;
       try {
+        // Fix: Use the correct API endpoint for talep details
         response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}`);
+
+        // Debug log to verify the request and response
+        console.log(`Fetching talep details: ${API_URLS.galSalRequests}/${talepId}`, response);
       } catch (error) {
         const errorMessage = `Talep detayları alınamadı: ${error.message || 'Bağlantı hatası'}`;
         console.error('Talep detayları endpoint erişimi hatası:', error);
@@ -602,21 +606,37 @@ export const GalvanizliTelProvider = ({ children }) => {
   const approveTalep = useCallback(async (talepId) => {
     try {
       setLoading(true);
+      console.log('Starting approveTalep for talepId:', talepId);
 
       // Talep bilgilerini al
+      console.log('Selected talep state:', selectedTalep);
       const talepData = selectedTalep || await fetchTalepDetails(talepId);
+
       if (!talepData) {
-        throw new Error('Talep bilgileri alınamadı');
+        const errorMsg = 'Talep bilgileri alınamadı';
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
 
+      console.log('Talep data for approval:', talepData);
+
       // Talebi onayla - API isteği gönder
+      console.log(`Sending approve request to: ${API_URLS.galSalRequests}/${talepId}/approve`);
       const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}/approve`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'approved' })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'approved',
+          processed_by: user?.id || 'system'
+        })
       });
 
+      console.log('Approve API response:', response);
+
       if (!response || !response.ok) {
-        throw new Error('Talep onaylanamadı');
+        const responseText = await response?.text();
+        console.error('Response error:', responseText);
+        throw new Error(`Talep onaylanamadı: ${response?.status} - ${responseText || 'Bilinmeyen hata'}`);
       }
 
       // Talep lisesini yenile
@@ -626,69 +646,6 @@ export const GalvanizliTelProvider = ({ children }) => {
       setShowTalepDetailModal(false);
       toast.success('Talep başarıyla onaylandı');
 
-      return true;
-
-      // Form değerlerine dönüştür
-      const formValues = {
-        cap: parseFloat(talepData.cap),
-        kod_2: talepData.kod_2,
-        kaplama: parseInt(talepData.kaplama),
-        min_mukavemet: parseInt(talepData.min_mukavemet), 
-        max_mukavemet: parseInt(talepData.max_mukavemet),
-        tolerans_plus: parseFloat(talepData.tolerans_plus),
-        tolerans_minus: parseFloat(talepData.tolerans_minus),
-        ic_cap: parseInt(talepData.ic_cap),
-        dis_cap: parseInt(talepData.dis_cap),
-        kg: parseInt(talepData.kg),
-        unwinding: talepData.unwinding,
-        shrink: talepData.shrink
-      };
-      
-      // Ürünleri ve reçeteleri oluştur
-      const { mmGt, ymGt, ymStList, recete } = await processAutomaticCalculations(formValues);
-      
-      // MM GT kaydet
-      const savedMmGt = await saveMMGT(formValues);
-      
-      if (!savedMmGt) {
-        throw new Error('MM GT kaydedilemedi');
-      }
-      
-      // YM GT kaydet 
-      const savedYmGt = await saveYMGT(formValues, savedMmGt.id);
-      
-      if (!savedYmGt) {
-        throw new Error('YM GT kaydedilemedi');
-      }
-      
-      // YM ST'leri kaydet
-      for (const ymSt of selectedYmSt) {
-        await saveYMST(ymSt, savedMmGt.id);
-      }
-      
-      // Reçeteleri kaydet
-      await saveRecete(receteData, savedMmGt.id, savedYmGt.id);
-      
-      // Talebi onayla
-      const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${talepId}/approve`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mm_gt_id: savedMmGt.id,
-          processed_by: user?.id || 'system'
-        })
-      });
-      
-      if (!updateResponse.ok) {
-        throw new Error('Talep durumu güncellenemedi');
-      }
-      
-      setSuccessMessage('Talep başarıyla onaylandı ve ürün oluşturuldu');
-      toast.success('Talep başarıyla onaylandı ve ürün oluşturuldu');
-      
-      // Talep listesini güncelle
-      await fetchTalepList();
-      
       return true;
     } catch (error) {
       console.error('Talep onaylama hatası:', error);
@@ -6206,9 +6163,16 @@ ${failureDetails}`);
     try {
       setLoading(true);
       setSelectedTalepId(talepId);
+
+      // Log the request attempt
+      console.log(`Attempting to fetch talepId: ${talepId}`);
+
       const talepData = await fetchTalepDetails(talepId);
+      console.log('Fetched talep data:', talepData);
 
       if (talepData) {
+        // Set both selectedTalep and selectedTalepId
+        setSelectedTalep(talepData);
         setShowTalepDetailModal(true);
         setCurrentStep('summary');
       } else {
@@ -6216,7 +6180,7 @@ ${failureDetails}`);
       }
     } catch (error) {
       console.error('Talep detayları yükleme hatası:', error);
-      toast.error('Talep detayları yüklenirken bir hata oluştu');
+      toast.error('Talep detayları yüklenirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
     } finally {
       setLoading(false);
     }
@@ -6225,28 +6189,38 @@ ${failureDetails}`);
   // Talebi onaylama
   const handleApproveTalep = async () => {
     if (!selectedTalep || !selectedTalepId) {
-      setError('İşlenecek talep seçilmedi');
+      const errorMsg = 'İşlenecek talep seçilmedi';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
-    
+
     try {
       setLoading(true);
+      console.log(`Attempting to approve talep: ${selectedTalepId}`, selectedTalep);
+
       const result = await approveTalep(selectedTalepId);
-      
+      console.log('Approve talep result:', result);
+
       if (result) {
+        toast.success('Talep başarıyla onaylandı');
         setShowTalepDetailModal(false);
         setSelectedTalep(null);
         setSelectedTalepId(null);
-        
+
         // Formları sıfırla
         handleNewProduct();
-        
+
         // Talep listesini güncelle
         await fetchTalepList();
+      } else {
+        toast.error('Talep onaylanamadı');
       }
     } catch (error) {
       console.error('Talep onaylama hatası:', error);
-      setError('Talep onaylanırken bir hata oluştu: ' + error.message);
+      const errorMsg = 'Talep onaylanırken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata');
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
