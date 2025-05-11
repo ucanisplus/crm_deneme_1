@@ -5,11 +5,11 @@ import PanelCitHesaplama from '@/components/PanelCitHesaplama';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
-// GalvanizliTelManager is a standalone component without context
+// Import GalvanizliTelNetsis component
 
 // Import components with dynamic loading to prevent SSR issues
-const GalvanizliTelManager = dynamic(
-  () => import('@/components/GalvanizliTelManager').then(mod => mod.default),
+const GalvanizliTelNetsis = dynamic(
+  () => import('@/components/GalvanizliTelNetsis').then(mod => mod.default),
   { ssr: false }
 );
 
@@ -93,7 +93,7 @@ const HesaplamalarPage = () => {
             <>
               {activeTab === 'panel-cit' && <PanelCitHesaplama />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
-              {activeTab === 'galvanizli-tel' && <GalvanizliTelManager />}
+              {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
 
 
               {activeTab === 'tavli-tel' && (
