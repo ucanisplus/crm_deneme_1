@@ -1,4 +1,495 @@
-  
+import React, { useState, useEffect, useCallback } from 'react';
+import MainLayout3 from './MainLayout3';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Button } from './ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Checkbox } from './ui/checkbox';
+import { Separator } from './ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { AlertCircle, Calculator, Check, Download, Edit, FileText, Loader2, RefreshCw, Save, Search, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
+import { useAuth } from '@/context/AuthContext';
+
+// YM ST durum göstergesi bileşeni
+const YmStStatusIndicator = ({ ymSt }) => {
+  // Kaynak bilgisi yoksa varsayılan olarak database kabul et
+  const source = ymSt.source || 'database';
+
+  // Stil ve etiket seçimi
+  const style = {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '0.75rem',
+    fontWeight: 'medium',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '4px'
+  };
+
+  let backgroundColor, textColor, label, icon;
+
+  if (source === 'auto-generated') {
+    backgroundColor = '#dcfce7'; // açık yeşil
+    textColor = '#166534'; // koyu yeşil
+    label = ymSt.sourceLabel || 'Otomatik oluşturuldu';
+    icon = <div className="h-2 w-2 rounded-full bg-green-600"></div>;
+  } else {
+    backgroundColor = '#dbeafe'; // açık mavi
+    textColor = '#1e40af'; // koyu mavi
+    label = ymSt.sourceLabel || 'Veritabanından';
+    icon = <div className="h-2 w-2 rounded-full bg-blue-600"></div>;
+  }
+
+  return (
+    <div style={{ ...style, backgroundColor, color: textColor }}>
+      <span>{label}</span>
+      {icon}
+    </div>
+  );
+};
+
+const GalvanizliTelManager = () => {
+  // State tanımlamaları
+  const [formValues, setFormValues] = useState({
+    cap: '',
+    kod_2: 'NIT',
+    kaplama: '',
+    min_mukavemet: '',
+    max_mukavemet: '',
+    tolerans_plus: '',
+    tolerans_minus: '',
+    ic_cap: '',
+    dis_cap: '',
+    kg: '',
+    unwinding: false,
+    shrink: false
+  });
+
+  const [mmGtData, setMmGtData] = useState(null);
+  const [ymGtData, setYmGtData] = useState(null);
+  const [selectedYmSt, setSelectedYmSt] = useState([]);
+  const [receteData, setReceteData] = useState(null);
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [dataExist, setDataExist] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [activeTab, setActiveTab] = useState('main');
+  const [talepList, setTalepList] = useState([]);
+  const [filteredTalepItems, setFilteredTalepItems] = useState([]);
+  const [talepCount, setTalepCount] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
+  const [talepFilter, setTalepFilter] = useState({ status: 'all', search: '' });
+
+  const [selectedTalepId, setSelectedTalepId] = useState(null);
+  const [selectedTalep, setSelectedTalep] = useState(null);
+  const [showTalepDetailModal, setShowTalepDetailModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  const [searchParams, setSearchParams] = useState({ kod_2: '', cap: '' });
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  const { user } = useAuth();
+
+  // Hata işleme
+  const handleError = (message, error) => {
+    console.error(message, error);
+    setError(message);
+    setLoading(false);
+    toast.error(message);
+  };
+
+  // Talep listesini getir
+  const fetchTalepList = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Talep sayılarını getir
+      const countResponse = await fetchWithAuth(`${API_URLS.galTaleplerEndpoint}/count`);
+      if (countResponse && countResponse.ok) {
+        const countData = await countResponse.json();
+        setTalepCount({ all: countData.count || 0, pending: 0, approved: 0, rejected: 0 });
+      }
+
+      // Bekleyen talep sayısı
+      const pendingCountResponse = await fetchWithAuth(`${API_URLS.galTaleplerEndpoint}/count?status=pending`);
+      if (pendingCountResponse && pendingCountResponse.ok) {
+        const pendingCountData = await pendingCountResponse.json();
+        setTalepCount(prev => ({ ...prev, pending: pendingCountData.count || 0 }));
+      }
+
+      // Tüm talepleri getir
+      const response = await fetchWithAuth(API_URLS.galTaleplerEndpoint);
+
+      if (!response || !response.ok) {
+        throw new Error(`Talepler getirilemedi: ${response?.status}`);
+      }
+
+      const data = await response.json();
+      setTalepList(data);
+      setFilteredTalepItems(data);
+      setLoading(false);
+    } catch (error) {
+      handleError(`Talep listesi yüklenirken hata oluştu: ${error.message}`, error);
+    }
+  }, []);
+
+  // Talep detaylarını getir
+  const fetchTalepDetails = async (talepId) => {
+    try {
+      const response = await fetchWithAuth(`${API_URLS.galTaleplerEndpoint}/${talepId}`);
+
+      if (!response || !response.ok) {
+        throw new Error(`Talep detayları getirilemedi: ${response?.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      handleError(`Talep detayları getirilirken hata oluştu: ${error.message}`, error);
+      return null;
+    }
+  };
+
+  // Talebi onayla
+  const approveTalep = async (talepId) => {
+    try {
+      const response = await fetchWithAuth(`${API_URLS.galTaleplerEndpoint}/${talepId}/approve`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          processed_by: user?.id || 'system'
+        })
+      });
+
+      if (!response || !response.ok) {
+        throw new Error(`Talep onaylanamadı: ${response?.status}`);
+      }
+
+      toast.success('Talep başarıyla onaylandı');
+      await fetchTalepList();
+      return true;
+    } catch (error) {
+      handleError(`Talep onaylanırken hata oluştu: ${error.message}`, error);
+      return false;
+    }
+  };
+
+  // Talebi reddet
+  const rejectTalep = async (talepId, reason) => {
+    try {
+      const response = await fetchWithAuth(`${API_URLS.galTaleplerEndpoint}/${talepId}/reject`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          processed_by: user?.id || 'system',
+          rejection_reason: reason
+        })
+      });
+
+      if (!response || !response.ok) {
+        throw new Error(`Talep reddedilemedi: ${response?.status}`);
+      }
+
+      toast.success('Talep reddedildi');
+      await fetchTalepList();
+      return true;
+    } catch (error) {
+      handleError(`Talep reddedilirken hata oluştu: ${error.message}`, error);
+      return false;
+    }
+  };
+
+  // MM GT önizlemesi oluştur
+  const createMmGtPreview = (values) => {
+    if (!values.cap || !values.kod_2) return null;
+
+    const capValue = parseFloat(values.cap);
+    const formattedCap = capValue.toFixed(2);
+
+    return {
+      stockCode: `GT.${values.kod_2}.${formattedCap.replace('.', '').padStart(4, '0')}.XX`,
+      description: `MM.GT.${values.kod_2} Ø${formattedCap} ${values.min_mukavemet || '?'}-${values.max_mukavemet || '?'}N/MM²`,
+      cap: capValue,
+      kod_2: values.kod_2,
+      kaplama: parseInt(values.kaplama) || 0,
+      minMukavemet: parseInt(values.min_mukavemet) || 0,
+      maxMukavemet: parseInt(values.max_mukavemet) || 0,
+      toleransPlus: parseFloat(values.tolerans_plus) || 0,
+      toleransMinus: parseFloat(values.tolerans_minus) || 0,
+      icCap: parseInt(values.ic_cap) || 0,
+      disCap: parseInt(values.dis_cap) || 0,
+      kg: parseInt(values.kg) || 0,
+      unwinding: values.unwinding || false,
+      shrink: values.shrink || false
+    };
+  };
+
+  // YM GT önizlemesi oluştur
+  const createYmGtPreview = (values, mmGtPreview) => {
+    if (!values.cap || !values.kod_2 || !mmGtPreview) return null;
+
+    const capValue = parseFloat(values.cap);
+    const formattedCap = capValue.toFixed(2);
+
+    return {
+      stockCode: `YM.GT.${values.kod_2}.${formattedCap.replace('.', '').padStart(4, '0')}.01`,
+      description: `YM.GT.${values.kod_2} Ø${formattedCap} ${values.min_mukavemet || '?'}-${values.max_mukavemet || '?'}N/MM²`,
+      mmGtId: null,
+      cap: capValue,
+      kod_2: values.kod_2,
+      kaplama: parseInt(values.kaplama) || 0,
+      minMukavemet: parseInt(values.min_mukavemet) || 0,
+      maxMukavemet: parseInt(values.max_mukavemet) || 0,
+      toleransPlus: parseFloat(values.tolerans_plus) || 0,
+      toleransMinus: parseFloat(values.tolerans_minus) || 0,
+      icCap: parseInt(values.ic_cap) || 0,
+      disCap: parseInt(values.dis_cap) || 0,
+      kg: parseInt(values.kg) || 0,
+      unwinding: values.unwinding || false,
+      shrink: values.shrink || false
+    };
+  };
+
+  // YM ST'leri otomatik seç
+  const autoSelectYmSt = async (values) => {
+    try {
+      // Önce çapa ve kod_2'ye göre veritabanında mevcut YM ST'leri ara
+      const searchParams = new URLSearchParams();
+      searchParams.append('kod_2', values.kod_2);
+      searchParams.append('cap', values.cap);
+
+      const response = await fetchWithAuth(`${API_URLS.galYmSt}?${searchParams.toString()}`);
+
+      if (!response || !response.ok) {
+        throw new Error(`YM ST araması başarısız: ${response?.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.length > 0) {
+        // Veritabanında YM ST'ler bulundu
+        const formattedItems = data.map(item => ({
+          id: item.id,
+          stockCode: item.stok_kodu,
+          description: item.aciklama,
+          cap: parseFloat(item.cap) || 0,
+          kod_2: item.kod_2 || '',
+          kaplama: parseInt(item.kaplama) || 0,
+          minMukavemet: parseInt(item.min_mukavemet) || 0,
+          maxMukavemet: parseInt(item.max_mukavemet) || 0,
+          toleransPlus: parseFloat(item.tolerans_plus) || 0,
+          toleransMinus: parseFloat(item.tolerans_minus) || 0,
+          icCap: parseInt(item.ic_cap) || 0,
+          disCap: parseInt(item.dis_cap) || 0,
+          kg: parseInt(item.kg) || 0,
+          unwinding: item.unwinding || false,
+          shrink: item.shrink || false,
+          source: 'database',
+          sourceLabel: 'Veritabanından'
+        }));
+
+        return formattedItems;
+      } else {
+        // Veritabanında YM ST yoksa otomatik oluştur
+        const capValue = parseFloat(values.cap);
+        const formattedCap = capValue.toFixed(2);
+
+        // Örnek 2 YM ST oluştur
+        const autoItems = [
+          {
+            stockCode: `YM.ST.${values.kod_2}.${formattedCap.replace('.', '').padStart(4, '0')}.01`,
+            description: `YM.ST.${values.kod_2} Ø${formattedCap} ${values.min_mukavemet}-${values.max_mukavemet}N/MM²`,
+            cap: capValue,
+            kod_2: values.kod_2,
+            kaplama: 0, // YM ST için kaplama 0
+            minMukavemet: parseInt(values.min_mukavemet) || 0,
+            maxMukavemet: parseInt(values.max_mukavemet) || 0,
+            toleransPlus: parseFloat(values.tolerans_plus) || 0,
+            toleransMinus: parseFloat(values.tolerans_minus) || 0,
+            icCap: parseInt(values.ic_cap) || 0,
+            disCap: parseInt(values.dis_cap) || 0,
+            kg: parseInt(values.kg) || 0,
+            unwinding: values.unwinding || false,
+            shrink: values.shrink || false,
+            source: 'auto-generated',
+            sourceLabel: 'Otomatik oluşturuldu'
+          }
+        ];
+
+        return autoItems;
+      }
+    } catch (error) {
+      handleError(`YM ST otomatik seçme hatası: ${error.message}`, error);
+      return [];
+    }
+  };
+
+  // Reçete verilerini oluştur
+  const createReceteData = (mmGt, ymGt, ymStList) => {
+    // MM GT Reçetesi
+    const mmGtRecete = [
+      { stockCode: 'YM.GT.X.XX', stockName: `YM.GT.${mmGt.kod_2} ${mmGt.cap.toFixed(2)}`, amount: 1, unit: 'KG', sira: 1 },
+      { stockCode: 'GELKAP01', stockName: 'GELENEKSEL KAP', amount: 1, unit: 'AD', sira: 2 },
+      { stockCode: 'MMBSKL', stockName: 'BAŞLIK', amount: 2, unit: 'AD', sira: 3 },
+      { stockCode: 'MMKPAK01', stockName: 'MM KAPAK', amount: 1, unit: 'AD', sira: 4 },
+      { stockCode: 'MMŞRINK', stockName: 'MM SHRINK', amount: 1, unit: 'AD', sira: 5 },
+      { stockCode: 'MMSBKL01', stockName: 'SABUNLUK', amount: 1, unit: 'AD', sira: 6 },
+      { stockCode: 'MMETKTS1', stockName: 'MM.ETİKET STANDART', amount: 1, unit: 'AD', sira: 7 },
+      { stockCode: 'MMPALT01', stockName: 'MM PALET', amount: 0.0125, unit: 'AD', sira: 8 }
+    ];
+
+    // YM GT Reçetesi - SM.DESİ.PAK ve GTPKT01 satırları hariç
+    const ymGtRecete = [
+      { stockCode: 'YM.ST.X.XX', stockName: `YM.ST.${ymGt.kod_2} ${ymGt.cap.toFixed(2)}`, amount: 1, unit: 'KG', sira: 1 },
+      { stockCode: 'YMBSKL01', stockName: 'YM BAŞLIK', amount: 2, unit: 'AD', sira: 2 },
+      { stockCode: 'YMKPAK01', stockName: 'YM KAPAK', amount: 1, unit: 'AD', sira: 3 },
+      { stockCode: 'YMSBNLK1', stockName: 'YM SABUNLUK', amount: 1, unit: 'AD', sira: 4 }
+    ];
+
+    // YM ST Reçeteleri
+    const ymStRecete = {};
+
+    ymStList.forEach((ymSt, index) => {
+      ymStRecete[ymSt.id || 'temp'] = [
+        { stockCode: 'DUZ.TEL.01', stockName: 'DÜZ TEL', amount: 1, unit: 'KG', sira: 1 },
+        { stockCode: 'CINKO.01', stockName: 'ÇİNKO', amount: (mmGt.kaplama / 100), unit: 'KG', sira: 2 }
+      ];
+    });
+
+    return {
+      mmGtRecete,
+      ymGtRecete,
+      ymStRecete
+    };
+  };
+
+  // Excel dosyası oluştur
+  const createReceteExcel = async () => {
+    try {
+      if (!mmGtData || !ymGtData || selectedYmSt.length === 0) {
+        toast.error('Excel dosyası oluşturmak için MM GT, YM GT ve YM ST verileri gerekli');
+        return;
+      }
+
+      setLoading(true);
+
+      // Reçete verilerini hazırla
+      const receteData = createReceteData(mmGtData, ymGtData, selectedYmSt);
+      setReceteData(receteData);
+
+      // Yeni bir Excel çalışma kitabı oluştur
+      const workbook = new ExcelJS.Workbook();
+
+      // MM GT Sayfası
+      const mmGtSheet = workbook.addWorksheet('MM GT REÇETE');
+
+      // Başlık satırı
+      mmGtSheet.addRow(['STOK KODU', 'STOK ADI', 'MİKTAR', 'BİRİM']);
+      mmGtSheet.getRow(1).font = { bold: true };
+
+      // MM GT bilgileri
+      mmGtSheet.addRow([mmGtData.stockCode, mmGtData.description, '', '']);
+      mmGtSheet.getRow(2).font = { bold: true };
+
+      // Boş satır
+      mmGtSheet.addRow([]);
+
+      // MM GT reçete satırları - 8 satır için
+      receteData.mmGtRecete.forEach(item => {
+        mmGtSheet.addRow([item.stockCode, item.stockName, item.amount, item.unit]);
+      });
+
+      // YM GT Sayfası
+      const ymGtSheet = workbook.addWorksheet('YM GT REÇETE');
+
+      // Başlık satırı
+      ymGtSheet.addRow(['STOK KODU', 'STOK ADI', 'MİKTAR', 'BİRİM']);
+      ymGtSheet.getRow(1).font = { bold: true };
+
+      // YM GT bilgileri
+      ymGtSheet.addRow([ymGtData.stockCode, ymGtData.description, '', '']);
+      ymGtSheet.getRow(2).font = { bold: true };
+
+      // Boş satır
+      ymGtSheet.addRow([]);
+
+      // YM GT reçete satırları - 4 satır için
+      receteData.ymGtRecete.forEach(item => {
+        ymGtSheet.addRow([item.stockCode, item.stockName, item.amount, item.unit]);
+      });
+
+      // YM ST Sayfası
+      selectedYmSt.forEach((ymSt, index) => {
+        const ymStSheet = workbook.addWorksheet(`YM ST REÇETE ${index + 1}`);
+
+        // Başlık satırı
+        ymStSheet.addRow(['STOK KODU', 'STOK ADI', 'MİKTAR', 'BİRİM']);
+        ymStSheet.getRow(1).font = { bold: true };
+
+        // YM ST bilgileri
+        ymStSheet.addRow([ymSt.stockCode, ymSt.description, '', '']);
+        ymStSheet.getRow(2).font = { bold: true };
+
+        // Boş satır
+        ymStSheet.addRow([]);
+
+        // YM ST reçete satırları - 2 satır için
+        const ymStItems = receteData.ymStRecete[ymSt.id || 'temp'] || [];
+        ymStItems.forEach(item => {
+          ymStSheet.addRow([item.stockCode, item.stockName, item.amount, item.unit]);
+        });
+      });
+
+      // Excel dosyasını indir
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Galvanizli_Tel_Reçete_${mmGtData.cap}_${mmGtData.kod_2}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+      setLoading(false);
+      toast.success('Excel dosyası oluşturuldu');
+    } catch (error) {
+      handleError(`Excel oluşturma hatası: ${error.message}`, error);
+    }
+  };
+
+  // Tüm otomatik hesaplamaları yap
+  const processAutomaticCalculations = async (values) => {
+    try {
+      // MM GT ve YM GT önizlemeleri oluştur
+      const mmGtPreview = createMmGtPreview(values);
+      setMmGtData(mmGtPreview);
+
+      const ymGtPreview = createYmGtPreview(values, mmGtPreview);
+      setYmGtData(ymGtPreview);
+
+      // YM ST'leri otomatik seç
+      const selectedItems = await autoSelectYmSt(values);
+
+      if (selectedItems && selectedItems.length > 0) {
+        setSelectedYmSt(selectedItems);
+      } else {
+        throw new Error('YM ST değerleri hesaplanamadı');
+      }
+
+      // Reçete verilerini oluştur
+      const receteData = createReceteData(mmGtPreview, ymGtPreview, selectedItems);
+      setReceteData(receteData);
+
+      return true;
+    } catch (error) {
+      handleError(`Otomatik hesaplama hatası: ${error.message}`, error);
+      return false;
+    }
+  };
+
   // Veritabanına kaydetme işlemi
   const handleSaveToDatabase = async () => {
     try {
