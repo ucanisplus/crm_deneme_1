@@ -5,7 +5,8 @@ import PanelCitHesaplama from '@/components/PanelCitHesaplama';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
-// Import GalvanizliTelNetsis component
+// Import GalvanizliTelNetsis components
+import { GalvanizliTelProvider } from '@/components/GalvanizliTelNetsis';
 
 // Import components with dynamic loading to prevent SSR issues
 const GalvanizliTelNetsis = dynamic(
@@ -93,7 +94,11 @@ const HesaplamalarPage = () => {
             <>
               {activeTab === 'panel-cit' && <PanelCitHesaplama />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
-              {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
+              {activeTab === 'galvanizli-tel' && (
+                <GalvanizliTelProvider>
+                  <GalvanizliTelNetsis />
+                </GalvanizliTelProvider>
+              )}
 
 
               {activeTab === 'tavli-tel' && (

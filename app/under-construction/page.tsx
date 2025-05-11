@@ -1,0 +1,33 @@
+"use client";
+
+import React from 'react';
+import { Construction } from 'lucide-react';
+import MainLayout3 from '@/components/MainLayout3';
+import ClientAuthCheck from '@/components/ClientAuthCheck';
+
+export default function UnderConstruction() {
+  return (
+    <ClientAuthCheck>
+      <MainLayout3>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+          <div className="bg-yellow-100 p-6 rounded-lg shadow-md border-2 border-yellow-300 max-w-2xl w-full">
+            <div className="flex justify-center mb-4">
+              <Construction size={80} className="text-yellow-500" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+              Bu Sayfa Yapım Aşamasında
+            </h1>
+            <p className="text-lg text-gray-600 mb-6">
+              Bu modül şu anda geliştirme aşamasındadır. Kısa süre içinde hizmetinize sunulacaktır.
+            </p>
+            <div className="bg-white p-4 rounded-md border border-gray-200">
+              <p className="text-sm text-gray-500">
+                Modül geliştirme talepleri ve önerileriniz için lütfen sistem yöneticisi ile iletişime geçiniz.
+              </p>
+            </div>
+          </div>
+        </div>
+      </MainLayout3>
+    </ClientAuthCheck>
+  );
+}
