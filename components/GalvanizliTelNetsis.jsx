@@ -76,6 +76,22 @@ const GalvanizliTelNetsis = () => {
     ymStIds: []
   });
 
+  // Dostça alan adları
+  const friendlyNames = {
+    'TLC01': 'Tel Çekme Süre (TLC01)',
+    'SM.HİDROLİK.ASİT': 'HCL Asit (SM.HİDROLİK.ASİT)',
+    '150 03': 'Çinko (150 03)',
+    'AMB.APEX CEMBER 38X080': 'Çelik çember (AMB.APEX CEMBER 38X080)',
+    'AMB.TOKA.SIGNODE.114P. DKP': 'Çember tokası (AMB.TOKA.SIGNODE.114P. DKP)',
+    'SM.7MMHALKA': 'Kaldırma kancası (SM.7MMHALKA)',
+    'AMB.SHRİNK.200*140CM': 'Shrink (AMB.SHRİNK.200*140CM)',
+    'AMB.SHRİNK.200*160CM': 'Shrink (AMB.SHRİNK.200*160CM)',
+    'AMB.SHRİNK.200*190CM': 'Shrink (AMB.SHRİNK.200*190CM)',
+    'AMB.ÇEM.KARTON.GAL': 'Karton (AMB.ÇEM.KARTON.GAL)',
+    'GTPKT01': 'Paketleme Süre (GTPKT01)',
+    'GLV01': 'Galvaniz Süre (GLV01)'
+  };
+
   // İzin kontrolü
   if (!hasPermission('access:galvanizli-tel')) {
     return (
@@ -295,9 +311,10 @@ const GalvanizliTelNetsis = () => {
     setYmGtData(ymGt);
   };
 
-  // Uygun YM ST'leri bul (prompt'taki kriterlere göre)
+  // Uygun YM ST'leri bul - yeniden arama yapma fonksiyonu
   const findSuitableYmSts = async () => {
     try {
+      setIsLoading(true);
       const response = await fetchWithAuth(API_URLS.galYmSt);
       if (response && response.ok) {
         const allYmSts = await response.json();
@@ -305,32 +322,75 @@ const GalvanizliTelNetsis = () => {
         let filtered = [];
         
         if (Array.isArray(allYmSts)) {
+          // Önce tam eşleşme olup olmadığını kontrol et
+          const exactMatch = allYmSts.find(ymSt => {
+            const ymStCap = parseFloat(ymSt.cap) || 0;
+            return Math.abs(ymStCap - cap) < 0.01; // Tam eşleşme için tolerance
+          });
+          
+          if (exactMatch) {
+            filtered.push(exactMatch);
+          }
+          
+          // Ardından geniş aralıkta filtrele
           if (mmGtData.kod_2 === 'PAD') {
             // PAD için çap aralığı kriterlerine göre filtrele
             if (cap >= 0.12 && cap <= 0.14) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 0.12 && parseFloat(ymSt.cap) <= 0.14);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 0.12 && ymStCap <= 0.14 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 0.15 && cap <= 2.55) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 0.15 && parseFloat(ymSt.cap) <= 2.55);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 0.15 && ymStCap <= 2.55 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 2.60 && cap <= 4.25) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 2.60 && parseFloat(ymSt.cap) <= 4.25);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 2.60 && ymStCap <= 4.25 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 4.30 && cap <= 5.90) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 4.30 && parseFloat(ymSt.cap) <= 5.90);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 4.30 && ymStCap <= 5.90 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 6.00 && cap <= 7.00) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 6.00 && parseFloat(ymSt.cap) <= 7.00);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 6.00 && ymStCap <= 7.00 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 7.30 && cap <= 7.40) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 7.30 && parseFloat(ymSt.cap) <= 7.40);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 7.30 && ymStCap <= 7.40 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             } else if (cap >= 7.70 && cap <= 8.00) {
-              filtered = allYmSts.filter(ymSt => parseFloat(ymSt.cap) >= 7.70 && parseFloat(ymSt.cap) <= 8.00);
+              const rangeFilter = allYmSts.filter(ymSt => {
+                const ymStCap = parseFloat(ymSt.cap) || 0;
+                return ymStCap >= 7.70 && ymStCap <= 8.00 && !filtered.includes(ymSt);
+              });
+              filtered = [...filtered, ...rangeFilter];
             }
           } else if (mmGtData.kod_2 === 'NIT') {
             // NIT için hesaplanan çap aralığına göre filtrele (prompt'ta belirtilen formüllerle)
             const minYmStCap = cap * 0.935; // %6.5 azalma
             const maxYmStCap = cap * 0.995; // %0.5 azalma
-            filtered = allYmSts.filter(ymSt => {
+            const rangeFilter = allYmSts.filter(ymSt => {
               const ymStCap = parseFloat(ymSt.cap) || 0;
-              return ymStCap >= minYmStCap && ymStCap <= maxYmStCap;
+              return ymStCap >= minYmStCap && ymStCap <= maxYmStCap && !filtered.includes(ymSt);
             });
+            filtered = [...filtered, ...rangeFilter];
           }
+          
+          // En yakın 5 ürünle sınırla
+          filtered = filtered.slice(0, 5);
         }
         
         setSuitableYmSts(filtered);
@@ -338,48 +398,72 @@ const GalvanizliTelNetsis = () => {
     } catch (error) {
       console.error('YM ST listesi getirilirken hata:', error);
       toast.error('YM ST listesi getirilemedi');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Otomatik YM ST oluştur - 2 adet
+  // Otomatik YM ST oluştur - 2 farklı adet (düzeltildi)
   const generateAutoYmSts = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const autoYmSts = [];
     
     if (mmGtData.kod_2 === 'PAD') {
-      // PAD için otomatik YM ST oluştur
-      const adjustedCap = cap; // PAD için çap ayarlaması yok
-      const capStr = Math.round(adjustedCap * 100).toString().padStart(4, '0');
+      // PAD için otomatik YM ST oluştur - 2 farklı versiyonla
+      const baseAdjustedCap = cap; // PAD için çap ayarlaması yok
       const filmasinCap = getFilmasinForCap(cap);
       const quality = getQualityForCap(cap);
       
-      for (let i = 0; i < 2; i++) {
-        autoYmSts.push({
-          stok_kodu: `YM.ST.${capStr}.${filmasinCap}.${quality}`,
-          stok_adi: `YM Siyah Tel ${capStr} mm HM:${filmasinCap}.${quality}`,
-          cap: adjustedCap,
-          filmasin: parseInt(filmasinCap),
-          quality: quality,
-          source: 'auto-generated'
-        });
-      }
-    } else if (mmGtData.kod_2 === 'NIT') {
-      // NIT için otomatik YM ST oluştur
-      const adjustedCap = cap * 0.96; // NIT için %4 azaltma
-      const capStr = Math.round(adjustedCap * 100).toString().padStart(4, '0');
-      const filmasinCap = getFilmasinForCap(adjustedCap);
-      const quality = getQualityForCap(adjustedCap);
+      // İlk YM ST - Tam ölçü
+      const capStr1 = Math.round(baseAdjustedCap * 100).toString().padStart(4, '0');
+      autoYmSts.push({
+        stok_kodu: `YM.ST.${capStr1}.${filmasinCap}.${quality}`,
+        stok_adi: `YM Siyah Tel ${capStr1} mm HM:${filmasinCap}.${quality}`,
+        cap: baseAdjustedCap,
+        filmasin: parseInt(filmasinCap),
+        quality: quality,
+        source: 'auto-generated'
+      });
       
-      for (let i = 0; i < 2; i++) {
-        autoYmSts.push({
-          stok_kodu: `YM.ST.${capStr}.${filmasinCap}.${quality}`,
-          stok_adi: `YM Siyah Tel ${capStr} mm HM:${filmasinCap}.${quality}`,
-          cap: adjustedCap,
-          filmasin: parseInt(filmasinCap),
-          quality: quality,
-          source: 'auto-generated'
-        });
-      }
+      // İkinci YM ST - Alternatif ölçü (%1 azaltılmış)
+      const alternativeCap = baseAdjustedCap * 0.99;
+      const capStr2 = Math.round(alternativeCap * 100).toString().padStart(4, '0');
+      autoYmSts.push({
+        stok_kodu: `YM.ST.${capStr2}.${filmasinCap}.${quality}`,
+        stok_adi: `YM Siyah Tel ${capStr2} mm HM:${filmasinCap}.${quality}`,
+        cap: alternativeCap,
+        filmasin: parseInt(filmasinCap),
+        quality: quality,
+        source: 'auto-generated'
+      });
+    } else if (mmGtData.kod_2 === 'NIT') {
+      // NIT için otomatik YM ST oluştur - 2 farklı versiyonla
+      const baseAdjustedCap = cap * 0.96; // NIT için %4 azaltma
+      const filmasinCap = getFilmasinForCap(baseAdjustedCap);
+      const quality = getQualityForCap(baseAdjustedCap);
+      
+      // İlk YM ST
+      const capStr1 = Math.round(baseAdjustedCap * 100).toString().padStart(4, '0');
+      autoYmSts.push({
+        stok_kodu: `YM.ST.${capStr1}.${filmasinCap}.${quality}`,
+        stok_adi: `YM Siyah Tel ${capStr1} mm HM:${filmasinCap}.${quality}`,
+        cap: baseAdjustedCap,
+        filmasin: parseInt(filmasinCap),
+        quality: quality,
+        source: 'auto-generated'
+      });
+      
+      // İkinci YM ST - Farklı variant
+      const alternativeCap = cap * 0.94; // Daha fazla azaltma
+      const capStr2 = Math.round(alternativeCap * 100).toString().padStart(4, '0');
+      autoYmSts.push({
+        stok_kodu: `YM.ST.${capStr2}.${filmasinCap}.${quality}`,
+        stok_adi: `YM Siyah Tel ${capStr2} mm HM:${filmasinCap}.${quality}`,
+        cap: alternativeCap,
+        filmasin: parseInt(filmasinCap),
+        quality: quality,
+        source: 'auto-generated'
+      });
     }
     
     setAutoGeneratedYmSts(autoYmSts);
@@ -423,17 +507,19 @@ const GalvanizliTelNetsis = () => {
     const newYmStRecipes = {};
     let newYmGtRecipe = {};
     
-    // Çap formatı ve sequence hesapla
-    const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
-    const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`; // YM GT her zaman .00
-    
+    // Her YM ST için sequence değer hesapla
     allYmSts.forEach((ymSt, index) => {
+      const sequence = index.toString().padStart(2, '0');
+      const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+      
       // MM GT Reçete - her MM GT için
+      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // Sequence eşleştirme!
+      
       newMmGtRecipes[index] = {
-        [ymGtStokKodu]: 1, // YM GT bileşeni hep .00
+        [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
         'GTPKT01': (10 / kg),
         'AMB.ÇEM.KARTON.GAL': 8 / kg,
-        [getShrinkCode(mmGtData.ic_cap)]: 1 / kg,
+        [getShrinkCode(mmGtData.ic_cap)]: calculateShrinkAmount(kg),
         'SM.7MMHALKA': 4 / kg,
         'AMB.APEX CEMBER 38X080': 1.2 / kg,
         'AMB.TOKA.SIGNODE.114P. DKP': 4 / kg,
@@ -448,7 +534,7 @@ const GalvanizliTelNetsis = () => {
       };
     });
     
-    // YM GT Reçete (tüm YMST'ler için aynı)
+    // YM GT Reçete (sequence 00 için)
     if (allYmSts.length > 0) {
       newYmGtRecipe = {
         [allYmSts[0].stok_kodu]: 1, // İlk YM ST
@@ -464,6 +550,11 @@ const GalvanizliTelNetsis = () => {
       ymGtRecipe: newYmGtRecipe,
       ymStRecipes: newYmStRecipes
     }));
+  };
+
+  // Shrink miktarı hesapla
+  const calculateShrinkAmount = (kg) => {
+    return 1 / kg;
   };
 
   // Asit tüketimi hesaplama (Excel formülü)
@@ -678,32 +769,37 @@ const GalvanizliTelNetsis = () => {
       const ymStIds = [];
       let ymGtId = null;
       
-      // YM GT kontrolü ve kaydetme - her zaman sequence 00
+      // Her sequence için YM GT kontrolü ve kaydetme
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`;
-      const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
+      const sequenceCount = allYmSts.length;
       
-      if (existingYmGt) {
-        // YM GT mevcut - güncelle
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateYmGtDatabaseData('00'))
-        });
-        if (ymGtResponse && ymGtResponse.ok) {
-          ymGtId = existingYmGt.id;
-        }
-      } else {
-        // YM GT yeni - oluştur
-        const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateYmGtDatabaseData('00'))
-        });
+      for (let i = 0; i < sequenceCount; i++) {
+        const sequence = i.toString().padStart(2, '0');
+        const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+        const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
         
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGtResult = await ymGtResponse.json();
-          ymGtId = ymGtResult.id;
+        if (existingYmGt) {
+          // YM GT mevcut - güncelle
+          const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generateYmGtDatabaseData(sequence))
+          });
+          if (ymGtResponse && ymGtResponse.ok) {
+            if (i === 0) ymGtId = existingYmGt.id; // İlk YM GT için basic reference
+          }
+        } else {
+          // YM GT yeni - oluştur
+          const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generateYmGtDatabaseData(sequence))
+          });
+          
+          if (ymGtResponse && ymGtResponse.ok) {
+            const ymGtResult = await ymGtResponse.json();
+            if (i === 0) ymGtId = ymGtResult.id; // İlk YM GT için basic reference
+          }
         }
       }
       
@@ -860,7 +956,7 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
-  // Veritabanı için YM GT verisi oluştur - sequece hep 00
+  // Veritabanı için YM GT verisi oluştur - sequence eşleştirme
   const generateYmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
@@ -994,58 +1090,75 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // YM GT reçetesini kaydet - her zaman sequence 00 kullan
+      // Her YM GT için reçete kaydet (her sequence için)
       if (ymGtId && Object.keys(allRecipes.ymGtRecipe).length > 0) {
-        await deleteExistingRecipes('ymgt', ymGtId);
-        
-        let siraNo = 1;
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-        const mamulKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`; // Her zaman .00
+        const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
         
-        // Önce bileşenleri ekle
-        for (const [key, value] of Object.entries(allRecipes.ymGtRecipe)) {
-          if (value > 0 && !key.includes('01')) { // Operasyon değil
-            await fetchWithAuth(API_URLS.galYmGtRecete, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ym_gt_id: ymGtId,
-                mamul_kodu: mamulKodu,
-                bilesen_kodu: key,
-                miktar: value,
-                sira_no: siraNo++,
-                operasyon_bilesen: 'Bileşen',
-                olcu_br: getOlcuBr(key),
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                recete_top: 1,
-                fire_orani: 0
-              })
-            });
+        // Her sequence için YM GT reçetesi kaydet
+        for (let i = 0; i < allYmSts.length; i++) {
+          const sequence = i.toString().padStart(2, '0');
+          const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+          
+          // Sequence'e göre YM GT'yi bul
+          const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
+          if (!existingYmGt) continue;
+          
+          await deleteExistingRecipes('ymgt', existingYmGt.id);
+          
+          let siraNo = 1;
+          
+          // Önce bileşenleri ekle
+          for (const [key, value] of Object.entries(allRecipes.ymGtRecipe)) {
+            if (value > 0 && !key.includes('01')) { // Operasyon değil
+              // YM ST bileşenini bu sequence için düzelt
+              let adjustedKey = key;
+              if (key.includes('YM.ST.')) {
+                adjustedKey = allYmSts[i].stok_kodu;
+              }
+              
+              await fetchWithAuth(API_URLS.galYmGtRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ym_gt_id: existingYmGt.id,
+                  mamul_kodu: ymGtStokKodu,
+                  bilesen_kodu: adjustedKey,
+                  miktar: value,
+                  sira_no: siraNo++,
+                  operasyon_bilesen: 'Bileşen',
+                  olcu_br: getOlcuBr(adjustedKey),
+                  olcu_br_bilesen: '1',
+                  aciklama: getReceteAciklama(adjustedKey),
+                  recete_top: 1,
+                  fire_orani: 0
+                })
+              });
+            }
           }
-        }
-        
-        // Sonra operasyonları ekle
-        for (const [key, value] of Object.entries(allRecipes.ymGtRecipe)) {
-          if (value > 0 && key.includes('01')) { // Operasyon
-            await fetchWithAuth(API_URLS.galYmGtRecete, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ym_gt_id: ymGtId,
-                mamul_kodu: mamulKodu,
-                bilesen_kodu: key,
-                miktar: value,
-                sira_no: siraNo++,
-                operasyon_bilesen: 'Operasyon',
-                olcu_br: getOlcuBr(key),
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                uretim_suresi: value,
-                recete_top: 1,
-                fire_orani: 0
-              })
-            });
+          
+          // Sonra operasyonları ekle
+          for (const [key, value] of Object.entries(allRecipes.ymGtRecipe)) {
+            if (value > 0 && key.includes('01')) { // Operasyon
+              await fetchWithAuth(API_URLS.galYmGtRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ym_gt_id: existingYmGt.id,
+                  mamul_kodu: ymGtStokKodu,
+                  bilesen_kodu: key,
+                  miktar: value,
+                  sira_no: siraNo++,
+                  operasyon_bilesen: 'Operasyon',
+                  olcu_br: getOlcuBr(key),
+                  olcu_br_bilesen: '1',
+                  aciklama: getReceteAciklama(key),
+                  uretim_suresi: value,
+                  recete_top: 1,
+                  fire_orani: 0
+                })
+              });
+            }
           }
         }
       }
@@ -1229,9 +1342,10 @@ const GalvanizliTelNetsis = () => {
     const ymGtHeaders = getYmGtHeaders();
     ymGtSheet.addRow(ymGtHeaders);
     
-    // Her MM GT için aynı YM GT ekle (sequence .00)
-    allYmSts.forEach(() => {
-      ymGtSheet.addRow(generateYmGtStokKartiData('00'));
+    // Her MM GT sequence için ilgili YM GT ekle
+    allYmSts.forEach((_, index) => {
+      const sequence = index.toString().padStart(2, '0'); // Sequence eşleştirme!
+      ymGtSheet.addRow(generateYmGtStokKartiData(sequence));
     });
     
     // YM ST Sheet
@@ -1280,25 +1394,35 @@ const GalvanizliTelNetsis = () => {
       });
     });
     
-    // YM GT REÇETE Sheet - her zaman .00 için
+    // YM GT REÇETE Sheet - her sequence için 4 satır
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
-    let siraNo = 1;
     
-    // Önce bileşenleri ekle
-    Object.entries(allRecipes.ymGtRecipe).forEach(([key, value]) => {
-      if (value > 0 && !key.includes('01')) { // Operasyon değil
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, siraNo));
-        siraNo++;
-      }
-    });
-    
-    // Sonra operasyonları ekle
-    Object.entries(allRecipes.ymGtRecipe).forEach(([key, value]) => {
-      if (value > 0 && key.includes('01')) { // Operasyon
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, siraNo));
-        siraNo++;
-      }
+    // Her YM GT sequence'i için reçete satırları
+    allYmSts.forEach((ymSt, index) => {
+      const sequence = index.toString().padStart(2, '0');
+      let siraNo = 1;
+      
+      // Önce bileşenleri ekle
+      Object.entries(allRecipes.ymGtRecipe).forEach(([key, value]) => {
+        if (value > 0 && !key.includes('01')) { // Operasyon değil
+          // YM ST bileşenini bu sequence için düzelt
+          let adjustedKey = key;
+          if (key.includes('YM.ST.')) {
+            adjustedKey = allYmSts[index].stok_kodu;
+          }
+          ymGtReceteSheet.addRow(generateYmGtReceteRow(adjustedKey, value, siraNo, sequence));
+          siraNo++;
+        }
+      });
+      
+      // Sonra operasyonları ekle
+      Object.entries(allRecipes.ymGtRecipe).forEach(([key, value]) => {
+        if (value > 0 && key.includes('01')) { // Operasyon
+          ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, siraNo, sequence));
+          siraNo++;
+        }
+      });
     });
     
     // YM ST REÇETE Sheet
@@ -1504,7 +1628,7 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     
     return [
-      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu - her zaman .00
+      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu - sequence eşleştirme!
       generateYmGtStokAdi(), // Stok Adı
       'YM', // Grup Kodu
       'GT', // Kod-1
@@ -1682,11 +1806,11 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo) => {
+  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
     return [
-      `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`, // Mamul Kodu (hep .00)
+      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - sequence eşleştirme!
       '1', // Reçete Top.
       '0', // Fire Oranı (%)
       '', // Oto.Reç.
@@ -2284,6 +2408,16 @@ const GalvanizliTelNetsis = () => {
                   YM ST Ekle
                 </button>
                 <button
+                  onClick={findSuitableYmSts}
+                  disabled={isLoading}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  YM ST Listesini Güncelle
+                </button>
+                <button
                   onClick={generateAutoYmSts}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
                 >
@@ -2464,24 +2598,51 @@ const GalvanizliTelNetsis = () => {
                     <h3 className="text-lg font-medium mb-4 text-red-700">
                       MM GT #{activeRecipeTab + 1} Reçetesi
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(allRecipes.mmGtRecipes[activeRecipeTab] || {}).map(([key, value]) => (
-                        <div key={key} className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            {key}
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({getOlcuBr(key)})
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            step="0.000001"
-                            value={value || ''}
-                            onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* 8 alan için özel düzenleme - prompt'ta belirtildiği gibi */}
+                      {[
+                        'AMB.ÇEM.KARTON.GAL',
+                        'SM.7MMHALKA',
+                        'AMB.TOKA.SIGNODE.114P. DKP',
+                        'GTPKT01',
+                        getShrinkCode(mmGtData.ic_cap), // Shrink Type
+                        'AMB.APEX CEMBER 38X080',
+                        'SM.DESİ.PAK'
+                      ].map((key, idx) => {
+                        const friendlyName = friendlyNames[key] || key;
+                        const isShrinkType = key.includes('SHRİNK');
+                        
+                        return (
+                          <div key={key} className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              {friendlyName}
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({getOlcuBr(key)})
+                              </span>
+                            </label>
+                            {isShrinkType ? (
+                              <select
+                                value={allRecipes.mmGtRecipes[activeRecipeTab]?.[key] || ''}
+                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, e.target.value, allRecipes.mmGtRecipes[activeRecipeTab]?.[e.target.value] || calculateShrinkAmount(parseFloat(mmGtData.kg) || 0))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                              >
+                                <option value="">Seçin</option>
+                                <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
+                                <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
+                                <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                step="0.000001"
+                                value={allRecipes.mmGtRecipes[activeRecipeTab]?.[key] || ''}
+                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2490,24 +2651,36 @@ const GalvanizliTelNetsis = () => {
                     <h3 className="text-lg font-medium mb-4 text-yellow-700">
                       YM GT Reçetesi
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(allRecipes.ymGtRecipe || {}).map(([key, value]) => (
-                        <div key={key} className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            {key}
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({getOlcuBr(key)})
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            step="0.000001"
-                            value={value || ''}
-                            onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                          />
-                        </div>
-                      ))}
+                    <p className="text-sm text-gray-600 mb-3">
+                      YM ST bağlantısı otomatik olarak yapılır. Sadece aşağıdaki 3 değeri düzenleyebilirsiniz:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* 3 alan için özel düzenleme - prompt'ta belirtildiği gibi */}
+                      {[
+                        'GLV01',
+                        '150 03',
+                        'SM.HİDROLİK.ASİT'
+                      ].map((key) => {
+                        const friendlyName = friendlyNames[key] || key;
+                        
+                        return (
+                          <div key={key} className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              {friendlyName}
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({getOlcuBr(key)})
+                              </span>
+                            </label>
+                            <input
+                              type="number"
+                              step="0.000001"
+                              value={allRecipes.ymGtRecipe?.[key] || ''}
+                              onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2516,24 +2689,34 @@ const GalvanizliTelNetsis = () => {
                     <h3 className="text-lg font-medium mb-4 text-green-700">
                       YM ST #{activeRecipeTab + 1} Reçetesi
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(allRecipes.ymStRecipes[activeRecipeTab] || {}).map(([key, value]) => (
-                        <div key={key} className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            {key}
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({getOlcuBr(key)})
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            step="0.000001"
-                            value={value || ''}
-                            onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          />
-                        </div>
-                      ))}
+                    <p className="text-sm text-gray-600 mb-3">
+                      FLM bağlantısı otomatik olarak yapılır. Sadece aşağıdaki değeri düzenleyebilirsiniz:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                      {/* 1 alan için özel düzenleme - prompt'ta belirtildiği gibi */}
+                      {[
+                        'TLC01'
+                      ].map((key) => {
+                        const friendlyName = friendlyNames[key] || key;
+                        
+                        return (
+                          <div key={key} className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              {friendlyName}
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({getOlcuBr(key)})
+                              </span>
+                            </label>
+                            <input
+                              type="number"
+                              step="0.000001"
+                              value={allRecipes.ymStRecipes[activeRecipeTab]?.[key] || ''}
+                              onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
