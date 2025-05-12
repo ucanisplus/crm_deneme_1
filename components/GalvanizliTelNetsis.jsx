@@ -367,7 +367,7 @@ const GalvanizliTelNetsis = () => {
       recetes[index] = {
         'GTPKT01': (10 / kg) * 1000, // Paketleme operasyonu
         'AMB.ÇEM.KARTON.GAL': 8 / kg, // Karton
-        getShrinkCode(mmGtData.ic_cap): 1 / kg, // Shrink (dinamik kod ile)
+        [getShrinkCode(mmGtData.ic_cap)]: 1 / kg, // Shrink (dinamik kod ile)
         'SM.7MMHALKA': 4 / kg, // Halka
         'AMB.APEX CEMBER 38X080': 1.2 / kg, // Çember
         'AMB.TOKA.SIGNODE.114P. DKP': 4 / kg, // Toka
