@@ -166,7 +166,7 @@ export const fetchWithAuth = async (url, options = {}) => {
 export const normalizeInputValue = (value) => {
   // Sayı zaten ise doğrudan döndür
   if (typeof value === 'number') {
-    return value;
+    return value.toString(); // UI'da string olarak göster
   }
   
   // String ise ve virgül içeriyorsa noktaya çevir
@@ -177,16 +177,16 @@ export const normalizeInputValue = (value) => {
       
       // Sayısal değer olup olmadığını kontrol et
       if (!isNaN(parseFloat(normalized))) {
-        return parseFloat(normalized);
+        return normalized; // UI için string olarak döndür
       }
       
       // Sayısal değilse, normalleştirilmiş string'i döndür
       return normalized;
     }
     
-    // Sayısal string ise sayıya çevir
+    // Sayısal string ise sayıya çevir sonra string yap
     if (!isNaN(parseFloat(value)) && !isNaN(value)) {
-      return parseFloat(value);
+      return parseFloat(value).toString();
     }
   }
   
