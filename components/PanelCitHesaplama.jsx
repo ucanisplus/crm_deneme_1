@@ -5,6 +5,13 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import { API_URLS } from '../api-config';
+import { debugApiCalls, directlySubmitPanel } from '../debug-network';
+import { postData, putData } from '../lib/api-helpers';
+
+// Install network debugging
+if (typeof window !== 'undefined') {
+  debugApiCalls();
+}
 import {
   Calculator,
   Filter,
@@ -1320,17 +1327,57 @@ const calculatePanelKodu = (panel) => {
         profil_latest_update: new Date().toISOString()
       };
 
-      // Her zaman yeni bir kayıt oluştur (id gönderme)
+      console.log("Attempting to save profil_degiskenler directly:", processedData);
+      
+      // Try our enhanced API helper first
+      try {
+        console.log("Using enhanced API helper...");
+        const result = await postData(API_URLS.profilDegiskenler, processedData);
+        console.log("Enhanced API helper succeeded:", result);
+        alert('Profil değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('profil');
+        return;
+      } catch (enhancedError) {
+        console.error("Enhanced API helper failed:", enhancedError);
+      }
+      
+      // Fall back to direct fetch if helper fails
+      try {
+        console.log("Trying direct fetch...");
+        const directResponse = await fetch(API_URLS.profilDegiskenler, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(processedData)
+        });
+        
+        if (directResponse.ok) {
+          console.log("Direct fetch succeeded");
+          alert('Profil değişkenleri başarıyla kaydedildi (direct fetch).');
+          fetchSectionData('profil');
+          return;
+        } else {
+          const errorText = await directResponse.text();
+          console.error('Direct fetch error:', errorText);
+          throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
+        }
+      } catch (directError) {
+        console.error("Direct fetch failed:", directError);
+      }
+      
+      // Fall back to original axios method
+      console.log("Falling back to original axios method...");
       const response = await axios.post(API_URLS.profilDegiskenler, processedData);
 
       if (response.status === 200 || response.status === 201) {
+        console.log("Original axios succeeded");
         alert('Profil değişkenleri başarıyla kaydedildi.');
-        // En son kaydı getirmek için verileri yeniden çek
         fetchSectionData('profil');
       }
     } catch (error) {
       console.error('Kaydetme hatası:', error);
-      alert(`Değişkenler kaydedilirken hata oluştu: ${error.response?.data?.message || error.message}`);
+      alert(`Değişkenler kaydedilirken hata oluştu: ${error.message}`);
     }
   };
 
@@ -2042,24 +2089,52 @@ const recalculateAllFields = (panel) => {
         manual_order: newManualOrder,
         kayit_tarihi: new Date().toISOString()
       };
-
-      // Veritabanına kaydet
+      
+      console.log("Attempting to save panel:", dataToSave);
+      
+      // Try the directlySubmitPanel function first which uses fetch
+      try {
+        console.log("Using direct panel submission...");
+        const result = await directlySubmitPanel(dataToSave, API_URLS.panelList);
+        
+        if (result.success) {
+          console.log("Direct panel submission succeeded:", result);
+          alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi (direct submission).`);
+          fetchSectionData('panelList');
+          return;
+        } else {
+          console.error("Direct panel submission failed:", result.error);
+        }
+      } catch (directError) {
+        console.error("Direct panel submission error:", directError);
+      }
+      
+      // Try our enhanced API helper
+      try {
+        console.log("Using enhanced API helper...");
+        const result = await postData(API_URLS.panelList, dataToSave);
+        console.log("Enhanced API helper succeeded:", result);
+        alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
+        fetchSectionData('panelList');
+        return;
+      } catch (enhancedError) {
+        console.error("Enhanced API helper failed:", enhancedError);
+      }
+      
+      // Fall back to original axios method
+      console.log("Falling back to original axios method...");
       const response = await axios.post(API_URLS.panelList, dataToSave);
 
       if (response.status === 200 || response.status === 201) {
+        console.log("Original axios succeeded");
         alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
-
-        // Mevcut panel listesini güncelle
         fetchSectionData('panelList');
-
-        // Don't remove from özel panel list
-        // Just show a success message
       } else {
         alert('Kayıt işlemi başarısız oldu.');
       }
     } catch (error) {
       console.error('Panel kaydetme hatası:', error);
-      alert(`Panel kaydedilirken hata oluştu: ${error.response?.data?.error || error.message}`);
+      alert(`Panel kaydedilirken hata oluştu: ${error.message}`);
     }
   };
 
