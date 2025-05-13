@@ -164,33 +164,12 @@ export const fetchWithAuth = async (url, options = {}) => {
  * @returns {number|string} - Normalleştirilmiş değer
  */
 export const normalizeInputValue = (value) => {
-  // Sayı zaten ise doğrudan döndür
-  if (typeof value === 'number') {
-    return value.toString(); // UI'da string olarak göster
+  // String ise ve virgül içeriyorsa noktaya çevir, başka bir şey yapma
+  if (typeof value === 'string' && value.includes(',')) {
+    return value.replace(/,/g, '.');
   }
   
-  // String ise ve virgül içeriyorsa noktaya çevir
-  if (typeof value === 'string') {
-    // Tüm virgülleri noktalara çevir
-    if (value.includes(',')) {
-      const normalized = value.replace(/,/g, '.');
-      
-      // Sayısal değer olup olmadığını kontrol et
-      if (!isNaN(parseFloat(normalized))) {
-        return normalized; // UI için string olarak döndür
-      }
-      
-      // Sayısal değilse, normalleştirilmiş string'i döndür
-      return normalized;
-    }
-    
-    // Sayısal string ise sayıya çevir sonra string yap
-    if (!isNaN(parseFloat(value)) && !isNaN(value)) {
-      return parseFloat(value).toString();
-    }
-  }
-  
-  // Diğer durumlarda orijinal değeri döndür
+  // Diğer durumlarda değeri olduğu gibi döndür
   return value;
 };
 
