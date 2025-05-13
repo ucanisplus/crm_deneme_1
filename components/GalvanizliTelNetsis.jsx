@@ -48,14 +48,14 @@ const GalvanizliTelNetsis = () => {
     ymStIds: []
   });
   
-  // Form verileri - VİRGÜLÜ değerleri noktalı formata çeviren yardımcı fonksiyon - NOKTA KULLAN
+  // Form verileri - Decimal değerleri nokta formatına çeviren yardımcı fonksiyon - NOKTA KULLAN
   const normalizeDecimalDisplay = (value) => {
-if (typeof value === 'number') {
-  return value.toString(); // Just convert to string
-}
-if (typeof value === 'string' && value.includes(',')) {
-  return value.replace(/,/g, '.'); // Just replace comma with dot
-}
+    if (typeof value === 'number') {
+      return value.toString(); // Just convert to string
+    }
+    if (typeof value === 'string' && value.includes(',')) {
+      return value.replace(/,/g, '.'); // Replace all commas with dots
+    }
     if (typeof value === 'string') {
       const num = parseFloat(value);
       return isNaN(num) ? value : num.toFixed(5);
@@ -1143,8 +1143,10 @@ if (typeof value === 'string' && value.includes(',')) {
 
   // Reçete güncelleme fonksiyonu - NOKTA kullan
   const updateRecipeValue = (recipeType, ymStIndex, key, value) => {
-    const numValue = parseFloat(value) || 0;
-    
+    // Input value'yu normalize et - virgülleri noktalara çevir
+    const normalizedValue = normalizeInputValue(value);
+    const numValue = parseFloat(normalizedValue) || 0;
+
     if (recipeType === 'mmgt') {
       setAllRecipes(prev => ({
         ...prev,
@@ -1205,7 +1207,6 @@ if (typeof value === 'string' && value.includes(',')) {
           }
         }
       }));
-      
       // FLM değişikliği durumunda diğer hesaplamaları tetikle
       if (key.includes('FLM.')) {
         setTimeout(() => {
@@ -3246,7 +3247,7 @@ if (typeof value === 'string' && value.includes(',')) {
                                   type="number"
                                   step="0.00001"
                                   value={currentValue ? normalizeDecimalDisplay(allRecipes.mmGtRecipes[activeRecipeTab]?.[currentValue] || 0) : ''}
-                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, e.target.value)}
+                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, normalizeInputValue(e.target.value))}
                                   placeholder="Shrink Miktarı"
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                                   disabled={!currentValue}
@@ -3257,7 +3258,7 @@ if (typeof value === 'string' && value.includes(',')) {
                                 type="number"
                                 step="0.00001"
                                 value={normalizeDecimalDisplay(currentValue || '')}
-                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
+                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, normalizeInputValue(e.target.value))}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                               />
                             )}
@@ -3325,7 +3326,7 @@ if (typeof value === 'string' && value.includes(',')) {
                               type="number"
                               step="0.00001"
                               value={normalizeDecimalDisplay(currentValue || '')}
-                              onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
+                              onChange={(e) => updateRecipeValue('ymgt', null, key, normalizeInputValue(e.target.value))}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             />
                             {statusText && (
@@ -3368,7 +3369,7 @@ if (typeof value === 'string' && value.includes(',')) {
                                 type="number"
                                 step="0.00001"
                                 value={normalizeDecimalDisplay(currentValue || '')}
-                                onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
+                                onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, normalizeInputValue(e.target.value))}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                               />
                               {statusText && (
@@ -3510,7 +3511,7 @@ if (typeof value === 'string' && value.includes(',')) {
                     type="number"
                     step="0.00001"
                     value={normalizeDecimalDisplay(newYmStData.cap)}
-                    onChange={(e) => setNewYmStData(prev => ({ ...prev, cap: e.target.value }))}
+                    onChange={(e) => setNewYmStData(prev => ({ ...prev, cap: normalizeInputValue(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="0.00000"
                   />
