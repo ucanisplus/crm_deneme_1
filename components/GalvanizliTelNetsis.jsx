@@ -160,7 +160,8 @@ const GalvanizliTelNetsis = () => {
     'AMB.SHRİNK.200*190CM': 'Shrink (AMB.SHRİNK.200*190CM)',
     'AMB.ÇEM.KARTON.GAL': 'Karton (AMB.ÇEM.KARTON.GAL)',
     'GTPKT01': 'Paketleme Süre (GTPKT01)',
-    'GLV01': 'Galvaniz Süre (GLV01)'
+    'GLV01': 'Galvaniz Süre (GLV01)',
+    'SM.DESİ.PAK': 'Silkajel Tüketimi (AD)'
   };
 
   // İzin kontrolü
@@ -2798,10 +2799,8 @@ const GalvanizliTelNetsis = () => {
                 Çap (mm) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="0.8"
-                max="8.0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.cap)}
                 onChange={(e) => handleInputChange('cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2829,10 +2828,8 @@ const GalvanizliTelNetsis = () => {
                 Kaplama (gr/m²) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="50"
-                max="400"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.kaplama)}
                 onChange={(e) => handleInputChange('kaplama', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2846,10 +2843,8 @@ const GalvanizliTelNetsis = () => {
                 Min Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="350"
-                max="1000"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.min_mukavemet)}
                 onChange={(e) => handleInputChange('min_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2862,10 +2857,8 @@ const GalvanizliTelNetsis = () => {
                 Max Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="350"
-                max="1000"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.max_mukavemet)}
                 onChange={(e) => handleInputChange('max_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2878,10 +2871,8 @@ const GalvanizliTelNetsis = () => {
                 Ağırlık (kg) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="250"
-                max="1250"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2909,8 +2900,8 @@ const GalvanizliTelNetsis = () => {
                 Dış Çap (cm)
               </label>
               <input
-                type="number"
-                step="0.00001"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.dis_cap || '')}
                 onChange={(e) => handleInputChange('dis_cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all bg-gray-50"
@@ -2923,10 +2914,8 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (+)
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="0"
-                max="0.1"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_plus || '')}
                 onChange={(e) => handleInputChange('tolerans_plus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -2939,10 +2928,8 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (-)
               </label>
               <input
-                type="number"
-                step="0.00001"
-                min="0"
-                max="0.1"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_minus || '')}
                 onChange={(e) => handleInputChange('tolerans_minus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
@@ -3404,26 +3391,36 @@ const GalvanizliTelNetsis = () => {
                                 readOnly
                               />
                             ) : type === 'dropdown' ? (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <select
-                                  value={currentValue}
-                                  onChange={(e) => handleShrinkChange(activeRecipeTab, e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                                >
-                                  <option value="">Shrink Tipi Seçin</option>
-                                  <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
-                                  <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
-                                  <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={currentValue ? normalizeDecimalDisplay(allRecipes.mmGtRecipes[activeRecipeTab]?.[currentValue] || 0) : ''}
-                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, e.target.value)}
-                                  placeholder="Shrink Miktarı"
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                                  disabled={!currentValue}
-                                />
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Shrink Tipi
+                                  </label>
+                                  <select
+                                    value={currentValue}
+                                    onChange={(e) => handleShrinkChange(activeRecipeTab, e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                  >
+                                    <option value="">Shrink Tipi Seçin</option>
+                                    <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
+                                    <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
+                                    <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Shrink Tüketimi
+                                  </label>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={currentValue ? normalizeDecimalDisplay(allRecipes.mmGtRecipes[activeRecipeTab]?.[currentValue] || 0) : ''}
+                                    onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, e.target.value)}
+                                    placeholder="Shrink Miktarı"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    disabled={!currentValue}
+                                  />
+                                </div>
                               </div>
                             ) : (
                               <input
@@ -3708,8 +3705,8 @@ const GalvanizliTelNetsis = () => {
                     Çap (mm)
                   </label>
                   <input
-                    type="number"
-                    step="0.00001"
+                    type="text"
+                    inputMode="decimal"
                     value={normalizeDecimalDisplay(newYmStData.cap)}
                     onChange={(e) => setNewYmStData(prev => ({ ...prev, cap: normalizeInputValue(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
