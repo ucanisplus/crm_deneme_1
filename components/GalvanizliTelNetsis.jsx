@@ -1216,10 +1216,23 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete güncelleme fonksiyonu - NOKTA kullan
   const updateRecipeValue = (recipeType, ymStIndex, key, value) => {
-    // Input value'yu normalize et - virgülleri noktalara çevir ve sayıya dönüştür
-    const normalizedValue = normalizeInputValue(value);
+    // Handle comma to point conversion first (direct replacement)
+    let inputValue = value;
+    if (typeof inputValue === 'string' && inputValue.includes(',')) {
+      inputValue = inputValue.replace(/,/g, '.');
+    }
+    
+    // Now normalize with our standard function
+    const normalizedValue = normalizeInputValue(inputValue);
+    
     // Ensure we have a proper numeric value with point decimal separator
+    // Store the formatted string to maintain proper decimal display
     const numValue = parseFloat(normalizedValue) || 0;
+    const formattedValue = numValue.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 5,
+      useGrouping: false // No thousand separators
+    });
 
     if (recipeType === 'mmgt') {
       setAllRecipes(prev => ({
@@ -1228,7 +1241,7 @@ const GalvanizliTelNetsis = () => {
           ...prev.mmGtRecipes,
           [ymStIndex]: {
             ...prev.mmGtRecipes[ymStIndex],
-            [key]: numValue
+            [key]: formattedValue // Store as formatted string with point decimal
           }
         }
       }));
@@ -1248,7 +1261,7 @@ const GalvanizliTelNetsis = () => {
         ...prev,
         ymGtRecipe: {
           ...prev.ymGtRecipe,
-          [key]: numValue
+          [key]: formattedValue // Store as formatted string with point decimal
         }
       }));
       // Manuel değişiklik olarak işaretle
@@ -1266,7 +1279,7 @@ const GalvanizliTelNetsis = () => {
           ...prev.ymStRecipes,
           [ymStIndex]: {
             ...prev.ymStRecipes[ymStIndex],
-            [key]: numValue
+            [key]: formattedValue // Store as formatted string with point decimal
           }
         }
       }));
@@ -3401,10 +3414,10 @@ const GalvanizliTelNetsis = () => {
                                   <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
                                 </select>
                                 <input
-                                  type="number"
-                                  step="0.00001"
+                                  type="text"
+                                  inputMode="decimal"
                                   value={currentValue ? normalizeDecimalDisplay(allRecipes.mmGtRecipes[activeRecipeTab]?.[currentValue] || 0) : ''}
-                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, normalizeInputValue(e.target.value))}
+                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, e.target.value)}
                                   placeholder="Shrink Miktarı"
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                                   disabled={!currentValue}
@@ -3412,10 +3425,10 @@ const GalvanizliTelNetsis = () => {
                               </div>
                             ) : (
                               <input
-                                type="number"
-                                step="0.00001"
+                                type="text"
+                                inputMode="decimal"
                                 value={normalizeDecimalDisplay(currentValue || '')}
-                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, normalizeInputValue(e.target.value))}
+                                onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                               />
                             )}
@@ -3480,10 +3493,10 @@ const GalvanizliTelNetsis = () => {
                               </span>
                             </label>
                             <input
-                              type="number"
-                              step="0.00001"
+                              type="text"
+                              inputMode="decimal"
                               value={normalizeDecimalDisplay(currentValue || '')}
-                              onChange={(e) => updateRecipeValue('ymgt', null, key, normalizeInputValue(e.target.value))}
+                              onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             />
                             {statusText && (
@@ -3577,8 +3590,8 @@ const GalvanizliTelNetsis = () => {
                               </span>
                             </label>
                             <input
-                              type="number"
-                              step="0.00001"
+                              type="text"
+                              inputMode="decimal"
                               value={normalizeDecimalDisplay(currentValue || '')}
                               onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
