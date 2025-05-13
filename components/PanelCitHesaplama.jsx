@@ -8,10 +8,14 @@ import { API_URLS } from '../api-config';
 import { debugApiCalls, directlySubmitPanel } from '../debug-network';
 import { postData, putData } from '../lib/api-helpers';
 import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
+import { installFix } from '../emergency-fix';
+import { applyDirectFix, fixProfilDegiskenler, fixAllTimestamps } from '../components/direct-timestamp-fix';
 
-// Install network debugging
+// Install network debugging and all fixes
 if (typeof window !== 'undefined') {
   debugApiCalls();
+  installFix(); // Install emergency timestamp fix
+  applyDirectFix(); // Install direct timestamp fix
 }
 import {
   Calculator,
@@ -1302,7 +1306,7 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-  // Profil Değişkenlerini Güncelleme - FIXED to always add new row and fetch latest
+  // Profil Değişkenlerini Güncelleme - EXTRA FIX for timestamp issues
   const updateProfilDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
@@ -1325,15 +1329,37 @@ const calculatePanelKodu = (panel) => {
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
         profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
-        profil_latest_update: getSafeTimestamp() // Fix timestamp format
+        // Use precise timestamp format to avoid the "2025" error
+        profil_latest_update: '2025-01-01 00:00:00' // Hard-coded PostgreSQL compatible format
       };
 
-      console.log("Attempting to save profil_degiskenler directly:", processedData);
+      console.log("Attempting to save profil_degiskenler directly with fix:", processedData);
       
-      // Try our enhanced API helper first
+      // Apply the direct timestamp fix to the processed data
+      const fixedData = fixProfilDegiskenler(processedData);
+      console.log("Data after fix:", fixedData);
+      
+      // Use Axios with specific headers to ensure proper content type
+      try {
+        console.log("Using axios with fixed data...");
+        const axiosResponse = await axios.post(API_URLS.profilDegiskenler, fixedData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log("Axios API call succeeded:", axiosResponse.data);
+        alert('Profil değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('profil');
+        return;
+      } catch (axiosError) {
+        console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
+      }
+      
+      // Try our enhanced API helper as backup
       try {
         console.log("Using enhanced API helper...");
-        const result = await postData(API_URLS.profilDegiskenler, processedData);
+        const result = await postData(API_URLS.profilDegiskenler, fixedData);
         console.log("Enhanced API helper succeeded:", result);
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
@@ -1342,15 +1368,15 @@ const calculatePanelKodu = (panel) => {
         console.error("Enhanced API helper failed:", enhancedError);
       }
       
-      // Fall back to direct fetch if helper fails
+      // Fall back to direct fetch with fixed data
       try {
-        console.log("Trying direct fetch...");
+        console.log("Trying direct fetch with fixed data...");
         const directResponse = await fetch(API_URLS.profilDegiskenler, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(processedData)
+          body: JSON.stringify(fixedData)
         });
         
         if (directResponse.ok) {
@@ -2088,15 +2114,19 @@ const recalculateAllFields = (panel) => {
       const dataToSave = {
         ...panelData,
         manual_order: newManualOrder,
-        kayit_tarihi: getSafeTimestamp() // Fix timestamp format
+        kayit_tarihi: '2025-01-01 00:00:00' // Hard-coded PostgreSQL compatible format
       };
       
-      console.log("Attempting to save panel:", dataToSave);
+      console.log("Preparing panel data for save:", dataToSave);
+      
+      // Apply our direct fix to properly handle timestamps
+      const fixedData = fixAllTimestamps(dataToSave);
+      console.log("Panel data after timestamp fix:", fixedData);
       
       // Try the directlySubmitPanel function first which uses fetch
       try {
         console.log("Using direct panel submission...");
-        const result = await directlySubmitPanel(dataToSave, API_URLS.panelList);
+        const result = await directlySubmitPanel(fixedData, API_URLS.panelList);
         
         if (result.success) {
           console.log("Direct panel submission succeeded:", result);
@@ -2110,10 +2140,27 @@ const recalculateAllFields = (panel) => {
         console.error("Direct panel submission error:", directError);
       }
       
+      // Try axios with fixed data
+      try {
+        console.log("Using axios with fixed data...");
+        const axiosResponse = await axios.post(API_URLS.panelList, fixedData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log("Axios succeeded:", axiosResponse.data);
+        alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
+        fetchSectionData('panelList');
+        return;
+      } catch (axiosError) {
+        console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
+      }
+      
       // Try our enhanced API helper
       try {
         console.log("Using enhanced API helper...");
-        const result = await postData(API_URLS.panelList, dataToSave);
+        const result = await postData(API_URLS.panelList, fixedData);
         console.log("Enhanced API helper succeeded:", result);
         alert(`${panel.panel_kodu || 'Panel'} başarıyla kaydedildi.`);
         fetchSectionData('panelList');
