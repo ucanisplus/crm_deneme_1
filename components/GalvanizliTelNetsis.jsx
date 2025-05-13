@@ -1937,7 +1937,24 @@ const GalvanizliTelNetsis = () => {
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
                 recete_top: 1,
-                fire_orani: 0
+                fire_orani: 0.0004,
+                ua_dahil_edilsin: 'evet',
+                son_operasyon: 'evet',
+                // Additional fields for better Netsis compatibility
+                miktar_sabitle: 'H',
+                stok_maliyet: 'S',
+                fire_mik: '0',
+                sabit_fire_mik: '0',
+                istasyon_kodu: '',
+                hazirlik_suresi: key.includes('01') ? 0 : null,
+                uretim_suresi: key.includes('01') ? value : null,
+                oncelik: '0',
+                planlama_orani: '100',
+                alt_pol_da_transfer: 'H',
+                alt_pol_ambar_cikis: 'H',
+                alt_pol_uretim_kaydi: 'H',
+                alt_pol_mrp: 'H',
+                ic_dis: 'I'
               })
             });
           }
