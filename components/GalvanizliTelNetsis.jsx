@@ -1613,10 +1613,11 @@ const GalvanizliTelNetsis = () => {
   // Veritabanı için MM GT verisi oluştur - string generation düzeltmesi
   const generateMmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+    const capValue = parseFloat(mmGtData.cap);
     
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: generateStokAdi(), // String generation düzeltme
+      stok_adi: generateStokAdi(),
       grup_kodu: 'MM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -1627,42 +1628,63 @@ const GalvanizliTelNetsis = () => {
       pay_1: 1,
       payda_1: 1.000,
       cevrim_degeri_1: 0,
+      olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: parseFloat(mmGtData.cap),
+      cap: capValue,
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
+      cap2: capValue.toFixed(2),
       tolerans_plus: parseFloat(mmGtData.tolerans_plus) || 0,
       tolerans_minus: parseFloat(mmGtData.tolerans_minus) || 0,
       shrink: mmGtData.shrink,
-      unwinding: mmGtData.unwinding,
-      cast_kont: mmGtData.cast_kont,
-      helix_kont: mmGtData.helix_kont,
-      elongation: mmGtData.elongation,
+      unwinding: mmGtData.unwinding || '',
+      cast_kont: mmGtData.cast_kont || '',
+      helix_kont: mmGtData.helix_kont || '',
+      elongation: mmGtData.elongation || '',
+      amb_shrink: getShrinkCode(mmGtData.ic_cap),
       satis_kdv_orani: '20',
       alis_kdv_orani: '20',
       stok_turu: 'D',
+      fiyat_birimi: 1,
+      satis_tipi: 1,
+      birim_agirlik: parseInt(mmGtData.kg),
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       alis_doviz_tipi: 2,
       gumruk_tarife_kodu: getGumrukTarifeKodu(),
       ingilizce_isim: generateEnglishName(),
-      amb_shrink: getShrinkCode(mmGtData.ic_cap)
+      // Technical spec columns
+      metarial: 'Low Carbon Steel Wire',
+      dia_mm: capValue.toFixed(2),
+      dia_tol_mm_plus: parseFloat(mmGtData.tolerans_plus) || 0,
+      dia_tol_mm_minus: parseFloat(mmGtData.tolerans_minus) || 0,
+      zing_coating: `${mmGtData.kaplama} gr/m²`,
+      tensile_st_min: `${mmGtData.min_mukavemet} MPa`,
+      tensile_st_max: `${mmGtData.max_mukavemet} MPa`,
+      wax: 'NONE',
+      lifting_lugs: mmGtData.shrink === 'evet' ? 'YES' : 'NO',
+      coil_dimensions_id: mmGtData.ic_cap.toString(),
+      coil_dimensions_od: mmGtData.dis_cap.toString(),
+      coil_weight: mmGtData.kg.toString(),
+      coil_weight_min: (parseInt(mmGtData.kg) * 0.95).toFixed(0),
+      coil_weight_max: (parseInt(mmGtData.kg) * 1.05).toFixed(0)
     };
   };
 
   // Veritabanı için YM GT verisi oluştur - sequence eşleştirme
   const generateYmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+    const capValue = parseFloat(mmGtData.cap);
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: `YM Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -1673,35 +1695,48 @@ const GalvanizliTelNetsis = () => {
       pay_1: 1,
       payda_1: 1.000,
       cevrim_degeri_1: 0,
+      olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: parseFloat(mmGtData.cap),
+      cap: capValue,
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
+      cap2: capValue.toFixed(2),
       tolerans_plus: parseFloat(mmGtData.tolerans_plus) || 0,
       tolerans_minus: parseFloat(mmGtData.tolerans_minus) || 0,
       shrink: mmGtData.shrink,
-      unwinding: mmGtData.unwinding,
+      unwinding: mmGtData.unwinding || '',
+      cast_kont: mmGtData.cast_kont || '',
+      helix_kont: mmGtData.helix_kont || '',
+      elongation: mmGtData.elongation || '',
       satis_kdv_orani: '20',
       alis_kdv_orani: '20',
       stok_turu: 'D',
+      fiyat_birimi: 1,
+      satis_tipi: 1,
+      birim_agirlik: parseInt(mmGtData.kg),
       esnek_yapilandir: 'H',
-      super_recete_kullanilsin: 'H'
+      super_recete_kullanilsin: 'H',
+      alis_doviz_tipi: 2,
+      ingilizce_isim: `YM Galvanized Wire ${capValue.toFixed(2)} mm ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa`
     };
   };
 
   // Veritabanı için YM ST verisi oluştur
   const generateYmStDatabaseData = (ymSt) => {
+    const capValue = parseFloat(ymSt.cap);
     return {
       stok_kodu: ymSt.stok_kodu,
       stok_adi: ymSt.stok_adi,
       grup_kodu: 'YM',
       kod_1: 'ST',
+      kod_2: ymSt.filmasin.toString(), // Store filmasin value in kod_2
+      kod_3: ymSt.quality, // Store quality value in kod_3
       muh_detay: '28',
       depo_kodu: '35',
       br_1: 'KG',
@@ -1709,14 +1744,20 @@ const GalvanizliTelNetsis = () => {
       pay_1: 1,
       payda_1: 1.000,
       cevrim_degeri_1: 0,
+      olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20',
-      cap: parseFloat(ymSt.cap),
-      filmasin: ymSt.filmasin,
+      cap: capValue,
+      filmasin: parseInt(ymSt.filmasin),
       quality: ymSt.quality,
-      ozel_saha_1_say: 1,
+      ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value
+      birim_agirlik: ymSt.kg || 0,
+      fiyat_birimi: 1,
+      doviz_tip: 1,
+      stok_turu: 'D',
+      ingilizce_isim: `YM Black Wire ${capValue.toFixed(2)} mm Quality: ${ymSt.quality}`,
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H'
     };
@@ -1761,14 +1802,29 @@ const GalvanizliTelNetsis = () => {
                 bilesen_kodu: key,
                 miktar: value,
                 sira_no: siraNo++,
-                operasyon_bilesen: operasyonBilesen, // Düzeltildi
+                operasyon_bilesen: operasyonBilesen,
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
                 ua_dahil_edilsin: 'evet',
                 son_operasyon: 'evet',
                 recete_top: 1,
-                fire_orani: 0.0004
+                fire_orani: 0.0004,
+                // Additional fields for better Netsis compatibility
+                miktar_sabitle: 'H',
+                stok_maliyet: 'S',
+                fire_mik: '0',
+                sabit_fire_mik: '0',
+                istasyon_kodu: '',
+                hazirlik_suresi: key.includes('01') ? 0 : null,
+                uretim_suresi: key.includes('01') ? value : null,
+                oncelik: '0',
+                planlama_orani: '100',
+                alt_pol_da_transfer: 'H',
+                alt_pol_ambar_cikis: 'H',
+                alt_pol_uretim_kaydi: 'H',
+                alt_pol_mrp: 'H',
+                ic_dis: 'I'
               })
             });
           }
@@ -1822,7 +1878,24 @@ const GalvanizliTelNetsis = () => {
                   olcu_br_bilesen: '1',
                   aciklama: getReceteAciklama(key),
                   recete_top: 1,
-                  fire_orani: 0
+                  fire_orani: 0.0004,
+                  ua_dahil_edilsin: 'evet',
+                  son_operasyon: 'evet',
+                  // Additional fields for better Netsis compatibility
+                  miktar_sabitle: 'H',
+                  stok_maliyet: 'S',
+                  fire_mik: '0',
+                  sabit_fire_mik: '0',
+                  istasyon_kodu: '',
+                  hazirlik_suresi: key.includes('01') ? 0 : null,
+                  uretim_suresi: key.includes('01') ? value : null,
+                  oncelik: '0',
+                  planlama_orani: '100',
+                  alt_pol_da_transfer: 'H',
+                  alt_pol_ambar_cikis: 'H',
+                  alt_pol_uretim_kaydi: 'H',
+                  alt_pol_mrp: 'H',
+                  ic_dis: 'I'
                 })
               });
             }
