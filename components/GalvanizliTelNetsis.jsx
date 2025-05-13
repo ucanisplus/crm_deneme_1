@@ -57,20 +57,20 @@ const GalvanizliTelNetsis = () => {
     
     // For numbers, ensure proper formatting with points
     if (typeof value === 'number') {
-      return value.toFixed(5);
+      return value.toString();
     }
     
     // For strings with commas, convert to points
     if (typeof value === 'string' && value.includes(',')) {
       const cleanValue = value.replace(/,/g, '.');
       const num = parseFloat(cleanValue);
-      return isNaN(num) ? cleanValue : num.toFixed(5);
+      return isNaN(num) ? cleanValue : num.toString();
     }
     
     // For other strings that might be numbers
     if (typeof value === 'string') {
       const num = parseFloat(value);
-      return isNaN(num) ? value : num.toFixed(5);
+      return isNaN(num) ? value : num.toString();
     }
     
     return value;
@@ -1675,7 +1675,7 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            const operasyonBilesen = key.includes('01') ? 'Operasyon' : 'Bileşen';
+            const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
             
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
