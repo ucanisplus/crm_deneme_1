@@ -110,10 +110,19 @@ export const fetchWithAuth = async (url, options = {}) => {
     }
   }
   
+  // Content-Type header'ı ekle (PUT/POST için gerekli)
+  const hasContentType = options.headers && Object.keys(options.headers)
+    .some(h => h.toLowerCase() === 'content-type');
+  
   const headers = {
-    'Content-Type': 'application/json',
+    ...(hasContentType ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
+
+  // If method is PUT or POST, ensure Content-Type is set
+  if ((options.method === 'PUT' || options.method === 'POST') && !hasContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   const config = {
     ...options,
@@ -131,9 +140,22 @@ export const fetchWithAuth = async (url, options = {}) => {
       // Verileri normalleştir ve tekrar JSON'a dönüştür
       const normalizedData = normalizeDecimalValues(data);
       config.body = JSON.stringify(normalizedData);
+      
+      // Eğer bu bir PUT isteği ise, headers'a content-type eklendiğinden emin ol
+      if (options.method === 'PUT') {
+        config.headers = {
+          ...config.headers,
+          'Content-Type': 'application/json',
+        };
+      }
     } catch (error) {
       console.error('Veri normalleştirme hatası:', error);
       // Hata durumunda orijinal verileri kullan
+      if (typeof options.body === 'string') {
+        config.body = options.body;
+      } else {
+        config.body = JSON.stringify(options.body);
+      }
     }
   }
 
@@ -194,21 +216,44 @@ export const normalizeInputValue = (value) => {
  * @param {Object|Array} data - Gönderilecek veri (tek öğe veya dizi)
  * @returns {Promise<Object>} - API yanıtı (JSON)
  */
-export const postData = async (url, data) => {
+/**
+ * Veri göndermek için yardımcı fonksiyon - POST veya PUT
+ * @param {string} url - İstek yapılacak URL
+ * @param {Object|Array} data - Gönderilecek veri
+ * @param {string} method - HTTP metodu (POST veya PUT)
+ * @returns {Promise<Object>} - API yanıtı
+ */
+export const sendData = async (url, data, method = 'POST') => {
   try {
+    console.log(`${method} isteği gönderiliyor:`, url);
+    console.log('Veri:', data);
+    
     // Veri dizisi mi?
     if (Array.isArray(data)) {
       // Her öğeyi ayrı ayrı gönder
       const results = [];
       for (const item of data) {
         const response = await fetchWithAuth(url, {
-          method: 'POST',
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(item),
         });
         
-        if (!response || !response.ok) {
-          const errorText = await response?.text() || 'Bilinmeyen hata';
-          throw new Error(`API hatası: ${response?.status} - ${errorText}`);
+        if (!response) {
+          throw new Error(`API yanıt vermedi`);
+        }
+        
+        if (!response.ok) {
+          let errorText;
+          try {
+            const errorData = await response.json();
+            errorText = errorData.error || errorData.message || 'Bilinmeyen hata';
+          } catch {
+            errorText = await response.text() || 'Bilinmeyen hata';
+          }
+          throw new Error(`API hatası: ${response.status} - ${errorText}`);
         }
         
         const result = await response.json();
@@ -218,19 +263,52 @@ export const postData = async (url, data) => {
     } else {
       // Tek öğeyi gönder
       const response = await fetchWithAuth(url, {
-        method: 'POST',
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
       });
       
-      if (!response || !response.ok) {
-        const errorText = await response?.text() || 'Bilinmeyen hata';
-        throw new Error(`API hatası: ${response?.status} - ${errorText}`);
+      if (!response) {
+        throw new Error(`API yanıt vermedi`);
+      }
+      
+      if (!response.ok) {
+        let errorText;
+        try {
+          const errorData = await response.json();
+          errorText = errorData.error || errorData.message || 'Bilinmeyen hata';
+        } catch {
+          errorText = await response.text() || 'Bilinmeyen hata';
+        }
+        throw new Error(`API hatası: ${response.status} - ${errorText}`);
       }
       
       return await response.json();
     }
   } catch (error) {
-    console.error('Veri gönderim hatası:', error);
+    console.error(`${method} veri gönderim hatası:`, error);
     throw error;
   }
+};
+
+/**
+ * Tek bir öğe veya birden fazla öğe için POST isteği gönderen yardımcı fonksiyon
+ * @param {string} url - İstek yapılacak URL
+ * @param {Object|Array} data - Gönderilecek veri (tek öğe veya dizi)
+ * @returns {Promise<Object>} - API yanıtı (JSON)
+ */
+export const postData = async (url, data) => {
+  return sendData(url, data, 'POST');
+};
+
+/**
+ * Veri güncellemek için PUT isteği gönderen yardımcı fonksiyon
+ * @param {string} url - İstek yapılacak URL (id dahil)
+ * @param {Object} data - Güncellenecek veri
+ * @returns {Promise<Object>} - API yanıtı (JSON)
+ */
+export const putData = async (url, data) => {
+  return sendData(url, data, 'PUT');
 };
