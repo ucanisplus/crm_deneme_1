@@ -20,8 +20,6 @@ export const API_URLS = {
   galYmSt: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st',
   galYmStRecete: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st_recete',
   galSalRequests: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
-  // Endpoint alias for talepler
-  galTaleplerEndpoint: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
@@ -62,10 +60,7 @@ export const normalizeDecimalValues = (data) => {
   if (typeof data === 'object' && data !== null) {
     const normalizedData = {};
     for (const [key, value] of Object.entries(data)) {
-      if (value === null || value === undefined) {
-        // Handle null/undefined values explicitly to avoid database errors
-        normalizedData[key] = null;
-      } else if (typeof value === 'string' && value.includes(',')) {
+      if (typeof value === 'string' && value.includes(',')) {
         // Virgül içeren string değerlerini kontrol et
         // Global flag ile TÜM virgülleri değiştir - önemli düzeltme
         const numericValue = value.replace(/,/g, '.');
@@ -78,9 +73,6 @@ export const normalizeDecimalValues = (data) => {
       } else if (typeof value === 'object' && value !== null) {
         // İç içe nesneleri işle
         normalizedData[key] = normalizeDecimalValues(value);
-      } else if (typeof value === 'string' && value.trim() === '') {
-        // Empty strings should be treated as null for database compatibility
-        normalizedData[key] = null;
       } else {
         normalizedData[key] = value;
       }
@@ -89,16 +81,11 @@ export const normalizeDecimalValues = (data) => {
   }
   
   // String değer ise ve virgül içeriyorsa sayıya dönüştür
-  if (typeof data === 'string') {
-    if (data.trim() === '') {
-      // Return null for empty strings (database compatibility)
-      return null;
-    } else if (data.includes(',')) {
-      // Global flag ile TÜM virgülleri değiştir
-      const numericValue = data.replace(/,/g, '.');
-      if (!isNaN(parseFloat(numericValue))) {
-        return parseFloat(numericValue);
-      }
+  if (typeof data === 'string' && data.includes(',')) {
+    // Global flag ile TÜM virgülleri değiştir
+    const numericValue = data.replace(/,/g, '.');
+    if (!isNaN(parseFloat(numericValue))) {
+      return parseFloat(numericValue);
     }
   }
   
@@ -112,9 +99,6 @@ export const normalizeDecimalValues = (data) => {
  * @returns {Promise<Response>} - API yanıtı
  */
 export const fetchWithAuth = async (url, options = {}) => {
-  // For debugging
-  console.log(`API Request: ${options.method || 'GET'} ${url}`);
-  
   // Client tarafında ise kullanıcı bilgilerini localStorage'dan al
   let user = null;
   if (typeof window !== 'undefined') {
@@ -124,21 +108,10 @@ export const fetchWithAuth = async (url, options = {}) => {
     }
   }
   
-  // Content-Type header'ı ekle (PUT/POST için gerekli)
-  const hasContentType = options.headers && Object.keys(options.headers)
-    .some(h => h.toLowerCase() === 'content-type');
-  
   const headers = {
-    ...(hasContentType ? {} : { 'Content-Type': 'application/json' }),
+    'Content-Type': 'application/json',
     ...options.headers,
   };
-
-  // ALWAYS ensure Content-Type is set for PUT/POST requests
-  if ((options.method === 'PUT' || options.method === 'POST')) {
-    headers['Content-Type'] = 'application/json';
-    // Add Accept header for better error handling
-    headers['Accept'] = 'application/json';
-  }
 
   const config = {
     ...options,
@@ -153,38 +126,17 @@ export const fetchWithAuth = async (url, options = {}) => {
         ? JSON.parse(options.body) 
         : options.body;
       
-      // Check for empty objects
-      if (Object.keys(data).length === 0) {
-        console.error('Empty data object detected in API request');
-        throw new Error('Cannot send empty data object to API');
-      }
-      
-      // Log the data before normalization for debugging
-      console.log(`Original data:`, data);
-      
       // Verileri normalleştir ve tekrar JSON'a dönüştür
       const normalizedData = normalizeDecimalValues(data);
-      
-      // Log the normalized data for debugging
-      console.log(`Normalized data:`, normalizedData);
-      
       config.body = JSON.stringify(normalizedData);
     } catch (error) {
       console.error('Veri normalleştirme hatası:', error);
       // Hata durumunda orijinal verileri kullan
-      if (typeof options.body === 'string') {
-        config.body = options.body;
-      } else {
-        config.body = JSON.stringify(options.body);
-      }
     }
   }
 
   try {
     const response = await fetch(url, config);
-    
-    // Log the response status for debugging
-    console.log(`API Response: ${response.status} ${response.statusText}`);
     
     // API yanıtlarının tutarlı formatta olmasını sağla
     if (response.status === 401) {
@@ -195,16 +147,6 @@ export const fetchWithAuth = async (url, options = {}) => {
         window.location.href = '/login';
       }
       return null;
-    }
-    
-    // For server errors, try to get detailed error message
-    if (response.status >= 500) {
-      try {
-        const errorDetails = await response.clone().text();
-        console.error(`Server error (${response.status}):`, errorDetails);
-      } catch (e) {
-        // Ignore if we can't parse the error
-      }
     }
     
     return response;
@@ -220,27 +162,33 @@ export const fetchWithAuth = async (url, options = {}) => {
  * @returns {number|string} - Normalleştirilmiş değer
  */
 export const normalizeInputValue = (value) => {
-  // Handle null or undefined
-  if (value === null || value === undefined) {
-    return '';
+  // Sayı zaten ise doğrudan döndür
+  if (typeof value === 'number') {
+    return value;
   }
   
   // String ise ve virgül içeriyorsa noktaya çevir
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.replace(/,/g, '.');
+  if (typeof value === 'string') {
+    // Tüm virgülleri noktalara çevir
+    if (value.includes(',')) {
+      const normalized = value.replace(/,/g, '.');
+      
+      // Sayısal değer olup olmadığını kontrol et
+      if (!isNaN(parseFloat(normalized))) {
+        return parseFloat(normalized);
+      }
+      
+      // Sayısal değilse, normalleştirilmiş string'i döndür
+      return normalized;
+    }
+    
+    // Sayısal string ise sayıya çevir
+    if (!isNaN(parseFloat(value)) && !isNaN(value)) {
+      return parseFloat(value);
+    }
   }
   
-  // Sayı ise string'e çevir, EN-US locale ile nokta kullanarak
-  if (typeof value === 'number') {
-    // Force point decimal separator with en-US locale
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 5,
-      useGrouping: false // No thousand separators
-    });
-  }
-  
-  // Diğer durumlarda değeri olduğu gibi döndür
+  // Diğer durumlarda orijinal değeri döndür
   return value;
 };
 
@@ -250,173 +198,43 @@ export const normalizeInputValue = (value) => {
  * @param {Object|Array} data - Gönderilecek veri (tek öğe veya dizi)
  * @returns {Promise<Object>} - API yanıtı (JSON)
  */
-/**
- * Veri göndermek için yardımcı fonksiyon - POST veya PUT
- * @param {string} url - İstek yapılacak URL
- * @param {Object|Array} data - Gönderilecek veri
- * @param {string} method - HTTP metodu (POST veya PUT)
- * @returns {Promise<Object>} - API yanıtı
- */
-export const sendData = async (url, data, method = 'POST') => {
+export const postData = async (url, data) => {
   try {
-    console.log(`${method} isteği gönderiliyor:`, url);
-    console.log('Veri:', data);
-    
-    // Validation - reject empty data
-    if (!data) {
-      throw new Error('Boş veri gönderilemez');
-    }
-    
-    // Handle arrays
+    // Veri dizisi mi?
     if (Array.isArray(data)) {
-      if (data.length === 0) {
-        throw new Error('Boş dizi gönderilemez');
-      }
-      
-      // Prepare data - normalize decimal values and ensure no empty strings
-      const normalizedItems = data.map(item => {
-        // Check if item is empty
-        if (!item || typeof item !== 'object' || Object.keys(item).length === 0) {
-          console.warn('Boş öğe atlanıyor:', item);
-          return null;
+      // Her öğeyi ayrı ayrı gönder
+      const results = [];
+      for (const item of data) {
+        const response = await fetchWithAuth(url, {
+          method: 'POST',
+          body: JSON.stringify(item),
+        });
+        
+        if (!response || !response.ok) {
+          const errorText = await response?.text() || 'Bilinmeyen hata';
+          throw new Error(`API hatası: ${response?.status} - ${errorText}`);
         }
         
-        return normalizeDecimalValues(item);
-      }).filter(item => item !== null);
-      
-      if (normalizedItems.length === 0) {
-        throw new Error('Normalizasyondan sonra geçerli veri kalmadı');
-      }
-      
-      // Send each item one by one
-      const results = [];
-      for (const item of normalizedItems) {
-        try {
-          // Direct fetch with proper headers
-          const response = await fetch(url, {
-            method: method,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify(item)
-          });
-          
-          if (!response) {
-            console.error('Boş API yanıtı:', item);
-            throw new Error('API yanıt vermedi');
-          }
-          
-          if (!response.ok) {
-            let errorText;
-            try {
-              const errorData = await response.json();
-              errorText = errorData.error || errorData.message || 'Bilinmeyen hata';
-            } catch {
-              errorText = await response.text() || 'Bilinmeyen hata';
-            }
-            throw new Error(`API hatası: ${response.status} - ${errorText}`);
-          }
-          
-          const result = await response.json();
-          results.push(result);
-        } catch (itemError) {
-          console.error(`Öğe gönderim hatası:`, itemError, item);
-          // Continue with next item instead of completely failing
-          results.push({ error: itemError.message, item });
-        }
+        const result = await response.json();
+        results.push(result);
       }
       return results;
     } else {
-      // Single item - ensure it's not empty
-      if (typeof data !== 'object' || Object.keys(data).length === 0) {
-        throw new Error('Boş nesne gönderilemez');
+      // Tek öğeyi gönder
+      const response = await fetchWithAuth(url, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      
+      if (!response || !response.ok) {
+        const errorText = await response?.text() || 'Bilinmeyen hata';
+        throw new Error(`API hatası: ${response?.status} - ${errorText}`);
       }
       
-      // Normalize the data
-      const normalizedData = normalizeDecimalValues(data);
-      console.log('Normalized data:', normalizedData);
-      
-      // Try direct fetch first for best compatibility
-      try {
-        const response = await fetch(url, {
-          method: method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(normalizedData)
-        });
-        
-        if (!response) {
-          throw new Error('API yanıt vermedi');
-        }
-        
-        if (!response.ok) {
-          let errorText;
-          try {
-            const errorData = await response.json();
-            errorText = errorData.error || errorData.message || 'Bilinmeyen hata';
-          } catch (e) {
-            try {
-              errorText = await response.text() || 'Bilinmeyen hata';
-            } catch (e2) {
-              errorText = 'Yanıt alınamadı';
-            }
-          }
-          throw new Error(`API hatası: ${response.status} - ${errorText}`);
-        }
-        
-        return await response.json();
-      } catch (fetchError) {
-        console.warn('Direct fetch failed, trying fetchWithAuth:', fetchError);
-        
-        // Fallback to fetchWithAuth
-        const response = await fetchWithAuth(url, {
-          method: method,
-          body: JSON.stringify(normalizedData)
-        });
-        
-        if (!response) {
-          throw new Error('API yanıt vermedi (fetchWithAuth)');
-        }
-        
-        if (!response.ok) {
-          let errorText;
-          try {
-            const errorData = await response.json();
-            errorText = errorData.error || errorData.message || 'Bilinmeyen hata';
-          } catch {
-            errorText = await response.text() || 'Bilinmeyen hata';
-          }
-          throw new Error(`API hatası: ${response.status} - ${errorText}`);
-        }
-        
-        return await response.json();
-      }
+      return await response.json();
     }
   } catch (error) {
-    console.error(`${method} veri gönderim hatası:`, error);
+    console.error('Veri gönderim hatası:', error);
     throw error;
   }
-};
-
-/**
- * Tek bir öğe veya birden fazla öğe için POST isteği gönderen yardımcı fonksiyon
- * @param {string} url - İstek yapılacak URL
- * @param {Object|Array} data - Gönderilecek veri (tek öğe veya dizi)
- * @returns {Promise<Object>} - API yanıtı (JSON)
- */
-export const postData = async (url, data) => {
-  return sendData(url, data, 'POST');
-};
-
-/**
- * Veri güncellemek için PUT isteği gönderen yardımcı fonksiyon
- * @param {string} url - İstek yapılacak URL (id dahil)
- * @param {Object} data - Güncellenecek veri
- * @returns {Promise<Object>} - API yanıtı (JSON)
- */
-export const putData = async (url, data) => {
-  return sendData(url, data, 'PUT');
 };
