@@ -2005,14 +2005,43 @@ const GalvanizliTelNetsis = () => {
       const sequence = index.toString().padStart(2, '0');
       let siraNo = 1;
       
-      // MMGT reçete sıralaması: 1) YM.GT bileşeni, 2) GTPKT01 operasyonu, 3) diğer bileşenler
+      // MMGT reçete sıralaması: fixed exact order as specified
       const recipeEntries = Object.entries(mmGtRecipe);
-      const ymGtEntry = recipeEntries.find(([key]) => key.includes('YM.GT.'));
-      const operationEntry = recipeEntries.find(([key]) => key === 'GTPKT01');
-      const otherEntries = recipeEntries.filter(([key]) => !key.includes('YM.GT.') && key !== 'GTPKT01');
       
-      // Sırayla ekle
-      const orderedEntries = [ymGtEntry, operationEntry, ...otherEntries].filter(Boolean);
+      // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+      const ymGtEntry = recipeEntries.find(([key]) => key.includes('YM.GT.'));
+      const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
+      const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
+      const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
+      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+      const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
+      const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
+      
+      // Other entries that might exist but aren't in the fixed order
+      const otherEntries = recipeEntries.filter(([key]) => 
+        !key.includes('YM.GT.') && 
+        key !== 'GTPKT01' &&
+        key !== 'AMB.ÇEM.KARTON.GAL' &&
+        !key.includes('AMB.SHRİNK.') &&
+        key !== 'SM.7MMHALKA' &&
+        key !== 'AMB.APEX CEMBER 38X080' &&
+        key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+        key !== 'SM.DESİ.PAK'
+      );
+      
+      // Sırayla ekle - exact order
+      const orderedEntries = [
+        ymGtEntry, 
+        gtpkt01Entry, 
+        kartonEntry,
+        shrinkEntry,
+        halkaEntry,
+        cemberEntry,
+        tokaEntry,
+        desiEntry,
+        ...otherEntries
+      ].filter(Boolean);
       
       orderedEntries.forEach(([key, value]) => {
         if (value > 0) {
@@ -2031,16 +2060,30 @@ const GalvanizliTelNetsis = () => {
       const sequence = index.toString().padStart(2, '0');
       let siraNo = 1;
       
-      // YM GT reçetesinden sequence'e uygun değerleri al
+      // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact order
       const recipeEntries = Object.entries(allRecipes.ymGtRecipe);
-      const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === allYmSts[index].stok_kodu);
-      const operationEntry = recipeEntries.find(([key]) => key === 'GLV01');
-      const otherEntries = recipeEntries.filter(([key]) => !key.includes('YM.ST.') && key !== 'GLV01' && key !== allYmSts[index].stok_kodu);
       
-      // Sırayla ekle
+      // Fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
+      const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === allYmSts[index].stok_kodu);
+      const glv01Entry = recipeEntries.find(([key]) => key === 'GLV01');
+      const zincEntry = recipeEntries.find(([key]) => key === '150 03');
+      const asitEntry = recipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
+      
+      // Other entries that might exist but aren't in the fixed order
+      const otherEntries = recipeEntries.filter(([key]) => 
+        !key.includes('YM.ST.') && 
+        key !== 'GLV01' && 
+        key !== '150 03' && 
+        key !== 'SM.HİDROLİK.ASİT' && 
+        key !== allYmSts[index].stok_kodu
+      );
+      
+      // Sırayla ekle - exact order
       const orderedEntries = [
         ymStEntry ? [allYmSts[index].stok_kodu, ymStEntry[1]] : null,
-        operationEntry,
+        glv01Entry,
+        zincEntry,
+        asitEntry,
         ...otherEntries
       ].filter(Boolean);
       
@@ -2061,13 +2104,25 @@ const GalvanizliTelNetsis = () => {
       const ymStRecipe = allRecipes.ymStRecipes[index] || {};
       let siraNo = 1;
       
-      // YMST reçete sıralaması: 1) FLM bileşeni, 2) TLC01 operasyonu
+      // YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
       const recipeEntries = Object.entries(ymStRecipe);
-      const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
-      const operationEntry = recipeEntries.find(([key]) => key === 'TLC01');
       
-      // Sırayla ekle
-      const orderedEntries = [flmEntry, operationEntry].filter(Boolean);
+      // Fixed order: FLM.*.*, TLC01
+      const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+      const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
+      
+      // Any other entries that might exist but aren't in the fixed order
+      const otherEntries = recipeEntries.filter(([key]) => 
+        !key.includes('FLM.') && 
+        key !== 'TLC01'
+      );
+      
+      // Sırayla ekle - exact order
+      const orderedEntries = [
+        flmEntry,
+        tlc01Entry,
+        ...otherEntries
+      ].filter(Boolean);
       
       orderedEntries.forEach(([key, value]) => {
         if (value > 0) {
@@ -2442,7 +2497,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen', // Operasyon Bileşen
+      bilesenKodu.includes('YM.ST.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.ST always as Bileşen
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
