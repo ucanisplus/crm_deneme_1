@@ -55,9 +55,14 @@ const GalvanizliTelNetsis = () => {
       return '';
     }
     
-    // For numbers, ensure proper formatting with points and 5 decimal places
+    // For numbers, force specific formatting with points
     if (typeof value === 'number') {
-      return value.toFixed(5).replace(/\.?0+$/, ''); // Remove trailing zeros
+      // Use EN-US locale to force point as decimal separator
+      return value.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 5,
+        useGrouping: false // No thousand separators
+      });
     }
     
     // For strings with commas, convert to points
@@ -67,8 +72,12 @@ const GalvanizliTelNetsis = () => {
       if (isNaN(num)) {
         return cleanValue; 
       }
-      // Format with 5 decimal places and remove trailing zeros
-      return num.toFixed(5).replace(/\.?0+$/, '');
+      // Use EN-US locale to force point as decimal separator
+      return num.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 5,
+        useGrouping: false // No thousand separators
+      });
     }
     
     // For other strings that might be numbers
@@ -77,8 +86,12 @@ const GalvanizliTelNetsis = () => {
       if (isNaN(num)) {
         return value;
       }
-      // Format with 5 decimal places and remove trailing zeros
-      return num.toFixed(5).replace(/\.?0+$/, '');
+      // Use EN-US locale to force point as decimal separator
+      return num.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 5,
+        useGrouping: false // No thousand separators
+      });
     }
     
     return value;
@@ -1057,8 +1070,32 @@ const GalvanizliTelNetsis = () => {
 
   // Form değişikliklerini işle - her zaman nokta formatı kullan
   const handleInputChange = (field, value) => {
-    // Gelen değeri normalize et (virgülleri noktalara çevir)
-    const normalizedValue = normalizeInputValue(value);
+    // Enforce point as decimal separator for any input value
+    let normalizedValue;
+    
+    if (typeof value === 'string' && value.includes(',')) {
+      // If input contains comma, replace with point
+      normalizedValue = value.replace(/,/g, '.');
+    } else {
+      // Otherwise use the standard normalizer
+      normalizedValue = normalizeInputValue(value);
+    }
+    
+    // For numeric fields, ensure we store with point as decimal separator
+    if (['cap', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
+      if (typeof normalizedValue === 'string' && normalizedValue !== '') {
+        // Parse and format to ensure point decimal separator
+        const num = parseFloat(normalizedValue);
+        if (!isNaN(num)) {
+          normalizedValue = num.toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 5,
+            useGrouping: false
+          });
+        }
+      }
+    }
+    
     setMmGtData(prev => ({
       ...prev,
       [field]: normalizedValue
@@ -2463,7 +2500,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen', // Operasyon Bileşen
+      bilesenKodu.includes('YM.GT.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.GT always as Bileşen
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -2529,7 +2566,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen', // Operasyon Bileşen
+      bilesenKodu.includes('YM.GT.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.GT always as Bileşen
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -2754,6 +2791,7 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
+                lang="en-US" // Force EN-US locale with point decimal separator
               />
             </div>
 

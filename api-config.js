@@ -174,9 +174,14 @@ export const normalizeInputValue = (value) => {
     return value.replace(/,/g, '.');
   }
   
-  // Sayı ise string'e çevir
+  // Sayı ise string'e çevir, EN-US locale ile nokta kullanarak
   if (typeof value === 'number') {
-    return value.toString();
+    // Force point decimal separator with en-US locale
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 5,
+      useGrouping: false // No thousand separators
+    });
   }
   
   // Diğer durumlarda değeri olduğu gibi döndür
