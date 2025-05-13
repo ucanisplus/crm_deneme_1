@@ -50,13 +50,12 @@ const GalvanizliTelNetsis = () => {
   
   // Form verileri - VİRGÜLÜ değerleri noktalı formata çeviren yardımcı fonksiyon - NOKTA KULLAN
   const normalizeDecimalDisplay = (value) => {
-    if (typeof value === 'number') {
-      return value.toFixed(5); // UI'da 5 ondalık göster
-    }
-    if (typeof value === 'string' && value.includes(',')) {
-      // Virgülleri noktalara çevir
-      return parseFloat(value.replace(/,/g, '.')).toFixed(5);
-    }
+if (typeof value === 'number') {
+  return value.toString(); // Just convert to string
+}
+if (typeof value === 'string' && value.includes(',')) {
+  return value.replace(/,/g, '.'); // Just replace comma with dot
+}
     if (typeof value === 'string') {
       const num = parseFloat(value);
       return isNaN(num) ? value : num.toFixed(5);
