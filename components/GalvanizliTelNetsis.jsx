@@ -1663,7 +1663,7 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            const operasyonBilesen = key.includes('01') ? 'Operasyon' : 'Bileşen';
+            const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
             
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
