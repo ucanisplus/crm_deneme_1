@@ -1,4 +1,4 @@
-// GalvanizliTelNetsis.jsx
+// GalvanizliTelNetsis.jsx - Düzeltilmiş Versiyon
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
@@ -27,6 +27,7 @@ const GalvanizliTelNetsis = () => {
   const [showExistingMmGtModal, setShowExistingMmGtModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteType, setDeleteType] = useState('mmgt'); // 'mmgt' or 'ymst'
   
   // YM ST ekleme modalı
   const [showAddYmStModal, setShowAddYmStModal] = useState(false);
@@ -36,13 +37,29 @@ const GalvanizliTelNetsis = () => {
     quality: ''
   });
   
-  // Form verileri - VİRGÜLÜ değerleri noktalı formata çeviren yardımcı fonksiyon
+  // YMST listesi için state'ler
+  const [existingYmSts, setExistingYmSts] = useState([]);
+  const [activeDbTab, setActiveDbTab] = useState('mmgt'); // 'mmgt' or 'ymst'
+  
+  // Session tracking - aynı oturumda kaydedilen ürünleri takip etmek için
+  const [sessionSavedProducts, setSessionSavedProducts] = useState({
+    mmGtIds: [],
+    ymGtId: null,
+    ymStIds: []
+  });
+  
+  // Form verileri - VİRGÜLÜ değerleri noktalı formata çeviren yardımcı fonksiyon - NOKTA KULLAN
   const normalizeDecimalDisplay = (value) => {
     if (typeof value === 'number') {
-      return value.toString();
+      return value.toFixed(5); // UI'da 5 ondalık göster
     }
     if (typeof value === 'string' && value.includes(',')) {
-      return value.replace(/,/g, '.');
+      // Virgülleri noktalara çevir
+      return parseFloat(value.replace(/,/g, '.')).toFixed(5);
+    }
+    if (typeof value === 'string') {
+      const num = parseFloat(value);
+      return isNaN(num) ? value : num.toFixed(5);
     }
     return value;
   };
@@ -128,6 +145,7 @@ const GalvanizliTelNetsis = () => {
   useEffect(() => {
     fetchRequests();
     fetchExistingMmGts();
+    fetchExistingYmSts();
   }, []);
 
   // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
@@ -182,6 +200,20 @@ const GalvanizliTelNetsis = () => {
     } catch (error) {
       console.error('Mevcut MM GT listesi getirilirken hata:', error);
       toast.error('Mevcut MM GT listesi getirilemedi');
+    }
+  };
+
+  // Mevcut YM ST'leri getir
+  const fetchExistingYmSts = async () => {
+    try {
+      const response = await fetchWithAuth(API_URLS.galYmSt);
+      if (response && response.ok) {
+        const data = await response.json();
+        setExistingYmSts(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Mevcut YM ST listesi getirilirken hata:', error);
+      toast.error('Mevcut YM ST listesi getirilemedi');
     }
   };
 
@@ -529,9 +561,45 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // YMST silme fonksiyonu
+  const deleteYmSt = async (ymSt) => {
+    try {
+      setIsLoading(true);
+      
+      // YMST reçetelerini sil
+      try {
+        const ymStRecipes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+        if (ymStRecipes && ymStRecipes.ok) {
+          const recipes = await ymStRecipes.json();
+          for (const recipe of recipes) {
+            await fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' });
+          }
+        }
+      } catch (error) {
+        console.log('YM ST reçetesi bulunamadı veya silinirken hata:', error);
+      }
+      
+      // YMST'yi sil
+      await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`, { method: 'DELETE' });
+      
+      // Listeyi yenile
+      await fetchExistingYmSts();
+      
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+      toast.success('YM ST ve bağlı veriler başarıyla silindi');
+    } catch (error) {
+      console.error('YM ST silme hatası:', error);
+      toast.error('YM ST silme hatası: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Silme onayı aç
-  const handleDeleteClick = (mmGt) => {
-    setItemToDelete(mmGt);
+  const handleDeleteClick = (item, type) => {
+    setItemToDelete(item);
+    setDeleteType(type);
     setShowDeleteConfirm(true);
   };
 
@@ -539,6 +607,7 @@ const GalvanizliTelNetsis = () => {
   const handleDeleteCancel = () => {
     setShowDeleteConfirm(false);
     setItemToDelete(null);
+    setDeleteType('mmgt');
   };
 
   // Talep seçimi
@@ -812,7 +881,7 @@ const GalvanizliTelNetsis = () => {
     return '1010';
   };
 
-  // Otomatik reçete değerlerini hesapla
+  // Otomatik reçete değerlerini hesapla - NOKTA kullan
   const calculateAutoRecipeValues = () => {
     if (!mmGtData.kg || !mmGtData.cap) return;
     
@@ -841,11 +910,15 @@ const GalvanizliTelNetsis = () => {
       // MM GT Reçete - her MM GT için
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // Sequence eşleştirme!
       
+      // Shrink tipi ve miktarını otomatik belirle
+      const shrinkCode = getShrinkCode(mmGtData.ic_cap);
+      const shrinkAmount = calculateShrinkAmount(kg);
+      
       newMmGtRecipes[index] = {
         [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
         'GTPKT01': (10 / kg),
         'AMB.ÇEM.KARTON.GAL': 8 / kg,
-        [getShrinkCode(mmGtData.ic_cap)]: calculateShrinkAmount(kg),
+        [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
         'SM.7MMHALKA': 4 / kg,
         'AMB.APEX CEMBER 38X080': 1.2 / kg,
         'AMB.TOKA.SIGNODE.114P. DKP': 4 / kg,
@@ -900,19 +973,19 @@ const GalvanizliTelNetsis = () => {
     }));
   };
 
-  // Shrink miktarı hesapla
+  // Shrink miktarı hesapla - NOKTA değer döndür
   const calculateShrinkAmount = (kg) => {
-    return 1 / kg;
+    return parseFloat((1 / kg).toFixed(5));
   };
 
-  // Asit tüketimi hesaplama (Excel formülü)
+  // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür
   const calculateAcidConsumption = (cap, kg, kaplama) => {
     const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
     const tuketilenAsit = 0.0647625; // kg/m2
-    return (yuzeyAlani * tuketilenAsit) / 1000;
+    return parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
   };
 
-  // Desi tüketimi hesapla (prompt'taki formüle göre)
+  // Desi tüketimi hesapla (prompt'taki formüle göre) - NOKTA değer döndür
   const calculateDesiConsumption = (kg, cap) => {
     // Önce kg kategorisine göre
     if (kg >= 500 && kg < 600) return 0.0020;
@@ -1002,6 +1075,9 @@ const GalvanizliTelNetsis = () => {
     setActiveRecipeTab(0);
     setError(null);
     setSuccessMessage('');
+    
+    // Session tracking temizle
+    setSessionSavedProducts({ mmGtIds: [], ymGtId: null, ymStIds: [] });
     
     // Formu temizle - NOKTA ile default değerler
     setMmGtData({
@@ -1130,6 +1206,13 @@ const GalvanizliTelNetsis = () => {
           }
         }
       }));
+      
+      // FLM değişikliği durumunda diğer hesaplamaları tetikle
+      if (key.includes('FLM.')) {
+        setTimeout(() => {
+          calculateAutoRecipeValues();
+        }, 100);
+      }
     }
   };
 
@@ -1181,11 +1264,76 @@ const GalvanizliTelNetsis = () => {
     return 0; // Hata durumunda 0'dan başla
   };
 
+  // Session'daki ürünleri güncelle - düzeltilmiş güncelleme mantığı
+  const updateSessionProducts = async () => {
+    const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+    
+    if (sessionSavedProducts.mmGtIds.length > 0) {
+      // Mevcut session ürünlerini güncelle
+      for (let i = 0; i < allYmSts.length && i < sessionSavedProducts.mmGtIds.length; i++) {
+        const sequence = i.toString().padStart(2, '0');
+        
+        // MM GT'yi güncelle
+        if (sessionSavedProducts.mmGtIds[i]) {
+          await fetchWithAuth(`${API_URLS.galMmGt}/${sessionSavedProducts.mmGtIds[i]}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          });
+        }
+        
+        // YM GT'yi güncelle (sequence eşleştirme)
+        if (i === 0 && sessionSavedProducts.ymGtId) {
+          await fetchWithAuth(`${API_URLS.galYmGt}/${sessionSavedProducts.ymGtId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generateYmGtDatabaseData(sequence))
+          });
+        }
+        
+        // YM ST'yi güncelle (eğer otomatik oluşturulmuşsa)
+        if (sessionSavedProducts.ymStIds[i] && allYmSts[i].source === 'auto-generated') {
+          await fetchWithAuth(`${API_URLS.galYmSt}/${sessionSavedProducts.ymStIds[i]}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(generateYmStDatabaseData(allYmSts[i]))
+          });
+        }
+      }
+      
+      return {
+        mmGtIds: sessionSavedProducts.mmGtIds,
+        ymGtId: sessionSavedProducts.ymGtId,
+        ymStIds: sessionSavedProducts.ymStIds
+      };
+    }
+    
+    return null;
+  };
+
   // Veritabanına kaydet - güncelleme/oluşturma kontrolü
   const saveToDatabase = async () => {
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Session'da mevcut ürünler varsa güncelle
+      const updatedIds = await updateSessionProducts();
+      if (updatedIds) {
+        // Reçeteleri güncelle
+        await saveRecipesToDatabase(updatedIds.mmGtIds, updatedIds.ymGtId, updatedIds.ymStIds);
+        
+        setDatabaseIds(updatedIds);
+        setSavedToDatabase(true);
+        setSuccessMessage('Veriler başarıyla güncellendi');
+        toast.success('Veriler başarıyla güncellendi');
+        
+        // Session'daki ürünleri güncelle
+        setSessionSavedProducts(updatedIds);
+        
+        setIsLoading(false);
+        return;
+      }
       
       // Talep kullanıldıysa uyarı göster
       if (isRequestUsed) {
@@ -1338,6 +1486,13 @@ const GalvanizliTelNetsis = () => {
         ymStIds: ymStIds
       });
       
+      // Session'da kaydedilen ürünleri takip et
+      setSessionSavedProducts({
+        mmGtIds: mmGtIds,
+        ymGtId: ymGtId,
+        ymStIds: ymStIds
+      });
+      
       setSavedToDatabase(true);
       setSuccessMessage('Veriler başarıyla veritabanına kaydedildi');
       toast.success('Veriler başarıyla veritabanına kaydedildi');
@@ -1365,13 +1520,13 @@ const GalvanizliTelNetsis = () => {
     return null;
   };
 
-  // Veritabanı için MM GT verisi oluştur
+  // Veritabanı için MM GT verisi oluştur - string generation düzeltmesi
   const generateMmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: generateStokAdi(),
+      stok_adi: generateStokAdi(), // String generation düzeltme
       grup_kodu: 'MM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -1504,6 +1659,9 @@ const GalvanizliTelNetsis = () => {
         
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
+            // Operasyon/Bileşen sınıflandırması düzeltmesi
+            const operasyonBilesen = key.includes('01') ? 'Operasyon' : 'Bileşen';
+            
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1513,7 +1671,7 @@ const GalvanizliTelNetsis = () => {
                 bilesen_kodu: key,
                 miktar: value,
                 sira_no: siraNo++,
-                operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
+                operasyon_bilesen: operasyonBilesen, // Düzeltildi
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
@@ -1778,7 +1936,7 @@ const GalvanizliTelNetsis = () => {
     saveAs(new Blob([buffer]), 'Galvaniz_Stok_Karti.xlsx');
   };
 
-  // Reçete Excel oluştur - İyileştirilmiş sıralama ile
+  // Reçete Excel oluştur - İyileştirilmiş sıralama ile, sequence matching düzeltmesi
   const generateReceteExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
@@ -1811,7 +1969,7 @@ const GalvanizliTelNetsis = () => {
       });
     });
     
-    // YM GT REÇETE Sheet - her sequence için 4 satır
+    // YM GT REÇETE Sheet - her sequence için ayrı reçete
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
@@ -1820,7 +1978,7 @@ const GalvanizliTelNetsis = () => {
       const sequence = index.toString().padStart(2, '0');
       let siraNo = 1;
       
-      // YMGT reçete sıralaması: 1) YM.ST bileşeni, 2) GLV01 operasyonu, 3) diğer bileşenler
+      // YM GT reçetesinden sequence'e uygun değerleri al
       const recipeEntries = Object.entries(allRecipes.ymGtRecipe);
       const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === allYmSts[index].stok_kodu);
       const operationEntry = recipeEntries.find(([key]) => key === 'GLV01');
@@ -2404,6 +2562,23 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Shrink miktarı ve tipi ile ilgili yardımcı fonksiyonlar
+  const handleShrinkChange = (recipeIndex, newShrinkCode) => {
+    const currentShrinkAmount = calculateShrinkAmount(parseFloat(mmGtData.kg) || 0);
+    const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+    
+    // Mevcut reçeteleri güncelle
+    updateRecipeValue('mmgt', recipeIndex, newShrinkCode, currentShrinkAmount);
+    
+    // Eski shrink kodlarını temizle (eğer farklıysa)
+    const shrinkTypes = ['AMB.SHRİNK.200*140CM', 'AMB.SHRİNK.200*160CM', 'AMB.SHRİNK.200*190CM'];
+    shrinkTypes.forEach(shrinkType => {
+      if (shrinkType !== newShrinkCode) {
+        updateRecipeValue('mmgt', recipeIndex, shrinkType, 0);
+      }
+    });
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
       {/* Ana Başlık ve Butonlar */}
@@ -2463,13 +2638,13 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0.00001"
                 min="0.8"
                 max="8.0"
-                value={mmGtData.cap}
+                value={normalizeDecimalDisplay(mmGtData.cap)}
                 onChange={(e) => handleInputChange('cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="0.00"
+                placeholder="0.00000"
               />
             </div>
 
@@ -2493,9 +2668,10 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
+                step="0.00001"
                 min="50"
                 max="400"
-                value={mmGtData.kaplama}
+                value={normalizeDecimalDisplay(mmGtData.kaplama)}
                 onChange={(e) => handleInputChange('kaplama', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 disabled={mmGtData.kod_2 === 'PAD'}
@@ -2509,9 +2685,10 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
+                step="0.00001"
                 min="350"
                 max="1000"
-                value={mmGtData.min_mukavemet}
+                value={normalizeDecimalDisplay(mmGtData.min_mukavemet)}
                 onChange={(e) => handleInputChange('min_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
@@ -2524,9 +2701,10 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
+                step="0.00001"
                 min="350"
                 max="1000"
-                value={mmGtData.max_mukavemet}
+                value={normalizeDecimalDisplay(mmGtData.max_mukavemet)}
                 onChange={(e) => handleInputChange('max_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
@@ -2539,9 +2717,10 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
+                step="0.00001"
                 min="250"
                 max="1250"
-                value={mmGtData.kg}
+                value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="250-1250"
@@ -2569,7 +2748,8 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
-                value={mmGtData.dis_cap || ''}
+                step="0.00001"
+                value={normalizeDecimalDisplay(mmGtData.dis_cap || '')}
                 onChange={(e) => handleInputChange('dis_cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all bg-gray-50"
                 readOnly
@@ -2582,13 +2762,13 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0.00001"
                 min="0"
                 max="0.1"
-                value={mmGtData.tolerans_plus || ''}
+                value={normalizeDecimalDisplay(mmGtData.tolerans_plus || '')}
                 onChange={(e) => handleInputChange('tolerans_plus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="0.00"
+                placeholder="0.00000"
               />
             </div>
 
@@ -2598,13 +2778,13 @@ const GalvanizliTelNetsis = () => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0.00001"
                 min="0"
                 max="0.1"
-                value={mmGtData.tolerans_minus || ''}
+                value={normalizeDecimalDisplay(mmGtData.tolerans_minus || '')}
                 onChange={(e) => handleInputChange('tolerans_minus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="0.00"
+                placeholder="0.00000"
               />
             </div>
 
@@ -2865,7 +3045,7 @@ const GalvanizliTelNetsis = () => {
                             Veritabanı
                           </span>
                           <span className="text-sm font-medium text-gray-700">
-                            {parseFloat(ymSt.cap || 0).toFixed(2)} mm
+                            {parseFloat(ymSt.cap || 0).toFixed(5)} mm
                           </span>
                         </div>
                       </div>
@@ -2905,7 +3085,7 @@ const GalvanizliTelNetsis = () => {
                           {ymSt.source === 'manual-added' ? 'Elle Eklendi' : 'Veritabanı'}
                         </span>
                         <span className="text-sm font-medium text-gray-700">
-                          {parseFloat(ymSt.cap || 0).toFixed(2)} mm
+                          {parseFloat(ymSt.cap || 0).toFixed(5)} mm
                         </span>
                       </div>
                     </div>
@@ -2936,7 +3116,7 @@ const GalvanizliTelNetsis = () => {
                           Otomatik Oluşturuldu
                         </span>
                         <span className="text-sm font-medium text-gray-700">
-                          {parseFloat(ymSt.cap || 0).toFixed(2)} mm
+                          {parseFloat(ymSt.cap || 0).toFixed(5)} mm
                         </span>
                       </div>
                     </div>
@@ -2993,7 +3173,7 @@ const GalvanizliTelNetsis = () => {
                   >
                     YM ST #{index + 1}
                     <span className="text-xs block">
-                      {parseFloat(ymSt.cap || 0).toFixed(2)} mm
+                      {parseFloat(ymSt.cap || 0).toFixed(5)} mm
                     </span>
                   </button>
                 ))}
@@ -3008,21 +3188,33 @@ const GalvanizliTelNetsis = () => {
                       MM GT #{activeRecipeTab + 1} Reçetesi
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* 8 alan için özel düzenleme - prompt'ta belirtildiği gibi */}
+                      {/* 8 alan için özel düzenleme - Shrink alanı dropdown ile */}
                       {[
-                        `YM.GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0')}.${activeRecipeTab.toString().padStart(2, '0')}`, // YM GT bileşeni - sequence eşleştirme
-                        'GTPKT01',
-                        'AMB.ÇEM.KARTON.GAL',
-                        'SM.7MMHALKA',
-                        'AMB.TOKA.SIGNODE.114P. DKP',
-                        getShrinkCode(mmGtData.ic_cap), // Shrink Type
-                        'AMB.APEX CEMBER 38X080',
-                        'SM.DESİ.PAK'
-                      ].map((key, idx) => {
-                        const friendlyName = friendlyNames[key] || key;
-                        const isShrinkType = key.includes('SHRİNK');
-                        const currentValue = allRecipes.mmGtRecipes[activeRecipeTab]?.[key] || '';
-                        const statusText = getRecipeStatusText('mmgt', activeRecipeTab, key);
+                        { key: `YM.GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0')}.${activeRecipeTab.toString().padStart(2, '0')}`, type: 'readonly' }, // YM GT bileşeni - sequence eşleştirme
+                        { key: 'GTPKT01', type: 'input' },
+                        { key: 'AMB.ÇEM.KARTON.GAL', type: 'input' },
+                        { key: 'SM.7MMHALKA', type: 'input' },
+                        { key: 'AMB.TOKA.SIGNODE.114P. DKP', type: 'input' },
+                        { key: 'shrink', type: 'dropdown' }, // Özel shrink dropdown
+                        { key: 'AMB.APEX CEMBER 38X080', type: 'input' },
+                        { key: 'SM.DESİ.PAK', type: 'input' }
+                      ].map(({ key, type }, idx) => {
+                        const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+                        let currentValue = '';
+                        
+                        if (type === 'readonly') {
+                          currentValue = key;
+                        } else if (key === 'shrink') {
+                          // Mevcut shrink tipini bul
+                          const shrinkKeys = ['AMB.SHRİNK.200*140CM', 'AMB.SHRİNK.200*160CM', 'AMB.SHRİNK.200*190CM'];
+                          const currentShrinkKey = shrinkKeys.find(sk => allRecipes.mmGtRecipes[activeRecipeTab]?.[sk] > 0);
+                          currentValue = currentShrinkKey || '';
+                        } else {
+                          currentValue = allRecipes.mmGtRecipes[activeRecipeTab]?.[key] || '';
+                        }
+                        
+                        const friendlyName = type === 'readonly' ? 'YM GT Bileşeni' : friendlyNames[key] || key;
+                        const statusText = type === 'readonly' ? 'Otomatik oluşturuldu' : getRecipeStatusText('mmgt', activeRecipeTab, key);
                         
                         return (
                           <div key={key} className="space-y-2">
@@ -3032,29 +3224,39 @@ const GalvanizliTelNetsis = () => {
                                 ({getOlcuBr(key)})
                               </span>
                             </label>
-                            {isShrinkType ? (
-                              <select
+                            {type === 'readonly' ? (
+                              <input
+                                type="text"
                                 value={currentValue}
-                                onChange={(e) => {
-                                  // Önce value'yu güncelle
-                                  updateRecipeValue('mmgt', activeRecipeTab, e.target.value, currentValue || calculateShrinkAmount(parseFloat(mmGtData.kg) || 0));
-                                  // Sonra yeni key'le value güncelle
-                                  if (currentValue) {
-                                    updateRecipeValue('mmgt', activeRecipeTab, key, 0); // Eski key'i sıfırla
-                                  }
-                                  updateRecipeValue('mmgt', activeRecipeTab, e.target.value, calculateShrinkAmount(parseFloat(mmGtData.kg) || 0));
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                              >
-                                <option value="">Seçin</option>
-                                <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
-                                <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
-                                <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
-                              </select>
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 focus:outline-none cursor-not-allowed"
+                                readOnly
+                              />
+                            ) : type === 'dropdown' ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <select
+                                  value={currentValue}
+                                  onChange={(e) => handleShrinkChange(activeRecipeTab, e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                >
+                                  <option value="">Shrink Tipi Seçin</option>
+                                  <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
+                                  <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
+                                  <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
+                                </select>
+                                <input
+                                  type="number"
+                                  step="0.00001"
+                                  value={currentValue ? normalizeDecimalDisplay(allRecipes.mmGtRecipes[activeRecipeTab]?.[currentValue] || 0) : ''}
+                                  onChange={(e) => currentValue && updateRecipeValue('mmgt', activeRecipeTab, currentValue, e.target.value)}
+                                  placeholder="Shrink Miktarı"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                  disabled={!currentValue}
+                                />
+                              </div>
                             ) : (
                               <input
                                 type="number"
-                                step="0.000001"
+                                step="0.00001"
                                 value={normalizeDecimalDisplay(currentValue || '')}
                                 onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -3078,13 +3280,13 @@ const GalvanizliTelNetsis = () => {
                       YM ST bağlantısı otomatik olarak yapılır. Sadece aşağıdaki 3 değeri düzenleyebilirsiniz:
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* 3 alan için özel düzenleme - prompt'ta belirtildiği gibi */}
+                      {/* 3 alan için özel düzenleme - YM ST bileşeni readonly */}
                       {[
-                        [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab]?.stok_kodu || 'YM.ST.PLACEHOLDER', // YM ST bileşeni otomatik
-                        'GLV01',
-                        '150 03',
-                        'SM.HİDROLİK.ASİT'
-                      ].map((key, idx) => {
+                        { key: [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab]?.stok_kodu || 'YM.ST.PLACEHOLDER', type: 'readonly' }, // YM ST bileşeni otomatik
+                        { key: 'GLV01', type: 'input' },
+                        { key: '150 03', type: 'input' },
+                        { key: 'SM.HİDROLİK.ASİT', type: 'input' }
+                      ].map(({ key, type }, idx) => {
                         if (idx === 0) {
                           // İlk alan YM ST bileşeni - sadece gösterim için
                           return (
@@ -3098,11 +3300,11 @@ const GalvanizliTelNetsis = () => {
                               <input
                                 type="text"
                                 value={key || ''}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 focus:outline-none cursor-not-allowed"
                                 readOnly
                               />
                               <p className="text-xs text-gray-500 italic">
-                                {getRecipeStatusText('ymgt', null, key) || 'Otomatik bağlantı'}
+                                Otomatik belirlendi
                               </p>
                             </div>
                           );
@@ -3122,7 +3324,7 @@ const GalvanizliTelNetsis = () => {
                             </label>
                             <input
                               type="number"
-                              step="0.000001"
+                              step="0.00001"
                               value={normalizeDecimalDisplay(currentValue || '')}
                               onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -3142,33 +3344,37 @@ const GalvanizliTelNetsis = () => {
                       YM ST #{activeRecipeTab + 1} Reçetesi
                     </h3>
                     <p className="text-sm text-gray-600 mb-3">
-                      FLM bağlantısı otomatik olarak yapılır. Sadece aşağıdaki değeri düzenleyebilirsiniz:
+                      FLM bağlantısı otomatik olarak oluşturulan versiyonu düzenleyebilirsiniz:
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* FLM ve TLC01 alanları */}
                       {[
-                        getFilmasinKodu([...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab]), // FLM bileşeni otomatik
-                        'TLC01'
-                      ].map((key, idx) => {
+                        { key: getFilmasinKodu([...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab]), type: 'input' }, // FLM bileşeni düzenlenebilir
+                        { key: 'TLC01', type: 'input' }
+                      ].map(({ key, type }, idx) => {
                         if (idx === 0) {
-                          // İlk alan FLM bileşeni - sadece gösterim için
+                          // İlk alan FLM bileşeni - şimdi düzenlenebilir
+                          const currentValue = allRecipes.ymStRecipes[activeRecipeTab]?.[key] || '';
+                          const statusText = getRecipeStatusText('ymst', activeRecipeTab, key);
+                          
                           return (
                             <div key={key} className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700">
-                                FLM Bileşeni (Otomatik)
+                                FLM Bileşeni
                                 <span className="text-xs text-gray-500 ml-2">
                                   (KG)
                                 </span>
                               </label>
                               <input
-                                type="text"
-                                value={key || ''}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
-                                readOnly
+                                type="number"
+                                step="0.00001"
+                                value={normalizeDecimalDisplay(currentValue || '')}
+                                onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                               />
-                              <p className="text-xs text-gray-500 italic">
-                                {getRecipeStatusText('ymst', activeRecipeTab, key) || 'Otomatik bağlantı'}
-                              </p>
+                              {statusText && (
+                                <p className="text-xs text-gray-500 italic">{statusText}</p>
+                              )}
                             </div>
                           );
                         }
@@ -3187,7 +3393,7 @@ const GalvanizliTelNetsis = () => {
                             </label>
                             <input
                               type="number"
-                              step="0.000001"
+                              step="0.00001"
                               value={normalizeDecimalDisplay(currentValue || '')}
                               onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -3243,6 +3449,15 @@ const GalvanizliTelNetsis = () => {
                 </button>
               )}
               
+              {savedToDatabase && (
+                <div className="flex items-center gap-3 px-6 py-3 bg-green-100 text-green-700 rounded-lg">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Veritabanına Kaydedildi
+                </div>
+              )}
+              
               <button
                 onClick={generateExcelFiles}
                 disabled={isLoading}
@@ -3294,11 +3509,11 @@ const GalvanizliTelNetsis = () => {
                   </label>
                   <input
                     type="number"
-                    step="0.01"
-                    value={newYmStData.cap}
+                    step="0.00001"
+                    value={normalizeDecimalDisplay(newYmStData.cap)}
                     onChange={(e) => setNewYmStData(prev => ({ ...prev, cap: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
+                    placeholder="0.00000"
                   />
                 </div>
                 
@@ -3369,14 +3584,26 @@ const GalvanizliTelNetsis = () => {
                   </svg>
                   Bekleyen Talepler
                 </h2>
-                <button
-                  onClick={() => setShowRequestsModal(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={fetchRequests}
+                    disabled={isLoading}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Yenile
+                  </button>
+                  <button
+                    onClick={() => setShowRequestsModal(false)}
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               
               {isLoading ? (
@@ -3425,7 +3652,7 @@ const GalvanizliTelNetsis = () => {
                       {requests.map((request) => (
                         <tr key={request.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {parseFloat(request.cap || 0).toFixed(2)} mm
+                            {parseFloat(request.cap || 0).toFixed(5)} mm
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -3474,7 +3701,7 @@ const GalvanizliTelNetsis = () => {
         </div>
       )}
 
-      {/* Mevcut MM GT Modalı */}
+      {/* Mevcut MM GT / YM ST Modalı */}
       {showExistingMmGtModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-auto">
@@ -3486,97 +3713,205 @@ const GalvanizliTelNetsis = () => {
                   </svg>
                   Veritabanından Seç
                 </h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      fetchExistingMmGts();
+                      fetchExistingYmSts();
+                    }}
+                    disabled={isLoading}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Yenile
+                  </button>
+                  <button
+                    onClick={() => setShowExistingMmGtModal(false)}
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Tab'lar */}
+              <div className="flex gap-4 mb-6 border-b">
                 <button
-                  onClick={() => setShowExistingMmGtModal(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                  onClick={() => setActiveDbTab('mmgt')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    activeDbTab === 'mmgt'
+                      ? 'text-purple-600 border-b-2 border-purple-600'
+                      : 'text-gray-600 hover:text-purple-600'
+                  }`}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  MM GT
+                </button>
+                <button
+                  onClick={() => setActiveDbTab('ymst')}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    activeDbTab === 'ymst'
+                      ? 'text-purple-600 border-b-2 border-purple-600'
+                      : 'text-gray-600 hover:text-purple-600'
+                  }`}
+                >
+                  YM ST
                 </button>
               </div>
               
-              {existingMmGts.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  <p className="text-gray-500 text-lg">Mevcut MM GT bulunamadı.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stok Kodu
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Çap
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Kaplama Türü
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Kaplama
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Mukavemet
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ağırlık
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          İşlem
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {existingMmGts.map((mmGt) => (
-                        <tr key={mmGt.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {mmGt.stok_kodu || ''}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {parseFloat(mmGt.cap || 0).toFixed(2)} mm
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              mmGt.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                            }`}>
-                              {mmGt.kod_2 || ''}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {mmGt.kaplama || '0'} gr/m²
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {mmGt.min_mukavemet || '0'}-{mmGt.max_mukavemet || '0'} MPa
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {mmGt.kg || '0'} kg
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSelectExistingMmGt(mmGt)}
-                                className="text-purple-600 hover:text-purple-900 transition-colors"
-                              >
-                                Seç
-                              </button>
-                              <button
-                                onClick={() => handleDeleteClick(mmGt)}
-                                className="text-red-600 hover:text-red-900 transition-colors"
-                              >
-                                Sil
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              {/* MM GT Tab İçeriği */}
+              {activeDbTab === 'mmgt' && (
+                <>
+                  {existingMmGts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">Mevcut MM GT bulunamadı.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Stok Kodu
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Çap
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Kaplama Türü
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Kaplama
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Mukavemet
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Ağırlık
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              İşlem
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {existingMmGts.map((mmGt) => (
+                            <tr key={mmGt.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {mmGt.stok_kodu || ''}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {parseFloat(mmGt.cap || 0).toFixed(5)} mm
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  mmGt.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {mmGt.kod_2 || ''}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {mmGt.kaplama || '0'} gr/m²
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {mmGt.min_mukavemet || '0'}-{mmGt.max_mukavemet || '0'} MPa
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {mmGt.kg || '0'} kg
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleSelectExistingMmGt(mmGt)}
+                                    className="text-purple-600 hover:text-purple-900 transition-colors"
+                                  >
+                                    Seç
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClick(mmGt, 'mmgt')}
+                                    className="text-red-600 hover:text-red-900 transition-colors"
+                                  >
+                                    Sil
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+              
+              {/* YM ST Tab İçeriği */}
+              {activeDbTab === 'ymst' && (
+                <>
+                  {existingYmSts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">Mevcut YM ST bulunamadı.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Stok Kodu
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Çap
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Filmaşin
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Kalite
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              İşlem
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {existingYmSts.map((ymSt) => (
+                            <tr key={ymSt.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {ymSt.stok_kodu || ''}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {ymSt.filmasin || ''}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {ymSt.quality || ''}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button
+                                  onClick={() => handleDeleteClick(ymSt, 'ymst')}
+                                  className="text-red-600 hover:text-red-900 transition-colors"
+                                >
+                                  Sil
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -3601,7 +3936,10 @@ const GalvanizliTelNetsis = () => {
               </div>
               
               <p className="text-gray-600 mb-6">
-                Bu MM GT'yi ve tüm bağlı verilerini (YM GT'ler, reçeteler vb.) silmek istediğinizden emin misiniz?
+                {deleteType === 'mmgt' 
+                  ? 'Bu MM GT\'yi ve tüm bağlı verilerini (YM GT\'ler, reçeteler vb.) silmek istediğinizden emin misiniz?'
+                  : 'Bu YM ST\'yi ve bağlı reçetelerini silmek istediğinizden emin misiniz?'
+                }
               </p>
               
               <div className="flex gap-3">
@@ -3612,7 +3950,7 @@ const GalvanizliTelNetsis = () => {
                   İptal
                 </button>
                 <button
-                  onClick={() => deleteMmGt(itemToDelete)}
+                  onClick={() => deleteType === 'mmgt' ? deleteMmGt(itemToDelete) : deleteYmSt(itemToDelete)}
                   disabled={isLoading}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
