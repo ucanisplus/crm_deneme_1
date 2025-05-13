@@ -99,16 +99,16 @@ const GalvanizliTelNetsis = () => {
   
   // Form verileri - NOKTA kullan decimal için
   const [mmGtData, setMmGtData] = useState({
-    cap: '2.50', // Varsayılan değer
+    cap: '2.50', // Ensure point decimal separator 
     kod_2: 'NIT',
-    kaplama: '50', // Varsayılan değer
-    min_mukavemet: '350', // Varsayılan değer
-    max_mukavemet: '550', // Varsayılan değer
-    kg: '500', // Varsayılan değer
+    kaplama: '50', // Integer value
+    min_mukavemet: '350', // Integer value
+    max_mukavemet: '550', // Integer value
+    kg: '500', // Integer value
     ic_cap: 45,
     dis_cap: 75,
-    tolerans_plus: '0.05', // Varsayılan değer
-    tolerans_minus: '0.06', // Varsayılan değer
+    tolerans_plus: '0.05', // Ensure point decimal separator
+    tolerans_minus: '0.06', // Ensure point decimal separator
     shrink: 'evet',
     unwinding: '',
     cast_kont: '',
@@ -647,17 +647,18 @@ const GalvanizliTelNetsis = () => {
   const handleSelectRequest = (request) => {
     setSelectedRequest(request);
     setIsRequestUsed(true); // Talep kullanıldı olarak işaretle
+    // Use normalized decimal display for all numeric values to ensure points not commas
     setMmGtData({
-      cap: request.cap ? normalizeDecimalDisplay(request.cap.toString()) : '',
+      cap: request.cap ? normalizeDecimalDisplay(request.cap) : '',
       kod_2: request.kod_2 || 'NIT',
-      kaplama: request.kaplama ? request.kaplama.toString() : '',
-      min_mukavemet: request.min_mukavemet ? request.min_mukavemet.toString() : '',
-      max_mukavemet: request.max_mukavemet ? request.max_mukavemet.toString() : '',
-      kg: request.kg ? request.kg.toString() : '',
+      kaplama: request.kaplama ? normalizeDecimalDisplay(request.kaplama) : '',
+      min_mukavemet: request.min_mukavemet ? normalizeDecimalDisplay(request.min_mukavemet) : '',
+      max_mukavemet: request.max_mukavemet ? normalizeDecimalDisplay(request.max_mukavemet) : '',
+      kg: request.kg ? normalizeDecimalDisplay(request.kg) : '',
       ic_cap: request.ic_cap || 45,
       dis_cap: request.dis_cap || 75,
-      tolerans_plus: request.tolerans_plus ? normalizeDecimalDisplay(request.tolerans_plus.toString()) : '',
-      tolerans_minus: request.tolerans_minus ? normalizeDecimalDisplay(request.tolerans_minus.toString()) : '',
+      tolerans_plus: request.tolerans_plus ? normalizeDecimalDisplay(request.tolerans_plus) : '',
+      tolerans_minus: request.tolerans_minus ? normalizeDecimalDisplay(request.tolerans_minus) : '',
       shrink: request.shrink || 'evet',
       unwinding: request.unwinding || '',
       cast_kont: '',
@@ -673,17 +674,18 @@ const GalvanizliTelNetsis = () => {
   // Mevcut MM GT seçimi
   const handleSelectExistingMmGt = async (mmGt) => {
     setSelectedExistingMmGt(mmGt);
+    // Use normalized decimal display for numeric values to ensure points not commas
     setMmGtData({
-      cap: mmGt.cap ? normalizeDecimalDisplay(mmGt.cap.toString()) : '',
+      cap: mmGt.cap ? normalizeDecimalDisplay(mmGt.cap) : '',
       kod_2: mmGt.kod_2 || 'NIT',
-      kaplama: mmGt.kaplama ? mmGt.kaplama.toString() : '',
-      min_mukavemet: mmGt.min_mukavemet ? mmGt.min_mukavemet.toString() : '',
-      max_mukavemet: mmGt.max_mukavemet ? mmGt.max_mukavemet.toString() : '',
-      kg: mmGt.kg ? mmGt.kg.toString() : '',
+      kaplama: mmGt.kaplama ? normalizeDecimalDisplay(mmGt.kaplama) : '',
+      min_mukavemet: mmGt.min_mukavemet ? normalizeDecimalDisplay(mmGt.min_mukavemet) : '',
+      max_mukavemet: mmGt.max_mukavemet ? normalizeDecimalDisplay(mmGt.max_mukavemet) : '',
+      kg: mmGt.kg ? normalizeDecimalDisplay(mmGt.kg) : '',
       ic_cap: mmGt.ic_cap || 45,
       dis_cap: mmGt.dis_cap || 75,
-      tolerans_plus: mmGt.tolerans_plus ? normalizeDecimalDisplay(mmGt.tolerans_plus.toString()) : '',
-      tolerans_minus: mmGt.tolerans_minus ? normalizeDecimalDisplay(mmGt.tolerans_minus.toString()) : '',
+      tolerans_plus: mmGt.tolerans_plus ? normalizeDecimalDisplay(mmGt.tolerans_plus) : '',
+      tolerans_minus: mmGt.tolerans_minus ? normalizeDecimalDisplay(mmGt.tolerans_minus) : '',
       shrink: mmGt.shrink || 'evet',
       unwinding: mmGt.unwinding || '',
       cast_kont: mmGt.cast_kont || '',
@@ -1153,7 +1155,7 @@ const GalvanizliTelNetsis = () => {
     
     // Formu temizle - NOKTA ile default değerler
     setMmGtData({
-      cap: '2.50',
+      cap: '2.50', // Using point as decimal separator
       kod_2: 'NIT',
       kaplama: '50',
       min_mukavemet: '350',
