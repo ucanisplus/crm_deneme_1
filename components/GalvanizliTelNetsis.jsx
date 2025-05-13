@@ -55,22 +55,30 @@ const GalvanizliTelNetsis = () => {
       return '';
     }
     
-    // For numbers, ensure proper formatting with points
+    // For numbers, ensure proper formatting with points and 5 decimal places
     if (typeof value === 'number') {
-      return value.toString();
+      return value.toFixed(5).replace(/\.?0+$/, ''); // Remove trailing zeros
     }
     
     // For strings with commas, convert to points
     if (typeof value === 'string' && value.includes(',')) {
       const cleanValue = value.replace(/,/g, '.');
       const num = parseFloat(cleanValue);
-      return isNaN(num) ? cleanValue : num.toString();
+      if (isNaN(num)) {
+        return cleanValue; 
+      }
+      // Format with 5 decimal places and remove trailing zeros
+      return num.toFixed(5).replace(/\.?0+$/, '');
     }
     
     // For other strings that might be numbers
     if (typeof value === 'string') {
       const num = parseFloat(value);
-      return isNaN(num) ? value : num.toString();
+      if (isNaN(num)) {
+        return value;
+      }
+      // Format with 5 decimal places and remove trailing zeros
+      return num.toFixed(5).replace(/\.?0+$/, '');
     }
     
     return value;
@@ -827,11 +835,13 @@ const GalvanizliTelNetsis = () => {
       
       // İkinci YM ST - Alternatif ölçü (%1 azaltılmış)
       const alternativeCap = baseAdjustedCap * 0.99;
-      const capStr2 = Math.round(alternativeCap * 100).toString().padStart(4, '0');
+      // Format to 2 decimals for display
+      const alternativeCapFormatted = Number(alternativeCap.toFixed(2));
+      const capStr2 = Math.round(alternativeCapFormatted * 100).toString().padStart(4, '0');
       autoYmSts.push({
         stok_kodu: `YM.ST.${capStr2}.${filmasinCap}.${quality}`,
-        stok_adi: `YM Siyah Tel ${capStr2} mm HM:${filmasinCap}.${quality}`,
-        cap: alternativeCap,
+        stok_adi: `YM Siyah Tel ${alternativeCapFormatted.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+        cap: alternativeCapFormatted,
         filmasin: parseInt(filmasinCap),
         quality: quality,
         source: 'auto-generated'
@@ -839,15 +849,17 @@ const GalvanizliTelNetsis = () => {
     } else if (mmGtData.kod_2 === 'NIT') {
       // NIT için otomatik YM ST oluştur - 2 farklı versiyonla
       const baseAdjustedCap = cap * 0.96; // NIT için %4 azaltma
-      const filmasinCap = getFilmasinForCap(baseAdjustedCap);
-      const quality = getQualityForCap(baseAdjustedCap);
+      // Format to 2 decimals for display
+      const baseAdjustedCapFormatted = Number(baseAdjustedCap.toFixed(2));
+      const filmasinCap = getFilmasinForCap(baseAdjustedCapFormatted);
+      const quality = getQualityForCap(baseAdjustedCapFormatted);
       
       // İlk YM ST
-      const capStr1 = Math.round(baseAdjustedCap * 100).toString().padStart(4, '0');
+      const capStr1 = Math.round(baseAdjustedCapFormatted * 100).toString().padStart(4, '0');
       autoYmSts.push({
         stok_kodu: `YM.ST.${capStr1}.${filmasinCap}.${quality}`,
-        stok_adi: `YM Siyah Tel ${capStr1} mm HM:${filmasinCap}.${quality}`,
-        cap: baseAdjustedCap,
+        stok_adi: `YM Siyah Tel ${baseAdjustedCapFormatted.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+        cap: baseAdjustedCapFormatted,
         filmasin: parseInt(filmasinCap),
         quality: quality,
         source: 'auto-generated'
@@ -855,11 +867,13 @@ const GalvanizliTelNetsis = () => {
       
       // İkinci YM ST - Farklı variant
       const alternativeCap = cap * 0.94; // Daha fazla azaltma
-      const capStr2 = Math.round(alternativeCap * 100).toString().padStart(4, '0');
+      // Format to 2 decimals for display
+      const alternativeCapFormatted = Number(alternativeCap.toFixed(2));
+      const capStr2 = Math.round(alternativeCapFormatted * 100).toString().padStart(4, '0');
       autoYmSts.push({
         stok_kodu: `YM.ST.${capStr2}.${filmasinCap}.${quality}`,
-        stok_adi: `YM Siyah Tel ${capStr2} mm HM:${filmasinCap}.${quality}`,
-        cap: alternativeCap,
+        stok_adi: `YM Siyah Tel ${alternativeCapFormatted.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+        cap: alternativeCapFormatted,
         filmasin: parseInt(filmasinCap),
         quality: quality,
         source: 'auto-generated'
@@ -960,11 +974,16 @@ const GalvanizliTelNetsis = () => {
     
     // YM GT Reçete (sequence 00 için)
     if (allYmSts.length > 0) {
+      // Calculate values with full precision, then format to 5 decimal places
+      const glvTime = parseFloat((1.15 - (0.125 * cap)).toFixed(5));
+      const zincConsumption = parseFloat((((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + (5.54 * 0.6) + (2.73 * 0.7)) / 1000).toFixed(5));
+      const acidConsumption = parseFloat(calculateAcidConsumption(cap, kg, kaplama).toFixed(5));
+      
       newYmGtRecipe = {
         [allYmSts[0].stok_kodu]: 1, // İlk YM ST
-        'GLV01': 1.15 - (0.125 * cap),
-        '150 03': (((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + (5.54 * 0.6) + (2.73 * 0.7)) / 1000),
-        'SM.HİDROLİK.ASİT': calculateAcidConsumption(cap, kg, kaplama)
+        'GLV01': glvTime,
+        '150 03': zincConsumption,
+        'SM.HİDROLİK.ASİT': acidConsumption
       };
       
       // YM GT reçete durumlarını 'auto' olarak işaretle
@@ -986,33 +1005,36 @@ const GalvanizliTelNetsis = () => {
     }));
   };
 
-  // Shrink miktarı hesapla - NOKTA değer döndür
+  // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals
   const calculateShrinkAmount = (kg) => {
-    return 1 / kg;
+    // Calculate with full precision, then format to 5 decimal places
+    return parseFloat((1 / kg).toFixed(5));
   };
 
-  // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür
+  // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür with 5 decimals
   const calculateAcidConsumption = (cap, kg, kaplama) => {
     const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
     const tuketilenAsit = 0.0647625; // kg/m2
-    return (yuzeyAlani * tuketilenAsit) / 1000;
+    // Calculate with full precision, then format to 5 decimal places
+    return parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
   };
 
-  // Desi tüketimi hesapla (prompt'taki formüle göre) - NOKTA değer döndür
+  // Desi tüketimi hesapla (prompt'taki formüle göre) - NOKTA değer döndür with 5 decimals
   const calculateDesiConsumption = (kg, cap) => {
+    // Return values with 5 decimal places for consistency
     // Önce kg kategorisine göre
-    if (kg >= 500 && kg < 600) return 0.0020;
-    if (kg >= 600 && kg < 650) return 0.0017;
-    if (kg >= 650 && kg < 750) return 0.0015;
-    if (kg >= 750 && kg <= 800) return 0.0013;
-    if (kg > 800 && kg < 850) return 0.0012;
-    if (kg >= 850 && kg < 900) return 0.0011;
-    if (kg >= 900) return 0.0009;
+    if (kg >= 500 && kg < 600) return 0.00200;
+    if (kg >= 600 && kg < 650) return 0.00170;
+    if (kg >= 650 && kg < 750) return 0.00150;
+    if (kg >= 750 && kg <= 800) return 0.00130;
+    if (kg > 800 && kg < 850) return 0.00120;
+    if (kg >= 850 && kg < 900) return 0.00110;
+    if (kg >= 900) return 0.00090;
     
     // Çapa göre fallback
-    if (cap < 2.0) return 0.0020;
-    if (cap >= 2.0 && cap <= 4.0) return 0.0013;
-    return 0.0011;
+    if (cap < 2.0) return 0.00200;
+    if (cap >= 2.0 && cap <= 4.0) return 0.00130;
+    return 0.00110;
   };
 
   // Shrink kodu belirle (tam kod ile)
@@ -1832,7 +1854,13 @@ const GalvanizliTelNetsis = () => {
 
   // Ölçü birimi alma fonksiyonu
   const getOlcuBr = (bilesen) => {
-    if (bilesen.includes('01')) return 'DK';
+    // For YM GT readonly component always show KG
+    if (bilesen === 'readonly') return 'KG';
+    
+    // For process codes with 01 suffix, typically times
+    if (bilesen === 'GTPKT01' || bilesen === 'TLC01') return 'DK';
+    
+    // All other cases return KG for material weight
     if (bilesen.includes('03') || bilesen.includes('ASİT') || bilesen.includes('GLV')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';
     if (bilesen.includes('CEMBER') || bilesen.includes('SHRİNK')) return 'KG';
@@ -3250,6 +3278,7 @@ const GalvanizliTelNetsis = () => {
                         
                         const friendlyName = type === 'readonly' ? 'YM GT Bileşeni' : friendlyNames[key] || key;
                         const statusText = type === 'readonly' ? 'Otomatik oluşturuldu' : getRecipeStatusText('mmgt', activeRecipeTab, key);
+                        // Force 'readonly' type to use KG as the unit
                         
                         return (
                           <div key={key} className="space-y-2">
@@ -3404,7 +3433,10 @@ const GalvanizliTelNetsis = () => {
                                 type="text"
                                 value={filmasinCode}
                                 onChange={(e) => {
-                                  // Update the filmasin code directly
+                                  // Get the new filmasin code from user input
+                                  const newFilmasinCode = e.target.value;
+                                  
+                                  // Get the active YM ST and its current filmasin code
                                   const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
                                   const oldKey = getFilmasinKodu(activeYmSt);
                                   const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
@@ -3412,9 +3444,12 @@ const GalvanizliTelNetsis = () => {
                                   // Update recipes with new key
                                   const updatedRecipes = { ...allRecipes };
                                   if (updatedRecipes.ymStRecipes[activeRecipeTab]) {
+                                    // Create a new recipe object without the old key
                                     const newRecipes = { ...updatedRecipes.ymStRecipes[activeRecipeTab] };
                                     delete newRecipes[oldKey];
-                                    newRecipes[e.target.value] = oldValue;
+                                    
+                                    // Add the new key with the same value
+                                    newRecipes[newFilmasinCode] = oldValue;
                                     updatedRecipes.ymStRecipes[activeRecipeTab] = newRecipes;
                                     setAllRecipes(updatedRecipes);
                                     
