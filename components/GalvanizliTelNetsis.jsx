@@ -50,19 +50,29 @@ const GalvanizliTelNetsis = () => {
   
   // Form verileri - Decimal değerleri nokta formatına çeviren yardımcı fonksiyon - NOKTA KULLAN
   const normalizeDecimalDisplay = (value) => {
+    // Handle null or undefined
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    // For numbers, ensure proper formatting with points
     if (typeof value === 'number') {
-      // Format number with fixed decimal places and ensure point as separator
-      return value.toString();
+      return value.toFixed(5);
     }
+    
+    // For strings with commas, convert to points
     if (typeof value === 'string' && value.includes(',')) {
-      // Replace all commas with dots, then format properly
-      const num = parseFloat(value.replace(/,/g, '.'));
-      return isNaN(num) ? value.replace(/,/g, '.') : num.toString();
+      const cleanValue = value.replace(/,/g, '.');
+      const num = parseFloat(cleanValue);
+      return isNaN(num) ? cleanValue : num.toFixed(5);
     }
+    
+    // For other strings that might be numbers
     if (typeof value === 'string') {
       const num = parseFloat(value);
-      return isNaN(num) ? value : num.toString();
+      return isNaN(num) ? value : num.toFixed(5);
     }
+    
     return value;
   };
   
@@ -1146,8 +1156,9 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete güncelleme fonksiyonu - NOKTA kullan
   const updateRecipeValue = (recipeType, ymStIndex, key, value) => {
-    // Input value'yu normalize et - virgülleri noktalara çevir
+    // Input value'yu normalize et - virgülleri noktalara çevir ve sayıya dönüştür
     const normalizedValue = normalizeInputValue(value);
+    // Ensure we have a proper numeric value with point decimal separator
     const numValue = parseFloat(normalizedValue) || 0;
 
     if (recipeType === 'mmgt') {

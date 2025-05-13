@@ -164,9 +164,19 @@ export const fetchWithAuth = async (url, options = {}) => {
  * @returns {number|string} - Normalleştirilmiş değer
  */
 export const normalizeInputValue = (value) => {
-  // String ise ve virgül içeriyorsa noktaya çevir, başka bir şey yapma
+  // Handle null or undefined
+  if (value === null || value === undefined) {
+    return '';
+  }
+  
+  // String ise ve virgül içeriyorsa noktaya çevir
   if (typeof value === 'string' && value.includes(',')) {
     return value.replace(/,/g, '.');
+  }
+  
+  // Sayı ise string'e çevir
+  if (typeof value === 'number') {
+    return value.toString();
   }
   
   // Diğer durumlarda değeri olduğu gibi döndür
