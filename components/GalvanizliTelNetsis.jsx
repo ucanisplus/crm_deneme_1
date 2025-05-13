@@ -51,10 +51,13 @@ const GalvanizliTelNetsis = () => {
   // Form verileri - Decimal değerleri nokta formatına çeviren yardımcı fonksiyon - NOKTA KULLAN
   const normalizeDecimalDisplay = (value) => {
     if (typeof value === 'number') {
-      return value.toString(); // Just convert to string
+      // Format number with fixed decimal places and ensure point as separator
+      return value.toFixed(5);
     }
     if (typeof value === 'string' && value.includes(',')) {
-      return value.replace(/,/g, '.'); // Replace all commas with dots
+      // Replace all commas with dots, then format properly
+      const num = parseFloat(value.replace(/,/g, '.'));
+      return isNaN(num) ? value.replace(/,/g, '.') : num.toFixed(5);
     }
     if (typeof value === 'string') {
       const num = parseFloat(value);
@@ -2451,6 +2454,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
+    // Keep commas for Excel output as required
     return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
