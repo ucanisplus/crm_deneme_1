@@ -52,16 +52,16 @@ const GalvanizliTelNetsis = () => {
   const normalizeDecimalDisplay = (value) => {
     if (typeof value === 'number') {
       // Format number with fixed decimal places and ensure point as separator
-      return value.toFixed(5);
+      return value.toString();
     }
     if (typeof value === 'string' && value.includes(',')) {
       // Replace all commas with dots, then format properly
       const num = parseFloat(value.replace(/,/g, '.'));
-      return isNaN(num) ? value.replace(/,/g, '.') : num.toFixed(5);
+      return isNaN(num) ? value.replace(/,/g, '.') : num.toString();
     }
     if (typeof value === 'string') {
       const num = parseFloat(value);
-      return isNaN(num) ? value : num.toFixed(5);
+      return isNaN(num) ? value : num.toString();
     }
     return value;
   };
@@ -977,14 +977,14 @@ const GalvanizliTelNetsis = () => {
 
   // Shrink miktarı hesapla - NOKTA değer döndür
   const calculateShrinkAmount = (kg) => {
-    return parseFloat((1 / kg).toFixed(5));
+    return 1 / kg;
   };
 
   // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür
   const calculateAcidConsumption = (cap, kg, kaplama) => {
     const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
     const tuketilenAsit = 0.0647625; // kg/m2
-    return parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
+    return (yuzeyAlani * tuketilenAsit) / 1000;
   };
 
   // Desi tüketimi hesapla (prompt'taki formüle göre) - NOKTA değer döndür
@@ -1663,7 +1663,7 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
+            const operasyonBilesen = key.includes('01') ? 'Operasyon' : 'Bileşen';
             
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
@@ -3049,7 +3049,7 @@ const GalvanizliTelNetsis = () => {
                             Veritabanı
                           </span>
                           <span className="text-sm font-medium text-gray-700">
-                            {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                            {parseFloat(ymSt.cap || 0)} mm
                           </span>
                         </div>
                       </div>
@@ -3089,7 +3089,7 @@ const GalvanizliTelNetsis = () => {
                           {ymSt.source === 'manual-added' ? 'Elle Eklendi' : 'Veritabanı'}
                         </span>
                         <span className="text-sm font-medium text-gray-700">
-                          {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                          {parseFloat(ymSt.cap || 0)} mm
                         </span>
                       </div>
                     </div>
@@ -3120,7 +3120,7 @@ const GalvanizliTelNetsis = () => {
                           Otomatik Oluşturuldu
                         </span>
                         <span className="text-sm font-medium text-gray-700">
-                          {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                          {parseFloat(ymSt.cap || 0)} mm
                         </span>
                       </div>
                     </div>
@@ -3177,7 +3177,7 @@ const GalvanizliTelNetsis = () => {
                   >
                     YM ST #{index + 1}
                     <span className="text-xs block">
-                      {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                      {parseFloat(ymSt.cap || 0)} mm
                     </span>
                   </button>
                 ))}
@@ -3656,7 +3656,7 @@ const GalvanizliTelNetsis = () => {
                       {requests.map((request) => (
                         <tr key={request.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {parseFloat(request.cap || 0).toFixed(5)} mm
+                            {request.cap || 0} mm
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -3811,7 +3811,7 @@ const GalvanizliTelNetsis = () => {
                                 {mmGt.stok_kodu || ''}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {parseFloat(mmGt.cap || 0).toFixed(5)} mm
+                                {parseFloat(mmGt.cap || 0)} mm
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -3893,7 +3893,7 @@ const GalvanizliTelNetsis = () => {
                                 {ymSt.stok_kodu || ''}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {parseFloat(ymSt.cap || 0).toFixed(5)} mm
+                                {parseFloat(ymSt.cap || 0)} mm
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {ymSt.filmasin || ''}
