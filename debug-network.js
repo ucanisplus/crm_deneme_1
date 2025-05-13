@@ -1,6 +1,8 @@
 // debug-network.js
 // This file contains debugging utilities for network requests
 
+import { getSafeTimestamp, processTimestampFields } from './lib/date-utils';
+
 // Add this right after your React import in any component experiencing issues
 // In this case we should add it to PanelCitHesaplama.jsx and other components with issues
 
@@ -240,25 +242,19 @@ function checkForDataIssues(data) {
 export function normalizePanelObject(panel) {
   if (!panel) return null;
   
-  const result = {};
+  // First process all timestamp fields using our enhanced utility
+  let result = processTimestampFields(panel);
   
-  // Handle each field with appropriate type conversion
-  Object.entries(panel).forEach(([key, value]) => {
-    // Skip empty strings
-    if (value === '') {
-      result[key] = null;
-      return;
-    }
-    
-    // Handle numeric fields
+  // Handle numeric fields (which processTimestampFields doesn't handle)
+  result = Object.entries(result).reduce((obj, [key, value]) => {
+    // Handle numeric fields with commas
     if (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.')))) {
-      result[key] = parseFloat(value.replace(',', '.'));
-      return;
+      obj[key] = parseFloat(value.replace(',', '.'));
+    } else {
+      obj[key] = value;
     }
-    
-    // Pass other values as-is
-    result[key] = value;
-  });
+    return obj;
+  }, {});
   
   // Ensure critical fields exist
   if (!result.panel_kodu && result.panel_tipi) {
@@ -266,12 +262,29 @@ export function normalizePanelObject(panel) {
     result.panel_kodu = `${result.panel_tipi}_${Date.now()}`;
   }
   
+  // Always ensure timestamps are properly formatted
+  if (!result.kayit_tarihi) {
+    result.kayit_tarihi = getSafeTimestamp();
+  }
+  
+  // Special handling for year-only values like "2025" that are causing database errors
+  Object.entries(result).forEach(([key, value]) => {
+    if ((key.includes('_update') || key.includes('_tarihi') || key.endsWith('_at')) && 
+        typeof value === 'string' && /^\d{4}$/.test(value)) {
+      // Convert year-only values to full timestamps
+      const year = parseInt(value);
+      if (year >= 1900 && year <= 2100) {
+        result[key] = `${year}-01-01 00:00:00`;
+      }
+    }
+  });
+  
   return result;
 }
 
 export async function directlySubmitPanel(panel, endpoint) {
   try {
-    // Normalize the panel data
+    // Normalize the panel data with enhanced timestamp handling
     const normalizedPanel = normalizePanelObject(panel);
     
     if (!normalizedPanel) {
@@ -280,23 +293,87 @@ export async function directlySubmitPanel(panel, endpoint) {
     
     console.log('Attempting direct submission of panel data:', normalizedPanel);
     
-    // Try fetch with explicit headers
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(normalizedPanel)
-    });
+    // Try multiple approaches to maximize chances of success
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server responded with ${response.status}: ${errorText}`);
+    // Approach 1: Standard fetch with properly formatted data
+    try {
+      console.log('Trying Approach 1: Standard fetch with properly formatted data');
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(normalizedPanel)
+      });
+      
+      if (response.ok) {
+        console.log('✅ Approach 1 succeeded!');
+        const result = await response.json();
+        return { success: true, data: result };
+      } else {
+        console.error(`❌ Approach 1 failed with status ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Error details: ${errorText}`);
+        
+        // If the error contains "timestamp" or "date", it's likely a timestamp format issue
+        if (errorText.toLowerCase().includes('timestamp') || 
+            errorText.toLowerCase().includes('date') ||
+            errorText.toLowerCase().includes('2025')) {
+          console.log('Detected timestamp format issue, trying approach 2');
+        } else {
+          throw new Error(`Server responded with ${response.status}: ${errorText}`);
+        }
+      }
+    } catch (error1) {
+      console.error('Approach 1 error:', error1);
+      // Continue to approach 2
     }
     
-    const result = await response.json();
-    return { success: true, data: result };
+    // Approach 2: Remove all timestamp fields except kayit_tarihi and fix that one
+    try {
+      console.log('Trying Approach 2: Simplified data with minimal timestamp fields');
+      
+      // Create a copy with only essential fields and properly formatted timestamps
+      const simplifiedData = { ...normalizedPanel };
+      
+      // Replace all timestamp fields with nulls except kayit_tarihi
+      Object.keys(simplifiedData).forEach(key => {
+        if ((key.includes('_update') || key.includes('_tarihi') || key.endsWith('_at')) && 
+            key !== 'kayit_tarihi') {
+          simplifiedData[key] = null;
+        }
+      });
+      
+      // Ensure kayit_tarihi is properly formatted
+      simplifiedData.kayit_tarihi = getSafeTimestamp();
+      
+      console.log('Simplified data:', simplifiedData);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(simplifiedData)
+      });
+      
+      if (response.ok) {
+        console.log('✅ Approach 2 succeeded!');
+        const result = await response.json();
+        return { success: true, data: result };
+      } else {
+        console.error(`❌ Approach 2 failed with status ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Error details: ${errorText}`);
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
+      }
+    } catch (error2) {
+      console.error('Approach 2 error:', error2);
+      return { success: false, error: error2.message };
+    }
   } catch (error) {
     console.error('Direct submission failed:', error);
     return { success: false, error: error.message };

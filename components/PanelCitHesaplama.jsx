@@ -7,6 +7,7 @@ import ClientAuthCheck from '@/components/ClientAuthCheck';
 import { API_URLS } from '../api-config';
 import { debugApiCalls, directlySubmitPanel } from '../debug-network';
 import { postData, putData } from '../lib/api-helpers';
+import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
 
 // Install network debugging
 if (typeof window !== 'undefined') {
@@ -1324,7 +1325,7 @@ const calculatePanelKodu = (panel) => {
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
         profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
-        profil_latest_update: new Date().toISOString()
+        profil_latest_update: getSafeTimestamp() // Fix timestamp format
       };
 
       console.log("Attempting to save profil_degiskenler directly:", processedData);
@@ -2087,7 +2088,7 @@ const recalculateAllFields = (panel) => {
       const dataToSave = {
         ...panelData,
         manual_order: newManualOrder,
-        kayit_tarihi: new Date().toISOString()
+        kayit_tarihi: getSafeTimestamp() // Fix timestamp format
       };
       
       console.log("Attempting to save panel:", dataToSave);
@@ -2284,7 +2285,7 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
           const response = await axios.post(API_URLS.panelList, {
             ...panelData,
             manual_order: manualOrderToUse, // Yeni manual_order değerini kullan
-            kayit_tarihi: new Date().toISOString()
+            kayit_tarihi: getSafeTimestamp() // Properly formatted timestamp for PostgreSQL
           });
 
           if (response.status === 200 || response.status === 201) {
