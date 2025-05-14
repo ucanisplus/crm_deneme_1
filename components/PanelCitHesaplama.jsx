@@ -2075,13 +2075,15 @@ const recalculateAllFields = (panel) => {
         return { data: [] };
       });
 
-      // Find highest manual_order starting with 4 (for 400+)
+      // Find highest manual_order value regardless of prefix
       const highestManualOrder = panelListRes.data
-        .filter(p => p.manual_order && p.manual_order.toString().startsWith('4'))
+        .filter(p => p.manual_order && !isNaN(parseInt(p.manual_order)))
         .reduce((max, p) => {
           const order = parseInt(p.manual_order);
           return order > max ? order : max;
-        }, 400);
+        }, 0);
+      
+      console.log("Highest manual_order found:", highestManualOrder);
 
       // Set the new manual_order
       const newManualOrder = (highestManualOrder + 1).toString();
@@ -2278,13 +2280,15 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
         return { data: [] };
       });
 
-      // 400 ile başlayan manual_order değerlerini filtrele ve en yükseğini bul
+      // Find the highest manual_order value in the database regardless of prefix
       const highestManualOrder = panelListRes.data
-        .filter(p => p.manual_order && p.manual_order.toString().startsWith('4'))
+        .filter(p => p.manual_order && !isNaN(parseInt(p.manual_order)))
         .reduce((max, p) => {
           const order = parseInt(p.manual_order);
           return order > max ? order : max;
-        }, 400 - 1); // 399 ile başla ki ilk eklenen 400 olsun (eğer hiç 400+ panel yoksa)
+        }, 0);
+        
+      console.log("Highest manual_order for batch save:", highestManualOrder);
 
       let savedCount = 0;
       let errorCount = 0;
