@@ -1358,42 +1358,19 @@ const calculatePanelKodu = (panel) => {
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
         profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
-        // Use getSafeTimestamp for proper PostgreSQL timestamp format
-        profil_latest_update: getSafeTimestamp(new Date())
+        // This is a fully ISO8601 compliant date string with timezone for PostgreSQL timestamptz
+        profil_latest_update: new Date().toISOString()
       };
 
-      // Debug profil values
-      debugProfilValues(profilDegiskenler);
+      console.log("Attempting to save profil_degiskenler with ISO8601 timestamp");
       
-      console.log("Attempting to save profil_degiskenler:", processedData);
-      console.log("Raw profil_latest_update value:", processedData.profil_latest_update);
+      // The new backend middleware will handle timestamp format conversion automatically.
+      // We'll use a simpler approach relying on the server-side middleware.
       
-      // Process timestamp fields properly for PostgreSQL timestamptz format
-      const processedWithTimestamps = processTimestampFields(processedData);
-      debugProfilValues(processedWithTimestamps);
-      console.log("Data with processed timestamps:", processedWithTimestamps);
-      console.log("Processed profil_latest_update value:", processedWithTimestamps.profil_latest_update);
-      
-      // Use our specialized timestamp fix utility
-      const finalData = fixProfilData(processedData);
-      console.log("Using timestamp-fixed data:", finalData);
-      
-      // Try our enhanced API helper with manual fixes
       try {
-        console.log("Using enhanced API helper with manual fixes...");
-        const result = await postData(API_URLS.profilDegiskenler, finalData);
-        console.log("Enhanced API helper succeeded:", result);
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil');
-        return;
-      } catch (enhancedError) {
-        console.error("Enhanced API helper failed:", enhancedError);
-      }
-      
-      // Fall back to direct axios method
-      try {
-        console.log("Falling back to axios method...");
-        const response = await axios.post(API_URLS.profilDegiskenler, finalData, {
+        // First attempt: Direct axios POST with ISO8601 timestamps
+        console.log("Using direct axios POST with ISO8601 timestamps");
+        const response = await axios.post(API_URLS.profilDegiskenler, processedData, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -1403,33 +1380,45 @@ const calculatePanelKodu = (panel) => {
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
         return;
-      } catch (axiosError) {
-        console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
+      } catch (error) {
+        console.error("First attempt failed:", error.response?.data || error.message);
         
-        // Try direct fetch as a last resort
+        // Second attempt: Try with the postData helper which has additional formatting
         try {
-          console.log("Trying direct fetch...");
-          const directResponse = await fetch(API_URLS.profilDegiskenler, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(finalData)
-          });
+          console.log("Trying with enhanced postData helper");
+          const result = await postData(API_URLS.profilDegiskenler, processedData);
+          console.log("Enhanced API helper succeeded:", result);
+          alert('Profil değişkenleri başarıyla kaydedildi.');
+          fetchSectionData('profil');
+          return;
+        } catch (enhancedError) {
+          console.error("Enhanced API helper failed:", enhancedError);
           
-          if (directResponse.ok) {
-            console.log("Direct fetch succeeded");
-            alert('Profil değişkenleri başarıyla kaydedildi (direct fetch).');
-            fetchSectionData('profil');
-            return;
-          } else {
-            const errorText = await directResponse.text();
-            console.error('Direct fetch error:', errorText);
-            throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
+          // As a last resort, try fetch directly
+          try {
+            console.log("Last resort: direct fetch...");
+            const directResponse = await fetch(API_URLS.profilDegiskenler, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(processedData)
+            });
+            
+            if (directResponse.ok) {
+              console.log("Direct fetch succeeded");
+              alert('Profil değişkenleri başarıyla kaydedildi.');
+              fetchSectionData('profil');
+              return;
+            } else {
+              const errorText = await directResponse.text();
+              console.error('Direct fetch error:', errorText);
+              throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
+            }
+          } catch (directError) {
+            console.error("All attempts failed:", directError);
+            throw directError;
           }
-        } catch (directError) {
-          console.error("Direct fetch failed:", directError);
-          throw directError;
         }
       }
 
