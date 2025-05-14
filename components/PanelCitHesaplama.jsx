@@ -834,10 +834,11 @@ const calculatePanelKodu = (panel) => {
     // Panel değerleri
     const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
     const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-    // Galvanizli/Galvanizsiz profil kullanımını seçime göre belirle
+    // Profil fiyatlarını al
     const galvanizliProfilFiyat = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd);
     const galvanizsizProfilFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
-    const galvanizliTel = isGalvanizli ? galvanizliProfilFiyat : galvanizsizProfilFiyat;
+    // Standart hesaplamalar için her zaman galvanizliProfilFiyat kullan, SetUSD için seçime göre kullanılacak
+    const galvanizliTel = galvanizliProfilFiyat;
     const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
     const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
     const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
@@ -1077,12 +1078,15 @@ const calculatePanelKodu = (panel) => {
 	//Profil Agirlik Yeni formul
 	const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + materialHeight) * profilEtKalinligi * 7.85) / 1000;
         // SetUSD hesapla
+        // SetUSD hesaplamalarında kullanılacak profil fiyatı seçime göre belirlenir
+        const selectedProfilFiyatKg = isGalvanizli ? galvanizliProfilFiyatKg : galvanizsizProfilFiyatKg;
+        
         const SetUSD = profilBoyaTuketimAdUSD +
           profilElektrikKesmeAd +
           profilElektrikKaynakAd +
           profilIsciUretimAd +
           profilHammaddeToplamAd +
-          (galvanizsizProfilFiyatKg * profilAgirlik) +
+          (selectedProfilFiyatKg * profilAgirlik) +
           profilDogalgazTuketimOran +
           profilBoyaElektrikTuketimOran;
 
@@ -3547,7 +3551,7 @@ className = "border rounded p-2"
   />
   </div>
   < div className = "flex flex-col" >
-    <label className="text-sm text-gray-500 mb-1" > (Simdilik sadece bu alanı kullanın.) Galvanizsiz Profil(Ton)($) </label>
+    <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
       < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
@@ -5536,8 +5540,8 @@ return (
     isOpen={showGalvanizliPopup}
     onClose={() => setShowGalvanizliPopup(false)}
     onSelect={handleGalvanizliSecim}
-    title="Tel Tipi Seçimi"
-    description="Hesaplamada hangi tel tipi kullanılsın?"
+    title="Profil Tipi Seçimi"
+    description="Set hesaplamalarında hangi profil kullanılsın?"
   />
 </div>
   );
