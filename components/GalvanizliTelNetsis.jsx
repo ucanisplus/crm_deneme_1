@@ -80,18 +80,36 @@ const GalvanizliTelNetsis = () => {
       });
     }
     
-    // For other strings that might be numbers
+    // For other strings that might be numbers, preserve the format if it already has a decimal point
     if (typeof value === 'string') {
-      const num = parseFloat(value);
-      if (isNaN(num)) {
-        return value;
+      if (value.includes('.')) {
+        // Already has a decimal point - don't reformat if it might lose precision
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+          return value;
+        }
+        // Only reformat if the string representation would be the same length or longer
+        const formatted = num.toLocaleString('en-US', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 5,
+          useGrouping: false
+        });
+        // Count decimal places in original value
+        const decimalPlaces = value.includes('.') ? value.split('.')[1]?.length || 0 : 0;
+        return decimalPlaces > 0 ? formatted : value;
+      } else {
+        // No decimal point in the string, try to parse and format
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+          return value;
+        }
+        // Use EN-US locale to force point as decimal separator
+        return num.toLocaleString('en-US', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 5,
+          useGrouping: false // No thousand separators
+        });
       }
-      // Use EN-US locale to force point as decimal separator
-      return num.toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 5,
-        useGrouping: false // No thousand separators
-      });
     }
     
     return value;
@@ -956,15 +974,23 @@ const GalvanizliTelNetsis = () => {
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
       
+      // Ensure we use fixed decimal precision with points for Excel format consistency
+      const gtpktValue = parseFloat((10 / kg).toFixed(5));
+      const kartonValue = parseFloat((8 / kg).toFixed(5));
+      const halkaValue = parseFloat((4 / kg).toFixed(5));
+      const cemberValue = parseFloat((1.2 / kg).toFixed(5));
+      const tokaValue = parseFloat((4 / kg).toFixed(5));
+      const desiValue = calculateDesiConsumption(kg, cap);
+      
       newMmGtRecipes[index] = {
         [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
-        'GTPKT01': (10 / kg),
-        'AMB.ÇEM.KARTON.GAL': 8 / kg,
+        'GTPKT01': gtpktValue,
+        'AMB.ÇEM.KARTON.GAL': kartonValue,
         [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
-        'SM.7MMHALKA': 4 / kg,
-        'AMB.APEX CEMBER 38X080': 1.2 / kg,
-        'AMB.TOKA.SIGNODE.114P. DKP': 4 / kg,
-        'SM.DESİ.PAK': calculateDesiConsumption(kg, cap)
+        'SM.7MMHALKA': halkaValue,
+        'AMB.APEX CEMBER 38X080': cemberValue,
+        'AMB.TOKA.SIGNODE.114P. DKP': tokaValue,
+        'SM.DESİ.PAK': desiValue
       };
       
       // Reçete durumlarını 'auto' olarak işaretle
@@ -976,9 +1002,11 @@ const GalvanizliTelNetsis = () => {
       // YM ST Reçete
       const ymStCap = parseFloat(ymSt.cap) || cap;
       const filmasinKodu = getFilmasinKodu(ymSt);
+      const tlcValue = parseFloat((0.2 / Math.pow(ymStCap, 1.7) + 0.02).toFixed(5));
+      
       newYmStRecipes[index] = {
         [filmasinKodu]: 1, // Use the Filmaşin code directly
-        'TLC01': 0.2 / Math.pow(ymStCap, 1.7) + 0.02
+        'TLC01': tlcValue
       };
       
       // YM ST reçete durumlarını 'auto' olarak işaretle
@@ -1021,23 +1049,26 @@ const GalvanizliTelNetsis = () => {
     }));
   };
 
-  // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals
+  // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateShrinkAmount = (kg) => {
-    // Calculate with full precision, then format to 5 decimal places
-    return parseFloat((1 / kg).toFixed(5));
+    // Calculate with full precision, then format to 5 decimal places to match Excel
+    const result = 1 / kg;
+    return parseFloat(result.toFixed(5));
   };
 
-  // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür with 5 decimals
+  // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateAcidConsumption = (cap, kg, kaplama) => {
     const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
-    const tuketilenAsit = 0.0647625; // kg/m2
-    // Calculate with full precision, then format to 5 decimal places
-    return parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
+    const tuketilenAsit = 0.0647625; // kg/m2 - match Excel formula exactly
+    
+    // Calculate with full precision, then format to 5 decimal places to match Excel
+    const result = (yuzeyAlani * tuketilenAsit) / 1000;
+    return parseFloat(result.toFixed(5));
   };
 
-  // Desi tüketimi hesapla (prompt'taki formüle göre) - NOKTA değer döndür with 5 decimals
+  // Desi tüketimi hesapla (formüle göre) - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateDesiConsumption = (kg, cap) => {
-    // Return values with 5 decimal places for consistency
+    // Return values with 5 decimal places for consistency with Excel
     // Önce kg kategorisine göre
     if (kg >= 500 && kg < 600) return 0.00200;
     if (kg >= 600 && kg < 650) return 0.00170;
@@ -1080,15 +1111,23 @@ const GalvanizliTelNetsis = () => {
       // If input contains comma, replace with point
       normalizedValue = value.replace(/,/g, '.');
     } else {
-      // Otherwise use the standard normalizer
-      normalizedValue = normalizeInputValue(value);
+      // Otherwise use the standard normalizer but ensure we keep periods
+      normalizedValue = value;
+      if (value && typeof value === 'string') {
+        // Preserve existing periods in the input
+        normalizedValue = value.trim();
+      } else {
+        normalizedValue = normalizeInputValue(value);
+      }
     }
     
-    // For numeric fields, ensure we store with point as decimal separator
+    // For numeric fields, ensure we store with point decimal separator
     if (['cap', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
       if (typeof normalizedValue === 'string' && normalizedValue !== '') {
+        // Remove any commas first and replace with points to be sure
+        const valueWithPoints = normalizedValue.replace(/,/g, '.');
         // Parse and format to ensure point decimal separator
-        const num = parseFloat(normalizedValue);
+        const num = parseFloat(valueWithPoints);
         if (!isNaN(num)) {
           normalizedValue = num.toLocaleString('en-US', {
             minimumFractionDigits: 0,
@@ -1225,8 +1264,13 @@ const GalvanizliTelNetsis = () => {
       inputValue = inputValue.replace(/,/g, '.');
     }
     
-    // Now normalize with our standard function
-    const normalizedValue = normalizeInputValue(inputValue);
+    // Preserve any existing decimal points but remove commas
+    if (typeof inputValue === 'string') {
+      inputValue = inputValue.replace(/,/g, '.').trim();
+    }
+    
+    // Now normalize with our standard function if needed
+    const normalizedValue = typeof inputValue === 'string' ? inputValue : normalizeInputValue(inputValue);
     
     // Ensure we have a proper numeric value with point decimal separator
     // Store the formatted string to maintain proper decimal display
@@ -1610,11 +1654,16 @@ const GalvanizliTelNetsis = () => {
     return null;
   };
 
-  // Veritabanı için MM GT verisi oluştur - string generation düzeltmesi
+  // Veritabanı için MM GT verisi oluştur - Excel formatıyla tam uyuşum için güncellendi
   const generateMmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     
+    // Preserve the exact format in existing Excel files
+    const capForExcel = capValue.toFixed(2);
+    const toleransPlusValue = parseFloat(mmGtData.tolerans_plus) || 0;
+    const toleransMinusValue = parseFloat(mmGtData.tolerans_minus) || 0;
+
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
       stok_adi: generateStokAdi(),
@@ -1626,30 +1675,30 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000,
+      payda_1: 1.000, // Keep exact format as in Excel
       cevrim_degeri_1: 0,
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: capValue,
+      cap: capValue, // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
-      cap2: capValue.toFixed(2),
-      tolerans_plus: parseFloat(mmGtData.tolerans_plus) || 0,
-      tolerans_minus: parseFloat(mmGtData.tolerans_minus) || 0,
+      cap2: capForExcel, // Use formatted string value
+      tolerans_plus: toleransPlusValue, // Store as number for calculations
+      tolerans_minus: toleransMinusValue, // Store as number for calculations
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
       helix_kont: mmGtData.helix_kont || '',
       elongation: mmGtData.elongation || '',
       amb_shrink: getShrinkCode(mmGtData.ic_cap),
-      satis_kdv_orani: '20',
-      alis_kdv_orani: '20',
+      satis_kdv_orani: '20', // Match Excel format as string
+      alis_kdv_orani: '20', // Match Excel format as string
       stok_turu: 'D',
       fiyat_birimi: 1,
       satis_tipi: 1,
@@ -1659,11 +1708,11 @@ const GalvanizliTelNetsis = () => {
       alis_doviz_tipi: 2,
       gumruk_tarife_kodu: getGumrukTarifeKodu(),
       ingilizce_isim: generateEnglishName(),
-      // Technical spec columns
+      // Technical spec columns - match Excel format exactly
       metarial: 'Low Carbon Steel Wire',
-      dia_mm: capValue.toFixed(2),
-      dia_tol_mm_plus: parseFloat(mmGtData.tolerans_plus) || 0,
-      dia_tol_mm_minus: parseFloat(mmGtData.tolerans_minus) || 0,
+      dia_mm: capForExcel, // Use formatted string value
+      dia_tol_mm_plus: toleransPlusValue, 
+      dia_tol_mm_minus: toleransMinusValue,
       zing_coating: `${mmGtData.kaplama} gr/m²`,
       tensile_st_min: `${mmGtData.min_mukavemet} MPa`,
       tensile_st_max: `${mmGtData.max_mukavemet} MPa`,
@@ -1677,14 +1726,17 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
-  // Veritabanı için YM GT verisi oluştur - sequence eşleştirme
+  // Veritabanı için YM GT verisi oluştur - Excel formatına tam uyumlu
   const generateYmGtDatabaseData = (sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
+    const capForExcel = capValue.toFixed(2);
+    const toleransPlusValue = parseFloat(mmGtData.tolerans_plus) || 0;
+    const toleransMinusValue = parseFloat(mmGtData.tolerans_minus) || 0;
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -1693,29 +1745,29 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000,
+      payda_1: 1.000, // Keep exact Excel format
       cevrim_degeri_1: 0,
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: capValue,
+      cap: capValue, // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
-      cap2: capValue.toFixed(2),
-      tolerans_plus: parseFloat(mmGtData.tolerans_plus) || 0,
-      tolerans_minus: parseFloat(mmGtData.tolerans_minus) || 0,
+      cap2: capForExcel, // Use formatted string to match Excel
+      tolerans_plus: toleransPlusValue,
+      tolerans_minus: toleransMinusValue,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
       helix_kont: mmGtData.helix_kont || '',
       elongation: mmGtData.elongation || '',
-      satis_kdv_orani: '20',
-      alis_kdv_orani: '20',
+      satis_kdv_orani: '20', // Match Excel format as string
+      alis_kdv_orani: '20', // Match Excel format as string
       stok_turu: 'D',
       fiyat_birimi: 1,
       satis_tipi: 1,
@@ -1723,47 +1775,49 @@ const GalvanizliTelNetsis = () => {
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       alis_doviz_tipi: 2,
-      ingilizce_isim: `YM Galvanized Wire ${capValue.toFixed(2)} mm ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa`
+      ingilizce_isim: `YM Galvanized Wire ${capForExcel} mm ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa`
     };
   };
 
-  // Veritabanı için YM ST verisi oluştur
+  // Veritabanı için YM ST verisi oluştur - Excel formatına tam uyumlu
   const generateYmStDatabaseData = (ymSt) => {
     const capValue = parseFloat(ymSt.cap);
+    const capForExcel = capValue.toFixed(2);
+    
     return {
       stok_kodu: ymSt.stok_kodu,
       stok_adi: ymSt.stok_adi,
       grup_kodu: 'YM',
       kod_1: 'ST',
-      kod_2: ymSt.filmasin.toString(), // Store filmasin value in kod_2
-      kod_3: ymSt.quality, // Store quality value in kod_3
+      kod_2: ymSt.filmasin.toString(), // Store filmasin value in kod_2 to match Excel
+      kod_3: ymSt.quality, // Store quality value in kod_3 to match Excel
       muh_detay: '28',
       depo_kodu: '35',
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000,
+      payda_1: 1.000, // Keep exact Excel format
       cevrim_degeri_1: 0,
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      satis_kdv_orani: '20',
-      cap: capValue,
+      satis_kdv_orani: '20', // Match Excel format as string
+      cap: capValue, // Store as number for calculations
       filmasin: parseInt(ymSt.filmasin),
       quality: ymSt.quality,
-      ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value
+      ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value as in Excel
       birim_agirlik: ymSt.kg || 0,
       fiyat_birimi: 1,
       doviz_tip: 1,
       stok_turu: 'D',
-      ingilizce_isim: `YM Black Wire ${capValue.toFixed(2)} mm Quality: ${ymSt.quality}`,
+      ingilizce_isim: `YM Black Wire ${capForExcel} mm Quality: ${ymSt.quality}`,
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H'
     };
   };
 
-  // Reçeteleri kaydet - İyileştirilmiş sıralama ile
+  // Reçeteleri kaydet - İyileştirilmiş sıralama ile - Excel ile tam uyumlu
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     try {
       // Her MM GT reçetesini kaydet
@@ -1793,6 +1847,16 @@ const GalvanizliTelNetsis = () => {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
             const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
             
+            // Format the value exactly as it would appear in Excel, using points as decimal separators
+            let formattedValue = value;
+            if (typeof value === 'number') {
+              formattedValue = value.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 5,
+                useGrouping: false // No thousand separators
+              });
+            }
+            
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1800,7 +1864,7 @@ const GalvanizliTelNetsis = () => {
                 mm_gt_id: mmGtId,
                 mamul_kodu: mamulKodu,
                 bilesen_kodu: key,
-                miktar: value,
+                miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
                 operasyon_bilesen: operasyonBilesen,
                 olcu_br: getOlcuBr(key),
@@ -1809,15 +1873,15 @@ const GalvanizliTelNetsis = () => {
                 ua_dahil_edilsin: 'evet',
                 son_operasyon: 'evet',
                 recete_top: 1,
-                fire_orani: 0.0004,
-                // Additional fields for better Netsis compatibility
+                fire_orani: 0.0004, // Match Excel format
+                // Additional fields for better Netsis compatibility - match Excel
                 miktar_sabitle: 'H',
                 stok_maliyet: 'S',
                 fire_mik: '0',
                 sabit_fire_mik: '0',
                 istasyon_kodu: '',
                 hazirlik_suresi: key.includes('01') ? 0 : null,
-                uretim_suresi: key.includes('01') ? value : null,
+                uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
                 oncelik: '0',
                 planlama_orani: '100',
                 alt_pol_da_transfer: 'H',
@@ -1831,7 +1895,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Her YM GT için reçete kaydet (her sequence için)
+      // Her YM GT için reçete kaydet (her sequence için) - Excel formatıyla tam uyumlu
       if (ymGtId && Object.keys(allRecipes.ymGtRecipe).length > 0) {
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
         const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
@@ -1864,6 +1928,16 @@ const GalvanizliTelNetsis = () => {
           
           for (const [key, value] of orderedEntries) {
             if (value > 0) {
+              // Format the value exactly as it would appear in Excel, using points as decimal separators
+              let formattedValue = value;
+              if (typeof value === 'number') {
+                formattedValue = value.toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 5,
+                  useGrouping: false // No thousand separators
+                });
+              }
+              
               await fetchWithAuth(API_URLS.galYmGtRecete, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1871,24 +1945,24 @@ const GalvanizliTelNetsis = () => {
                   ym_gt_id: existingYmGt.id,
                   mamul_kodu: ymGtStokKodu,
                   bilesen_kodu: key,
-                  miktar: value,
+                  miktar: formattedValue, // Use formatted value to match Excel
                   sira_no: siraNo++,
                   operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
                   olcu_br: getOlcuBr(key),
                   olcu_br_bilesen: '1',
                   aciklama: getReceteAciklama(key),
                   recete_top: 1,
-                  fire_orani: 0.0004,
+                  fire_orani: 0.0004, // Match Excel format
                   ua_dahil_edilsin: 'evet',
                   son_operasyon: 'evet',
-                  // Additional fields for better Netsis compatibility
+                  // Additional fields for better Netsis compatibility - match Excel format
                   miktar_sabitle: 'H',
                   stok_maliyet: 'S',
                   fire_mik: '0',
                   sabit_fire_mik: '0',
                   istasyon_kodu: '',
                   hazirlik_suresi: key.includes('01') ? 0 : null,
-                  uretim_suresi: key.includes('01') ? value : null,
+                  uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
                   oncelik: '0',
                   planlama_orani: '100',
                   alt_pol_da_transfer: 'H',
@@ -1903,7 +1977,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // YM ST reçetelerini kaydet
+      // YM ST reçetelerini kaydet - Excel formatıyla tam uyumlu
       for (let i = 0; i < ymStIds.length; i++) {
         const ymStId = ymStIds[i];
         const ymSt = [...selectedYmSts, ...autoGeneratedYmSts][i];
@@ -1923,6 +1997,16 @@ const GalvanizliTelNetsis = () => {
         
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
+            // Format the value exactly as it would appear in Excel, using points as decimal separators
+            let formattedValue = value;
+            if (typeof value === 'number') {
+              formattedValue = value.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 5,
+                useGrouping: false // No thousand separators
+              });
+            }
+            
             await fetchWithAuth(API_URLS.galYmStRecete, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1930,24 +2014,24 @@ const GalvanizliTelNetsis = () => {
                 ym_st_id: ymStId,
                 mamul_kodu: ymSt.stok_kodu,
                 bilesen_kodu: key,
-                miktar: value,
+                miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
                 operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
                 recete_top: 1,
-                fire_orani: 0.0004,
+                fire_orani: 0.0004, // Match Excel format
                 ua_dahil_edilsin: 'evet',
                 son_operasyon: 'evet',
-                // Additional fields for better Netsis compatibility
+                // Additional fields for better Netsis compatibility - match Excel
                 miktar_sabitle: 'H',
                 stok_maliyet: 'S',
                 fire_mik: '0',
                 sabit_fire_mik: '0',
                 istasyon_kodu: '',
                 hazirlik_suresi: key.includes('01') ? 0 : null,
-                uretim_suresi: key.includes('01') ? value : null,
+                uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
                 oncelik: '0',
                 planlama_orani: '100',
                 alt_pol_da_transfer: 'H',
@@ -2896,6 +2980,17 @@ const GalvanizliTelNetsis = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
                 lang="en-US" // Force EN-US locale with point decimal separator
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -2925,6 +3020,17 @@ const GalvanizliTelNetsis = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 disabled={mmGtData.kod_2 === 'PAD'}
                 placeholder="50-400"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -2939,6 +3045,17 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('min_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -2953,6 +3070,17 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('max_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -2967,6 +3095,17 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="250-1250"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -3010,6 +3149,17 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('tolerans_plus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
@@ -3024,6 +3174,17 @@ const GalvanizliTelNetsis = () => {
                 onChange={(e) => handleInputChange('tolerans_minus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
+                pattern="[0-9]*(\.[0-9]*)?" // Allow only numbers and decimal points
+                onKeyPress={(e) => {
+                  // Allow only numbers and decimal point
+                  if (!/[0-9.]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                  // Prevent multiple decimal points
+                  if (e.key === '.' && e.target.value.includes('.')) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
