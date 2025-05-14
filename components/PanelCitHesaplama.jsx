@@ -633,26 +633,40 @@ const calculatePanelKodu = (panel) => {
     setShowGalvanizliPopup(true);
   };
 
-  // Popup'tan gelen seçimi işleme
+  // Popup'tan gelen seçimi işleme - geliştirilmiş versiyon
   const handleGalvanizliSecim = (isGalvanizli) => {
-    // Önce state güncelleniyor
-    setGalvanizliSecimi(isGalvanizli);
+    // Popup'u hemen kapat
     setShowGalvanizliPopup(false);
     
-    // State güncellemesinin etkili olması için bir sonraki mikro-task'ta hesaplama yapılıyor
-    setTimeout(() => {
-      // Seçime göre işlemi yap
-      if (popupAction === 'main-panel') {
-        calculateCosts(true); // Ana panel hesaplama
-      } else if (popupAction === 'special-panel') {
-        calculateCosts(false); // Özel panel hesaplama
-      }
-    }, 0);
+    // State güncellemesini yapmadan önce işlemi hazırla
+    const currentAction = popupAction;
+    
+    // State'i güncelle ve callback ile hesaplama işlemini yap
+    setGalvanizliSecimi(isGalvanizli);
+    
+    // Doğrudan hesaplamayı çağır, calculateCosts içinde galvanizliSecimi değeri kullanılacak
+    if (currentAction === 'main-panel') {
+      // Doğrudan hesaplamayı çağır ve state'i zorla yenile
+      calculateCosts(true, isGalvanizli); // Ana panel hesaplama
+    } else if (currentAction === 'special-panel') {
+      // Doğrudan hesaplamayı çağır ve state'i zorla yenile
+      calculateCosts(false, isGalvanizli); // Özel panel hesaplama
+    }
   };
 
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
-  const calculateCosts = async (isPanelList = true) => {
+  const calculateCosts = async (isPanelList = true, explicitGalvanizliValue = null) => {
+    // explicitGalvanizliValue parametresi null değilse, o değeri kullan; null ise state'teki değeri kullan
+    const effectiveGalvanizliValue = explicitGalvanizliValue !== null ? explicitGalvanizliValue : galvanizliSecimi;
+    
+    // Hesaplamayı ve UI'ı temizle
     setCalculating(true);
+    
+    // UI'ı tamamen yenilemek için sonuçları önce tamamen temizle
+    // Bu, değişikliğin görünmemesi sorununu çözer
+    setGeciciHesaplar([]);
+    setMaliyetListesi([]);
+    
     setShowResults(false);
     setShowSalesView(false);
     setResultFilter({
@@ -720,8 +734,8 @@ const calculatePanelKodu = (panel) => {
       const geciciHesaplarData = [];
       const maliyetListesiData = [];
 
-      // Hesaplamaları client-side olarak yap
-      const results = performClientSideCalculations(panelsToCalculate, galvanizliSecimi);
+      // Hesaplamaları client-side olarak yap - explicitGalvanizliValue varsa onu kullan
+      const results = performClientSideCalculations(panelsToCalculate, effectiveGalvanizliValue);
 
       geciciHesaplarData.push(...results.geciciHesaplar);
       maliyetListesiData.push(...results.maliyetListesi);
@@ -820,6 +834,7 @@ const calculatePanelKodu = (panel) => {
 
   // Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
   const performClientSideCalculations = (panelsToCalculate, isGalvanizli = true) => {
+    // isGalvanizli parametresi, galvanizliSecimi state değişkeni yerine kullanılacak
     // Sonuç arrayleri
     const geciciHesaplar = [];
     const maliyetListesi = [];
@@ -1083,8 +1098,8 @@ const calculatePanelKodu = (panel) => {
 	//Profil Agirlik Yeni formul
 	const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + materialHeight) * profilEtKalinligi * 7.85) / 1000;
         // SetUSD hesapla
-        // Seçilen profil tipine göre profil fiyatını belirle
-        const profilFiyatKgForSet = galvanizliSecimi 
+        // Seçilen profil tipine göre profil fiyatını belirle (isGalvanizli parametresini kullanarak)
+        const profilFiyatKgForSet = isGalvanizli 
           ? galvanizliProfilFiyatKg  // Galvanizli seçildiyse
           : galvanizsizProfilFiyatKg; // Galvanizsiz seçildiyse
           
