@@ -10,6 +10,8 @@ import { postData, putData } from '../lib/api-helpers';
 import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
 import { debugProfilValues } from './debug-profil';
 import { fixTimestamps, fixProfilData, applyGlobalTimestampFix } from '../lib/timestamp-fix';
+import ProfilHesaplama from './ProfilHesaplama';
+import GalvanizliSecimPopup from './GalvanizliSecimPopup';
 
 // Install network debugging and timestamp fixes
 if (typeof window !== 'undefined') {
@@ -249,6 +251,9 @@ const PanelCitHesaplama = () => {
     key: null,
     direction: 'ascending'
   });
+  const [showGalvanizliPopup, setShowGalvanizliPopup] = useState(false);
+  const [popupAction, setPopupAction] = useState(null);
+  const [galvanizliSecimi, setGalvanizliSecimi] = useState(true);
 
   // Debounce için zamanlayıcı
   const [debounceTimer, setDebounceTimer] = useState(null);
@@ -622,6 +627,44 @@ const calculatePanelKodu = (panel) => {
   return `${prefix}_Cap:${capStr}_Eb:${ebatStr}_Gz:${gozStr}_Buk:${bukumStr}_Rnk:"Kplmsz"`;
 };
 
+  // Galvanizli/Galvanizsiz seçimi için popup işlevi
+  const handleHesaplaClick = (action) => {
+    setPopupAction(action);
+    setShowGalvanizliPopup(true);
+  };
+
+  // Popup'tan gelen seçimi işleme
+  const handleGalvanizliSecim = (isGalvanizli) => {
+    setGalvanizliSecimi(isGalvanizli);
+    setShowGalvanizliPopup(false);
+    
+    // Seçime göre işlemi yap
+    if (popupAction === 'main-panel') {
+      calculateCosts(true); // Ana panel hesaplama
+    } else if (popupAction === 'special-panel') {
+      calculateCosts(false); // Özel panel hesaplama
+    }
+  };
+
+  // Galvanizli/Galvanizsiz seçimi için popup işlevi
+  const handleHesaplaClick = (action) => {
+    setPopupAction(action);
+    setShowGalvanizliPopup(true);
+  };
+
+  // Popup'tan gelen seçimi işleme
+  const handleGalvanizliSecim = (isGalvanizli) => {
+    setGalvanizliSecimi(isGalvanizli);
+    setShowGalvanizliPopup(false);
+    
+    // Seçime göre işlemi yap
+    if (popupAction === 'main-panel') {
+      calculateCosts(true); // Ana panel hesaplama
+    } else if (popupAction === 'special-panel') {
+      calculateCosts(false); // Özel panel hesaplama
+    }
+  };
+
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true) => {
     setCalculating(true);
@@ -693,7 +736,7 @@ const calculatePanelKodu = (panel) => {
       const maliyetListesiData = [];
 
       // Hesaplamaları client-side olarak yap
-      const results = performClientSideCalculations(panelsToCalculate);
+      const results = performClientSideCalculations(panelsToCalculate, galvanizliSecimi);
 
       geciciHesaplarData.push(...results.geciciHesaplar);
       maliyetListesiData.push(...results.maliyetListesi);
@@ -791,7 +834,7 @@ const calculatePanelKodu = (panel) => {
   };
 
   // Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
-  const performClientSideCalculations = (panelsToCalculate) => {
+  const performClientSideCalculations = (panelsToCalculate, isGalvanizli = true) => {
     // Sonuç arrayleri
     const geciciHesaplar = [];
     const maliyetListesi = [];
@@ -810,7 +853,10 @@ const calculatePanelKodu = (panel) => {
     // Panel değerleri
     const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
     const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-    const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
+    // Galvanizli tel kullanımını seçime göre belirle
+    const galvanizliTelFiyat = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
+    const galvanizsizTelFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
+    const galvanizliTel = isGalvanizli ? galvanizliTelFiyat : galvanizsizTelFiyat;
     const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
     const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
     const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
@@ -2935,7 +2981,7 @@ const renderPanelList = () => (
         </button>
 
         <button
-          onClick={() => calculateCosts(true)}
+          onClick={() => handleHesaplaClick('main-panel')}
           disabled={calculating || filteredPanelList.length === 0}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
         >
@@ -3794,7 +3840,7 @@ const renderSpecialPanelEntry = () => {
             </button>
             
             <button
-              onClick={() => calculateCosts(false)}
+              onClick={() => handleHesaplaClick('special-panel')}
               disabled={calculating || ozelPanelList.length === 0}
               className="flex items-center px-4 py-3 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
             >
@@ -5409,6 +5455,15 @@ className = {`px-4 py-2 text-sm font-semibold rounded-md transition-colors durat
       >
   Özel Panel Girişi
     </button>
+    <button
+      onClick={() => setActiveTab("profil-hesaplama")}
+      className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${activeTab === "profil-hesaplama"
+        ? "bg-red-600 text-white"
+        : "bg-gray-800 text-gray-300 hover:bg-red-500 hover:text-white"
+      }`}
+    >
+      Profil Hesaplama
+    </button>
     < button
 onClick = {() => setActiveTab('results')}
 className = {`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 ${activeTab === 'results'
@@ -5447,6 +5502,18 @@ const renderActiveTabContent = () => {
       </div>
       )
 }
+\n{
+  activeTab === "profil-hesaplama" && (
+    <div key="profil-hesaplama-content" className="tab-panel">
+      <ProfilHesaplama 
+        genelDegiskenler={genelDegiskenler} 
+        profilDegiskenler={profilDegiskenler}
+        fetchGenelDegiskenler={() => fetchSectionData("genel")}
+        fetchProfilDegiskenler={() => fetchSectionData("profil")}
+      />
+    </div>
+  )
+}
 
 {
   activeTab === 'results' && (
@@ -5483,6 +5550,14 @@ return (
 { renderTabButtons() }
 { renderDegiskenlerAccordion() }
 { loading ? renderLoading() : renderActiveTabContent() }
+\n  {/* Galvanizli/Galvanizsiz Seçim Popup*/}
+  <GalvanizliSecimPopup
+    isOpen={showGalvanizliPopup}
+    onClose={() => setShowGalvanizliPopup(false)}
+    onSelect={handleGalvanizliSecim}
+    title="Tel Tipi Seçimi"
+    description="Hesaplamada hangi tel tipi kullanılsın?"
+  />
 </div>
   );
 };
