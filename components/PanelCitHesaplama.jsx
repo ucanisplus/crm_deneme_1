@@ -8,6 +8,7 @@ import { API_URLS } from '../api-config';
 import { debugApiCalls, directlySubmitPanel } from '../debug-network';
 import { postData, putData } from '../lib/api-helpers';
 import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
+import { debugProfilValues } from './debug-profil';
 
 // Install network debugging
 if (typeof window !== 'undefined') {
@@ -1329,11 +1330,17 @@ const calculatePanelKodu = (panel) => {
         profil_latest_update: getSafeTimestamp(new Date())
       };
 
+      // Debug profil values
+      debugProfilValues(profilDegiskenler);
+      
       console.log("Attempting to save profil_degiskenler:", processedData);
+      console.log("Raw profil_latest_update value:", processedData.profil_latest_update);
       
       // Process timestamp fields properly for PostgreSQL timestamptz format
       const processedWithTimestamps = processTimestampFields(processedData);
+      debugProfilValues(processedWithTimestamps);
       console.log("Data with processed timestamps:", processedWithTimestamps);
+      console.log("Processed profil_latest_update value:", processedWithTimestamps.profil_latest_update);
       
       // Try our enhanced API helper first (which normalizes data properly)
       try {

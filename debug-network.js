@@ -274,7 +274,7 @@ export function normalizePanelObject(panel) {
       // Convert year-only values to full timestamps
       const year = parseInt(value);
       if (year >= 1900 && year <= 2100) {
-        result[key] = `${year}-01-01 00:00:00`;
+        result[key] = `${year}-01-01T00:00:00.000Z`;
       }
     }
   });
