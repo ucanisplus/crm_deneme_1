@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from '@/components/Providers';
 import { Analytics } from '@vercel/analytics/react';
+import '../emergency-timestamp-fix';
 
 const inter = Inter({ subsets: ['latin'] });
 

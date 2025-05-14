@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import '../emergency-timestamp-fix';
 import { 
   Home, 
   Settings, 
