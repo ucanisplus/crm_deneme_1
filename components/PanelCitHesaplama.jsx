@@ -1329,8 +1329,8 @@ const calculatePanelKodu = (panel) => {
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
         profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
-        // Use precise timestamp format to avoid the "2025" error
-        profil_latest_update: '2025-01-01 00:00:00' // Hard-coded PostgreSQL compatible format
+        // Use getSafeTimestamp for proper PostgreSQL timestamp format
+        profil_latest_update: getSafeTimestamp(new Date())
       };
 
       console.log("Attempting to save profil_degiskenler directly with fix:", processedData);
@@ -2114,7 +2114,7 @@ const recalculateAllFields = (panel) => {
       const dataToSave = {
         ...panelData,
         manual_order: newManualOrder,
-        kayit_tarihi: '2025-01-01 00:00:00' // Hard-coded PostgreSQL compatible format
+        kayit_tarihi: getSafeTimestamp(new Date()) // Properly formatted timestamp for PostgreSQL
       };
       
       console.log("Preparing panel data for save:", dataToSave);

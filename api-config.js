@@ -1,4 +1,6 @@
 // api-config.js
+import { processTimestampFields } from './lib/date-utils';
+
 export const API_URLS = {
   // Panel Endpointleri
   currency: 'https://crm-deneme-backend.vercel.app/api/panel_cost_cal_currency',
@@ -281,7 +283,12 @@ export const sendData = async (url, data, method = 'POST') => {
           return null;
         }
         
-        return normalizeDecimalValues(item);
+        // First normalize decimal values
+        let normalized = normalizeDecimalValues(item);
+        // Then fix timestamp fields
+        normalized = processTimestampFields(normalized);
+        
+        return normalized;
       }).filter(item => item !== null);
       
       if (normalizedItems.length === 0) {
@@ -334,7 +341,9 @@ export const sendData = async (url, data, method = 'POST') => {
       }
       
       // Normalize the data
-      const normalizedData = normalizeDecimalValues(data);
+      let normalizedData = normalizeDecimalValues(data);
+      // Fix timestamp fields
+      normalizedData = processTimestampFields(normalizedData);
       console.log('Normalized data:', normalizedData);
       
       // Try direct fetch first for best compatibility
