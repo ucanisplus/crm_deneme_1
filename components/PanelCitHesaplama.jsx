@@ -1357,76 +1357,26 @@ const calculatePanelKodu = (panel) => {
         kapak_ad_tl: safeParseFloat(profilDegiskenler.kapak_ad_tl),
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
-        profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi),
-        // This is a fully ISO8601 compliant date string with timezone for PostgreSQL timestamptz
-        profil_latest_update: new Date().toISOString()
+        profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi)
+        // No timestamp field - let the server handle it
       };
 
-      console.log("Attempting to save profil_degiskenler with ISO8601 timestamp");
-      
-      // The new backend middleware will handle timestamp format conversion automatically.
-      // We'll use a simpler approach relying on the server-side middleware.
+      console.log("Attempting to save profil_degiskenler");
       
       try {
-        // First attempt: Direct axios POST with ISO8601 timestamps
-        console.log("Using direct axios POST with ISO8601 timestamps");
+        // Simple axios POST - the server will handle timestamp issues 
         const response = await axios.post(API_URLS.profilDegiskenler, processedData, {
           headers: {
             'Content-Type': 'application/json'
           }
         });
 
-        console.log("Axios call succeeded:", response.data);
+        console.log("Axios call succeeded");
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
-        return;
       } catch (error) {
-        console.error("First attempt failed:", error.response?.data || error.message);
-        
-        // Second attempt: Try with the postData helper which has additional formatting
-        try {
-          console.log("Trying with enhanced postData helper");
-          const result = await postData(API_URLS.profilDegiskenler, processedData);
-          console.log("Enhanced API helper succeeded:", result);
-          alert('Profil değişkenleri başarıyla kaydedildi.');
-          fetchSectionData('profil');
-          return;
-        } catch (enhancedError) {
-          console.error("Enhanced API helper failed:", enhancedError);
-          
-          // As a last resort, try fetch directly
-          try {
-            console.log("Last resort: direct fetch...");
-            const directResponse = await fetch(API_URLS.profilDegiskenler, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(processedData)
-            });
-            
-            if (directResponse.ok) {
-              console.log("Direct fetch succeeded");
-              alert('Profil değişkenleri başarıyla kaydedildi.');
-              fetchSectionData('profil');
-              return;
-            } else {
-              const errorText = await directResponse.text();
-              console.error('Direct fetch error:', errorText);
-              throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
-            }
-          } catch (directError) {
-            console.error("All attempts failed:", directError);
-            throw directError;
-          }
-        }
-      }
-
-      // This code is unreachable, but we'll leave it for safety
-      if (response && (response.status === 200 || response.status === 201)) {
-        console.log("Original axios succeeded");
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil');
+        console.error("Kaydetme hatası:", error);
+        alert('Profil değişkenleri kaydedilirken bir hata oluştu.');
       }
     } catch (error) {
       console.error('Kaydetme hatası:', error);
@@ -2136,11 +2086,11 @@ const recalculateAllFields = (panel) => {
       // Set the new manual_order
       const newManualOrder = (highestManualOrder + 1).toString();
 
-      // API için hazırlanmış veriyi oluştur
+      // API için hazırlanmış veriyi oluştur - timestamp field removed
       const dataToSave = {
         ...panelData,
         manual_order: newManualOrder,
-        kayit_tarihi: getSafeTimestamp(new Date()) // Properly formatted timestamp for PostgreSQL
+        // Let the backend handle timestamps
       };
       
       console.log("Preparing panel data for save:", dataToSave);
@@ -2357,8 +2307,8 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
           // Veritabanına kaydet
           const response = await axios.post(API_URLS.panelList, {
             ...panelData,
-            manual_order: manualOrderToUse, // Yeni manual_order değerini kullan
-            kayit_tarihi: getSafeTimestamp() // Properly formatted timestamp for PostgreSQL
+            manual_order: manualOrderToUse // Yeni manual_order değerini kullan
+            // Let backend handle timestamps
           });
 
           if (response.status === 200 || response.status === 201) {
