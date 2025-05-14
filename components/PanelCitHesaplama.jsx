@@ -8,14 +8,10 @@ import { API_URLS } from '../api-config';
 import { debugApiCalls, directlySubmitPanel } from '../debug-network';
 import { postData, putData } from '../lib/api-helpers';
 import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
-import { installFix } from '../emergency-fix';
-import { applyDirectFix, fixProfilDegiskenler, fixAllTimestamps } from '../components/direct-timestamp-fix';
 
-// Install network debugging and all fixes
+// Install network debugging
 if (typeof window !== 'undefined') {
   debugApiCalls();
-  installFix(); // Install emergency timestamp fix
-  applyDirectFix(); // Install direct timestamp fix
 }
 import {
   Calculator,
@@ -1333,33 +1329,16 @@ const calculatePanelKodu = (panel) => {
         profil_latest_update: getSafeTimestamp(new Date())
       };
 
-      console.log("Attempting to save profil_degiskenler directly with fix:", processedData);
+      console.log("Attempting to save profil_degiskenler:", processedData);
       
-      // Apply the direct timestamp fix to the processed data
-      const fixedData = fixProfilDegiskenler(processedData);
-      console.log("Data after fix:", fixedData);
+      // Process timestamp fields properly for PostgreSQL timestamptz format
+      const processedWithTimestamps = processTimestampFields(processedData);
+      console.log("Data with processed timestamps:", processedWithTimestamps);
       
-      // Use Axios with specific headers to ensure proper content type
-      try {
-        console.log("Using axios with fixed data...");
-        const axiosResponse = await axios.post(API_URLS.profilDegiskenler, fixedData, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log("Axios API call succeeded:", axiosResponse.data);
-        alert('Profil değişkenleri başarıyla kaydedildi.');
-        fetchSectionData('profil');
-        return;
-      } catch (axiosError) {
-        console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
-      }
-      
-      // Try our enhanced API helper as backup
+      // Try our enhanced API helper first (which normalizes data properly)
       try {
         console.log("Using enhanced API helper...");
-        const result = await postData(API_URLS.profilDegiskenler, fixedData);
+        const result = await postData(API_URLS.profilDegiskenler, processedWithTimestamps);
         console.log("Enhanced API helper succeeded:", result);
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
@@ -1368,36 +1347,51 @@ const calculatePanelKodu = (panel) => {
         console.error("Enhanced API helper failed:", enhancedError);
       }
       
-      // Fall back to direct fetch with fixed data
+      // Fall back to direct axios method
       try {
-        console.log("Trying direct fetch with fixed data...");
-        const directResponse = await fetch(API_URLS.profilDegiskenler, {
-          method: 'POST',
+        console.log("Falling back to axios method...");
+        const response = await axios.post(API_URLS.profilDegiskenler, processedWithTimestamps, {
           headers: {
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(fixedData)
+          }
         });
-        
-        if (directResponse.ok) {
-          console.log("Direct fetch succeeded");
-          alert('Profil değişkenleri başarıyla kaydedildi (direct fetch).');
-          fetchSectionData('profil');
-          return;
-        } else {
-          const errorText = await directResponse.text();
-          console.error('Direct fetch error:', errorText);
-          throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
-        }
-      } catch (directError) {
-        console.error("Direct fetch failed:", directError);
-      }
-      
-      // Fall back to original axios method
-      console.log("Falling back to original axios method...");
-      const response = await axios.post(API_URLS.profilDegiskenler, processedData);
 
-      if (response.status === 200 || response.status === 201) {
+        console.log("Axios call succeeded:", response.data);
+        alert('Profil değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('profil');
+        return;
+      } catch (axiosError) {
+        console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
+        
+        // Try direct fetch as a last resort
+        try {
+          console.log("Trying direct fetch...");
+          const directResponse = await fetch(API_URLS.profilDegiskenler, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(processedWithTimestamps)
+          });
+          
+          if (directResponse.ok) {
+            console.log("Direct fetch succeeded");
+            alert('Profil değişkenleri başarıyla kaydedildi (direct fetch).');
+            fetchSectionData('profil');
+            return;
+          } else {
+            const errorText = await directResponse.text();
+            console.error('Direct fetch error:', errorText);
+            throw new Error(`Server responded with ${directResponse.status}: ${errorText}`);
+          }
+        } catch (directError) {
+          console.error("Direct fetch failed:", directError);
+          throw directError;
+        }
+      }
+
+      // This code is unreachable, but we'll leave it for safety
+      if (response && (response.status === 200 || response.status === 201)) {
         console.log("Original axios succeeded");
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
@@ -2119,14 +2113,14 @@ const recalculateAllFields = (panel) => {
       
       console.log("Preparing panel data for save:", dataToSave);
       
-      // Apply our direct fix to properly handle timestamps
-      const fixedData = fixAllTimestamps(dataToSave);
-      console.log("Panel data after timestamp fix:", fixedData);
+      // Process timestamp fields for PostgreSQL compatibility
+      const processedData = processTimestampFields(dataToSave);
+      console.log("Panel data with processed timestamps:", processedData);
       
       // Try the directlySubmitPanel function first which uses fetch
       try {
         console.log("Using direct panel submission...");
-        const result = await directlySubmitPanel(fixedData, API_URLS.panelList);
+        const result = await directlySubmitPanel(processedData, API_URLS.panelList);
         
         if (result.success) {
           console.log("Direct panel submission succeeded:", result);
