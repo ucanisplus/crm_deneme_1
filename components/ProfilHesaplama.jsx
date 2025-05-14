@@ -1,7 +1,6 @@
 // ProfilHesaplama.jsx
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { safeParseFloat } from '../lib/api-helpers';
 import {
   Calculator,
   FileSpreadsheet,
@@ -42,6 +41,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// Güvenli float değer dönüştürme yardımcı fonksiyonu
+const safeParseFloat = (value, defaultValue = 0) => {
+  if (value === null || value === undefined || value === '') return defaultValue;
+  
+  // Hem virgül hem nokta ondalık ayırıcı olarak kabul edilir
+  if (typeof value === 'string') {
+    value = value.replace(/\s/g, '').replace(',', '.');
+  }
+  
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
+};
 
 // Güvenli float değer dönüştürme yardımcı fonksiyonu
 const formatDisplayValue = (value) => {

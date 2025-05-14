@@ -646,25 +646,6 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-  // Galvanizli/Galvanizsiz seçimi için popup işlevi
-  const handleHesaplaClick = (action) => {
-    setPopupAction(action);
-    setShowGalvanizliPopup(true);
-  };
-
-  // Popup'tan gelen seçimi işleme
-  const handleGalvanizliSecim = (isGalvanizli) => {
-    setGalvanizliSecimi(isGalvanizli);
-    setShowGalvanizliPopup(false);
-    
-    // Seçime göre işlemi yap
-    if (popupAction === 'main-panel') {
-      calculateCosts(true); // Ana panel hesaplama
-    } else if (popupAction === 'special-panel') {
-      calculateCosts(false); // Özel panel hesaplama
-    }
-  };
-
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true) => {
     setCalculating(true);
