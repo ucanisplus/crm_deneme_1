@@ -3546,7 +3546,7 @@ disabled = { sectionLoading.panelCit }
                   <h4 className="font-medium mb-3" > Profil Fiyatları </h4>
                     < div className = "space-y-3" >
                       <div className="flex flex-col" >
-                        <label className="text-sm text-gray-500 mb-1" > Galvanizli Profil(Ton)($) </label>
+                        <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
                           < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizli_profil_kg_usd) || ''}
@@ -3555,7 +3555,7 @@ className = "border rounded p-2"
   />
   </div>
   < div className = "flex flex-col" >
-    <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
+    <label className="text-sm text-gray-500 mb-1" > Galvanizli Profil(Ton)($) </label>
       < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
