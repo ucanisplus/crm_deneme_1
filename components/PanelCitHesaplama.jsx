@@ -635,15 +635,19 @@ const calculatePanelKodu = (panel) => {
 
   // Popup'tan gelen seçimi işleme
   const handleGalvanizliSecim = (isGalvanizli) => {
+    // Önce state güncelleniyor
     setGalvanizliSecimi(isGalvanizli);
     setShowGalvanizliPopup(false);
     
-    // Seçime göre işlemi yap
-    if (popupAction === 'main-panel') {
-      calculateCosts(true); // Ana panel hesaplama
-    } else if (popupAction === 'special-panel') {
-      calculateCosts(false); // Özel panel hesaplama
-    }
+    // State güncellemesinin etkili olması için bir sonraki mikro-task'ta hesaplama yapılıyor
+    setTimeout(() => {
+      // Seçime göre işlemi yap
+      if (popupAction === 'main-panel') {
+        calculateCosts(true); // Ana panel hesaplama
+      } else if (popupAction === 'special-panel') {
+        calculateCosts(false); // Özel panel hesaplama
+      }
+    }, 0);
   };
 
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
@@ -3546,7 +3550,7 @@ disabled = { sectionLoading.panelCit }
                   <h4 className="font-medium mb-3" > Profil Fiyatları </h4>
                     < div className = "space-y-3" >
                       <div className="flex flex-col" >
-                        <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
+                        <label className="text-sm text-gray-500 mb-1" > Galvanizli Profil(Ton)($) </label>
                           < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizli_profil_kg_usd) || ''}
@@ -3555,7 +3559,7 @@ className = "border rounded p-2"
   />
   </div>
   < div className = "flex flex-col" >
-    <label className="text-sm text-gray-500 mb-1" > Galvanizli Profil(Ton)($) </label>
+    <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
       < input
 type = "text"
 value = { formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
