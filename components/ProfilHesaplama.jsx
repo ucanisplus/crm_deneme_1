@@ -480,21 +480,21 @@ const ProfilHesaplama = ({
     <div className="space-y-6">
       {/* Profil Ekleme Kartı */}
       <Card>
-        <CardHeader className="bg-zinc-800">
+        <CardHeader className="bg-gray-900 text-white">
           <CardTitle className="flex justify-between items-center">
             <span>Profil Hesaplama</span>
             <div className="flex space-x-2">
               <button
                 onClick={calculateCosts}
                 disabled={calculating || profilList.length === 0}
-                className="flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
+                className="flex items-center px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
               >
                 <Calculator className="mr-1 h-4 w-4" />
                 Hesapla
               </button>
               <button
                 onClick={addProfil}
-                className="flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
+                className="flex items-center px-3 py-1 bg-gray-700 hover:bg-gray-800 text-white rounded-md shadow transition-colors"
               >
                 <Plus className="mr-1 h-4 w-4" />
                 Yeni Profil
@@ -507,7 +507,7 @@ const ProfilHesaplama = ({
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-zinc-800">
+                <TableRow className="bg-gray-800 text-white">
                   <TableHead width="100">Yükseklik (cm)</TableHead>
                   <TableHead width="120">Galvanizli</TableHead>
                   <TableHead width="120">Flanşlı</TableHead>
@@ -527,7 +527,7 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.yukseklik}
                         onChange={(e) => updateProfil(profil.id, 'yukseklik', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
@@ -563,7 +563,7 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.adet}
                         onChange={(e) => updateProfil(profil.id, 'adet', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
@@ -571,7 +571,7 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.vida_adet}
                         onChange={(e) => updateProfil(profil.id, 'vida_adet', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
@@ -579,7 +579,7 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.klips_adet}
                         onChange={(e) => updateProfil(profil.id, 'klips_adet', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
@@ -587,7 +587,7 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.dubel_adet}
                         onChange={(e) => updateProfil(profil.id, 'dubel_adet', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
@@ -595,13 +595,13 @@ const ProfilHesaplama = ({
                         type="text"
                         value={profil.kapak_adet}
                         onChange={(e) => updateProfil(profil.id, 'kapak_adet', e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded"
+                        className="w-full p-1 border border-gray-400 rounded bg-gray-50"
                       />
                     </TableCell>
                     <TableCell>
                       <button
                         onClick={() => removeProfil(profil.id)}
-                        className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        className="p-1 bg-red-600 text-white rounded hover:bg-red-700"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -617,13 +617,13 @@ const ProfilHesaplama = ({
       {/* Sonuçlar Bölümü */}
       {showResults && (
         <Card>
-          <CardHeader className="bg-zinc-800">
+          <CardHeader className="bg-gray-900 text-white">
             <CardTitle className="flex justify-between items-center">
               <span>Hesap Sonuçları</span>
               <div className="flex space-x-2">
                 <button
                   onClick={exportToExcel}
-                  className="flex items-center px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
+                  className="flex items-center px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
                 >
                   <FileSpreadsheet className="mr-1 h-4 w-4" />
                   Excel'e Aktar
@@ -657,7 +657,7 @@ const ProfilHesaplama = ({
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-zinc-800">
+                  <TableRow className="bg-gray-800 text-white">
                     <TableHead>Yükseklik (cm)</TableHead>
                     <TableHead>Galvanizli</TableHead>
                     <TableHead>Flanşlı</TableHead>

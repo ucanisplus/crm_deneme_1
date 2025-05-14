@@ -28,13 +28,13 @@ const GalvanizliSecimPopup = ({
         <div className="flex flex-col gap-4 py-4">
           <button
             onClick={() => onSelect(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
           >
             Galvanizli Tel
           </button>
           <button
             onClick={() => onSelect(false)}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow transition-colors"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-md shadow transition-colors"
           >
             Galvanizsiz Tel
           </button>
