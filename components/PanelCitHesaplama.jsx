@@ -834,10 +834,10 @@ const calculatePanelKodu = (panel) => {
     // Panel değerleri
     const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
     const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-    // Galvanizli tel kullanımını seçime göre belirle
-    const galvanizliTelFiyat = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
-    const galvanizsizTelFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
-    const galvanizliTel = isGalvanizli ? galvanizliTelFiyat : galvanizsizTelFiyat;
+    // Galvanizli/Galvanizsiz profil kullanımını seçime göre belirle
+    const galvanizliProfilFiyat = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd);
+    const galvanizsizProfilFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
+    const galvanizliTel = isGalvanizli ? galvanizliProfilFiyat : galvanizsizProfilFiyat;
     const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
     const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
     const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);

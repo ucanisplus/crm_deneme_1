@@ -473,6 +473,17 @@ const ProfilHesaplama = ({
   const getFilteredResults = () => {
     if (!sonuclar || sonuclar.length === 0) return [];
     
+    // Para birimi filtreleme
+    if (resultFilter.currency !== 'all') {
+      // Sonuçları göster, ancak seçilen para birimine göre kolonları göster/gizle
+      return sonuclar.map(result => ({
+        ...result,
+        // Seçili para birimi ile ilgili değerleri sakla, diğerlerini null yap
+        // Bu değerler render sırasında kontrol edilecek
+        currency_filter: resultFilter.currency
+      }));
+    }
+    
     return sonuclar;
   };
 
@@ -487,14 +498,14 @@ const ProfilHesaplama = ({
               <button
                 onClick={calculateCosts}
                 disabled={calculating || profilList.length === 0}
-                className="flex items-center px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
+                className="flex items-center px-3 py-2 h-10 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
               >
                 <Calculator className="mr-1 h-4 w-4" />
                 Hesapla
               </button>
               <button
                 onClick={addProfil}
-                className="flex items-center px-3 py-1 bg-gray-700 hover:bg-gray-800 text-white rounded-md shadow transition-colors"
+                className="flex items-center px-3 py-2 h-10 bg-gray-700 hover:bg-gray-800 text-white rounded-md shadow transition-colors"
               >
                 <Plus className="mr-1 h-4 w-4" />
                 Yeni Profil
@@ -508,15 +519,15 @@ const ProfilHesaplama = ({
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-800 text-white">
-                  <TableHead width="100">Yükseklik (cm)</TableHead>
-                  <TableHead width="120">Galvanizli</TableHead>
-                  <TableHead width="120">Flanşlı</TableHead>
-                  <TableHead width="80">Adet</TableHead>
-                  <TableHead width="80">Vida Adedi</TableHead>
-                  <TableHead width="80">Klips Adedi</TableHead>
-                  <TableHead width="80">Dubel Adedi</TableHead>
-                  <TableHead width="80">Kapak Adedi</TableHead>
-                  <TableHead width="80">İşlem</TableHead>
+                  <TableHead width="100" className="hover:text-white">Yükseklik (cm)</TableHead>
+                  <TableHead width="120" className="hover:text-white">Galvanizli</TableHead>
+                  <TableHead width="120" className="hover:text-white">Flanşlı</TableHead>
+                  <TableHead width="80" className="hover:text-white">Adet</TableHead>
+                  <TableHead width="80" className="hover:text-white">Vida Adedi</TableHead>
+                  <TableHead width="80" className="hover:text-white">Klips Adedi</TableHead>
+                  <TableHead width="80" className="hover:text-white">Dubel Adedi</TableHead>
+                  <TableHead width="80" className="hover:text-white">Kapak Adedi</TableHead>
+                  <TableHead width="80" className="hover:text-white">İşlem</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -623,7 +634,7 @@ const ProfilHesaplama = ({
               <div className="flex space-x-2">
                 <button
                   onClick={exportToExcel}
-                  className="flex items-center px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
+                  className="flex items-center px-3 py-2 h-10 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
                 >
                   <FileSpreadsheet className="mr-1 h-4 w-4" />
                   Excel'e Aktar
@@ -658,17 +669,29 @@ const ProfilHesaplama = ({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-800 text-white">
-                    <TableHead>Yükseklik (cm)</TableHead>
-                    <TableHead>Galvanizli</TableHead>
-                    <TableHead>Flanşlı</TableHead>
-                    <TableHead>Adet</TableHead>
-                    <TableHead>Profil Ağırlık (kg)</TableHead>
-                    <TableHead>Birim Fiyat (USD)</TableHead>
-                    <TableHead>Birim Fiyat (EUR)</TableHead>
-                    <TableHead>Birim Fiyat (TRY)</TableHead>
-                    <TableHead>Toplam Fiyat (USD)</TableHead>
-                    <TableHead>Toplam Fiyat (EUR)</TableHead>
-                    <TableHead>Toplam Fiyat (TRY)</TableHead>
+                    <TableHead className="hover:text-white">Yükseklik (cm)</TableHead>
+                    <TableHead className="hover:text-white">Galvanizli</TableHead>
+                    <TableHead className="hover:text-white">Flanşlı</TableHead>
+                    <TableHead className="hover:text-white">Adet</TableHead>
+                    <TableHead className="hover:text-white">Profil Ağırlık (kg)</TableHead>
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'usd' ? (
+                      <TableHead className="hover:text-white">Birim Fiyat (USD)</TableHead>
+                    ) : null}
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'eur' ? (
+                      <TableHead className="hover:text-white">Birim Fiyat (EUR)</TableHead>
+                    ) : null}
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'try' ? (
+                      <TableHead className="hover:text-white">Birim Fiyat (TRY)</TableHead>
+                    ) : null}
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'usd' ? (
+                      <TableHead className="hover:text-white">Toplam Fiyat (USD)</TableHead>
+                    ) : null}
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'eur' ? (
+                      <TableHead className="hover:text-white">Toplam Fiyat (EUR)</TableHead>
+                    ) : null}
+                    {resultFilter.currency === 'all' || resultFilter.currency === 'try' ? (
+                      <TableHead className="hover:text-white">Toplam Fiyat (TRY)</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -679,12 +702,24 @@ const ProfilHesaplama = ({
                       <TableCell>{result.flansli ? "Evet" : "Hayır"}</TableCell>
                       <TableCell>{formatTableValue(result.adet)}</TableCell>
                       <TableCell>{formatTableValue(result.profil_agirlik, 'decimal')}</TableCell>
-                      <TableCell>{formatTableValue(result.birim_fiyat_usd, 'price')}</TableCell>
-                      <TableCell>{formatTableValue(result.birim_fiyat_eur, 'price')}</TableCell>
-                      <TableCell>{formatTableValue(result.birim_fiyat_try, 'price')}</TableCell>
-                      <TableCell>{formatTableValue(result.toplam_fiyat_usd, 'price')}</TableCell>
-                      <TableCell>{formatTableValue(result.toplam_fiyat_eur, 'price')}</TableCell>
-                      <TableCell>{formatTableValue(result.toplam_fiyat_try, 'price')}</TableCell>
+                      {(result.currency_filter === 'usd' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.birim_fiyat_usd, 'price')}</TableCell>
+                      )}
+                      {(result.currency_filter === 'eur' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.birim_fiyat_eur, 'price')}</TableCell>
+                      )}
+                      {(result.currency_filter === 'try' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.birim_fiyat_try, 'price')}</TableCell>
+                      )}
+                      {(result.currency_filter === 'usd' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.toplam_fiyat_usd, 'price')}</TableCell>
+                      )}
+                      {(result.currency_filter === 'eur' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.toplam_fiyat_eur, 'price')}</TableCell>
+                      )}
+                      {(result.currency_filter === 'try' || !result.currency_filter) && (
+                        <TableCell>{formatTableValue(result.toplam_fiyat_try, 'price')}</TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
