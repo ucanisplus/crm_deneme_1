@@ -834,12 +834,12 @@ const calculatePanelKodu = (panel) => {
     // Panel değerleri
     const panelBoyaVardiya = safeParseFloat(panelCitDegiskenler.panel_boya_vardiya);
     const panelKesmeVardiya = safeParseFloat(panelCitDegiskenler.panel_kesme_vardiya);
-    // Profil fiyatlarını al - bunlar Set hesaplamalarında kullanılacak
+    // Panel tel fiyatını al - temel hesaplamalarda kullanılacak
+    const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
+    
+    // Profil fiyatlarını al - Set hesaplamalarında seçime göre kullanılacak
     const galvanizliProfilFiyat = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd);
     const galvanizsizProfilFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
-    
-    // Panel tel fiyatını al - bu standart hesaplamalarda kullanılacak
-    const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
     const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
     const panelKesmeElektrik = safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh);
     const panelBoyaElektrik = safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh);
@@ -1079,15 +1079,17 @@ const calculatePanelKodu = (panel) => {
 	//Profil Agirlik Yeni formul
 	const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + materialHeight) * profilEtKalinligi * 7.85) / 1000;
         // SetUSD hesapla
-        // SetUSD hesaplamalarında kullanılacak profil fiyatı seçime göre belirlenir
-        const selectedProfilFiyatKg = isGalvanizli ? galvanizliProfilFiyatKg : galvanizsizProfilFiyatKg;
-        
+        // Seçilen profil tipine göre profil fiyatını belirle
+        const profilFiyatKgForSet = galvanizliSecimi 
+          ? galvanizliProfilFiyatKg  // Galvanizli seçildiyse
+          : galvanizsizProfilFiyatKg; // Galvanizsiz seçildiyse
+          
         const SetUSD = profilBoyaTuketimAdUSD +
           profilElektrikKesmeAd +
           profilElektrikKaynakAd +
           profilIsciUretimAd +
           profilHammaddeToplamAd +
-          (selectedProfilFiyatKg * profilAgirlik) +
+          (profilFiyatKgForSet * profilAgirlik) +
           profilDogalgazTuketimOran +
           profilBoyaElektrikTuketimOran;
 
@@ -1116,6 +1118,7 @@ const calculatePanelKodu = (panel) => {
           profil_hammadde_toplam: Number(profilHammaddeToplamAd || 0),
           galvanizsiz_profil_fiyat_kg: Number(galvanizsizProfilFiyatKg || 0),
           galvanizli_profil_fiyat_kg: Number(galvanizliProfilFiyatKg || 0),
+          profil_fiyat_kg_for_set: Number(profilFiyatKgForSet || 0), // Seçilen profil fiyatı
           profil_dogalgaz_tuketim: Number(profilDogalgazTuketimOran || 0),
           profil_boya_elk_tuketim: Number(profilBoyaElektrikTuketimOran || 0),
           adet_usd: Number(adetUSD || 0),
