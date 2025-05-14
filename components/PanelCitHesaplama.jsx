@@ -9,10 +9,12 @@ import { debugApiCalls, directlySubmitPanel } from '../debug-network';
 import { postData, putData } from '../lib/api-helpers';
 import { getSafeTimestamp, processTimestampFields } from '../lib/date-utils';
 import { debugProfilValues } from './debug-profil';
+import { fixTimestamps, fixProfilData, applyGlobalTimestampFix } from '../lib/timestamp-fix';
 
-// Install network debugging
+// Install network debugging and timestamp fixes
 if (typeof window !== 'undefined') {
   debugApiCalls();
+  applyGlobalTimestampFix(); // Apply global timestamp fix
 }
 import {
   Calculator,
@@ -1210,7 +1212,7 @@ const calculatePanelKodu = (panel) => {
     return salesList;
   };
 
-  // Genel değişkenleri güncelleme - FIXED with better error handling
+  // Genel değişkenleri güncelleme - FIXED with timestamp handling
   const updateGenelDegiskenler = async () => {
     try {
       // Log the current state to see what we're working with
@@ -1224,7 +1226,7 @@ const calculatePanelKodu = (panel) => {
         amortisman_diger_usd: safeParseFloat(genelDegiskenler.amortisman_diger_usd),
         kar_toplama_ek_percent: safeParseFloat(genelDegiskenler.kar_toplama_ek_percent),
         ort_isci_maasi: safeParseFloat(genelDegiskenler.ort_isci_maasi),
-        genel_latest_update: new Date().toISOString()
+        genel_latest_update: new Date().toISOString() // ISO format with timezone
       };
 
       console.log('Kaydedilecek genel veriler:', processedData);
@@ -1242,8 +1244,23 @@ const calculatePanelKodu = (panel) => {
 
       console.log('NaN değerleri temizlenmiş veri:', processedData);
 
-      // Her zaman yeni bir kayıt oluştur
-      const response = await axios.post(API_URLS.genelDegiskenler, processedData);
+      // Ensure all timestamp fields are properly formatted
+      const fixedData = fixTimestamps(processedData);
+      console.log("Using timestamp-fixed genel data:", fixedData);
+
+      // Try with our enhanced API helper first
+      try {
+        const result = await postData(API_URLS.genelDegiskenler, fixedData);
+        console.log("Genel data saved successfully via enhanced API helper");
+        alert('Genel değişkenler başarıyla kaydedildi.');
+        fetchSectionData('genel');
+        return;
+      } catch (apiError) {
+        console.error("Enhanced API helper failed for genel değişkenler:", apiError);
+      }
+
+      // Fall back to axios
+      const response = await axios.post(API_URLS.genelDegiskenler, fixedData);
 
       if (response.status === 200 || response.status === 201) {
         alert('Genel değişkenler başarıyla kaydedildi.');
@@ -1264,7 +1281,7 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-  // Panel Çit Değişkenlerini Güncelleme - FIXED to always add new row and fetch latest
+  // Panel Çit Değişkenlerini Güncelleme - FIXED with timestamp fix and format handling
   const updatePanelCitDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
@@ -1286,11 +1303,26 @@ const calculatePanelKodu = (panel) => {
         panel_kesme_elektrik_tuketim_kwh: safeParseFloat(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh),
         panel_boya_makinesi_elektrik_tuketim_kwh: safeParseFloat(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh),
         panel_dogalgaz_tuketim_stn_m3: safeParseFloat(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3),
-        panel_cit_latest_update: new Date().toISOString()
+        panel_cit_latest_update: new Date().toISOString() // ISO format timestamp with timezone
       };
 
-      // Her zaman yeni bir kayıt oluştur (unique_key gönderme)
-      const response = await axios.post(API_URLS.panelCitDegiskenler, processedData);
+      // Ensure all timestamp fields are properly formatted
+      const fixedData = fixTimestamps(processedData);
+      console.log("Using timestamp-fixed panel data:", fixedData);
+
+      // Try with our enhanced API helper first
+      try {
+        const result = await postData(API_URLS.panelCitDegiskenler, fixedData);
+        console.log("Panel çit data saved successfully via enhanced API helper");
+        alert('Panel çit değişkenleri başarıyla kaydedildi.');
+        fetchSectionData('panelCit');
+        return;
+      } catch (apiError) {
+        console.error("Enhanced API helper failed for panel çit:", apiError);
+      }
+
+      // Fall back to direct axios
+      const response = await axios.post(API_URLS.panelCitDegiskenler, fixedData);
 
       if (response.status === 200 || response.status === 201) {
         alert('Panel çit değişkenleri başarıyla kaydedildi.');
@@ -1342,10 +1374,14 @@ const calculatePanelKodu = (panel) => {
       console.log("Data with processed timestamps:", processedWithTimestamps);
       console.log("Processed profil_latest_update value:", processedWithTimestamps.profil_latest_update);
       
-      // Try our enhanced API helper first (which normalizes data properly)
+      // Use our specialized timestamp fix utility
+      const finalData = fixProfilData(processedData);
+      console.log("Using timestamp-fixed data:", finalData);
+      
+      // Try our enhanced API helper with manual fixes
       try {
-        console.log("Using enhanced API helper...");
-        const result = await postData(API_URLS.profilDegiskenler, processedWithTimestamps);
+        console.log("Using enhanced API helper with manual fixes...");
+        const result = await postData(API_URLS.profilDegiskenler, finalData);
         console.log("Enhanced API helper succeeded:", result);
         alert('Profil değişkenleri başarıyla kaydedildi.');
         fetchSectionData('profil');
@@ -1357,7 +1393,7 @@ const calculatePanelKodu = (panel) => {
       // Fall back to direct axios method
       try {
         console.log("Falling back to axios method...");
-        const response = await axios.post(API_URLS.profilDegiskenler, processedWithTimestamps, {
+        const response = await axios.post(API_URLS.profilDegiskenler, finalData, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -1378,7 +1414,7 @@ const calculatePanelKodu = (panel) => {
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(processedWithTimestamps)
+            body: JSON.stringify(finalData)
           });
           
           if (directResponse.ok) {
