@@ -1083,6 +1083,12 @@ const GalvanizliTelNetsis = () => {
         input.selectionStart = input.selectionEnd = caretPos + 1;
       }, 0);
     }
+    
+    // Ensure periods can be entered anywhere in the input
+    if (e.key === '.') {
+      // Allow periods even if the field already has one
+      // Do nothing special, let the default behavior proceed
+    }
   };
   
   // Comma to point conversion handler for recipe inputs
@@ -1105,6 +1111,17 @@ const GalvanizliTelNetsis = () => {
         input.selectionStart = input.selectionEnd = caretPos + 1;
       }, 0);
     }
+    
+    // Ensure periods can be entered anywhere in the input
+    if (e.key === '.') {
+      // Check if the input already contains a period
+      const input = e.target;
+      const currentValue = input.value;
+      
+      // Allow periods even if the field already has one
+      // This will let users enter periods anywhere, and validation will happen elsewhere
+      // Do nothing special, let the default behavior proceed
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -1113,6 +1130,16 @@ const GalvanizliTelNetsis = () => {
     
     // First ensure the value is trimmed
     const trimmedValue = typeof value === 'string' ? value.trim() : value;
+    
+    // Special case for decimal inputs - maintain exact format
+    if (typeof trimmedValue === 'string' && trimmedValue.includes('.')) {
+      // If the string contains a decimal point, preserve its format exactly
+      setMmGtData(prev => ({
+        ...prev,
+        [field]: trimmedValue
+      }));
+      return;
+    }
     
     if (typeof trimmedValue === 'string' && trimmedValue.includes(',')) {
       // If input contains comma, replace with point
@@ -1269,12 +1296,70 @@ const GalvanizliTelNetsis = () => {
       inputValue = inputValue.replace(/,/g, '.');
     }
     
-    // Preserve any existing decimal points but remove commas
+    // Special case handling for direct decimal input
+    // This allows decimal points to be properly entered and maintained in the field
     if (typeof inputValue === 'string') {
-      inputValue = inputValue.replace(/,/g, '.').trim();
+      // If we have a string with a decimal point (.5 or 3.1), preserve its exact format
+      // This handles decimal points that were just added by the user
+      if (inputValue.includes('.')) {
+        // Store it as is to maintain positions of digits and decimal points
+        setRecipeStatus(prev => ({
+          ...prev,
+          [recipeType === 'mmgt' 
+            ? 'mmGtRecipes' 
+            : recipeType === 'ymgt' 
+              ? 'ymGtRecipe' 
+              : 'ymStRecipes']: recipeType === 'ymgt' 
+                ? { ...prev.ymGtRecipe, [key]: 'manual' }
+                : {
+                    ...prev[recipeType === 'mmgt' ? 'mmGtRecipes' : 'ymStRecipes'],
+                    [ymStIndex]: {
+                      ...prev[recipeType === 'mmgt' ? 'mmGtRecipes' : 'ymStRecipes'][ymStIndex],
+                      [key]: 'manual'
+                    }
+                  }
+        }));
+        
+        // Update the appropriate recipe with the exact string value
+        if (recipeType === 'mmgt') {
+          setAllRecipes(prev => ({
+            ...prev,
+            mmGtRecipes: {
+              ...prev.mmGtRecipes,
+              [ymStIndex]: {
+                ...prev.mmGtRecipes[ymStIndex],
+                [key]: inputValue // Keep as string with decimal point
+              }
+            }
+          }));
+          return; // Exit early to avoid overwriting with number parsing
+        } else if (recipeType === 'ymgt') {
+          setAllRecipes(prev => ({
+            ...prev,
+            ymGtRecipe: {
+              ...prev.ymGtRecipe,
+              [key]: inputValue // Keep as string with decimal point
+            }
+          }));
+          return; // Exit early
+        } else {
+          setAllRecipes(prev => ({
+            ...prev,
+            ymStRecipes: {
+              ...prev.ymStRecipes,
+              [ymStIndex]: {
+                ...prev.ymStRecipes[ymStIndex],
+                [key]: inputValue // Keep as string with decimal point
+              }
+            }
+          }));
+          return; // Exit early
+        }
+      }
     }
     
-    // Now normalize with our standard function if needed
+    // For other cases (non-decimal string, empty string, number, etc.)
+    // Continue with standard handling
     const normalizedValue = typeof inputValue === 'string' ? inputValue : normalizeInputValue(inputValue);
     
     // Ensure we have a proper numeric value with point decimal separator
