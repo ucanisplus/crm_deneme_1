@@ -2089,21 +2089,68 @@ const GalvanizliTelNetsis = () => {
       let mmGtSequence = '00';
       let mmGtStokKodu = '';
       
+      // ÖNEMLİ FIX: Reçeteden önce MMGT ve YMGT stok kodlarını kontrol edip düzelt
+      // Reçete çakışmalarını önle
+      if (mmGtIds.length > 0 && ymGtId) {
+        // MMGT ve YMGT sequence'lerini kontrol et
+        const mmGtId = mmGtIds[0];
+        
+        // MMGT'nin stok_kodu'ndan sequence'i al
+        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
+        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+        
+        if (mmGtResponse && mmGtResponse.ok && ymGtResponse && ymGtResponse.ok) {
+          const mmGt = await mmGtResponse.json();
+          const ymGt = await ymGtResponse.json();
+          
+          if (mmGt && mmGt.stok_kodu && ymGt && ymGt.stok_kodu) {
+            const mmGtCurrentSequence = mmGt.stok_kodu.split('.').pop();
+            const ymGtCurrentSequence = ymGt.stok_kodu.split('.').pop();
+            
+            console.log(`Reçete için mevcut MMGT sequence: ${mmGtCurrentSequence}, YMGT sequence: ${ymGtCurrentSequence}`);
+            
+            // Sequence'ler eşleşmiyorsa, YMGT'yi MMGT sequence'ine güncelle
+            if (mmGtCurrentSequence !== ymGtCurrentSequence) {
+              console.warn(`Sequence uyumsuzluğu! MMGT: ${mmGtCurrentSequence}, YMGT: ${ymGtCurrentSequence}`);
+              console.warn(`YMGT sequence güncelleniyor: ${ymGtCurrentSequence} -> ${mmGtCurrentSequence}`);
+              
+              // YMGT'yi güncelle
+              const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+              const updatedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtCurrentSequence}`;
+              const updatedYmGtStokAdi = generateYmGtStokAdi(mmGtCurrentSequence);
+              
+              await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...generateYmGtDatabaseData(mmGtCurrentSequence),
+                  stok_kodu: updatedYmGtStokKodu,
+                  stok_adi: updatedYmGtStokAdi
+                })
+              });
+              
+              // Güncellenmiş YMGT'yi al
+              const updatedYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+              if (updatedYmGtResponse && updatedYmGtResponse.ok) {
+                const updatedYmGt = await updatedYmGtResponse.json();
+                if (updatedYmGt && updatedYmGt.stok_kodu) {
+                  console.log(`YMGT güncellendi: ${updatedYmGt.stok_kodu}`);
+                }
+              }
+            }
+            
+            // Her durumda MMGT sequence'ini kullan
+            mmGtSequence = mmGtCurrentSequence;
+            mmGtStokKodu = mmGt.stok_kodu;
+            console.log(`Reçeteler için kullanılacak sequence: ${mmGtSequence}`);
+          }
+        }
+      }
+      
       // Sadece 1 MM GT reçetesini kaydet
       if (mmGtIds.length > 0) {
         const mmGtId = mmGtIds[0]; // Artık sadece 1 tane MM GT var
         const mmGtRecipe = allRecipes.mmGtRecipes[mainYmStIndex] || {}; // Ana YM ST'ye bağlı MM GT reçetesi
-        
-        // MMGT'nin stok_kodu'ndan sequence'i al - ÖNEMLİ
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGt = await mmGtResponse.json();
-          if (mmGt && mmGt.stok_kodu) {
-            mmGtStokKodu = mmGt.stok_kodu;
-            mmGtSequence = mmGt.stok_kodu.split('.').pop();
-            console.log(`MMGT sequence: ${mmGtSequence}, stok_kodu: ${mmGtStokKodu}`);
-          }
-        }
         
         // Mevcut reçeteleri sil
         await deleteExistingRecipes('mmgt', mmGtId);
@@ -2111,6 +2158,7 @@ const GalvanizliTelNetsis = () => {
         let siraNo = 1;
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
         const mamulKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+        console.log(`MMGT reçete için mamul_kodu: ${mamulKodu} (sequence: ${mmGtSequence})`);
         
         // MMGT reçete sıralaması: 1) YM.GT bileşeni, 2) GTPKT01 operasyonu, 3) diğer bileşenler
         const recipeEntries = Object.entries(mmGtRecipe);
@@ -2135,6 +2183,14 @@ const GalvanizliTelNetsis = () => {
                 useGrouping: false // No thousand separators
               });
             }
+            
+            // Son bir kontrol: mamulKodu'nun sequence'ini doğrula
+            const recordSequence = mamulKodu.split('.').pop();
+            if (recordSequence !== mmGtSequence) {
+              console.error(`Sequence uyuşmazlığı! Reçete kaydediliyor: ${recordSequence}, olması gereken: ${mmGtSequence}`);
+            }
+            
+            console.log(`MMGT reçete kaydı: ${mmGtId}, ${mamulKodu}, ${key}, ${formattedValue}`);
             
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
@@ -2178,29 +2234,11 @@ const GalvanizliTelNetsis = () => {
       if (ymGtId && Object.keys(allRecipes.ymGtRecipe).length > 0) {
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
         
-        // Her zaman MMGT ile aynı sequence'i kullan
-        let ymGtStokKodu = '';
+        // Her durumda MMGT ile aynı sequence'i kullan - bu kısım yukarıda yapıldı
+        const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+        console.log(`YMGT reçete için kullanılacak stok_kodu: ${ymGtStokKodu} (sequence: ${mmGtSequence})`);
         
-        // YM GT'nin stok_kodu'nu kontrol et
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGt = await ymGtResponse.json();
-          if (ymGt && ymGt.stok_kodu) {
-            // Sequence'in MMGT ile aynı olduğundan emin ol
-            ymGtStokKodu = ymGt.stok_kodu;
-            console.log(`YMGT stok_kodu: ${ymGtStokKodu}, sequence olması gereken: ${mmGtSequence}`);
-            
-            // Sequence'in yanlış olup olmadığını kontrol et
-            const ymGtSequence = ymGt.stok_kodu.split('.').pop();
-            if (ymGtSequence !== mmGtSequence) {
-              // Sequence tutarsızlığı varsa uyarı logla
-              console.warn(`YMGT sequence (${ymGtSequence}) MMGT sequence (${mmGtSequence}) ile eşleşmiyor!`);
-            }
-          }
-        }
-        
-        // MMGT sequence'i ile oluştur
-        ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+        // Mevcut YM GT kontrolü - sequence kontrolü yukarıda yapıldı
         
         // YM GT'yi bul
         const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
@@ -2233,6 +2271,14 @@ const GalvanizliTelNetsis = () => {
                   useGrouping: false // No thousand separators
                 });
               }
+              
+              // Son bir kontrol: ymGtStokKodu'nun sequence'ini doğrula
+              const recordSequence = ymGtStokKodu.split('.').pop();
+              if (recordSequence !== mmGtSequence) {
+                console.error(`YMGT Sequence uyuşmazlığı! Reçete kaydediliyor: ${recordSequence}, olması gereken: ${mmGtSequence}`);
+              }
+              
+              console.log(`YMGT reçete kaydı: ${existingYmGt.id}, ${ymGtStokKodu}, ${key}, ${formattedValue}`);
               
               await fetchWithAuth(API_URLS.galYmGtRecete, {
                 method: 'POST',
@@ -2910,7 +2956,7 @@ const GalvanizliTelNetsis = () => {
     
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu - sequence eşleştirme!
-      generateYmGtStokAdi(), // Stok Adı
+      generateYmGtStokAdi(sequence), // Stok Adı - güncel sequence ile!
       'YM', // Grup Kodu
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
@@ -3163,7 +3209,7 @@ const GalvanizliTelNetsis = () => {
     return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
-  const generateYmGtStokAdi = () => {
+  const generateYmGtStokAdi = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
