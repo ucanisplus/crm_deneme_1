@@ -1611,34 +1611,109 @@ const GalvanizliTelNetsis = () => {
       // Ana YM ST'yi belirle
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
-      // Mevcut ürünün sequence değerini kontrol et
+      // MMGT için doğru sequence'i belirle - özellikle key değerleri değiştiyse önemli
       let sequence = '00';
+      let oldSequence = '00';
       
-      // MMGT'nin stok_kodu'ndan sequence'i al
+      // MMGT'nin stok_kodu'ndan mevcut sequence'i al
       const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${sessionSavedProducts.mmGtIds[0]}`);
       if (mmGtResponse && mmGtResponse.ok) {
         const mmGt = await mmGtResponse.json();
         if (mmGt && mmGt.stok_kodu) {
-          // Key değerlerinde değişim var mı kontrol et
+          oldSequence = mmGt.stok_kodu.split('.').pop();
+          console.log(`Mevcut MMGT sequence: ${oldSequence}, stok_kodu: ${mmGt.stok_kodu}`);
+          
+          // Key değerlerinde değişim var mı çok dikkatli kontrol et
           const currentKey = `${mmGtData.cap}|${mmGtData.kod_2}|${mmGtData.kaplama}|${mmGtData.min_mukavemet}|${mmGtData.max_mukavemet}|${mmGtData.kg}`;
           const oldKey = `${mmGt.cap}|${mmGt.kod_2}|${mmGt.kaplama}|${mmGt.min_mukavemet}|${mmGt.max_mukavemet}|${mmGt.kg}`;
           
           if (currentKey !== oldKey) {
-            // Key değerlerinde değişim varsa yeni sequence hesapla
-            const nextSequence = await checkForExistingProducts(
-              mmGtData.cap,
-              mmGtData.kod_2,
-              mmGtData.kaplama,
-              mmGtData.min_mukavemet,
-              mmGtData.max_mukavemet,
-              mmGtData.kg
-            );
-            sequence = nextSequence.toString().padStart(2, '0');
+            console.log(`Key değerlerinde değişim tespit edildi!`);
+            console.log(`Eski: ${oldKey}`);
+            console.log(`Yeni: ${currentKey}`);
+            
+            // ÖNEMLİ: Önce veritabanında aynı key değerlere sahip ürün var mı kontrol et
+            const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+            const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
+            
+            try {
+              // Aynı base koda sahip ürünleri ara
+              const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+              if (response && response.ok) {
+                const existingProducts = await response.json();
+                console.log(`${existingProducts.length} adet benzer ürün bulundu`);
+                
+                if (existingProducts.length > 0) {
+                  // Tam eşleşen bir ürün ara
+                  const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
+                  const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
+                  
+                  let exactMatch = null;
+                  for (const product of existingProducts) {
+                    if (product.id === sessionSavedProducts.mmGtIds[0]) continue; // Kendisi olmamalı
+                    
+                    const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
+                    if (normalizedProductAdi === normalizedStokAdi) {
+                      exactMatch = product;
+                      break;
+                    }
+                  }
+                  
+                  if (exactMatch) {
+                    // Tam eşleşen ürün bulundu - bu ürünün sequence'ini kullan
+                    sequence = exactMatch.stok_kodu.split('.').pop();
+                    console.log(`Tam eşleşen ürün bulundu, sequence kullanılacak: ${sequence}`);
+                  } else {
+                    // En yüksek sequence'i bul
+                    let maxSequence = -1;
+                    existingProducts.forEach(product => {
+                      const sequencePart = product.stok_kodu.split('.').pop();
+                      const sequenceNum = parseInt(sequencePart);
+                      if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                        maxSequence = sequenceNum;
+                      }
+                    });
+                    
+                    // Yeni ürün için sequence artır
+                    sequence = (maxSequence + 1).toString().padStart(2, '0');
+                    console.log(`Key değişimi nedeniyle yeni sequence hesaplandı: ${sequence}`);
+                  }
+                } else {
+                  // Benzer ürün bulunamadı - yeni sequence hesapla
+                  sequence = '00';
+                  console.log(`Benzer ürün bulunamadı, yeni sequence hesaplanacak`);
+                }
+              }
+            } catch (error) {
+              console.error('Veritabanı sorgulama hatası:', error);
+            }
+            
+            // Hala sequence belirlenemedi ise yeni hesapla
+            if (sequence === '00') {
+              // Key değişmişse yeni sequence hesapla
+              const nextSequence = await checkForExistingProducts(
+                mmGtData.cap,
+                mmGtData.kod_2,
+                mmGtData.kaplama,
+                mmGtData.min_mukavemet,
+                mmGtData.max_mukavemet,
+                mmGtData.kg
+              );
+              sequence = nextSequence.toString().padStart(2, '0');
+              console.log(`checkForExistingProducts ile yeni sequence hesaplandı: ${sequence}`);
+            }
           } else {
             // Key değişmemişse mevcut sequence'i kullan
-            sequence = mmGt.stok_kodu.split('.').pop();
+            sequence = oldSequence;
+            console.log(`Key değerleri değişmemiş, mevcut sequence kullanılıyor: ${sequence}`);
           }
         }
+      }
+      
+      console.log(`Ürün güncellemesi için kullanılacak sequence: ${sequence}`);
+      // Eski ve yeni sequence farklı ise kullanıcıyı uyar
+      if (oldSequence !== '00' && sequence !== oldSequence) {
+        console.warn(`Sequence değişiyor: ${oldSequence} -> ${sequence}`);
       }
       
       // Sadece 1 MM GT'yi güncelle
@@ -2657,23 +2732,84 @@ const GalvanizliTelNetsis = () => {
         return;
       }
       
-      // Önce sequence hesapla, sonra tüm Excel'lerde aynı sequence'i kullan
+      // ÖNEMLİ: Önce MMGT ve YMGT için veritabanında aynı key değerlere sahip ürünleri kontrol et
+      // Bu şekilde key değişimi olan ürünlerin doğru sequence ile Excel'e eklenmesini sağla
       let sequence = '00';
+      let mmGtStokKodu = '';
       
-      // Eğer veritabanına kaydedildi ise, önceden hesaplanan sequence'i kullan
-      if (savedToDatabase && databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
+      console.log(`Excel oluşturulurken, key değerlere sahip ürünlerin sequence'i kontrol ediliyor...`);
+      
+      // 1. Önce tamamen aynı key değerlere sahip ürün için veritabanını sorgula
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
+      console.log(`MMGT için baseCode: ${baseCode}`);
+      
+      try {
+        // Aynı key değerlere sahip ürünleri veritabanında ara
+        const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+        if (response && response.ok) {
+          const existingProducts = await response.json();
+          console.log(`${existingProducts.length} adet benzer ürün bulundu`);
+          
+          if (existingProducts.length > 0) {
+            // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
+            const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
+            const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
+            
+            // Tüm ürünleri kontrol et ve tam eşleşen bir ürün bulmaya çalış
+            for (const product of existingProducts) {
+              const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
+              
+              // Stok adı ile karşılaştırma
+              if (normalizedProductAdi === normalizedStokAdi) {
+                // Tam eşleşme bulundu - bu ürünün sequence'ini kullan
+                sequence = product.stok_kodu.split('.').pop();
+                mmGtStokKodu = product.stok_kodu;
+                console.log(`Excel için tam eşleşen ürün bulundu: ${mmGtStokKodu}, Sequence: ${sequence}`);
+                break;
+              }
+            }
+            
+            // Eğer eşleşen ürün bulunamadıysa, en yüksek sequence'i kullan
+            if (sequence === '00' && existingProducts.length > 0) {
+              // En yüksek sequence'i bul
+              let maxSequence = -1;
+              existingProducts.forEach(product => {
+                const sequencePart = product.stok_kodu.split('.').pop();
+                const sequenceNum = parseInt(sequencePart);
+                if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                  maxSequence = sequenceNum;
+                }
+              });
+              
+              // Yeni ürün için sequence'i artır
+              sequence = (maxSequence + 1).toString().padStart(2, '0');
+              console.log(`Excel için en yüksek sequence+1 kullanılıyor: ${sequence}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Veritabanından ürün sorgulanırken hata:', error);
+      }
+      
+      // 2. Eğer veritabanında ürün bulunamadıysa veya sequence hala 00 ise kayıtlı ürünleri kontrol et
+      if (sequence === '00' && savedToDatabase && databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
         // Kayıtlı ürünün stok kodundan sequence'i al
         const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
         if (savedMmGtResponse && savedMmGtResponse.ok) {
           const savedMmGt = await savedMmGtResponse.json();
           if (savedMmGt && savedMmGt.stok_kodu) {
             sequence = savedMmGt.stok_kodu.split('.').pop();
-            console.log(`Excel için veritabanından sequence alındı: ${sequence}`);
+            mmGtStokKodu = savedMmGt.stok_kodu;
+            console.log(`Excel için kaydedilmiş MMGT'den sequence alındı: ${sequence}`);
           }
         }
-      } else {
-        // Kaydedilmemiş ise, mevcut değerlerle sequence hesapla
+      }
+      
+      // 3. Hala sequence belirlenemediyse yeni hesapla
+      if (sequence === '00') {
         try {
+          // checkForExistingProducts fonksiyonu zaten mevcut ürünleri kontrol eder
           const nextSequence = await checkForExistingProducts(
             mmGtData.cap,
             mmGtData.kod_2,
@@ -2686,9 +2822,13 @@ const GalvanizliTelNetsis = () => {
           console.log(`Excel için yeni sequence hesaplandı: ${sequence}`);
         } catch (error) {
           console.error('Sequence hesaplama hatası:', error);
-          // Hata durumunda varsayılan olarak 00 kullan
-          sequence = '00';
+          sequence = '00'; // En son çare olarak 00 kullan
         }
+      }
+      
+      console.log(`Excel oluşturma için KULLANILACAK SEQUENCE: ${sequence}`);
+      if (sequence === '00') {
+        console.warn(`UYARI: Excel oluşturma için '00' sequence'i kullanılıyor. Bu istenmeyen bir durum olabilir.`);
       }
       
       // Her iki Excel'de de aynı sequence'i kullan
@@ -2764,7 +2904,12 @@ const GalvanizliTelNetsis = () => {
     const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
     const mainYmStIndex_ = mainYmStIndex; // Closure için yerel değişken
     
-    console.log(`Reçete Excel oluşturuluyor, sequence: ${sequence}`);
+    // Önemli: Son kontrol - stok kartı Excel'i ile aynı sequence'i kullandığımızdan emin olalım
+    if (sequence === '00') {
+      console.warn('UYARI! Reçete Excel için "00" sequence kullanılıyor. Veritabanını kontrol et.');
+    }
+    
+    console.log(`Reçete Excel oluşturuluyor, sequence: ${sequence} -- Veritabanındaki ürünle eşleştiğinden emin olun!`);
     
     // MM GT REÇETE Sheet
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
