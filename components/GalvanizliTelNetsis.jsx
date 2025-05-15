@@ -2303,12 +2303,19 @@ const GalvanizliTelNetsis = () => {
           throw new Error(`Geçersiz MMGT stok_kodu: ${mamulKodu}`);
         }
         
-        console.log(`MMGT reçete için kullanılacak mamul_kodu: ${mamulKodu} (sequence: ${mmGtSequence})`);
+        // MMGT reçete database kaydı öncesi kritik log - debugging için
+        console.log(`===== KRİTİK =====`);
+        console.log(`MMGT REÇETE İŞLEMİ: ID=${mmGtId}`);
+        console.log(`GERÇEK MMGT STOK KODU: ${mmGtStokKodu}`);
+        console.log(`MMGT REÇETELERİNDE KULLANILACAK MAMUL KODU: ${mamulKodu}`);
+        console.log(`MMGT SEQUENCE: ${mmGtSequence}`);
+        console.log(`=================`);
         
-        // Son bir kontrol: sequence doğru mu?
-        const recordSequence = mamulKodu.split('.').pop();
-        if (recordSequence !== mmGtSequence) {
-          console.error(`UYARI! Sequence tutarsızlığı: Reçete için ${recordSequence}, Stok için ${mmGtSequence}`);
+        // Son bir kontrol: stok kodu ile tam uyumlu olmasını garantile
+        if (mamulKodu !== mmGtStokKodu) {
+          console.error(`KRİTİK HATA! MMGT reçetesi için kullanılacak mamul_kodu (${mamulKodu}) stok_kodu (${mmGtStokKodu}) ile eşleşmiyor!`);
+          console.log(`MMGT reçeteleri için stok_kodu ZORLA kullanılacak: ${mmGtStokKodu}`);
+          mamulKodu = mmGtStokKodu;
         }
         
         // MMGT reçete sıralaması: 1) YM.GT bileşeni, 2) GTPKT01 operasyonu, 3) diğer bileşenler
@@ -2369,17 +2376,41 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
+            // MMGT reçete database kaydı - MAMUL_KODU ÇOK ÖNEMLİ, KESİNLİKLE MMGT STOK_KODU ile aynı olmalı
+            console.log(`MMGT REÇETE KAYIT İŞLEMİ: mm_gt_id=${mmGtId}, mamul_kodu=${mamulKodu}, bilesen_kodu=${key}`);
+            
+            // Reçete parametrelerinin son kontrolü
+            const finalReceteParams = {
+              mm_gt_id: mmGtId,
+              mamul_kodu: mmGtStokKodu, // ÇOK ÖNEMLİ: Her zaman stok_kodu ile TAMAMEN aynı!
+              bilesen_kodu: key,
+              miktar: formattedValue,
+              sira_no: siraNo++,
+              operasyon_bilesen: operasyonBilesen,
+              olcu_br: getOlcuBr(key),
+              olcu_br_bilesen: '1',
+              aciklama: getReceteAciklama(key),
+              ua_dahil_edilsin: 'evet',
+              son_operasyon: 'evet',
+              recete_top: 1,
+              fire_orani: 0.0004 // Match Excel format
+            };
+            
+            // Son kontrol - mamul_kodu MMGT stok_kodu ile aynı mı?
+            if (finalReceteParams.mamul_kodu !== mmGtStokKodu) {
+              console.error(`KRİTİK HATA! Reçete kaydı öncesi son kontrol başarısız. mamul_kodu (${finalReceteParams.mamul_kodu}) != stok_kodu (${mmGtStokKodu})`);
+              finalReceteParams.mamul_kodu = mmGtStokKodu;
+            }
+            
+            console.log(`MMGT REÇETE KAYIT PARAMETRELERİ:`, JSON.stringify(finalReceteParams));
+            
+            // Database'e kaydet
             await fetchWithAuth(API_URLS.galMmGtRecete, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                ...receteParams,
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                ua_dahil_edilsin: 'evet',
-                son_operasyon: 'evet',
-                recete_top: 1,
-                fire_orani: 0.0004, // Match Excel format
+                ...finalReceteParams,
+                // Additional fields for better Netsis compatibility - match Excel
                 // Additional fields for better Netsis compatibility - match Excel
                 miktar_sabitle: 'H',
                 stok_maliyet: 'S',
@@ -2466,9 +2497,30 @@ const GalvanizliTelNetsis = () => {
         await deleteExistingRecipes('ymgt', ymGtId);
         
         console.log(`YMGT REÇETELERİ İÇİN KULLANILACAK MAMUL_KODU: ${ymGtStokKodu} (sequence: ${ymGtSequence})`);
+
+        // MMGT ile aynı sequence'e sahip olduğundan son kez emin ol
+        if (ymGtSequence !== mmGtSequence && mmGtSequence !== '00') {
+          console.error(`KRİTİK HATA! YMGT sequence (${ymGtSequence}) MMGT sequence (${mmGtSequence}) ile uyumsuz!`);
+          
+          // YMGT stok_kodu'nu güncelle - son kez doğru serileme ile oluştur
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          const correctedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+          
+          console.warn(`YMGT stok_kodu son kez düzeltiliyor: ${ymGtStokKodu} → ${correctedYmGtStokKodu}`);
+          ymGtStokKodu = correctedYmGtStokKodu;
+          ymGtSequence = mmGtSequence;
+        }
+        
+        // YMGT kaydı öncesi kritik log - debugging için
+        console.log(`===== KRİTİK =====`);
+        console.log(`YMGT REÇETE İŞLEMİ: ID=${ymGtId}`);
+        console.log(`KULLANILACAK YMGT STOK KODU: ${ymGtStokKodu}`);
+        console.log(`YMGT SEQUENCE: ${ymGtSequence}`);
+        console.log(`MMGT SEQUENCE: ${mmGtSequence}`);
+        console.log(`=================`);
         
         // YM GT'yi bul - oluşturulmuş stok kodu ile
-        const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
+        const existingYmGt = { id: ymGtId };
         if (existingYmGt) {
           // ÖNEMLİ: Önce reçeteleri sil, her durumda mevcut reçeteleri silip yeniden oluştur
           console.log(`YMGT reçeteleri siliniyor: YMGT ID=${existingYmGt.id}`);
@@ -2606,17 +2658,40 @@ const GalvanizliTelNetsis = () => {
                 }
               }
               
+              // YMGT reçete database kaydı - MAMUL_KODU ÇOK ÖNEMLİ, KESİNLİKLE YMGT STOK_KODU ile aynı olmalı
+              console.log(`YMGT REÇETE KAYIT İŞLEMİ: ym_gt_id=${existingYmGt.id}, mamul_kodu=${ymGtStokKodu}, bilesen_kodu=${key}`);
+              
+              // Reçete parametrelerinin son kontrolü
+              const finalReceteParams = {
+                ym_gt_id: existingYmGt.id,
+                mamul_kodu: ymGtStokKodu, // ÇOK ÖNEMLİ: Her zaman stok_kodu ile TAMAMEN aynı!
+                bilesen_kodu: key,
+                miktar: formattedValue,
+                sira_no: siraNo++,
+                operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
+                olcu_br: getOlcuBr(key),
+                olcu_br_bilesen: '1',
+                aciklama: getReceteAciklama(key),
+                recete_top: 1,
+                fire_orani: 0.0004, // Match Excel format
+                ua_dahil_edilsin: 'evet',
+                son_operasyon: 'evet'
+              };
+              
+              // Son kontrol - mamul_kodu YMGT stok_kodu ile aynı mı?
+              if (finalReceteParams.mamul_kodu !== ymGtStokKodu) {
+                console.error(`KRİTİK HATA! YMGT reçete kaydı öncesi son kontrol başarısız. mamul_kodu (${finalReceteParams.mamul_kodu}) != stok_kodu (${ymGtStokKodu})`);
+                finalReceteParams.mamul_kodu = ymGtStokKodu;
+              }
+              
+              console.log(`YMGT REÇETE KAYIT PARAMETRELERİ:`, JSON.stringify(finalReceteParams));
+              
+              // Database'e kaydet
               await fetchWithAuth(API_URLS.galYmGtRecete, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  ...receteParams,
-                  olcu_br_bilesen: '1',
-                  aciklama: getReceteAciklama(key),
-                  recete_top: 1,
-                  fire_orani: 0.0004, // Match Excel format
-                  ua_dahil_edilsin: 'evet',
-                  son_operasyon: 'evet',
+                  ...finalReceteParams,
                   // Additional fields for better Netsis compatibility - match Excel format
                   miktar_sabitle: 'H',
                   stok_maliyet: 'S',
