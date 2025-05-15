@@ -57,62 +57,22 @@ const GalvanizliTelNetsis = () => {
     
     // For numbers, force specific formatting with points
     if (typeof value === 'number') {
-      // Use EN-US locale to force point as decimal separator
-      return value.toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 5,
-        useGrouping: false // No thousand separators
-      });
+      // Use string conversion to force point as decimal separator
+      return value.toString();
     }
     
     // For strings with commas, convert to points
     if (typeof value === 'string' && value.includes(',')) {
-      const cleanValue = value.replace(/,/g, '.');
-      const num = parseFloat(cleanValue);
-      if (isNaN(num)) {
-        return cleanValue; 
-      }
-      // Use EN-US locale to force point as decimal separator
-      return num.toLocaleString('en-US', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 5,
-        useGrouping: false // No thousand separators
-      });
+      return value.replace(/,/g, '.');
     }
     
-    // For other strings that might be numbers, preserve the format if it already has a decimal point
+    // For strings that are already properly formatted with points, return as is
     if (typeof value === 'string') {
-      if (value.includes('.')) {
-        // Already has a decimal point - don't reformat if it might lose precision
-        const num = parseFloat(value);
-        if (isNaN(num)) {
-          return value;
-        }
-        // Only reformat if the string representation would be the same length or longer
-        const formatted = num.toLocaleString('en-US', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 5,
-          useGrouping: false
-        });
-        // Count decimal places in original value
-        const decimalPlaces = value.includes('.') ? value.split('.')[1]?.length || 0 : 0;
-        return decimalPlaces > 0 ? formatted : value;
-      } else {
-        // No decimal point in the string, try to parse and format
-        const num = parseFloat(value);
-        if (isNaN(num)) {
-          return value;
-        }
-        // Use EN-US locale to force point as decimal separator
-        return num.toLocaleString('en-US', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 5,
-          useGrouping: false // No thousand separators
-        });
-      }
+      return value;
     }
     
-    return value;
+    // Fallback
+    return value ? value.toString() : '';
   };
   
   // Form verileri - NOKTA kullan decimal için
@@ -1103,6 +1063,28 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Form değişikliklerini işle - her zaman nokta formatı kullan
+  // Comma to point conversion handler for onKeyDown
+  const handleCommaToPoint = (e, field) => {
+    // Allow decimal comma input but convert to point
+    if (e.key === ',') {
+      e.preventDefault();
+      // Get current value and caret position
+      const input = e.target;
+      const currentValue = input.value;
+      const caretPos = input.selectionStart;
+      
+      // Insert decimal point where the comma would have gone
+      const newValue = currentValue.substring(0, caretPos) + '.' + currentValue.substring(input.selectionEnd);
+      
+      // Update input value and reset caret position
+      handleInputChange(field, newValue);
+      // Need to use setTimeout to let React update the DOM
+      setTimeout(() => {
+        input.selectionStart = input.selectionEnd = caretPos + 1;
+      }, 0);
+    }
+  };
+
   const handleInputChange = (field, value) => {
     // Enforce point as decimal separator for any input value
     let normalizedValue;
@@ -1118,23 +1100,23 @@ const GalvanizliTelNetsis = () => {
       normalizedValue = typeof trimmedValue === 'string' ? trimmedValue : normalizeInputValue(trimmedValue);
     }
     
-    // For numeric fields, ensure we store with point decimal separator
+    // For numeric fields, ensure we store with point decimal separator but keep as strings
     if (['cap', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
       if (typeof normalizedValue === 'string' && normalizedValue !== '') {
         // Remove any commas first and replace with points to be sure
         const valueWithPoints = normalizedValue.replace(/,/g, '.');
-        // Parse and format to ensure point decimal separator
+        
+        // If it's a valid number, ensure it uses point as decimal separator
         const num = parseFloat(valueWithPoints);
         if (!isNaN(num)) {
-          // For decimal values, preserve the original decimal precision
-          const decimalPlaces = valueWithPoints.includes('.') ? 
-            valueWithPoints.split('.')[1]?.length || 0 : 0;
-          
-          normalizedValue = num.toLocaleString('en-US', {
-            minimumFractionDigits: decimalPlaces > 0 ? Math.min(decimalPlaces, 5) : 0,
-            maximumFractionDigits: 5,
-            useGrouping: false
-          });
+          // For decimal input, keep the decimal part as-is to preserve user input exactly as entered
+          if (valueWithPoints.includes('.')) {
+            // If user is typing a decimal number, keep their input exactly as is (with points)
+            normalizedValue = valueWithPoints;
+          } else {
+            // For whole numbers, no decimal formatting needed
+            normalizedValue = valueWithPoints;
+          }
         }
       }
     }
@@ -2975,14 +2957,14 @@ const GalvanizliTelNetsis = () => {
                 Çap (mm) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.cap)}
                 onChange={(e) => handleInputChange('cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
                 lang="en-US" // Force EN-US locale with point decimal separator
+                onKeyDown={(e) => handleCommaToPoint(e, 'cap')}
               />
             </div>
 
@@ -3005,14 +2987,14 @@ const GalvanizliTelNetsis = () => {
                 Kaplama (gr/m²) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.kaplama)}
                 onChange={(e) => handleInputChange('kaplama', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 disabled={mmGtData.kod_2 === 'PAD'}
                 placeholder="50-400"
+                onKeyDown={(e) => handleCommaToPoint(e, 'kaplama')}
               />
             </div>
 
@@ -3021,13 +3003,13 @@ const GalvanizliTelNetsis = () => {
                 Min Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.min_mukavemet)}
                 onChange={(e) => handleInputChange('min_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
+                onKeyDown={(e) => handleCommaToPoint(e, 'min_mukavemet')}
               />
             </div>
 
@@ -3036,13 +3018,13 @@ const GalvanizliTelNetsis = () => {
                 Max Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.max_mukavemet)}
                 onChange={(e) => handleInputChange('max_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
+                onKeyDown={(e) => handleCommaToPoint(e, 'max_mukavemet')}
               />
             </div>
 
@@ -3051,13 +3033,13 @@ const GalvanizliTelNetsis = () => {
                 Ağırlık (kg) <span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="250-1250"
+                onKeyDown={(e) => handleCommaToPoint(e, 'kg')}
               />
             </div>
 
@@ -3095,13 +3077,13 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (+)
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_plus || '')}
                 onChange={(e) => handleInputChange('tolerans_plus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
+                onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_plus')}
               />
             </div>
 
@@ -3110,13 +3092,13 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (-)
               </label>
               <input
-                type="number"
-                step="any"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_minus || '')}
                 onChange={(e) => handleInputChange('tolerans_minus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
+                onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_minus')}
               />
             </div>
 
