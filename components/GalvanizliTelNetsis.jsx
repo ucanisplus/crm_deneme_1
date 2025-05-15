@@ -9,7 +9,7 @@ import { saveAs } from 'file-saver';
 const GalvanizliTelNetsis = () => {
   const { user, hasPermission } = useAuth();
   
-  // Ana state değişkenleri.
+  // Ana state değişkenleri
   const [currentStep, setCurrentStep] = useState('input'); // input, summary, processing
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
