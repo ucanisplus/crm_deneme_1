@@ -1084,6 +1084,28 @@ const GalvanizliTelNetsis = () => {
       }, 0);
     }
   };
+  
+  // Comma to point conversion handler for recipe inputs
+  const handleRecipeCommaToPoint = (e, recipeType, ymStIndex, key) => {
+    // Allow decimal comma input but convert to point
+    if (e.key === ',') {
+      e.preventDefault();
+      // Get current value and caret position
+      const input = e.target;
+      const currentValue = input.value;
+      const caretPos = input.selectionStart;
+      
+      // Insert decimal point where the comma would have gone
+      const newValue = currentValue.substring(0, caretPos) + '.' + currentValue.substring(input.selectionEnd);
+      
+      // Update recipe value and reset caret position
+      updateRecipeValue(recipeType, ymStIndex, key, newValue);
+      // Need to use setTimeout to let React update the DOM
+      setTimeout(() => {
+        input.selectionStart = input.selectionEnd = caretPos + 1;
+      }, 0);
+    }
+  };
 
   const handleInputChange = (field, value) => {
     // Enforce point as decimal separator for any input value
@@ -3584,25 +3606,7 @@ const GalvanizliTelNetsis = () => {
                                     placeholder="Shrink Miktarı"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                                     disabled={!currentValue}
-                                    onKeyDown={(e) => {
-                                      if (e.key === ',' && currentValue) {
-                                        e.preventDefault();
-                                        const input = e.target;
-                                        const currentInputValue = input.value;
-                                        const caretPos = input.selectionStart;
-                                        
-                                        // Insert decimal point where the comma would have gone
-                                        const newValue = currentInputValue.substring(0, caretPos) + '.' + currentInputValue.substring(input.selectionEnd);
-                                        
-                                        // Update value
-                                        updateRecipeValue('mmgt', activeRecipeTab, currentValue, newValue);
-                                        
-                                        // Need setTimeout to let React update the DOM
-                                        setTimeout(() => {
-                                          input.selectionStart = input.selectionEnd = caretPos + 1;
-                                        }, 0);
-                                      }
-                                    }}
+                                    onKeyDown={(e) => currentValue && handleRecipeCommaToPoint(e, 'mmgt', activeRecipeTab, currentValue)}
                                   />
                                 </div>
                               </div>
@@ -3613,25 +3617,7 @@ const GalvanizliTelNetsis = () => {
                                 value={normalizeDecimalDisplay(currentValue || '')}
                                 onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                                onKeyDown={(e) => {
-                                  if (e.key === ',') {
-                                    e.preventDefault();
-                                    const input = e.target;
-                                    const currentInputValue = input.value;
-                                    const caretPos = input.selectionStart;
-                                    
-                                    // Insert decimal point where the comma would have gone
-                                    const newValue = currentInputValue.substring(0, caretPos) + '.' + currentInputValue.substring(input.selectionEnd);
-                                    
-                                    // Update value
-                                    updateRecipeValue('mmgt', activeRecipeTab, key, newValue);
-                                    
-                                    // Need setTimeout to let React update the DOM
-                                    setTimeout(() => {
-                                      input.selectionStart = input.selectionEnd = caretPos + 1;
-                                    }, 0);
-                                  }
-                                }}
+                                onKeyDown={(e) => handleRecipeCommaToPoint(e, 'mmgt', activeRecipeTab, key)}
                               />
                             )}
                             {statusText && (
@@ -3700,6 +3686,7 @@ const GalvanizliTelNetsis = () => {
                               value={normalizeDecimalDisplay(currentValue || '')}
                               onChange={(e) => updateRecipeValue('ymgt', null, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                              onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymgt', null, key)}
                             />
                             {statusText && (
                               <p className="text-xs text-gray-500 italic">{statusText}</p>
@@ -3771,6 +3758,7 @@ const GalvanizliTelNetsis = () => {
                                 }}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                                 placeholder="FLM.0800.1010"
+                                onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymst', activeRecipeTab, 'filmasin_kodu')}
                               />
                               {statusText && (
                                 <p className="text-xs text-gray-500 italic">{statusText}</p>
@@ -3797,6 +3785,7 @@ const GalvanizliTelNetsis = () => {
                               value={normalizeDecimalDisplay(currentValue || '')}
                               onChange={(e) => updateRecipeValue('ymst', activeRecipeTab, key, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                              onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymst', activeRecipeTab, key)}
                             />
                             {statusText && (
                               <p className="text-xs text-gray-500 italic">{statusText}</p>
