@@ -37,7 +37,7 @@ const GalvanizliTelNetsis = () => {
     quality: ''
   });
   
-  // YMST listesi için state'ler
+  // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
   const [activeDbTab, setActiveDbTab] = useState('mmgt'); // 'mmgt' or 'ymst'
   
