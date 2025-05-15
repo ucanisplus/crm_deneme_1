@@ -1776,7 +1776,7 @@ const GalvanizliTelNetsis = () => {
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       alis_doviz_tipi: 2,
-      ingilizce_isim: `YM Galvanized Wire ${capForExcel} mm ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa`
+      ingilizce_isim: `YM Galvanized Wire ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`
     };
   };
 
@@ -2804,7 +2804,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtInglizceIsim = () => {
@@ -2812,7 +2812,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Galvanized Steel WireTel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateEnglishName = () => {
@@ -2820,7 +2820,8 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Use points for database storage but proper spacing between values
+    return `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Talep onaylama
@@ -2974,50 +2975,14 @@ const GalvanizliTelNetsis = () => {
                 Çap (mm) <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.cap)}
                 onChange={(e) => handleInputChange('cap', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
                 lang="en-US" // Force EN-US locale with point decimal separator
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3040,50 +3005,14 @@ const GalvanizliTelNetsis = () => {
                 Kaplama (gr/m²) <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.kaplama)}
                 onChange={(e) => handleInputChange('kaplama', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 disabled={mmGtData.kod_2 === 'PAD'}
                 placeholder="50-400"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3092,49 +3021,13 @@ const GalvanizliTelNetsis = () => {
                 Min Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.min_mukavemet)}
                 onChange={(e) => handleInputChange('min_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3143,49 +3036,13 @@ const GalvanizliTelNetsis = () => {
                 Max Mukavemet (MPa) <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.max_mukavemet)}
                 onChange={(e) => handleInputChange('max_mukavemet', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="350-1000"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3194,49 +3051,13 @@ const GalvanizliTelNetsis = () => {
                 Ağırlık (kg) <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="250-1250"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3274,49 +3095,13 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (+)
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_plus || '')}
                 onChange={(e) => handleInputChange('tolerans_plus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
@@ -3325,49 +3110,13 @@ const GalvanizliTelNetsis = () => {
                 Tolerans (-)
               </label>
               <input
-                type="text"
-                inputMode="decimal"
+                type="number"
+                step="any"
+                min="0"
                 value={normalizeDecimalDisplay(mmGtData.tolerans_minus || '')}
                 onChange={(e) => handleInputChange('tolerans_minus', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                 placeholder="0.00000"
-                pattern="[0-9]*([\.,][0-9]*)?" // Allow only numbers and decimal points (period or comma)
-                onKeyDown={(e) => {
-                  // Allow numbers, decimal point (both period and comma), backspace, delete, tab and navigation keys
-                  const allowedKeys = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',', 'Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-                  if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                  }
-                  
-                  // Prevent multiple decimal points, but allow changing period to comma or vice versa
-                  if ((e.key === '.' || e.key === ',') && 
-                      (e.target.value.includes('.') || e.target.value.includes(','))) {
-                    // Get caret position
-                    const caretPos = e.target.selectionStart;
-                    const valueBeforeCaret = e.target.value.substring(0, caretPos);
-                    const valueAfterCaret = e.target.value.substring(caretPos);
-                    
-                    // Allow if selection contains a decimal point
-                    if (e.target.selectionStart !== e.target.selectionEnd && 
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes('.') ||
-                        e.target.value.substring(e.target.selectionStart, e.target.selectionEnd).includes(',')) {
-                      return;
-                    }
-                    
-                    // Allow replacement only
-                    if ((valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        !(valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    if (!(valueBeforeCaret.includes('.') || valueBeforeCaret.includes(',')) && 
-                        (valueAfterCaret.includes('.') || valueAfterCaret.includes(','))) {
-                      return;
-                    }
-                    
-                    e.preventDefault();
-                  }
-                }}
               />
             </div>
 
