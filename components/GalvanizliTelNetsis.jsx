@@ -1606,8 +1606,35 @@ const GalvanizliTelNetsis = () => {
       // Ana YM ST'yi belirle
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
-      // Sabit sequence ile MM GT ve YM GT
-      const sequence = '00';
+      // Mevcut ürünün sequence değerini kontrol et
+      let sequence = '00';
+      
+      // MMGT'nin stok_kodu'ndan sequence'i al
+      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${sessionSavedProducts.mmGtIds[0]}`);
+      if (mmGtResponse && mmGtResponse.ok) {
+        const mmGt = await mmGtResponse.json();
+        if (mmGt && mmGt.stok_kodu) {
+          // Key değerlerinde değişim var mı kontrol et
+          const currentKey = `${mmGtData.cap}|${mmGtData.kod_2}|${mmGtData.kaplama}|${mmGtData.min_mukavemet}|${mmGtData.max_mukavemet}|${mmGtData.kg}`;
+          const oldKey = `${mmGt.cap}|${mmGt.kod_2}|${mmGt.kaplama}|${mmGt.min_mukavemet}|${mmGt.max_mukavemet}|${mmGt.kg}`;
+          
+          if (currentKey !== oldKey) {
+            // Key değerlerinde değişim varsa yeni sequence hesapla
+            const nextSequence = await checkForExistingProducts(
+              mmGtData.cap,
+              mmGtData.kod_2,
+              mmGtData.kaplama,
+              mmGtData.min_mukavemet,
+              mmGtData.max_mukavemet,
+              mmGtData.kg
+            );
+            sequence = nextSequence.toString().padStart(2, '0');
+          } else {
+            // Key değişmemişse mevcut sequence'i kullan
+            sequence = mmGt.stok_kodu.split('.').pop();
+          }
+        }
+      }
       
       // Sadece 1 MM GT'yi güncelle
       if (sessionSavedProducts.mmGtIds[0]) {
@@ -2060,7 +2087,16 @@ const GalvanizliTelNetsis = () => {
         
         let siraNo = 1;
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-        const sequence = '00'; // Sabit sequence
+        
+        // MMGT'nin stok_kodu'ndan sequence'i al
+        let sequence = '00';
+        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
+        if (mmGtResponse && mmGtResponse.ok) {
+          const mmGt = await mmGtResponse.json();
+          if (mmGt && mmGt.stok_kodu) {
+            sequence = mmGt.stok_kodu.split('.').pop();
+          }
+        }
         const mamulKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
         
         // MMGT reçete sıralaması: 1) YM.GT bileşeni, 2) GTPKT01 operasyonu, 3) diğer bileşenler
@@ -2128,7 +2164,17 @@ const GalvanizliTelNetsis = () => {
       // Sadece 1 YM GT için reçete kaydet - Excel formatıyla tam uyumlu
       if (ymGtId && Object.keys(allRecipes.ymGtRecipe).length > 0) {
         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-        const sequence = '00'; // Sabit sequence
+        
+        // YM GT'nin stok_kodu'ndan sequence'i al
+        let sequence = '00';
+        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+        if (ymGtResponse && ymGtResponse.ok) {
+          const ymGt = await ymGtResponse.json();
+          if (ymGt && ymGt.stok_kodu) {
+            sequence = ymGt.stok_kodu.split('.').pop();
+          }
+        }
+        
         const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
         
         // YM GT'yi bul
@@ -2409,21 +2455,53 @@ const GalvanizliTelNetsis = () => {
     // Ana YM ST'yi belirle (ya seçilmiş ya da otomatik oluşturulmuş)
     const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
     
+    // Önemli: Sequence numarasını belirle (veritabanında var olan ürün veya yeni üretilecek)
+    let sequence = '00';
+    
+    // Eğer veritabanına kaydedildi ise, önceden hesaplanan sequence'i kullan
+    if (savedToDatabase && databaseIds) {
+      // Kayıtlı ürünün stok kodundan sequence'i al
+      const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
+      if (savedMmGtResponse && savedMmGtResponse.ok) {
+        const savedMmGt = await savedMmGtResponse.json();
+        if (savedMmGt && savedMmGt.stok_kodu) {
+          sequence = savedMmGt.stok_kodu.split('.').pop();
+        }
+      }
+    } else {
+      // Kaydedilmemiş ise, mevcut değerlerle sequence hesapla
+      try {
+        const nextSequence = await checkForExistingProducts(
+          mmGtData.cap,
+          mmGtData.kod_2,
+          mmGtData.kaplama,
+          mmGtData.min_mukavemet,
+          mmGtData.max_mukavemet,
+          mmGtData.kg
+        );
+        sequence = nextSequence.toString().padStart(2, '0');
+      } catch (error) {
+        console.error('Sequence hesaplama hatası:', error);
+        // Hata durumunda varsayılan olarak 00 kullan
+        sequence = '00';
+      }
+    }
+    
     // MM GT Sheet - Artık sadece 1 tane MM GT
     const mmGtSheet = workbook.addWorksheet('MM GT');
     const mmGtHeaders = getStokKartiHeaders();
     mmGtSheet.addRow(mmGtHeaders);
     
-    // Sadece 1 MM GT ekle (sequence 00)
-    mmGtSheet.addRow(generateMmGtStokKartiData('00'));
+    // Sadece 1 MM GT ekle (doğru sequence ile)
+    mmGtSheet.addRow(generateMmGtStokKartiData(sequence));
     
     // YM GT Sheet - Artık sadece 1 tane YM GT
     const ymGtSheet = workbook.addWorksheet('YM GT');
     const ymGtHeaders = getYmGtHeaders();
     ymGtSheet.addRow(ymGtHeaders);
     
-    // Sadece 1 YM GT ekle (sequence 00)
-    ymGtSheet.addRow(generateYmGtStokKartiData('00'));
+    // Sadece 1 YM GT ekle (doğru sequence ile)
+    ymGtSheet.addRow(generateYmGtStokKartiData(sequence));
     
     // YM ST Sheet - Tüm YM ST'ler
     const ymStSheet = workbook.addWorksheet('YM ST');
@@ -2454,6 +2532,38 @@ const GalvanizliTelNetsis = () => {
     const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
     const mainYmStIndex_ = mainYmStIndex; // Closure için yerel değişken
     
+    // Önemli: Sequence numarasını belirle (veritabanında var olan ürün veya yeni üretilecek)
+    let sequence = '00';
+    
+    // Eğer veritabanına kaydedildi ise, önceden hesaplanan sequence'i kullan
+    if (savedToDatabase && databaseIds) {
+      // Kayıtlı ürünün stok kodundan sequence'i al
+      const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
+      if (savedMmGtResponse && savedMmGtResponse.ok) {
+        const savedMmGt = await savedMmGtResponse.json();
+        if (savedMmGt && savedMmGt.stok_kodu) {
+          sequence = savedMmGt.stok_kodu.split('.').pop();
+        }
+      }
+    } else {
+      // Kaydedilmemiş ise, mevcut değerlerle sequence hesapla
+      try {
+        const nextSequence = await checkForExistingProducts(
+          mmGtData.cap,
+          mmGtData.kod_2,
+          mmGtData.kaplama,
+          mmGtData.min_mukavemet,
+          mmGtData.max_mukavemet,
+          mmGtData.kg
+        );
+        sequence = nextSequence.toString().padStart(2, '0');
+      } catch (error) {
+        console.error('Sequence hesaplama hatası:', error);
+        // Hata durumunda varsayılan olarak 00 kullan
+        sequence = '00';
+      }
+    }
+    
     // MM GT REÇETE Sheet
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
     const receteHeaders = getReceteHeaders();
@@ -2461,7 +2571,6 @@ const GalvanizliTelNetsis = () => {
     
     // Sadece ana YMST için MM GT reçete satırları ekle
     const mmGtRecipe = allRecipes.mmGtRecipes[mainYmStIndex_] || {};
-    const sequence = '00'; // Artık sadece 1 MM GT var, sequence sabit
     let siraNo = 1;
     
     // MMGT reçete sıralaması: fixed exact order as specified
@@ -2502,6 +2611,7 @@ const GalvanizliTelNetsis = () => {
       ...otherEntries
     ].filter(Boolean);
     
+    // MM GT reçete satırlarını eklerken doğru sequence'i kullan
     orderedEntries.forEach(([key, value]) => {
       if (value > 0) {
         mmGtReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
@@ -2513,7 +2623,7 @@ const GalvanizliTelNetsis = () => {
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
-    // Sadece 1 YM GT reçetesi ekle - sequence sabit
+    // Sadece 1 YM GT reçetesi ekle - aynı sequence'i kullan
     let siraNo2 = 1;
     
     // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact order
@@ -2947,7 +3057,7 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
     return [
-      `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu
+      `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
       '0.0004', // Fire Oranı (%) - NOKTA for decimals as requested
       '', // Oto.Reç.
@@ -2981,7 +3091,7 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
     return [
-      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - sequence eşleştirme!
+      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
       '0', // Fire Oranı (%)
       '', // Oto.Reç.
