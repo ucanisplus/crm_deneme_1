@@ -3584,6 +3584,25 @@ const GalvanizliTelNetsis = () => {
                                     placeholder="Shrink Miktarı"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                                     disabled={!currentValue}
+                                    onKeyDown={(e) => {
+                                      if (e.key === ',' && currentValue) {
+                                        e.preventDefault();
+                                        const input = e.target;
+                                        const currentInputValue = input.value;
+                                        const caretPos = input.selectionStart;
+                                        
+                                        // Insert decimal point where the comma would have gone
+                                        const newValue = currentInputValue.substring(0, caretPos) + '.' + currentInputValue.substring(input.selectionEnd);
+                                        
+                                        // Update value
+                                        updateRecipeValue('mmgt', activeRecipeTab, currentValue, newValue);
+                                        
+                                        // Need setTimeout to let React update the DOM
+                                        setTimeout(() => {
+                                          input.selectionStart = input.selectionEnd = caretPos + 1;
+                                        }, 0);
+                                      }
+                                    }}
                                   />
                                 </div>
                               </div>
@@ -3594,6 +3613,25 @@ const GalvanizliTelNetsis = () => {
                                 value={normalizeDecimalDisplay(currentValue || '')}
                                 onChange={(e) => updateRecipeValue('mmgt', activeRecipeTab, key, e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                onKeyDown={(e) => {
+                                  if (e.key === ',') {
+                                    e.preventDefault();
+                                    const input = e.target;
+                                    const currentInputValue = input.value;
+                                    const caretPos = input.selectionStart;
+                                    
+                                    // Insert decimal point where the comma would have gone
+                                    const newValue = currentInputValue.substring(0, caretPos) + '.' + currentInputValue.substring(input.selectionEnd);
+                                    
+                                    // Update value
+                                    updateRecipeValue('mmgt', activeRecipeTab, key, newValue);
+                                    
+                                    // Need setTimeout to let React update the DOM
+                                    setTimeout(() => {
+                                      input.selectionStart = input.selectionEnd = caretPos + 1;
+                                    }, 0);
+                                  }
+                                }}
                               />
                             )}
                             {statusText && (
