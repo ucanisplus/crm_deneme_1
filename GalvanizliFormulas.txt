@@ -1,0 +1,83 @@
+
+Recete formulas (In here the variables given in '' are coming from the already created stok kartı values per product(Carefoul with the many Turkish format excel formulas, transform them into our apps language.)
+
+NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000
+AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
+AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+AMB.ÇEM.KARTON.GAL: (8*(1000/'COIL WEIGHT (KG)'))/1000
+Ash (Kül):
+Lapa:
+uretim_kapasitesi_aylik
+toplam_tuketilen_asit
+ortalama_uretim_capi
+PaketlemeDkAdet
+Middle variables:
+Ash (Kül): 5.54 (Kg/tonne)
+Lapa: 2.73 (Kg/tonne)
+“YuzeyAlani: =1000*4000/Pİ()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*Pİ()/1000”   // This is in Turkish excel format so be carefoul with "pi" number and etc.
+
+uretim_kapasitesi_aylik =2800
+
+toplam_tuketilen_asit = 30000
+
+ortalama_uretim_capi = 3.08
+
+PaketlemeDkAdet= 10
+
+HM_Cap = this is the diameter of the calculated Filmaşin raw material of YMST so for example for “FLM.0550.1006” this value will get “5.5” . If FLM.0600.1006 this value will get “6”.
+
+Çap = this is the çap value we get for MMGT on the beginning.
+
+“toplam_yuzey_alani= uretim_kapasitesi_aylik *1000*4000/ ortalama_uretim_capi / ortalama_uretim_capi /3.14/7.85* ortalama_uretim_capi *3.14/1000”
+
+“DV = EĞER(‘Min Mukavemet’=400;140;EĞER(‘Min Mukavemet’=500;160;EĞER(‘Min Mukavemet’=600;180;EĞER‘Min Mukavemet’=700;200;"yok"))))”
+
+tuketilenAsit: = toplam_tuketilen_asit / toplam_yuzey_alani
+
+
+
+
+
+TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
+
+'TLC_Hızlar' is an excel file.
+
+150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
+
+SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
+
+GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
+
+For YM ST Recete FLM raw materials   FLM1:” 
+" 5.50 mm 1005 → 0.88 mm to 0.88 mm  
+5.50 mm 1006 → 1.20 mm to 1.49 mm  //FLM.0550.1006
+6.00 mm 1006 → 1.20 mm to 4.50 mm   // FLM.0600.1006
+6.00 mm 1008 → 2.00 mm to 4.49 mm  // FLM.0600.1008
+7.00 mm 1008 → 4.50 mm to 6.10 mm  // FLM.0700.1008
+7.00 mm 1010 → 3.50 mm to 6.10 mm  // FLM.0700.1010
+8.00 mm 1010 → 5.50 mm to 6.90 mm  // FLM.0800.1010
+9.00 mm 1010 → 7.00 mm to 7.50 mm  "  // e.g. FLM.0900.1010 (these are the correct format)
+
+But let the user edit and  adds new of them if they like you can create complete dropdowns here or small text fields fort he user to enter only numbers
+This means for example for a 1.25 cap ym st product can be produced from 5.50 mm 1006 and 6.00 mm 1006 we need to add these both on its ym st reçete like FLM.0550.1006 and FLM.0600.1006
+
+AMB.SHRİNK: 
+"Will be calculated according to the "İç Çap"':
+If İç Çap = 45  (AMB.SHRİNK.200*140CM)
+If İç Çap/Boy Çubuk AD = 50 (AMB.SHRİNK.200*160CM)
+If İç Çap/Boy Çubuk AD = 55  (AMB.SHRİNK.200*190CM)
+
+*User still needs to choose
+
+“GLV01:= =1000*4000/ Çap/ Çap /Pİ()/7.85/’DV’* Çap”
+
+
+TLC01: =1000*4000/3.14/7.85/ Çap / Çap / TLC_Hiz /60
+SM.DESİ.PAK =0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (KG/TON)
+
+Automatic YM.ST  Suggestions creating formula
+Keep the old ones for these for now. But I will update this formula.
+.
+
+
