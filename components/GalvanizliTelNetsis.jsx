@@ -178,7 +178,13 @@ const GalvanizliTelNetsis = () => {
   // Fetch user input values from database
   const fetchUserInputValues = async () => {
     try {
-      const response = await fetchWithAuth(API_URLS.galUserInputValues);
+      // Check if the API endpoint URL is defined
+      if (!API_URLS.galUserInputValues) {
+        console.warn('galUserInputValues API endpoint is not defined, using default values');
+        return;
+      }
+      
+      const response = await fetch(API_URLS.galUserInputValues);
       if (response && response.ok) {
         const data = await response.json();
         // Get the latest entry
@@ -206,10 +212,27 @@ const GalvanizliTelNetsis = () => {
   const saveUserInputValues = async () => {
     try {
       setIsLoading(true);
-      const response = await postData(API_URLS.galUserInputValues, userInputValues);
-      if (response) {
+      
+      // Check if the API endpoint URL is defined
+      if (!API_URLS.galUserInputValues) {
+        console.warn('galUserInputValues API endpoint is not defined, cannot save values');
+        setError('API endpoint tanımlı değil, değerler kaydedilemedi.');
+        return;
+      }
+      
+      const response = await fetch(API_URLS.galUserInputValues, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userInputValues)
+      });
+      
+      if (response.ok) {
         setSuccessMessage('Hesaplama değerleri başarıyla kaydedildi.');
         setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
       }
     } catch (error) {
       console.error('Error saving user input values:', error);
@@ -1006,17 +1029,32 @@ const GalvanizliTelNetsis = () => {
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
       
-      // Ensure we use fixed decimal precision with points for Excel format consistency
-      const gtpktValue = parseFloat((10 / kg).toFixed(5));
-      const kartonValue = parseFloat((8 / kg).toFixed(5));
-      const halkaValue = parseFloat((4 / kg).toFixed(5));
-      const cemberValue = parseFloat((1.2 / kg).toFixed(5));
-      const tokaValue = parseFloat((4 / kg).toFixed(5));
-      const desiValue = calculateDesiConsumption(kg, cap);
+      // Updated formulas based on GalvanizliFormulas.txt
+      // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000
+      const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
+      const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      const tokaValue = parseFloat(((4 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      const halkaValue = parseFloat(((4 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // AMB.ÇEM.KARTON.GAL: (8*(1000/'COIL WEIGHT (KG)'))/1000
+      const kartonValue = parseFloat(((8 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
+      const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
+      
+      // SM.DESİ.PAK =0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (KG/TON)
+      const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * naylonValue).toFixed(5));
       
       newMmGtRecipes[index] = {
         [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
         'GTPKT01': gtpktValue,
+        'NAYLON (KG/TON)': naylonValue,
         'AMB.ÇEM.KARTON.GAL': kartonValue,
         [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
         'SM.7MMHALKA': halkaValue,
@@ -1039,7 +1077,8 @@ const GalvanizliTelNetsis = () => {
       const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
       const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
       
-      // Calculate TLC_Hiz using the lookup table
+      // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
+      // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
       const tlcHiz = calculateTlcHiz(hmCap, ymStCap) || 10; // Default to 10 if not found
       
       // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
@@ -1059,10 +1098,25 @@ const GalvanizliTelNetsis = () => {
     
     // YM GT Reçete (sequence 00 için)
     if (allYmSts.length > 0) {
-      // Calculate values with full precision, then format to 5 decimal places
-      const glvTime = parseFloat((1.15 - (0.125 * cap)).toFixed(5));
-      const zincConsumption = parseFloat((((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + (5.54 * 0.6) + (2.73 * 0.7)) / 1000).toFixed(5));
-      const acidConsumption = parseFloat(calculateAcidConsumption(cap, kg, kaplama).toFixed(5));
+      // Calculate DV (Durdurma Vinç) value based on Min Mukavemet
+      const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
+      
+      // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
+      const glvTime = dvValue ? 
+        parseFloat((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap).toFixed(5)) :
+        parseFloat((1.15 - (0.125 * cap)).toFixed(5)); // Fallback to old formula if DV is null
+      
+      // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
+      const zincConsumption = parseFloat((
+        ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
+        (userInputValues.ash * 0.6) + 
+        (userInputValues.lapa * 0.7)) / 1000
+      ).toFixed(5));
+      
+      // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
+      const yuzeyAlani = calculateYuzeyAlani(cap);
+      const tuketilenAsit = calculateTuketilenAsit();
+      const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
       
       newYmGtRecipe = {
         [allYmSts[0].stok_kodu]: 1, // İlk YM ST
@@ -3091,6 +3145,37 @@ const GalvanizliTelNetsis = () => {
       
       return bestMatch ? bestMatch[columnIndex - 1] : null;
     }
+  };
+  
+  // Calculate YuzeyAlani based on the formula
+  const calculateYuzeyAlani = (cap) => {
+    // YuzeyAlani: =1000*4000/PI()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*PI()/1000
+    return (1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000);
+  };
+  
+  // Calculate total surface area
+  const calculateTotalYuzeyAlani = () => {
+    // toplam_yuzey_alani= uretim_kapasitesi_aylik *1000*4000/ ortalama_uretim_capi / ortalama_uretim_capi /3.14/7.85* ortalama_uretim_capi *3.14/1000
+    const { uretim_kapasitesi_aylik, ortalama_uretim_capi } = userInputValues;
+    return uretim_kapasitesi_aylik * 1000 * 4000 / ortalama_uretim_capi / ortalama_uretim_capi / Math.PI / 7.85 * ortalama_uretim_capi * Math.PI / 1000;
+  };
+  
+  // Calculate Durdurma Vinç (DV) based on Min Mukavemet
+  const calculateDV = (minMukavemet) => {
+    // DV = EĞER('Min Mukavemet'=400;140;EĞER('Min Mukavemet'=500;160;EĞER('Min Mukavemet'=600;180;EĞER'Min Mukavemet'=700;200;"yok"))))
+    if (minMukavemet === 400) return 140;
+    if (minMukavemet === 500) return 160;
+    if (minMukavemet === 600) return 180;
+    if (minMukavemet === 700) return 200;
+    return null; // "yok"
+  };
+
+  // Calculate tuketilenAsit
+  const calculateTuketilenAsit = () => {
+    // tuketilenAsit: = toplam_tuketilen_asit / toplam_yuzey_alani
+    const { toplam_tuketilen_asit } = userInputValues;
+    const totalYuzeyAlani = calculateTotalYuzeyAlani();
+    return toplam_tuketilen_asit / totalYuzeyAlani;
   };
   
   // Calculate TLC_Hiz based on HM_Cap and Cap values
