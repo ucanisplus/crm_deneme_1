@@ -24,6 +24,8 @@ export const API_URLS = {
   galSalRequests: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
   // Endpoint alias for talepler
   galTaleplerEndpoint: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
+  // User input values for calculations
+  galUserInputValues: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_input_values',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
