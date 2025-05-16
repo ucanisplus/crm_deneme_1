@@ -15,6 +15,16 @@ const GalvanizliTelNetsis = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
+  // User input values for calculations
+  const [userInputValues, setUserInputValues] = useState({
+    ash: 5.54, // Ash (Kül) (Kg/tonne)
+    lapa: 2.73, // Lapa (Kg/tonne)
+    uretim_kapasitesi_aylik: 2800,
+    toplam_tuketilen_asit: 30000,
+    ortalama_uretim_capi: 3.08,
+    paketlemeDkAdet: 10
+  });
+  
   // Talep yönetimi state'leri
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -28,6 +38,9 @@ const GalvanizliTelNetsis = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteType, setDeleteType] = useState('mmgt'); // 'mmgt' or 'ymst'
+  
+  // Settings modal for user input values
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   // YM ST ekleme modalı
   const [showAddYmStModal, setShowAddYmStModal] = useState(false);
@@ -159,7 +172,52 @@ const GalvanizliTelNetsis = () => {
     fetchRequests();
     fetchExistingMmGts();
     fetchExistingYmSts();
+    fetchUserInputValues();
   }, []);
+  
+  // Fetch user input values from database
+  const fetchUserInputValues = async () => {
+    try {
+      const response = await fetchWithAuth(API_URLS.galUserInputValues);
+      if (response && response.ok) {
+        const data = await response.json();
+        // Get the latest entry
+        if (data && data.length > 0) {
+          // Sort by created_at in descending order to get the latest
+          const sortedData = data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          const latestValues = sortedData[0];
+          
+          setUserInputValues({
+            ash: parseFloat(latestValues.ash) || 5.54,
+            lapa: parseFloat(latestValues.lapa) || 2.73,
+            uretim_kapasitesi_aylik: parseFloat(latestValues.uretim_kapasitesi_aylik) || 2800,
+            toplam_tuketilen_asit: parseFloat(latestValues.toplam_tuketilen_asit) || 30000,
+            ortalama_uretim_capi: parseFloat(latestValues.ortalama_uretim_capi) || 3.08,
+            paketlemeDkAdet: parseFloat(latestValues.paketlemeDkAdet) || 10
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user input values:', error);
+    }
+  };
+  
+  // Save user input values to database
+  const saveUserInputValues = async () => {
+    try {
+      setIsLoading(true);
+      const response = await postData(API_URLS.galUserInputValues, userInputValues);
+      if (response) {
+        setSuccessMessage('Hesaplama değerleri başarıyla kaydedildi.');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving user input values:', error);
+      setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
   useEffect(() => {
@@ -976,7 +1034,16 @@ const GalvanizliTelNetsis = () => {
       // YM ST Reçete
       const ymStCap = parseFloat(ymSt.cap) || cap;
       const filmasinKodu = getFilmasinKodu(ymSt);
-      const tlcValue = parseFloat((0.2 / Math.pow(ymStCap, 1.7) + 0.02).toFixed(5));
+      
+      // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
+      const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
+      const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
+      
+      // Calculate TLC_Hiz using the lookup table
+      const tlcHiz = calculateTlcHiz(hmCap, ymStCap) || 10; // Default to 10 if not found
+      
+      // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
+      const tlcValue = parseFloat((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60).toFixed(5));
       
       newYmStRecipes[index] = {
         [filmasinKodu]: 1, // Use the Filmaşin code directly
@@ -2952,8 +3019,90 @@ const GalvanizliTelNetsis = () => {
     // Get quality based on cap or use default
     let quality = ymSt.quality || getQualityForCap(cap) || '1006';
     
-    // Return formatted code
+    // Return formatted code in the correct format: FLM.0800.1010
     return `FLM.${filmasin}.${quality}`;
+  };
+
+  // TLC_Hizlar lookup table
+  const TLC_HizlarTable = [
+    // Format: [girisCapMm, cikisCapMm, kod, calismaHizMs]
+    [6, 0.88, "6x0.88", 20],
+    [6, 1.01, "6x1.01", 20],
+    [6, 1.02, "6x1.02", 20],
+    [6, 1.03, "6x1.03", 20],
+    [6, 1.04, "6x1.04", 20],
+    [6, 1.05, "6x1.05", 20],
+    [6, 1.06, "6x1.06", 20],
+    [6, 1.07, "6x1.07", 20],
+    [6, 1.08, "6x1.08", 20],
+    [6, 1.09, "6x1.09", 19],
+    [6, 1.1, "6x1.1", 19],
+    [6, 1.2, "6x1.2", 19],
+    [6, 1.3, "6x1.3", 19],
+    [6, 1.4, "6x1.4", 19],
+    [6, 1.5, "6x1.5", 18],
+    [6, 2.0, "6x2.0", 17],
+    [6, 2.5, "6x2.5", 15],
+    [6, 3.0, "6x3.0", 13],
+    [7, 3.5, "7x3.5", 6.75],
+    [7, 4.0, "7x4.0", 6.0],
+    [7, 4.5, "7x4.5", 5.5],
+    [7, 5.0, "7x5.0", 5.0],
+    [7, 5.5, "7x5.5", 4.5],
+    [7, 6.0, "7x6.0", 4.0],
+    [8, 5.5, "8x5.5", 5.5],
+    [8, 6.0, "8x6.0", 5.0],
+    [8, 6.5, "8x6.5", 4.5],
+    [8, 7.0, "8x7.0", 4.0],
+    [9, 7.0, "9x7.0", 4.5],
+    [9, 7.5, "9x7.5", 4.0]
+  ];
+
+  // DÜŞEYARA (VLOOKUP) function implementation
+  const duseyaraLookup = (lookupValue, rangeArray, columnIndex, exactMatch = true) => {
+    // Default implementation for exactMatch=true
+    if (exactMatch) {
+      const foundRow = rangeArray.find(row => row[2] === lookupValue);
+      return foundRow ? foundRow[columnIndex - 1] : null;
+    } 
+    // Implementation for exactMatch=false (approx match)
+    else {
+      // Parse lookupValue format "HMCap x Cap"
+      const [hmCap, cap] = lookupValue.split("x").map(Number);
+      
+      // Find closest match
+      let bestMatch = null;
+      let bestDiff = Infinity;
+      
+      rangeArray.forEach(row => {
+        const rowHmCap = row[0];
+        const rowCap = row[1];
+        
+        // Check if HM Cap matches exactly first
+        if (rowHmCap === hmCap) {
+          // Find closest cap match
+          const diff = Math.abs(rowCap - cap);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestMatch = row;
+          }
+        }
+      });
+      
+      return bestMatch ? bestMatch[columnIndex - 1] : null;
+    }
+  };
+  
+  // Calculate TLC_Hiz based on HM_Cap and Cap values
+  const calculateTlcHiz = (hmCap, cap) => {
+    // Create lookup code in format: "7x3.5"
+    const lookupCode = `${hmCap}x${cap}`;
+    
+    // Use DÜŞEYARA (VLOOKUP) to find the closest match
+    const calismaHizMs = duseyaraLookup(lookupCode, TLC_HizlarTable, 4, false);
+    
+    // Apply the formula: TLC_Hiz = DÜŞEYARA(...) * 0.7
+    return calismaHizMs ? calismaHizMs * 0.7 : null;
   };
 
   // Excel dosyalarını oluştur
@@ -3902,6 +4051,16 @@ const GalvanizliTelNetsis = () => {
         
         <div className="flex gap-3">
           <button
+            onClick={() => setShowSettingsModal(true)}
+            className="px-3 py-2 bg-gray-800 text-white rounded-md text-sm flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Hesaplama Değerleri
+          </button>
+          <button
             onClick={() => setShowExistingMmGtModal(true)}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
@@ -4778,42 +4937,78 @@ const GalvanizliTelNetsis = () => {
                                   (Kod)
                                 </span>
                               </label>
-                              <input
-                                type="text"
-                                value={filmasinCode}
-                                onChange={(e) => {
-                                  // Get the new filmasin code from user input
-                                  const newFilmasinCode = e.target.value;
-                                  
-                                  // Get the active YM ST and its current filmasin code
-                                  const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
-                                  const oldKey = getFilmasinKodu(activeYmSt);
-                                  const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
-                                  
-                                  // Update recipes with new key
-                                  const updatedRecipes = { ...allRecipes };
-                                  if (updatedRecipes.ymStRecipes[activeRecipeTab]) {
-                                    // Create a new recipe object without the old key
-                                    const newRecipes = { ...updatedRecipes.ymStRecipes[activeRecipeTab] };
-                                    delete newRecipes[oldKey];
+                              <div className="flex gap-2">
+                                <select
+                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
+                                  value={filmasinCode.substring(4, 8)}
+                                  onChange={(e) => {
+                                    // Get the diameter part
+                                    const newDiameter = e.target.value;
+                                    // Get the quality part from existing code
+                                    const quality = filmasinCode.substring(9);
                                     
-                                    // Add the new key with the same value
-                                    newRecipes[newFilmasinCode] = oldValue;
-                                    updatedRecipes.ymStRecipes[activeRecipeTab] = newRecipes;
+                                    // Construct new filmasin code
+                                    const newFilmasinCode = `FLM.${newDiameter}.${quality}`;
+                                    
+                                    // Get the active YM ST and its current filmasin code
+                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                    const oldKey = getFilmasinKodu(activeYmSt);
+                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                    
+                                    // Update recipes with new key
+                                    const updatedRecipes = { ...allRecipes };
+                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
                                     setAllRecipes(updatedRecipes);
                                     
                                     // Update recipe status
-                                    const newStatus = { ...recipeStatus };
-                                    if (newStatus.ymStRecipes[activeRecipeTab]) {
-                                      newStatus.ymStRecipes[activeRecipeTab][e.target.value] = 'manual';
-                                      setRecipeStatus(newStatus);
-                                    }
-                                  }
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                placeholder="FLM.0800.1010"
-                                onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymst', activeRecipeTab, 'filmasin_kodu')}
-                              />
+                                    const updatedStatus = { ...recipeStatus };
+                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                    setRecipeStatus(updatedStatus);
+                                  }}
+                                >
+                                  <option value="0550">5.50 mm</option>
+                                  <option value="0600">6.00 mm</option>
+                                  <option value="0700">7.00 mm</option>
+                                  <option value="0800">8.00 mm</option>
+                                  <option value="0900">9.00 mm</option>
+                                </select>
+                                
+                                <select
+                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
+                                  value={filmasinCode.substring(9)}
+                                  onChange={(e) => {
+                                    // Get the quality part
+                                    const newQuality = e.target.value;
+                                    // Get the diameter part from existing code
+                                    const diameter = filmasinCode.substring(4, 8);
+                                    
+                                    // Construct new filmasin code
+                                    const newFilmasinCode = `FLM.${diameter}.${newQuality}`;
+                                    
+                                    // Get the active YM ST and its current filmasin code
+                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                    const oldKey = getFilmasinKodu(activeYmSt);
+                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                    
+                                    // Update recipes with new key
+                                    const updatedRecipes = { ...allRecipes };
+                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
+                                    setAllRecipes(updatedRecipes);
+                                    
+                                    // Update recipe status
+                                    const updatedStatus = { ...recipeStatus };
+                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                    setRecipeStatus(updatedStatus);
+                                  }}
+                                >
+                                  <option value="1005">1005</option>
+                                  <option value="1006">1006</option>
+                                  <option value="1008">1008</option>
+                                  <option value="1010">1010</option>
+                                </select>
+                              </div>
                               {statusText && (
                                 <p className="text-xs text-gray-500 italic">{statusText}</p>
                               )}
@@ -4902,6 +5097,128 @@ const GalvanizliTelNetsis = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal for User Input Values */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Hesaplama Değerleri
+                </h2>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  Bu değerler hesaplamalarda kullanılacak olan sabit değerlerdir. Değişiklik yaptıktan sonra "Kaydet" düğmesine basarak kaydedin.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Ash (Kül) (Kg/tonne)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.ash}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ash: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Lapa (Kg/tonne)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.lapa}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, lapa: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Üretim Kapasitesi (Aylık)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.uretim_kapasitesi_aylik}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, uretim_kapasitesi_aylik: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Toplam Tüketilen Asit
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.toplam_tuketilen_asit}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, toplam_tuketilen_asit: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Ortalama Üretim Çapı
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.ortalama_uretim_capi}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ortalama_uretim_capi: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Paketleme Dk. Adet
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.paketlemeDkAdet}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, paketlemeDkAdet: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowSettingsModal(false)}
+                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={saveUserInputValues}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
