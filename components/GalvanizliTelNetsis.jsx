@@ -15,6 +15,16 @@ const GalvanizliTelNetsis = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
+  // User input values for calculations
+  const [userInputValues, setUserInputValues] = useState({
+    ash: 5.54, // Ash (Kül) (Kg/tonne)
+    lapa: 2.73, // Lapa (Kg/tonne)
+    uretim_kapasitesi_aylik: 2800,
+    toplam_tuketilen_asit: 30000,
+    ortalama_uretim_capi: 3.08,
+    paketlemeDkAdet: 10
+  });
+  
   // Talep yönetimi state'leri
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -28,6 +38,9 @@ const GalvanizliTelNetsis = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteType, setDeleteType] = useState('mmgt'); // 'mmgt' or 'ymst'
+  
+  // Settings modal for user input values
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   // YM ST ekleme modalı
   const [showAddYmStModal, setShowAddYmStModal] = useState(false);
@@ -159,7 +172,75 @@ const GalvanizliTelNetsis = () => {
     fetchRequests();
     fetchExistingMmGts();
     fetchExistingYmSts();
+    fetchUserInputValues();
   }, []);
+  
+  // Fetch user input values from database
+  const fetchUserInputValues = async () => {
+    try {
+      // Check if the API endpoint URL is defined
+      if (!API_URLS.galUserInputValues) {
+        console.warn('galUserInputValues API endpoint is not defined, using default values');
+        return;
+      }
+      
+      const response = await fetch(API_URLS.galUserInputValues);
+      if (response && response.ok) {
+        const data = await response.json();
+        // Get the latest entry
+        if (data && data.length > 0) {
+          // Sort by created_at in descending order to get the latest
+          const sortedData = data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          const latestValues = sortedData[0];
+          
+          setUserInputValues({
+            ash: parseFloat(latestValues.ash) || 5.54,
+            lapa: parseFloat(latestValues.lapa) || 2.73,
+            uretim_kapasitesi_aylik: parseFloat(latestValues.uretim_kapasitesi_aylik) || 2800,
+            toplam_tuketilen_asit: parseFloat(latestValues.toplam_tuketilen_asit) || 30000,
+            ortalama_uretim_capi: parseFloat(latestValues.ortalama_uretim_capi) || 3.08,
+            paketlemeDkAdet: parseFloat(latestValues.paketlemeDkAdet) || 10
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user input values:', error);
+    }
+  };
+  
+  // Save user input values to database
+  const saveUserInputValues = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Check if the API endpoint URL is defined
+      if (!API_URLS.galUserInputValues) {
+        console.warn('galUserInputValues API endpoint is not defined, cannot save values');
+        setError('API endpoint tanımlı değil, değerler kaydedilemedi.');
+        return;
+      }
+      
+      const response = await fetch(API_URLS.galUserInputValues, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userInputValues)
+      });
+      
+      if (response.ok) {
+        setSuccessMessage('Hesaplama değerleri başarıyla kaydedildi.');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+      }
+    } catch (error) {
+      console.error('Error saving user input values:', error);
+      setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
   useEffect(() => {
@@ -915,106 +996,6 @@ const GalvanizliTelNetsis = () => {
     return '1010';
   };
 
-  // TLC_Hizlar tablosu - CSV verilerinden oluşturulmuş
-  // Format: [Giriş Çapı, Çıkış Çapı, Kod, Total Red., Kafa Sayısı, Çalışma Hızı]
-  const TLC_Hizlar = [
-    [6, 0.88, "6x0.88", 0.971663889, 14, 20],
-    [6, 1.01, "6x1.01", 0.971663889, 14, 20],
-    [6, 1.02, "6x1.02", 0.9711, 14, 20],
-    [6, 1.03, "6x1.03", 0.970530556, 14, 20],
-    [6, 1.04, "6x1.04", 0.969955556, 14, 20],
-    [6, 1.05, "6x1.05", 0.969375, 14, 20],
-    [6, 1.06, "6x1.06", 0.968788889, 14, 20],
-    [6, 1.07, "6x1.07", 0.968197222, 14, 20],
-    [6, 1.08, "6x1.08", 0.9676, 14, 20],
-    [6, 1.09, "6x1.09", 0.966997222, 13, 19],
-    [6, 1.1, "6x1.1", 0.966388889, 13, 19],
-    [6, 1.11, "6x1.11", 0.965775, 13, 19],
-    [6, 1.12, "6x1.12", 0.965155556, 13, 19],
-    [6, 1.13, "6x1.13", 0.964530556, 13, 19],
-    [6, 1.14, "6x1.14", 0.9639, 13, 19],
-    [6, 1.15, "6x1.15", 0.963263889, 13, 19],
-    [6, 1.16, "6x1.16", 0.962622222, 13, 19],
-    [6, 1.17, "6x1.17", 0.961975, 13, 19],
-    [6, 1.18, "6x1.18", 0.961322222, 13, 19],
-    [6, 1.19, "6x1.19", 0.960663889, 13, 19],
-    [7, 1.2, "7x1.2", 0.970612245, 14, 20],
-    [7, 1.25, "7x1.25", 0.968112245, 14, 20],
-    [7, 1.3, "7x1.3", 0.965510204, 14, 20],
-    [7, 1.35, "7x1.35", 0.962806122, 14, 20],
-    [7, 1.4, "7x1.4", 0.96, 14, 20],
-    [7, 1.45, "7x1.45", 0.957091837, 14, 20],
-    [7, 1.5, "7x1.5", 0.954081633, 14, 20],
-    [8, 1.75, "8x1.75", 0.952148438, 14, 20],
-    [8, 1.8, "8x1.8", 0.949609375, 14, 20],
-    [8, 1.85, "8x1.85", 0.946972656, 14, 20],
-    [8, 1.9, "8x1.9", 0.94421875, 14, 20],
-    [8, 1.95, "8x1.95", 0.941015625, 14, 20],
-    [8, 2, "8x2", 0.9375, 14, 20],
-    [8, 2.05, "8x2.05", 0.933984375, 14, 20],
-    [8, 2.1, "8x2.1", 0.930273438, 14, 20],
-    [8, 2.2, "8x2.2", 0.922265625, 14, 20],
-    [8, 2.3, "8x2.3", 0.91359375, 14, 20]
-    // Not: Gerçek uygulamada TLC_Hizlar.csv dosyasındaki tüm veriler eklenmelidir
-  ];
-  
-  // DV (Durdurma Vinç) hesaplama - EĞER fonksiyonu
-  const calculateDV = (minMukavemet) => {
-    if (minMukavemet === 400) return 140;
-    else if (minMukavemet === 500) return 160;
-    else if (minMukavemet === 600) return 180;
-    else if (minMukavemet === 700) return 200;
-    else return 140; // Varsayılan değer
-  };
-  
-  // YuzeyAlani hesaplama
-  const calculateYuzeyAlani = (cap) => {
-    return 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
-  };
-  
-  // Toplam Yuzey Alani hesaplama
-  const calculateTotalYuzeyAlani = () => {
-    const ortCap = userInputValues.ortalama_uretim_capi || 3.08;
-    return userInputValues.uretim_kapasitesi_aylik * 1000 * 4000 / ortCap / ortCap / Math.PI / 7.85 * ortCap * Math.PI / 1000;
-  };
-  
-  // Tuketilen Asit hesaplama
-  const calculateTuketilenAsit = () => {
-    const totalYuzeyAlani = calculateTotalYuzeyAlani();
-    return totalYuzeyAlani > 0 ? 
-      userInputValues.toplam_tuketilen_asit / totalYuzeyAlani : 
-      0.0647625; // Varsayılan değer (eğer totalYuzeyAlani sıfır ise)
-  };
-  
-  // DÜŞEYARA (VLOOKUP) implementasyonu - TLC_Hiz için
-  const calculateTlcHiz = (hmCap, wireDiameter) => {
-    // Lookup key oluştur: "hmCapxwireDiameter" (örneğin "6x1.05")
-    const lookupKey = `${hmCap}x${wireDiameter}`;
-    
-    // TLC_Hizlar tablosunda Kod (Sütun C) ile eşleşen satırı bul
-    const matchingRow = TLC_Hizlar.find(row => row[2] === lookupKey);
-    
-    if (matchingRow) {
-      // Çalışma Hızı değerini al (Sütun F)
-      const calismaHizMs = matchingRow[5];
-      // Formülü uygula: TLC_Hiz = DÜŞEYARA(...) * 0.7
-      return calismaHizMs * 0.7;
-    }
-    
-    // Eşleşme bulunamazsa, benzer HM_Cap ve en yakın çapa sahip bir satır bulmaya çalış
-    const sameHmCapRows = TLC_Hizlar.filter(row => row[0] === hmCap);
-    
-    if (sameHmCapRows.length > 0) {
-      // En yakın çapa sahip satırı bul
-      sameHmCapRows.sort((a, b) => Math.abs(a[1] - wireDiameter) - Math.abs(b[1] - wireDiameter));
-      const closestRow = sameHmCapRows[0];
-      return closestRow[5] * 0.7; // Çalışma Hızı * 0.7
-    }
-    
-    // Hala bulunamazsa varsayılan bir değer döndür
-    return 10 * 0.7; // Varsayılan değer = 7
-  };
-
   // Otomatik reçete değerlerini hesapla - NOKTA kullan
   const calculateAutoRecipeValues = () => {
     if (!mmGtData.kg || !mmGtData.cap) return;
@@ -1022,7 +1003,6 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const kg = parseFloat(mmGtData.kg) || 0;
     const kaplama = parseInt(mmGtData.kaplama) || 0;
-    const minMukavemet = parseInt(mmGtData.min_mukavemet) || 350;
     const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
     
     // Tüm YM ST'ler için reçeteler hesapla
@@ -1049,14 +1029,9 @@ const GalvanizliTelNetsis = () => {
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
       
-      // GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
-      const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
-      
-      // AMB.ÇEM.KARTON.GAL: (8*(1000/'COIL WEIGHT (KG)'))/1000
-      const kartonValue = parseFloat(((8 * (1000 / kg)) / 1000).toFixed(5));
-      
-      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
-      const halkaValue = parseFloat(((4 * (1000 / kg)) / 1000).toFixed(5));
+      // Updated formulas based on GalvanizliFormulas.txt
+      // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000
+      const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
       
       // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
       const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
@@ -1064,13 +1039,22 @@ const GalvanizliTelNetsis = () => {
       // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
       const tokaValue = parseFloat(((4 * (1000 / kg)) / 1000).toFixed(5));
       
+      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      const halkaValue = parseFloat(((4 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // AMB.ÇEM.KARTON.GAL: (8*(1000/'COIL WEIGHT (KG)'))/1000
+      const kartonValue = parseFloat(((8 * (1000 / kg)) / 1000).toFixed(5));
+      
+      // GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
+      const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
+      
       // SM.DESİ.PAK =0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (KG/TON)
-      const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5)); // NAYLON (KG/TON)
       const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * naylonValue).toFixed(5));
       
       newMmGtRecipes[index] = {
         [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
         'GTPKT01': gtpktValue,
+        'NAYLON (KG/TON)': naylonValue,
         'AMB.ÇEM.KARTON.GAL': kartonValue,
         [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
         'SM.7MMHALKA': halkaValue,
@@ -1094,9 +1078,10 @@ const GalvanizliTelNetsis = () => {
       const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
-      const tlcHiz = calculateTlcHiz(hmCap, ymStCap);
+      // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
+      const tlcHiz = calculateTlcHiz(hmCap, ymStCap) || 10; // Default to 10 if not found
       
-      // TLC01: =1000*4000/3.14/7.85/ Çap / Çap / TLC_Hiz /60
+      // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
       const tlcValue = parseFloat((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60).toFixed(5));
       
       newYmStRecipes[index] = {
@@ -1113,19 +1098,13 @@ const GalvanizliTelNetsis = () => {
     
     // YM GT Reçete (sequence 00 için)
     if (allYmSts.length > 0) {
-      // DV (Durdurma Vinç) değerini hesapla
-      const dvValue = calculateDV(minMukavemet);
+      // Calculate DV (Durdurma Vinç) value based on Min Mukavemet
+      const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
       
-      // GLV01: =1000*4000/ Çap/ Çap /Pİ()/7.85/'DV'* Çap
-      // DK biriminde sonuç için 1000 ve 60'a bölüyoruz (DK = dakika)
-      const glvTime = parseFloat(((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap) / 1000 / 60).toFixed(5));
-      
-      // Yüzey alanı ve tüketilen asit hesapla
-      const yuzeyAlani = calculateYuzeyAlani(cap);
-      const tuketilenAsit = calculateTuketilenAsit();
-      
-      // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
-      const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
+      // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
+      const glvTime = dvValue ? 
+        parseFloat((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap).toFixed(5)) :
+        parseFloat((1.15 - (0.125 * cap)).toFixed(5)); // Fallback to old formula if DV is null
       
       // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
       const zincConsumption = parseFloat((
@@ -1133,6 +1112,11 @@ const GalvanizliTelNetsis = () => {
         (userInputValues.ash * 0.6) + 
         (userInputValues.lapa * 0.7)) / 1000
       ).toFixed(5));
+      
+      // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
+      const yuzeyAlani = calculateYuzeyAlani(cap);
+      const tuketilenAsit = calculateTuketilenAsit();
+      const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
       
       newYmGtRecipe = {
         [allYmSts[0].stok_kodu]: 1, // İlk YM ST
@@ -1169,8 +1153,8 @@ const GalvanizliTelNetsis = () => {
 
   // Asit tüketimi hesaplama (Excel formülü) - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateAcidConsumption = (cap, kg, kaplama) => {
-    const yuzeyAlani = calculateYuzeyAlani(cap);
-    const tuketilenAsit = calculateTuketilenAsit();
+    const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
+    const tuketilenAsit = 0.0647625; // kg/m2 - match Excel formula exactly
     
     // Calculate with full precision, then format to 5 decimal places to match Excel
     const result = (yuzeyAlani * tuketilenAsit) / 1000;
@@ -2117,13 +2101,28 @@ const GalvanizliTelNetsis = () => {
   // Var olan ürün kontrolü
   const checkExistingProduct = async (apiUrl, stokKodu) => {
     try {
+      if (!stokKodu) {
+        console.error('Geçersiz stok_kodu ile ürün kontrolü yapılamaz:', stokKodu);
+        return null;
+      }
+      
       const response = await fetchWithAuth(`${apiUrl}?stok_kodu=${encodeURIComponent(stokKodu)}`);
       if (response && response.ok) {
         const data = await response.json();
-        return Array.isArray(data) && data.length > 0 ? data[0] : null;
+        if (Array.isArray(data) && data.length > 0) {
+          console.log(`"${stokKodu}" stok kodu ile ürün bulundu. ID: ${data[0].id}`);
+          return data[0];
+        } else {
+          console.log(`"${stokKodu}" stok kodu ile ürün bulunamadı`);
+          return null;
+        }
+      } else if (response && response.status === 404) {
+        console.log(`"${stokKodu}" stok kodu ile ürün bulunamadı (404 hatası)`);
+      } else {
+        console.error(`"${stokKodu}" stok kodu ile ürün kontrolü sırasında API hatası: ${response?.status || 'Bilinmiyor'}`);
       }
     } catch (error) {
-      console.error('Ürün kontrol hatası:', error);
+      console.error(`"${stokKodu}" stok kodu ile ürün kontrol hatası:`, error.message);
     }
     return null;
   };
@@ -2307,51 +2306,88 @@ const GalvanizliTelNetsis = () => {
       if (mmGtIds.length > 0) {
         const mmGtId = mmGtIds[0];
         
-        // MMGT'nin stok_kodu'nu direkt veritabanından al
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGt = await mmGtResponse.json();
-          if (mmGt && mmGt.stok_kodu) {
-            mmGtStokKodu = mmGt.stok_kodu;
-            mmGtSequence = mmGt.stok_kodu.split('.').pop();
-            
-            if (mmGtSequence === '00') {
-              console.warn(`UYARI: MMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
+        try {
+          // MMGT'nin stok_kodu'nu direkt veritabanından al
+          const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
+          if (mmGtResponse && mmGtResponse.ok) {
+            const mmGt = await mmGtResponse.json();
+            if (mmGt && mmGt.stok_kodu) {
+              mmGtStokKodu = mmGt.stok_kodu;
+              mmGtSequence = mmGt.stok_kodu.split('.').pop();
+              
+              if (mmGtSequence === '00') {
+                console.warn(`UYARI: MMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
+              } else {
+                console.log(`KRİTİK FIX! MMGT veritabanında bulunan GERÇEK stok_kodu: ${mmGtStokKodu} (sequence: ${mmGtSequence})`);
+              }
             } else {
-              console.log(`KRİTİK FIX! MMGT veritabanında bulunan GERÇEK stok_kodu: ${mmGtStokKodu} (sequence: ${mmGtSequence})`);
+              console.error(`MMGT veritabanında stok_kodu bulunamadı! ID: ${mmGtId}`);
+              // Ürün bulunamadı durumunda otomatik kod oluştur
+              const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+              mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
+              mmGtSequence = '00';
+              console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
             }
           } else {
-            console.error(`MMGT veritabanında stok_kodu bulunamadı! ID: ${mmGtId}`);
+            console.error(`MMGT veritabanından alınamadı! ID: ${mmGtId}`);
+            // API 404 hatası durumunda otomatik kod oluştur
+            const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+            mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
+            mmGtSequence = '00';
+            console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
           }
-        } else {
-          console.error(`MMGT veritabanından alınamadı! ID: ${mmGtId}`);
+        } catch (error) {
+          console.error(`MMGT bilgileri alınırken hata: ${error.message}`);
+          // Hata durumunda otomatik kod oluştur
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
+          mmGtSequence = '00';
+          console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
         }
       }
       
       // 2. YMGT stok_kodu'nu direkt olarak veritabanından al
       if (ymGtId) {
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGt = await ymGtResponse.json();
-          if (ymGt && ymGt.stok_kodu) {
-            ymGtStokKodu = ymGt.stok_kodu;
-            ymGtSequence = ymGt.stok_kodu.split('.').pop();
-            
-            if (ymGtSequence === '00') {
-              console.warn(`UYARI: YMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
+        try {
+          const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+          if (ymGtResponse && ymGtResponse.ok) {
+            const ymGt = await ymGtResponse.json();
+            if (ymGt && ymGt.stok_kodu) {
+              ymGtStokKodu = ymGt.stok_kodu;
+              ymGtSequence = ymGt.stok_kodu.split('.').pop();
+              
+              if (ymGtSequence === '00') {
+                console.warn(`UYARI: YMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
+              } else {
+                console.log(`KRİTİK FIX! YMGT veritabanında bulunan GERÇEK stok_kodu: ${ymGtStokKodu} (sequence: ${ymGtSequence})`);
+              }
+              
+              // MMGT ve YMGT aynı sequence'e sahip olmalı!
+              if (mmGtSequence !== ymGtSequence) {
+                console.error(`SORUN! MMGT ve YMGT farklı sequence'lere sahip! MMGT: ${mmGtSequence}, YMGT: ${ymGtSequence}`);
+                // YMGT sequence'i MMGT ile aynı yap - kritik düzeltme
+                ymGtSequence = mmGtSequence;
+              }
             } else {
-              console.log(`KRİTİK FIX! YMGT veritabanında bulunan GERÇEK stok_kodu: ${ymGtStokKodu} (sequence: ${ymGtSequence})`);
-            }
-            
-            // MMGT ve YMGT aynı sequence'e sahip olmalı!
-            if (mmGtSequence !== ymGtSequence) {
-              console.error(`SORUN! MMGT ve YMGT farklı sequence'lere sahip! MMGT: ${mmGtSequence}, YMGT: ${ymGtSequence}`);
+              console.error(`YMGT veritabanında stok_kodu bulunamadı! ID: ${ymGtId}`);
+              // Ürün bulunamadı durumunda otomatik kod oluştur
+              const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+              ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+              console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
             }
           } else {
-            console.error(`YMGT veritabanında stok_kodu bulunamadı! ID: ${ymGtId}`);
+            console.error(`YMGT veritabanından alınamadı! ID: ${ymGtId}`);
+            // API 404 hatası durumunda otomatik kod oluştur
+            const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+            ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+            console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
           }
-        } else {
-          console.error(`YMGT veritabanından alınamadı! ID: ${ymGtId}`);
+        } catch (error) {
+          console.error(`YMGT bilgileri alınırken hata: ${error.message}`);
+          // Hata durumunda otomatik kod oluştur
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+          console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
         }
       }
       
@@ -2397,7 +2433,14 @@ const GalvanizliTelNetsis = () => {
       // Bu şekilde yeni sequence'li reçeteler eklenecek
       
       // Sadece 1 MM GT reçetesini kaydet
-      if (mmGtIds.length > 0 && mmGtStokKodu) {
+      if (mmGtIds.length > 0) {
+        // mmGtStokKodu null ise oluştur
+        if (!mmGtStokKodu) {
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
+          mmGtSequence = '00';
+          console.log(`MMGT için yedek stok_kodu oluşturuldu: ${mmGtStokKodu}`);
+        }
         const mmGtId = mmGtIds[0]; // Artık sadece 1 tane MM GT var
         const mmGtRecipe = allRecipes.mmGtRecipes[mainYmStIndex] || {}; // Ana YM ST'ye bağlı MM GT reçetesi
         
@@ -2416,12 +2459,19 @@ const GalvanizliTelNetsis = () => {
               // mamul_kodu mmGtStokKodu ile aynı değilse sil
               if (recipe.mamul_kodu !== mmGtStokKodu) {
                 console.log(`YANLIŞ MAMUL_KODU MMGT reçetesi siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, doğrusu=${mmGtStokKodu}`);
-                await fetchWithAuth(`${API_URLS.galMmGtRecete}/${recipe.id}`, { method: 'DELETE' });
+                try {
+                  await fetchWithAuth(`${API_URLS.galMmGtRecete}/${recipe.id}`, { method: 'DELETE' });
+                } catch (deleteError) {
+                  console.error(`MMGT reçetesi silinemedi: ${deleteError.message}`);
+                }
               }
             }
+          } else {
+            console.log(`MMGT için reçete bulunamadı - 404 hatası olabilir`);
           }
         } catch (error) {
           console.error('MMGT reçeteleri kontrol edilirken hata:', error);
+          // Hata durumunda işleme devam et
         }
         
         // Tüm mevcut reçeteleri sil - güvenlik için
@@ -2539,7 +2589,13 @@ const GalvanizliTelNetsis = () => {
       }
       
       // Sadece 1 YM GT için reçete kaydet - Excel formatıyla tam uyumlu
-      if (ymGtId && ymGtStokKodu && Object.keys(allRecipes.ymGtRecipe).length > 0) {
+      if (ymGtId && Object.keys(allRecipes.ymGtRecipe).length > 0) {
+        // ymGtStokKodu null ise oluştur
+        if (!ymGtStokKodu) {
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+          console.log(`YMGT için yedek stok_kodu oluşturuldu: ${ymGtStokKodu}`);
+        }
         console.log(`YMGT reçeteleri için ID: ${ymGtId}, stok_kodu: ${ymGtStokKodu}, sequence: ${ymGtSequence}`);
         
         // MMGT ve YMGT sequence değerlerini karşılaştır ve gerekirse YMGT'yi güncelle
@@ -2591,12 +2647,19 @@ const GalvanizliTelNetsis = () => {
               // mamul_kodu ymGtStokKodu ile aynı değilse sil
               if (recipe.mamul_kodu !== ymGtStokKodu) {
                 console.log(`YANLIŞ MAMUL_KODU YMGT reçetesi siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, doğrusu=${ymGtStokKodu}`);
-                await fetchWithAuth(`${API_URLS.galYmGtRecete}/${recipe.id}`, { method: 'DELETE' });
+                try {
+                  await fetchWithAuth(`${API_URLS.galYmGtRecete}/${recipe.id}`, { method: 'DELETE' });
+                } catch (deleteError) {
+                  console.error(`YMGT reçetesi silinemedi: ${deleteError.message}`);
+                }
               }
             }
+          } else {
+            console.log(`YMGT için reçete bulunamadı - 404 hatası olabilir`);
           }
         } catch (error) {
           console.error('YMGT reçeteleri kontrol edilirken hata:', error);
+          // Hata durumunda işleme devam et
         }
         
         // Güvenlik için tüm reçeteleri temizle
@@ -2782,65 +2845,121 @@ const GalvanizliTelNetsis = () => {
         const ymSt = [...selectedYmSts, ...autoGeneratedYmSts][i];
         const ymStRecipe = allRecipes.ymStRecipes[i] || {};
         
-        await deleteExistingRecipes('ymst', ymStId);
-        
-        let siraNo = 1;
-        
-        // YMST reçete sıralaması: 1) FLM bileşeni, 2) TLC01 operasyonu
-        const recipeEntries = Object.entries(ymStRecipe);
-        const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
-        const operationEntry = recipeEntries.find(([key]) => key === 'TLC01');
-        
-        // Sırayla ekle
-        const orderedEntries = [flmEntry, operationEntry].filter(Boolean);
-        
-        for (const [key, value] of orderedEntries) {
-          if (value > 0) {
-            // Format the value exactly as it would appear in Excel, using points as decimal separators
-            let formattedValue = value;
-            if (typeof value === 'number') {
-              formattedValue = value.toLocaleString('en-US', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 5,
-                useGrouping: false // No thousand separators
-              });
+        try {
+          // YM ST varlığını doğrula
+          try {
+            const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymStId}`);
+            if (!ymStResponse || !ymStResponse.ok) {
+              console.error(`YMST ürünü bulunamadı! ID: ${ymStId}`);
+              continue; // Bu YMST için reçete eklemeye çalışma
             }
             
-            await fetchWithAuth(API_URLS.galYmStRecete, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ym_st_id: ymStId,
-                mamul_kodu: ymSt.stok_kodu,
-                bilesen_kodu: key,
-                miktar: formattedValue, // Use formatted value to match Excel
-                sira_no: siraNo++,
-                operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
-                olcu_br: getOlcuBr(key),
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                recete_top: 1,
-                fire_orani: 0.0004, // Match Excel format
-                ua_dahil_edilsin: 'evet',
-                son_operasyon: 'evet',
-                // Additional fields for better Netsis compatibility - match Excel
-                miktar_sabitle: 'H',
-                stok_maliyet: 'S',
-                fire_mik: '0',
-                sabit_fire_mik: '0',
-                istasyon_kodu: '',
-                hazirlik_suresi: key.includes('01') ? 0 : null,
-                uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                oncelik: '0',
-                planlama_orani: '100',
-                alt_pol_da_transfer: 'H',
-                alt_pol_ambar_cikis: 'H',
-                alt_pol_uretim_kaydi: 'H',
-                alt_pol_mrp: 'H',
-                ic_dis: 'I'
-              })
-            });
+            const ymStData = await ymStResponse.json();
+            if (!ymStData || !ymStData.stok_kodu) {
+              console.error(`YMST ürününün stok kodu yok! ID: ${ymStId}`);
+              continue; // Bu YMST için reçete eklemeye çalışma
+            }
+            
+            console.log(`YMST doğrulandı: ${ymStId}, stok_kodu: ${ymStData.stok_kodu}`);
+          } catch (ymStError) {
+            console.error(`YMST bilgileri alınırken hata: ${ymStError.message}`);
+            continue; // Bu YMST için reçete eklemeye çalışma
           }
+          
+          // Mevcut reçeteleri sil
+          try {
+            await deleteExistingRecipes('ymst', ymStId);
+            console.log(`YMST ${ymStId} için mevcut reçeteler başarıyla silindi`);
+          } catch (deleteError) {
+            console.error(`YMST ${ymStId} için reçete silme hatası: ${deleteError.message}`);
+            // Hataya rağmen devam et
+          }
+          
+          let siraNo = 1;
+          
+          // YMST reçete sıralaması: 1) FLM bileşeni, 2) TLC01 operasyonu
+          const recipeEntries = Object.entries(ymStRecipe);
+          const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+          const operationEntry = recipeEntries.find(([key]) => key === 'TLC01');
+          
+          // Sırayla ekle
+          const orderedEntries = [flmEntry, operationEntry].filter(Boolean);
+          
+          if (orderedEntries.length === 0) {
+            console.warn(`YMST ${ymStId} için eklenecek reçete bulunmadı!`);
+            continue; // Bir sonraki YMST'ye geç
+          }
+          
+          // Stok kodu kontrolü yap (null veya undefined olmamalı)
+          if (!ymSt || !ymSt.stok_kodu) {
+            console.error(`YMST ${ymStId} için geçerli stok_kodu bulunamadı!`);
+            continue; // Bir sonraki YMST'ye geç
+          }
+          
+          for (const [key, value] of orderedEntries) {
+            if (value > 0) {
+              // Format the value exactly as it would appear in Excel, using points as decimal separators
+              let formattedValue = value;
+              if (typeof value === 'number') {
+                formattedValue = value.toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 5,
+                  useGrouping: false // No thousand separators
+                });
+              }
+              
+              try {
+                console.log(`YMST reçetesi kaydediliyor: ${ymStId}, ${ymSt.stok_kodu}, ${key}`);
+                const receteResponse = await fetchWithAuth(API_URLS.galYmStRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_st_id: ymStId,
+                    mamul_kodu: ymSt.stok_kodu,
+                    bilesen_kodu: key,
+                    miktar: formattedValue, // Use formatted value to match Excel
+                    sira_no: siraNo++,
+                    operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
+                    olcu_br: getOlcuBr(key),
+                    olcu_br_bilesen: '1',
+                    aciklama: getReceteAciklama(key),
+                    recete_top: 1,
+                    fire_orani: 0.0004, // Match Excel format
+                    ua_dahil_edilsin: 'evet',
+                    son_operasyon: 'evet',
+                    // Additional fields for better Netsis compatibility - match Excel
+                    miktar_sabitle: 'H',
+                    stok_maliyet: 'S',
+                    fire_mik: '0',
+                    sabit_fire_mik: '0',
+                    istasyon_kodu: '',
+                    hazirlik_suresi: key.includes('01') ? 0 : null,
+                    uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
+                    oncelik: '0',
+                    planlama_orani: '100',
+                    alt_pol_da_transfer: 'H',
+                    alt_pol_ambar_cikis: 'H',
+                    alt_pol_uretim_kaydi: 'H',
+                    alt_pol_mrp: 'H',
+                    ic_dis: 'I'
+                  })
+                });
+                
+                if (receteResponse && receteResponse.ok) {
+                  console.log(`YMST reçetesi başarıyla kaydedildi: ${key}`);
+                } else {
+                  console.error(`YMST reçetesi kaydedilemedi: ${key}, hata kodu: ${receteResponse?.status}`);
+                }
+              } catch (saveError) {
+                console.error(`YMST reçetesi kaydedilirken hata: ${saveError.message}`);
+                // Hataya rağmen devam et
+              }
+            }
+          }
+        } catch (mainError) {
+          console.error(`YMST ${ymStId} reçete işlemleri sırasında genel hata:`, mainError.message);
+          // Hata ile karşılaşılsa bile diğer YMST'ler için devam et
+          continue;
         }
       }
     } catch (error) {
@@ -2872,25 +2991,36 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`${typeLabel} reçeteleri aranıyor: ${paramName}=${productId}`);
       
-      const response = await fetchWithAuth(`${apiUrl}?${paramName}=${productId}`);
-      if (response && response.ok) {
-        const recipes = await response.json();
-        console.log(`${typeLabel} için ${recipes.length} reçete bulundu`);
-        
-        // Her reçeteyi sil
-        for (const recipe of recipes) {
-          console.log(`${typeLabel} reçete siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, bilesen_kodu=${recipe.bilesen_kodu}`);
-          await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
-        }
-        
-        if (recipes.length > 0) {
-          console.log(`${typeLabel} reçeteleri başarıyla silindi (${recipes.length} adet)`);
+      try {
+        const response = await fetchWithAuth(`${apiUrl}?${paramName}=${productId}`);
+        if (response && response.ok) {
+          const recipes = await response.json();
+          console.log(`${typeLabel} için ${recipes.length} reçete bulundu`);
+          
+          // Her reçeteyi sil
+          for (const recipe of recipes) {
+            console.log(`${typeLabel} reçete siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, bilesen_kodu=${recipe.bilesen_kodu}`);
+            try {
+              await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
+            } catch (deleteError) {
+              console.error(`${typeLabel} reçetesi silinemedi: ${deleteError.message}`);
+              // Silme hatası oluşsa bile diğer reçeteleri silmeye devam et
+            }
+          }
+          
+          if (recipes.length > 0) {
+            console.log(`${typeLabel} reçeteleri başarıyla silindi (${recipes.length} adet)`);
+          } else {
+            console.log(`${typeLabel} için silinecek reçete bulunamadı`);
+          }
         } else {
-          console.log(`${typeLabel} için silinecek reçete bulunamadı`);
+          console.log(`${typeLabel} reçeteleri bulunamadı (muhtemelen 404 hatası)`);
         }
+      } catch (fetchError) {
+        console.error(`${typeLabel} reçeteleri aranırken hata:`, fetchError.message);
       }
     } catch (error) {
-      console.error(`${type.toUpperCase()} reçeteleri silinirken hata:`, error);
+      console.error(`${type.toUpperCase()} reçeteleri silinirken genel hata:`, error);
     }
   };
 
@@ -2943,8 +3073,121 @@ const GalvanizliTelNetsis = () => {
     // Get quality based on cap or use default
     let quality = ymSt.quality || getQualityForCap(cap) || '1006';
     
-    // Return formatted code
+    // Return formatted code in the correct format: FLM.0800.1010
     return `FLM.${filmasin}.${quality}`;
+  };
+
+  // TLC_Hizlar lookup table
+  const TLC_HizlarTable = [
+    // Format: [girisCapMm, cikisCapMm, kod, calismaHizMs]
+    [6, 0.88, "6x0.88", 20],
+    [6, 1.01, "6x1.01", 20],
+    [6, 1.02, "6x1.02", 20],
+    [6, 1.03, "6x1.03", 20],
+    [6, 1.04, "6x1.04", 20],
+    [6, 1.05, "6x1.05", 20],
+    [6, 1.06, "6x1.06", 20],
+    [6, 1.07, "6x1.07", 20],
+    [6, 1.08, "6x1.08", 20],
+    [6, 1.09, "6x1.09", 19],
+    [6, 1.1, "6x1.1", 19],
+    [6, 1.2, "6x1.2", 19],
+    [6, 1.3, "6x1.3", 19],
+    [6, 1.4, "6x1.4", 19],
+    [6, 1.5, "6x1.5", 18],
+    [6, 2.0, "6x2.0", 17],
+    [6, 2.5, "6x2.5", 15],
+    [6, 3.0, "6x3.0", 13],
+    [7, 3.5, "7x3.5", 6.75],
+    [7, 4.0, "7x4.0", 6.0],
+    [7, 4.5, "7x4.5", 5.5],
+    [7, 5.0, "7x5.0", 5.0],
+    [7, 5.5, "7x5.5", 4.5],
+    [7, 6.0, "7x6.0", 4.0],
+    [8, 5.5, "8x5.5", 5.5],
+    [8, 6.0, "8x6.0", 5.0],
+    [8, 6.5, "8x6.5", 4.5],
+    [8, 7.0, "8x7.0", 4.0],
+    [9, 7.0, "9x7.0", 4.5],
+    [9, 7.5, "9x7.5", 4.0]
+  ];
+
+  // DÜŞEYARA (VLOOKUP) function implementation
+  const duseyaraLookup = (lookupValue, rangeArray, columnIndex, exactMatch = true) => {
+    // Default implementation for exactMatch=true
+    if (exactMatch) {
+      const foundRow = rangeArray.find(row => row[2] === lookupValue);
+      return foundRow ? foundRow[columnIndex - 1] : null;
+    } 
+    // Implementation for exactMatch=false (approx match)
+    else {
+      // Parse lookupValue format "HMCap x Cap"
+      const [hmCap, cap] = lookupValue.split("x").map(Number);
+      
+      // Find closest match
+      let bestMatch = null;
+      let bestDiff = Infinity;
+      
+      rangeArray.forEach(row => {
+        const rowHmCap = row[0];
+        const rowCap = row[1];
+        
+        // Check if HM Cap matches exactly first
+        if (rowHmCap === hmCap) {
+          // Find closest cap match
+          const diff = Math.abs(rowCap - cap);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestMatch = row;
+          }
+        }
+      });
+      
+      return bestMatch ? bestMatch[columnIndex - 1] : null;
+    }
+  };
+  
+  // Calculate YuzeyAlani based on the formula
+  const calculateYuzeyAlani = (cap) => {
+    // YuzeyAlani: =1000*4000/PI()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*PI()/1000
+    return (1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000);
+  };
+  
+  // Calculate total surface area
+  const calculateTotalYuzeyAlani = () => {
+    // toplam_yuzey_alani= uretim_kapasitesi_aylik *1000*4000/ ortalama_uretim_capi / ortalama_uretim_capi /3.14/7.85* ortalama_uretim_capi *3.14/1000
+    const { uretim_kapasitesi_aylik, ortalama_uretim_capi } = userInputValues;
+    return uretim_kapasitesi_aylik * 1000 * 4000 / ortalama_uretim_capi / ortalama_uretim_capi / Math.PI / 7.85 * ortalama_uretim_capi * Math.PI / 1000;
+  };
+  
+  // Calculate Durdurma Vinç (DV) based on Min Mukavemet
+  const calculateDV = (minMukavemet) => {
+    // DV = EĞER('Min Mukavemet'=400;140;EĞER('Min Mukavemet'=500;160;EĞER('Min Mukavemet'=600;180;EĞER'Min Mukavemet'=700;200;"yok"))))
+    if (minMukavemet === 400) return 140;
+    if (minMukavemet === 500) return 160;
+    if (minMukavemet === 600) return 180;
+    if (minMukavemet === 700) return 200;
+    return null; // "yok"
+  };
+
+  // Calculate tuketilenAsit
+  const calculateTuketilenAsit = () => {
+    // tuketilenAsit: = toplam_tuketilen_asit / toplam_yuzey_alani
+    const { toplam_tuketilen_asit } = userInputValues;
+    const totalYuzeyAlani = calculateTotalYuzeyAlani();
+    return toplam_tuketilen_asit / totalYuzeyAlani;
+  };
+  
+  // Calculate TLC_Hiz based on HM_Cap and Cap values
+  const calculateTlcHiz = (hmCap, cap) => {
+    // Create lookup code in format: "7x3.5"
+    const lookupCode = `${hmCap}x${cap}`;
+    
+    // Use DÜŞEYARA (VLOOKUP) to find the closest match
+    const calismaHizMs = duseyaraLookup(lookupCode, TLC_HizlarTable, 4, false);
+    
+    // Apply the formula: TLC_Hiz = DÜŞEYARA(...) * 0.7
+    return calismaHizMs ? calismaHizMs * 0.7 : null;
   };
 
   // Excel dosyalarını oluştur
@@ -3893,6 +4136,16 @@ const GalvanizliTelNetsis = () => {
         
         <div className="flex gap-3">
           <button
+            onClick={() => setShowSettingsModal(true)}
+            className="px-3 py-2 bg-gray-800 text-white rounded-md text-sm flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Hesaplama Değerleri
+          </button>
+          <button
             onClick={() => setShowExistingMmGtModal(true)}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
@@ -4769,42 +5022,78 @@ const GalvanizliTelNetsis = () => {
                                   (Kod)
                                 </span>
                               </label>
-                              <input
-                                type="text"
-                                value={filmasinCode}
-                                onChange={(e) => {
-                                  // Get the new filmasin code from user input
-                                  const newFilmasinCode = e.target.value;
-                                  
-                                  // Get the active YM ST and its current filmasin code
-                                  const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
-                                  const oldKey = getFilmasinKodu(activeYmSt);
-                                  const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
-                                  
-                                  // Update recipes with new key
-                                  const updatedRecipes = { ...allRecipes };
-                                  if (updatedRecipes.ymStRecipes[activeRecipeTab]) {
-                                    // Create a new recipe object without the old key
-                                    const newRecipes = { ...updatedRecipes.ymStRecipes[activeRecipeTab] };
-                                    delete newRecipes[oldKey];
+                              <div className="flex gap-2">
+                                <select
+                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
+                                  value={filmasinCode.substring(4, 8)}
+                                  onChange={(e) => {
+                                    // Get the diameter part
+                                    const newDiameter = e.target.value;
+                                    // Get the quality part from existing code
+                                    const quality = filmasinCode.substring(9);
                                     
-                                    // Add the new key with the same value
-                                    newRecipes[newFilmasinCode] = oldValue;
-                                    updatedRecipes.ymStRecipes[activeRecipeTab] = newRecipes;
+                                    // Construct new filmasin code
+                                    const newFilmasinCode = `FLM.${newDiameter}.${quality}`;
+                                    
+                                    // Get the active YM ST and its current filmasin code
+                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                    const oldKey = getFilmasinKodu(activeYmSt);
+                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                    
+                                    // Update recipes with new key
+                                    const updatedRecipes = { ...allRecipes };
+                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
                                     setAllRecipes(updatedRecipes);
                                     
                                     // Update recipe status
-                                    const newStatus = { ...recipeStatus };
-                                    if (newStatus.ymStRecipes[activeRecipeTab]) {
-                                      newStatus.ymStRecipes[activeRecipeTab][e.target.value] = 'manual';
-                                      setRecipeStatus(newStatus);
-                                    }
-                                  }
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                                placeholder="FLM.0800.1010"
-                                onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymst', activeRecipeTab, 'filmasin_kodu')}
-                              />
+                                    const updatedStatus = { ...recipeStatus };
+                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                    setRecipeStatus(updatedStatus);
+                                  }}
+                                >
+                                  <option value="0550">5.50 mm</option>
+                                  <option value="0600">6.00 mm</option>
+                                  <option value="0700">7.00 mm</option>
+                                  <option value="0800">8.00 mm</option>
+                                  <option value="0900">9.00 mm</option>
+                                </select>
+                                
+                                <select
+                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
+                                  value={filmasinCode.substring(9)}
+                                  onChange={(e) => {
+                                    // Get the quality part
+                                    const newQuality = e.target.value;
+                                    // Get the diameter part from existing code
+                                    const diameter = filmasinCode.substring(4, 8);
+                                    
+                                    // Construct new filmasin code
+                                    const newFilmasinCode = `FLM.${diameter}.${newQuality}`;
+                                    
+                                    // Get the active YM ST and its current filmasin code
+                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                    const oldKey = getFilmasinKodu(activeYmSt);
+                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                    
+                                    // Update recipes with new key
+                                    const updatedRecipes = { ...allRecipes };
+                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
+                                    setAllRecipes(updatedRecipes);
+                                    
+                                    // Update recipe status
+                                    const updatedStatus = { ...recipeStatus };
+                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                    setRecipeStatus(updatedStatus);
+                                  }}
+                                >
+                                  <option value="1005">1005</option>
+                                  <option value="1006">1006</option>
+                                  <option value="1008">1008</option>
+                                  <option value="1010">1010</option>
+                                </select>
+                              </div>
                               {statusText && (
                                 <p className="text-xs text-gray-500 italic">{statusText}</p>
                               )}
@@ -4893,6 +5182,128 @@ const GalvanizliTelNetsis = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal for User Input Values */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Hesaplama Değerleri
+                </h2>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  Bu değerler hesaplamalarda kullanılacak olan sabit değerlerdir. Değişiklik yaptıktan sonra "Kaydet" düğmesine basarak kaydedin.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Ash (Kül) (Kg/tonne)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.ash}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ash: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Lapa (Kg/tonne)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.lapa}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, lapa: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Üretim Kapasitesi (Aylık)
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.uretim_kapasitesi_aylik}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, uretim_kapasitesi_aylik: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Toplam Tüketilen Asit
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.toplam_tuketilen_asit}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, toplam_tuketilen_asit: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Ortalama Üretim Çapı
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.ortalama_uretim_capi}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ortalama_uretim_capi: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Paketleme Dk. Adet
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputValues.paketlemeDkAdet}
+                      onChange={(e) => setUserInputValues(prev => ({ ...prev, paketlemeDkAdet: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowSettingsModal(false)}
+                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={saveUserInputValues}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
