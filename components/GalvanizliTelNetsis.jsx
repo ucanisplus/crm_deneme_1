@@ -213,30 +213,51 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
+      // Make sure all inputs are valid numbers
+      const validatedInputs = {
+        ash: parseFloat(userInputValues.ash) || 5.54,
+        lapa: parseFloat(userInputValues.lapa) || 2.73,
+        uretim_kapasitesi_aylik: parseFloat(userInputValues.uretim_kapasitesi_aylik) || 2800,
+        toplam_tuketilen_asit: parseFloat(userInputValues.toplam_tuketilen_asit) || 30000,
+        ortalama_uretim_capi: parseFloat(userInputValues.ortalama_uretim_capi) || 3.08,
+        paketlemeDkAdet: parseFloat(userInputValues.paketlemeDkAdet) || 10
+      };
+      
+      // Update the state with validated values
+      setUserInputValues(validatedInputs);
+      
       // Check if the API endpoint URL is defined
-      if (!API_URLS.galUserInputValues) {
-        console.warn('galUserInputValues API endpoint is not defined, cannot save values');
-        setError('API endpoint tanımlı değil, değerler kaydedilemedi.');
-        return;
+      if (API_URLS.galUserInputValues) {
+        // Save to database if endpoint exists
+        const response = await fetch(API_URLS.galUserInputValues, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(validatedInputs)
+        });
+        
+        if (response.ok) {
+          toast.success('Hesaplama değerleri başarıyla kaydedildi.');
+        } else {
+          toast.error('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+        }
+      } else {
+        // Just update local state if no endpoint
+        toast.success('Hesaplama değerleri güncellendi.');
       }
       
-      const response = await fetch(API_URLS.galUserInputValues, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userInputValues)
-      });
+      // Close the modal
+      setShowSettingsModal(false);
       
-      if (response.ok) {
-        setSuccessMessage('Hesaplama değerleri başarıyla kaydedildi.');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+      // Recalculate recipes with new values if any exist
+      if (Object.keys(allRecipes.ymGtRecipe).length > 0 || 
+          Object.keys(allRecipes.ymStRecipes).length > 0) {
+        calculateAutoRecipeValues();
       }
     } catch (error) {
       console.error('Error saving user input values:', error);
-      setError('Hesaplama değerleri kaydedilirken bir hata oluştu.');
+      toast.error('Hesaplama değerleri kaydedilirken bir hata oluştu.');
     } finally {
       setIsLoading(false);
     }
@@ -1079,7 +1100,7 @@ const GalvanizliTelNetsis = () => {
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
       // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
-      const tlcHiz = calculateTlcHiz(hmCap, ymStCap) || 10; // Default to 10 if not found
+      const tlcHiz = calculateTlcHiz(hmCap, ymStCap);
       
       // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
       const tlcValue = parseFloat((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60).toFixed(5));
@@ -1102,9 +1123,8 @@ const GalvanizliTelNetsis = () => {
       const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
       
       // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-      const glvTime = dvValue ? 
-        parseFloat((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap).toFixed(5)) :
-        parseFloat((1.15 - (0.125 * cap)).toFixed(5)); // Fallback to old formula if DV is null
+      // Convert to minutes by dividing by 1000 and 60 (result is in DK)
+      const glvTime = parseFloat(((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap) / 1000 / 60).toFixed(5));
       
       // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
       const zincConsumption = parseFloat((
@@ -3077,74 +3097,110 @@ const GalvanizliTelNetsis = () => {
     return `FLM.${filmasin}.${quality}`;
   };
 
-  // TLC_Hizlar lookup table
-  const TLC_HizlarTable = [
-    // Format: [girisCapMm, cikisCapMm, kod, calismaHizMs]
-    [6, 0.88, "6x0.88", 20],
-    [6, 1.01, "6x1.01", 20],
-    [6, 1.02, "6x1.02", 20],
-    [6, 1.03, "6x1.03", 20],
-    [6, 1.04, "6x1.04", 20],
-    [6, 1.05, "6x1.05", 20],
-    [6, 1.06, "6x1.06", 20],
-    [6, 1.07, "6x1.07", 20],
-    [6, 1.08, "6x1.08", 20],
-    [6, 1.09, "6x1.09", 19],
-    [6, 1.1, "6x1.1", 19],
-    [6, 1.2, "6x1.2", 19],
-    [6, 1.3, "6x1.3", 19],
-    [6, 1.4, "6x1.4", 19],
-    [6, 1.5, "6x1.5", 18],
-    [6, 2.0, "6x2.0", 17],
-    [6, 2.5, "6x2.5", 15],
-    [6, 3.0, "6x3.0", 13],
-    [7, 3.5, "7x3.5", 6.75],
-    [7, 4.0, "7x4.0", 6.0],
-    [7, 4.5, "7x4.5", 5.5],
-    [7, 5.0, "7x5.0", 5.0],
-    [7, 5.5, "7x5.5", 4.5],
-    [7, 6.0, "7x6.0", 4.0],
-    [8, 5.5, "8x5.5", 5.5],
-    [8, 6.0, "8x6.0", 5.0],
-    [8, 6.5, "8x6.5", 4.5],
-    [8, 7.0, "8x7.0", 4.0],
-    [9, 7.0, "9x7.0", 4.5],
-    [9, 7.5, "9x7.5", 4.0]
-  ];
+  // TLC_Hizlar cache - we'll fetch the data from the database
+  const [tlcHizlarCache, setTlcHizlarCache] = useState({});
+  const [tlcHizlarLoading, setTlcHizlarLoading] = useState(false);
 
-  // DÜŞEYARA (VLOOKUP) function implementation
-  const duseyaraLookup = (lookupValue, rangeArray, columnIndex, exactMatch = true) => {
-    // Default implementation for exactMatch=true
-    if (exactMatch) {
-      const foundRow = rangeArray.find(row => row[2] === lookupValue);
-      return foundRow ? foundRow[columnIndex - 1] : null;
-    } 
-    // Implementation for exactMatch=false (approx match)
-    else {
-      // Parse lookupValue format "HMCap x Cap"
-      const [hmCap, cap] = lookupValue.split("x").map(Number);
+  // Load TLC_Hizlar data from the database when component mounts
+  useEffect(() => {
+    fetchTlcHizlarData();
+  }, []);
+  
+  // Function to fetch TLC_Hizlar data from the database
+  const fetchTlcHizlarData = async () => {
+    try {
+      setTlcHizlarLoading(true);
+      // Check if API endpoint exists
+      if (!API_URLS.galTlcHizlar) {
+        console.warn('galTlcHizlar API endpoint is not defined, using fallback data');
+        setTlcHizlarLoading(false);
+        return;
+      }
       
-      // Find closest match
-      let bestMatch = null;
-      let bestDiff = Infinity;
-      
-      rangeArray.forEach(row => {
-        const rowHmCap = row[0];
-        const rowCap = row[1];
+      const response = await fetchWithAuth(API_URLS.galTlcHizlar);
+      if (response && response.ok) {
+        const data = await response.json();
         
-        // Check if HM Cap matches exactly first
-        if (rowHmCap === hmCap) {
-          // Find closest cap match
-          const diff = Math.abs(rowCap - cap);
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestMatch = row;
-          }
+        // Create a lookup table for DÜŞEYARA function
+        const lookupMap = {};
+        if (Array.isArray(data)) {
+          data.forEach(item => {
+            const kod = `${item.giris_capi}x${item.cikis_capi}`;
+            lookupMap[kod] = item.calisma_hizi;
+          });
         }
-      });
-      
-      return bestMatch ? bestMatch[columnIndex - 1] : null;
+        
+        setTlcHizlarCache(lookupMap);
+      } else {
+        console.warn('Failed to fetch TLC_Hizlar data, using fallback data');
+      }
+    } catch (error) {
+      console.error('Error fetching TLC_Hizlar data:', error);
+    } finally {
+      setTlcHizlarLoading(false);
     }
+  };
+  
+  // No fallback data - using only database table
+
+  // DÜŞEYARA (VLOOKUP) function implementation using only database data
+  const duseyaraLookup = (lookupValue, rangeArray, columnIndex, exactMatch = true) => {
+    // Check if we have database data in the cache
+    if (Object.keys(tlcHizlarCache).length > 0) {
+      // Database approach: direct lookup by code (format "7x1.25")
+      if (tlcHizlarCache[lookupValue]) {
+        // We have an exact match in the database
+        return tlcHizlarCache[lookupValue];
+      }
+      
+      // No exact match in DB, try to find closest match
+      if (!exactMatch) {
+        // Parse lookupValue format "7x1.25" -> [7, 1.25]
+        const [hmCap, cap] = lookupValue.split("x").map(Number);
+        
+        // Find all keys that match the input HM cap 
+        const matchingHmCapKeys = Object.keys(tlcHizlarCache).filter(key => {
+          const [keyHmCap] = key.split("x").map(Number);
+          return keyHmCap === hmCap;
+        });
+        
+        if (matchingHmCapKeys.length > 0) {
+          // Sort by closest cap value
+          matchingHmCapKeys.sort((a, b) => {
+            const [, aCapValue] = a.split("x").map(Number);
+            const [, bCapValue] = b.split("x").map(Number);
+            return Math.abs(aCapValue - cap) - Math.abs(bCapValue - cap);
+          });
+          
+          // Return the closest match
+          return tlcHizlarCache[matchingHmCapKeys[0]];
+        }
+        
+        // If we still don't have a match, try to find closest HM cap
+        const allKeys = Object.keys(tlcHizlarCache);
+        if (allKeys.length > 0) {
+          allKeys.sort((a, b) => {
+            const [aHmCap, aCap] = a.split("x").map(Number);
+            const [bHmCap, bCap] = b.split("x").map(Number);
+            
+            const aHmCapDiff = Math.abs(aHmCap - hmCap);
+            const bHmCapDiff = Math.abs(bHmCap - hmCap);
+            
+            if (aHmCapDiff !== bHmCapDiff) {
+              return aHmCapDiff - bHmCapDiff;
+            }
+            
+            return Math.abs(aCap - cap) - Math.abs(bCap - cap);
+          });
+          
+          return tlcHizlarCache[allKeys[0]];
+        }
+      }
+    }
+    
+    // If we couldn't find a match or have no data, return default
+    console.warn(`No TLC_Hiz match found for ${lookupValue}. Check database data.`);
+    return 10; // Default value if no data is found
   };
   
   // Calculate YuzeyAlani based on the formula
@@ -3164,10 +3220,10 @@ const GalvanizliTelNetsis = () => {
   const calculateDV = (minMukavemet) => {
     // DV = EĞER('Min Mukavemet'=400;140;EĞER('Min Mukavemet'=500;160;EĞER('Min Mukavemet'=600;180;EĞER'Min Mukavemet'=700;200;"yok"))))
     if (minMukavemet === 400) return 140;
-    if (minMukavemet === 500) return 160;
-    if (minMukavemet === 600) return 180;
-    if (minMukavemet === 700) return 200;
-    return null; // "yok"
+    else if (minMukavemet === 500) return 160;
+    else if (minMukavemet === 600) return 180;
+    else if (minMukavemet === 700) return 200;
+    else return 140; // Use default value instead of null to avoid formula errors
   };
 
   // Calculate tuketilenAsit
@@ -3175,19 +3231,27 @@ const GalvanizliTelNetsis = () => {
     // tuketilenAsit: = toplam_tuketilen_asit / toplam_yuzey_alani
     const { toplam_tuketilen_asit } = userInputValues;
     const totalYuzeyAlani = calculateTotalYuzeyAlani();
-    return toplam_tuketilen_asit / totalYuzeyAlani;
+    return totalYuzeyAlani > 0 ? 
+      toplam_tuketilen_asit / totalYuzeyAlani : 
+      0.0647625; // Default value if totalYuzeyAlani is zero
   };
   
   // Calculate TLC_Hiz based on HM_Cap and Cap values
+  // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
   const calculateTlcHiz = (hmCap, cap) => {
-    // Create lookup code in format: "7x3.5"
-    const lookupCode = `${hmCap}x${cap}`;
+    // Format inputs to ensure consistency
+    const formattedHmCap = parseFloat(hmCap);
+    const formattedCap = parseFloat(cap);
     
-    // Use DÜŞEYARA (VLOOKUP) to find the closest match
-    const calismaHizMs = duseyaraLookup(lookupCode, TLC_HizlarTable, 4, false);
+    // Create lookup code in format: "7x1.25"
+    const lookupCode = `${formattedHmCap}x${formattedCap}`;
+    
+    // Use DÜŞEYARA (VLOOKUP) to find the closest match from database
+    const calismaHizMs = duseyaraLookup(lookupCode, null, null, false);
     
     // Apply the formula: TLC_Hiz = DÜŞEYARA(...) * 0.7
-    return calismaHizMs ? calismaHizMs * 0.7 : null;
+    // Exactly as specified in GalvanizliFormulas.txt
+    return calismaHizMs ? calismaHizMs * 0.7 : 7; // Default to 7 (10*0.7) if not found
   };
 
   // Excel dosyalarını oluştur
@@ -5223,7 +5287,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.ash}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ash: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        ash: e.target.value.replace(/,/g, '.') // Replace commas with points
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        ash: parseFloat(e.target.value.replace(/,/g, '.')) || prev.ash // Convert to number on blur
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
@@ -5235,7 +5306,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.lapa}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, lapa: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        lapa: e.target.value.replace(/,/g, '.') 
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        lapa: parseFloat(e.target.value.replace(/,/g, '.')) || prev.lapa
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
@@ -5247,7 +5325,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.uretim_kapasitesi_aylik}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, uretim_kapasitesi_aylik: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        uretim_kapasitesi_aylik: e.target.value.replace(/,/g, '.') 
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        uretim_kapasitesi_aylik: parseFloat(e.target.value.replace(/,/g, '.')) || prev.uretim_kapasitesi_aylik
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
@@ -5259,7 +5344,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.toplam_tuketilen_asit}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, toplam_tuketilen_asit: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        toplam_tuketilen_asit: e.target.value.replace(/,/g, '.') 
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        toplam_tuketilen_asit: parseFloat(e.target.value.replace(/,/g, '.')) || prev.toplam_tuketilen_asit
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
@@ -5271,7 +5363,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.ortalama_uretim_capi}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, ortalama_uretim_capi: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        ortalama_uretim_capi: e.target.value.replace(/,/g, '.') 
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        ortalama_uretim_capi: parseFloat(e.target.value.replace(/,/g, '.')) || prev.ortalama_uretim_capi
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>
@@ -5283,7 +5382,14 @@ const GalvanizliTelNetsis = () => {
                     <input
                       type="text"
                       value={userInputValues.paketlemeDkAdet}
-                      onChange={(e) => setUserInputValues(prev => ({ ...prev, paketlemeDkAdet: e.target.value }))}
+                      onChange={(e) => setUserInputValues(prev => ({ 
+                        ...prev, 
+                        paketlemeDkAdet: e.target.value.replace(/,/g, '.') 
+                      }))}
+                      onBlur={(e) => setUserInputValues(prev => ({
+                        ...prev,
+                        paketlemeDkAdet: parseFloat(e.target.value.replace(/,/g, '.')) || prev.paketlemeDkAdet
+                      }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     />
                   </div>

@@ -26,6 +26,8 @@ export const API_URLS = {
   galTaleplerEndpoint: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_sal_requests',
   // User input values for calculations
   galUserInputValues: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_input_values',
+  // TLC Hizlar data
+  galTlcHizlar: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_tlc_hizlar',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
