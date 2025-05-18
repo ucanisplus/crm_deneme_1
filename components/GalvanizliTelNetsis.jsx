@@ -2648,14 +2648,44 @@ const GalvanizliTelNetsis = () => {
           console.error(`UYARI! Sequence tutarsızlığı: Reçete için ${recordSequence}, Stok için ${mmGtSequence}`);
         }
         
-        // MMGT reçete sıralaması: 1) YM.GT bileşeni, 2) GTPKT01 operasyonu, 3) diğer bileşenler
+        // MMGT reçete sıralaması: Excel ile TAM UYUMLU kesin sıralama
+        // Sıralama: 1. YM.GT, 2. GTPKT01, 3. KARTON, 4. SHRİNK, 5. HALKA, 6. CEMBER, 7. TOKA, 8. DESİ, 9. Diğerleri
         const recipeEntries = Object.entries(mmGtRecipe);
-        const ymGtEntry = recipeEntries.find(([key]) => key.includes('YM.GT.'));
-        const operationEntry = recipeEntries.find(([key]) => key === 'GTPKT01');
-        const otherEntries = recipeEntries.filter(([key]) => !key.includes('YM.GT.') && key !== 'GTPKT01');
         
-        // Sırayla ekle
-        const orderedEntries = [ymGtEntry, operationEntry, ...otherEntries].filter(Boolean);
+        // Her bileşeni TAMAMEN Excel ile aynı şekilde bul - KESIN ISIMLERIYLE
+        const ymGtEntry = recipeEntries.find(([key]) => key.includes('YM.GT.'));
+        const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
+        const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
+        const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
+        const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+        const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+        const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
+        const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
+        
+        // Diğer tüm bileşenler - Excel ile TAM UYUMLU şekilde tanımla
+        const otherEntries = recipeEntries.filter(([key]) => 
+          !key.includes('YM.GT.') && 
+          key !== 'GTPKT01' &&
+          key !== 'AMB.ÇEM.KARTON.GAL' &&
+          !key.includes('AMB.SHRİNK.') &&
+          key !== 'SM.7MMHALKA' &&
+          key !== 'AMB.APEX CEMBER 38X080' &&
+          key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+          key !== 'SM.DESİ.PAK'
+        );
+        
+        // Excel formatına tam uygun sırada ekle
+        const orderedEntries = [
+          ymGtEntry, 
+          gtpkt01Entry, 
+          kartonEntry,
+          shrinkEntry,
+          halkaEntry,
+          cemberEntry,
+          tokaEntry,
+          desiEntry,
+          ...otherEntries
+        ].filter(Boolean);
         
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
@@ -3004,16 +3034,31 @@ const GalvanizliTelNetsis = () => {
           
           let siraNo = 1;
           
-          // YMGT reçete sıralaması: 1) YM.ST bileşeni (ana YM ST), 2) GLV01 operasyonu, 3) diğer bileşenler
+          // YMGT reçete sıralaması - Excel formatına uygun kesin sıralama 
+          // Sıralama: 1. YM.ST (ana), 2. GLV01, 3. Çinko, 4. Asit, 5. Diğerleri
           const recipeEntries = Object.entries(allRecipes.ymGtRecipe);
-          const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === mainYmSt.stok_kodu);
-          const operationEntry = recipeEntries.find(([key]) => key === 'GLV01');
-          const otherEntries = recipeEntries.filter(([key]) => !key.includes('YM.ST.') && key !== 'GLV01' && key !== mainYmSt.stok_kodu);
           
-          // Sırayla ekle
+          // Her bileşen türünü ayrı ayrı bul
+          const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === mainYmSt.stok_kodu);
+          const glv01Entry = recipeEntries.find(([key]) => key === 'GLV01');
+          const cinkoEntry = recipeEntries.find(([key]) => key === '150 03');
+          const asitEntry = recipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
+          
+          // Diğer bileşenler
+          const otherEntries = recipeEntries.filter(([key]) => 
+            !key.includes('YM.ST.') && 
+            key !== 'GLV01' && 
+            key !== '150 03' && 
+            key !== 'SM.HİDROLİK.ASİT' && 
+            key !== mainYmSt.stok_kodu
+          );
+          
+          // Excel formatına tam uygun sırada ekle - HER ZAMAN SADECE 1 GLV01 OPERASYONu olmalı
           const orderedEntries = [
             ymStEntry ? [mainYmSt.stok_kodu, ymStEntry[1]] : null, // Ana YM ST'yi kullan
-            operationEntry,
+            glv01Entry,  // Sadece 1 galvanizleme operasyonu
+            cinkoEntry,  // Çinko bileşeni  
+            asitEntry,   // Asit bileşeni
             ...otherEntries
           ].filter(Boolean);
           
@@ -3314,13 +3359,20 @@ const GalvanizliTelNetsis = () => {
           
           let siraNo = 1;
           
-          // YMST reçete sıralaması: 1) FLM bileşeni, 2) TLC01 operasyonu
+          // YMST reçete sıralaması - Excel formatına uygun kesin sıralama 
+          // Sıralama: 1. FLM, 2. TLC01 (tam bu sıra)
           const recipeEntries = Object.entries(ymStRecipe);
           const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
-          const operationEntry = recipeEntries.find(([key]) => key === 'TLC01');
+          const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
           
-          // Sırayla ekle
-          const orderedEntries = [flmEntry, operationEntry].filter(Boolean);
+          // Diğer bileşenler - normalde yoktur ama güvenlik için
+          const otherEntries = recipeEntries.filter(([key]) => 
+            !key.includes('FLM.') && key !== 'TLC01'
+          );
+          
+          // Kesinlikle Excel sıralamasına uygun olacak şekilde ekle
+          // FLM her zaman önce, TLC01 her zaman ikinci sırada
+          const orderedEntries = [flmEntry, tlc01Entry, ...otherEntries].filter(Boolean);
           
           // Reçete girdisi yoksa uyarı ver ve devam et
           if (orderedEntries.length === 0) {
@@ -3456,8 +3508,13 @@ const GalvanizliTelNetsis = () => {
     }
     
     try {
+      // URL'yi doğru oluştur - sorgu parametre adını ve ürün ID'sini kontrol et
+      const queryUrl = `${apiUrl}?${paramName}=${encodeURIComponent(productId)}`;
+      console.log(`🔍 ${productType.toUpperCase()} reçeteleri kontrol ediliyor. Sorgu URL: ${queryUrl}`);
+      
       // Tüm mevcut reçeteleri getir
-      const allRecipesResponse = await fetchWithAuth(`${apiUrl}?${paramName}=${productId}`);
+      const allRecipesResponse = await fetchWithAuth(queryUrl);
+      
       if (allRecipesResponse && allRecipesResponse.ok) {
         const allRecipesData = await allRecipesResponse.json();
         console.log(`${allRecipesData.length} adet ${productType.toUpperCase()} reçetesi bulundu`);
@@ -3474,7 +3531,40 @@ const GalvanizliTelNetsis = () => {
           }
         }
       } else {
-        console.log(`${productType.toUpperCase()} için reçete bulunamadı - 404 hatası olabilir`);
+        if (allRecipesResponse && allRecipesResponse.status === 404) {
+          console.log(`${productType.toUpperCase()} için reçete bulunamadı (404) - silinecek reçete yok`);
+        } else {
+          console.warn(`${productType.toUpperCase()} reçeteleri alınamadı: HTTP ${allRecipesResponse ? allRecipesResponse.status : 'unknown'}`);
+          
+          // Alternatif yaklaşım: tüm reçeteleri getir ve filtrele
+          try {
+            console.log(`🔄 Alternatif yöntem: Tüm ${productType.toUpperCase()} reçetelerini getirip filtreleme deneniyor...`);
+            const alternativeResponse = await fetchWithAuth(apiUrl);
+            
+            if (alternativeResponse && alternativeResponse.ok) {
+              const allRecipes = await alternativeResponse.json();
+              const filteredRecipes = allRecipes.filter(recipe => recipe[paramName] === productId);
+              
+              console.log(`✅ Alternatif yöntemle ${filteredRecipes.length} reçete bulundu`);
+              
+              // Yanlış mamul_kodu içeren reçeteleri sil
+              for (const recipe of filteredRecipes) {
+                if (recipe.mamul_kodu !== expectedStokKodu) {
+                  console.log(`YANLIŞ MAMUL_KODU ${productType.toUpperCase()} reçetesi siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, doğrusu=${expectedStokKodu}`);
+                  try {
+                    await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
+                  } catch (deleteError) {
+                    console.error(`${productType.toUpperCase()} reçetesi silinemedi: ${deleteError.message}`);
+                  }
+                }
+              }
+            } else {
+              console.warn(`Alternatif yöntemle de ${productType.toUpperCase()} reçeteleri alınamadı`);
+            }
+          } catch (alternativeError) {
+            console.error(`Alternatif yöntem hatası:`, alternativeError.message);
+          }
+        }
       }
     } catch (error) {
       console.error(`${productType.toUpperCase()} reçeteleri kontrol edilirken hata:`, error);
@@ -3485,6 +3575,11 @@ const GalvanizliTelNetsis = () => {
   // Mevcut reçeteleri sil - 404 hata yönetimi ile geliştirilmiş versiyon
   const deleteExistingRecipes = async (type, productId) => {
     try {
+      if (!productId) {
+        console.log(`Ürün ID'si geçersiz, reçete silme işlemi atlanıyor`);
+        return;
+      }
+      
       let apiUrl = '';
       let paramName = '';
       let typeLabel = '';
@@ -3505,10 +3600,14 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`${typeLabel} reçeteleri aranıyor: ${paramName}=${productId}`);
       
+      // URL'yi doğru oluştur - sorgu parametre adını ve ürün ID'sini kontrol et
+      const queryUrl = `${apiUrl}?${paramName}=${encodeURIComponent(productId)}`;
+      console.log(`🔍 Sorgu URL: ${queryUrl}`);
+      
       // 404 hata durumunda alternatif yöntem kullan
       let recipes = [];
       try {
-        const response = await fetchWithAuth(`${apiUrl}?${paramName}=${productId}`);
+        const response = await fetchWithAuth(queryUrl);
         
         // Yanıt varsa ve başarılıysa
         if (response && response.ok) {
@@ -3528,9 +3627,32 @@ const GalvanizliTelNetsis = () => {
         }
       } catch (fetchError) {
         console.error(`${typeLabel} reçeteleri aranırken hata:`, fetchError.message);
-        // Hata durumunda işleme devam et - reçeteler boş dizi olarak kalsın
-        console.log(`Hata nedeniyle ${typeLabel} reçeteleri silinemeyecek - işleme devam ediliyor`);
-        return;
+        
+        // HATA DURUMUNDA ALTERNATIF YÖNTEM: Tüm reçete listesini getir ve filtrele
+        try {
+          console.log(`🔄 Alternatif yöntem: Tüm ${typeLabel} reçetelerini getirip filtreleme deneniyor...`);
+          const allRecipesResponse = await fetchWithAuth(`${apiUrl}`);
+          
+          if (allRecipesResponse && allRecipesResponse.ok) {
+            const allRecipes = await allRecipesResponse.json();
+            if (Array.isArray(allRecipes) && allRecipes.length > 0) {
+              // İlgili ürüne ait reçeteleri filtrele
+              recipes = allRecipes.filter(recipe => recipe[paramName] === productId);
+              console.log(`✅ Alternatif yöntemle ${recipes.length} reçete bulundu`);
+            } else {
+              console.log(`${typeLabel} tablosunda hiç reçete bulunmadı - silmeye gerek yok`);
+              return;
+            }
+          } else {
+            console.log(`Tüm ${typeLabel} reçeteleri getirilemedi - silme işlemi atlanıyor`);
+            return;
+          }
+        } catch (alternativeError) {
+          console.error(`Alternatif yöntem hatası:`, alternativeError.message);
+          // Hata durumunda işleme devam et - reçeteler boş dizi olarak kalsın
+          console.log(`Hata nedeniyle ${typeLabel} reçeteleri silinemeyecek - işleme devam ediliyor`);
+          return;
+        }
       }
       
       // Eğer hiç reçete bulunmazsa mesaj göster ve çık
