@@ -2800,8 +2800,53 @@ const GalvanizliTelNetsis = () => {
                 console.log(`YMGT için yeni kayıt oluşturuldu, ID: ${result.id}`);
                 // YmGtId değişkenini güncelle
                 ymGtId = result.id;
+              } 
+              // 409 Conflict durumunu ele al (kayıt zaten var ama ID farklı)
+              else if (createResponse && createResponse.status === 409) {
+                console.log(`YMGT kaydı zaten mevcut (409 Conflict). Mevcut kaydı bulmaya çalışıyoruz...`);
+                
+                // Özel durum: stok_kodu ile tüm kayıtları sorgula
+                try {
+                  // stok_kodu tam eşleşme ile tüm kayıtları getir
+                  const searchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(ymGtStokKodu)}`);
+                  
+                  if (searchResponse && searchResponse.ok) {
+                    const results = await searchResponse.json();
+                    if (Array.isArray(results) && results.length > 0) {
+                      console.log(`Mevcut YMGT kaydı bulundu: ${results[0].id}`);
+                      // YmGtId değişkenini güncelle
+                      ymGtId = results[0].id;
+                    } else {
+                      // Kayıt bulunamadı - alternatif arama
+                      const likeSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtStokKodu.substring(0, 12))}`);
+                      
+                      if (likeSearchResponse && likeSearchResponse.ok) {
+                        const likeResults = await likeSearchResponse.json();
+                        if (Array.isArray(likeResults) && likeResults.length > 0) {
+                          // En uygun eşleşmeyi bul
+                          const bestMatch = likeResults.find(item => item.stok_kodu === ymGtStokKodu) || likeResults[0];
+                          console.log(`Benzer YMGT kaydı bulundu: ${bestMatch.id}`);
+                          // YmGtId değişkenini güncelle
+                          ymGtId = bestMatch.id;
+                        } else {
+                          console.error(`YMGT için uygun kayıt bulunamadı! Reçete eklenemeyecek.`);
+                          return;
+                        }
+                      } else {
+                        console.error(`YMGT için uygun kayıt bulunamadı! Reçete eklenemeyecek.`);
+                        return;
+                      }
+                    }
+                  } else {
+                    console.error(`YMGT arama işlemi başarısız! Reçete eklenemeyecek.`);
+                    return;
+                  }
+                } catch (searchError) {
+                  console.error(`YMGT arama hatası: ${searchError.message}`);
+                  return;
+                }
               } else {
-                console.error(`YMGT kaydı oluşturulamadı! Reçete eklenemeyecek.`);
+                console.error(`YMGT kaydı oluşturulamadı! HTTP ${createResponse ? createResponse.status : 'unknown'}`);
                 // YMGT oluşturulamazsa, reçete de eklenemez, bu bloğu atla
                 return;
               }
@@ -3132,8 +3177,52 @@ const GalvanizliTelNetsis = () => {
                 // YmStIds dizisini güncelle
                 ymStIds[i] = result.id;
                 continue; // Yeni oluşturulan ID ile bir sonraki döngüde işlem yap
+              } 
+              // 409 Conflict durumunu ele al (kayıt zaten var)
+              else if (createResponse && createResponse.status === 409) {
+                console.log(`YMST kaydı zaten mevcut (409 Conflict). Mevcut kaydı bulmaya çalışıyoruz...`);
+                
+                // Özel durum: stok_kodu ile tüm kayıtları sorgula
+                try {
+                  // stok_kodu tam eşleşme ile kayıtları getir
+                  const searchResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+                  
+                  if (searchResponse && searchResponse.ok) {
+                    const results = await searchResponse.json();
+                    if (Array.isArray(results) && results.length > 0) {
+                      console.log(`Mevcut YMST kaydı bulundu: ${results[0].id}`);
+                      // YmStIds dizisini güncelle
+                      ymStIds[i] = results[0].id;
+                      continue; // Bulunan ID ile bir sonraki döngüde işlem yap
+                    } else {
+                      // Kayıt bulunamadı - alternatif arama
+                      const baseCode = ymSt.stok_kodu.split('.').slice(0, 3).join('.');
+                      const likeSearchResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+                      
+                      if (likeSearchResponse && likeSearchResponse.ok) {
+                        const likeResults = await likeSearchResponse.json();
+                        if (Array.isArray(likeResults) && likeResults.length > 0) {
+                          // En uygun eşleşmeyi bul
+                          const bestMatch = likeResults.find(item => item.stok_kodu === ymSt.stok_kodu) || likeResults[0];
+                          console.log(`Benzer YMST kaydı bulundu: ${bestMatch.id}`);
+                          // YmStIds dizisini güncelle
+                          ymStIds[i] = bestMatch.id;
+                          continue; // Bulunan ID ile bir sonraki döngüde işlem yap
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Tüm alternatif aramalar başarısız oldu
+                  console.error(`YMST ${ymSt.stok_kodu} için uygun kayıt bulunamadı! İşlem atlanıyor.`);
+                  continue; // Bu YMST için işlemi atla
+                  
+                } catch (searchError) {
+                  console.error(`YMST arama hatası: ${searchError.message}`);
+                  continue; // Bu YMST için işlemi atla
+                }
               } else {
-                console.error(`YMST ${ymSt.stok_kodu} kaydı oluşturulamadı! İşlem atlanıyor.`);
+                console.error(`YMST ${ymSt.stok_kodu} kaydı oluşturulamadı! HTTP ${createResponse ? createResponse.status : 'unknown'}`);
                 continue; // Bu YMST için işlemi atla
               }
             } catch (createError) {
