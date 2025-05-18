@@ -2149,7 +2149,57 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Veritabanı için MM GT verisi oluştur - Excel formatıyla tam uyuşum için güncellendi
+  /**
+   * Verilen bir sequence değerini kontrol eder ve geçerli olduğunu doğrular
+   * @param {string} sequence - Kontrol edilecek sequence
+   * @returns {string} - Doğrulanmış sequence değeri
+   */
+  const validateSequence = (sequence) => {
+    if (!sequence) return '00';
+    
+    // Sequence değeri bir sayı ve 0-99 arasında olmalı
+    if (!/^\d{1,2}$/.test(sequence)) {
+      console.error(`Geçersiz sequence formatı: ${sequence}, varsayılan 00 kullanılıyor`);
+      return '00';
+    }
+    
+    // 1-9 arası değerleri 01-09 formatına dönüştür
+    return sequence.padStart(2, '0');
+  };
+
+  /**
+   * Bir sequence değerini bir arttırır ve doğru formatı sağlar
+   * @param {string} sequence - Arttırılacak sequence
+   * @returns {string} - Arttırılmış sequence değeri
+   */
+  const incrementSequence = (sequence) => {
+    // Sequence null/undefined ise veya geçersiz ise 00 kullan
+    if (!sequence || !/^\d{1,2}$/.test(sequence)) {
+      console.warn(`Geçersiz sequence: ${sequence}, 01 ile başlanıyor`);
+      return '01';
+    }
+    
+    // 00 ise, 01 ile başla
+    if (sequence === '00') {
+      return '01';
+    }
+    
+    // Mevcut sequence'i arttır
+    const nextVal = parseInt(sequence, 10) + 1;
+    
+    // 99'dan büyükse 00'a geri dön (döngüsel)
+    if (nextVal > 99) {
+      console.warn('Sequence 99\'u aştı, 00\'a sıfırlanıyor');
+      return '00';
+    }
+    
+    // Padded 2-digit format ile dön
+    return nextVal.toString().padStart(2, '0');
+  };
+
   const generateMmGtDatabaseData = (sequence = '00') => {
+    // Sequence değerini doğrula
+    const validSequence = validateSequence(sequence);
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     
@@ -2158,8 +2208,11 @@ const GalvanizliTelNetsis = () => {
     const toleransPlusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinusValue = parseFloat(mmGtData.tolerans_minus) || 0;
 
+    // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
+    console.log(`MMGT için doğrulanmış sequence değeri: ${validSequence}`);
     return {
-      stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
+      stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
+      sequence: validSequence, // Sequence değerini ayrıca sakla
       stok_adi: generateStokAdi(),
       grup_kodu: 'MM',
       kod_1: 'GT',
@@ -2222,14 +2275,20 @@ const GalvanizliTelNetsis = () => {
 
   // Veritabanı için YM GT verisi oluştur - Excel formatına tam uyumlu
   const generateYmGtDatabaseData = (sequence = '00') => {
+    // Sequence değerini doğrula - MMGT ile aynı sequence kullanılmalı
+    const validSequence = validateSequence(sequence);
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     const capForExcel = capValue.toFixed(2);
     const toleransPlusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinusValue = parseFloat(mmGtData.tolerans_minus) || 0;
     
+    // Sequence değerlerinin MMGT ile aynı olduğunu logla
+    console.log(`YMGT için kullanılan sequence değeri: ${validSequence} (MMGT ile aynı olmalı)`);
+    
     return {
-      stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
+      stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
+      sequence: validSequence, // Sequence değerini ayrıca sakla
       stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
@@ -2312,6 +2371,67 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Reçeteleri kaydet - Yeni 1:1:n ilişki modeli ile
+  /**
+   * Aynı cap, kod_2, vb. özelliklere sahip ürünler için en yüksek sequence değerini bulur
+   * @returns {Promise<string>} - Bulunan en yüksek sequence değeri veya '00'
+   */
+  const findHighestSequence = async () => {
+    try {
+      // Çap ve kod_2 değerleri için arama kriterleri oluştur
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const searchPattern = `GT.${mmGtData.kod_2}.${capFormatted}.`;
+      
+      // Tüm MM GT ürünlerini getir
+      const mmGtResponse = await fetchWithAuth(API_URLS.galMmGt);
+      if (!mmGtResponse || !mmGtResponse.ok) {
+        console.warn('MM GT ürünleri alınamadı, sequence "00" kullanılacak');
+        return '00';
+      }
+      
+      const allMmGt = await mmGtResponse.json();
+      if (!Array.isArray(allMmGt) || allMmGt.length === 0) {
+        console.warn('MM GT ürünü bulunamadı, sequence "00" kullanılacak');
+        return '00';
+      }
+      
+      // Benzer ürünleri filtrele
+      const similarProducts = allMmGt.filter(product => 
+        product.stok_kodu && product.stok_kodu.startsWith(searchPattern)
+      );
+      
+      if (similarProducts.length === 0) {
+        console.log('Benzer ürün bulunamadı, sequence "00" kullanılacak');
+        return '00';
+      }
+      
+      // En yüksek sequence değerini bul
+      let highestSequence = '00';
+      
+      for (const product of similarProducts) {
+        const parts = product.stok_kodu.split('.');
+        if (parts.length === 4) {
+          const currentSequence = parts[3];
+          
+          // Mevcut sequence numerik değer kontrolü
+          if (/^\d{2}$/.test(currentSequence)) {
+            // Sayısal olarak karşılaştır (00 < 01 < 02 < ... < 99)
+            if (parseInt(currentSequence, 10) > parseInt(highestSequence, 10)) {
+              highestSequence = currentSequence;
+            }
+          }
+        }
+      }
+      
+      // Bir sonraki sequence değerini hesapla
+      const nextSequence = incrementSequence(highestSequence);
+      console.log(`Bulunan en yüksek sequence değeri: ${highestSequence}, bir sonraki: ${nextSequence}`);
+      return nextSequence;
+    } catch (error) {
+      console.error('Sequence arama hatası:', error);
+      return '00';
+    }
+  };
+  
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     try {
       const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
