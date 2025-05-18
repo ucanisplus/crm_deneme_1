@@ -2696,44 +2696,73 @@ const GalvanizliTelNetsis = () => {
             console.log("REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
             
             // Başka bir reçete ile çakışma olabilir mi kontrol et
-            const checkResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
-            if (checkResponse && checkResponse.ok) {
-              const existingRecipes = await checkResponse.json();
-              const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== mamulKodu);
-              if (conflictRecipe) {
-                console.error(`ÇAKIŞMA! Farklı mamul_kodu ile reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
-                await fetchWithAuth(`${API_URLS.galMmGtRecete}/${conflictRecipe.id}`, { method: 'DELETE' });
+            try {
+              const checkResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
+              if (checkResponse && checkResponse.ok) {
+                const existingRecipes = await checkResponse.json();
+                const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== mamulKodu);
+                if (conflictRecipe) {
+                  console.error(`ÇAKIŞMA! Farklı mamul_kodu ile reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
+                  try {
+                    await fetchWithAuth(`${API_URLS.galMmGtRecete}/${conflictRecipe.id}`, { method: 'DELETE' });
+                  } catch (deleteError) {
+                    console.error(`Çakışan reçete silinemedi: ${deleteError.message}`);
+                    // Silme hatasına rağmen devam et
+                  }
+                }
+              } else if (checkResponse && checkResponse.status === 404) {
+                // 404 hatası - reçete hiç yok, sorun değil, devam et
+                console.log(`MMGT reçeteleri henüz oluşturulmamış (404) - çakışma kontrolüne gerek yok`);
+              } else {
+                // Diğer API hataları
+                console.warn(`MMGT reçeteleri sorgulanamadı - HTTP ${checkResponse ? checkResponse.status : 'unknown'}`);
               }
+            } catch (checkError) {
+              console.error(`Reçete çakışması kontrol edilirken hata: ${checkError.message}`);
+              // Hata durumunda bile işleme devam et
             }
             
-            await fetchWithAuth(API_URLS.galMmGtRecete, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ...receteParams,
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                ua_dahil_edilsin: 'evet',
-                son_operasyon: 'evet',
-                recete_top: 1,
-                fire_orani: 0.0004, // Match Excel format
-                // Additional fields for better Netsis compatibility - match Excel
-                miktar_sabitle: 'H',
-                stok_maliyet: 'S',
-                fire_mik: '0',
-                sabit_fire_mik: '0',
-                istasyon_kodu: '',
-                hazirlik_suresi: key.includes('01') ? 0 : null,
-                uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                oncelik: '0',
-                planlama_orani: '100',
-                alt_pol_da_transfer: 'H',
-                alt_pol_ambar_cikis: 'H',
-                alt_pol_uretim_kaydi: 'H',
-                alt_pol_mrp: 'H',
-                ic_dis: 'I'
-              })
-            });
+            // Reçeteyi oluşturmaya devam et
+            try {
+              console.log(`MMGT reçetesi kaydediliyor: ${mmGtId}, ${mamulKodu}, ${key}`);
+              const saveResponse = await fetchWithAuth(API_URLS.galMmGtRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...receteParams,
+                  olcu_br_bilesen: '1',
+                  aciklama: getReceteAciklama(key),
+                  ua_dahil_edilsin: 'evet',
+                  son_operasyon: 'evet',
+                  recete_top: 1,
+                  fire_orani: 0.0004, // Match Excel format
+                  // Additional fields for better Netsis compatibility - match Excel
+                  miktar_sabitle: 'H',
+                  stok_maliyet: 'S',
+                  fire_mik: '0',
+                  sabit_fire_mik: '0',
+                  istasyon_kodu: '',
+                  hazirlik_suresi: key.includes('01') ? 0 : null,
+                  uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
+                  oncelik: '0',
+                  planlama_orani: '100',
+                  alt_pol_da_transfer: 'H',
+                  alt_pol_ambar_cikis: 'H',
+                  alt_pol_uretim_kaydi: 'H',
+                  alt_pol_mrp: 'H',
+                  ic_dis: 'I'
+                })
+              });
+              
+              if (saveResponse && saveResponse.ok) {
+                console.log(`MMGT reçetesi başarıyla kaydedildi: ${key}`);
+              } else {
+                console.error(`MMGT reçetesi kaydedilemedi: ${key}, HTTP ${saveResponse ? saveResponse.status : 'unknown'}`);
+              }
+            } catch (saveError) {
+              console.error(`MMGT reçetesi kaydedilirken hata: ${saveError.message}`);
+              // Kaydetme hatası oluşsa bile diğer reçeteleri eklemeye devam et
+            }
           }
         }
       }
@@ -2956,44 +2985,73 @@ const GalvanizliTelNetsis = () => {
               console.log("YMGT REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
               
               // Başka bir reçete ile çakışma olabilir mi kontrol et
-              const checkResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${existingYmGt.id}`);
-              if (checkResponse && checkResponse.ok) {
-                const existingRecipes = await checkResponse.json();
-                const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== ymGtStokKodu);
-                if (conflictRecipe) {
-                  console.error(`ÇAKIŞMA! Farklı mamul_kodu ile YMGT reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
-                  await fetchWithAuth(`${API_URLS.galYmGtRecete}/${conflictRecipe.id}`, { method: 'DELETE' });
+              try {
+                const checkResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${existingYmGt.id}`);
+                if (checkResponse && checkResponse.ok) {
+                  const existingRecipes = await checkResponse.json();
+                  const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== ymGtStokKodu);
+                  if (conflictRecipe) {
+                    console.error(`ÇAKIŞMA! Farklı mamul_kodu ile YMGT reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
+                    try {
+                      await fetchWithAuth(`${API_URLS.galYmGtRecete}/${conflictRecipe.id}`, { method: 'DELETE' });
+                    } catch (deleteError) {
+                      console.error(`Çakışan YMGT reçetesi silinemedi: ${deleteError.message}`);
+                      // Silme hatasına rağmen devam et
+                    }
+                  }
+                } else if (checkResponse && checkResponse.status === 404) {
+                  // 404 hatası - reçete hiç yok, sorun değil, devam et
+                  console.log(`YMGT reçeteleri henüz oluşturulmamış (404) - çakışma kontrolüne gerek yok`);
+                } else {
+                  // Diğer API hataları
+                  console.warn(`YMGT reçeteleri sorgulanamadı - HTTP ${checkResponse ? checkResponse.status : 'unknown'}`);
                 }
+              } catch (checkError) {
+                console.error(`YMGT reçete çakışması kontrol edilirken hata: ${checkError.message}`);
+                // Hata durumunda bile işleme devam et
               }
               
-              await fetchWithAuth(API_URLS.galYmGtRecete, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ...receteParams,
-                  olcu_br_bilesen: '1',
-                  aciklama: getReceteAciklama(key),
-                  recete_top: 1,
-                  fire_orani: 0.0004, // Match Excel format
-                  ua_dahil_edilsin: 'evet',
-                  son_operasyon: 'evet',
-                  // Additional fields for better Netsis compatibility - match Excel format
-                  miktar_sabitle: 'H',
-                  stok_maliyet: 'S',
-                  fire_mik: '0',
-                  sabit_fire_mik: '0',
-                  istasyon_kodu: '',
-                  hazirlik_suresi: key.includes('01') ? 0 : null,
-                  uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                  oncelik: '0',
-                  planlama_orani: '100',
-                  alt_pol_da_transfer: 'H',
-                  alt_pol_ambar_cikis: 'H',
-                  alt_pol_uretim_kaydi: 'H',
-                  alt_pol_mrp: 'H',
-                  ic_dis: 'I'
-                })
-              });
+              // Reçeteyi oluşturmaya devam et
+              try {
+                console.log(`YMGT reçetesi kaydediliyor: ${existingYmGt.id}, ${ymGtStokKodu}, ${key}`);
+                const saveResponse = await fetchWithAuth(API_URLS.galYmGtRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ...receteParams,
+                    olcu_br_bilesen: '1',
+                    aciklama: getReceteAciklama(key),
+                    recete_top: 1,
+                    fire_orani: 0.0004, // Match Excel format
+                    ua_dahil_edilsin: 'evet',
+                    son_operasyon: 'evet',
+                    // Additional fields for better Netsis compatibility - match Excel format
+                    miktar_sabitle: 'H',
+                    stok_maliyet: 'S',
+                    fire_mik: '0',
+                    sabit_fire_mik: '0',
+                    istasyon_kodu: '',
+                    hazirlik_suresi: key.includes('01') ? 0 : null,
+                    uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
+                    oncelik: '0',
+                    planlama_orani: '100',
+                    alt_pol_da_transfer: 'H',
+                    alt_pol_ambar_cikis: 'H',
+                    alt_pol_uretim_kaydi: 'H',
+                    alt_pol_mrp: 'H',
+                    ic_dis: 'I'
+                  })
+                });
+                
+                if (saveResponse && saveResponse.ok) {
+                  console.log(`YMGT reçetesi başarıyla kaydedildi: ${key}`);
+                } else {
+                  console.error(`YMGT reçetesi kaydedilemedi: ${key}, HTTP ${saveResponse ? saveResponse.status : 'unknown'}`);
+                }
+              } catch (saveError) {
+                console.error(`YMGT reçetesi kaydedilirken hata: ${saveError.message}`);
+                // Kaydetme hatası oluşsa bile diğer reçeteleri eklemeye devam et
+              }
             }
           }
         }
@@ -3185,7 +3243,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Mevcut reçeteleri sil
+  // Mevcut reçeteleri sil - 404 hata yönetimi ile geliştirilmiş versiyon
   const deleteExistingRecipes = async (type, productId) => {
     try {
       let apiUrl = '';
@@ -3208,36 +3266,73 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`${typeLabel} reçeteleri aranıyor: ${paramName}=${productId}`);
       
+      // 404 hata durumunda alternatif yöntem kullan
+      let recipes = [];
       try {
         const response = await fetchWithAuth(`${apiUrl}?${paramName}=${productId}`);
+        
+        // Yanıt varsa ve başarılıysa
         if (response && response.ok) {
-          const recipes = await response.json();
+          recipes = await response.json();
           console.log(`${typeLabel} için ${recipes.length} reçete bulundu`);
+        } 
+        // 404 hatası veya başka bir hata durumunda
+        else {
+          const status = response ? response.status : 'unknown';
+          console.log(`${typeLabel} için reçete bulunamadı - ${status} yanıtı alındı`);
           
-          // Her reçeteyi sil
-          for (const recipe of recipes) {
-            console.log(`${typeLabel} reçete siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, bilesen_kodu=${recipe.bilesen_kodu}`);
-            try {
-              await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
-            } catch (deleteError) {
-              console.error(`${typeLabel} reçetesi silinemedi: ${deleteError.message}`);
-              // Silme hatası oluşsa bile diğer reçeteleri silmeye devam et
-            }
+          // 404 hatası durumunda boş dizi döndür ve işleme devam et
+          if (status === 404) {
+            console.log(`${typeLabel} için reçete bulunamadı (404) - yeni reçeteler oluşturulacak`);
+            return; // Hiç reçete yoksa silmeye gerek yok
           }
-          
-          if (recipes.length > 0) {
-            console.log(`${typeLabel} reçeteleri başarıyla silindi (${recipes.length} adet)`);
-          } else {
-            console.log(`${typeLabel} için silinecek reçete bulunamadı`);
-          }
-        } else {
-          console.log(`${typeLabel} reçeteleri bulunamadı (muhtemelen 404 hatası)`);
         }
       } catch (fetchError) {
         console.error(`${typeLabel} reçeteleri aranırken hata:`, fetchError.message);
+        // Hata durumunda işleme devam et - reçeteler boş dizi olarak kalsın
+        console.log(`Hata nedeniyle ${typeLabel} reçeteleri silinemeyecek - işleme devam ediliyor`);
+        return;
+      }
+      
+      // Eğer hiç reçete bulunmazsa mesaj göster ve çık
+      if (!recipes || recipes.length === 0) {
+        console.log(`${typeLabel} için silinecek reçete bulunamadı`);
+        return;
+      }
+      
+      // Reçeteleri tek tek silmeyi dene
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const recipe of recipes) {
+        console.log(`${typeLabel} reçete siliniyor: ID=${recipe.id}, mamul_kodu=${recipe.mamul_kodu}, bilesen_kodu=${recipe.bilesen_kodu}`);
+        try {
+          const deleteResponse = await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
+          
+          if (deleteResponse && deleteResponse.ok) {
+            successCount++;
+          } else {
+            console.error(`${typeLabel} reçetesi silinemedi: ID=${recipe.id}, HTTP ${deleteResponse ? deleteResponse.status : 'unknown'}`);
+            errorCount++;
+          }
+        } catch (deleteError) {
+          console.error(`${typeLabel} reçetesi silinirken hata: ${deleteError.message}`);
+          errorCount++;
+          // Silme hatası oluşsa bile diğer reçeteleri silmeye devam et
+        }
+      }
+      
+      // Özet bilgisi göster
+      if (successCount > 0) {
+        console.log(`${typeLabel} reçeteleri silindi: ${successCount} başarılı, ${errorCount} hatalı`);
+      } else if (errorCount > 0) {
+        console.warn(`${typeLabel} reçetelerinden hiçbiri silinemedi! (${errorCount} hata)`);
+      } else {
+        console.log(`${typeLabel} için işlem yapılacak reçete bulunmadı`);
       }
     } catch (error) {
       console.error(`${type.toUpperCase()} reçeteleri silinirken genel hata:`, error);
+      // Genel hata durumunda bile işleme devam etmesine izin ver
     }
   };
 
