@@ -1,0 +1,45 @@
+Stok Kartı:
+
+MMGT:
+
+
+Stok Kodu	Stok Adı	Grup Kodu	Kod-1	Kod-2	Cari/Satıcı Kodu	İngilizce İsim	Satıcı İsmi	Muh. Detay 	Depo Kodu	Br-1	Br-2	Pay-1	Payda-1	Çevrim Değeri-1	Ölçü Br-3	Çevrim Pay-2	Çevrim Payda-2	Çevrim Değeri-2	Çap	Kaplama	Min Mukavemet	Max Mukavemet	KG	İç Çap/Boy Çubuk AD	Dış Çap/En Çubuk AD	Çap2	Shrink	Tolerans(+)	Tolerans(-)	Ebat(En)	Göz Aralığı	Ebat(Boy)	Hasır Tipi	Özel Saha 8 (Alf.)	Alış Fiyatı	Fiyat Birimi	Satış Fiyatı-1	Satış Fiyatı-2	Satış Fiyatı-3	Satış Fiyatı-4	Satış Tipi	Döviz Alış	Döviz Maliyeti	Döviz Satış Fiyatı	Azami Stok	Asgari Stok	Döv.Tutar	Döv.Tipi	Bekleme Süresi	Temin Süresi	Birim Ağırlık	Nakliye Tutar	Satış KDV Oranı	Alış KDV Oranı	Stok Türü	Mali Grup Kodu	Barkod 1	Barkod 2	Barkod 3	Kod-3	Kod-4	Kod-5	Esnek Yapılandır	Süper Reçete Kullanılsın	Bağlı Stok Kodu	Yapılandırma Kodu	Yap. Açıklama	Alış Döviz Tipi	Gümrük Tarife Kodu	Dağıtıcı Kodu	Menşei	METARIAL	DIA (MM)	DIA TOL (MM) +	DIA TOL (MM) -	ZING COATING (GR/M2)	TENSILE ST. (MPA) MIN	TENSILE ST. (MPA) MAX	WAX	LIFTING LUGS	UNWINDING	CAST KONT. (CM)	HELIX KONT. (CM)	ELONGATION (%) MIN	COIL DIMENSIONS (CM) ID	COIL DIMENSIONS (CM) OD	COIL WEIGHT (KG) 	COIL WEIGHT (KG) MIN	COIL WEIGHT (KG) MAX
+GT.NIT.0250.01	Galvanizli Tel 2,50 mm -0,06/+0,00 120 gr/m²400-500 MPa ID:45 cm OD:75 cm 750 kg	MM	GT	NIT		Galvanized Steel Wire 2,50 mm -0,06/+0,00 120 gr/m²400-500 MPa ID:45 cm OD:75 cm 750 kg		26	36	KG	TN	1	1,000	0		1	1	1	2.50	120	400	500	750	45	75		evet	0	0						0	1	0	0	0	0	1	0	0	0	0	0		0	0	0	0	0	20	20	D								H	H				2	721720300012		052	Galvanizli Tel 	2,50 	0,00 	0,06	120	400	500	+	+					45	75 	750 		
+
+YMGT:
+
+Stok Kodu	Stok Adı	Grup Kodu	Kod-1	Kod-2	Cari/Satıcı Kodu	İngilizce İsim	Satıcı İsmi	Muh. Detay 	Depo Kodu	Br-1	Br-2	Pay-1	Payda-1	Çevrim Değeri-1	Ölçü Br-3	Çevrim Pay-2	Çevrim Payda-2	Çevrim Değeri-2	Çap	Kaplama	Min Mukavemet	Max Mukavemet	KG	İç Çap/Boy Çubuk AD	Dış Çap/En Çubuk AD	Çap2	Shrink	Tolerans(+)	Tolerans(-)	Ebat(En)	Göz Aralığı	Ebat(Boy)	Hasır Tipi	Özel Saha 8 (Alf.)	Alış Fiyatı	Fiyat Birimi	Satış Fiyatı-1	Satış Fiyatı-2	Satış Fiyatı-3	Satış Fiyatı-4	Satış Tipi	Döviz Alış	Döviz Maliyeti	Döviz Satış Fiyatı	Azami Stok	Asgari Stok	Döv.Tutar	Döv.Tipi	Bekleme Süresi	Temin Süresi	Birim Ağırlık	Nakliye Tutar	Satış KDV Oranı	Alış KDV Oranı	Stok Türü	Mali Grup Kodu	Barkod 1	Barkod 2	Barkod 3	Kod-3	Kod-4	Kod-5	Esnek Yapılandır	Süper Reçete Kullanılsın	Bağlı Stok Kodu	Yapılandırma Kodu	Yap. Açıklama	Alış Döviz Tipi	Gümrük Tarife Kodu	Dağıtıcı Kodu	Menşei
+YM.GT.NIT.0250.01	YM Galvanizli Tel 2,50 mm -0,06/+0,00 120 gr/m²400-500 MPa ID:45 cm OD:75 cm 750 kg	YM	GT	NIT	Tel 2,50 mm -0,06/+0,00 120 gr/m²400-500 MPa ID:45 cm OD:75 cm 750 kg	Galvanized Steel WireTel 2,50 mm -0,06/+0,00 120 gr/m²400-500 MPa ID:45 cm OD:75 cm 750 kg		83	35	KG	TN	1	1,000	0		1	1	1	2.50	120	400	500	750	45	75		evet	0.00	0.06						0	1	0	0	0	0	1	0	0	0	0	0		0	0	0	0	0	20	20	D								H	H							
+
+YMST:
+
+Stok Kodu	Stok Adı	Grup Kodu	Kod-1	Kod-2	Kod-3	Satış KDV Oranı	Muh.Detay	Depo Kodu	Br-1	Br-2	Pay-1	Payda-1	Çevrim Değeri-1	Ölçü Br-3	Çevrim Pay-2	Çevrim Payda-2	Çevrim Değeri-2	Alış Fiyatı	Fiyat Birimi	Satış Fiyatı-1	Satış Fiyatı-2	Satış Fiyatı-3	Satış Fiyatı-4	Döviz Tip	Döviz Alış	Döviz Maliyeti	Döviz Satış Fiyatı	Azami Stok	Asgari Stok	Döv.Tutar	Döv.Tipi	Alış Döviz Tipi	Bekleme Süresi	Temin Süresi	Birim Ağırlık	Nakliye Tutar	Stok Türü	Mali Grup Kodu	İngilizce İsim	Özel Saha 1 (Say.)	Özel Saha 2 (Say.)	Özel Saha 3 (Say.)	Özel Saha 4 (Say.)	Özel Saha 5 (Say.)	Özel Saha 6 (Say.)	Özel Saha 7 (Say.)	Özel Saha 8 (Say.)	Özel Saha 1 (Alf.)	Özel Saha 2 (Alf.)	Özel Saha 3 (Alf.)	Özel Saha 4 (Alf.)	Özel Saha 5 (Alf.)	Özel Saha 6 (Alf.)	Özel Saha 7 (Alf.)	Özel Saha 8 (Alf.)	Kod-4	Kod-5	Esnek Yapılandır	Süper Reçete Kullanılsın	Bağlı Stok Kodu	Yapılandırma Kodu	Yap. Açıklama
+YM.ST.0120.0550.1006	YM Siyah Tel  0120 mm HM:0550.1006	YM	ST			20	28	35	KG	TN	1	1,000	0		1	1	1	0	1	0	0	0	0	1	0	0	0	0	0		0	0	0	0	0	0	D			1	0	0	0	0	0	0	0											H	H			
+
+
+
+Reçete:
+MMGT Reçete:
+
+Mamul Kodu(*)	Reçete Top.	Fire Oranı (%)	Oto.Reç.	Ölçü Br.	Sıra No(*)	Operasyon Bileşen	Bileşen Kodu(*)	Ölçü Br. - Bileşen	Miktar(*)	Açıklama	Miktar Sabitle	Stok/Maliyet	Fire Mik.	Sabit Fire Mik.	İstasyon Kodu	Hazırlık Süresi	Üretim Süresi	Ü.A.Dahil Edilsin	Son Operasyon	Öncelik	Planlama Oranı	Alternatif Politika - D.A.Transfer Fişi	Alternatif Politika - Ambar Ç. Fişi	Alternatif Politika - Üretim S.Kaydı	Alternatif Politika - MRP	İÇ/DIŞ
+GT.NIT.0250.00	1	0.0004		KG	1	Bileşen	YM.GT.NIT.0250.00	1	1	Galvanizli Tel Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		DK	2	Operasyon	GTPKT01	1	0.0125	Paketleme Operasyonu							0.0125	evet	evet							
+GT.NIT.0250.00	1	0.0004		AD	3	Bileşen	AMB.ÇEM.KARTON.GAL	1	0.01	Karton Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		KG	4	Bileşen	AMB.SHRİNK.200*140CM	1	0.00125	Naylon Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		AD	5	Bileşen	SM.7MMHALKA	1	0.005	Kaldırma Kancası Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		KG	6	Bileşen	AMB.APEX CEMBER 38X080	1	0.0015	Çelik çember Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		AD	7	Bileşen	AMB.TOKA.SIGNODE.114P. DKP	1	0.005	Çember Tokası Tüketim Miktarı								evet	evet							
+GT.NIT.0250.00	1	0.0004		AD	8	Bileşen	SM.DESİ.PAK	1	0.00125	Slikajel Tüketim Miktarı								evet	evet							
+
+
+YMGT REÇETE:
+
+Mamul Kodu(*)	Reçete Top.	Fire Oranı (%)	Oto.Reç.	Ölçü Br.	Sıra No(*)	Operasyon Bileşen	Bileşen Kodu(*)	Ölçü Br. - Bileşen	Miktar(*)	Açıklama	Miktar Sabitle	Stok/Maliyet	Fire Mik.	Sabit Fire Mik.	İstasyon Kodu	Hazırlık Süresi	Üretim Süresi	Ü.A.Dahil Edilsin	Son Operasyon	Öncelik	Planlama Oranı	Alternatif Politika - D.A.Transfer Fişi	Alternatif Politika - Ambar Ç. Fişi	Alternatif Politika - Üretim S.Kaydı	Alternatif Politika - MRP	İÇ/DIŞ
+YM.GT.NIT.0250.00	1	0		KG	1	Bileşen	YM.ST.0245.0600.1006	1	1	Galvanizli Tel Tüketim Miktarı																
+YM.GT.NIT.0250.00	1	0		DK	2	Operasyon	GLV01	1	0.463417487	Galvanizleme Operasyonu							0.463417487									
+YM.GT.NIT.0250.00	1	0		KG	3	Bileşen	150 03	1	0.060580828	Çinko Tüketim Miktarı																
+YM.GT.NIT.0250.00	1	0		KG	4	Bileşen	SM.HİDROLİK.ASİT	1	0.005714286	Asit Tüketim Miktarı																
+
+Mamul Kodu(*)	Reçete Top.	Fire Oranı (%)	Oto.Reç.	Ölçü Br.	Sıra No(*)	Operasyon Bileşen	Bileşen Kodu(*)	Ölçü Br. - Bileşen	Miktar(*)	Açıklama	Miktar Sabitle	Stok/Maliyet	Fire Mik.	Sabit Fire Mik.	İstasyon Kodu	Hazırlık Süresi	Üretim Süresi	Ü.A.Dahil Edilsin	Son Operasyon	Öncelik	Planlama Oranı	Alternatif Politika - D.A.Transfer Fişi	Alternatif Politika - Ambar Ç. Fişi	Alternatif Politika - Üretim S.Kaydı	Alternatif Politika - MRP	İÇ/DIŞ
+YM.ST.0700.0800.1010	1			KG	1	Bileşen	FLM.0800.1010	1	1	Filmaşin Tüketimi																
+YM.ST.0700.0800.1010	1			DK	2	Operasyon	TLC01	1	0.022986979	Tel Çekme Operasyonu							0.022986979									

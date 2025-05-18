@@ -2649,48 +2649,66 @@ const GalvanizliTelNetsis = () => {
         }
         
         // MMGT reçete sıralaması: Excel ile TAM UYUMLU kesin sıralama
-        // Sıralama: 1. YM.GT, 2. GTPKT01, 3. KARTON, 4. SHRİNK, 5. HALKA, 6. CEMBER, 7. TOKA, 8. DESİ, 9. Diğerleri
+        // DÜZELTME: Sıralama: 1. YM.GT, 2. GTPKT01, 3. KARTON, 4. HALKA, 5. CEMBER, 6. TOKA, 7. DESİ, 8. SHRINK (sadece bir adet), 9. Diğerleri
         const recipeEntries = Object.entries(mmGtRecipe);
         
         // Her bileşeni TAMAMEN Excel ile aynı şekilde bul - KESIN ISIMLERIYLE
         const ymGtEntry = recipeEntries.find(([key]) => key.includes('YM.GT.'));
         const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
         const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
-        const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
         const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
         const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
         const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
         const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
+        
+        // DÜZELTME: Shrink bileşeni işleniyor - eğer birden fazla var ise sadece birini al
+        let shrinkEntry = null;
+        const shrinkEntries = recipeEntries.filter(([key]) => key.includes('AMB.SHRİNK.'));
+        if (shrinkEntries.length > 0) {
+          // Sadece ilk shrink girişini al - diğerleri yok sayılacak
+          shrinkEntry = shrinkEntries[0];
+          
+          // Uyarı ver
+          if (shrinkEntries.length > 1) {
+            console.warn(`⚠️ Birden fazla Shrink bileşeni var! Sadece ${shrinkEntry[0]} kullanılacak, diğerleri atlanacak.`);
+            console.warn(`Shrink bileşenleri:`, shrinkEntries.map(([key]) => key).join(', '));
+          }
+        }
         
         // Diğer tüm bileşenler - Excel ile TAM UYUMLU şekilde tanımla
         const otherEntries = recipeEntries.filter(([key]) => 
           !key.includes('YM.GT.') && 
           key !== 'GTPKT01' &&
           key !== 'AMB.ÇEM.KARTON.GAL' &&
-          !key.includes('AMB.SHRİNK.') &&
+          !key.includes('AMB.SHRİNK.') && // Tüm shrink bileşenlerini hariç tut
           key !== 'SM.7MMHALKA' &&
           key !== 'AMB.APEX CEMBER 38X080' &&
           key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
           key !== 'SM.DESİ.PAK'
         );
         
-        // Excel formatına tam uygun sırada ekle
+        // DÜZELTME: Excel formatına tam uygun sırada ekle - Shrink en sonda
         const orderedEntries = [
           ymGtEntry, 
           gtpkt01Entry, 
           kartonEntry,
-          shrinkEntry,
           halkaEntry,
           cemberEntry,
           tokaEntry,
           desiEntry,
+          // Shrink en sonda yer alacak
+          shrinkEntry,
           ...otherEntries
         ].filter(Boolean);
         
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
+            // DÜZELTME: YM.ST kodları Bileşen olarak işaretlenmeli, operasyon değil
             const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
+            
+            // Tam kod kontrolü ve log kaydı
+            console.log(`📊 Bileşen sınıflandırması: ${key} -> ${operasyonBilesen}`);
             
             // Format the value exactly as it would appear in Excel, using points as decimal separators
             let formattedValue = value;
@@ -3038,19 +3056,54 @@ const GalvanizliTelNetsis = () => {
           // Sıralama: 1. YM.ST (ana), 2. GLV01, 3. Çinko, 4. Asit, 5. Diğerleri
           const recipeEntries = Object.entries(allRecipes.ymGtRecipe);
           
-          // Her bileşen türünü ayrı ayrı bul
-          const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') || key === mainYmSt.stok_kodu);
+          // Her bileşen türünü ayrı ayrı bul - tam eşleşme kontrolü ile
+          let ymStEntry = null;
+          
+          // Ana YM.ST için güvenlik kontrolleri
+          if (!mainYmSt || !mainYmSt.stok_kodu) {
+            console.error(`❌ HATA: Ana YM.ST bilgileri eksik veya geçersiz! YMGT reçetesi oluşturulamayabilir.`);
+          } else {
+            console.log(`🔍 Ana YM.ST aranıyor: ${mainYmSt.stok_kodu}`);
+            // Önce tam eşleşme ara
+            ymStEntry = recipeEntries.find(([key]) => key === mainYmSt.stok_kodu);
+            
+            // Tam eşleşme yoksa, kısmi eşleşme dene
+            if (!ymStEntry) {
+              const anyYmStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.'));
+              if (anyYmStEntry) {
+                console.warn(`⚠️ Ana YM.ST (${mainYmSt.stok_kodu}) reçetede bulunamadı, alternatif kullanılıyor: ${anyYmStEntry[0]}`);
+                ymStEntry = anyYmStEntry;
+              } else {
+                console.error(`❌ HATA: YMGT reçetesinde YM.ST bileşeni bulunamadı!`);
+              }
+            }
+          }
+          
+          // Kritik operasyon ve bileşenleri tam kod eşleşmesi ile bul
           const glv01Entry = recipeEntries.find(([key]) => key === 'GLV01');
           const cinkoEntry = recipeEntries.find(([key]) => key === '150 03');
           const asitEntry = recipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
           
-          // Diğer bileşenler
+          // Eksik kritik bileşenleri kontrol et ve uyar
+          if (!glv01Entry) {
+            console.error(`❌ HATA: YMGT reçetesinde GLV01 operasyonu bulunamadı!`);
+          }
+          
+          if (!cinkoEntry) {
+            console.warn(`⚠️ UYARI: YMGT reçetesinde çinko bileşeni (150 03) bulunamadı!`);
+          }
+          
+          if (!asitEntry) {
+            console.warn(`⚠️ UYARI: YMGT reçetesinde asit bileşeni (SM.HİDROLİK.ASİT) bulunamadı!`);
+          }
+          
+          // Diğer bileşenler - kesin kod eşleşmesi ile filtrele
           const otherEntries = recipeEntries.filter(([key]) => 
+            key !== (mainYmSt?.stok_kodu || '') && 
             !key.includes('YM.ST.') && 
             key !== 'GLV01' && 
             key !== '150 03' && 
-            key !== 'SM.HİDROLİK.ASİT' && 
-            key !== mainYmSt.stok_kodu
+            key !== 'SM.HİDROLİK.ASİT'
           );
           
           // Excel formatına tam uygun sırada ekle - HER ZAMAN SADECE 1 GLV01 OPERASYONu olmalı
@@ -3362,7 +3415,18 @@ const GalvanizliTelNetsis = () => {
           // YMST reçete sıralaması - Excel formatına uygun kesin sıralama 
           // Sıralama: 1. FLM, 2. TLC01 (tam bu sıra)
           const recipeEntries = Object.entries(ymStRecipe);
+          
+          // Filmaşin kodu doğru formatta olmalı
           const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+          if (flmEntry) {
+            // Filmaşin formatını kontrol et: FLM.XXXX.XXXX (örn. FLM.0550.1006)
+            const flmKey = flmEntry[0];
+            // Doğru format: FLM.XXXX.XXXX şeklinde olmalı, nokta ile ayrılmalı
+            if (!flmKey.match(/^FLM\.\d{4}\.\d{4}$/)) {
+              console.warn(`⚠️ FLM kodu hatalı formatta: ${flmKey}, düzeltilmeli`);
+            }
+          }
+          
           const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
           
           // Diğer bileşenler - normalde yoktur ama güvenlik için
@@ -3373,6 +3437,15 @@ const GalvanizliTelNetsis = () => {
           // Kesinlikle Excel sıralamasına uygun olacak şekilde ekle
           // FLM her zaman önce, TLC01 her zaman ikinci sırada
           const orderedEntries = [flmEntry, tlc01Entry, ...otherEntries].filter(Boolean);
+          
+          // Eğer orderedEntries içinde sadece bir tane FLM ve bir tane TLC01 yoksa uyarı ver
+          if (!flmEntry) {
+            console.error(`❌ HATA: YMST reçetesinde FLM bileşeni bulunamadı!`);
+          }
+          
+          if (!tlc01Entry) {
+            console.error(`❌ HATA: YMST reçetesinde TLC01 operasyonu bulunamadı!`);
+          }
           
           // Reçete girdisi yoksa uyarı ver ve devam et
           if (orderedEntries.length === 0) {
@@ -3393,13 +3466,18 @@ const GalvanizliTelNetsis = () => {
               }
               
               // Reçete parametrelerini hazırla
+              // DÜZELTME: YM.ST.xxxx formatındaki kodlar yanlışlıkla Operasyon olarak işaretlenmesin
+              const isOperation = key === 'TLC01' || key === 'GLV01' || (key.includes('01') && !key.includes('YM.ST.'));
+              
+              console.log(`📊 YMST Bileşen sınıflandırması: ${key} -> ${isOperation ? 'Operasyon' : 'Bileşen'}`);
+              
               const receteParams = {
                 ym_st_id: ymStId,
                 mamul_kodu: ymSt.stok_kodu,
                 bilesen_kodu: key,
                 miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
-                operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
+                operasyon_bilesen: isOperation ? 'Operasyon' : 'Bileşen',
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
@@ -3732,7 +3810,7 @@ const GalvanizliTelNetsis = () => {
     return 'Tüketim Miktarı';
   };
 
-  // Filmaşin kodu oluştur
+  // Filmaşin kodu oluştur - Excel formatına tam uyumlu
   const getFilmasinKodu = (ymSt) => {
     if (!ymSt) return 'FLM.0600.1006';
     
@@ -3740,14 +3818,26 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(ymSt.cap) || parseFloat(mmGtData.cap) || 0;
     let filmasin = ymSt.filmasin ? ymSt.filmasin.toString() : getFilmasinForCap(cap);
     
-    // Ensure 4 digits with leading zeros
-    filmasin = filmasin.padStart(4, '0');
+    // Ensure 4 digits with leading zeros - Excel formatı için önemli!
+    // Format: XXXX (0550, 0600, 0700, etc.)
+    const filmasinNumber = parseInt(filmasin, 10);
+    filmasin = filmasinNumber.toString().padStart(4, '0');
     
     // Get quality based on cap or use default
     let quality = ymSt.quality || getQualityForCap(cap) || '1006';
     
+    // DÜZELTME: Format kontrolü - Excel formatıyla tam uyumlu olmalı
+    const filmasinCode = `FLM.${filmasin}.${quality}`;
+    
+    // Doğru format kontrolü: FLM.XXXX.XXXX (örn. FLM.0550.1006)
+    const validFormat = /^FLM\.\d{4}\.\d{4}$/.test(filmasinCode);
+    
+    if (!validFormat) {
+      console.warn(`⚠️ UYARI: Oluşturulan FLM kodu hatalı formatta: ${filmasinCode}, format düzeltilmeli`);
+    }
+    
     // Return formatted code in the correct format: FLM.0800.1010
-    return `FLM.${filmasin}.${quality}`;
+    return filmasinCode;
   };
 
   // TLC_Hizlar cache - we'll fetch the data from the database
