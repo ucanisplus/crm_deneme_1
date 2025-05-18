@@ -2212,7 +2212,6 @@ const GalvanizliTelNetsis = () => {
     console.log(`MMGT için doğrulanmış sequence değeri: ${validSequence}`);
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      sequence: validSequence, // Sequence değerini ayrıca sakla
       stok_adi: generateStokAdi(),
       grup_kodu: 'MM',
       kod_1: 'GT',
@@ -2288,7 +2287,6 @@ const GalvanizliTelNetsis = () => {
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      sequence: validSequence, // Sequence değerini ayrıca sakla
       stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
