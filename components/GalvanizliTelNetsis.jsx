@@ -2775,90 +2775,147 @@ const GalvanizliTelNetsis = () => {
           ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
           console.log(`YMGT için yedek stok_kodu oluşturuldu: ${ymGtStokKodu}`);
         }
-        console.log(`YMGT reçeteleri için ID: ${ymGtId}, stok_kodu: ${ymGtStokKodu}, sequence: ${ymGtSequence}`);
         
-        // YMGT ID'nin geçerliliğini kontrol et - kritik yeni ekleme
+        console.log(`YMGT için kullanılan sequence değeri: ${mmGtSequence} (MMGT ile aynı olmalı)`);
+        
+        // *** KRİTİK DÜZELTME *** - ID ile değil, stok_kodu ile kayıt bul
+        // Bu yaklaşım, hem 404 Not Found hem de 409 Conflict hatalarını önler
+        
         try {
-          // YMGT varlığını kontrol et - 404 hatası olabilir
-          const ymGtCheckResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+          // Önce stok_kodu ile doğrudan ara
+          console.log(`YMGT için stok_kodu ile arama yapılıyor: ${ymGtStokKodu}`);
+          const searchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(ymGtStokKodu)}`);
           
-          if (!ymGtCheckResponse || !ymGtCheckResponse.ok) {
-            // YMGT bulunamadı - muhtemelen 404 hatası
-            console.error(`YMGT ID ${ymGtId} veritabanında bulunamadı (HTTP ${ymGtCheckResponse ? ymGtCheckResponse.status : 'unknown'})!`);
+          let actualYmGtId = null;
+          
+          if (searchResponse && searchResponse.ok) {
+            const searchResults = await searchResponse.json();
             
-            // ID geçersiz ise, otomatik olarak yeni kayıt oluştur ve ID'yi güncelle
-            console.log(`YMGT ${ymGtStokKodu} için yeni kayıt oluşturuluyor...`);
-            try {
-              const createResponse = await fetchWithAuth(API_URLS.galYmGt, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(generateYmGtDatabaseData(mmGtSequence))
-              });
+            if (Array.isArray(searchResults) && searchResults.length > 0) {
+              // Mevcut kaydın ID'sini kullan
+              actualYmGtId = searchResults[0].id;
+              console.log(`✅ YMGT stok_kodu ile bulundu: ${ymGtStokKodu}, ID: ${actualYmGtId}`);
+            } else {
+              // Tam eşleşme yoksa, benzer aramayla dene
+              console.log(`YMGT tam eşleşme ile bulunamadı, kısmi eşleşme deneniyor...`);
               
-              if (createResponse && createResponse.ok) {
-                const result = await createResponse.json();
-                console.log(`YMGT için yeni kayıt oluşturuldu, ID: ${result.id}`);
-                // YmGtId değişkenini güncelle
-                ymGtId = result.id;
-              } 
-              // 409 Conflict durumunu ele al (kayıt zaten var ama ID farklı)
-              else if (createResponse && createResponse.status === 409) {
-                console.log(`YMGT kaydı zaten mevcut (409 Conflict). Mevcut kaydı bulmaya çalışıyoruz...`);
+              // Önce kod_2 ve cap ile ara
+              try {
+                const baseCode = ymGtStokKodu.split('.').slice(0, 3).join('.');
+                const likeResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
                 
-                // Özel durum: stok_kodu ile tüm kayıtları sorgula
-                try {
-                  // stok_kodu tam eşleşme ile tüm kayıtları getir
-                  const searchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(ymGtStokKodu)}`);
+                if (likeResponse && likeResponse.ok) {
+                  const likeResults = await likeResponse.json();
                   
-                  if (searchResponse && searchResponse.ok) {
-                    const results = await searchResponse.json();
-                    if (Array.isArray(results) && results.length > 0) {
-                      console.log(`Mevcut YMGT kaydı bulundu: ${results[0].id}`);
-                      // YmGtId değişkenini güncelle
-                      ymGtId = results[0].id;
+                  if (Array.isArray(likeResults) && likeResults.length > 0) {
+                    // Tam eşleşme aranıyor
+                    const exactMatch = likeResults.find(item => item.stok_kodu === ymGtStokKodu);
+                    
+                    if (exactMatch) {
+                      actualYmGtId = exactMatch.id;
+                      console.log(`✅ YMGT stok_kodu_like ile tam eşleşme: ${ymGtStokKodu}, ID: ${actualYmGtId}`);
                     } else {
-                      // Kayıt bulunamadı - alternatif arama
-                      const likeSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtStokKodu.substring(0, 12))}`);
-                      
-                      if (likeSearchResponse && likeSearchResponse.ok) {
-                        const likeResults = await likeSearchResponse.json();
-                        if (Array.isArray(likeResults) && likeResults.length > 0) {
-                          // En uygun eşleşmeyi bul
-                          const bestMatch = likeResults.find(item => item.stok_kodu === ymGtStokKodu) || likeResults[0];
-                          console.log(`Benzer YMGT kaydı bulundu: ${bestMatch.id}`);
-                          // YmGtId değişkenini güncelle
-                          ymGtId = bestMatch.id;
-                        } else {
-                          console.error(`YMGT için uygun kayıt bulunamadı! Reçete eklenemeyecek.`);
-                          return;
-                        }
-                      } else {
-                        console.error(`YMGT için uygun kayıt bulunamadı! Reçete eklenemeyecek.`);
-                        return;
-                      }
+                      // En yakın eşleşme (aynı çap ve kod) kullanılıyor
+                      actualYmGtId = likeResults[0].id;
+                      console.log(`⚠️ YMGT için benzer kaydın ID'si kullanılıyor: ${likeResults[0].stok_kodu}, ID: ${actualYmGtId}`);
                     }
                   } else {
-                    console.error(`YMGT arama işlemi başarısız! Reçete eklenemeyecek.`);
-                    return;
+                    // Hiç benzer kayıt bulunamadı - yeni oluşturulacak
+                    console.log(`YMGT benzer kayıt bulunamadı, yeni oluşturuluyor: ${ymGtStokKodu}`);
                   }
-                } catch (searchError) {
-                  console.error(`YMGT arama hatası: ${searchError.message}`);
-                  return;
+                } else {
+                  console.log(`YMGT benzer arama başarısız, yeni oluşturuluyor: ${ymGtStokKodu}`);
                 }
-              } else {
-                console.error(`YMGT kaydı oluşturulamadı! HTTP ${createResponse ? createResponse.status : 'unknown'}`);
-                // YMGT oluşturulamazsa, reçete de eklenemez, bu bloğu atla
-                return;
+              } catch (likeError) {
+                console.error(`YMGT benzer arama hatası: ${likeError.message}`);
+                // Hata olursa yeni kayıt oluşturmaya devam et
               }
-            } catch (createError) {
-              console.error(`YMGT kaydı oluşturulurken hata: ${createError.message}`);
-              // Hata durumunda bu bloğu atla
-              return;
+              
+              // ID bulunamadıysa, yeni kayıt oluştur
+              if (!actualYmGtId) {
+                try {
+                  console.log(`YMGT yeni kayıt oluşturuluyor: ${ymGtStokKodu}`);
+                  
+                  const createResponse = await fetchWithAuth(API_URLS.galYmGt, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(generateYmGtDatabaseData(mmGtSequence))
+                  });
+                  
+                  if (createResponse && createResponse.ok) {
+                    const result = await createResponse.json();
+                    actualYmGtId = result.id;
+                    console.log(`✅ YMGT başarıyla oluşturuldu: ${ymGtStokKodu}, ID: ${actualYmGtId}`);
+                  } else if (createResponse && createResponse.status === 409) {
+                    // 409 Conflict - başka bir tam arama yöntemi dene
+                    console.log(`⚠️ YMGT oluşturulamadı (409 Conflict), son bir arama deneniyor...`);
+                    
+                    // Tüm YMGT'leri getirip tam uyan var mı kontrol et
+                    try {
+                      const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+                      
+                      if (allYmGtResponse && allYmGtResponse.ok) {
+                        const allYmGts = await allYmGtResponse.json();
+                        
+                        if (Array.isArray(allYmGts) && allYmGts.length > 0) {
+                          const exactMatch = allYmGts.find(item => item.stok_kodu === ymGtStokKodu);
+                          
+                          if (exactMatch) {
+                            actualYmGtId = exactMatch.id;
+                            console.log(`✅ YMGT tüm liste içinden bulundu: ${ymGtStokKodu}, ID: ${actualYmGtId}`);
+                          } else {
+                            // Son çare - mmGtId ile ilişkili YMGT'leri ara
+                            const relatedYmGt = allYmGts.find(item => item.mm_gt_id === mmGtIds[0] || 
+                              item.stok_kodu.includes(mmGtData.kod_2) && 
+                              item.stok_kodu.includes(Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0')));
+                              
+                            if (relatedYmGt) {
+                              actualYmGtId = relatedYmGt.id;
+                              console.log(`⚠️ MMGT ile ilişkili YMGT bulundu: ${relatedYmGt.stok_kodu}, ID: ${actualYmGtId}`);
+                            } else {
+                              console.error(`❌ YMGT için hiçbir uygun kayıt bulunamadı! İşlem yapılamıyor.`);
+                              return; // Çık
+                            }
+                          }
+                        } else {
+                          console.error(`❌ YMGT listesi boş veya geçersiz! İşlem yapılamıyor.`);
+                          return; // Çık
+                        }
+                      } else {
+                        console.error(`❌ YMGT listesi alınamadı! İşlem yapılamıyor.`);
+                        return; // Çık
+                      }
+                    } catch (allError) {
+                      console.error(`❌ YMGT listesi alınırken hata: ${allError.message}`);
+                      return; // Çık
+                    }
+                  } else {
+                    console.error(`❌ YMGT oluşturulamadı: HTTP ${createResponse ? createResponse.status : 'unknown'}`);
+                    return; // Çık
+                  }
+                } catch (createError) {
+                  console.error(`❌ YMGT oluşturma hatası: ${createError.message}`);
+                  return; // Çık
+                }
+              }
             }
+          } else {
+            console.error(`❌ YMGT arama hatası: HTTP ${searchResponse ? searchResponse.status : 'unknown'}`);
+            return; // Çık
           }
-        } catch (checkError) {
-          console.error(`YMGT ID kontrolü sırasında hata: ${checkError.message}`);
-          // Hata durumunda işleme devam et
+          
+          // Bu noktada mutlaka geçerli bir ID'ye sahip olmalıyız
+          if (!actualYmGtId) {
+            console.error(`❌ YMGT için geçerli ID bulunamadı! İşlem yapılamıyor.`);
+            return; // Çık
+          }
+          
+          // ID'yi güncelle
+          ymGtId = actualYmGtId;
+          console.log(`YMGT reçeteleri için güncel ID: ${ymGtId}, stok_kodu: ${ymGtStokKodu}`);
+        } catch (mainError) {
+          console.error(`❌ YMGT arama/oluşturma işlemi sırasında kritik hata: ${mainError.message}`);
+          return; // Kritik hata durumunda çık
         }
         
         // MMGT ve YMGT sequence değerlerini karşılaştır ve gerekirse YMGT'yi güncelle
@@ -3147,92 +3204,113 @@ const GalvanizliTelNetsis = () => {
         const ymSt = [...selectedYmSts, ...autoGeneratedYmSts][i];
         const ymStRecipe = allRecipes.ymStRecipes[i] || {};
         
-        // YM ST verisini ve ID geçerliliğini kontrol et
+        // YM ST verisini kontrol et
         if (!ymSt || !ymSt.stok_kodu) {
           console.error(`YMST ${ymStId} için geçerli stok_kodu bulunamadı!`);
           continue; // Bir sonraki YMST'ye geç
         }
 
-        // ID'nin geçerliliğini kontrol et - kritik yeni ekleme
+        // Kritik düzeltme - stok_kodu kullanarak direkt arama yap, ID kullanma
+        // Bu yaklaşım hem 404 hem de 409 hatalarını ortadan kaldırır
         try {
-          // YM ST varlığını kontrol et - 404 hatası olabilir, kritik fix
-          const ymStCheckResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymStId}`);
+          // Önce stok_kodu ile doğrudan ara - bu en güvenilir yaklaşım
+          console.log(`YMST için stok_kodu ile arama yapılıyor: ${ymSt.stok_kodu}`);
+          const searchResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
           
-          if (!ymStCheckResponse || !ymStCheckResponse.ok) {
-            // YM ST bulunamadı - muhtemelen 404 hatası
-            console.error(`YMST ID ${ymStId} veritabanında bulunamadı (HTTP ${ymStCheckResponse ? ymStCheckResponse.status : 'unknown'})!`);
+          let actualYmStId = null;
+          
+          if (searchResponse && searchResponse.ok) {
+            const searchResults = await searchResponse.json();
             
-            // ID geçersiz ise, otomatik olarak yeni kayıt oluştur ve ID'yi güncelle
-            console.log(`YMST ${ymSt.stok_kodu} için yeni kayıt oluşturuluyor...`);
-            try {
-              const createResponse = await fetchWithAuth(API_URLS.galYmSt, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(generateYmStDatabaseData(ymSt))
-              });
+            if (Array.isArray(searchResults) && searchResults.length > 0) {
+              // Mevcut kaydın ID'sini kullan
+              actualYmStId = searchResults[0].id;
+              console.log(`✅ YMST stok_kodu ile bulundu: ${ymSt.stok_kodu}, ID: ${actualYmStId}`);
               
-              if (createResponse && createResponse.ok) {
-                const result = await createResponse.json();
-                console.log(`YMST ${ymSt.stok_kodu} için yeni kayıt oluşturuldu, ID: ${result.id}`);
-                // YmStIds dizisini güncelle
-                ymStIds[i] = result.id;
-                continue; // Yeni oluşturulan ID ile bir sonraki döngüde işlem yap
-              } 
-              // 409 Conflict durumunu ele al (kayıt zaten var)
-              else if (createResponse && createResponse.status === 409) {
-                console.log(`YMST kaydı zaten mevcut (409 Conflict). Mevcut kaydı bulmaya çalışıyoruz...`);
+              // YmStIds dizisini güncelle
+              ymStIds[i] = actualYmStId;
+            } else {
+              // Kayıt bulunamadı - yeni oluştur
+              console.log(`YMST bulunamadı, yeni oluşturuluyor: ${ymSt.stok_kodu}`);
+              
+              try {
+                const createResponse = await fetchWithAuth(API_URLS.galYmSt, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(generateYmStDatabaseData(ymSt))
+                });
                 
-                // Özel durum: stok_kodu ile tüm kayıtları sorgula
-                try {
-                  // stok_kodu tam eşleşme ile kayıtları getir
-                  const searchResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+                if (createResponse && createResponse.ok) {
+                  const result = await createResponse.json();
+                  actualYmStId = result.id;
+                  console.log(`✅ YMST başarıyla oluşturuldu: ${ymSt.stok_kodu}, ID: ${actualYmStId}`);
                   
-                  if (searchResponse && searchResponse.ok) {
-                    const results = await searchResponse.json();
-                    if (Array.isArray(results) && results.length > 0) {
-                      console.log(`Mevcut YMST kaydı bulundu: ${results[0].id}`);
-                      // YmStIds dizisini güncelle
-                      ymStIds[i] = results[0].id;
-                      continue; // Bulunan ID ile bir sonraki döngüde işlem yap
-                    } else {
-                      // Kayıt bulunamadı - alternatif arama
-                      const baseCode = ymSt.stok_kodu.split('.').slice(0, 3).join('.');
-                      const likeSearchResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+                  // YmStIds dizisini güncelle
+                  ymStIds[i] = actualYmStId;
+                } 
+                // 409 Conflict - kaydın zaten var olması durumu
+                else if (createResponse && createResponse.status === 409) {
+                  console.log(`⚠️ YMST zaten mevcut (409 Conflict), tam tüm YMST'leri getirmeyi dene`);
+                  
+                  // Alternatif yaklaşım: stok_kodu_like ile ara
+                  try {
+                    const baseCode = ymSt.stok_kodu.split('.').slice(0, 3).join('.');
+                    const likeResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+                    
+                    if (likeResponse && likeResponse.ok) {
+                      const likeResults = await likeResponse.json();
                       
-                      if (likeSearchResponse && likeSearchResponse.ok) {
-                        const likeResults = await likeSearchResponse.json();
-                        if (Array.isArray(likeResults) && likeResults.length > 0) {
-                          // En uygun eşleşmeyi bul
-                          const bestMatch = likeResults.find(item => item.stok_kodu === ymSt.stok_kodu) || likeResults[0];
-                          console.log(`Benzer YMST kaydı bulundu: ${bestMatch.id}`);
-                          // YmStIds dizisini güncelle
-                          ymStIds[i] = bestMatch.id;
-                          continue; // Bulunan ID ile bir sonraki döngüde işlem yap
-                        }
+                      // Tam eşleşme ara
+                      const exactMatch = likeResults.find(item => item.stok_kodu === ymSt.stok_kodu);
+                      
+                      if (exactMatch) {
+                        actualYmStId = exactMatch.id;
+                        console.log(`✅ YMST stok_kodu_like ile tam eşleşme: ${ymSt.stok_kodu}, ID: ${actualYmStId}`);
+                      } else if (likeResults.length > 0) {
+                        // En yakın eşleşmeyi kullan
+                        actualYmStId = likeResults[0].id;
+                        console.log(`⚠️ YMST için yakın eşleşme kullanılıyor: ${likeResults[0].stok_kodu}, ID: ${actualYmStId}`);
+                      } else {
+                        console.error(`❌ YMST için uygun kayıt bulunamadı! İşlem atlanıyor: ${ymSt.stok_kodu}`);
+                        continue; // Bu YMST için işlemi atla
                       }
+                      
+                      // YmStIds dizisini güncelle
+                      ymStIds[i] = actualYmStId;
+                    } else {
+                      console.error(`❌ YMST aramada hata: HTTP ${likeResponse ? likeResponse.status : 'unknown'}`);
+                      continue; // Bu YMST için işlemi atla
                     }
+                  } catch (likeError) {
+                    console.error(`❌ YMST stok_kodu_like araması sırasında hata: ${likeError.message}`);
+                    continue; // Bu YMST için işlemi atla  
                   }
-                  
-                  // Tüm alternatif aramalar başarısız oldu
-                  console.error(`YMST ${ymSt.stok_kodu} için uygun kayıt bulunamadı! İşlem atlanıyor.`);
-                  continue; // Bu YMST için işlemi atla
-                  
-                } catch (searchError) {
-                  console.error(`YMST arama hatası: ${searchError.message}`);
+                } else {
+                  console.error(`❌ YMST oluşturulamadı: HTTP ${createResponse ? createResponse.status : 'unknown'}`);
                   continue; // Bu YMST için işlemi atla
                 }
-              } else {
-                console.error(`YMST ${ymSt.stok_kodu} kaydı oluşturulamadı! HTTP ${createResponse ? createResponse.status : 'unknown'}`);
+              } catch (createError) {
+                console.error(`❌ YMST oluşturma hatası: ${createError.message}`);
                 continue; // Bu YMST için işlemi atla
               }
-            } catch (createError) {
-              console.error(`YMST ${ymSt.stok_kodu} kaydı oluşturulurken hata: ${createError.message}`);
-              continue; // Bu YMST için işlemi atla
             }
+          } else {
+            console.error(`❌ YMST arama hatası: HTTP ${searchResponse ? searchResponse.status : 'unknown'}`);
+            continue; // Bu YMST için işlemi atla
           }
           
-          // Mevcut tüm reçeteleri temizle - bu önemli
-          await deleteExistingRecipes('ymst', ymStId);
+          // Bu noktada artık doğru ID'ye sahip olmalıyız
+          if (!actualYmStId) {
+            console.error(`❌ YMST için geçerli ID bulunamadı: ${ymSt.stok_kodu}`);
+            continue; // Bu YMST için işlemi atla
+          }
+          
+          // ID'yi güncelle - çok önemli
+          ymStIds[i] = actualYmStId;
+          
+          // Doğru ID ile reçeteleri sil
+          console.log(`🧹 YMST reçeteleri siliniyor: ID=${actualYmStId}`);
+          await deleteExistingRecipes('ymst', actualYmStId);
           
           let siraNo = 1;
           
