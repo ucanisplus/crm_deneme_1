@@ -2446,10 +2446,13 @@ const GalvanizliTelNetsis = () => {
         const mmGtId = mmGtIds[0];
         
         try {
-          // MMGT'nin stok_kodu'nu direkt veritabanından al
-          const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`);
-          if (mmGtResponse && mmGtResponse.ok) {
-            const mmGt = await mmGtResponse.json();
+          // MMGT'yi tüm liste içinden bulma yaklaşımı - 404 hatasını önlemek için
+          const allMmGtResponse = await fetchWithAuth(API_URLS.galMmGt);
+          if (allMmGtResponse && allMmGtResponse.ok) {
+            const allMmGt = await allMmGtResponse.json();
+            // ID'ye göre ilgili ürünü bul
+            const mmGt = Array.isArray(allMmGt) ? allMmGt.find(item => item.id === mmGtId) : null;
+            
             if (mmGt && mmGt.stok_kodu) {
               mmGtStokKodu = mmGt.stok_kodu;
               mmGtSequence = mmGt.stok_kodu.split('.').pop();
@@ -2460,7 +2463,7 @@ const GalvanizliTelNetsis = () => {
                 console.log(`KRİTİK FIX! MMGT veritabanında bulunan GERÇEK stok_kodu: ${mmGtStokKodu} (sequence: ${mmGtSequence})`);
               }
             } else {
-              console.error(`MMGT veritabanında stok_kodu bulunamadı! ID: ${mmGtId}`);
+              console.error(`MMGT veritabanında bulunamadı veya stok_kodu eksik! ID: ${mmGtId}`);
               // Ürün bulunamadı durumunda otomatik kod oluştur
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
               mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
@@ -2469,7 +2472,7 @@ const GalvanizliTelNetsis = () => {
             }
           } else {
             console.error(`MMGT veritabanından alınamadı! ID: ${mmGtId}`);
-            // API 404 hatası durumunda otomatik kod oluştur
+            // API hatası durumunda otomatik kod oluştur
             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
             mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
             mmGtSequence = '00';
@@ -2488,9 +2491,13 @@ const GalvanizliTelNetsis = () => {
       // 2. YMGT stok_kodu'nu direkt olarak veritabanından al
       if (ymGtId) {
         try {
-          const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
-          if (ymGtResponse && ymGtResponse.ok) {
-            const ymGt = await ymGtResponse.json();
+          // YMGT'yi tüm liste içinden bulma yaklaşımı - 404 hatasını önlemek için
+          const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+          if (allYmGtResponse && allYmGtResponse.ok) {
+            const allYmGt = await allYmGtResponse.json();
+            // ID'ye göre ilgili ürünü bul
+            const ymGt = Array.isArray(allYmGt) ? allYmGt.find(item => item.id === ymGtId) : null;
+            
             if (ymGt && ymGt.stok_kodu) {
               ymGtStokKodu = ymGt.stok_kodu;
               ymGtSequence = ymGt.stok_kodu.split('.').pop();
@@ -2508,7 +2515,7 @@ const GalvanizliTelNetsis = () => {
                 ymGtSequence = mmGtSequence;
               }
             } else {
-              console.error(`YMGT veritabanında stok_kodu bulunamadı! ID: ${ymGtId}`);
+              console.error(`YMGT veritabanında bulunamadı veya stok_kodu eksik! ID: ${ymGtId}`);
               // Ürün bulunamadı durumunda otomatik kod oluştur
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
               ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
@@ -2516,7 +2523,7 @@ const GalvanizliTelNetsis = () => {
             }
           } else {
             console.error(`YMGT veritabanından alınamadı! ID: ${ymGtId}`);
-            // API 404 hatası durumunda otomatik kod oluştur
+            // API hatası durumunda otomatik kod oluştur
             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
             ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
             console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
@@ -2888,9 +2895,11 @@ const GalvanizliTelNetsis = () => {
               console.log(`YMGT REÇETE EKLEME (FIX): mamul_kodu=${ymGtStokKodu}, bilesen_kodu=${key}, ym_gt_id=${existingYmGt.id}`);
               
               // Son bir kez daha kontrol et - YMGT'nin stok_kodu ile tamamıyla aynı olmasını garantile
-              const doubleCheckYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`);
-              if (doubleCheckYmGtResponse && doubleCheckYmGtResponse.ok) {
-                const doubleCheckYmGt = await doubleCheckYmGtResponse.json();
+              // Liste yaklaşımını kullan - 404 hatasını önlemek için
+              const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+              if (allYmGtResponse && allYmGtResponse.ok) {
+                const allYmGt = await allYmGtResponse.json();
+                const doubleCheckYmGt = Array.isArray(allYmGt) ? allYmGt.find(item => item.id === existingYmGt.id) : null;
                 if (doubleCheckYmGt && doubleCheckYmGt.stok_kodu) {
                   if (doubleCheckYmGt.stok_kodu !== ymGtStokKodu) {
                     console.warn(`UYARI! YMGT stok_kodu (${doubleCheckYmGt.stok_kodu}) ile reçete mamul_kodu (${ymGtStokKodu}) eşleşmiyor!`);
