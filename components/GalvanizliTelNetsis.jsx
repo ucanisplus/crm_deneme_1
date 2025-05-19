@@ -1022,6 +1022,9 @@ const GalvanizliTelNetsis = () => {
   const calculateAutoRecipeValues = () => {
     if (!mmGtData.kg || !mmGtData.cap) return;
     
+    // DÜZELTME: mmGtSequence değişkenini tanımla
+    const sequence = '00'; // Default sequence
+    
     const cap = parseFloat(mmGtData.cap) || 0;
     const kg = parseFloat(mmGtData.kg) || 0;
     const kaplama = parseInt(mmGtData.kaplama) || 0;
@@ -1045,9 +1048,9 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
       
       // MM GT Reçete - her MM GT için
-      // DÜZELTME: Doğru sequence ile YMGT kod oluştur - MMGT ile aynı sequence kullanılmalı
-      let correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence || sequence}`;
-      console.log(`🔄 MMGT reçetesi için doğru YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
+      // DÜZELTME: YMGT kod oluştur - sequence parametresini kullan
+      let correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      console.log(`🔄 MMGT reçetesi için YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
       
       // Shrink tipi ve miktarını otomatik belirle
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
