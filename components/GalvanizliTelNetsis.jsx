@@ -1997,10 +1997,10 @@ const GalvanizliTelNetsis = () => {
       const sequence = nextSequence.toString().padStart(2, '0');
       // MMGT ile aynı sequence'i kullan
       console.log(`YM GT için kullanılan sequence: ${sequence}`);
-      // DÜZELTME: MMGT ile aynı sequence'i kullan - bu önemli!
+      // DÜZELTME: sequence'i kullan - bu önemli!
       // Önce mevcut YM GT'yi kontrolden geçir
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence || sequence}`;
-      console.log(`Veritabanı işlemleri için YMGT stok kodu: ${ymGtStokKodu}, MMGT sequence: ${mmGtSequence || sequence}`);
+      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      console.log(`Veritabanı işlemleri için YMGT stok kodu: ${ymGtStokKodu}, sequence: ${sequence}`);
       const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
       
       if (existingYmGt) {
@@ -2444,9 +2444,13 @@ const GalvanizliTelNetsis = () => {
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
       // ÖNEMLİ KRİTİK FIX: Artan sequence'i doğru şekilde almak MMGT ve YMGT reçeteleri için hayati
-      let mmGtSequence = '00';
+      // Sequence değeri MMGT ID'sinden değil, stok_kodu'ndan alınacak
+      let sequence = '00'; // Varsayılan değer
+      console.log(`REÇETE KAYDI İÇİN SEQUENCE: ${sequence}`);
+      
+      let mmGtSequence = sequence; // Öncelikle sequence parametresini kullan
       let mmGtStokKodu = '';
-      let ymGtSequence = '00';
+      let ymGtSequence = sequence; // YMGT için de aynı sequence kullan
       let ymGtStokKodu = '';
       
       // 1. MMGT stok_kodu'nu direkt olarak veritabanından al
@@ -2526,31 +2530,34 @@ const GalvanizliTelNetsis = () => {
               console.error(`YMGT veritabanında bulunamadı veya stok_kodu eksik! ID: ${ymGtId}`);
               // Ürün bulunamadı durumunda otomatik kod oluştur
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-              ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+              // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
+              ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
               console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
             }
           } else {
             console.error(`YMGT veritabanından alınamadı! ID: ${ymGtId}`);
             // API hatası durumunda otomatik kod oluştur
             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-            ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+            // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
+            ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
             console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
           }
         } catch (error) {
           console.error(`YMGT bilgileri alınırken hata: ${error.message}`);
           // Hata durumunda otomatik kod oluştur
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-          ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+          // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
+          ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
           console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
         }
       }
       
-      console.log(`REÇETELER İÇİN KULLANILACAK SEQUENCE: ${mmGtSequence}`);
+      console.log(`REÇETELER İÇİN KULLANILACAK SEQUENCE: ${sequence}`);
       console.log(`MMGT MAMUL_KODU: ${mmGtStokKodu}`);
       console.log(`YMGT MAMUL_KODU: ${ymGtStokKodu}`);
       
       // YMGT kontrolü yap ve eğer gerekiyorsa MMGT ile aynı sequence'e güncelle
-      if (ymGtId && mmGtSequence !== '00') {
+      if (ymGtId && sequence !== '00') {
         const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
         if (ymGtResponse && ymGtResponse.ok) {
           const ymGt = await ymGtResponse.json();
@@ -2558,20 +2565,20 @@ const GalvanizliTelNetsis = () => {
             const ymGtCurrentSequence = ymGt.stok_kodu.split('.').pop();
             
             // MMGT ile aynı sequence olup olmadığını kontrol et
-            if (ymGtCurrentSequence !== mmGtSequence) {
-              console.warn(`Sequence uyumsuzluğu! MMGT: ${mmGtSequence}, YMGT: ${ymGtCurrentSequence}`);
-              console.warn(`YMGT sequence güncelleniyor: ${ymGtCurrentSequence} -> ${mmGtSequence}`);
+            if (ymGtCurrentSequence !== sequence) {
+              console.warn(`Sequence uyumsuzluğu! MMGT: ${sequence}, YMGT: ${ymGtCurrentSequence}`);
+              console.warn(`YMGT sequence güncelleniyor: ${ymGtCurrentSequence} -> ${sequence}`);
               
               // YMGT'yi MMGT ile aynı sequence'e güncelle
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-              const updatedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
-              const updatedYmGtStokAdi = generateYmGtStokAdi(mmGtSequence);
+              const updatedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+              const updatedYmGtStokAdi = generateYmGtStokAdi(sequence);
               
               await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  ...generateYmGtDatabaseData(mmGtSequence),
+                  ...generateYmGtDatabaseData(sequence),
                   stok_kodu: updatedYmGtStokKodu,
                   stok_adi: updatedYmGtStokAdi
                 })
@@ -2980,12 +2987,14 @@ const GalvanizliTelNetsis = () => {
         }
         
         // MMGT ve YMGT sequence değerlerini karşılaştır ve gerekirse YMGT'yi güncelle
-        if (mmGtSequence !== ymGtSequence && mmGtSequence !== '00') {
-          console.error(`UYARI! YMGT sequence (${ymGtSequence}) ile MMGT sequence (${mmGtSequence}) eşleşmiyor!`);
+        // sequence değişkeni fonksiyon parametresi, mmGtSequence henüz tanımlanmamış
+        const currentSequence = sequence;
+        if (currentSequence !== ymGtSequence && currentSequence !== '00') {
+          console.error(`UYARI! YMGT sequence (${ymGtSequence}) ile seçilen sequence (${currentSequence}) eşleşmiyor!`);
           
           // YMGT'yi MMGT ile aynı sequence'e güncelle
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-          const updatedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
+          const updatedYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${currentSequence}`;
           
           try {
             console.warn(`YMGT stok_kodu düzeltiliyor: ${ymGtStokKodu} → ${updatedYmGtStokKodu}`);
@@ -2994,14 +3003,14 @@ const GalvanizliTelNetsis = () => {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                ...generateYmGtDatabaseData(mmGtSequence),
+                ...generateYmGtDatabaseData(currentSequence),
                 stok_kodu: updatedYmGtStokKodu
               })
             });
             
             // Güncellenmiş kodu kullan
             ymGtStokKodu = updatedYmGtStokKodu;
-            ymGtSequence = mmGtSequence;
+            ymGtSequence = currentSequence;
             
             console.log(`YMGT stok_kodu güncellendi: ${ymGtStokKodu}`);
           } catch (updateError) {
@@ -3157,7 +3166,7 @@ const GalvanizliTelNetsis = () => {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      ...generateYmGtDatabaseData(mmGtSequence),
+                      ...generateYmGtDatabaseData(sequence),
                       stok_kodu: updatedYmGtStokKodu
                     })
                   });
@@ -3196,7 +3205,7 @@ const GalvanizliTelNetsis = () => {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            ...generateYmGtDatabaseData(mmGtSequence),
+                            ...generateYmGtDatabaseData(sequence),
                             stok_kodu: ymGtStokKodu
                           })
                         });
