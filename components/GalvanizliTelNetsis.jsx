@@ -1997,7 +1997,10 @@ const GalvanizliTelNetsis = () => {
       const sequence = nextSequence.toString().padStart(2, '0');
       // MMGT ile aynı sequence'i kullan
       console.log(`YM GT için kullanılan sequence: ${sequence}`);
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      // DÜZELTME: MMGT ile aynı sequence'i kullan - bu önemli!
+      // Önce mevcut YM GT'yi kontrolden geçir
+      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence || sequence}`;
+      console.log(`Veritabanı işlemleri için YMGT stok kodu: ${ymGtStokKodu}, MMGT sequence: ${mmGtSequence || sequence}`);
       const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
       
       if (existingYmGt) {
@@ -2709,8 +2712,13 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            // DÜZELTME: YM.ST kodları Bileşen olarak işaretlenmeli, operasyon değil
+            // DÜZELTME: YM.ST ve FLM kodları Bileşen olarak işaretlenmeli, sadece GTPKT01, GLV01, TLC01 operasyon
+            const isSpecialCode = key.includes('FLM.') || key.includes('YM.ST.');
             const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
+            
+            if (isSpecialCode && operasyonBilesen === 'Operasyon') {
+              console.warn(`⚠️ Özel kod (${key}) 'Operasyon' olarak işaretlenebilirdi, fakat 'Bileşen' olarak düzeltildi`);
+            }
             
             // Tam kod kontrolü ve log kaydı
             console.log(`📊 Bileşen sınıflandırması: ${key} -> ${operasyonBilesen}`);
@@ -3223,7 +3231,8 @@ const GalvanizliTelNetsis = () => {
                 bilesen_kodu: key,
                 miktar: formattedValue,
                 sira_no: siraNo++,
-                operasyon_bilesen: key.includes('01') ? 'Operasyon' : 'Bileşen',
+                // DÜZELTME: YM.ST ve FLM kodları her zaman bileşen, sadece GLV01 ve TLC01 operasyon
+                operasyon_bilesen: (key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen',
                 olcu_br: getOlcuBr(key),
               };
               console.log("YMGT REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
