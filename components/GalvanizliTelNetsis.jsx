@@ -1070,13 +1070,13 @@ const GalvanizliTelNetsis = () => {
       // GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
       const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
       
-      // SM.DESİ.PAK =0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (KG/TON)
-      const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * naylonValue).toFixed(5));
+      // SM.DESİ.PAK = 0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* shrink değeri
+      const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * shrinkAmount).toFixed(5));
       
       newMmGtRecipes[index] = {
         [ymGtStokKodu]: 1, // YM GT bileşeni sequence eşleştirmeli
         'GTPKT01': gtpktValue,
-        'NAYLON (KG/TON)': naylonValue,
+        // Naylon yerine sadece shrinkCode kullanılıyor - shrink kapsamına giriyor
         'AMB.ÇEM.KARTON.GAL': kartonValue,
         [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
         'SM.7MMHALKA': halkaValue,
@@ -3467,7 +3467,8 @@ const GalvanizliTelNetsis = () => {
               
               // Reçete parametrelerini hazırla
               // DÜZELTME: YM.ST.xxxx formatındaki kodlar yanlışlıkla Operasyon olarak işaretlenmesin
-              const isOperation = key === 'TLC01' || key === 'GLV01' || (key.includes('01') && !key.includes('YM.ST.'));
+              // DÜZELTME: Filmaşin (FLM) kodları her zaman Bileşen olmalı, TLC01 ve GLV01 Operasyon olmalı
+              const isOperation = key === 'TLC01' || key === 'GLV01';
               
               console.log(`📊 YMST Bileşen sınıflandırması: ${key} -> ${isOperation ? 'Operasyon' : 'Bileşen'}`);
               
@@ -4843,7 +4844,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('YM.GT.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.GT always as Bileşen
+      bilesenKodu.includes('FLM.') ? 'Bileşen' : (bilesenKodu === 'TLC01' ? 'Operasyon' : 'Bileşen'), // FLM kodu her zaman Bileşen olmalı, sadece TLC01 Operasyon olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -4909,7 +4910,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('YM.GT.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.GT always as Bileşen
+      bilesenKodu.includes('FLM.') ? 'Bileşen' : (bilesenKodu === 'TLC01' ? 'Operasyon' : 'Bileşen'), // FLM kodu her zaman Bileşen olmalı, sadece TLC01 Operasyon olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -4920,7 +4921,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu.includes('01') ? miktar : '', // Üretim Süresi
+      bilesenKodu === 'TLC01' ? miktar : '', // Üretim Süresi - Sadece TLC01 için
       '', // Ü.A.Dahil Edilsin
       '', // Son Operasyon
       '', // Öncelik
