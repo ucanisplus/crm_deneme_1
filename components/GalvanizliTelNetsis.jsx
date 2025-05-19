@@ -2719,13 +2719,10 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            // DÜZELTME: YM.ST ve FLM kodları Bileşen olarak işaretlenmeli, sadece GTPKT01, GLV01, TLC01 operasyon
-            const isSpecialCode = key.includes('FLM.') || key.includes('YM.ST.');
-            const operasyonBilesen = (key === 'GTPKT01' || key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen';
+            // Excel format requires GTPKT01 to be marked as Operasyon, all others as Bileşen
+            const operasyonBilesen = key === 'GTPKT01' ? 'Operasyon' : 'Bileşen';
             
-            if (isSpecialCode && operasyonBilesen === 'Operasyon') {
-              console.warn(`⚠️ Özel kod (${key}) 'Operasyon' olarak işaretlenebilirdi, fakat 'Bileşen' olarak düzeltildi`);
-            }
+            // We don't need isSpecialCode check anymore, all handling is in operasyonBilesen
             
             // Tam kod kontrolü ve log kaydı
             console.log(`📊 Bileşen sınıflandırması: ${key} -> ${operasyonBilesen}`);
@@ -3241,7 +3238,7 @@ const GalvanizliTelNetsis = () => {
                 miktar: formattedValue,
                 sira_no: siraNo++,
                 // DÜZELTME: YM.ST ve FLM kodları her zaman bileşen, sadece GLV01 ve TLC01 operasyon
-                operasyon_bilesen: (key === 'GLV01' || key === 'TLC01') ? 'Operasyon' : 'Bileşen',
+                operasyon_bilesen: key === 'GLV01' ? 'Operasyon' : 'Bileşen', // Only GLV01 is Operasyon in YMGT recipes
                 olcu_br: getOlcuBr(key),
               };
               console.log("YMGT REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
@@ -3506,7 +3503,7 @@ const GalvanizliTelNetsis = () => {
                 bilesen_kodu: key,
                 miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
-                operasyon_bilesen: isOperation ? 'Operasyon' : 'Bileşen',
+                operasyon_bilesen: key === 'TLC01' ? 'Operasyon' : 'Bileşen', // Only TLC01 is Operasyon in YMST recipes
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
@@ -4896,7 +4893,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('FLM.') ? 'Bileşen' : (bilesenKodu === 'TLC01' ? 'Operasyon' : 'Bileşen'), // FLM kodu her zaman Bileşen olmalı, sadece TLC01 Operasyon olmalı
+      bilesenKodu === 'GTPKT01' ? 'Operasyon' : 'Bileşen', // GTPKT01 should be marked as Operasyon per Excel format
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -4907,7 +4904,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu.includes('01') ? miktar : '', // Üretim Süresi
+      bilesenKodu === 'GTPKT01' ? miktar : '', // Üretim Süresi - only for GTPKT01
       'evet', // Ü.A.Dahil Edilsin
       'evet', // Son Operasyon
       '', // Öncelik
@@ -4930,7 +4927,7 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('YM.ST.') ? 'Bileşen' : (bilesenKodu.includes('01') ? 'Operasyon' : 'Bileşen'), // YM.ST always as Bileşen
+      bilesenKodu === 'GLV01' ? 'Operasyon' : 'Bileşen', // According to Excel format, only GLV01 is Operasyon, all others are Bileşen
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       miktar, // Miktar (nokta formatında internal)
@@ -4941,7 +4938,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu.includes('01') ? miktar : '', // Üretim Süresi
+      bilesenKodu === 'GLV01' ? miktar : '', // Üretim Süresi - only for GLV01
       '', // Ü.A.Dahil Edilsin
       '', // Son Operasyon
       '', // Öncelik
