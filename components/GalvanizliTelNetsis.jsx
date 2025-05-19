@@ -1045,7 +1045,9 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
       
       // MM GT Reçete - her MM GT için
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // Sequence eşleştirme!
+      // DÜZELTME: Doğru sequence ile YMGT kod oluştur - MMGT ile aynı sequence kullanılmalı
+      let correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence || sequence}`;
+      console.log(`🔄 MMGT reçetesi için doğru YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
       
       // Shrink tipi ve miktarını otomatik belirle
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
@@ -1072,13 +1074,6 @@ const GalvanizliTelNetsis = () => {
       
       // SM.DESİ.PAK = 0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* shrink değeri
       const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * shrinkAmount).toFixed(5));
-      
-      // Doğru sequence ile YMGT kod oluştur - MMGT ile aynı sequence kullanılmalı
-      const correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${mmGtSequence}`;
-      console.log(`🔄 MMGT reçetesi için YMGT kodu düzeltiliyor: ${ymGtStokKodu} → ${correctYmGtStokKodu}`);
-      
-      // YmGtStokKodu'nu da güncelle ki tüm yerler güncel olsun
-      ymGtStokKodu = correctYmGtStokKodu;
       
       newMmGtRecipes[index] = {
         [correctYmGtStokKodu]: 1, // YM GT bileşeni - MMGT ile aynı sequence kullanılmalı
@@ -4363,26 +4358,31 @@ const GalvanizliTelNetsis = () => {
     mmGtReceteSheet.addRow(receteHeaders);
     
     // Sadece ana YMST için MM GT reçete satırları ekle
-    const mmGtRecipe = allRecipes.mmGtRecipes[mainYmStIndex_] || {};
+    const mmGtRecipe = { ...allRecipes.mmGtRecipes[mainYmStIndex_] } || {}; // Clone to avoid modifying the original
     
     // DÜZELTME: Eğer YM.GT kodu yanlış sequence'e sahipse düzelt
     // Doğru YM.GT kodu oluştur - MMGT ile aynı sequence kullanılmalı
     const correctStokKodu = `YM.GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
     console.log(`MMGT reçetesi için YMGT kodları kontrol ediliyor, doğru kod: ${correctStokKodu}`);
     
-    // Reçetedeki YM.GT kodlarını düzelt
-    Object.keys(mmGtRecipe).forEach(key => {
+    // Reçetedeki YM.GT kodlarını düzelt - yeni bir obje oluşturarak
+    const fixedRecipe = {};
+    Object.entries(mmGtRecipe).forEach(([key, value]) => {
       if (key.includes('YM.GT.') && key !== correctStokKodu) {
         console.log(`⚠️ Yanlış YMGT kodu düzeltiliyor: ${key} → ${correctStokKodu}`);
-        mmGtRecipe[correctStokKodu] = mmGtRecipe[key];
-        delete mmGtRecipe[key];
+        fixedRecipe[correctStokKodu] = value;
+      } else {
+        fixedRecipe[key] = value;
       }
     });
+    
+    // Düzeltilmiş reçeteyi kullan
+    const processedMmGtRecipe = fixedRecipe;
     
     let siraNo = 1;
     
     // MMGT reçete sıralaması: fixed exact order as specified
-    const recipeEntries = Object.entries(mmGtRecipe);
+    const recipeEntries = Object.entries(processedMmGtRecipe);
     
     // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
     // Düzeltme: YM.GT kodunu mamul_kodu ile aynı sequence'e sahip olacak şekilde ara
