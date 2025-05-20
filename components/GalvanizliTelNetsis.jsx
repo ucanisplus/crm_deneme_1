@@ -1407,12 +1407,97 @@ const GalvanizliTelNetsis = () => {
   };
 
   // İleri butonu
+  // Validation function for MM GT data with detailed error messages
+  const validateMmGtData = () => {
+    const errors = [];
+    
+    // Check required fields
+    const requiredFields = {
+      'cap': 'Çap',
+      'kaplama': 'Kaplama Miktarı',
+      'min_mukavemet': 'Min Mukavemet',
+      'max_mukavemet': 'Max Mukavemet',
+      'kg': 'Ağırlık'
+    };
+    
+    Object.entries(requiredFields).forEach(([field, label]) => {
+      if (!mmGtData[field]) {
+        errors.push(`${label} alanı zorunludur`);
+      }
+    });
+    
+    // If any required fields are missing, return early
+    if (errors.length > 0) {
+      return errors;
+    }
+    
+    // Çap validation: 0.8 - 8 arasında olmalı
+    const capValue = parseFloat(mmGtData.cap);
+    if (isNaN(capValue)) {
+      errors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
+    } else if (capValue < 0.8 || capValue > 8) {
+      errors.push(`Çap değeri 0.8 ile 8 arasında olmalıdır. Girilen değer: ${mmGtData.cap}`);
+    }
+    
+    // Kaplama validation: PAD için 50, NIT için 100-400 arasında
+    const kaplamaValue = parseFloat(mmGtData.kaplama);
+    if (isNaN(kaplamaValue)) {
+      errors.push('Kaplama için geçerli bir sayısal değer giriniz.');
+    } else {
+      if (mmGtData.kod_2 === 'PAD' && kaplamaValue !== 50) {
+        errors.push(`PAD kaplama türü için kaplama değeri 50 olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
+      } else if (mmGtData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
+        errors.push(`NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
+      }
+    }
+    
+    // Tolerans validation: 0 ile 0.10 arasında
+    if (mmGtData.tolerans_plus) {
+      const toleransPlusValue = parseFloat(mmGtData.tolerans_plus);
+      if (isNaN(toleransPlusValue)) {
+        errors.push('Tolerans+ için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
+      } else if (toleransPlusValue < 0 || toleransPlusValue > 0.10) {
+        errors.push(`Tolerans+ değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${mmGtData.tolerans_plus}`);
+      }
+    }
+    
+    if (mmGtData.tolerans_minus) {
+      const toleransMinusValue = parseFloat(mmGtData.tolerans_minus);
+      if (isNaN(toleransMinusValue)) {
+        errors.push('Tolerans- için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
+      } else if (toleransMinusValue < 0 || toleransMinusValue > 0.10) {
+        errors.push(`Tolerans- değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${mmGtData.tolerans_minus}`);
+      }
+    }
+    
+    // Ağırlık validation: 250 ile 1250 arasında
+    const kgValue = parseFloat(mmGtData.kg);
+    if (isNaN(kgValue)) {
+      errors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 1250 arasında).');
+    } else if (kgValue < 250 || kgValue > 1250) {
+      errors.push(`Ağırlık değeri 250 ile 1250 arasında olmalıdır. Girilen değer: ${mmGtData.kg}`);
+    }
+    
+    return errors;
+  };
+  
   const handleNext = () => {
-    if (!mmGtData.cap || !mmGtData.kaplama || !mmGtData.min_mukavemet || !mmGtData.max_mukavemet || !mmGtData.kg) {
-      toast.error('Lütfen tüm gerekli alanları doldurun');
+    // Validate all fields before proceeding
+    const validationErrors = validateMmGtData();
+    
+    if (validationErrors.length > 0) {
+      // Display validation errors
+      setError(`Lütfen aşağıdaki hataları düzeltiniz:\n\n${validationErrors.map(err => `• ${err}`).join('\n')}`);
+      
+      // Show toast notification
+      toast.error('Formdaki hataları düzeltiniz', { autoClose: 5000 });
       return;
     }
     
+    // Clear any existing errors
+    setError(null);
+    
+    // Continue to next step
     setCurrentStep('summary');
     generateYmGtData();
     findSuitableYmSts();
@@ -6830,11 +6915,15 @@ const GalvanizliTelNetsis = () => {
       {/* Hata ve Başarı Mesajları */}
       {error && (
         <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            {error}
+            <div className="flex-1">
+              {error.split('\n').map((line, i) => (
+                <div key={i} className={line.startsWith('•') ? 'ml-2' : 'font-medium'}>{line}</div>
+              ))}
+            </div>
           </div>
         </div>
       )}
