@@ -942,12 +942,13 @@ app.get('/api/gal_cost_cal_sal_requests/count', async (req, res) => {
   }
 });
 
-// Talep onaylama
+// Talep onaylama 
 app.put('/api/gal_cost_cal_sal_requests/:id/approve', async (req, res) => {
   try {
     const { id } = req.params;
-    const { processed_by } = req.body;
+    const { processed_by, notify_email } = req.body;
     
+    // 1. Talebi onayla
     const query = `
       UPDATE gal_cost_cal_sal_requests
       SET status = 'approved', processed_by = $1, processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -961,7 +962,58 @@ app.put('/api/gal_cost_cal_sal_requests/:id/approve', async (req, res) => {
       return res.status(404).json({ error: 'Talep bulunamadı' });
     }
     
-    res.json(result.rows[0]);
+    const approvedRequest = result.rows[0];
+    
+    // 2. E-posta bildirimi gönder (talep sahibine varsa)
+    if (notify_email && req.body.user_email) {
+      try {
+        // Talep sahibi kullanıcı bilgilerini al
+        const userQuery = 'SELECT * FROM crm_users WHERE id = $1';
+        const userResult = await pool.query(userQuery, [approvedRequest.created_by]);
+        const userEmail = userResult.rows.length > 0 ? userResult.rows[0].email : req.body.user_email;
+        
+        // E-posta şablonu oluştur
+        const emailTemplate = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+            <h2 style="color: #3498db;">Talep Onaylandı</h2>
+            <p>Sayın Kullanıcı,</p>
+            <p>Oluşturduğunuz galvanizli tel talebi <strong style="color: green;">onaylanmıştır</strong>.</p>
+            <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+              <p><strong>Talep Detayları:</strong></p>
+              <ul>
+                <li>Talep No: ${approvedRequest.id}</li>
+                <li>Çap: ${approvedRequest.cap} mm</li>
+                <li>Kaplama: ${approvedRequest.kod_2} ${approvedRequest.kaplama} g/m²</li>
+                <li>Miktar: ${approvedRequest.kg || 0} kg</li>
+              </ul>
+            </div>
+            <p>Talebiniz üretim planlamasına alınmıştır.</p>
+            <p>Saygılarımızla,</p>
+            <p><strong>TLC Metal Satış Ekibi</strong></p>
+          </div>
+        `;
+        
+        // E-posta gönder
+        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+        sendSmtpEmail.subject = 'Galvanizli Tel Talebiniz Onaylandı';
+        sendSmtpEmail.htmlContent = emailTemplate;
+        sendSmtpEmail.sender = { name: 'TLC Metal Satış', email: 'satis@tlcmetal.com.tr' };
+        sendSmtpEmail.to = [{ email: userEmail }];
+        sendSmtpEmail.textContent = 'Galvanizli tel talebiniz onaylanmıştır.';
+        
+        await apiInstance.sendTransacEmail(sendSmtpEmail);
+        
+        console.log('✅ Onay e-postası başarıyla gönderildi');
+      } catch (emailError) {
+        console.error('❌ E-posta gönderme hatası:', emailError);
+        // E-posta gönderimi başarısız olsa da işlemi tamamla
+      }
+    }
+    
+    res.json({
+      ...approvedRequest,
+      email_sent: notify_email && req.body.user_email ? true : false
+    });
   } catch (error) {
     console.error('Talep onaylama hatası:', error);
     res.status(500).json({ error: 'Talep onaylanamadı: ' + error.message });
@@ -972,12 +1024,13 @@ app.put('/api/gal_cost_cal_sal_requests/:id/approve', async (req, res) => {
 app.put('/api/gal_cost_cal_sal_requests/:id/reject', async (req, res) => {
   try {
     const { id } = req.params;
-    const { processed_by, rejection_reason } = req.body;
+    const { processed_by, rejection_reason, notify_email, user_email } = req.body;
     
     if (!rejection_reason) {
       return res.status(400).json({ error: 'Reddetme sebebi gereklidir' });
     }
     
+    // 1. Talebi reddet
     const query = `
       UPDATE gal_cost_cal_sal_requests
       SET status = 'rejected', processed_by = $1, rejection_reason = $2, processed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -991,7 +1044,59 @@ app.put('/api/gal_cost_cal_sal_requests/:id/reject', async (req, res) => {
       return res.status(404).json({ error: 'Talep bulunamadı' });
     }
     
-    res.json(result.rows[0]);
+    const rejectedRequest = result.rows[0];
+    
+    // 2. E-posta bildirimi gönder (talep sahibine varsa)
+    if (notify_email && user_email) {
+      try {
+        // Talep sahibi kullanıcı bilgilerini al
+        const userQuery = 'SELECT * FROM crm_users WHERE id = $1';
+        const userResult = await pool.query(userQuery, [rejectedRequest.created_by]);
+        const userEmail = userResult.rows.length > 0 ? userResult.rows[0].email : user_email;
+        
+        // E-posta şablonu oluştur
+        const emailTemplate = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+            <h2 style="color: #e74c3c;">Talep Reddedildi</h2>
+            <p>Sayın Kullanıcı,</p>
+            <p>Oluşturduğunuz galvanizli tel talebi <strong style="color: red;">reddedilmiştir</strong>.</p>
+            <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+              <p><strong>Talep Detayları:</strong></p>
+              <ul>
+                <li>Talep No: ${rejectedRequest.id}</li>
+                <li>Çap: ${rejectedRequest.cap} mm</li>
+                <li>Kaplama: ${rejectedRequest.kod_2} ${rejectedRequest.kaplama} g/m²</li>
+                <li>Miktar: ${rejectedRequest.kg || 0} kg</li>
+              </ul>
+              <p><strong>Red Sebebi:</strong> ${rejectedRequest.rejection_reason || 'Belirtilmemiş'}</p>
+            </div>
+            <p>Detaylı bilgi için lütfen satış departmanıyla iletişime geçiniz.</p>
+            <p>Saygılarımızla,</p>
+            <p><strong>TLC Metal Satış Ekibi</strong></p>
+          </div>
+        `;
+        
+        // E-posta gönder
+        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+        sendSmtpEmail.subject = 'Galvanizli Tel Talebiniz Reddedildi';
+        sendSmtpEmail.htmlContent = emailTemplate;
+        sendSmtpEmail.sender = { name: 'TLC Metal Satış', email: 'satis@tlcmetal.com.tr' };
+        sendSmtpEmail.to = [{ email: userEmail }];
+        sendSmtpEmail.textContent = `Galvanizli tel talebiniz reddedilmiştir. Red sebebi: ${rejectedRequest.rejection_reason}`;
+        
+        await apiInstance.sendTransacEmail(sendSmtpEmail);
+        
+        console.log('✅ Red e-postası başarıyla gönderildi');
+      } catch (emailError) {
+        console.error('❌ E-posta gönderme hatası:', emailError);
+        // E-posta gönderimi başarısız olsa da işlemi tamamla
+      }
+    }
+    
+    res.json({
+      ...rejectedRequest,
+      email_sent: notify_email && user_email ? true : false
+    });
   } catch (error) {
     console.error('Talep reddetme hatası:', error);
     res.status(500).json({ error: 'Talep reddedilemedi: ' + error.message });
@@ -1674,6 +1779,83 @@ if (process.env.NODE_ENV !== 'production') {
         console.log(`🚀 Backend ${PORT} portunda çalışıyor`);
     });
 }
+
+// Brevo (Sendinblue) Email Bildirimi Endpoint'i
+const SibApiV3Sdk = require('sib-api-v3-sdk');
+const defaultClient = SibApiV3Sdk.ApiClient.instance;
+
+// Brevo API key konfigürasyonu
+const apiKey = defaultClient.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+app.post('/api/send-email-notification', async (req, res) => {
+  try {
+    const { to, subject, text, html, from = 'satis@tlcmetal.com.tr', fromName = 'TLC Metal Satış', cc, bcc, replyTo } = req.body;
+    
+    if (!to || !subject || (!text && !html)) {
+      return res.status(400).json({ error: 'Alıcı (to), konu (subject) ve mesaj içeriği (text veya html) gereklidir' });
+    }
+    
+    // Alıcıları doğru formata dönüştür
+    const toRecipients = Array.isArray(to) 
+      ? to.map(email => ({ email })) 
+      : [{ email: to }];
+    
+    // CC alıcılarını dönüştür (varsa)
+    const ccRecipients = cc ? (Array.isArray(cc) 
+      ? cc.map(email => ({ email })) 
+      : [{ email: cc }]) : [];
+    
+    // BCC alıcılarını dönüştür (varsa)
+    const bccRecipients = bcc ? (Array.isArray(bcc) 
+      ? bcc.map(email => ({ email })) 
+      : [{ email: bcc }]) : [];
+    
+    // E-posta mesajını oluştur
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html || `<p>${text}</p>`;
+    sendSmtpEmail.sender = { name: fromName, email: from || 'satis@tlcmetal.com.tr' };
+    sendSmtpEmail.to = toRecipients;
+    
+    // Opsiyonel alanları ekle
+    if (ccRecipients.length > 0) sendSmtpEmail.cc = ccRecipients;
+    if (bccRecipients.length > 0) sendSmtpEmail.bcc = bccRecipients;
+    if (replyTo) sendSmtpEmail.replyTo = { email: replyTo };
+    if (text) sendSmtpEmail.textContent = text;
+    
+    console.log('📧 E-posta gönderiliyor:', {
+      to: Array.isArray(to) ? to.join(', ') : to,
+      from: from || 'satis@tlcmetal.com.tr',
+      subject
+    });
+    
+    // E-postayı gönder
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    
+    console.log('✅ E-posta başarıyla gönderildi:', data);
+    res.status(200).json({ success: true, message: 'E-posta başarıyla gönderildi', data });
+  } catch (error) {
+    console.error('❌ E-posta gönderme hatası:', error);
+    
+    // Brevo özgü hata mesajlarını kontrol et
+    if (error.response && error.response.body) {
+      console.error('Brevo yanıt hatası:', error.response.body);
+      
+      return res.status(500).json({ 
+        error: 'E-posta gönderilemedi', 
+        details: error.message,
+        brevoError: error.response.body
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'E-posta gönderilemedi', 
+      details: error.message 
+    });
+  }
+});
 
 // Vercel için dışa aktar
 module.exports = app;

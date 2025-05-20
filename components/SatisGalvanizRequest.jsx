@@ -374,6 +374,74 @@ const SatisGalvanizRequest = () => {
     return validationErrors;
   };
   
+  // Send email notification
+  const sendEmailNotification = async (talep, recipients, subject, template, additionalInfo = {}) => {
+    try {
+      // Default admin recipients for notifications
+      const adminRecipients = ['uretim@tlcmetal.com.tr', 'satis@tlcmetal.com.tr'];
+      
+      // Prepare common email data
+      const emailData = {
+        to: recipients || adminRecipients,
+        subject: subject,
+        html: template,
+        text: 'Bu e-posta HTML formatında hazırlanmıştır. Lütfen HTML'i destekleyen bir e-posta istemcisi kullanın.',
+        from: 'satis@tlcmetal.com.tr',
+        ...additionalInfo
+      };
+      
+      // Send email via the API
+      const response = await fetchWithAuth('/api/send-email-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(emailData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('E-posta bildirimi gönderilemedi');
+      }
+      
+      console.log('E-posta bildirimi başarıyla gönderildi');
+      return true;
+    } catch (error) {
+      console.error('E-posta bildirimi gönderme hatası:', error);
+      return false;
+    }
+  };
+  
+  // Generate new request notification email template
+  const generateNewRequestEmailTemplate = (talep) => {
+    return `
+      <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+        <h2 style="color: #3498db;">Yeni Galvanizli Tel Talebi</h2>
+        <p>Sayın İlgili,</p>
+        <p>Yeni bir galvanizli tel talebi oluşturulmuştur. Lütfen aşağıdaki talep detaylarını inceleyiniz.</p>
+        <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+          <p><strong>Talep Detayları:</strong></p>
+          <ul>
+            <li>Talep No: ${talep.id}</li>
+            <li>Çap: ${talep.cap} mm</li>
+            <li>Kaplama: ${talep.kod_2} ${talep.kaplama} g/m²</li>
+            <li>Mukavemet: ${talep.min_mukavemet} - ${talep.max_mukavemet} MPa</li>
+            <li>Ağırlık: ${talep.kg} kg</li>
+            <li>İç Çap: ${talep.ic_cap} cm</li>
+            <li>Dış Çap: ${talep.dis_cap} cm</li>
+            <li>Tolerans: +${talep.tolerans_plus} mm / -${talep.tolerans_minus} mm</li>
+            <li>Unwinding: ${talep.unwinding || 'Anti-Clockwise'}</li>
+            ${talep.cast_kont ? `<li>Bağ Miktarı: ${talep.cast_kont}</li>` : ''}
+            ${talep.helix_kont ? `<li>Helix Kontrol: ${talep.helix_kont}</li>` : ''}
+            ${talep.elongation ? `<li>Elongation: ${talep.elongation}</li>` : ''}
+          </ul>
+        </div>
+        <p>Talebi incelemek ve işlem yapmak için CRM sistemine giriş yapabilirsiniz.</p>
+        <p>Saygılarımızla,</p>
+        <p><strong>TLC Metal Satış Ekibi</strong></p>
+      </div>
+    `;
+  };
+  
   // Submit the request
   const submitRequest = async (e) => {
     e.preventDefault();
@@ -436,8 +504,15 @@ const SatisGalvanizRequest = () => {
       // Get the response data
       const data = await response.json();
       
-      // Email notification placeholder - to be implemented later
-      // sendEmailNotification(data);
+      // Send email notification to admin
+      const emailTemplate = generateNewRequestEmailTemplate(data);
+      await sendEmailNotification(
+        data, 
+        ['uretim@tlcmetal.com.tr'], 
+        'Yeni Galvanizli Tel Talebi Oluşturuldu', 
+        emailTemplate,
+        { fromName: 'TLC Metal Satış' }
+      );
       
       // Reset form after successful submission
       setRequestData({
