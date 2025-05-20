@@ -2236,7 +2236,7 @@ const GalvanizliTelNetsis = () => {
     console.log(`MMGT için doğrulanmış sequence değeri: ${validSequence}`);
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      stok_adi: generateStokAdi(),
+      stok_adi: `Galvanizli Tel ${capForExcel.replace('.', ',')} mm -${Math.abs(toleransMinusValue).toFixed(2).replace('.', ',')}/+${toleransPlusValue.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'MM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -2245,8 +2245,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact format as in Excel
-      cevrim_degeri_1: 0,
+      payda_1: 1000, // Use 1000 without decimal in database
+      cevrim_degeri_1: 0.001, // Use 0.001 in database
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -2258,7 +2258,7 @@ const GalvanizliTelNetsis = () => {
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
-      cap2: capForExcel, // Use formatted string value
+      cap2: capValue.toFixed(2), // Use point decimal formatting for database
       tolerans_plus: toleransPlusValue, // Store as number for calculations
       tolerans_minus: toleransMinusValue, // Store as number for calculations
       shrink: mmGtData.shrink,
@@ -2277,10 +2277,10 @@ const GalvanizliTelNetsis = () => {
       super_recete_kullanilsin: 'H',
       alis_doviz_tipi: 2,
       gumruk_tarife_kodu: getGumrukTarifeKodu(),
-      ingilizce_isim: generateEnglishName(),
+      ingilizce_isim: `Galvanized Steel Wire ${capForExcel.replace('.', ',')} mm -${Math.abs(toleransMinusValue).toFixed(2).replace('.', ',')}/+${toleransPlusValue.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       // Technical spec columns - match Excel format exactly
       metarial: 'Low Carbon Steel Wire',
-      dia_mm: capForExcel, // Use formatted string value
+      dia_mm: capForExcel.replace('.', ','), // Use comma decimal for display
       dia_tol_mm_plus: toleransPlusValue, 
       dia_tol_mm_minus: toleransMinusValue,
       zing_coating: `${mmGtData.kaplama} gr/m²`,
@@ -2311,7 +2311,7 @@ const GalvanizliTelNetsis = () => {
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capForExcel.replace('.', ',')} mm -${Math.abs(toleransMinusValue).toFixed(2).replace('.', ',')}/+${toleransPlusValue.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -2320,8 +2320,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact Excel format
-      cevrim_degeri_1: 0,
+      payda_1: 1000, // Use 1000 without decimal in database
+      cevrim_degeri_1: 0.001, // Use 0.001 in database
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -2333,7 +2333,7 @@ const GalvanizliTelNetsis = () => {
       kg: parseInt(mmGtData.kg),
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
-      cap2: capForExcel, // Use formatted string to match Excel
+      cap2: capValue.toFixed(2), // Use point decimal formatting for database
       tolerans_plus: toleransPlusValue,
       tolerans_minus: toleransMinusValue,
       shrink: mmGtData.shrink,
@@ -2350,7 +2350,7 @@ const GalvanizliTelNetsis = () => {
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       alis_doviz_tipi: 2,
-      ingilizce_isim: `YM Galvanized Wire ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`
+      ingilizce_isim: `Galvanized Steel Wire ${capForExcel.replace('.', ',')} mm -${Math.abs(toleransMinusValue).toFixed(2).replace('.', ',')}/+${toleransPlusValue.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`
     };
   };
 
@@ -2371,8 +2371,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact Excel format
-      cevrim_degeri_1: 0,
+      payda_1: 1000, // Use 1000 without decimal in database
+      cevrim_degeri_1: 0.001, // Use 0.001 in database
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -2386,7 +2386,7 @@ const GalvanizliTelNetsis = () => {
       fiyat_birimi: 1,
       doviz_tip: 1,
       stok_turu: 'D',
-      ingilizce_isim: `YM Black Wire ${capForExcel} mm Quality: ${ymSt.quality}`,
+      ingilizce_isim: `YM Black Wire ${capForExcel.replace('.', ',')} mm Quality: ${ymSt.quality}`,
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H'
     };
