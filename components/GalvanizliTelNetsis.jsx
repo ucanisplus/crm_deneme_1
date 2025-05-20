@@ -1387,11 +1387,26 @@ const GalvanizliTelNetsis = () => {
       
       // YM ST Reçete - use existing ymStCap value
       // Get filmasin kodu using the already defined ymStCap
+      // Update ymSt with appropriate filmasin and quality values if missing
+      // This will be done inside getFilmasinKodu for auto-generated YM STs
       const filmasinKodu = getFilmasinKodu(ymSt);
       
       // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
       const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
       const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
+      
+      console.log(`🧪 Using filmasin code ${filmasinKodu} with HM_Cap=${hmCap} for YM ST cap=${ymSt.cap}`);
+      
+      // Ensure ymSt has filmasin and quality values set for the dropdown selection to work
+      if (!ymSt.filmasin || !ymSt.quality) {
+        if (hmCapMatch) {
+          ymSt.filmasin = parseInt(hmCapMatch[1]);
+        }
+        const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
+        if (qualityMatch) {
+          ymSt.quality = qualityMatch[1];
+        }
+      }
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
       // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
@@ -1402,10 +1417,18 @@ const GalvanizliTelNetsis = () => {
       console.log(`🧮 TLC01 calculation inputs: Cap=${currentYmStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
       // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-      // Ensure we have a reasonable TLC_Hiz value to avoid extremely high TLC01 values
-      const safeHiz = tlcHiz < 0.1 ? 10 : tlcHiz; // Default to 10 if too low
+      // TLC_Hiz values from the lookup table are typically between 15-20 (from TLC_Hizlar.csv)
+      // If TLC_Hiz is too low, it will result in extremely high TLC01 values
+      // The 0.7 multiplier has already been applied to tlcHiz in calculateTlcHiz function
+      
+      // Ensure we have a valid TLC_Hiz value - typical values are in range 10-20
+      // Very small values (like 0.1) would produce unreasonably high TLC01 values
+      const safeHiz = (!tlcHiz || tlcHiz < 5) ? 15 : tlcHiz; // Use a reasonable default of 15 if too low
+      
+      console.log(`🧮 Using TLC_Hiz value of ${safeHiz} for TLC01 calculation`);
       
       // Perform calculation with precise values - use currentYmStCap to avoid reference errors
+      // This follows the exact formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
       const tlc01Raw = 1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60;
       const tlcValue = parseFloat(tlc01Raw.toFixed(5));
       
@@ -4384,15 +4407,35 @@ const GalvanizliTelNetsis = () => {
     
     // Get cap and determine appropriate filmasin type
     const cap = parseFloat(ymSt.cap) || parseFloat(mmGtData.cap) || 0;
-    let filmasin = ymSt.filmasin ? ymSt.filmasin.toString() : getFilmasinForCap(cap);
+    
+    // If ymSt has filmasin and quality defined, use those values
+    // If not, determine appropriate values based on cap
+    let filmasin, quality;
+    
+    if (ymSt.filmasin && ymSt.quality) {
+      // Use existing values from ymSt
+      filmasin = ymSt.filmasin.toString();
+      quality = ymSt.quality;
+      console.log(`✅ Using existing filmasin: ${filmasin}, quality: ${quality} for cap ${cap}`);
+    } else {
+      // Otherwise, determine appropriate values based on cap
+      filmasin = getFilmasinForCap(cap);
+      quality = getQualityForCap(cap) || '1006';
+      
+      // IMPORTANT: Also update the ymSt object with the selected values
+      // This ensures dropdowns will be set to the correct values
+      if (ymSt.source === 'auto-generated' || ymSt.source === 'manual-added') {
+        // Only modify if it's our controlled object, not from the database
+        ymSt.filmasin = parseInt(filmasin);
+        ymSt.quality = quality;
+        console.log(`📝 Updated YM ST with filmasin: ${filmasin}, quality: ${quality}`);
+      }
+    }
     
     // Ensure 4 digits with leading zeros - Excel formatı için önemli!
     // Format: XXXX (0550, 0600, 0700, etc.)
     const filmasinNumber = parseInt(filmasin, 10);
     filmasin = filmasinNumber.toString().padStart(4, '0');
-    
-    // Get quality based on cap or use default
-    let quality = ymSt.quality || getQualityForCap(cap) || '1006';
     
     // DÜZELTME: Format kontrolü - Excel formatıyla tam uyumlu olmalı
     const filmasinCode = `FLM.${filmasin}.${quality}`;
@@ -4816,7 +4859,11 @@ const GalvanizliTelNetsis = () => {
     if (tlcHizlarCache[exactLookupCode]) {
       const exactMatch = tlcHizlarCache[exactLookupCode];
       console.log(`✅ Found exact TLC_Hiz match: ${exactMatch} for ${exactLookupCode}`);
-      return exactMatch * 0.7; // Apply 0.7 multiplier as per formula
+      
+      // The formula in GalvanizliFormulas.txt is: TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
+      // The last column in TLC_Hizlar.csv is "calismahizi" which is what we need
+      // We need to apply the 0.7 multiplier as specified in the formula
+      return exactMatch * 0.7; 
     }
     
     if (tlcHizlarCache[roundedLookupCode]) {
@@ -4830,10 +4877,12 @@ const GalvanizliTelNetsis = () => {
     const calismaHizMs = duseyaraLookup(exactLookupCode, null, null, false);
     
     // Apply the formula: TLC_Hiz = DÜŞEYARA(...) * 0.7 as specified in GalvanizliFormulas.txt
-    const result = calismaHizMs ? calismaHizMs * 0.7 : 10; 
+    // If the lookup fails, use a reasonable default based on typical values in TLC_Hizlar.csv
+    // Looking at the CSV, values are typically in range 15-20, apply 0.7 to get 10.5-14
+    const defaultValue = 15; // Typical value from the CSV file
+    const result = calismaHizMs ? calismaHizMs * 0.7 : defaultValue * 0.7; 
     
-    // Use a more reasonable default (10 seems to be common in the data)
-    console.log(`ℹ️ TLC_Hiz calculated as ${result} for ${exactLookupCode}`);
+    console.log(`ℹ️ TLC_Hiz calculated as ${result} for ${exactLookupCode} (${calismaHizMs ? 'from lookup' : 'using default'})}`);
     
     return result; 
   };
