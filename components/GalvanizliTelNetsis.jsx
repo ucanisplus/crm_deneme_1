@@ -30,7 +30,10 @@ const GalvanizliTelNetsis = () => {
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
+  const [showRequestDetailModal, setShowRequestDetailModal] = useState(false);
   const [isRequestUsed, setIsRequestUsed] = useState(false); // Talep kullanılma durumu
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
   
   // Mevcut MM GT seçimi için state'ler
   const [existingMmGts, setExistingMmGts] = useState([]);
@@ -731,32 +734,143 @@ const GalvanizliTelNetsis = () => {
     setDeleteType('mmgt');
   };
 
-  // Talep seçimi
+  // Talep seçimi için detay modalı açma
   const handleSelectRequest = (request) => {
     setSelectedRequest(request);
-    setIsRequestUsed(true); // Talep kullanıldı olarak işaretle
-    // Use normalized decimal display for all numeric values to ensure points not commas
-    setMmGtData({
-      cap: request.cap ? normalizeDecimalDisplay(request.cap) : '',
-      kod_2: request.kod_2 || 'NIT',
-      kaplama: request.kaplama ? normalizeDecimalDisplay(request.kaplama) : '',
-      min_mukavemet: request.min_mukavemet ? normalizeDecimalDisplay(request.min_mukavemet) : '',
-      max_mukavemet: request.max_mukavemet ? normalizeDecimalDisplay(request.max_mukavemet) : '',
-      kg: request.kg ? normalizeDecimalDisplay(request.kg) : '',
-      ic_cap: request.ic_cap || 45,
-      dis_cap: request.dis_cap || 75,
-      tolerans_plus: request.tolerans_plus ? normalizeDecimalDisplay(request.tolerans_plus) : '',
-      tolerans_minus: request.tolerans_minus ? normalizeDecimalDisplay(request.tolerans_minus) : '',
-      shrink: request.shrink || 'evet',
-      unwinding: request.unwinding || '',
-      cast_kont: '',
-      helix_kont: '',
-      elongation: ''
-    });
     setShowRequestsModal(false);
-    setCurrentStep('summary');
-    generateYmGtData();
-    findSuitableYmSts();
+    setShowRequestDetailModal(true);
+  };
+  
+  // Talebi düzenleme
+  const handleEditRequest = () => {
+    // Normalize values for setting mmGtData
+    setMmGtData({
+      cap: selectedRequest.cap ? normalizeDecimalDisplay(selectedRequest.cap) : '',
+      kod_2: selectedRequest.kod_2 || 'NIT',
+      kaplama: selectedRequest.kaplama ? normalizeDecimalDisplay(selectedRequest.kaplama) : '',
+      min_mukavemet: selectedRequest.min_mukavemet ? normalizeDecimalDisplay(selectedRequest.min_mukavemet) : '',
+      max_mukavemet: selectedRequest.max_mukavemet ? normalizeDecimalDisplay(selectedRequest.max_mukavemet) : '',
+      kg: selectedRequest.kg ? normalizeDecimalDisplay(selectedRequest.kg) : '',
+      ic_cap: selectedRequest.ic_cap || 45,
+      dis_cap: selectedRequest.dis_cap || 75,
+      tolerans_plus: selectedRequest.tolerans_plus ? normalizeDecimalDisplay(selectedRequest.tolerans_plus) : '',
+      tolerans_minus: selectedRequest.tolerans_minus ? normalizeDecimalDisplay(selectedRequest.tolerans_minus) : '',
+      shrink: selectedRequest.shrink || 'evet',
+      unwinding: selectedRequest.unwinding || 'Anti-Clockwise',
+      cast_kont: selectedRequest.cast_kont || '',
+      helix_kont: selectedRequest.helix_kont || '',
+      elongation: selectedRequest.elongation || ''
+    });
+    setShowRequestDetailModal(false);
+    setCurrentStep('input');
+  };
+  
+  // Talebi onaylama
+  const handleApproveRequest = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Update request status to approved
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: 'approved',
+          processed_by: user?.username || user?.id || 'system',
+          processed_at: new Date().toISOString()
+        })
+      });
+      
+      if (!response || !response.ok) {
+        throw new Error('Talep durumu güncellenemedi');
+      }
+      
+      toast.success('Talep başarıyla onaylandı');
+      
+      // Set request as used and continue to summary
+      setIsRequestUsed(true);
+      
+      // Use normalized decimal display for all numeric values to ensure points not commas
+      setMmGtData({
+        cap: selectedRequest.cap ? normalizeDecimalDisplay(selectedRequest.cap) : '',
+        kod_2: selectedRequest.kod_2 || 'NIT',
+        kaplama: selectedRequest.kaplama ? normalizeDecimalDisplay(selectedRequest.kaplama) : '',
+        min_mukavemet: selectedRequest.min_mukavemet ? normalizeDecimalDisplay(selectedRequest.min_mukavemet) : '',
+        max_mukavemet: selectedRequest.max_mukavemet ? normalizeDecimalDisplay(selectedRequest.max_mukavemet) : '',
+        kg: selectedRequest.kg ? normalizeDecimalDisplay(selectedRequest.kg) : '',
+        ic_cap: selectedRequest.ic_cap || 45,
+        dis_cap: selectedRequest.dis_cap || 75,
+        tolerans_plus: selectedRequest.tolerans_plus ? normalizeDecimalDisplay(selectedRequest.tolerans_plus) : '',
+        tolerans_minus: selectedRequest.tolerans_minus ? normalizeDecimalDisplay(selectedRequest.tolerans_minus) : '',
+        shrink: selectedRequest.shrink || 'evet',
+        unwinding: selectedRequest.unwinding || 'Anti-Clockwise',
+        cast_kont: selectedRequest.cast_kont || '',
+        helix_kont: selectedRequest.helix_kont || '',
+        elongation: selectedRequest.elongation || ''
+      });
+      
+      setShowRequestDetailModal(false);
+      setCurrentStep('summary');
+      generateYmGtData();
+      findSuitableYmSts();
+      
+    } catch (error) {
+      console.error('Talep onaylama hatası:', error);
+      toast.error('Talep onaylanamadı: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Talebi reddetme modalını açma
+  const handleRejectRequest = () => {
+    setShowRejectionModal(true);
+  };
+  
+  // Talebi reddetme işlemini gerçekleştirme
+  const handleRejectConfirm = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Lütfen bir ret nedeni girin');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Update request status to rejected with reason
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: 'rejected',
+          rejection_reason: rejectionReason,
+          processed_by: user?.username || user?.id || 'system',
+          processed_at: new Date().toISOString()
+        })
+      });
+      
+      if (!response || !response.ok) {
+        throw new Error('Talep durumu güncellenemedi');
+      }
+      
+      toast.success('Talep reddedildi');
+      setRejectionReason('');
+      setShowRejectionModal(false);
+      setShowRequestDetailModal(false);
+      
+      // Refresh the requests list
+      fetchRequests();
+      
+    } catch (error) {
+      console.error('Talep reddetme hatası:', error);
+      toast.error('Talep reddedilemedi: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Mevcut MM GT seçimi
@@ -6668,6 +6782,227 @@ const GalvanizliTelNetsis = () => {
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Talep Detay Modalı */}
+      {showRequestDetailModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Talep Detayları
+                </h2>
+                <button
+                  onClick={() => setShowRequestDetailModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                <p className="text-blue-700 text-sm">
+                  Bu talebi düzenleyebilir, onaylayabilir veya reddedebilirsiniz. Onayladığınızda talep "onaylandı" olarak işaretlenecek ve hesaplamalar için kullanılacaktır.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Sol sütun */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Talep ID</p>
+                    <p className="text-base text-gray-900">{selectedRequest.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Durum</p>
+                    <p className="px-2 py-1 text-xs inline-flex items-center font-medium rounded-full border bg-yellow-100 text-yellow-800 border-yellow-200">
+                      {selectedRequest.status === 'pending' ? 'Beklemede' : 
+                       selectedRequest.status === 'approved' ? 'Onaylandı' : 
+                       selectedRequest.status === 'rejected' ? 'Reddedildi' : 
+                       selectedRequest.status === 'in_progress' ? 'İşleniyor' : 
+                       selectedRequest.status === 'completed' ? 'Tamamlandı' : 
+                       selectedRequest.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tel Çapı</p>
+                    <p className="text-base text-gray-900">{selectedRequest.cap} mm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Kaplama</p>
+                    <p className="text-base text-gray-900">{selectedRequest.kod_2} {selectedRequest.kaplama} g/m²</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Mukavemet</p>
+                    <p className="text-base text-gray-900">{selectedRequest.min_mukavemet} - {selectedRequest.max_mukavemet} MPa</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Ağırlık</p>
+                    <p className="text-base text-gray-900">{selectedRequest.kg} kg</p>
+                  </div>
+                </div>
+                
+                {/* Sağ sütun */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">İç Çap</p>
+                    <p className="text-base text-gray-900">{selectedRequest.ic_cap} cm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Dış Çap</p>
+                    <p className="text-base text-gray-900">{selectedRequest.dis_cap} cm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tolerans</p>
+                    <p className="text-base text-gray-900">+{selectedRequest.tolerans_plus} mm / -{selectedRequest.tolerans_minus} mm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Shrink</p>
+                    <p className="text-base text-gray-900">{selectedRequest.shrink || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Unwinding</p>
+                    <p className="text-base text-gray-900">{selectedRequest.unwinding || 'Anti-Clockwise'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Bağ Miktarı</p>
+                    <p className="text-base text-gray-900">{selectedRequest.cast_kont || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Helix Kontrol</p>
+                    <p className="text-base text-gray-900">{selectedRequest.helix_kont || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Elongation</p>
+                    <p className="text-base text-gray-900">{selectedRequest.elongation || '-'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowRequestDetailModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  İptal
+                </button>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleEditRequest}
+                    className="px-4 py-2 text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 flex items-center"
+                  >
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Düzenle
+                  </button>
+                  
+                  <button
+                    onClick={handleApproveRequest}
+                    disabled={isLoading}
+                    className="px-4 py-2 text-green-700 bg-green-100 rounded-md hover:bg-green-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    Onayla
+                  </button>
+                  
+                  <button
+                    onClick={handleRejectRequest}
+                    disabled={isLoading}
+                    className="px-4 py-2 text-red-700 bg-red-100 rounded-md hover:bg-red-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Reddet
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Reddetme Nedeni Modalı */}
+      {showRejectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Talebi Reddetme Nedeni
+                </h2>
+                <button
+                  onClick={() => setShowRejectionModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <label htmlFor="rejectionReason" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ret Nedeni
+                </label>
+                <textarea
+                  id="rejectionReason"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={4}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                  placeholder="Talebi neden reddettiğinizi açıklayın..."
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowRejectionModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleRejectConfirm}
+                  disabled={isLoading || !rejectionReason.trim()}
+                  className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isLoading ? (
+                    <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  Talebi Reddet
+                </button>
+              </div>
             </div>
           </div>
         </div>

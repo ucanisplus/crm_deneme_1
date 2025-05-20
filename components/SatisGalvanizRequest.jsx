@@ -53,8 +53,10 @@ const SatisGalvanizRequest = () => {
     tolerans_plus: '0.05', // Default: ±0.05 mm (valid range: 0-0.10)
     tolerans_minus: '0.06', // Default: ±0.06 mm (valid range: 0-0.10)
     shrink: 'evet',         // Default: Yes
-    unwinding: '',          // Optional
-    cast_kont: ''           // Bağ Miktarı (Optional)
+    unwinding: 'Anti-Clockwise', // Default: Anti-Clockwise
+    cast_kont: '',          // Bağ Miktarı (Optional)
+    helix_kont: '',         // Helix Control (Optional)
+    elongation: ''          // Elongation (Optional)
   });
   
   // Fetch existing requests on component mount
@@ -205,7 +207,10 @@ const SatisGalvanizRequest = () => {
         request.kod_2.toLowerCase().includes(query) ||
         request.kaplama.toString().includes(query) ||
         request.id.toLowerCase().includes(query) ||
-        (request.cast_kont && request.cast_kont.toString().includes(query))
+        (request.cast_kont && request.cast_kont.toString().includes(query)) ||
+        (request.unwinding && request.unwinding.toLowerCase().includes(query)) ||
+        (request.helix_kont && request.helix_kont.toString().includes(query)) ||
+        (request.elongation && request.elongation.toString().includes(query))
       );
     }
     
@@ -402,8 +407,10 @@ const SatisGalvanizRequest = () => {
         tolerans_plus: requestData.tolerans_plus,
         tolerans_minus: requestData.tolerans_minus,
         shrink: requestData.shrink,
-        unwinding: requestData.unwinding || null,
+        unwinding: requestData.unwinding || 'Anti-Clockwise',
         cast_kont: requestData.cast_kont || null,         // Bağ miktarı
+        helix_kont: requestData.helix_kont || null,       // Helix kontrol
+        elongation: requestData.elongation || null,       // Elongation
         status: 'pending',                // Initial status: pending
         created_by: user?.id || null      // Track who created the request
       };
@@ -445,8 +452,10 @@ const SatisGalvanizRequest = () => {
         tolerans_plus: '0.05',
         tolerans_minus: '0.06',
         shrink: 'evet',
-        unwinding: '',
-        cast_kont: ''
+        unwinding: 'Anti-Clockwise',
+        cast_kont: '',
+        helix_kont: '',
+        elongation: ''
       });
       
       // Refresh the request list
@@ -588,6 +597,9 @@ const SatisGalvanizRequest = () => {
                   <option value="kaplama">Kaplama Miktarı</option>
                   <option value="kg">Ağırlık</option>
                   <option value="cast_kont">Bağ Miktarı</option>
+                  <option value="unwinding">Unwinding</option>
+                  <option value="helix_kont">Helix Kontrol</option>
+                  <option value="elongation">Elongation</option>
                 </select>
                 <button
                   onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
@@ -682,6 +694,7 @@ const SatisGalvanizRequest = () => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bağ Miktarı</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unwinding</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
@@ -707,6 +720,9 @@ const SatisGalvanizRequest = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.cast_kont || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.unwinding || 'Anti-Clockwise'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {hasPermission('manage:galvanizli-tel-requests') ? (
@@ -1008,13 +1024,39 @@ const SatisGalvanizRequest = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unwinding</label>
-                <input
-                  type="text"
+                <select
                   name="unwinding"
                   value={requestData.unwinding}
                   onChange={handleInputChange}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                >
+                  <option value="Anti-Clockwise">Anti-Clockwise (Varsayılan)</option>
+                  <option value="Clockwise">Clockwise</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Helix Kontrol</label>
+                  <input
+                    type="text"
+                    name="helix_kont"
+                    value={requestData.helix_kont}
+                    onChange={handleInputChange}
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Opsiyonel"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Elongation</label>
+                  <input
+                    type="text"
+                    name="elongation"
+                    value={requestData.elongation}
+                    onChange={handleInputChange}
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Opsiyonel"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Bağ Miktarı</label>
@@ -1185,6 +1227,14 @@ const SatisGalvanizRequest = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Bağ Miktarı</p>
                     <p className="text-base text-gray-900">{selectedRequest.cast_kont || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Helix Kontrol</p>
+                    <p className="text-base text-gray-900">{selectedRequest.helix_kont || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Elongation</p>
+                    <p className="text-base text-gray-900">{selectedRequest.elongation || '-'}</p>
                   </div>
                 </div>
               </div>
