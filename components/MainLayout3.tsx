@@ -35,7 +35,9 @@ import {
   Link2,
   Hammer,
   Cpu,
-  User
+  User,
+  ShoppingCart,
+  PlusCircle
 } from 'lucide-react';
 
 // Interface definitions unchanged...
@@ -98,6 +100,12 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         if (path.includes('/hesaplamalar/maliyet')) {
           setActiveItem('maliyet');
         }
+      }
+    } else if (path.includes('/satis')) {
+      setActiveMainCategory('satis');
+      
+      if (path.includes('/galvaniz-talebi')) {
+        setActiveSubCategory('galvaniz-talebi');
       }
     } else if (path.includes('/crm')) {
       setActiveMainCategory('crm');
@@ -192,6 +200,16 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             { id: 'performans', name: 'Performans Metrikleri', icon: <Activity size={14} />, path: '/uretim/hesaplamalar/performans' },
           ]
         },
+      ]
+    },
+    { 
+      id: 'satis', 
+      name: 'Satış', 
+      icon: <ShoppingCart size={20} />, 
+      path: '/satis',
+      hasSubCategories: true,
+      subCategories: [
+        { id: 'galvaniz-talebi', name: 'Galvaniz Talebi', icon: <PlusCircle size={18} />, path: '/satis/galvaniz-talebi', hasSubItems: false },
       ]
     },
     { 
