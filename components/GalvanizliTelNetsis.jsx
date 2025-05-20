@@ -3807,10 +3807,10 @@ const GalvanizliTelNetsis = () => {
     if (bilesen === 'readonly') return 'KG';
     
     // For process codes with 01 suffix, typically times
-    if (bilesen === 'GTPKT01' || bilesen === 'TLC01') return 'DK';
+    if (bilesen === 'GTPKT01' || bilesen === 'TLC01' || bilesen === 'GLV01') return 'DK';
     
     // All other cases return KG for material weight
-    if (bilesen.includes('03') || bilesen.includes('ASİT') || bilesen.includes('GLV')) return 'KG';
+    if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';
     if (bilesen.includes('CEMBER') || bilesen.includes('SHRİNK')) return 'KG';
     if (bilesen.includes('YM.GT.')) return 'KG';
@@ -3827,6 +3827,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen === 'SM.HİDROLİK.ASİT') return 'Asit Tüketim Miktarı';
     if (bilesen.includes('FLM.')) return 'Filmaşin Tüketimi';
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
+    if (bilesen.includes('YM.ST.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
     if (bilesen.includes('SHRİNK')) return 'Naylon Tüketim Miktarı';
     if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
@@ -4654,8 +4655,8 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1,000', // Payda-1 (Excel formatı - COMMA here)
-      '0', // Çevrim Değeri-1
+      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
@@ -4669,8 +4670,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      '0', // Tolerans(+) (NOKTA format - will be shown as 0,00 in Excel)
-      '0,06', // Tolerans(-) (COMMA for Excel)
+      mmGtData.tolerans_plus, // Tolerans(+) (NOKTA format)
+      mmGtData.tolerans_minus, // Tolerans(-) (NOKTA format)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -4752,8 +4753,8 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1,000', // Payda-1 (Excel formatı - COMMA)
-      '0', // Çevrim Değeri-1
+      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
@@ -4767,8 +4768,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      parseFloat(mmGtData.tolerans_plus || 0).toFixed(2).replace('.', ','), // Tolerans(+) - COMMA for Excel
-      parseFloat(mmGtData.tolerans_minus || 0).toFixed(2).replace('.', ','), // Tolerans(-) - COMMA for Excel
+      mmGtData.tolerans_plus, // Tolerans(+) - POINT for Excel
+      mmGtData.tolerans_minus, // Tolerans(-) - POINT for Excel
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -4828,8 +4829,8 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1,000', // Payda-1 (Excel formatı - COMMA)
-      '0', // Çevrim Değeri-1
+      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
@@ -4989,8 +4990,8 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // Use point for database storage but display with proper spacing
-    return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Use comma for decimal separators in Excel output
+    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtStokAdi = (sequence = '00') => {
@@ -4998,7 +4999,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `YM Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -5006,7 +5007,8 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Add logic to return with proper comma decimal separator format
+    return `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtInglizceIsim = () => {
@@ -5014,7 +5016,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateEnglishName = () => {
@@ -5022,8 +5024,8 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // Use points for database storage but proper spacing between values
-    return `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Use comma for decimal separators in Excel output
+    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Talep onaylama
