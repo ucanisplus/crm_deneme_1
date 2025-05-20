@@ -589,174 +589,176 @@ const SatisGalvanizRequest = () => {
               )}
               
               {getFilteredAndSortedRequests().length > 0 && (
-                <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {getFilteredAndSortedRequests().map((request, index) => (
-                    <tr key={request.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {request.id.substring(0, 8)}...
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.cap} mm
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.kod_2} {request.kaplama} g/m²
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.min_mukavemet} - {request.max_mukavemet} MPa
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.kg} kg
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {hasPermission('manage:galvanizli-tel-requests') ? (
-                          <select
-                            value={request.status}
-                            onChange={(e) => updateRequestStatus(request.id, e.target.value)}
-                            className={`text-xs font-medium rounded border px-2 py-1 ${getStatusBadgeColor(request.status)}`}
-                            disabled={isLoading}
-                          >
-                            <option value="pending">Beklemede</option>
-                            <option value="approved">Onaylandı</option>
-                            <option value="rejected">Reddedildi</option>
-                            <option value="in_progress">İşleniyor</option>
-                            <option value="completed">Tamamlandı</option>
-                          </select>
-                        ) : (
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadgeColor(request.status)}`}>
-                            {getStatusText(request.status)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(request.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedRequest(request);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 mr-2 text-sm"
-                        >
-                          Detay
-                        </button>
-                        <button
-                          onClick={() => confirmDelete(request)}
-                          disabled={isLoading || request.status !== 'pending'}
-                          className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
-                        >
-                          Sil
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              {/* Pagination Controls */}
-              {getFilteredAndSortedRequests(false).length > itemsPerPage && (
-                <div className="mt-6 flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-700">
-                      Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{getTotalPages()}</span>
-                    </span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1); // Reset to first page when changing items per page
-                      }}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm"
-                    >
-                      <option value={5}>5 / sayfa</option>
-                      <option value={10}>10 / sayfa</option>
-                      <option value={20}>20 / sayfa</option>
-                      <option value={50}>50 / sayfa</option>
-                    </select>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      «
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      ‹
-                    </button>
-                    
-                    {/* Page Numbers */}
-                    <div className="flex items-center space-x-1">
-                      {[...Array(getTotalPages())].map((_, i) => {
-                        const pageNum = i + 1;
-                        // Show only current page, first, last, and 1 page before and after current
-                        if (
-                          pageNum === 1 || 
-                          pageNum === getTotalPages() || 
-                          pageNum === currentPage ||
-                          pageNum === currentPage - 1 ||
-                          pageNum === currentPage + 1
-                        ) {
-                          return (
+                <>
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getFilteredAndSortedRequests().map((request, index) => (
+                        <tr key={request.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {request.id.substring(0, 8)}...
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.cap} mm
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.kod_2} {request.kaplama} g/m²
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.min_mukavemet} - {request.max_mukavemet} MPa
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.kg} kg
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {hasPermission('manage:galvanizli-tel-requests') ? (
+                              <select
+                                value={request.status}
+                                onChange={(e) => updateRequestStatus(request.id, e.target.value)}
+                                className={`text-xs font-medium rounded border px-2 py-1 ${getStatusBadgeColor(request.status)}`}
+                                disabled={isLoading}
+                              >
+                                <option value="pending">Beklemede</option>
+                                <option value="approved">Onaylandı</option>
+                                <option value="rejected">Reddedildi</option>
+                                <option value="in_progress">İşleniyor</option>
+                                <option value="completed">Tamamlandı</option>
+                              </select>
+                            ) : (
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadgeColor(request.status)}`}>
+                                {getStatusText(request.status)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(request.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center space-x-2">
                             <button
-                              key={pageNum}
-                              onClick={() => setCurrentPage(pageNum)}
-                              className={`w-8 h-8 flex items-center justify-center border ${
-                                currentPage === pageNum 
-                                ? 'bg-blue-600 text-white border-blue-600' 
-                                : 'border-gray-300 hover:bg-gray-50'
-                              } rounded-md text-sm`}
+                              onClick={() => {
+                                setSelectedRequest(request);
+                                setShowDetailsModal(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 mr-2 text-sm"
                             >
-                              {pageNum}
+                              Detay
                             </button>
-                          );
-                        } else if (
-                          (pageNum === 2 && currentPage > 3) ||
-                          (pageNum === getTotalPages() - 1 && currentPage < getTotalPages() - 2)
-                        ) {
-                          return <span key={pageNum} className="text-gray-500">...</span>;
-                        } else {
-                          return null;
-                        }
-                      })}
+                            <button
+                              onClick={() => confirmDelete(request)}
+                              disabled={isLoading || request.status !== 'pending'}
+                              className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
+                            >
+                              Sil
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {/* Pagination Controls */}
+                  {getFilteredAndSortedRequests(false).length > itemsPerPage && (
+                    <div className="mt-6 flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-700">
+                          Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{getTotalPages()}</span>
+                        </span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1); // Reset to first page when changing items per page
+                          }}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value={5}>5 / sayfa</option>
+                          <option value={10}>10 / sayfa</option>
+                          <option value={20}>20 / sayfa</option>
+                          <option value={50}>50 / sayfa</option>
+                        </select>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setCurrentPage(1)}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          «
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ‹
+                        </button>
+                        
+                        {/* Page Numbers */}
+                        <div className="flex items-center space-x-1">
+                          {[...Array(getTotalPages())].map((_, i) => {
+                            const pageNum = i + 1;
+                            // Show only current page, first, last, and 1 page before and after current
+                            if (
+                              pageNum === 1 || 
+                              pageNum === getTotalPages() || 
+                              pageNum === currentPage ||
+                              pageNum === currentPage - 1 ||
+                              pageNum === currentPage + 1
+                            ) {
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className={`w-8 h-8 flex items-center justify-center border ${
+                                    currentPage === pageNum 
+                                    ? 'bg-blue-600 text-white border-blue-600' 
+                                    : 'border-gray-300 hover:bg-gray-50'
+                                  } rounded-md text-sm`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            } else if (
+                              (pageNum === 2 && currentPage > 3) ||
+                              (pageNum === getTotalPages() - 1 && currentPage < getTotalPages() - 2)
+                            ) {
+                              return <span key={pageNum} className="text-gray-500">...</span>;
+                            } else {
+                              return null;
+                            }
+                          })}
+                        </div>
+                        
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, getTotalPages()))}
+                          disabled={currentPage === getTotalPages()}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ›
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage(getTotalPages())}
+                          disabled={currentPage === getTotalPages()}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          »
+                        </button>
+                      </div>
                     </div>
-                    
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, getTotalPages()))}
-                      disabled={currentPage === getTotalPages()}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      ›
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(getTotalPages())}
-                      disabled={currentPage === getTotalPages()}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      »
-                    </button>
-                  </div>
-                </div>
-              )}
+                  )}
+                </>
               )}
             </div>
           )}
