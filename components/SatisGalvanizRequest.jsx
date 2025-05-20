@@ -42,16 +42,16 @@ const SatisGalvanizRequest = () => {
   
   // Form data for MM GT request
   const [requestData, setRequestData] = useState({
-    cap: '2.50',           // Default: 2.50mm
+    cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
     kod_2: 'NIT',          // Default: NIT
-    kaplama: '50',         // Default: 50 g/m²
+    kaplama: '100',        // Default: 100 g/m² (NIT valid range: 100-400, PAD fixed at 50)
     min_mukavemet: '350',  // Default: 350 MPa
     max_mukavemet: '550',  // Default: 550 MPa
-    kg: '500',             // Default: 500 kg
+    kg: '500',             // Default: 500 kg (valid range: 250-1250)
     ic_cap: 45,            // Default: 45 cm
     dis_cap: 75,           // Default: 75 cm
-    tolerans_plus: '0.05', // Default: ±0.05 mm
-    tolerans_minus: '0.06', // Default: ±0.06 mm
+    tolerans_plus: '0.05', // Default: ±0.05 mm (valid range: 0-0.10)
+    tolerans_minus: '0.06', // Default: ±0.06 mm (valid range: 0-0.10)
     shrink: 'evet',         // Default: Yes
     unwinding: ''           // Optional
   });
@@ -101,7 +101,7 @@ const SatisGalvanizRequest = () => {
     );
   }
   
-  // Handle form input changes
+  // Handle form input changes with validation
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let normalizedValue = value;
@@ -113,6 +113,64 @@ const SatisGalvanizRequest = () => {
       normalizedValue = normalizeInputValue(value);
     }
     
+    // Apply validation rules based on field
+    if (name === 'cap') {
+      // Diameter validation: between 0.8 and 8
+      const numValue = parseFloat(normalizedValue);
+      if (!isNaN(numValue) && (numValue < 0.8 || numValue > 8)) {
+        toast.error('Çap değeri 0.8 ile 8 arasında olmalıdır.');
+        return;
+      }
+    } else if (name === 'kaplama') {
+      // Kaplama validation based on kod_2 (coating type)
+      const numValue = parseFloat(normalizedValue);
+      if (!isNaN(numValue)) {
+        if (requestData.kod_2 === 'PAD' && numValue !== 50) {
+          toast.error('PAD kaplama türü için kaplama değeri 50 olmalıdır.');
+          return;
+        } else if (requestData.kod_2 === 'NIT' && (numValue < 100 || numValue > 400)) {
+          toast.error('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
+          return;
+        }
+      }
+    } else if (name === 'tolerans_plus' || name === 'tolerans_minus') {
+      // Tolerance validation: between 0 and 0.10
+      const numValue = parseFloat(normalizedValue);
+      if (!isNaN(numValue) && (numValue < 0 || numValue > 0.10)) {
+        toast.error('Tolerans değeri 0 ile 0.10 arasında olmalıdır.');
+        return;
+      }
+    } else if (name === 'kg') {
+      // Weight validation: between 250 and 1250
+      const numValue = parseFloat(normalizedValue);
+      if (!isNaN(numValue) && (numValue < 250 || numValue > 1250)) {
+        toast.error('Ağırlık değeri 250 ile 1250 arasında olmalıdır.');
+        return;
+      }
+    } else if (name === 'kod_2') {
+      // When coating type changes, validate kaplama value accordingly
+      const kaplamaValue = parseFloat(requestData.kaplama);
+      if (!isNaN(kaplamaValue)) {
+        if (normalizedValue === 'PAD' && kaplamaValue !== 50) {
+          toast.warning('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
+          setRequestData({
+            ...requestData,
+            [name]: normalizedValue,
+            kaplama: '50'
+          });
+          return;
+        } else if (normalizedValue === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
+          toast.warning('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
+          setRequestData({
+            ...requestData,
+            [name]: normalizedValue,
+            kaplama: kaplamaValue < 100 ? '100' : (kaplamaValue > 400 ? '400' : requestData.kaplama)
+          });
+          return;
+        }
+      }
+    }
+    
     setRequestData({
       ...requestData,
       [name]: normalizedValue
@@ -122,6 +180,14 @@ const SatisGalvanizRequest = () => {
   // Cap input change also updates dis_cap automatically
   const handleCapChange = (e) => {
     const value = normalizeInputValue(e.target.value);
+    
+    // Diameter validation: between 0.8 and 8
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && (numValue < 0.8 || numValue > 8)) {
+      toast.error('Çap değeri 0.8 ile 8 arasında olmalıdır.');
+      return;
+    }
+    
     setRequestData(prev => {
       const icCap = prev.ic_cap || 45;
       let disCap;
@@ -295,9 +361,58 @@ const SatisGalvanizRequest = () => {
     }
   };
   
+  // Validate request data
+  const validateRequestData = () => {
+    const validationErrors = [];
+    
+    // Validate diameter (cap)
+    const capValue = parseFloat(requestData.cap);
+    if (isNaN(capValue) || capValue < 0.8 || capValue > 8) {
+      validationErrors.push('Çap değeri 0.8 ile 8 arasında olmalıdır.');
+    }
+    
+    // Validate coating (kaplama) based on type (kod_2)
+    const kaplamaValue = parseFloat(requestData.kaplama);
+    if (isNaN(kaplamaValue)) {
+      validationErrors.push('Geçerli bir kaplama değeri giriniz.');
+    } else {
+      if (requestData.kod_2 === 'PAD' && kaplamaValue !== 50) {
+        validationErrors.push('PAD kaplama türü için kaplama değeri 50 olmalıdır.');
+      } else if (requestData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
+        validationErrors.push('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
+      }
+    }
+    
+    // Validate tolerances
+    const toleransPlusValue = parseFloat(requestData.tolerans_plus);
+    if (isNaN(toleransPlusValue) || toleransPlusValue < 0 || toleransPlusValue > 0.10) {
+      validationErrors.push('Tolerans+ değeri 0 ile 0.10 arasında olmalıdır.');
+    }
+    
+    const toleransMinusValue = parseFloat(requestData.tolerans_minus);
+    if (isNaN(toleransMinusValue) || toleransMinusValue < 0 || toleransMinusValue > 0.10) {
+      validationErrors.push('Tolerans- değeri 0 ile 0.10 arasında olmalıdır.');
+    }
+    
+    // Validate weight (kg)
+    const kgValue = parseFloat(requestData.kg);
+    if (isNaN(kgValue) || kgValue < 250 || kgValue > 1250) {
+      validationErrors.push('Ağırlık değeri 250 ile 1250 arasında olmalıdır.');
+    }
+    
+    return validationErrors;
+  };
+  
   // Submit the request
   const submitRequest = async (e) => {
     e.preventDefault();
+    
+    // Validate request data
+    const validationErrors = validateRequestData();
+    if (validationErrors.length > 0) {
+      validationErrors.forEach(error => toast.error(error));
+      return;
+    }
     
     try {
       setIsLoading(true);
@@ -350,7 +465,7 @@ const SatisGalvanizRequest = () => {
       setRequestData({
         cap: '2.50',
         kod_2: 'NIT',
-        kaplama: '50',
+        kaplama: '100',
         min_mukavemet: '350',
         max_mukavemet: '550',
         kg: '500',
@@ -776,13 +891,17 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tel Çapı (mm)</label>
                 <input
-                  type="text"
+                  type="number"
                   name="cap"
                   value={requestData.cap}
                   onChange={handleCapChange}
+                  min="0.8"
+                  max="8"
+                  step="0.01"
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 2.50"
                 />
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8 mm</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama Türü</label>
@@ -798,19 +917,38 @@ const SatisGalvanizRequest = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama (gr/m²)</label>
-                <input
-                  type="text"
-                  name="kaplama"
-                  value={requestData.kaplama}
-                  onChange={handleInputChange}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Örn: 50"
-                />
+                {requestData.kod_2 === 'PAD' ? (
+                  <input
+                    type="number"
+                    name="kaplama"
+                    value="50"
+                    disabled
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 cursor-not-allowed"
+                    title="PAD kaplama türü için sabit değer"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    name="kaplama"
+                    value={requestData.kaplama}
+                    onChange={handleInputChange}
+                    min="100"
+                    max="400"
+                    step="1"
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Örn: 100"
+                  />
+                )}
+                {requestData.kod_2 === 'PAD' ? (
+                  <p className="text-xs text-gray-500 mt-1">PAD kaplama için sabit değer: 50 g/m²</p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 100 - 400 g/m²</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Mukavemet (MPa)</label>
                 <input
-                  type="text"
+                  type="number"
                   name="min_mukavemet"
                   value={requestData.min_mukavemet}
                   onChange={handleInputChange}
@@ -821,7 +959,7 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Maksimum Mukavemet (MPa)</label>
                 <input
-                  type="text"
+                  type="number"
                   name="max_mukavemet"
                   value={requestData.max_mukavemet}
                   onChange={handleInputChange}
@@ -832,13 +970,17 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ağırlık (kg)</label>
                 <input
-                  type="text"
+                  type="number"
                   name="kg"
                   value={requestData.kg}
                   onChange={handleInputChange}
+                  min="250"
+                  max="1250"
+                  step="1"
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 500"
                 />
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 1250 kg</p>
               </div>
             </div>
             
@@ -872,24 +1014,32 @@ const SatisGalvanizRequest = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans+ (mm)</label>
                   <input
-                    type="text"
+                    type="number"
                     name="tolerans_plus"
                     value={requestData.tolerans_plus}
                     onChange={handleInputChange}
+                    min="0"
+                    max="0.10"
+                    step="0.01"
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.05"
                   />
+                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans- (mm)</label>
                   <input
-                    type="text"
+                    type="number"
                     name="tolerans_minus"
                     value={requestData.tolerans_minus}
                     onChange={handleInputChange}
+                    min="0"
+                    max="0.10"
+                    step="0.01"
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.06"
                   />
+                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
                 </div>
               </div>
               <div>
