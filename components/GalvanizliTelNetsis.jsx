@@ -2869,7 +2869,24 @@ const GalvanizliTelNetsis = () => {
       
       // Continue with database save, passing the database IDs
       try {
+        console.log('💾 Veritabanına kayıt işlemi başlatılıyor...');
         await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
+        console.log('✅ Veritabanına kayıt işlemi tamamlandı');
+        
+        // Now also generate Excel files
+        try {
+          console.log('📊 Talep onaylandı - Excel dosyalarını oluşturma işlemi başlatılıyor...');
+          toast.info('Excel dosyaları oluşturuluyor...');
+          
+          // Generate Excel files with saved data
+          await generateExcelFiles();
+          
+          console.log('✅ Excel dosyaları başarıyla oluşturuldu');
+          toast.success('İşlem başarıyla tamamlandı - Excel dosyaları oluşturuldu');
+        } catch (excelError) {
+          console.error('❌ Excel oluşturma hatası:', excelError);
+          toast.error('Excel oluşturma hatası: ' + excelError.message);
+        }
       } catch (saveError) {
         console.error('❗ Veritabanına kaydetme hatası (nested):', saveError);
         toast.error('Veritabanına kaydetme hatası: ' + saveError.message);
