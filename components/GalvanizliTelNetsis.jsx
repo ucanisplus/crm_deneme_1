@@ -1400,8 +1400,8 @@ const GalvanizliTelNetsis = () => {
         newRecipeStatus.mmGtRecipes[index][key] = 'auto';
       });
       
-      // YM ST Reçete
-      const ymStCap = parseFloat(ymSt.cap) || cap;
+      // YM ST Reçete - use existing ymStCap value
+      // Get filmasin kodu using the already defined ymStCap
       const filmasinKodu = getFilmasinKodu(ymSt);
       
       // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
@@ -1410,21 +1410,22 @@ const GalvanizliTelNetsis = () => {
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
       // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
-      const tlcHiz = calculateTlcHiz(hmCap, ymStCap);
+      const tlcHiz = calculateTlcHiz(hmCap, parseFloat(ymSt.cap) || cap);
       
       // Log raw inputs and intermediate values to help debug
-      console.log(`🧮 TLC01 calculation inputs: Cap=${ymStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
+      const currentYmStCap = parseFloat(ymSt.cap) || cap;
+      console.log(`🧮 TLC01 calculation inputs: Cap=${currentYmStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
       // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
       // Ensure we have a reasonable TLC_Hiz value to avoid extremely high TLC01 values
       const safeHiz = tlcHiz < 0.1 ? 10 : tlcHiz; // Default to 10 if too low
       
-      // Perform calculation with precise values
-      const tlc01Raw = 1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / safeHiz / 60;
+      // Perform calculation with precise values - use currentYmStCap to avoid reference errors
+      const tlc01Raw = 1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60;
       const tlcValue = parseFloat(tlc01Raw.toFixed(5));
       
       // Log the calculation for debugging
-      console.log(`🧮 TLC01 calculation: (1000*4000/${Math.PI}/7.85/${ymStCap}/${ymStCap}/${safeHiz}/60) = ${tlcValue}`);
+      console.log(`🧮 TLC01 calculation: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60) = ${tlcValue}`);
       
       newYmStRecipes[index] = {
         [filmasinKodu]: 1, // Use the Filmaşin code directly
