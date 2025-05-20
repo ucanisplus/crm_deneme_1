@@ -1,5 +1,5 @@
 // GalvanizliTelNetsis.jsx - Düzeltilmiş Versiyon
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
 import { fetchWithCorsProxy, CORS_PROXY_API_URLS } from '@/lib/cors-proxy';
@@ -9,6 +9,9 @@ import { saveAs } from 'file-saver';
 
 const GalvanizliTelNetsis = () => {
   const { user, hasPermission } = useAuth();
+  
+  // Ref to prevent multiple executions of approval process
+  const isProcessingApproval = useRef(false);
   
   // Ana state değişkenleri
   const [currentStep, setCurrentStep] = useState('input'); // input, summary, processing
@@ -2835,19 +2838,25 @@ const GalvanizliTelNetsis = () => {
   
   // Function to approve the request and update its status
   const approveRequestAndContinue = async () => {
+    // Prevent multiple simultaneous executions
+    if (isProcessingApproval.current) {
+      console.log('⚠️ Approval process already in progress, ignoring duplicate call');
+      return;
+    }
+    
     if (!selectedRequest) {
       toast.error('Seçili talep bulunamadı');
       return;
     }
     
     try {
+      // Set the ref to true to block any other executions
+      isProcessingApproval.current = true;
       setIsLoading(true);
       console.log('❗ Başlama: approveRequestAndContinue - İstek Onaylama');
       
-      // First, make sure we're not showing the approve confirmation modal multiple times
-      if (showApproveConfirmModal) {
-        setShowApproveConfirmModal(false);
-      }
+      // Make sure the modal is closed
+      setShowApproveConfirmModal(false);
       
       // Update request status to approved
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
@@ -2910,6 +2919,9 @@ const GalvanizliTelNetsis = () => {
       // Make sure we don't leave the modal open if there's an error
       setShowApproveConfirmModal(false);
     } finally {
+      // Reset the processing flag to allow future executions
+      isProcessingApproval.current = false;
+      
       // Extra insurance against stuck loading state
       setTimeout(() => {
         if (isLoading) {
@@ -2926,6 +2938,12 @@ const GalvanizliTelNetsis = () => {
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     console.log('📝 saveRecipesToDatabase called - isEditingRequest:', isEditingRequest);
     
+    // Prevent showing confirmation if we're already processing an approval
+    if (isProcessingApproval.current) {
+      console.log('⚠️ saveRecipesToDatabase: Approval process already in progress, ignoring duplicate call');
+      return;
+    }
+    
     // Save the parameters to database IDs state for later use
     setDatabaseIds({
       mmGtIds: mmGtIds || [],
@@ -2937,7 +2955,13 @@ const GalvanizliTelNetsis = () => {
     if (isEditingRequest && selectedRequest) {
       console.log('📝 Editing request, showing confirmation modal...');
       
-      // Instead of setting state, return a Promise that resolves after user action
+      // If modal is already shown, don't show it again
+      if (showApproveConfirmModal) {
+        console.log('⚠️ Confirmation modal already visible, ignoring duplicate call');
+        return;
+      }
+      
+      // Set the confirmation modal to visible
       setShowApproveConfirmModal(true);
       // The approveRequestAndContinue function will handle the rest when user clicks Approve
       
@@ -7755,14 +7779,24 @@ const GalvanizliTelNetsis = () => {
                 </button>
                 <button
                   onClick={() => {
-                    // Hide the modal first, then approve
+                    // First check if already processing
+                    if (isProcessingApproval.current) {
+                      console.log('⚠️ Button clicked but approval process already in progress, ignoring');
+                      return;
+                    }
+                    
+                    // Immediately set processing flag to prevent double execution
+                    isProcessingApproval.current = true;
+                    
+                    // Hide the modal first
                     setShowApproveConfirmModal(false);
-                    // Small delay before starting approval to ensure UI updates
+                    
+                    // Call the approval function after a small delay to ensure UI updates
                     setTimeout(() => {
                       approveRequestAndContinue();
-                    }, 100);
+                    }, 150);
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isProcessingApproval.current}
                   className="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isLoading ? (
