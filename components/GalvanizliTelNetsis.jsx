@@ -5075,8 +5075,13 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
     // Use point for database storage but display with proper spacing
-    return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtStokAdi = (sequence = '00') => {
@@ -5084,7 +5089,12 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `YM Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
+    return `YM Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -5459,15 +5469,16 @@ const GalvanizliTelNetsis = () => {
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Cast Kont
+                Bağ Miktarı
               </label>
               <input
                 type="text"
                 value={mmGtData.cast_kont}
                 onChange={(e) => handleInputChange('cast_kont', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="Opsiyonel"
+                placeholder="Örn: 100"
               />
+              <p className="text-xs text-gray-500 mt-1">Bağ miktarı, stok adında kg değerinden sonra '/100' şeklinde görünecektir</p>
             </div>
 
             <div className="space-y-2">
