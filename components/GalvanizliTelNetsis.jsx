@@ -1729,10 +1729,13 @@ const GalvanizliTelNetsis = () => {
             const sequencePart = exactMatch.stok_kodu.split('.').pop();
             const sequenceNum = parseInt(sequencePart);
             return sequenceNum; // Mevcut sequence'i kullan
+          } else {
+            // Kullanıcı İptal'e tıkladı, işlemi durdur
+            throw new Error('İşlem kullanıcı tarafından iptal edildi');
           }
         }
         
-        // Eğer tamamen eşleşen yoksa veya kullanıcı güncellemeyi reddettiyse, yeni bir ürün oluştur
+        // Eğer tamamen eşleşen yoksa, yeni bir ürün oluştur
         let maxSequence = -1;
         existingProducts.forEach(product => {
           const sequencePart = product.stok_kodu.split('.').pop();
@@ -1979,14 +1982,27 @@ const GalvanizliTelNetsis = () => {
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
       // İnkremental numara kontrolü yap - artık sadece 1 MM GT ve 1 YM GT oluşturulacak
-      const nextSequence = await checkForExistingProducts(
-        mmGtData.cap,
-        mmGtData.kod_2,
-        mmGtData.kaplama,
-        mmGtData.min_mukavemet,
-        mmGtData.max_mukavemet,
-        mmGtData.kg
-      );
+      let nextSequence;
+      try {
+        nextSequence = await checkForExistingProducts(
+          mmGtData.cap,
+          mmGtData.kod_2,
+          mmGtData.kaplama,
+          mmGtData.min_mukavemet,
+          mmGtData.max_mukavemet,
+          mmGtData.kg
+        );
+      } catch (sequenceError) {
+        // Kullanıcı İptal'e tıkladığında
+        console.log('Sequence kontrolü iptal edildi:', sequenceError.message);
+        setIsLoading(false);
+        if (sequenceError.message === 'İşlem kullanıcı tarafından iptal edildi') {
+          toast.info('İşlem iptal edildi');
+        } else {
+          toast.error('Sequence kontrolü sırasında hata: ' + sequenceError.message);
+        }
+        return; // İşlemi tamamen durdur
+      }
       
       const mmGtIds = [];
       const ymStIds = [];
@@ -4282,6 +4298,12 @@ const GalvanizliTelNetsis = () => {
           console.log(`Excel için yeni sequence hesaplandı: ${sequence}`);
         } catch (error) {
           console.error('Sequence hesaplama hatası:', error);
+          // Kullanıcı İptal'e tıkladığında
+          if (error.message === 'İşlem kullanıcı tarafından iptal edildi') {
+            setIsLoading(false);
+            toast.info('İşlem iptal edildi');
+            throw error; // İşlemi tamamen durdur
+          }
           sequence = '00'; // En son çare olarak 00 kullan
         }
       }
@@ -4655,7 +4677,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '1,000', // Payda-1 (Excel formatı - COMMA here)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
@@ -4753,7 +4775,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '1,000', // Payda-1 (Excel formatı - COMMA here)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
@@ -4829,7 +4851,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - NO COMMA)
+      '1,000', // Payda-1 (Excel formatı - COMMA here)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
@@ -5007,7 +5029,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // Add logic to return with proper comma decimal separator format
+    // Use comma for decimal separators in Excel output
     return `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
