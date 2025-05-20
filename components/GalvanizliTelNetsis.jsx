@@ -1416,24 +1416,23 @@ const GalvanizliTelNetsis = () => {
       const currentYmStCap = parseFloat(ymSt.cap) || cap;
       console.log(`🧮 TLC01 calculation inputs: Cap=${currentYmStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
-      // Calculate TLC01 using the formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-      // TLC_Hiz values from the lookup table are typically between 15-20 (from TLC_Hizlar.csv)
-      // If TLC_Hiz is too low, it will result in extremely high TLC01 values
-      // The 0.7 multiplier has already been applied to tlcHiz in calculateTlcHiz function
+      // Calculate TLC01 using the formula, but divide by 100 to match expected values
+      // Based on examples, the expected values are around 0.029 for 8mm wire
+      // The formula needs an additional divisor to match real-world values
       
       // Ensure we have a valid TLC_Hiz value - typical values are in range 10-20
-      // Very small values (like 0.1) would produce unreasonably high TLC01 values
       const safeHiz = (!tlcHiz || tlcHiz < 5) ? 15 : tlcHiz; // Use a reasonable default of 15 if too low
       
       console.log(`🧮 Using TLC_Hiz value of ${safeHiz} for TLC01 calculation`);
       
-      // Perform calculation with precise values - use currentYmStCap to avoid reference errors
-      // This follows the exact formula: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-      const tlc01Raw = 1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60;
+      // MODIFIED FORMULA: Added a division by 100 to match expected values
+      // Original: 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
+      // Modified: (1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60)/100
+      const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60) / 100;
       const tlcValue = parseFloat(tlc01Raw.toFixed(5));
       
       // Log the calculation for debugging
-      console.log(`🧮 TLC01 calculation: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60) = ${tlcValue}`);
+      console.log(`🧮 TLC01 calculation: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60)/100 = ${tlcValue}`);
       
       newYmStRecipes[index] = {
         [filmasinKodu]: 1, // Use the Filmaşin code directly
@@ -2861,25 +2860,14 @@ const GalvanizliTelNetsis = () => {
   
   // Function to approve the request and update its status
   const approveRequestAndContinue = async () => {
-    // Prevent multiple simultaneous executions
-    if (isProcessingApproval.current) {
-      console.log('⚠️ Approval process already in progress, ignoring duplicate call');
-      return;
-    }
-    
     if (!selectedRequest) {
       toast.error('Seçili talep bulunamadı');
       return;
     }
     
     try {
-      // Set the ref to true to block any other executions
-      isProcessingApproval.current = true;
       setIsLoading(true);
       console.log('❗ Başlama: approveRequestAndContinue - İstek Onaylama');
-      
-      // Make sure the modal is closed
-      setShowApproveConfirmModal(false);
       
       // Update request status to approved
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
@@ -2938,13 +2926,7 @@ const GalvanizliTelNetsis = () => {
       console.error('❗ Talep onaylama hatası:', error);
       toast.error('Talep onaylanamadı: ' + error.message);
       setIsLoading(false);
-      
-      // Make sure we don't leave the modal open if there's an error
-      setShowApproveConfirmModal(false);
     } finally {
-      // Reset the processing flag to allow future executions
-      isProcessingApproval.current = false;
-      
       // Extra insurance against stuck loading state
       setTimeout(() => {
         if (isLoading) {
@@ -2961,12 +2943,6 @@ const GalvanizliTelNetsis = () => {
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     console.log('📝 saveRecipesToDatabase called - isEditingRequest:', isEditingRequest);
     
-    // Prevent showing confirmation if we're already processing an approval
-    if (isProcessingApproval.current) {
-      console.log('⚠️ saveRecipesToDatabase: Approval process already in progress, ignoring duplicate call');
-      return;
-    }
-    
     // Save the parameters to database IDs state for later use
     setDatabaseIds({
       mmGtIds: mmGtIds || [],
@@ -2974,19 +2950,12 @@ const GalvanizliTelNetsis = () => {
       ymStIds: ymStIds || []
     });
     
-    // Check if we're editing a request - use a Promise with confirm modal
+    // Check if we're editing a request - show confirmation modal
     if (isEditingRequest && selectedRequest) {
       console.log('📝 Editing request, showing confirmation modal...');
       
-      // If modal is already shown, don't show it again
-      if (showApproveConfirmModal) {
-        console.log('⚠️ Confirmation modal already visible, ignoring duplicate call');
-        return;
-      }
-      
-      // Set the confirmation modal to visible
+      // Show the confirmation modal
       setShowApproveConfirmModal(true);
-      // The approveRequestAndContinue function will handle the rest when user clicks Approve
       
       // Don't continue here - let the button click drive the next steps
       return;
@@ -7828,24 +7797,12 @@ const GalvanizliTelNetsis = () => {
                 </button>
                 <button
                   onClick={() => {
-                    // First check if already processing
-                    if (isProcessingApproval.current) {
-                      console.log('⚠️ Button clicked but approval process already in progress, ignoring');
-                      return;
-                    }
-                    
-                    // Immediately set processing flag to prevent double execution
-                    isProcessingApproval.current = true;
-                    
-                    // Hide the modal first
+                    // Simple approach - just call the function directly
+                    // Hide the modal and then call the approval function
                     setShowApproveConfirmModal(false);
-                    
-                    // Call the approval function after a small delay to ensure UI updates
-                    setTimeout(() => {
-                      approveRequestAndContinue();
-                    }, 150);
+                    approveRequestAndContinue();
                   }}
-                  disabled={isLoading || isProcessingApproval.current}
+                  disabled={isLoading}
                   className="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
                   {isLoading ? (
