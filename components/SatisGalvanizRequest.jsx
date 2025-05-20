@@ -54,7 +54,7 @@ const SatisGalvanizRequest = () => {
     tolerans_minus: '0.06', // Default: ±0.06 mm
     shrink: 'evet',         // Default: Yes
     unwinding: '',          // Optional
-    description: ''         // Additional notes for the request
+    notes: ''              // Additional notes for the request - stored in data JSON field
   });
   
   // Fetch existing requests on component mount
@@ -182,7 +182,7 @@ const SatisGalvanizRequest = () => {
         request.cap.toString().includes(query) ||
         request.kod_2.toLowerCase().includes(query) ||
         request.kaplama.toString().includes(query) ||
-        request.description?.toLowerCase().includes(query) ||
+        (request.data ? JSON.parse(request.data)?.notes?.toLowerCase().includes(query) : false) ||
         request.id.toLowerCase().includes(query)
       );
     }
@@ -323,7 +323,7 @@ const SatisGalvanizRequest = () => {
         status: 'pending',                // Initial status: pending
         created_by: user?.id || null,     // Track who created the request
         created_at: new Date().toISOString(), // Creation timestamp
-        description: requestData.description || ''    // Additional notes
+        data: JSON.stringify({ notes: requestData.notes || '' })  // Store notes in the data JSON field
       };
       
       // Send the request to the API
@@ -364,7 +364,7 @@ const SatisGalvanizRequest = () => {
         tolerans_minus: '0.06',
         shrink: 'evet',
         unwinding: '',
-        description: ''
+        notes: ''
       });
       
       // Refresh the request list
@@ -922,8 +922,8 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
                 <textarea
-                  name="description"
-                  value={requestData.description}
+                  name="notes"
+                  value={requestData.notes}
                   onChange={handleInputChange}
                   rows={3}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -1083,11 +1083,15 @@ const SatisGalvanizRequest = () => {
                 </div>
               </div>
               
-              {/* Description */}
+              {/* Notes */}
               <div className="mt-6">
                 <p className="text-sm font-medium text-gray-500">Açıklama</p>
                 <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-base text-gray-900 whitespace-pre-line">{selectedRequest.description || 'Açıklama belirtilmemiş'}</p>
+                  <p className="text-base text-gray-900 whitespace-pre-line">
+                    {selectedRequest.data && JSON.parse(selectedRequest.data).notes 
+                      ? JSON.parse(selectedRequest.data).notes 
+                      : 'Açıklama belirtilmemiş'}
+                  </p>
                 </div>
               </div>
 
