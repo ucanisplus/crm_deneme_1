@@ -2842,7 +2842,12 @@ const GalvanizliTelNetsis = () => {
     
     try {
       setIsLoading(true);
-      console.log('❗ Başlama: approveRequestAndContinue');
+      console.log('❗ Başlama: approveRequestAndContinue - İstek Onaylama');
+      
+      // First, make sure we're not showing the approve confirmation modal multiple times
+      if (showApproveConfirmModal) {
+        setShowApproveConfirmModal(false);
+      }
       
       // Update request status to approved
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
@@ -2861,36 +2866,37 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Talep durumu güncellenemedi');
       }
       
+      // Only show toast if we successfully updated the request
       toast.success('Talep başarıyla onaylandı');
       
       // Reset editing state since it's now approved
       setIsEditingRequest(false);
-      setShowApproveConfirmModal(false);
       
       // Continue with database save, passing the database IDs
-      try {
-        console.log('💾 Veritabanına kayıt işlemi başlatılıyor...');
-        await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
-        console.log('✅ Veritabanına kayıt işlemi tamamlandı');
+      console.log('💾 Veritabanına kayıt işlemi başlatılıyor...');
+      await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
+      console.log('✅ Veritabanına kayıt işlemi tamamlandı');
+      
+      // Now also generate Excel files as the final step
+      console.log('📊 Excel dosyalarını oluşturma işlemi başlatılıyor...');
+      toast.info('Excel dosyaları oluşturuluyor...');
+      
+      // Generate Excel files with saved data
+      await generateExcelFiles();
+      
+      console.log('✅ Excel dosyaları başarıyla oluşturuldu');
+      toast.success('İşlem başarıyla tamamlandı!');
+      
+      // Clear any existing success messages to avoid duplication
+      setSuccessMessage('');
+      setTimeout(() => {
+        setSuccessMessage('İşlem başarıyla tamamlandı');
         
-        // Now also generate Excel files
-        try {
-          console.log('📊 Talep onaylandı - Excel dosyalarını oluşturma işlemi başlatılıyor...');
-          toast.info('Excel dosyaları oluşturuluyor...');
-          
-          // Generate Excel files with saved data
-          await generateExcelFiles();
-          
-          console.log('✅ Excel dosyaları başarıyla oluşturuldu');
-          toast.success('İşlem başarıyla tamamlandı - Excel dosyaları oluşturuldu');
-        } catch (excelError) {
-          console.error('❌ Excel oluşturma hatası:', excelError);
-          toast.error('Excel oluşturma hatası: ' + excelError.message);
-        }
-      } catch (saveError) {
-        console.error('❗ Veritabanına kaydetme hatası (nested):', saveError);
-        toast.error('Veritabanına kaydetme hatası: ' + saveError.message);
-      }
+        // And clear it after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 5000);
+      }, 100);
       
       // Make sure loading state is reset in all cases
       console.log('❗ İşlem tamamlandı: approveRequestAndContinue');
@@ -2900,6 +2906,9 @@ const GalvanizliTelNetsis = () => {
       console.error('❗ Talep onaylama hatası:', error);
       toast.error('Talep onaylanamadı: ' + error.message);
       setIsLoading(false);
+      
+      // Make sure we don't leave the modal open if there's an error
+      setShowApproveConfirmModal(false);
     } finally {
       // Extra insurance against stuck loading state
       setTimeout(() => {
@@ -2915,6 +2924,8 @@ const GalvanizliTelNetsis = () => {
   
   // This is the main function that gets called from UI
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
+    console.log('📝 saveRecipesToDatabase called - isEditingRequest:', isEditingRequest, 'showApproveConfirmModal:', showApproveConfirmModal);
+    
     // Save the parameters to database IDs state for later use
     setDatabaseIds({
       mmGtIds: mmGtIds || [],
@@ -2922,11 +2933,16 @@ const GalvanizliTelNetsis = () => {
       ymStIds: ymStIds || []
     });
     
-    // First check if we need to show approval confirmation
-    if (isEditingRequest && selectedRequest) {
+    // First check if we need to show approval confirmation - only if we're not already showing it
+    if (isEditingRequest && selectedRequest && !showApproveConfirmModal) {
+      console.log('📝 Showing approval confirmation modal...');
       setShowApproveConfirmModal(true);
+    } else if (showApproveConfirmModal) {
+      console.log('📝 Approval confirmation modal is already showing, not showing again');
+      // Do nothing, the modal is already showing and user action will trigger next steps
     } else {
       // If not editing a request, proceed with normal save
+      console.log('📝 Not editing a request or already approved, proceeding with normal save');
       await continueSaveToDatabase(mmGtIds, ymGtId, ymStIds);
     }
   };
@@ -4937,13 +4953,18 @@ const GalvanizliTelNetsis = () => {
       
       // Both Excel files generated successfully
       console.log('🎉 Tüm Excel dosyaları başarıyla oluşturuldu');
-      setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
-      toast.success('Excel dosyaları başarıyla oluşturuldu');
       
-      // Clear the success message after 5 seconds
-      setTimeout(() => {
-        setSuccessMessage('');
-      }, 5000);
+      // Only show success message if we're not in the request approval flow
+      // (the approval flow will handle its own success message)
+      if (!isEditingRequest) {
+        setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
+        toast.success('Excel dosyaları başarıyla oluşturuldu');
+        
+        // Clear the success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 5000);
+      }
     } catch (error) {
       console.error('❌ Excel oluşturma ana hatası:', error);
       setError('Excel oluşturma hatası: ' + error.message);
