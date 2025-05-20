@@ -1195,30 +1195,39 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Otomatik YM ST oluştur - 2 farklı adet (düzeltildi)
+  // Otomatik YM ST oluştur - kaplama değerine göre çap azaltması yaparak
   const generateAutoYmSts = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
+    const kaplama = parseInt(mmGtData.kaplama) || 0;
     const autoYmSts = [];
     
+    // Calculate cap reduction based on kaplama value
+    // Decrease by 0.01mm for each 35gr of kaplama
+    const capReductionFactor = (kaplama / 35) * 0.01;
+    console.log(`🧮 Kaplama değeri: ${kaplama}, çap azaltma faktörü: ${capReductionFactor}`);
+    
     if (mmGtData.kod_2 === 'PAD') {
-      // PAD için otomatik YM ST oluştur - 2 farklı versiyonla
-      const baseAdjustedCap = cap; // PAD için çap ayarlaması yok
-      const filmasinCap = getFilmasinForCap(cap);
-      const quality = getQualityForCap(cap);
+      // PAD için otomatik YM ST oluştur
       
-      // İlk YM ST - Tam ölçü
-      const capStr1 = Math.round(baseAdjustedCap * 100).toString().padStart(4, '0');
+      // İlk YM ST - ana çap, kaplama değerine göre azaltılmış
+      const baseAdjustedCap = Math.max(cap - capReductionFactor, 0.1); // Minimum 0.1mm
+      // Format to 2 decimals for display
+      const baseAdjustedCapFormatted = Number(baseAdjustedCap.toFixed(2));
+      const filmasinCap = getFilmasinForCap(baseAdjustedCapFormatted);
+      const quality = getQualityForCap(baseAdjustedCapFormatted);
+      
+      const capStr1 = Math.round(baseAdjustedCapFormatted * 100).toString().padStart(4, '0');
       autoYmSts.push({
         stok_kodu: `YM.ST.${capStr1}.${filmasinCap}.${quality}`,
-        stok_adi: `YM Siyah Tel ${capStr1} mm HM:${filmasinCap}.${quality}`,
-        cap: baseAdjustedCap,
+        stok_adi: `YM Siyah Tel ${baseAdjustedCapFormatted.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+        cap: baseAdjustedCapFormatted,
         filmasin: parseInt(filmasinCap),
         quality: quality,
         source: 'auto-generated'
       });
       
-      // İkinci YM ST - Alternatif ölçü (%1 azaltılmış)
-      const alternativeCap = baseAdjustedCap * 0.99;
+      // İkinci YM ST - bir tık daha azaltılmış (0.01mm daha az)
+      const alternativeCap = Math.max(baseAdjustedCap - 0.01, 0.1); // Minimum 0.1mm
       // Format to 2 decimals for display
       const alternativeCapFormatted = Number(alternativeCap.toFixed(2));
       const capStr2 = Math.round(alternativeCapFormatted * 100).toString().padStart(4, '0');
@@ -1230,9 +1239,15 @@ const GalvanizliTelNetsis = () => {
         quality: quality,
         source: 'auto-generated'
       });
+      
     } else if (mmGtData.kod_2 === 'NIT') {
-      // NIT için otomatik YM ST oluştur - 2 farklı versiyonla
-      const baseAdjustedCap = cap * 0.96; // NIT için %4 azaltma
+      // NIT için otomatik YM ST oluştur
+      
+      // NIT için başlangıç olarak %4 azaltma, artı kaplama değerine göre ek azaltma
+      const baseReduction = 0.04; // 4% base reduction for NIT
+      const totalReduction = baseReduction + capReductionFactor;
+      const baseAdjustedCap = Math.max(cap * (1 - totalReduction), 0.1); // Minimum 0.1mm
+      
       // Format to 2 decimals for display
       const baseAdjustedCapFormatted = Number(baseAdjustedCap.toFixed(2));
       const filmasinCap = getFilmasinForCap(baseAdjustedCapFormatted);
@@ -1249,8 +1264,8 @@ const GalvanizliTelNetsis = () => {
         source: 'auto-generated'
       });
       
-      // İkinci YM ST - Farklı variant
-      const alternativeCap = cap * 0.94; // Daha fazla azaltma
+      // İkinci YM ST - bir tık daha azaltılmış (0.01mm daha az)
+      const alternativeCap = Math.max(baseAdjustedCap - 0.01, 0.1); // Minimum 0.1mm
       // Format to 2 decimals for display
       const alternativeCapFormatted = Number(alternativeCap.toFixed(2));
       const capStr2 = Math.round(alternativeCapFormatted * 100).toString().padStart(4, '0');
