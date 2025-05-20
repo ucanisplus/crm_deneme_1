@@ -997,7 +997,7 @@ app.put('/api/gal_cost_cal_sal_requests/:id/approve', async (req, res) => {
         const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
         sendSmtpEmail.subject = 'Galvanizli Tel Talebiniz Onaylandı';
         sendSmtpEmail.htmlContent = emailTemplate;
-        sendSmtpEmail.sender = { name: 'TLC Metal Satış', email: 'satis@tlcmetal.com.tr' };
+        sendSmtpEmail.sender = { name: 'TLC Metal CRM', email: 'ucanisplus@gmail.com' };
         sendSmtpEmail.to = [{ email: userEmail }];
         sendSmtpEmail.textContent = 'Galvanizli tel talebiniz onaylanmıştır.';
         
@@ -1080,7 +1080,7 @@ app.put('/api/gal_cost_cal_sal_requests/:id/reject', async (req, res) => {
         const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
         sendSmtpEmail.subject = 'Galvanizli Tel Talebiniz Reddedildi';
         sendSmtpEmail.htmlContent = emailTemplate;
-        sendSmtpEmail.sender = { name: 'TLC Metal Satış', email: 'satis@tlcmetal.com.tr' };
+        sendSmtpEmail.sender = { name: 'TLC Metal CRM', email: 'ucanisplus@gmail.com' };
         sendSmtpEmail.to = [{ email: userEmail }];
         sendSmtpEmail.textContent = `Galvanizli tel talebiniz reddedilmiştir. Red sebebi: ${rejectedRequest.rejection_reason}`;
         
@@ -1791,7 +1791,7 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 app.post('/api/send-email-notification', async (req, res) => {
   try {
-    const { to, subject, text, html, from = 'satis@tlcmetal.com.tr', fromName = 'TLC Metal Satış', cc, bcc, replyTo } = req.body;
+    const { to, subject, text, html, from = 'ucanisplus@gmail.com', fromName = 'TLC Metal CRM', cc, bcc, replyTo } = req.body;
     
     if (!to || !subject || (!text && !html)) {
       return res.status(400).json({ error: 'Alıcı (to), konu (subject) ve mesaj içeriği (text veya html) gereklidir' });
@@ -1816,7 +1816,7 @@ app.post('/api/send-email-notification', async (req, res) => {
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.subject = subject;
     sendSmtpEmail.htmlContent = html || `<p>${text}</p>`;
-    sendSmtpEmail.sender = { name: fromName, email: from || 'satis@tlcmetal.com.tr' };
+    sendSmtpEmail.sender = { name: fromName, email: from || 'ucanisplus@gmail.com' };
     sendSmtpEmail.to = toRecipients;
     
     // Opsiyonel alanları ekle
@@ -1827,7 +1827,7 @@ app.post('/api/send-email-notification', async (req, res) => {
     
     console.log('📧 E-posta gönderiliyor:', {
       to: Array.isArray(to) ? to.join(', ') : to,
-      from: from || 'satis@tlcmetal.com.tr',
+      from: from || 'ucanisplus@gmail.com',
       subject
     });
     

@@ -30,8 +30,8 @@ async function sendTestEmail(toEmail) {
         <p><strong>TLC Metal CRM Sistemi</strong></p>
       </div>
     `;
-    sendSmtpEmail.sender = { name: 'TLC Metal CRM', email: 'satis@tlcmetal.com.tr' };
-    sendSmtpEmail.to = [{ email: toEmail }];
+    sendSmtpEmail.sender = { name: 'TLC Metal CRM', email: 'ucanisplus@gmail.com' };
+    sendSmtpEmail.to = [{ email: 'hakannoob@gmail.com' }];
     sendSmtpEmail.textContent = 'Bu bir test e-postasıdır.';
 
     console.log(`📧 E-posta gönderiliyor: ${toEmail}`);

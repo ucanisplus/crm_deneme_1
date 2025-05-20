@@ -378,15 +378,15 @@ const SatisGalvanizRequest = () => {
   const sendEmailNotification = async (talep, recipients, subject, template, additionalInfo = {}) => {
     try {
       // Default admin recipients for notifications
-      const adminRecipients = ['uretim@tlcmetal.com.tr', 'satis@tlcmetal.com.tr'];
+      const adminRecipients = ['hakannoob@gmail.com'];
       
       // Prepare common email data
       const emailData = {
         to: recipients || adminRecipients,
         subject: subject,
         html: template,
-        text: 'Bu e-posta HTML formatında hazırlanmıştır. Lütfen HTML'i destekleyen bir e-posta istemcisi kullanın.',
-        from: 'satis@tlcmetal.com.tr',
+        text: 'Bu e-posta HTML formatında hazırlanmıştır. Lütfen HTMLi destekleyen bir e-posta istemcisi kullanın.',
+        from: 'ucanisplus@gmail.com',
         ...additionalInfo
       };
       
@@ -508,10 +508,13 @@ const SatisGalvanizRequest = () => {
       const emailTemplate = generateNewRequestEmailTemplate(data);
       await sendEmailNotification(
         data, 
-        ['uretim@tlcmetal.com.tr'], 
+        ['hakannoob@gmail.com'], // Test recipient 
         'Yeni Galvanizli Tel Talebi Oluşturuldu', 
         emailTemplate,
-        { fromName: 'TLC Metal Satış' }
+        { 
+          fromName: 'TLC Metal CRM',
+          from: 'ucanisplus@gmail.com' 
+        }
       );
       
       // Reset form after successful submission
