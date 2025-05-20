@@ -599,7 +599,7 @@ async function checkAndCreateTable(tableName) {
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             status VARCHAR(50) DEFAULT 'pending',
-            data JSONB NOT NULL,
+            data JSONB,
             title VARCHAR(255),
             description TEXT,
             created_by VARCHAR(255),
@@ -807,7 +807,7 @@ for (const table of tables) {
     app.get(`/api/${table}`, async (req, res) => {
         try {
             // URL'den sorgu parametrelerini al
-            const { id, mm_gt_id, ym_gt_id, ym_st_id, kod_2, cap, stok_kodu, stok_kodu_like, ids, status } = req.query;
+            const { id, mm_gt_id, ym_gt_id, ym_st_id, kod_2, cap, stok_kodu, stok_kodu_like, ids, status, created_by } = req.query;
             
             let query = `SELECT * FROM ${table}`;
             const queryParams = [];
@@ -871,6 +871,12 @@ for (const table of tables) {
                 queryParams.push(status);
             }
             
+            // Kullanıcı filtreleme
+            if (created_by && table === 'gal_cost_cal_sal_requests') {
+                whereConditions.push(`created_by = $${queryParams.length + 1}`);
+                queryParams.push(created_by);
+            }
+            
             // WHERE koşullarını ekle
             if (whereConditions.length > 0) {
                 query += ` WHERE ${whereConditions.join(' AND ')}`;
@@ -909,13 +915,23 @@ for (const table of tables) {
 // Talep sayısını getir
 app.get('/api/gal_cost_cal_sal_requests/count', async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, created_by } = req.query;
     let query = 'SELECT COUNT(*) FROM gal_cost_cal_sal_requests';
     const queryParams = [];
+    const whereConditions = [];
     
     if (status) {
-      query += ' WHERE status = $1';
+      whereConditions.push(`status = $${queryParams.length + 1}`);
       queryParams.push(status);
+    }
+    
+    if (created_by) {
+      whereConditions.push(`created_by = $${queryParams.length + 1}`);
+      queryParams.push(created_by);
+    }
+    
+    if (whereConditions.length > 0) {
+      query += ` WHERE ${whereConditions.join(' AND ')}`;
     }
     
     const result = await pool.query(query, queryParams);
