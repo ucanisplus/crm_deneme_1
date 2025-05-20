@@ -101,7 +101,7 @@ const SatisGalvanizRequest = () => {
     );
   }
   
-  // Handle form input changes with validation
+  // Handle form input changes without immediate validation
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let normalizedValue = value;
@@ -113,53 +113,18 @@ const SatisGalvanizRequest = () => {
       normalizedValue = normalizeInputValue(value);
     }
     
-    // Apply validation rules based on field
-    if (name === 'cap') {
-      // Diameter validation: between 0.8 and 8
-      const numValue = parseFloat(normalizedValue);
-      if (!isNaN(numValue) && (numValue < 0.8 || numValue > 8)) {
-        toast.error('Çap değeri 0.8 ile 8 arasında olmalıdır.');
-        return;
-      }
-    } else if (name === 'kaplama') {
-      // Kaplama validation based on kod_2 (coating type)
-      const numValue = parseFloat(normalizedValue);
-      if (!isNaN(numValue)) {
-        if (requestData.kod_2 === 'PAD' && numValue !== 50) {
-          toast.error('PAD kaplama türü için kaplama değeri 50 olmalıdır.');
-          return;
-        } else if (requestData.kod_2 === 'NIT' && (numValue < 100 || numValue > 400)) {
-          toast.error('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
-          return;
-        }
-      }
-    } else if (name === 'tolerans_plus' || name === 'tolerans_minus') {
-      // Tolerance validation: between 0 and 0.10
-      const numValue = parseFloat(normalizedValue);
-      if (!isNaN(numValue) && (numValue < 0 || numValue > 0.10)) {
-        toast.error('Tolerans değeri 0 ile 0.10 arasında olmalıdır.');
-        return;
-      }
-    } else if (name === 'kg') {
-      // Weight validation: between 250 and 1250
-      const numValue = parseFloat(normalizedValue);
-      if (!isNaN(numValue) && (numValue < 250 || numValue > 1250)) {
-        toast.error('Ağırlık değeri 250 ile 1250 arasında olmalıdır.');
-        return;
-      }
-    } else if (name === 'kod_2') {
-      // When coating type changes, set kaplama value accordingly for PAD
-      if (normalizedValue === 'PAD') {
-        toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
-        setRequestData({
-          ...requestData,
-          [name]: normalizedValue,
-          kaplama: '50'
-        });
-        return;
-      }
+    // Special case: When coating type changes to PAD, set kaplama value to 50
+    if (name === 'kod_2' && value === 'PAD') {
+      toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
+      setRequestData({
+        ...requestData,
+        [name]: value,
+        kaplama: '50'
+      });
+      return;
     }
     
+    // Update state without validation - we'll validate on form submission
     setRequestData({
       ...requestData,
       [name]: normalizedValue
@@ -170,21 +135,23 @@ const SatisGalvanizRequest = () => {
   const handleCapChange = (e) => {
     const value = normalizeInputValue(e.target.value);
     
-    // Diameter validation: between 0.8 and 8
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && (numValue < 0.8 || numValue > 8)) {
-      toast.error('Çap değeri 0.8 ile 8 arasında olmalıdır.');
-      return;
-    }
-    
     setRequestData(prev => {
       const icCap = prev.ic_cap || 45;
       let disCap;
       
+      // Try to calculate dis_cap, but use safe default if cap is not a valid number
+      let capValue;
+      try {
+        capValue = parseFloat(value);
+        if (isNaN(capValue)) capValue = 0;
+      } catch (e) {
+        capValue = 0;
+      }
+      
       if (icCap === 45) disCap = 75;
       else if (icCap === 50) disCap = 90;
       else if (icCap === 55) disCap = 105;
-      else disCap = icCap + (parseFloat(value) * 10); // General calculation
+      else disCap = icCap + (capValue * 10); // General calculation
       
       return {
         ...prev,
@@ -350,43 +317,51 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Validate request data
+  // Validate request data with comprehensive error messages
   const validateRequestData = () => {
     const validationErrors = [];
     
     // Validate diameter (cap)
     const capValue = parseFloat(requestData.cap);
-    if (isNaN(capValue) || capValue < 0.8 || capValue > 8) {
-      validationErrors.push('Çap değeri 0.8 ile 8 arasında olmalıdır.');
+    if (isNaN(capValue)) {
+      validationErrors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
+    } else if (capValue < 0.8 || capValue > 8) {
+      validationErrors.push(`Çap değeri 0.8 ile 8 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
     }
     
     // Validate coating (kaplama) based on type (kod_2)
     const kaplamaValue = parseFloat(requestData.kaplama);
     if (isNaN(kaplamaValue)) {
-      validationErrors.push('Geçerli bir kaplama değeri giriniz.');
+      validationErrors.push('Kaplama için geçerli bir sayısal değer giriniz.');
     } else {
       if (requestData.kod_2 === 'PAD' && kaplamaValue !== 50) {
-        validationErrors.push('PAD kaplama türü için kaplama değeri 50 olmalıdır.');
+        validationErrors.push(`PAD kaplama türü için kaplama değeri 50 olmalıdır. Girilen değer: ${requestData.kaplama}`);
       } else if (requestData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
-        validationErrors.push('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
+        validationErrors.push(`NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır. Girilen değer: ${requestData.kaplama}`);
       }
     }
     
     // Validate tolerances
     const toleransPlusValue = parseFloat(requestData.tolerans_plus);
-    if (isNaN(toleransPlusValue) || toleransPlusValue < 0 || toleransPlusValue > 0.10) {
-      validationErrors.push('Tolerans+ değeri 0 ile 0.10 arasında olmalıdır.');
+    if (isNaN(toleransPlusValue)) {
+      validationErrors.push('Tolerans+ için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
+    } else if (toleransPlusValue < 0 || toleransPlusValue > 0.10) {
+      validationErrors.push(`Tolerans+ değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${requestData.tolerans_plus}`);
     }
     
     const toleransMinusValue = parseFloat(requestData.tolerans_minus);
-    if (isNaN(toleransMinusValue) || toleransMinusValue < 0 || toleransMinusValue > 0.10) {
-      validationErrors.push('Tolerans- değeri 0 ile 0.10 arasında olmalıdır.');
+    if (isNaN(toleransMinusValue)) {
+      validationErrors.push('Tolerans- için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
+    } else if (toleransMinusValue < 0 || toleransMinusValue > 0.10) {
+      validationErrors.push(`Tolerans- değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${requestData.tolerans_minus}`);
     }
     
     // Validate weight (kg)
     const kgValue = parseFloat(requestData.kg);
-    if (isNaN(kgValue) || kgValue < 250 || kgValue > 1250) {
-      validationErrors.push('Ağırlık değeri 250 ile 1250 arasında olmalıdır.');
+    if (isNaN(kgValue)) {
+      validationErrors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 1250 arasında).');
+    } else if (kgValue < 250 || kgValue > 1250) {
+      validationErrors.push(`Ağırlık değeri 250 ile 1250 arasında olmalıdır. Girilen değer: ${requestData.kg}`);
     }
     
     return validationErrors;
@@ -399,7 +374,11 @@ const SatisGalvanizRequest = () => {
     // Validate request data
     const validationErrors = validateRequestData();
     if (validationErrors.length > 0) {
-      validationErrors.forEach(error => toast.error(error));
+      // Display all validation errors at once
+      setError(`Lütfen aşağıdaki hataları düzeltiniz:\n\n${validationErrors.map(err => `• ${err}`).join('\n')}`);
+      
+      // Also show the first error as a toast
+      toast.error('Formdaki hataları düzeltiniz', { autoClose: 5000 });
       return;
     }
     
@@ -1061,11 +1040,15 @@ const SatisGalvanizRequest = () => {
           {/* Error and success messages */}
           {error && (
             <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-sm">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                {error}
+                <div className="flex-1">
+                  {error.split('\n').map((line, i) => (
+                    <div key={i} className={line.startsWith('•') ? 'ml-2' : 'font-medium'}>{line}</div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
