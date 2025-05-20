@@ -766,7 +766,7 @@ const GalvanizliTelNetsis = () => {
   };
   
   // Talebi onaylama
-  const handleApproveRequest = async () => {
+  const handleDetailApproveRequest = async () => {
     try {
       setIsLoading(true);
       
@@ -825,12 +825,12 @@ const GalvanizliTelNetsis = () => {
   };
   
   // Talebi reddetme modalını açma
-  const handleRejectRequest = () => {
+  const handleOpenRejectModal = () => {
     setShowRejectionModal(true);
   };
   
   // Talebi reddetme işlemini gerçekleştirme
-  const handleRejectConfirm = async () => {
+  const handleDetailRejectConfirm = async () => {
     if (!rejectionReason.trim()) {
       toast.error('Lütfen bir ret nedeni girin');
       return;
@@ -6908,7 +6908,7 @@ const GalvanizliTelNetsis = () => {
                   </button>
                   
                   <button
-                    onClick={handleApproveRequest}
+                    onClick={handleDetailApproveRequest}
                     disabled={isLoading}
                     className="px-4 py-2 text-green-700 bg-green-100 rounded-md hover:bg-green-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -6926,7 +6926,7 @@ const GalvanizliTelNetsis = () => {
                   </button>
                   
                   <button
-                    onClick={handleRejectRequest}
+                    onClick={handleOpenRejectModal}
                     disabled={isLoading}
                     className="px-4 py-2 text-red-700 bg-red-100 rounded-md hover:bg-red-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -6986,7 +6986,7 @@ const GalvanizliTelNetsis = () => {
                   İptal
                 </button>
                 <button
-                  onClick={handleRejectConfirm}
+                  onClick={handleDetailRejectConfirm}
                   disabled={isLoading || !rejectionReason.trim()}
                   className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
