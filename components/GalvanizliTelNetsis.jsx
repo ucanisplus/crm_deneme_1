@@ -35,6 +35,12 @@ const GalvanizliTelNetsis = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   
+  // Filtering and sorting state
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  
   // Mevcut MM GT seçimi için state'ler
   const [existingMmGts, setExistingMmGts] = useState([]);
   const [selectedExistingMmGt, setSelectedExistingMmGt] = useState(null);
@@ -295,7 +301,8 @@ const GalvanizliTelNetsis = () => {
   const fetchRequests = async () => {
     try {
       setIsLoading(true);
-      const response = await fetchWithAuth(`${API_URLS.galSalRequests}?status=pending`);
+      // Get all requests regardless of status for filtering in the UI
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}`);
       if (response && response.ok) {
         const data = await response.json();
         setRequests(Array.isArray(data) ? data : []);
@@ -744,6 +751,105 @@ const GalvanizliTelNetsis = () => {
   // State for edit notes modal
   const [showEditNotesModal, setShowEditNotesModal] = useState(false);
   const [editNotes, setEditNotes] = useState('');
+  
+  // Helper function to format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('tr-TR');
+  };
+  
+  // Helper function to get status badge color
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'approved':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'completed':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+  
+  // Helper function to get status text
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'Beklemede';
+      case 'approved':
+        return 'Onaylandı';
+      case 'rejected':
+        return 'Reddedildi';
+      case 'in_progress':
+        return 'İşleniyor';
+      case 'completed':
+        return 'Tamamlandı';
+      default:
+        return status;
+    }
+  };
+  
+  // Filter and sort requests
+  const getFilteredAndSortedRequests = () => {
+    let filteredRequests = [...requests];
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filteredRequests = filteredRequests.filter(request => request.status === statusFilter);
+    }
+    
+    // Apply search query
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      filteredRequests = filteredRequests.filter(request => 
+        (request.cap && request.cap.toString().includes(query)) ||
+        (request.kod_2 && request.kod_2.toLowerCase().includes(query)) ||
+        (request.kaplama && request.kaplama.toString().includes(query)) ||
+        (request.id && request.id.toLowerCase().includes(query)) ||
+        (request.cast_kont && request.cast_kont.toString().includes(query)) ||
+        (request.unwinding && request.unwinding.toLowerCase().includes(query)) ||
+        (request.helix_kont && request.helix_kont.toString().includes(query)) ||
+        (request.elongation && request.elongation.toString().includes(query))
+      );
+    }
+    
+    // Apply sorting
+    filteredRequests.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Handle null values
+      if (aValue === null) return 1;
+      if (bValue === null) return -1;
+      
+      // Handle date fields
+      if (sortField === 'created_at' || sortField === 'processed_at') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      // Handle numeric fields
+      if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg' || sortField === 'cast_kont') {
+        aValue = parseFloat(aValue);
+        bValue = parseFloat(bValue);
+      }
+      
+      // Apply sort direction
+      const modifier = sortDirection === 'asc' ? 1 : -1;
+      
+      if (aValue < bValue) return -1 * modifier;
+      if (aValue > bValue) return 1 * modifier;
+      return 0;
+    });
+    
+    return filteredRequests;
+  };
   
   // Talebi düzenleme - Edit notes modal açma
   const handleEditRequest = () => {
@@ -6719,7 +6825,7 @@ const GalvanizliTelNetsis = () => {
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
-                  Bekleyen Talepler
+                  Galvanizli Tel Talepleri
                 </h2>
                 <div className="flex gap-3">
                   <button
@@ -6743,6 +6849,81 @@ const GalvanizliTelNetsis = () => {
                 </div>
               </div>
               
+              {/* Filtering and Search */}
+              <div className="mb-6 flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700 mb-1">Ara</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="searchQuery"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Çap, kaplama, açıklama vb."
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Durum Filtresi</label>
+                  <select
+                    id="statusFilter"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">Tüm Durumlar</option>
+                    <option value="pending">Beklemede</option>
+                    <option value="approved">Onaylandı</option>
+                    <option value="rejected">Reddedildi</option>
+                    <option value="in_progress">İşleniyor</option>
+                    <option value="completed">Tamamlandı</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="sortField" className="block text-sm font-medium text-gray-700 mb-1">Sıralama</label>
+                  <div className="flex space-x-2">
+                    <select
+                      id="sortField"
+                      value={sortField}
+                      onChange={(e) => setSortField(e.target.value)}
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="created_at">Oluşturma Tarihi</option>
+                      <option value="status">Durum</option>
+                      <option value="cap">Çap</option>
+                      <option value="kod_2">Kaplama Türü</option>
+                      <option value="kaplama">Kaplama Miktarı</option>
+                      <option value="kg">Ağırlık</option>
+                      <option value="cast_kont">Bağ Miktarı</option>
+                      <option value="unwinding">Unwinding</option>
+                    </select>
+                    <button
+                      onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                      className="p-2 bg-gray-100 rounded-md hover:bg-gray-200"
+                      title={sortDirection === 'asc' ? 'Artan' : 'Azalan'}
+                    >
+                      {sortDirection === 'asc' ? (
+                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               {isLoading ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="text-gray-500 flex items-center gap-2">
@@ -6753,15 +6934,49 @@ const GalvanizliTelNetsis = () => {
                     Yükleniyor...
                   </div>
                 </div>
-              ) : requests.length === 0 ? (
+              ) : getFilteredAndSortedRequests().length === 0 ? (
                 <div className="text-center py-12">
                   <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
-                  <p className="text-gray-500 text-lg">Bekleyen talep bulunamadı.</p>
+                  <p className="text-gray-500 text-lg">Talep bulunamadı.</p>
+                  {(statusFilter !== 'all' || searchQuery.trim() !== '') && (
+                    <button 
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setSearchQuery('');
+                      }}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
+                  {/* Display for filtered results info */}
+                  {(statusFilter !== 'all' || searchQuery.trim() !== '') && (
+                    <div className="mb-4 text-sm text-gray-500 flex items-center">
+                      <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>
+                        {getFilteredAndSortedRequests().length} / {requests.length} talep gösteriliyor
+                        {statusFilter !== 'all' && ` (${getStatusText(statusFilter)} durumunda)`}
+                        {searchQuery.trim() !== '' && ` "${searchQuery}" arama sonuçları`}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          setStatusFilter('all');
+                          setSearchQuery('');
+                        }}
+                        className="ml-2 text-blue-600 hover:text-blue-800"
+                      >
+                        Filtreleri Temizle
+                      </button>
+                    </div>
+                  )}
+                  
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -6781,12 +6996,21 @@ const GalvanizliTelNetsis = () => {
                           Ağırlık
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Unwinding
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Durum
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tarih
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           İşlem
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {requests.map((request) => (
+                      {getFilteredAndSortedRequests().map((request) => (
                         <tr key={request.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.cap || 0} mm
@@ -6807,24 +7031,39 @@ const GalvanizliTelNetsis = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.kg || '0'} kg
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.unwinding || 'Anti-Clockwise'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadgeColor(request.status)}`}>
+                              {getStatusText(request.status)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(request.created_at)}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleSelectRequest(request)}
                                 className="text-blue-600 hover:text-blue-900 transition-colors"
+                                disabled={request.status === 'rejected'}
+                                title={request.status === 'rejected' ? 'Reddedilmiş talepler kullanılamaz' : 'Talebi görüntüle'}
                               >
                                 Seç
                               </button>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm('Bu talebi silmek istediğinizden emin misiniz?')) {
-                                    deleteRequest(request.id);
-                                  }
-                                }}
-                                className="text-red-600 hover:text-red-900 transition-colors"
-                              >
-                                Sil
-                              </button>
+                              {request.status === 'pending' && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Bu talebi silmek istediğinizden emin misiniz?')) {
+                                      deleteRequest(request.id);
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-900 transition-colors"
+                                >
+                                  Sil
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
