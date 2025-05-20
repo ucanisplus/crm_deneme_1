@@ -911,7 +911,6 @@ const GalvanizliTelNetsis = () => {
       // Mark that we're editing a request and set request as used
       setIsEditingRequest(true);
       setIsRequestUsed(true);
-      setApprovalModalShown(false); // Reset approval modal flag when starting to edit
       
       // Clear modal and go to input screen
       setEditNotes('');
@@ -2870,9 +2869,8 @@ const GalvanizliTelNetsis = () => {
       // Only show toast if we successfully updated the request
       toast.success('Talep başarıyla onaylandı');
       
-      // Reset editing state and approvalModalShown flag since it's now approved
+      // Reset editing state since it's now approved
       setIsEditingRequest(false);
-      setApprovalModalShown(false); // Reset the flag so we start fresh next time
       
       // Continue with database save, passing the database IDs
       console.log('💾 Veritabanına kayıt işlemi başlatılıyor...');
@@ -2911,7 +2909,6 @@ const GalvanizliTelNetsis = () => {
       
       // Make sure we don't leave the modal open if there's an error
       setShowApproveConfirmModal(false);
-      setApprovalModalShown(false); // Also reset the flag on error
     } finally {
       // Extra insurance against stuck loading state
       setTimeout(() => {
@@ -2925,12 +2922,9 @@ const GalvanizliTelNetsis = () => {
   
   // The actual database save logic is defined below after saveRecipesToDatabase
   
-  // Flag to track if we've already shown the approval modal
-  const [approvalModalShown, setApprovalModalShown] = useState(false);
-  
   // This is the main function that gets called from UI
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
-    console.log('📝 saveRecipesToDatabase called - isEditingRequest:', isEditingRequest, 'showApproveConfirmModal:', showApproveConfirmModal);
+    console.log('📝 saveRecipesToDatabase called - isEditingRequest:', isEditingRequest);
     
     // Save the parameters to database IDs state for later use
     setDatabaseIds({
@@ -2939,14 +2933,19 @@ const GalvanizliTelNetsis = () => {
       ymStIds: ymStIds || []
     });
     
-    // Skip approval confirmation if we've already shown it during this session
-    if (isEditingRequest && selectedRequest && !approvalModalShown) {
-      console.log('📝 First time showing approval confirmation modal, setting flag...');
-      setApprovalModalShown(true); // Set flag to prevent showing it again
+    // Check if we're editing a request - use a Promise with confirm modal
+    if (isEditingRequest && selectedRequest) {
+      console.log('📝 Editing request, showing confirmation modal...');
+      
+      // Instead of setting state, return a Promise that resolves after user action
       setShowApproveConfirmModal(true);
+      // The approveRequestAndContinue function will handle the rest when user clicks Approve
+      
+      // Don't continue here - let the button click drive the next steps
+      return;
     } else {
-      // If not in editing state or already shown modal, proceed with normal save
-      console.log('📝 Not showing approval modal, proceeding with normal save');
+      // If not editing a request, proceed with normal save
+      console.log('📝 Not editing a request, proceeding with normal save');
       await continueSaveToDatabase(mmGtIds, ymGtId, ymStIds);
     }
   };
@@ -7730,10 +7729,7 @@ const GalvanizliTelNetsis = () => {
                   Talebi Onaylama
                 </h2>
                 <button
-                  onClick={() => {
-                    setShowApproveConfirmModal(false);
-                    setApprovalModalShown(false); // Also reset flag when closing via X
-                  }}
+                  onClick={() => setShowApproveConfirmModal(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7752,16 +7748,20 @@ const GalvanizliTelNetsis = () => {
               
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setShowApproveConfirmModal(false);
-                    setApprovalModalShown(false); // Also reset flag when clicking İptal
-                  }}
+                  onClick={() => setShowApproveConfirmModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   İptal
                 </button>
                 <button
-                  onClick={approveRequestAndContinue}
+                  onClick={() => {
+                    // Hide the modal first, then approve
+                    setShowApproveConfirmModal(false);
+                    // Small delay before starting approval to ensure UI updates
+                    setTimeout(() => {
+                      approveRequestAndContinue();
+                    }, 100);
+                  }}
                   disabled={isLoading}
                   className="px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >
