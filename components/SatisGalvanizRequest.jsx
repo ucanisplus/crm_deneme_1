@@ -148,26 +148,15 @@ const SatisGalvanizRequest = () => {
         return;
       }
     } else if (name === 'kod_2') {
-      // When coating type changes, validate kaplama value accordingly
-      const kaplamaValue = parseFloat(requestData.kaplama);
-      if (!isNaN(kaplamaValue)) {
-        if (normalizedValue === 'PAD' && kaplamaValue !== 50) {
-          toast.warning('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
-          setRequestData({
-            ...requestData,
-            [name]: normalizedValue,
-            kaplama: '50'
-          });
-          return;
-        } else if (normalizedValue === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
-          toast.warning('NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır.');
-          setRequestData({
-            ...requestData,
-            [name]: normalizedValue,
-            kaplama: kaplamaValue < 100 ? '100' : (kaplamaValue > 400 ? '400' : requestData.kaplama)
-          });
-          return;
-        }
+      // When coating type changes, set kaplama value accordingly for PAD
+      if (normalizedValue === 'PAD') {
+        toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
+        setRequestData({
+          ...requestData,
+          [name]: normalizedValue,
+          kaplama: '50'
+        });
+        return;
       }
     }
     
@@ -891,13 +880,10 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tel Çapı (mm)</label>
                 <input
-                  type="number"
+                  type="text"
                   name="cap"
                   value={requestData.cap}
                   onChange={handleCapChange}
-                  min="0.8"
-                  max="8"
-                  step="0.01"
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 2.50"
                 />
@@ -917,28 +903,15 @@ const SatisGalvanizRequest = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama (gr/m²)</label>
-                {requestData.kod_2 === 'PAD' ? (
-                  <input
-                    type="number"
-                    name="kaplama"
-                    value="50"
-                    disabled
-                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 cursor-not-allowed"
-                    title="PAD kaplama türü için sabit değer"
-                  />
-                ) : (
-                  <input
-                    type="number"
-                    name="kaplama"
-                    value={requestData.kaplama}
-                    onChange={handleInputChange}
-                    min="100"
-                    max="400"
-                    step="1"
-                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Örn: 100"
-                  />
-                )}
+                <input
+                  type="text"
+                  name="kaplama"
+                  value={requestData.kaplama}
+                  onChange={handleInputChange}
+                  className={`block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${requestData.kod_2 === 'PAD' ? 'bg-gray-100' : ''}`}
+                  placeholder={requestData.kod_2 === 'PAD' ? '50' : 'Örn: 100'}
+                  readOnly={requestData.kod_2 === 'PAD'}
+                />
                 {requestData.kod_2 === 'PAD' ? (
                   <p className="text-xs text-gray-500 mt-1">PAD kaplama için sabit değer: 50 g/m²</p>
                 ) : (
@@ -948,7 +921,7 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Mukavemet (MPa)</label>
                 <input
-                  type="number"
+                  type="text"
                   name="min_mukavemet"
                   value={requestData.min_mukavemet}
                   onChange={handleInputChange}
@@ -959,7 +932,7 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Maksimum Mukavemet (MPa)</label>
                 <input
-                  type="number"
+                  type="text"
                   name="max_mukavemet"
                   value={requestData.max_mukavemet}
                   onChange={handleInputChange}
@@ -970,13 +943,10 @@ const SatisGalvanizRequest = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ağırlık (kg)</label>
                 <input
-                  type="number"
+                  type="text"
                   name="kg"
                   value={requestData.kg}
                   onChange={handleInputChange}
-                  min="250"
-                  max="1250"
-                  step="1"
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 500"
                 />
@@ -1014,13 +984,10 @@ const SatisGalvanizRequest = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans+ (mm)</label>
                   <input
-                    type="number"
+                    type="text"
                     name="tolerans_plus"
                     value={requestData.tolerans_plus}
                     onChange={handleInputChange}
-                    min="0"
-                    max="0.10"
-                    step="0.01"
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.05"
                   />
@@ -1029,13 +996,10 @@ const SatisGalvanizRequest = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans- (mm)</label>
                   <input
-                    type="number"
+                    type="text"
                     name="tolerans_minus"
                     value={requestData.tolerans_minus}
                     onChange={handleInputChange}
-                    min="0"
-                    max="0.10"
-                    step="0.01"
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.06"
                   />

@@ -223,7 +223,7 @@ export const fetchWithAuth = async (url, options = {}) => {
 /**
  * Form giriş değerlerini anında normalleştiren yardımcı fonksiyon
  * @param {string|number} value - Normalleştirilecek değer
- * @returns {number|string} - Normalleştirilmiş değer
+ * @returns {string} - Normalleştirilmiş değer (daima string olarak döndürülür)
  */
 export const normalizeInputValue = (value) => {
   // Handle null or undefined
@@ -231,9 +231,21 @@ export const normalizeInputValue = (value) => {
     return '';
   }
   
-  // String ise ve virgül içeriyorsa noktaya çevir
-  if (typeof value === 'string' && value.includes(',')) {
-    return value.replace(/,/g, '.');
+  // String'e çevir (text input'lar için)
+  const strValue = String(value).trim();
+  
+  // Eğer boş string ise boş dön
+  if (strValue === '') {
+    return '';
+  }
+  
+  // Virgül içeriyorsa tüm virgülleri noktaya çevir
+  if (strValue.includes(',')) {
+    // Sayısal değerler için
+    if (/^-?\d+(?:,\d+)?$/.test(strValue)) {
+      // Sadece bir tane virgül içeren sayısal değerler için virgülü noktaya çevir
+      return strValue.replace(',', '.');
+    }
   }
   
   // Sayı ise string'e çevir, EN-US locale ile nokta kullanarak
@@ -247,7 +259,7 @@ export const normalizeInputValue = (value) => {
   }
   
   // Diğer durumlarda değeri olduğu gibi döndür
-  return value;
+  return strValue;
 };
 
 /**
