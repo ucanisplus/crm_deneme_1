@@ -53,8 +53,7 @@ const SatisGalvanizRequest = () => {
     tolerans_plus: '0.05', // Default: ±0.05 mm
     tolerans_minus: '0.06', // Default: ±0.06 mm
     shrink: 'evet',         // Default: Yes
-    unwinding: '',          // Optional
-    notes: ''              // Additional notes for the request - stored in data JSON field
+    unwinding: ''           // Optional
   });
   
   // Fetch existing requests on component mount
@@ -182,7 +181,6 @@ const SatisGalvanizRequest = () => {
         request.cap.toString().includes(query) ||
         request.kod_2.toLowerCase().includes(query) ||
         request.kaplama.toString().includes(query) ||
-        (request.data ? JSON.parse(request.data)?.notes?.toLowerCase().includes(query) : false) ||
         request.id.toLowerCase().includes(query)
       );
     }
@@ -306,7 +304,7 @@ const SatisGalvanizRequest = () => {
       setError(null);
       setSuccessMessage('');
       
-      // Create request object with additional fields
+      // Create request object with only fields that exist in the database
       const request = {
         cap: requestData.cap,
         kod_2: requestData.kod_2,
@@ -321,9 +319,7 @@ const SatisGalvanizRequest = () => {
         shrink: requestData.shrink,
         unwinding: requestData.unwinding || null,
         status: 'pending',                // Initial status: pending
-        created_by: user?.id || null,     // Track who created the request
-        created_at: new Date().toISOString(), // Creation timestamp
-        data: JSON.stringify({ notes: requestData.notes || '' })  // Store notes in the data JSON field
+        created_by: user?.id || null      // Track who created the request
       };
       
       // Send the request to the API
@@ -363,8 +359,7 @@ const SatisGalvanizRequest = () => {
         tolerans_plus: '0.05',
         tolerans_minus: '0.06',
         shrink: 'evet',
-        unwinding: '',
-        notes: ''
+        unwinding: ''
       });
       
       // Refresh the request list
@@ -919,17 +914,6 @@ const SatisGalvanizRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
-                <textarea
-                  name="notes"
-                  value={requestData.notes}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Talep hakkında ek bilgiler..."
-                ></textarea>
-              </div>
             </div>
           </div>
           
@@ -1083,17 +1067,6 @@ const SatisGalvanizRequest = () => {
                 </div>
               </div>
               
-              {/* Notes */}
-              <div className="mt-6">
-                <p className="text-sm font-medium text-gray-500">Açıklama</p>
-                <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-base text-gray-900 whitespace-pre-line">
-                    {selectedRequest.data && JSON.parse(selectedRequest.data).notes 
-                      ? JSON.parse(selectedRequest.data).notes 
-                      : 'Açıklama belirtilmemiş'}
-                  </p>
-                </div>
-              </div>
 
               {/* Response info (if rejected) */}
               {selectedRequest.status === 'rejected' && selectedRequest.rejection_reason && (
