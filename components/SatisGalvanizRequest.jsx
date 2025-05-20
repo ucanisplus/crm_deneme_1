@@ -53,7 +53,8 @@ const SatisGalvanizRequest = () => {
     tolerans_plus: '0.05', // Default: ±0.05 mm (valid range: 0-0.10)
     tolerans_minus: '0.06', // Default: ±0.06 mm (valid range: 0-0.10)
     shrink: 'evet',         // Default: Yes
-    unwinding: ''           // Optional
+    unwinding: '',          // Optional
+    cast_kont: ''           // Bağ Miktarı (Optional)
   });
   
   // Fetch existing requests on component mount
@@ -203,7 +204,8 @@ const SatisGalvanizRequest = () => {
         request.cap.toString().includes(query) ||
         request.kod_2.toLowerCase().includes(query) ||
         request.kaplama.toString().includes(query) ||
-        request.id.toLowerCase().includes(query)
+        request.id.toLowerCase().includes(query) ||
+        (request.cast_kont && request.cast_kont.toString().includes(query))
       );
     }
     
@@ -223,7 +225,7 @@ const SatisGalvanizRequest = () => {
       }
       
       // Handle numeric fields
-      if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg') {
+      if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg' || sortField === 'cast_kont') {
         aValue = parseFloat(aValue);
         bValue = parseFloat(bValue);
       }
@@ -401,6 +403,7 @@ const SatisGalvanizRequest = () => {
         tolerans_minus: requestData.tolerans_minus,
         shrink: requestData.shrink,
         unwinding: requestData.unwinding || null,
+        cast_kont: requestData.cast_kont || null,         // Bağ miktarı
         status: 'pending',                // Initial status: pending
         created_by: user?.id || null      // Track who created the request
       };
@@ -442,7 +445,8 @@ const SatisGalvanizRequest = () => {
         tolerans_plus: '0.05',
         tolerans_minus: '0.06',
         shrink: 'evet',
-        unwinding: ''
+        unwinding: '',
+        cast_kont: ''
       });
       
       // Refresh the request list
@@ -583,6 +587,7 @@ const SatisGalvanizRequest = () => {
                   <option value="kod_2">Kaplama Türü</option>
                   <option value="kaplama">Kaplama Miktarı</option>
                   <option value="kg">Ağırlık</option>
+                  <option value="cast_kont">Bağ Miktarı</option>
                 </select>
                 <button
                   onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
@@ -676,6 +681,7 @@ const SatisGalvanizRequest = () => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bağ Miktarı</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
@@ -698,6 +704,9 @@ const SatisGalvanizRequest = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.kg} kg
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.cast_kont || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {hasPermission('manage:galvanizli-tel-requests') ? (
@@ -1007,6 +1016,18 @@ const SatisGalvanizRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bağ Miktarı</label>
+                <input
+                  type="text"
+                  name="cast_kont"
+                  value={requestData.cast_kont}
+                  onChange={handleInputChange}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Örn: 100"
+                />
+                <p className="text-xs text-gray-500 mt-1">Bağ miktarı, ürün stok adında kg değerinden sonra '/100' şeklinde görüntülenecektir</p>
+              </div>
             </div>
           </div>
           
@@ -1161,10 +1182,13 @@ const SatisGalvanizRequest = () => {
                     <p className="text-sm font-medium text-gray-500">Unwinding</p>
                     <p className="text-base text-gray-900">{selectedRequest.unwinding || '-'}</p>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Bağ Miktarı</p>
+                    <p className="text-base text-gray-900">{selectedRequest.cast_kont || '-'}</p>
+                  </div>
                 </div>
               </div>
               
-
               {/* Response info (if rejected) */}
               {selectedRequest.status === 'rejected' && selectedRequest.rejection_reason && (
                 <div className="mt-6">
