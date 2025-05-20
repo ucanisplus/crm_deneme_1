@@ -5282,6 +5282,7 @@ const GalvanizliTelNetsis = () => {
                 lang="en-US" // Force EN-US locale with point decimal separator
                 onKeyDown={(e) => handleCommaToPoint(e, 'cap')}
               />
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8 mm</p>
             </div>
 
             <div className="space-y-2">
@@ -5312,6 +5313,11 @@ const GalvanizliTelNetsis = () => {
                 placeholder="50-400"
                 onKeyDown={(e) => handleCommaToPoint(e, 'kaplama')}
               />
+              {mmGtData.kod_2 === 'PAD' ? (
+                <p className="text-xs text-gray-500 mt-1">PAD kaplama için sabit değer: 50 g/m²</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">NIT kaplama için izin verilen aralık: 100 - 400 g/m²</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -5327,6 +5333,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="350-1000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'min_mukavemet')}
               />
+              <p className="text-xs text-gray-500 mt-1">Önerilen aralık: 350 - 1000 MPa</p>
             </div>
 
             <div className="space-y-2">
@@ -5342,6 +5349,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="350-1000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'max_mukavemet')}
               />
+              <p className="text-xs text-gray-500 mt-1">Önerilen aralık: 350 - 1000 MPa</p>
             </div>
 
             <div className="space-y-2">
@@ -5357,6 +5365,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="250-1250"
                 onKeyDown={(e) => handleCommaToPoint(e, 'kg')}
               />
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 1250 kg</p>
             </div>
 
             <div className="space-y-2">
@@ -5401,6 +5410,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="0.00000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_plus')}
               />
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
             </div>
 
             <div className="space-y-2">
@@ -5416,6 +5426,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="0.00000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_minus')}
               />
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
             </div>
 
             <div className="space-y-2">
