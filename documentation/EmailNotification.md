@@ -9,8 +9,10 @@ E-posta bildirimleri, SendGrid servisi kullanılarak gönderilir. Bu özellik, k
 ## API Endpoint
 
 ```
-POST /api/send-email-notification
+POST https://crm-deneme-backend.vercel.app/api/send-email-notification
 ```
+
+**Important:** Always use the full backend URL (not a relative path) when calling this endpoint from frontend components.
 
 ## İstek Parametreleri
 

@@ -7,10 +7,20 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 app.use(cors({
-  origin: '*',  // Geliştirme için - üretime geçerken bu kısıtlanmalıdır
+  origin: ['https://crm-deneme-1.vercel.app', 'http://localhost:3000', '*'],  // Allow production domain, localhost and all origins for testing
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true
 }));
+
+// Add specific CORS headers for all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // CORS Preflight kontrolü için OPTIONS yanıtı
 app.options('*', cors());

@@ -387,11 +387,13 @@ const SatisGalvanizRequest = () => {
         html: template,
         text: 'Bu e-posta HTML formatında hazırlanmıştır. Lütfen HTMLi destekleyen bir e-posta istemcisi kullanın.',
         from: 'ucanisplus@gmail.com',
+        fromName: 'TLC Metal CRM',
         ...additionalInfo
       };
       
       // Send email via the API
-      const response = await fetchWithAuth('/api/send-email-notification', {
+      // Use full backend URL instead of relative path
+      const response = await fetch('https://crm-deneme-backend.vercel.app/api/send-email-notification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -400,7 +402,8 @@ const SatisGalvanizRequest = () => {
       });
       
       if (!response.ok) {
-        throw new Error('E-posta bildirimi gönderilemedi');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'E-posta bildirimi gönderilemedi');
       }
       
       console.log('E-posta bildirimi başarıyla gönderildi');
@@ -504,18 +507,29 @@ const SatisGalvanizRequest = () => {
       // Get the response data
       const data = await response.json();
       
-      // Send email notification to admin
-      const emailTemplate = generateNewRequestEmailTemplate(data);
-      await sendEmailNotification(
-        data, 
-        ['hakannoob@gmail.com'], // Test recipient 
-        'Yeni Galvanizli Tel Talebi Oluşturuldu', 
-        emailTemplate,
-        { 
-          fromName: 'TLC Metal CRM',
-          from: 'ucanisplus@gmail.com' 
+      try {
+        // Send email notification to admin
+        const emailTemplate = generateNewRequestEmailTemplate(data);
+        const emailSent = await sendEmailNotification(
+          data, 
+          ['hakannoob@gmail.com'], // Test recipient 
+          'Yeni Galvanizli Tel Talebi Oluşturuldu', 
+          emailTemplate,
+          { 
+            fromName: 'TLC Metal CRM',
+            from: 'ucanisplus@gmail.com' 
+          }
+        );
+        
+        if (emailSent) {
+          console.log('✅ Talep bildirim e-postası başarıyla gönderildi');
+        } else {
+          console.warn('⚠️ Talep bildirim e-postası gönderilemedi, ancak talep oluşturuldu');
         }
-      );
+      } catch (emailError) {
+        console.error('❌ E-posta gönderme hatası:', emailError);
+        // E-posta hatası durumunda bile talep kaydedildi, devam et
+      }
       
       // Reset form after successful submission
       setRequestData({
