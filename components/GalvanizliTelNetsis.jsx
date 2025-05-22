@@ -1281,9 +1281,52 @@ const GalvanizliTelNetsis = () => {
     return '1010';
   };
 
-  // Otomatik reçete değerlerini hesapla - NOKTA kullan
+  // Formül doğrulama fonksiyonu - Giriş değerlerini kontrol et
+  const validateCalculationInputs = () => {
+    const errors = [];
+    if (!userInputValues.ash || userInputValues.ash <= 0) errors.push('Kül (Ash) değeri geçersiz');
+    if (!userInputValues.lapa || userInputValues.lapa <= 0) errors.push('Lapa değeri geçersiz');
+    if (!userInputValues.paketlemeDkAdet || userInputValues.paketlemeDkAdet <= 0) errors.push('Paketleme Dk. Adet değeri geçersiz');
+    if (!mmGtData.kg || parseFloat(mmGtData.kg) <= 0) errors.push('Ağırlık değeri geçersiz');
+    if (!mmGtData.cap || parseFloat(mmGtData.cap) <= 0) errors.push('Çap değeri geçersiz');
+    return errors;
+  };
+
+  // Güvenli hesaplama fonksiyonu - Hata durumunda varsayılan değer döndür
+  const safeCalculate = (formula, fallbackValue, inputs, formulaName) => {
+    try {
+      const result = formula(inputs);
+      if (isNaN(result) || !isFinite(result)) {
+        console.warn(`⚠️ ${formulaName} formülü geçersiz sonuç verdi, varsayılan değer kullanılıyor: ${fallbackValue}`);
+        return fallbackValue;
+      }
+      return result;
+    } catch (error) {
+      console.error(`❌ ${formulaName} formül hatası: ${error.message}`);
+      return fallbackValue;
+    }
+  };
+
+  // Formül hesaplama debug fonksiyonu
+  const debugFormula = (name, inputs, result, steps = []) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.group(`🧮 ${name} Hesaplaması`);
+      console.log('Girişler:', inputs);
+      if (steps.length > 0) console.log('Adımlar:', steps);
+      console.log('Sonuç:', result);
+      console.groupEnd();
+    }
+  };
+
+  // Otomatik reçete değerlerini hesapla - NOKTA kullan ve geliştirilmiş hata kontrolü ile
   const calculateAutoRecipeValues = () => {
-    if (!mmGtData.kg || !mmGtData.cap) return;
+    // Giriş değerlerini doğrula
+    const validationErrors = validateCalculationInputs();
+    if (validationErrors.length > 0) {
+      console.error('❌ Hesaplama giriş değerleri hatası:', validationErrors);
+      toast.error(`Hesaplama hatası: ${validationErrors[0]}`);
+      return;
+    }
     
     // DÜZELTME: mmGtSequence değişkenini tanımla
     const sequence = '00'; // Default sequence
@@ -1346,19 +1389,38 @@ const GalvanizliTelNetsis = () => {
       // GTPKT01: =(1000/'COIL WEIGHT (KG)'*'PaketlemeDkAdet')/1000
       const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
       
-      // SM.DESİ.PAK = 0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* shrink değeri
-      const desiValue = parseFloat((0.1231 * kartonValue + 0.0154 * shrinkAmount).toFixed(5));
+      // DÜZELTME: SM.DESİ.PAK = 0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (referans formülüne göre)
+      // Önceki hata: shrinkAmount kullanılıyordu, doğrusu naylonValue olmalı
+      const desiValue = safeCalculate(
+        () => 0.1231 * kartonValue + 0.0154 * naylonValue,
+        0.002, // Varsayılan desi değeri
+        { kartonValue, naylonValue },
+        'SM.DESİ.PAK'
+      );
+      
+      // Debug bilgisi
+      debugFormula('SM.DESİ.PAK', 
+        { kartonValue, naylonValue }, 
+        desiValue,
+        [`0.1231 * ${kartonValue} + 0.0154 * ${naylonValue} = ${desiValue}`]
+      );
+      
+      // Hesaplama sonuçlarını debug et
+      debugFormula('NAYLON', { kg }, naylonValue, [`(1 * (1000/${kg}))/1000 = ${naylonValue}`]);
+      debugFormula('KARTON', { kg }, kartonValue, [`(8 * (1000/${kg}))/1000 = ${kartonValue}`]);
+      debugFormula('GTPKT01', { kg, paketleme: userInputValues.paketlemeDkAdet }, gtpktValue);
       
       newMmGtRecipes[index] = {
         [correctYmGtStokKodu]: 1, // YM GT bileşeni - MMGT ile aynı sequence kullanılmalı
-        'GTPKT01': gtpktValue,
-        // Naylon yerine sadece shrinkCode kullanılıyor - shrink kapsamına giriyor
-        'AMB.ÇEM.KARTON.GAL': kartonValue,
-        [shrinkCode]: shrinkAmount, // Otomatik shrink tipi ve miktarı
-        'SM.7MMHALKA': halkaValue,
-        'AMB.APEX CEMBER 38X080': cemberValue,
-        'AMB.TOKA.SIGNODE.114P. DKP': tokaValue,
-        'SM.DESİ.PAK': desiValue
+        'GTPKT01': parseFloat(gtpktValue.toFixed(5)),
+        // NAYLON değeri artık recipe'ye dahil - shrink ayrı bir bileşen olarak kalıyor
+        'NAYLON': parseFloat(naylonValue.toFixed(5)), // Referans formülde gerekli
+        'AMB.ÇEM.KARTON.GAL': parseFloat(kartonValue.toFixed(5)),
+        [shrinkCode]: parseFloat(shrinkAmount.toFixed(5)), // Shrink ayrı bileşen olarak
+        'SM.7MMHALKA': parseFloat(halkaValue.toFixed(5)),
+        'AMB.APEX CEMBER 38X080': parseFloat(cemberValue.toFixed(5)),
+        'AMB.TOKA.SIGNODE.114P. DKP': parseFloat(tokaValue.toFixed(5)),
+        'SM.DESİ.PAK': parseFloat(desiValue.toFixed(5))
       };
       
       // Reçete durumlarını 'auto' olarak işaretle
@@ -1462,24 +1524,46 @@ const GalvanizliTelNetsis = () => {
       });
     }
     
-    // We won't force update the YM ST arrays directly to avoid selection issues
-    // Only the recipes will be updated, but not the original YM ST objects
+    // YM ST dizilerini direkt güncellemeiyoruz - seçim sorunlarını önlemek için
+    // Sadece reçeteler güncellenecek, orijinal YM ST objeleri korunacak
     
-    setAllRecipes(prev => ({
-      ...prev,
-      mmGtRecipes: newMmGtRecipes,
-      ymGtRecipe: newYmGtRecipe,
-      ymStRecipes: newYmStRecipes
-    }));
+    // Tüm hesaplamaların başarılı olduğunu doğrula
+    const totalCalculations = Object.keys(newMmGtRecipes).length + 
+                             Object.keys(newYmGtRecipe).length + 
+                             Object.keys(newYmStRecipes).length;
     
-    setRecipeStatus(prev => ({
-      ...prev,
-      ...newRecipeStatus
-    }));
-    
-    // Log that we've updated the dropdown values
-    console.log('Filmaşin dropdown values have been updated automatically', 
-      updatedSelectedYmSts.map(ym => `${ym.cap} -> ${ym.filmasin}.${ym.quality}`));
+    if (totalCalculations > 0) {
+      setAllRecipes(prev => ({
+        ...prev,
+        mmGtRecipes: newMmGtRecipes,
+        ymGtRecipe: newYmGtRecipe,
+        ymStRecipes: newYmStRecipes
+      }));
+      
+      setRecipeStatus(prev => ({
+        ...prev,
+        ...newRecipeStatus
+      }));
+      
+      // Başarılı hesaplama mesajı
+      toast.success(`✅ ${totalCalculations} reçete başarıyla hesaplandı!`);
+      
+      // Hesaplama özetini logla
+      console.log('🎯 Otomatik Reçete Hesaplaması Tamamlandı:', {
+        'MM GT Reçeteleri': Object.keys(newMmGtRecipes).length,
+        'YM GT Reçetesi': Object.keys(newYmGtRecipe).length > 0 ? 'Oluşturuldu' : 'Oluşturulamadı',
+        'YM ST Reçeteleri': Object.keys(newYmStRecipes).length,
+        'Toplam Hesaplama': totalCalculations
+      });
+      
+      // Filmaşin dropdown değerlerinin güncellendiğini logla
+      console.log('📊 Filmaşin dropdown değerleri otomatik güncellendi:', 
+        updatedSelectedYmSts.map(ym => `${ym.cap}mm -> FLM.${ym.filmasin}.${ym.quality}`)
+      );
+    } else {
+      console.warn('⚠️ Hiçbir reçete hesaplanamadı - giriş değerlerini kontrol edin');
+      toast.warning('Reçete hesaplaması yapılamadı. Lütfen giriş değerlerini kontrol edin.');
+    }
   };
 
   // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
