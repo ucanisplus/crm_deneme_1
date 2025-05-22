@@ -65,6 +65,12 @@ const GalvanizliTelNetsis = () => {
     quality: ''
   });
   
+  // YM ST database selection modal
+  const [showYmStSelectionModal, setShowYmStSelectionModal] = useState(false);
+  const [allYmStsForSelection, setAllYmStsForSelection] = useState([]);
+  const [ymStSearchQuery, setYmStSearchQuery] = useState('');
+  const [selectedYmStsForAdd, setSelectedYmStsForAdd] = useState([]);
+  
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
   const [activeDbTab, setActiveDbTab] = useState('mmgt'); // 'mmgt' or 'ymst'
@@ -162,9 +168,9 @@ const GalvanizliTelNetsis = () => {
     'AMB.APEX CEMBER 38X080': 'Çelik çember (AMB.APEX CEMBER 38X080)',
     'AMB.TOKA.SIGNODE.114P. DKP': 'Çember tokası (AMB.TOKA.SIGNODE.114P. DKP)',
     'SM.7MMHALKA': 'Kaldırma kancası (SM.7MMHALKA)',
-    'AMB.SHRİNK.200*140CM': 'Shrink Tüketimi (kg)',
-    'AMB.SHRİNK.200*160CM': 'Shrink Tüketimi (kg)',
-    'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (kg)',
+    'AMB.SHRİNK.200*140CM': 'Shrink Tüketimi (KG)',
+    'AMB.SHRİNK.200*160CM': 'Shrink Tüketimi (KG)',
+    'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (KG)',
     'AMB.ÇEM.KARTON.GAL': 'Karton (AMB.ÇEM.KARTON.GAL)',
     'GTPKT01': 'Paketleme Süre (GTPKT01)',
     'GLV01': 'Galvaniz Süre (GLV01)',
@@ -856,22 +862,12 @@ const GalvanizliTelNetsis = () => {
     return filteredRequests;
   };
   
-  // Talebi düzenleme - Edit notes modal açma
-  const handleEditRequest = () => {
-    setShowEditNotesModal(true);
-  };
-  
-  // Edit request with notes
-  const handleEditConfirm = async () => {
-    if (!editNotes.trim()) {
-      toast.error('Lütfen düzenleme nedenini girin');
-      return;
-    }
-    
+  // Talebi düzenleme - Direct edit without notes popup
+  const handleEditRequest = async () => {
     try {
       setIsLoading(true);
       
-      // First update the request status and add edit notes
+      // Update the request status directly without asking for edit notes
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -879,10 +875,8 @@ const GalvanizliTelNetsis = () => {
         },
         body: JSON.stringify({
           status: 'in_progress',  // Mark as in progress while being edited
-          edit_notes: editNotes,
           processed_by: user?.username || user?.id || 'system',
           processed_at: new Date().toISOString()
-          // Do not include updated_at as it doesn't exist in the database yet
         })
       });
       
@@ -890,7 +884,7 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Talep durumu güncellenemedi');
       }
       
-      toast.success('Düzenleme nedeni kaydedildi, şimdi düzenleme yapabilirsiniz');
+      toast.success('Talep düzenlemeye açıldı');
       
       // Set data for editing
       setMmGtData({
@@ -916,8 +910,6 @@ const GalvanizliTelNetsis = () => {
       setIsRequestUsed(true);
       
       // Clear modal and go to input screen
-      setEditNotes('');
-      setShowEditNotesModal(false);
       setShowRequestDetailModal(false);
       setCurrentStep('input');
       
@@ -1292,18 +1284,18 @@ const GalvanizliTelNetsis = () => {
     return errors;
   };
 
-  // Güvenli hesaplama fonksiyonu - Hata durumunda varsayılan değer döndür
+  // Güvenli hesaplama fonksiyonu - Hata durumunda boş değer döndür
   const safeCalculate = (formula, fallbackValue, inputs, formulaName) => {
     try {
       const result = formula(inputs);
       if (isNaN(result) || !isFinite(result)) {
-        console.warn(`⚠️ ${formulaName} formülü geçersiz sonuç verdi, varsayılan değer kullanılıyor: ${fallbackValue}`);
-        return fallbackValue;
+        console.warn(`⚠️ ${formulaName} formülü geçersiz sonuç verdi, boş bırakılıyor`);
+        return '';
       }
       return result;
     } catch (error) {
-      console.error(`❌ ${formulaName} formül hatası: ${error.message}`);
-      return fallbackValue;
+      console.error(`❌ ${formulaName} formül hatası: ${error.message}, boş bırakılıyor`);
+      return '';
     }
   };
 
@@ -1472,23 +1464,29 @@ const GalvanizliTelNetsis = () => {
       // GTPKT01 gibi küçük değerler üretmemeli, referans formül büyük değerler verir
       // Not: GTPKT01 = 0.02 (dakika/kg), TLC01 = 9.89 (dakika/kg) olmalı
       
-      // Güvenli TLC_Hiz değeri kontrol et - tipik değerler 10-20 arasında
-      const safeHiz = (!tlcHiz || tlcHiz < 5) ? 15 : tlcHiz; // 15 varsayılan değer
-      
-      console.log(`🧮 TLC01 için TLC_Hiz değeri: ${safeHiz}`);
-      
-      // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-      // /100 bölme işlemi kaldırıldı - referans formüle uygun şekilde
-      const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60);
-      const tlcValue = parseFloat(tlc01Raw.toFixed(5));
-      
-      // Hesaplama debug bilgisi
-      console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60) = ${tlcValue}`);
-      
-      newYmStRecipes[index] = {
-        [filmasinKodu]: 1, // Use the Filmaşin code directly
-        'TLC01': tlcValue
-      };
+      // TLC_Hiz değeri kontrol et - eğer yoksa TLC01'i boş bırak
+      if (!tlcHiz || tlcHiz < 5) {
+        console.log(`🧮 TLC01 için TLC_Hiz değeri bulunamadı veya geçersiz: ${tlcHiz}, TLC01 boş bırakılıyor`);
+        newYmStRecipes[index] = {
+          [filmasinKodu]: 1, // Use the Filmaşin code directly
+          'TLC01': '' // Empty if no valid TLC_Hiz
+        };
+      } else {
+        console.log(`🧮 TLC01 için TLC_Hiz değeri: ${tlcHiz}`);
+        
+        // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
+        // /100 bölme işlemi kaldırıldı - referans formüle uygun şekilde
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / tlcHiz / 60);
+        const tlcValue = parseFloat(tlc01Raw.toFixed(5));
+        
+        // Hesaplama debug bilgisi
+        console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${tlcHiz}/60) = ${tlcValue}`);
+        
+        newYmStRecipes[index] = {
+          [filmasinKodu]: 1, // Use the Filmaşin code directly
+          'TLC01': tlcValue
+        };
+      }
       
       // YM ST reçete durumlarını 'auto' olarak işaretle
       newRecipeStatus.ymStRecipes[index] = {};
@@ -4435,7 +4433,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('YM.ST.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
-    if (bilesen.includes('SHRİNK')) return 'Shrink Tüketimi (kg)';
+    if (bilesen.includes('SHRİNK')) return 'Shrink Tüketimi (KG)';
     if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
     if (bilesen.includes('CEMBER')) return 'Çelik çember Tüketim Miktarı';
     if (bilesen.includes('TOKA')) return 'Çember Tokası Tüketim Miktarı';
@@ -4919,12 +4917,10 @@ const GalvanizliTelNetsis = () => {
     const calismaHizMs = duseyaraLookup(exactLookupCode, null, null, false);
     
     // Apply the formula: TLC_Hiz = DÜŞEYARA(...) * 0.7 as specified in GalvanizliFormulas.txt
-    // If the lookup fails, use a reasonable default based on typical values in TLC_Hizlar.csv
-    // Looking at the CSV, values are typically in range 15-20, apply 0.7 to get 10.5-14
-    const defaultValue = 15; // Typical value from the CSV file
-    const result = calismaHizMs ? calismaHizMs * 0.7 : defaultValue * 0.7; 
+    // If the lookup fails, return null so TLC01 calculation will be empty
+    const result = calismaHizMs ? calismaHizMs * 0.7 : null; 
     
-    console.log(`ℹ️ TLC_Hiz calculated as ${result} for ${exactLookupCode} (${calismaHizMs ? 'from lookup' : 'using default'})}`);
+    console.log(`ℹ️ TLC_Hiz calculated as ${result} for ${exactLookupCode} (${calismaHizMs ? 'from lookup' : 'no lookup data - will be empty'})}`);
     
     return result; 
   };
@@ -6358,14 +6354,53 @@ const GalvanizliTelNetsis = () => {
                   YM ST Ekle
                 </button>
                 <button
-                  onClick={findSuitableYmSts}
+                  onClick={async () => {
+                    setShowYmStSelectionModal(true);
+                    // Load all YM STs for selection with auto-suggested ones on top
+                    try {
+                      const response = await fetchWithAuth(API_URLS.galYmSt);
+                      if (response && response.ok) {
+                        const allYmSts = await response.json();
+                        if (Array.isArray(allYmSts)) {
+                          // Get suggested YM STs using the same logic as Otomatik Oluştur
+                          const cap = parseFloat(mmGtData.cap) || 0;
+                          const suggestedYmSts = [];
+                          const otherYmSts = [];
+                          
+                          allYmSts.forEach(ymSt => {
+                            const ymStCap = parseFloat(ymSt.cap) || 0;
+                            const capDifference = Math.abs(ymStCap - cap);
+                            // Use same suggestion logic as Otomatik Oluştur
+                            if (capDifference <= 0.5) {
+                              suggestedYmSts.push(ymSt);
+                            } else {
+                              otherYmSts.push(ymSt);
+                            }
+                          });
+                          
+                          // Sort suggested ones by closest cap match
+                          suggestedYmSts.sort((a, b) => {
+                            const aDiff = Math.abs(parseFloat(a.cap || 0) - cap);
+                            const bDiff = Math.abs(parseFloat(b.cap || 0) - cap);
+                            return aDiff - bDiff;
+                          });
+                          
+                          // Combine: suggested ones first, then others
+                          setAllYmStsForSelection([...suggestedYmSts, ...otherYmSts]);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('YM ST verileri yüklenemedi:', error);
+                      toast.error('YM ST verileri yüklenemedi');
+                    }
+                  }}
                   disabled={isLoading}
                   className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                   </svg>
-                  YM ST Listesini Güncelle
+                  Kayıtlılardan Seç
                 </button>
                 <button
                   onClick={generateAutoYmSts}
@@ -6379,54 +6414,6 @@ const GalvanizliTelNetsis = () => {
               </div>
             </div>
 
-            {/* Uygun YM ST'ler - İyileştirilmiş tasarım */}
-            {suitableYmSts.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-lg font-medium mb-4 text-gray-700">Veritabanından Uygun YM ST'ler</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {suitableYmSts.map(ymSt => {
-                    const isSelected = selectedYmSts.find(item => item.stok_kodu === ymSt.stok_kodu);
-                    return (
-                      <div
-                        key={ymSt.id}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all transform hover:scale-105 ${
-                          isSelected
-                            ? 'bg-blue-100 border-blue-500 shadow-lg ring-2 ring-blue-200'
-                            : 'bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-300'
-                        }`}
-                        onClick={() => handleYmStSelection(ymSt)}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-800 text-sm">{ymSt.stok_kodu || ''}</p>
-                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{ymSt.stok_adi || ''}</p>
-                          </div>
-                          <div className={`ml-3 text-center ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}>
-                            {isSelected ? (
-                              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="inline-block px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                            Veritabanı
-                          </span>
-                          <span className="text-sm font-medium text-gray-700">
-                            {parseFloat(ymSt.cap || 0)} mm
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Seçilen YM ST'ler - İyileştirilmiş tasarım */}
             {(selectedYmSts.length > 0 || autoGeneratedYmSts.length > 0) && (
@@ -6745,9 +6732,11 @@ const GalvanizliTelNetsis = () => {
                                 onKeyDown={(e) => handleRecipeCommaToPoint(e, 'mmgt', activeRecipeTab, key)}
                               />
                             )}
-                            {statusText && (
-                              <p className="text-xs text-gray-500 italic">{statusText}</p>
-                            )}
+                            <div className="h-4">
+                              {statusText && (
+                                <p className="text-xs text-gray-500 italic">{statusText}</p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -6810,9 +6799,11 @@ const GalvanizliTelNetsis = () => {
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
                               onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymgt', null, key)}
                             />
-                            {statusText && (
-                              <p className="text-xs text-gray-500 italic">{statusText}</p>
-                            )}
+                            <div className="h-4">
+                              {statusText && (
+                                <p className="text-xs text-gray-500 italic">{statusText}</p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -6955,9 +6946,11 @@ const GalvanizliTelNetsis = () => {
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                               onKeyDown={(e) => handleRecipeCommaToPoint(e, 'ymst', activeRecipeTab, key)}
                             />
-                            {statusText && (
-                              <p className="text-xs text-gray-500 italic">{statusText}</p>
-                            )}
+                            <div className="h-4">
+                              {statusText && (
+                                <p className="text-xs text-gray-500 italic">{statusText}</p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -7292,7 +7285,7 @@ const GalvanizliTelNetsis = () => {
       {/* Talepler Modalı */}
       {showRequestsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[80vh] overflow-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -7772,72 +7765,6 @@ const GalvanizliTelNetsis = () => {
         </div>
       )}
       
-      {/* Düzenleme Nedeni Modalı */}
-      {showEditNotesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Talebi Düzenleme Nedeni
-                </h2>
-                <button
-                  onClick={() => setShowEditNotesModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="mb-6">
-                <label htmlFor="editNotes" className="block text-sm font-medium text-gray-700 mb-1">
-                  Düzenleme Nedeni
-                </label>
-                <textarea
-                  id="editNotes"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  rows={4}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Talebi neden düzenlediğinizi açıklayın..."
-                />
-              </div>
-              
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowEditNotesModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleEditConfirm}
-                  disabled={isLoading || !editNotes.trim()}
-                  className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  {isLoading ? (
-                    <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  )}
-                  Düzenle
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Onay Talebi Modalı */}
       {showApproveConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -7906,7 +7833,7 @@ const GalvanizliTelNetsis = () => {
       {/* Mevcut MM GT / YM ST Modalı */}
       {showExistingMmGtModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[80vh] overflow-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -8158,6 +8085,172 @@ const GalvanizliTelNetsis = () => {
                 >
                   {isLoading ? 'Siliniyor...' : 'Sil'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YM ST Database Selection Modal */}
+      {showYmStSelectionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                  </svg>
+                  Kayıtlı YM ST'leri Seç
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowYmStSelectionModal(false);
+                    setSelectedYmStsForAdd([]);
+                    setYmStSearchQuery('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="mb-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={ymStSearchQuery}
+                    onChange={(e) => setYmStSearchQuery(e.target.value)}
+                    placeholder="YM ST ara (Stok Kodu, Stok Adı, Çap)..."
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-sm text-gray-500">
+                  {selectedYmStsForAdd.length > 0 ? `${selectedYmStsForAdd.length} öğe seçili` : 'Hiç öğe seçilmedi'}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedYmStsForAdd([])}
+                    disabled={selectedYmStsForAdd.length === 0}
+                    className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    Seçimi Temizle
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Add selected YM STs to the main selection
+                      selectedYmStsForAdd.forEach(ymSt => {
+                        if (!selectedYmSts.find(selected => selected.stok_kodu === ymSt.stok_kodu)) {
+                          handleYmStSelection(ymSt);
+                        }
+                      });
+                      setShowYmStSelectionModal(false);
+                      setSelectedYmStsForAdd([]);
+                      setYmStSearchQuery('');
+                      toast.success(`${selectedYmStsForAdd.length} YM ST eklendi`);
+                    }}
+                    disabled={selectedYmStsForAdd.length === 0}
+                    className="px-4 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    Ekle ({selectedYmStsForAdd.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* YM ST Table/Grid */}
+              <div className="max-h-96 overflow-y-auto">
+                {allYmStsForSelection.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500">YM ST verileri yükleniyor...</div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {allYmStsForSelection
+                      .filter(ymSt => {
+                        if (!ymStSearchQuery) return true;
+                        const query = ymStSearchQuery.toLowerCase();
+                        return (ymSt.stok_kodu || '').toLowerCase().includes(query) ||
+                               (ymSt.stok_adi || '').toLowerCase().includes(query) ||
+                               (ymSt.cap || '').toString().includes(query);
+                      })
+                      .map(ymSt => {
+                        const isSelected = selectedYmStsForAdd.find(selected => selected.stok_kodu === ymSt.stok_kodu);
+                        const isAlreadyInMain = selectedYmSts.find(selected => selected.stok_kodu === ymSt.stok_kodu);
+                        
+                        return (
+                          <div
+                            key={ymSt.id}
+                            className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                              isAlreadyInMain
+                                ? 'bg-green-50 border-green-300 opacity-50'
+                                : isSelected
+                                ? 'bg-purple-100 border-purple-500 shadow-lg'
+                                : 'bg-gray-50 border-gray-200 hover:bg-purple-50 hover:border-purple-300'
+                            }`}
+                            onClick={() => {
+                              if (isAlreadyInMain) return;
+                              if (isSelected) {
+                                setSelectedYmStsForAdd(prev => prev.filter(item => item.stok_kodu !== ymSt.stok_kodu));
+                              } else {
+                                setSelectedYmStsForAdd(prev => [...prev, ymSt]);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-800 text-xs">{ymSt.stok_kodu || ''}</p>
+                                <p className="text-xs text-gray-600 line-clamp-2">{ymSt.stok_adi || ''}</p>
+                              </div>
+                              <div className={`ml-2 ${isAlreadyInMain ? 'text-green-600' : isSelected ? 'text-purple-600' : 'text-gray-400'}`}>
+                                {isAlreadyInMain ? (
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                ) : isSelected ? (
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              <div>
+                                <span className="text-gray-500">Çap:</span>
+                                <span className="ml-1 font-medium">{ymSt.cap || 'N/A'} mm</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Filmaşin:</span>
+                                <span className="ml-1 font-medium">{ymSt.filmasin || 'N/A'}</span>
+                              </div>
+                            </div>
+                            
+                            {isAlreadyInMain && (
+                              <div className="mt-2 text-xs text-green-600 font-medium">
+                                ✓ Zaten seçili
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
