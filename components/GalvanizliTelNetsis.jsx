@@ -3040,7 +3040,7 @@ const GalvanizliTelNetsis = () => {
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: generateYmGtStokAdi(validSequence),
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -5283,8 +5283,8 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // 3. Hala sequence belirlenemediyse yeni hesapla
-      if (sequence === '00') {
+      // 3. Hala sequence belirlenemediyse ve veritabanına kaydedilmemişse yeni hesapla
+      if (sequence === '00' && !savedToDatabase) {
         try {
           // checkForExistingProducts fonksiyonu zaten mevcut ürünleri kontrol eder
           const nextSequence = await checkForExistingProducts(
@@ -5771,7 +5771,7 @@ const GalvanizliTelNetsis = () => {
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
       '', // Cari/Satıcı Kodu
-      generateEnglishName(), // İngilizce İsim
+      generateEnglishNameForExcel(), // İngilizce İsim
       '', // Satıcı İsmi
       '26', // Muh. Detay
       '36', // Depo Kodu
@@ -6184,12 +6184,23 @@ const GalvanizliTelNetsis = () => {
     return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
+  // Database version - uses POINT format
   const generateEnglishName = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // Use points for database storage but proper spacing between values
+    // Use points for database storage
+    return `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+  };
+
+  // Excel version - uses COMMA format
+  const generateEnglishNameForExcel = () => {
+    const cap = parseFloat(mmGtData.cap) || 0;
+    const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+    
+    // Use comma for Excel display
     return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
