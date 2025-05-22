@@ -1120,7 +1120,7 @@ const GalvanizliTelNetsis = () => {
     
     const ymGt = {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2).replace('.', ',')} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2).replace('.', ',')}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       cap: capValue,
       kod_2: mmGtData.kod_2,
       kaplama: parseInt(mmGtData.kaplama) || 0,
@@ -1259,7 +1259,7 @@ const GalvanizliTelNetsis = () => {
     const capStr1 = Math.round(safeAdjustedCap * 100).toString().padStart(4, '0');
     autoYmSts.push({
       stok_kodu: `YM.ST.${capStr1}.${filmasinCap}.${quality}`,
-      stok_adi: `YM Siyah Tel ${safeAdjustedCap.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+      stok_adi: `YM Siyah Tel ${safeAdjustedCap.toFixed(2).replace('.', ',')} mm HM:${filmasinCap}.${quality}`,
       cap: safeAdjustedCap,
       filmasin: parseInt(filmasinCap),
       quality: quality,
@@ -1274,7 +1274,7 @@ const GalvanizliTelNetsis = () => {
     const capStr2 = Math.round(safeAlternativeCap * 100).toString().padStart(4, '0');
     autoYmSts.push({
       stok_kodu: `YM.ST.${capStr2}.${filmasinCap}.${quality}`,
-      stok_adi: `YM Siyah Tel ${safeAlternativeCap.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+      stok_adi: `YM Siyah Tel ${safeAlternativeCap.toFixed(2).replace('.', ',')} mm HM:${filmasinCap}.${quality}`,
       cap: safeAlternativeCap,
       filmasin: parseInt(filmasinCap),
       quality: quality,
@@ -2235,7 +2235,7 @@ const GalvanizliTelNetsis = () => {
         const existingProducts = await response.json();
         
         // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
-        const stokAdi = `Galvanizli Tel ${parseFloat(cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${kg} kg`;
+        const stokAdi = `Galvanizli Tel ${parseFloat(cap).toFixed(2).replace('.', ',')} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2).replace('.', ',')}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${kg} kg`;
         
         // Tamamen eşleşen bir ürün var mı?
         const exactMatch = existingProducts.find(product => {
@@ -2321,7 +2321,7 @@ const GalvanizliTelNetsis = () => {
                 
                 if (existingProducts.length > 0) {
                   // Tam eşleşen bir ürün ara
-                  const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
+                  const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2).replace('.', ',')} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2).replace('.', ',')}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2).replace('.', ',')} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
                   const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
                   
                   let exactMatch = null;
@@ -3029,7 +3029,7 @@ const GalvanizliTelNetsis = () => {
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capForExcel.replace('.', ',')} mm -${Math.abs(toleransMinusValue).toFixed(2).replace('.', ',')}/+${toleransPlusValue.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -4686,7 +4686,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('YM.ST.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
-    if (bilesen.includes('SHRİNK')) return 'Shrink Tüketimi (KG)';
+    if (bilesen.includes('SHRİNK')) return 'Naylon Tüketim Miktarı';
     if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
     if (bilesen.includes('CEMBER')) return 'Çelik çember Tüketim Miktarı';
     if (bilesen.includes('TOKA')) return 'Çember Tokası Tüketim Miktarı';
@@ -5218,7 +5218,7 @@ const GalvanizliTelNetsis = () => {
           
           if (existingProducts.length > 0) {
             // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
-            const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
+            const stokAdi = `Galvanizli Tel ${parseFloat(mmGtData.cap).toFixed(2).replace('.', ',')} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2).replace('.', ',')}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2).replace('.', ',')} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg`;
             const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
             
             // Tüm ürünleri kontrol et ve tam eşleşen bir ürün bulmaya çalış
@@ -6047,7 +6047,7 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use point for database storage but display with proper spacing
-    return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtStokAdi = (sequence = '00') => {
@@ -6060,7 +6060,7 @@ const GalvanizliTelNetsis = () => {
       ? `/${mmGtData.cast_kont}` 
       : '';
     
-    return `YM Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -6068,7 +6068,7 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    return `Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtInglizceIsim = () => {
