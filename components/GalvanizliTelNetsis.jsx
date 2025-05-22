@@ -5214,9 +5214,24 @@ const GalvanizliTelNetsis = () => {
       let sequence = '00';
       let mmGtStokKodu = '';
       
-      console.log(`📊 Excel oluşturulurken, key değerlere sahip ürünlerin sequence'i kontrol ediliyor...`);
+      console.log(`📊 Excel oluşturulurken sequence kontrol ediliyor...`);
       
-      // 1. Önce tamamen aynı key değerlere sahip ürün için veritabanını sorgula
+      // ÖNCE: Eğer database'e zaten kaydedilmişse, o sequence'i kullan
+      if (databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
+        console.log('✅ Database zaten kaydedilmiş, kaydedilen sequence kullanılacak...');
+        const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
+        if (savedMmGtResponse && savedMmGtResponse.ok) {
+          const savedMmGt = await savedMmGtResponse.json();
+          if (savedMmGt && savedMmGt.stok_kodu) {
+            sequence = savedMmGt.stok_kodu.split('.').pop();
+            mmGtStokKodu = savedMmGt.stok_kodu;
+            console.log(`✅ Excel için kaydedilmiş MMGT'den sequence alındı: ${sequence}`);
+          }
+        }
+      } else {
+        console.log('Database henüz kaydedilmemiş, yeni sequence hesaplanacak...');
+        
+        // 1. Önce tamamen aynı key değerlere sahip ürün için veritabanını sorgula
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
       console.log(`📊 MMGT için baseCode: ${baseCode}`);
@@ -5265,40 +5280,8 @@ const GalvanizliTelNetsis = () => {
             }
           }
         }
-      } catch (error) {
-        console.error('Veritabanından ürün sorgulanırken hata:', error);
-      }
-      
-      // 2. Eğer databaseIds varsa (kaydedilmişse), oradan sequence al
-      if (sequence === '00' && databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
-        // Kayıtlı ürünün stok kodundan sequence'i al
-        const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
-        if (savedMmGtResponse && savedMmGtResponse.ok) {
-          const savedMmGt = await savedMmGtResponse.json();
-          if (savedMmGt && savedMmGt.stok_kodu) {
-            sequence = savedMmGt.stok_kodu.split('.').pop();
-            mmGtStokKodu = savedMmGt.stok_kodu;
-            console.log(`Excel için kaydedilmiş MMGT'den sequence alındı: ${sequence}`);
-          }
-        }
-      }
-      
-      // 3. Eğer databaseIds yoksa (kaydedilmemişse) yeni hesapla
-      if (sequence === '00' && (!databaseIds || !databaseIds.mmGtIds || !databaseIds.mmGtIds[0])) {
-        try {
-          // checkForExistingProducts fonksiyonu zaten mevcut ürünleri kontrol eder
-          const nextSequence = await checkForExistingProducts(
-            mmGtData.cap,
-            mmGtData.kod_2,
-            mmGtData.kaplama,
-            mmGtData.min_mukavemet,
-            mmGtData.max_mukavemet,
-            mmGtData.kg
-          );
-          sequence = nextSequence.toString().padStart(2, '0');
-          console.log(`Excel için yeni sequence hesaplandı: ${sequence}`);
         } catch (error) {
-          console.error('Sequence hesaplama hatası:', error);
+          console.error('Veritabanından ürün sorgulanırken hata:', error);
           sequence = '00'; // En son çare olarak 00 kullan
         }
       }
