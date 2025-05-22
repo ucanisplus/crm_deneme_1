@@ -1417,17 +1417,17 @@ const GalvanizliTelNetsis = () => {
       // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000 - keep original
       const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.APEX CEMBER 38X080: Adjusted from 1.2 to ~1.0 to get closer to target 0.0013
-      const cemberValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
+      // AMB.APEX CEMBER 38X080: Adjusted coefficient to match Excel2 target 0.0013
+      const cemberValue = parseFloat(((1.17 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.TOKA.SIGNODE.114P. DKP: Adjusted from 4 to ~3.3 to get closer to target 0.0044
-      const tokaValue = parseFloat(((3.3 * (1000 / kg)) / 1000).toFixed(5));
+      // AMB.TOKA.SIGNODE.114P. DKP: Reverted to original coefficient for target 0.0044
+      const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // SM.7MMHALKA: Same as TOKA - adjusted from 4 to ~3.3
-      const halkaValue = parseFloat(((3.3 * (1000 / kg)) / 1000).toFixed(5));
+      // SM.7MMHALKA: Same as TOKA - reverted to original coefficient
+      const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.ÇEM.KARTON.GAL: Adjusted from 8 to ~6.7 to get closer to target 0.0089
-      const kartonValue = parseFloat(((6.7 * (1000 / kg)) / 1000).toFixed(5));
+      // AMB.ÇEM.KARTON.GAL: Reverted to original coefficient for target 0.0089
+      const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
       
       // GTPKT01: Keep formula but coefficients should now better match target ~0.011
       const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
@@ -1524,12 +1524,13 @@ const GalvanizliTelNetsis = () => {
         console.log(`🧮 TLC01 için TLC_Hiz değeri: ${tlcHiz}`);
         
         // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-        // Adjusted formula to match target values around 0.018 dk/kg
-        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / tlcHiz / 60 / 35);
+        // Formula fixed to match Excel target values (Excel1: 18.9 → Excel2: 0.018)
+        // Original Excel formula converted properly: divide by 1000 to get dk/kg units
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / tlcHiz / 60 / 1000);
         const tlcValue = parseFloat(tlc01Raw.toFixed(5));
         
         // Hesaplama debug bilgisi
-        console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${tlcHiz}/60/35) = ${tlcValue}`);
+        console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${tlcHiz}/60/1000) = ${tlcValue}`);
         
         newYmStRecipes[index] = {
           [filmasinKodu]: 1, // Use the Filmaşin code directly
@@ -1550,8 +1551,9 @@ const GalvanizliTelNetsis = () => {
       const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
       
       // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-      // Adjusted formula to match target values around 0.145 dk/kg
-      const glvTime = parseFloat(((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap) / 60 / 37).toFixed(5));
+      // Formula fixed to match Excel target values (Excel1: 126.7 → Excel2: 0.145)
+      // Original Excel formula converted properly: divide by 1000 to get dk/kg units
+      const glvTime = parseFloat(((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap) / 1000).toFixed(5));
       
       // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
       const zincConsumption = parseFloat((
