@@ -6351,7 +6351,7 @@ const GalvanizliTelNetsis = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  YM ST Ekle
+                  YM ST Oluştur
                 </button>
                 <button
                   onClick={async () => {
@@ -6439,7 +6439,11 @@ const GalvanizliTelNetsis = () => {
                       <div
                         key={`selected-${index}`}
                         className={`p-4 border-2 rounded-lg ${
-                          isMain ? 'border-green-500 bg-green-50 ring-2 ring-green-300' : 'border-purple-200 bg-purple-50'
+                          isMain 
+                            ? 'border-green-500 bg-green-50 ring-2 ring-green-300' 
+                            : ymSt.source === 'manual-added' 
+                              ? 'border-blue-200 bg-blue-50'
+                              : 'border-purple-200 bg-purple-50'
                         }`}
                       >
                         <div className="flex justify-between items-start mb-3">
@@ -6486,7 +6490,11 @@ const GalvanizliTelNetsis = () => {
                         </div>
                         <div className="flex justify-between items-center">
                           <span className={`inline-block px-3 py-1 text-xs rounded-full ${
-                            isMain ? 'bg-green-200 text-green-800' : 'bg-purple-100 text-purple-800'
+                            isMain 
+                              ? 'bg-green-200 text-green-800' 
+                              : ymSt.source === 'manual-added' 
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-purple-100 text-purple-800'
                           }`}>
                             {ymSt.source === 'manual-added' ? 'Elle Eklendi' : 'Veritabanı'}
                             {isMain && ' (Ana)'}
@@ -6676,12 +6684,14 @@ const GalvanizliTelNetsis = () => {
                         
                         return (
                           <div key={key} className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">
-                              {friendlyName}
-                              <span className="text-xs text-gray-500 ml-2">
-                                ({getOlcuBr(key)})
-                              </span>
-                            </label>
+                            {type !== 'dropdown' && (
+                              <label className="block text-sm font-medium text-gray-700">
+                                {friendlyName}
+                                <span className="text-xs text-gray-500 ml-2">
+                                  ({getOlcuBr(key)})
+                                </span>
+                              </label>
+                            )}
                             {type === 'readonly' ? (
                               <input
                                 type="text"
@@ -6833,9 +6843,6 @@ const GalvanizliTelNetsis = () => {
                             <div key={key} className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700">
                                 Filmaşin Çapı
-                                <span className="text-xs text-gray-500 ml-2">
-                                  (Kod)
-                                </span>
                               </label>
                               <div className="flex gap-2">
                                 <div className="w-1/2">
@@ -6947,14 +6954,14 @@ const GalvanizliTelNetsis = () => {
                         const statusText = getRecipeStatusText('ymst', activeRecipeTab, key);
                         
                         return (
-                          <div key={key} className="space-y-2 flex flex-col justify-start">
+                          <div key={key} className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">
                               {friendlyName}
                               <span className="text-xs text-gray-500 ml-2">
                                 ({getOlcuBr(key)})
                               </span>
                             </label>
-                            <div className="mt-auto">
+                            <div className="mt-6">
                               <input
                                 type="text"
                                 inputMode="decimal"
