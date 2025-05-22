@@ -19,6 +19,9 @@ const GalvanizliTelNetsis = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
+  // Process sequence - determined once during database save and used for both DB and Excel
+  const [processSequence, setProcessSequence] = useState('00');
+  
   // User input values for calculations
   const [userInputValues, setUserInputValues] = useState({
     ash: 5.54, // Ash (Kül) (Kg/tonne)
@@ -2489,6 +2492,10 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const sequence = nextSequence.toString().padStart(2, '0');
       
+      // Store the sequence for Excel generation
+      setProcessSequence(sequence);
+      console.log(`🔥 PROCESS SEQUENCE SET FOR BOTH DB AND EXCEL: ${sequence}`);
+      
       // Check for existing products
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
@@ -2727,6 +2734,11 @@ const GalvanizliTelNetsis = () => {
         mmGtData.max_mukavemet,
         mmGtData.kg
       );
+      
+      // Store the sequence for Excel generation
+      const sequence = nextSequence.toString().padStart(2, '0');
+      setProcessSequence(sequence);
+      console.log(`🔥 PROCESS SEQUENCE SET FOR BOTH DB AND EXCEL: ${sequence}`);
       
       const mmGtIds = [];
       const ymStIds = [];
@@ -5295,7 +5307,7 @@ const GalvanizliTelNetsis = () => {
       // Stok Kartı Excel
       try {
         console.log('📄 Stok kartı Excel oluşturuluyor...');
-        await generateStokKartiExcel(sequence);
+        await generateStokKartiExcel(processSequence);
         console.log('✅ Stok kartı Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('❌ Stok kartı Excel oluşturma hatası:', excelError);
@@ -5345,25 +5357,9 @@ const GalvanizliTelNetsis = () => {
 
   // Stok Kartı Excel oluştur - yeni 1:1:n ilişki modeli ile
   const generateStokKartiExcel = async (sequenceParam = '00') => {
-    // FORCE: Always get sequence from saved database, ignore parameter
-    let sequence = '00';
-    if (databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
-      try {
-        const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
-        if (savedMmGtResponse && savedMmGtResponse.ok) {
-          const savedMmGt = await savedMmGtResponse.json();
-          if (savedMmGt && savedMmGt.stok_kodu) {
-            sequence = savedMmGt.stok_kodu.split('.').pop();
-            console.log(`🔥 FORCED Excel sequence from database: ${sequence}`);
-          }
-        }
-      } catch (error) {
-        console.error('Error getting sequence from database:', error);
-        sequence = sequenceParam; // fallback to parameter
-      }
-    } else {
-      sequence = sequenceParam; // use parameter if no database
-    }
+    // Use the processSequence that was set during database save
+    const sequence = processSequence;
+    console.log(`🔥 EXCEL USING PROCESS SEQUENCE: ${sequence}`);
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
