@@ -2746,7 +2746,7 @@ const GalvanizliTelNetsis = () => {
       
       // Aynı sequence ile 1 tane YM GT oluştur (MMGT ile aynı sequence)
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const sequence = nextSequence.toString().padStart(2, '0');
+      // sequence already defined above
       // MMGT ile aynı sequence'i kullan
       console.log(`YM GT için kullanılan sequence: ${sequence}`);
       // DÜZELTME: sequence'i kullan - bu önemli!
