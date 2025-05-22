@@ -5344,7 +5344,26 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Stok Kartı Excel oluştur - yeni 1:1:n ilişki modeli ile
-  const generateStokKartiExcel = async (sequence = '00') => {
+  const generateStokKartiExcel = async (sequenceParam = '00') => {
+    // FORCE: Always get sequence from saved database, ignore parameter
+    let sequence = '00';
+    if (databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
+      try {
+        const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
+        if (savedMmGtResponse && savedMmGtResponse.ok) {
+          const savedMmGt = await savedMmGtResponse.json();
+          if (savedMmGt && savedMmGt.stok_kodu) {
+            sequence = savedMmGt.stok_kodu.split('.').pop();
+            console.log(`🔥 FORCED Excel sequence from database: ${sequence}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting sequence from database:', error);
+        sequence = sequenceParam; // fallback to parameter
+      }
+    } else {
+      sequence = sequenceParam; // use parameter if no database
+    }
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
