@@ -3174,7 +3174,8 @@ const GalvanizliTelNetsis = () => {
       }
       
       // Bir sonraki sequence değerini hesapla
-      const nextSequence = incrementSequence(highestSequence);
+      const nextSequenceNum = parseInt(highestSequence, 10) + 1;
+      const nextSequence = nextSequenceNum.toString().padStart(2, '0');
       console.log(`Bulunan en yüksek sequence değeri: ${highestSequence}, bir sonraki: ${nextSequence}`);
       return nextSequence;
     } catch (error) {
@@ -5765,7 +5766,7 @@ const GalvanizliTelNetsis = () => {
     
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu
-      generateStokAdi(), // Stok Adı
+      generateStokAdiForExcel(), // Stok Adı
       'MM', // Grup Kodu
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
@@ -5863,7 +5864,7 @@ const GalvanizliTelNetsis = () => {
     
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu - sequence eşleştirme!
-      generateYmGtStokAdi(sequence), // Stok Adı - güncel sequence ile!
+      generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
       'YM', // Grup Kodu
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
@@ -6107,6 +6108,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // String oluşturma fonksiyonları - COMMA Excel formatında
+  // Database version - uses POINT format
   const generateStokAdi = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
@@ -6121,6 +6123,22 @@ const GalvanizliTelNetsis = () => {
     return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
+  // Excel version - uses COMMA format  
+  const generateStokAdiForExcel = () => {
+    const cap = parseFloat(mmGtData.cap) || 0;
+    const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+    
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
+    // Use comma for Excel display
+    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+  };
+
+  // Database version for YM GT - uses POINT format
   const generateYmGtStokAdi = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
@@ -6131,6 +6149,22 @@ const GalvanizliTelNetsis = () => {
       ? `/${mmGtData.cast_kont}` 
       : '';
     
+    // Use point for database storage
+    return `YM Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+  };
+
+  // Excel version for YM GT - uses COMMA format
+  const generateYmGtStokAdiForExcel = (sequence = '00') => {
+    const cap = parseFloat(mmGtData.cap) || 0;
+    const toleransPlus = parseFloat(mmGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+    
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
+    // Use comma for Excel display
     return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
