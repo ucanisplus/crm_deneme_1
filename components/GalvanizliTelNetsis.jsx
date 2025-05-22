@@ -5778,7 +5778,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - OK as 1000)
+      '1000', // Payda-1 (Excel formatı - keep as 1000)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
@@ -5876,7 +5876,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - OK as 1000)
+      '1000', // Payda-1 (Excel formatı - keep as 1000)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
@@ -5952,7 +5952,7 @@ const GalvanizliTelNetsis = () => {
       'KG', // Br-1
       'TN', // Br-2
       '1', // Pay-1
-      '1000', // Payda-1 (Excel formatı - OK as 1000)
+      '1000', // Payda-1 (Excel formatı - keep as 1000)
       '0.001', // Çevrim Değeri-1
       '', // Ölçü Br-3
       '1', // Çevrim Pay-2
