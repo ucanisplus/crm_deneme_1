@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+  <html>
+  <head>
+    <title>CORS Test</title>
+  </head>
+  <body>
+    <h1>CORS Test</h1>
+    <button id="testBtn">Test CORS</button>
+    <pre id="result">Results will appear here</pre>
+
+    <script>
+      document.getElementById('testBtn').addEventListener('click', async () => {
+        try {
+          // First test the root endpoint
+          const root = await fetch('https://crm-deneme-backend.vercel.app/', {
+            method: 'GET'
+          });
+          const rootData = await root.json();
+          console.log('Root test result:', rootData);
+          document.getElementById('result').textContent += 'Root test: ' +
+  JSON.stringify(rootData, null, 2) + '\n\n';
+
+          // Then test the login endpoint
+          const login = await fetch('https://crm-deneme-backend.vercel.app/api/login', {
+            method: 'OPTIONS',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          document.getElementById('result').textContent += 'Login OPTIONS test status: ' +
+  login.status + '\n\n';
+
+          // Show response headers
+          const headers = {};
+          login.headers.forEach((value, key) => {
+            headers[key] = value;
+          });
+          document.getElementById('result').textContent += 'Headers: ' + JSON.stringify(headers,
+  null, 2) + '\n\n';
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('result').textContent += 'Error: ' + error.message + '\n\n';
+        }
+      });
+    </script>
+  </body>
+  </html>
