@@ -162,9 +162,9 @@ const GalvanizliTelNetsis = () => {
     'AMB.APEX CEMBER 38X080': 'Çelik çember (AMB.APEX CEMBER 38X080)',
     'AMB.TOKA.SIGNODE.114P. DKP': 'Çember tokası (AMB.TOKA.SIGNODE.114P. DKP)',
     'SM.7MMHALKA': 'Kaldırma kancası (SM.7MMHALKA)',
-    'AMB.SHRİNK.200*140CM': 'Shrink (AMB.SHRİNK.200*140CM)',
-    'AMB.SHRİNK.200*160CM': 'Shrink (AMB.SHRİNK.200*160CM)',
-    'AMB.SHRİNK.200*190CM': 'Shrink (AMB.SHRİNK.200*190CM)',
+    'AMB.SHRİNK.200*140CM': 'Shrink Tüketimi (kg)',
+    'AMB.SHRİNK.200*160CM': 'Shrink Tüketimi (kg)',
+    'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (kg)',
     'AMB.ÇEM.KARTON.GAL': 'Karton (AMB.ÇEM.KARTON.GAL)',
     'GTPKT01': 'Paketleme Süre (GTPKT01)',
     'GLV01': 'Galvaniz Süre (GLV01)',
@@ -1362,9 +1362,10 @@ const GalvanizliTelNetsis = () => {
       let correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       console.log(`🔄 MMGT reçetesi için YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
       
-      // Shrink tipi ve miktarını otomatik belirle
+      // Otomatik Doldur: Shrink tipi ve miktarını otomatik belirle (İç Çap'a göre)
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
+      console.log(`🔄 Otomatik Doldur: İç Çap ${mmGtData.ic_cap}cm için Shrink Tipi = ${shrinkCode} seçildi`);
       
       // We'll calculate values without modifying the YM ST objects directly
       // This avoids interfering with the selection functionality
@@ -1441,15 +1442,22 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`🧪 Using filmasin code ${filmasinKodu} with HM_Cap=${hmCap} for YM ST cap=${ymSt.cap}`);
       
-      // Ensure ymSt has filmasin and quality values set for the dropdown selection to work
-      if (!ymSt.filmasin || !ymSt.quality) {
+      // Otomatik Doldur: YM ST Filmaşin ve Kalite değerlerini otomatik seç (kullanıcı değiştirebilir)
+      if (!ymSt.filmasin || !ymSt.quality || ymSt.source === 'auto-generated') {
         if (hmCapMatch) {
+          // Filmaşin Çapı (HM_Cap) otomatik belirle
           ymSt.filmasin = parseInt(hmCapMatch[1]);
+          console.log(`🔄 Otomatik Doldur: Filmaşin Çapı = ${ymSt.filmasin/100}mm seçildi`);
         }
         const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
         if (qualityMatch) {
+          // Filmaşin Kalitesi otomatik belirle
           ymSt.quality = qualityMatch[1];
+          console.log(`🔄 Otomatik Doldur: Filmaşin Kalitesi = ${ymSt.quality} seçildi`);
         }
+        
+        // Auto-selected flag ekle - kullanıcının değiştirebileceğini belirt
+        ymSt.autoSelected = true;
       }
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
@@ -1460,23 +1468,22 @@ const GalvanizliTelNetsis = () => {
       const currentYmStCap = parseFloat(ymSt.cap) || cap;
       console.log(`🧮 TLC01 calculation inputs: Cap=${currentYmStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
-      // Calculate TLC01 using the formula, but divide by 100 to match expected values
-      // Based on examples, the expected values are around 0.029 for 8mm wire
-      // The formula needs an additional divisor to match real-world values
+          // TLC01 hesaplama - Referans formülüne göre düzeltildi
+      // GTPKT01 gibi küçük değerler üretmemeli, referans formül büyük değerler verir
+      // Not: GTPKT01 = 0.02 (dakika/kg), TLC01 = 9.89 (dakika/kg) olmalı
       
-      // Ensure we have a valid TLC_Hiz value - typical values are in range 10-20
-      const safeHiz = (!tlcHiz || tlcHiz < 5) ? 15 : tlcHiz; // Use a reasonable default of 15 if too low
+      // Güvenli TLC_Hiz değeri kontrol et - tipik değerler 10-20 arasında
+      const safeHiz = (!tlcHiz || tlcHiz < 5) ? 15 : tlcHiz; // 15 varsayılan değer
       
-      console.log(`🧮 Using TLC_Hiz value of ${safeHiz} for TLC01 calculation`);
+      console.log(`🧮 TLC01 için TLC_Hiz değeri: ${safeHiz}`);
       
-      // MODIFIED FORMULA: Added a division by 100 to match expected values
-      // Original: 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-      // Modified: (1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60)/100
-      const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60) / 100;
+      // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
+      // /100 bölme işlemi kaldırıldı - referans formüle uygun şekilde
+      const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / safeHiz / 60);
       const tlcValue = parseFloat(tlc01Raw.toFixed(5));
       
-      // Log the calculation for debugging
-      console.log(`🧮 TLC01 calculation: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60)/100 = ${tlcValue}`);
+      // Hesaplama debug bilgisi
+      console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${safeHiz}/60) = ${tlcValue}`);
       
       newYmStRecipes[index] = {
         [filmasinKodu]: 1, // Use the Filmaşin code directly
@@ -4428,7 +4435,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('YM.ST.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
-    if (bilesen.includes('SHRİNK')) return 'Naylon Tüketim Miktarı';
+    if (bilesen.includes('SHRİNK')) return 'Shrink Tüketimi (kg)';
     if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
     if (bilesen.includes('CEMBER')) return 'Çelik çember Tüketim Miktarı';
     if (bilesen.includes('TOKA')) return 'Çember Tokası Tüketim Miktarı';
@@ -6769,9 +6776,6 @@ const GalvanizliTelNetsis = () => {
                             <div key={key} className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700">
                                 YM ST Bileşeni (Otomatik)
-                                <span className="text-xs text-gray-500 ml-2">
-                                  (KG)
-                                </span>
                               </label>
                               <input
                                 type="text"
@@ -6837,82 +6841,92 @@ const GalvanizliTelNetsis = () => {
                           return (
                             <div key={key} className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700">
-                                Filmaşin Tipi
+                                Filmaşin Çapı
                                 <span className="text-xs text-gray-500 ml-2">
                                   (Kod)
                                 </span>
                               </label>
                               <div className="flex gap-2">
-                                <select
-                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
-                                  value={filmasinCode.substring(4, 8)}
-                                  onChange={(e) => {
-                                    // Get the diameter part
-                                    const newDiameter = e.target.value;
-                                    // Get the quality part from existing code
-                                    const quality = filmasinCode.substring(9);
-                                    
-                                    // Construct new filmasin code
-                                    const newFilmasinCode = `FLM.${newDiameter}.${quality}`;
-                                    
-                                    // Get the active YM ST and its current filmasin code
-                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
-                                    const oldKey = getFilmasinKodu(activeYmSt);
-                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
-                                    
-                                    // Update recipes with new key
-                                    const updatedRecipes = { ...allRecipes };
-                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
-                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
-                                    setAllRecipes(updatedRecipes);
-                                    
-                                    // Update recipe status
-                                    const updatedStatus = { ...recipeStatus };
-                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
-                                    setRecipeStatus(updatedStatus);
-                                  }}
-                                >
-                                  <option value="0550">5.50 mm</option>
-                                  <option value="0600">6.00 mm</option>
-                                  <option value="0700">7.00 mm</option>
-                                  <option value="0800">8.00 mm</option>
-                                  <option value="0900">9.00 mm</option>
-                                </select>
+                                <div className="w-1/2">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Filmaşin Çapı
+                                  </label>
+                                  <select
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    value={filmasinCode.substring(4, 8)}
+                                    onChange={(e) => {
+                                      // Get the diameter part
+                                      const newDiameter = e.target.value;
+                                      // Get the quality part from existing code
+                                      const quality = filmasinCode.substring(9);
+                                      
+                                      // Construct new filmasin code
+                                      const newFilmasinCode = `FLM.${newDiameter}.${quality}`;
+                                      
+                                      // Get the active YM ST and its current filmasin code
+                                      const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                      const oldKey = getFilmasinKodu(activeYmSt);
+                                      const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                      
+                                      // Update recipes with new key
+                                      const updatedRecipes = { ...allRecipes };
+                                      delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                      updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
+                                      setAllRecipes(updatedRecipes);
+                                      
+                                      // Update recipe status
+                                      const updatedStatus = { ...recipeStatus };
+                                      updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                      setRecipeStatus(updatedStatus);
+                                    }}
+                                  >
+                                    <option value="0550">5.50 mm</option>
+                                    <option value="0600">6.00 mm</option>
+                                    <option value="0700">7.00 mm</option>
+                                    <option value="0800">8.00 mm</option>
+                                    <option value="0900">9.00 mm</option>
+                                  </select>
+                                </div>
                                 
-                                <select
-                                  className="w-1/3 p-2 border border-gray-300 rounded-md"
-                                  value={filmasinCode.substring(9)}
-                                  onChange={(e) => {
-                                    // Get the quality part
-                                    const newQuality = e.target.value;
-                                    // Get the diameter part from existing code
-                                    const diameter = filmasinCode.substring(4, 8);
-                                    
-                                    // Construct new filmasin code
-                                    const newFilmasinCode = `FLM.${diameter}.${newQuality}`;
-                                    
-                                    // Get the active YM ST and its current filmasin code
-                                    const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
-                                    const oldKey = getFilmasinKodu(activeYmSt);
-                                    const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
-                                    
-                                    // Update recipes with new key
-                                    const updatedRecipes = { ...allRecipes };
-                                    delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
-                                    updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
-                                    setAllRecipes(updatedRecipes);
-                                    
-                                    // Update recipe status
-                                    const updatedStatus = { ...recipeStatus };
-                                    updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
-                                    setRecipeStatus(updatedStatus);
-                                  }}
-                                >
-                                  <option value="1005">1005</option>
-                                  <option value="1006">1006</option>
-                                  <option value="1008">1008</option>
-                                  <option value="1010">1010</option>
-                                </select>
+                                <div className="w-1/2">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Filmaşin Kalitesi
+                                  </label>
+                                  <select
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    value={filmasinCode.substring(9)}
+                                    onChange={(e) => {
+                                      // Get the quality part
+                                      const newQuality = e.target.value;
+                                      // Get the diameter part from existing code
+                                      const diameter = filmasinCode.substring(4, 8);
+                                      
+                                      // Construct new filmasin code
+                                      const newFilmasinCode = `FLM.${diameter}.${newQuality}`;
+                                      
+                                      // Get the active YM ST and its current filmasin code
+                                      const activeYmSt = [...selectedYmSts, ...autoGeneratedYmSts][activeRecipeTab];
+                                      const oldKey = getFilmasinKodu(activeYmSt);
+                                      const oldValue = allRecipes.ymStRecipes[activeRecipeTab]?.[oldKey] || 1;
+                                      
+                                      // Update recipes with new key
+                                      const updatedRecipes = { ...allRecipes };
+                                      delete updatedRecipes.ymStRecipes[activeRecipeTab][oldKey];
+                                      updatedRecipes.ymStRecipes[activeRecipeTab][newFilmasinCode] = oldValue;
+                                      setAllRecipes(updatedRecipes);
+                                      
+                                      // Update recipe status
+                                      const updatedStatus = { ...recipeStatus };
+                                      updatedStatus.ymStRecipes[activeRecipeTab][newFilmasinCode] = 'manual';
+                                      setRecipeStatus(updatedStatus);
+                                    }}
+                                  >
+                                    <option value="1005">1005</option>
+                                    <option value="1006">1006</option>
+                                    <option value="1008">1008</option>
+                                    <option value="1010">1010</option>
+                                  </select>
+                                </div>
                               </div>
                               {statusText && (
                                 <p className="text-xs text-gray-500 italic">{statusText}</p>
