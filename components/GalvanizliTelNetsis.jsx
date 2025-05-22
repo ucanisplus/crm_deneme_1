@@ -5317,7 +5317,7 @@ const GalvanizliTelNetsis = () => {
       
       try {
         console.log('📄 Reçete Excel oluşturuluyor...');
-        await generateReceteExcel(sequence);
+        await generateReceteExcel(processSequence);
         console.log('✅ Reçete Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('❌ Reçete Excel oluşturma hatası:', excelError);
@@ -5417,7 +5417,12 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Stok Kartı Excel buffer boş - veri sorunu');
       }
       
-      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Galvaniz_Stok_Karti.xlsx');
+      // Generate filename using MMGT stok_kodu
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      const filename = `${mmGtStokKodu}_Stok_Karti.xlsx`;
+      
+      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
       console.log('✅ Stok Kartı Excel dosyası başarıyla kaydedildi');
     } catch (excelError) {
       console.error('❌ Stok Kartı Excel oluşturma hatası:', excelError);
@@ -5426,7 +5431,11 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Reçete Excel oluştur - Yeni 1:1:n ilişki modeli ile
-  const generateReceteExcel = async (sequence = '00') => {
+  const generateReceteExcel = async (sequenceParam = '00') => {
+    // Use the processSequence that was set during database save
+    const sequence = processSequence;
+    console.log(`🔥 RECETE EXCEL USING PROCESS SEQUENCE: ${sequence}`);
+    
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
@@ -5440,12 +5449,7 @@ const GalvanizliTelNetsis = () => {
     const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
     const mainYmStIndex_ = mainYmStIndex; // Closure için yerel değişken
     
-    // Önemli: Son kontrol - stok kartı Excel'i ile aynı sequence'i kullandığımızdan emin olalım
-    if (sequence === '00') {
-      console.warn('UYARI! Reçete Excel için "00" sequence kullanılıyor. Veritabanını kontrol et.');
-    }
-    
-    console.log(`Reçete Excel oluşturuluyor, sequence: ${sequence} -- Veritabanındaki ürünle eşleştiğinden emin olun!`);
+    console.log(`Reçete Excel oluşturuluyor, sequence: ${sequence}`);
     
     // MM GT REÇETE Sheet
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
@@ -5680,7 +5684,12 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Excel buffer boş - veri sorunu');
       }
       
-      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Galvanizli_Tel_Recete.xlsx');
+      // Generate filename using MMGT stok_kodu
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      const filename = `${mmGtStokKodu}_Recete.xlsx`;
+      
+      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
       console.log('✅ Excel dosyası başarıyla kaydedildi');
     } catch (excelError) {
       console.error('❌ Excel oluşturma hatası:', excelError);
