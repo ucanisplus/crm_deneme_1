@@ -5269,8 +5269,8 @@ const GalvanizliTelNetsis = () => {
         console.error('Veritabanından ürün sorgulanırken hata:', error);
       }
       
-      // 2. Eğer veritabanında ürün bulunamadıysa veya sequence hala 00 ise kayıtlı ürünleri kontrol et
-      if (sequence === '00' && savedToDatabase && databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
+      // 2. Eğer databaseIds varsa (kaydedilmişse), oradan sequence al
+      if (sequence === '00' && databaseIds && databaseIds.mmGtIds && databaseIds.mmGtIds[0]) {
         // Kayıtlı ürünün stok kodundan sequence'i al
         const savedMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${databaseIds.mmGtIds[0]}`);
         if (savedMmGtResponse && savedMmGtResponse.ok) {
@@ -5283,8 +5283,8 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // 3. Hala sequence belirlenemediyse ve veritabanına kaydedilmemişse yeni hesapla
-      if (sequence === '00' && !savedToDatabase) {
+      // 3. Eğer databaseIds yoksa (kaydedilmemişse) yeni hesapla
+      if (sequence === '00' && (!databaseIds || !databaseIds.mmGtIds || !databaseIds.mmGtIds[0])) {
         try {
           // checkForExistingProducts fonksiyonu zaten mevcut ürünleri kontrol eder
           const nextSequence = await checkForExistingProducts(
