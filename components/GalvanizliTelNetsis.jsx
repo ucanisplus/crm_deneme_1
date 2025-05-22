@@ -1303,22 +1303,29 @@ const GalvanizliTelNetsis = () => {
 
   // Çap değerine göre filmaşin seç
   const getFilmasinForCap = (cap) => {
-    if (cap < 2.0) return '0550';
-    if (cap >= 2.0 && cap < 3.0) return '0600';
-    if (cap >= 3.0 && cap < 4.5) return '0600';
-    if (cap >= 4.5 && cap < 6.0) return '0700';
-    if (cap >= 6.0 && cap < 7.5) return '0800';
-    return '1000';
+    // Filmaşin diameter must be HIGHER than YMST cap for production logic
+    // FLM gets thinner during production to create YMST, then galvanized to create YMGT
+    if (cap <= 0.88) return '0550';  // 5.50mm → 0.88mm
+    if (cap <= 1.49) return '0550';  // 5.50mm → 1.20-1.49mm 
+    if (cap <= 4.50) return '0600';  // 6.00mm → 1.20-4.50mm
+    if (cap <= 4.49) return '0600';  // 6.00mm → 2.00-4.49mm (1008 quality)
+    if (cap <= 6.10) return '0700';  // 7.00mm → 4.50-6.10mm
+    if (cap <= 6.90) return '0800';  // 8.00mm → 5.50-6.90mm
+    if (cap <= 7.50) return '0900';  // 9.00mm → 7.00-7.50mm
+    return '1000';  // 10.00mm for higher diameters
   };
 
-  // Çap değerine göre kalite seç
+  // Çap değerine göre kalite seç - matches filmaşin production ranges
   const getQualityForCap = (cap) => {
-    if (cap < 2.0) return '1006';
-    if (cap >= 2.0 && cap < 3.0) return '1006';
-    if (cap >= 3.0 && cap < 4.5) return '1008';
-    if (cap >= 4.5 && cap < 6.0) return '1010';
-    if (cap >= 6.0 && cap < 7.5) return '1010';
-    return '1010';
+    if (cap <= 0.88) return '1005';  // 5.50mm 1005 → 0.88mm
+    if (cap <= 1.49) return '1006';  // 5.50mm 1006 → 1.20-1.49mm
+    if (cap <= 4.50) return '1006';  // 6.00mm 1006 → 1.20-4.50mm
+    if (cap <= 4.49) return '1008';  // 6.00mm 1008 → 2.00-4.49mm
+    if (cap <= 6.10) return '1008';  // 7.00mm 1008 → 4.50-6.10mm
+    if (cap <= 6.10) return '1010';  // 7.00mm 1010 → 3.50-6.10mm (alternative)
+    if (cap <= 6.90) return '1010';  // 8.00mm 1010 → 5.50-6.90mm
+    if (cap <= 7.50) return '1010';  // 9.00mm 1010 → 7.00-7.50mm
+    return '1010';  // Default for higher ranges
   };
 
   // Formül doğrulama fonksiyonu - Giriş değerlerini kontrol et
@@ -7329,6 +7336,7 @@ const GalvanizliTelNetsis = () => {
                                     <option value="0700">7.00 mm</option>
                                     <option value="0800">8.00 mm</option>
                                     <option value="0900">9.00 mm</option>
+                                    <option value="1000">10.00 mm</option>
                                   </select>
                                 </div>
                                 
