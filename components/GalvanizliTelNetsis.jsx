@@ -769,19 +769,21 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // MM GT'leri sil
-      for (const mmGt of existingMmGts) {
-        await deleteMmGt(mmGt);
-      }
+      // Process MM GTs and YM STs in parallel
+      const deletePromises = [
+        // Delete all MM GTs in parallel
+        ...existingMmGts.map(mmGt => deleteMmGt(mmGt)),
+        // Delete all YM STs in parallel
+        ...existingYmSts.map(ymSt => deleteYmSt(ymSt))
+      ];
       
-      // YM ST'leri sil
-      for (const ymSt of existingYmSts) {
-        await deleteYmSt(ymSt);
-      }
+      await Promise.all(deletePromises);
       
-      // Verileri yenile
-      await fetchExistingMmGts();
-      await fetchExistingYmSts();
+      // Refresh data in parallel
+      await Promise.all([
+        fetchExistingMmGts(),
+        fetchExistingYmSts()
+      ]);
       
       setShowDeleteAllConfirm(false);
       setDeleteAllConfirmText('');
@@ -2060,6 +2062,14 @@ const GalvanizliTelNetsis = () => {
       inputValue = inputValue.replace(/,/g, '.');
     }
     
+    // Mark as unsaved when recipe values change
+    // This triggers the save process to update the existing product
+    if (savedToDatabase) {
+      setSavedToDatabase(false);
+      // Keep the database IDs so it updates the same product instead of creating new ones
+      // setDatabaseIds and setSessionSavedProducts are kept intact
+    }
+    
     // Special case handling for direct decimal input
     // This allows decimal points to be properly entered and maintained in the field
     if (typeof inputValue === 'string') {
@@ -2248,17 +2258,11 @@ const GalvanizliTelNetsis = () => {
         });
         
         if (exactMatch) {
-          // Kullanıcıya güncelleme onayı göster
-          const confirmUpdate = window.confirm(
-            `Tam olarak aynı değerlere sahip bir ürün mevcut:\n${exactMatch.stok_kodu} - ${exactMatch.stok_adi}\n\nKayıtlı ürünü güncellemek istediğinize emin misiniz?`
-          );
-          
-          if (confirmUpdate) {
-            // Bu ürünün sequence kodunu kullan
-            const sequencePart = exactMatch.stok_kodu.split('.').pop();
-            const sequenceNum = parseInt(sequencePart);
-            return sequenceNum; // Mevcut sequence'i kullan
-          }
+          // Use the new duplicate confirmation system instead of window.confirm
+          // This will be handled by checkForDuplicatesAndConfirm function
+          const sequencePart = exactMatch.stok_kodu.split('.').pop();
+          const sequenceNum = parseInt(sequencePart);
+          return sequenceNum; // Use existing sequence for now, duplicate dialog will handle the confirmation
         }
         
         // Eğer tamamen eşleşen yoksa veya kullanıcı güncellemeyi reddettiyse, yeni bir ürün oluştur
@@ -7255,6 +7259,7 @@ const GalvanizliTelNetsis = () => {
               <button
                 onClick={async () => {
                   try {
+                    setIsLoading(true);
                     console.log("🔄 Veritabanına kaydetme ve Excel oluşturma işlemi başlatılıyor...");
                     // First save to database if not already saved
                     if (!savedToDatabase) {
@@ -7262,6 +7267,7 @@ const GalvanizliTelNetsis = () => {
                       const saveResult = await checkForDuplicatesAndConfirm();
                       if (!saveResult) {
                         // Either duplicates found (dialog shown) or error occurred
+                        setIsLoading(false);
                         return;
                       }
                       console.log("✅ Veritabanına kaydetme işlemi tamamlandı");
@@ -7285,6 +7291,8 @@ const GalvanizliTelNetsis = () => {
                     toast.error(`İşlem hatası: ${error.message}`);
                     
                     // Reset loading state to allow user to try again
+                    setIsLoading(false);
+                  } finally {
                     setIsLoading(false);
                   }
                 }}
@@ -8431,6 +8439,7 @@ const GalvanizliTelNetsis = () => {
                   onClick={() => {
                     setShowDeleteAllConfirm(false);
                     setDeleteAllConfirmText('');
+                    setIsLoading(false);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -8500,7 +8509,7 @@ const GalvanizliTelNetsis = () => {
                 ))}
               </div>
               
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={() => {
                     setShowDuplicateConfirmModal(false);
@@ -8508,10 +8517,76 @@ const GalvanizliTelNetsis = () => {
                     setPendingSaveData(null);
                     setIsLoading(false);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   İptal
                 </button>
+                {duplicateProducts.some(p => p.type === 'YM ST') && (
+                  <button
+                    onClick={async () => {
+                      if (pendingSaveData) {
+                        setShowDuplicateConfirmModal(false);
+                        
+                        // Fetch existing YM STs from database for Excel generation
+                        const existingYmStsForExcel = [];
+                        for (const duplicate of duplicateProducts.filter(p => p.type === 'YM ST')) {
+                          try {
+                            const existingYmSt = await checkExistingProduct(API_URLS.galYmSt, duplicate.stok_kodu);
+                            if (existingYmSt) {
+                              existingYmStsForExcel.push({
+                                ...existingYmSt,
+                                source: 'database'
+                              });
+                            }
+                          } catch (error) {
+                            console.error('Error fetching existing YM ST:', error);
+                          }
+                        }
+                        
+                        // Keep non-duplicate YM STs and add existing ones for Excel
+                        const ymStsForSave = pendingSaveData.allYmSts.filter(ymSt => 
+                          ymSt.source === 'database' || 
+                          !duplicateProducts.some(dup => dup.type === 'YM ST' && dup.stok_kodu === ymSt.stok_kodu)
+                        );
+                        
+                        const ymStsForExcel = [
+                          ...ymStsForSave,
+                          ...existingYmStsForExcel
+                        ];
+                        
+                        // Update the selected YM STs for Excel generation
+                        const originalSelectedYmSts = [...selectedYmSts];
+                        const originalAutoGeneratedYmSts = [...autoGeneratedYmSts];
+                        
+                        // Temporarily update YM STs for Excel generation
+                        setSelectedYmSts(ymStsForExcel.filter(ym => ym.source === 'database'));
+                        setAutoGeneratedYmSts(ymStsForExcel.filter(ym => ym.source !== 'database'));
+                        
+                        const result = await proceedWithSave(ymStsForSave, pendingSaveData.nextSequence);
+                        if (result) {
+                          try {
+                            toast.info("Excel dosyaları oluşturuluyor...");
+                            await generateExcelFiles();
+                            toast.success("İşlem başarıyla tamamlandı!");
+                          } catch (error) {
+                            console.error("Excel generation error:", error);
+                            toast.error(`Excel oluşturma hatası: ${error.message}`);
+                          }
+                        }
+                        
+                        // Restore original YM ST states
+                        setSelectedYmSts(originalSelectedYmSts);
+                        setAutoGeneratedYmSts(originalAutoGeneratedYmSts);
+                        
+                        setDuplicateProducts([]);
+                        setPendingSaveData(null);
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    YM ST Güncellemeden Devam Et
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     if (pendingSaveData) {
@@ -8532,7 +8607,7 @@ const GalvanizliTelNetsis = () => {
                       setPendingSaveData(null);
                     }
                   }}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
                 >
                   Evet, Güncelle
                 </button>
