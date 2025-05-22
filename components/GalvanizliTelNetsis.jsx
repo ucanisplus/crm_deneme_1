@@ -2247,7 +2247,8 @@ const GalvanizliTelNetsis = () => {
         const existingProducts = await response.json();
         
         // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
-        const stokAdi = `Galvanizli Tel ${parseFloat(cap).toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus).toFixed(2)} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${kg} kg`;
+        // Use the same generateStokAdi function to ensure consistent formatting
+        const stokAdi = generateStokAdi();
         
         // Tamamen eşleşen bir ürün var mı?
         const exactMatch = existingProducts.find(product => {
@@ -2927,13 +2928,13 @@ const GalvanizliTelNetsis = () => {
   const incrementSequence = (sequence) => {
     // Sequence null/undefined ise veya geçersiz ise 00 kullan
     if (!sequence || !/^\d{1,2}$/.test(sequence)) {
-      console.warn(`Geçersiz sequence: ${sequence}, 01 ile başlanıyor`);
-      return '01';
+      console.warn(`Geçersiz sequence: ${sequence}, 00 ile başlanıyor`);
+      return '00';
     }
     
-    // 00 ise, 01 ile başla
+    // İlk ürün için 00'dan başla, ikinci ürün için 01
     if (sequence === '00') {
-      return '01';
+      return '00'; // First product should be 00, not 01
     }
     
     // Mevcut sequence'i arttır
@@ -3039,7 +3040,7 @@ const GalvanizliTelNetsis = () => {
     
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
-      stok_adi: `YM Galvanizli Tel ${capForExcel} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(toleransMinusValue).toFixed(2)}/+${toleransPlusValue.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
@@ -6116,8 +6117,8 @@ const GalvanizliTelNetsis = () => {
       ? `/${mmGtData.cast_kont}` 
       : '';
     
-    // Use point for database storage but display with proper spacing
-    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    // Use point for database storage - NO comma replacement for database
+    return `Galvanizli Tel ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtStokAdi = (sequence = '00') => {
