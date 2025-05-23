@@ -15,21 +15,26 @@ export default function Home() {
             Sol taraftaki menüden erişmek istediğiniz bölümü seçebilirsiniz.
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+            <a href="/uretim" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 text-gray-800">Üretim Yönetimi</h3>
               <p className="text-gray-600 text-sm">Üretim verileri, hesaplamalar ve analizler</p>
-            </div>
+            </a>
             
-            <div className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow">
+            <a href="/satis" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 text-gray-800">CRM</h3>
               <p className="text-gray-600 text-sm">Müşteri ilişkileri ve satış yönetimi</p>
-            </div>
+            </a>
             
-            <div className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow">
+            <a href="/under-construction" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 text-gray-800">Raporlar</h3>
               <p className="text-gray-600 text-sm">Maliyet ve performans raporları</p>
-            </div>
+            </a>
+            
+            <a href="/uretim/hesaplamalar/maliyet" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
+              <h3 className="text-lg font-semibold mb-2 text-gray-800">Maliyet Hesaplama</h3>
+              <p className="text-gray-600 text-sm">Üretim maliyet analizleri ve hesaplamaları</p>
+            </a>
           </div>
         </div>
       </MainLayout3>

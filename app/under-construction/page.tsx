@@ -1,11 +1,18 @@
 "use client";
 
 import React from 'react';
-import { Construction } from 'lucide-react';
+import { Construction, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import MainLayout3 from '@/components/MainLayout3';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 
 export default function UnderConstruction() {
+  const router = useRouter();
+
+  const handleGoBack = () => {
+    router.push('/');
+  };
+
   return (
     <ClientAuthCheck>
       <MainLayout3>
@@ -20,11 +27,18 @@ export default function UnderConstruction() {
             <p className="text-lg text-gray-600 mb-6">
               Bu modül şu anda geliştirme aşamasındadır. Kısa süre içinde hizmetinize sunulacaktır.
             </p>
-            <div className="bg-white p-4 rounded-md border border-gray-200">
+            <div className="bg-white p-4 rounded-md border border-gray-200 mb-6">
               <p className="text-sm text-gray-500">
                 Modül geliştirme talepleri ve önerileriniz için lütfen sistem yöneticisi ile iletişime geçiniz.
               </p>
             </div>
+            <button
+              onClick={handleGoBack}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <ArrowLeft size={20} />
+              Ana Sayfaya Dön
+            </button>
           </div>
         </div>
       </MainLayout3>

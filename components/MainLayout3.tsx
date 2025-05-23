@@ -219,15 +219,15 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       path: '/crm',
       hasSubCategories: true,
       subCategories: [
-        { id: 'lead-kanban', name: 'Lead Kanban', icon: <Layers size={18} />, path: '/crm/lead-kanban', hasSubItems: false },
-        { id: 'musteriler', name: 'Müşteriler', icon: <Briefcase size={18} />, path: '/crm/musteriler', hasSubItems: false },
-        { id: 'rakipler', name: 'Rakipler', icon: <Target size={18} />, path: '/crm/rakipler', hasSubItems: false },
-        { id: 'fiyatlar', name: 'Fiyatlar', icon: <DollarSign size={18} />, path: '/crm/fiyatlar', hasSubItems: false },
-        { id: 'feedback', name: 'Feedback', icon: <MessageSquare size={18} />, path: '/crm/feedback', hasSubItems: false },
-        { id: 'deal-kanban', name: 'Deal Kanban', icon: <Shuffle size={18} />, path: '/crm/deal-kanban', hasSubItems: false },
+        { id: 'lead-kanban', name: 'Lead Kanban', icon: <Layers size={18} />, path: '/under-construction', hasSubItems: false },
+        { id: 'musteriler', name: 'Müşteriler', icon: <Briefcase size={18} />, path: '/under-construction', hasSubItems: false },
+        { id: 'rakipler', name: 'Rakipler', icon: <Target size={18} />, path: '/under-construction', hasSubItems: false },
+        { id: 'fiyatlar', name: 'Fiyatlar', icon: <DollarSign size={18} />, path: '/under-construction', hasSubItems: false },
+        { id: 'feedback', name: 'Feedback', icon: <MessageSquare size={18} />, path: '/under-construction', hasSubItems: false },
+        { id: 'deal-kanban', name: 'Deal Kanban', icon: <Shuffle size={18} />, path: '/under-construction', hasSubItems: false },
       ]
     },
-    { id: 'diger', name: 'Diğer', icon: <Settings size={20} />, path: '/diger', hasSubCategories: false },
+    { id: 'diger', name: 'Diğer', icon: <Settings size={20} />, path: '/under-construction', hasSubCategories: false },
   ];
 
   // Active category
