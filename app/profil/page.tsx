@@ -5,7 +5,7 @@ import { User, Mail, Phone, Building, Shield, Camera, Save, Key, Bell, Globe, Pa
 import MainLayout3 from '@/components/MainLayout3';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import { useAuth } from '@/context/AuthContext';
-import ProfilePictureUpload from '@/components/ProfilePictureUpload';
+// import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 
 export default function ProfilePage() {
   const { user, profilePicture } = useAuth();
@@ -101,7 +101,20 @@ export default function ProfilePage() {
           {activeTab === 'profile' && (
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center space-x-6 mb-6">
-                <ProfilePictureUpload />
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200">
+                    {profilePicture ? (
+                      <img src={profilePicture} alt={user?.username} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-red-600 text-white">
+                        <User size={40} />
+                      </div>
+                    )}
+                  </div>
+                  <button className="absolute bottom-0 right-0 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors">
+                    <Camera size={16} />
+                  </button>
+                </div>
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">{user?.username}</h2>
                   <p className="text-sm text-gray-500">{user?.role === 'admin' ? 'Yönetici' : 'Kullanıcı'}</p>
