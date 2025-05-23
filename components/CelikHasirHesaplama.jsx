@@ -342,6 +342,10 @@ const processExcelWithMapping = (sheets, mapping) => {
   
   setPreviewData(previewItems);
   setBulkInputVisible(true);
+  
+  // Reset modal states to allow subsequent Excel uploads
+  setSheetData([]);
+  setColumnMapping(null);
 };
 
   // Hasır tiplerinin referans verileri
@@ -1196,6 +1200,14 @@ const handleCellChange = (rowIndex, field, value) => {
   // Değeri güncelle
   row[field] = value;
   
+  // Elle değiştirildi mesajını ekle (hasirTipi ve aciklama hariç)
+  if (field !== 'hasirTipi' && field !== 'aciklama' && previousValue !== value && value !== '') {
+    const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+    if (!row.aciklama.includes('ELLE DEĞİŞTİRİLDİ!')) {
+      row.aciklama = (row.aciklama || '') + ` [${timestamp}] ELLE DEĞİŞTİRİLDİ! `;
+    }
+  }
+  
 // Özel durumlar için kontrol - Cubuk sayıları için özel işlem
 if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
     // Allow empty value for backspace to work
@@ -1210,22 +1222,14 @@ if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
     
     // Eğer değer geçerli bir sayı ise ve hasır tipi doluysa filiz değerlerini güncelle
     if (!isNaN(parseFloat(value)) && row.hasirTipi) {
-        // Eski filiz değerlerini sakla - manuel değiştirilenler korunacak
-        const oldFilizValues = {
-            solFiliz: row.modified.solFiliz ? row.solFiliz : null,
-            sagFiliz: row.modified.sagFiliz ? row.sagFiliz : null,
-            onFiliz: row.modified.onFiliz ? row.onFiliz : null,
-            arkaFiliz: row.modified.arkaFiliz ? row.arkaFiliz : null
-        };
+        // Filiz modified durumlarını temizle - yeni hesaplama yapılacak
+        row.modified.solFiliz = false;
+        row.modified.sagFiliz = false;
+        row.modified.onFiliz = false;
+        row.modified.arkaFiliz = false;
         
-        // Filiz değerlerini güncelle
+        // Filiz değerlerini yeniden hesapla
         calculateFilizValues(row);
-        
-        // Elle değiştirilen filiz değerlerini geri yükle
-        if (oldFilizValues.solFiliz !== null) row.solFiliz = oldFilizValues.solFiliz;
-        if (oldFilizValues.sagFiliz !== null) row.sagFiliz = oldFilizValues.sagFiliz;
-        if (oldFilizValues.onFiliz !== null) row.onFiliz = oldFilizValues.onFiliz;
-        if (oldFilizValues.arkaFiliz !== null) row.arkaFiliz = oldFilizValues.arkaFiliz;
         
         // Ağırlık değerlerini de güncelle
         calculateWeight(row);
@@ -1246,8 +1250,9 @@ if (row.modified && row.modified[field] &&
       row.modified[field] = true;
       
       // Açıklamaya filiz değişikliği notu ekle - Eğer zaten yoksa
-      if (!row.aciklama.includes('!Dikkat: Filiz Değerleri Elle Değiştirildi')) {
-        row.aciklama += '!Dikkat: Filiz Değerleri Elle Değiştirildi. ';
+      const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+      if (!row.aciklama.includes('ELLE DEĞİŞTİRİLDİ!')) {
+        row.aciklama = (row.aciklama || '') + ` [${timestamp}] ELLE DEĞİŞTİRİLDİ! (Filiz değerleri) `;
       }
     }
   }
@@ -1873,6 +1878,14 @@ const iyilestir = async (rowIndex) => {
     
     // AŞAMA 4: İteratif iyileştirme süreci - iyilestirAll'dan alınan gelişmiş yaklaşım
     if (!row.uretilemez) {
+      // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
+      const initialFiliz = {
+        on: row.onFiliz || 0,
+        arka: row.arkaFiliz || 0,
+        sol: row.solFiliz || 0,
+        sag: row.sagFiliz || 0
+      };
+      
       // İteratif optimizasyon için maksimum döngü sayısı
       const MAX_ITERATIONS = 3;
       let iterationCount = 0;
@@ -1910,14 +1923,6 @@ const iyilestir = async (rowIndex) => {
             newAciklama += `4. Çubuk sayıları hesaplandı (Boy: ${oldCubukSayisiBoy || "N/A"} ➝ ${row.cubukSayisiBoy}, En: ${oldCubukSayisiEn || "N/A"} ➝ ${row.cubukSayisiEn}). `;
           }
         }
-        
-        // Başlangıç filiz değerlerini kaydet (karşılaştırma için)
-        const initialFiliz = {
-          on: row.onFiliz,
-          arka: row.arkaFiliz,
-          sol: row.solFiliz,
-          sag: row.sagFiliz
-        };
         
         // Önce filiz değerlerini hesapla
         calculateFilizValues(row);
@@ -3606,7 +3611,7 @@ const processExtractedTextFromOCR = (extractedText) => {
           if (uploadedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
               uploadedFile.type === 'application/vnd.ms-excel') {
             // Excel dosyalarını işle
-            parseExcelData(e.target.result);
+            parseExcelData(e.target.result, uploadedFile.name);
           } else if (uploadedFile.type === 'text/csv') {
             // CSV dosyalarını işle
             parseCsvData(e.target.result);
@@ -4002,7 +4007,7 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
 
 
 // Excel veri analizi fonksiyonu
-const parseExcelData = (data) => {
+const parseExcelData = (data, fileName = '') => {
   try {
     const workbook = XLSX.read(data, { type: 'array' });
     const sheetsData = [];
@@ -5285,6 +5290,11 @@ const processPreviewData = () => {
 
   // Ön izleme tablosunu temizle
   setPreviewData([]);
+  
+  // Ensure all modal states are reset to allow new Excel uploads
+  setSheetData([]);
+  setColumnMapping(null);
+  setShowMappingModal(false);
 };
   
   // Boş satır oluşturma fonksiyonunu güncelle
@@ -6385,18 +6395,20 @@ useEffect(() => {
                     <td className="border border-gray-300 p-1">
                       <input
                         type="text"
-                        className={`w-full p-1 border ${row.modified.cubukSayisiBoy ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                        className={`w-full p-1 border ${row.modified.cubukSayisiBoy ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={formatDisplayValue(row.cubukSayisiBoy)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiBoy', e.target.value)}
+                        disabled={!isBasicFieldsFilled}
                       />
                     </td>
                     
                     <td className="border border-gray-300 p-1">
                       <input
                         type="text"
-                        className={`w-full p-1 border ${row.modified.cubukSayisiEn ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                        className={`w-full p-1 border ${row.modified.cubukSayisiEn ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={formatDisplayValue(row.cubukSayisiEn)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiEn', e.target.value)}
+                        disabled={!isBasicFieldsFilled}
                       />
                     </td>
                     
