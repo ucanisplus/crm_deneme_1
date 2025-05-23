@@ -85,7 +85,12 @@ export default function NotificationsPage() {
       
       if (userId) {
         try {
-          const data = await notificationsApi.getNotifications(userId);
+          console.log('Fetching notifications for user:', userId);
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://crm-deneme-backend.vercel.app/api'}/notifications/${userId}`);
+          console.log('Response status:', response.status);
+          const data = await response.json();
+          console.log('Response data:', data);
+          
           // Ensure data is an array
           if (Array.isArray(data)) {
             setNotifications(data);
