@@ -80,8 +80,8 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      // Check for user with any identifier (id, user_id, or username)
-      const userId = user?.id || user?.user_id || user?.username;
+      // Use username for notifications (not numeric ID)
+      const userId = user?.username || user?.user_id;
       
       if (userId) {
         try {
@@ -129,7 +129,7 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      const userId = user?.id || user?.user_id || user?.username;
+      const userId = user?.username || user?.user_id;
       if (userId) {
         await notificationsApi.markAllAsRead(userId);
       }
