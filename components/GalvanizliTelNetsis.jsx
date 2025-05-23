@@ -1513,11 +1513,11 @@ const GalvanizliTelNetsis = () => {
       
       // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
       // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
-      const tlcHiz = calculateTlcHiz(hmCap, parseFloat(ymSt.cap) || cap);
+      // IMPORTANT: Çap here is the final product diameter (MM GT cap), not YM ST cap!
+      const tlcHiz = calculateTlcHiz(hmCap, cap);
       
       // Log raw inputs and intermediate values to help debug
-      const currentYmStCap = parseFloat(ymSt.cap) || cap;
-      console.log(`🧮 TLC01 calculation inputs: Cap=${currentYmStCap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
+      console.log(`🧮 TLC01 calculation inputs: MM GT Cap=${cap}, YM ST Cap=${ymSt.cap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
           // TLC01 hesaplama - Referans formülüne göre düzeltildi
       // GTPKT01 gibi küçük değerler üretmemeli, referans formül büyük değerler verir
@@ -1534,13 +1534,13 @@ const GalvanizliTelNetsis = () => {
         console.log(`🧮 TLC01 için TLC_Hiz değeri: ${tlcHiz}`);
         
         // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
-        // Formula fixed to match Excel target values (Excel1: 18.9 → Excel2: 0.018)
-        // Original Excel formula converted properly: divide by 1000 to get dk/kg units
-        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / currentYmStCap / currentYmStCap / tlcHiz / 60 / 1000);
-        const tlcValue = parseFloat(tlc01Raw.toFixed(5));
+        // Excel shows 18.9 dk/ton, we need dk/kg so divide by 1000
+        // IMPORTANT: Cap here is the final product diameter (MM GT cap), not YM ST cap!
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / cap / cap / tlcHiz / 60);
+        const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
         
         // Hesaplama debug bilgisi
-        console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${currentYmStCap}/${currentYmStCap}/${tlcHiz}/60/1000) = ${tlcValue}`);
+        console.log(`🧮 TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${cap}/${cap}/${tlcHiz}/60/1000) = ${tlcValue}`);
         
         newYmStRecipes[index] = {
           [filmasinKodu]: 1, // Use the Filmaşin code directly
@@ -1561,9 +1561,10 @@ const GalvanizliTelNetsis = () => {
       const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
       
       // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-      // Formula fixed to match Excel target values (Excel1: 126.7 → Excel2: 0.145)
-      // Original Excel formula converted properly: divide by 1000 to get dk/kg units
-      const glvTime = parseFloat(((1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap) / 1000).toFixed(5));
+      // Excel shows 126.7 dk/ton, we need dk/kg so divide by 1000
+      // Original formula gives dk/ton, convert to dk/kg
+      const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
+      const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
       
       // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
       const zincConsumption = parseFloat((
