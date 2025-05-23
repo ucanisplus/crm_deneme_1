@@ -1421,19 +1421,22 @@ const GalvanizliTelNetsis = () => {
       // Updated formulas with adjusted coefficients to match target values
       // Target analysis: 900kg coil should give ~0.0011 NAYLON, 0.0013 CEMBER, 0.0044 TOKA/HALKA, 0.0089 KARTON, 0.011 GTPKT01
       
-      // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000 - keep original
+      // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000 - Original formula
       const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.APEX CEMBER 38X080: Adjusted coefficient to match Excel2 target 0.0013
-      const cemberValue = parseFloat(((1.17 * (1000 / kg)) / 1000).toFixed(5));
+      // AMB.APEX CEMBER 38X080: Original coefficient 1.2 from formula, but Excel shows 1.6 kg/ton
+      // To get 1.6 kg/ton, we need coefficient 1.2
+      const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.TOKA.SIGNODE.114P. DKP: Reverted to original coefficient for target 0.0044
+      // AMB.TOKA.SIGNODE.114P. DKP: Original coefficient 4 from formula, Excel shows 5.3 adet/ton
+      // To get 5.3 adet/ton, coefficient should be 4.0 (as original)
       const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // SM.7MMHALKA: Same as TOKA - reverted to original coefficient
+      // SM.7MMHALKA: Same as TOKA - Original coefficient 4
       const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.ÇEM.KARTON.GAL: Reverted to original coefficient for target 0.0089
+      // AMB.ÇEM.KARTON.GAL: Original coefficient 8 from formula, Excel shows 10.7 adet/ton
+      // To get 10.7 adet/ton, coefficient should be 8.0 (as original)
       const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
       
       // GTPKT01: Keep formula but coefficients should now better match target ~0.011
@@ -1631,8 +1634,9 @@ const GalvanizliTelNetsis = () => {
 
   // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateShrinkAmount = (kg) => {
-    // Calculate with full precision, then format to 5 decimal places to match Excel
-    const result = 1 / kg;
+    // Original NAYLON formula: (1*(1000/COIL WEIGHT))/1000
+    // This gives kg/kg units (amount per kg of product)
+    const result = (1 * (1000 / kg)) / 1000;
     return parseFloat(result.toFixed(5));
   };
 
