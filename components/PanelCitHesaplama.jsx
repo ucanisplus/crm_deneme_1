@@ -796,6 +796,23 @@ const calculatePanelKodu = (panel) => {
       }
 
       console.log('Tüm veriler veritabanına başarıyla kaydedildi');
+      
+      // Create notification for calculation completion
+      try {
+        const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+        const notificationData = {
+          user_id: user.username || user.id || 'admin',
+          title: 'Maliyet Hesaplama Tamamlandı',
+          message: `Panel çit maliyet hesaplaması başarıyla tamamlandı. Sonuç: ${maliyetListesiData.length} kalem`,
+          type: 'success',
+          icon: 'TrendingUp',
+          action_link: '/uretim/hesaplamalar/maliyet'
+        };
+        
+        await axios.post(`${API_URLS.geciciHesaplar.replace('/panel_cost_cal_gecici_hesaplar', '')}/notifications`, notificationData);
+      } catch (notifError) {
+        console.log('Notification creation failed:', notifError);
+      }
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
       // Hata olsa bile kullanıcı arayüzünü etkilememesi için burada hata göstermiyoruz
