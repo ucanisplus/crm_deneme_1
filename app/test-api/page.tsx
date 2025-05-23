@@ -16,9 +16,9 @@ export default function TestApiPage() {
     try {
       const testResponse = await fetch(`${apiUrl}/test-notifications`);
       const testData = await testResponse.json();
-      setResults(prev => ({ ...prev, tableTest: testData }));
-    } catch (error) {
-      setResults(prev => ({ ...prev, tableTest: { error: error.message } }));
+      setResults((prev: any) => ({ ...prev, tableTest: testData }));
+    } catch (error: any) {
+      setResults((prev: any) => ({ ...prev, tableTest: { error: error.message } }));
     }
 
     // Test 2: Try to fetch notifications for different user formats
@@ -27,7 +27,7 @@ export default function TestApiPage() {
       try {
         const response = await fetch(`${apiUrl}/notifications/${userId}`);
         const data = await response.json();
-        setResults(prev => ({ 
+        setResults((prev: any) => ({ 
           ...prev, 
           [`user_${userId}`]: { 
             status: response.status, 
@@ -35,8 +35,8 @@ export default function TestApiPage() {
             isArray: Array.isArray(data)
           } 
         }));
-      } catch (error) {
-        setResults(prev => ({ 
+      } catch (error: any) {
+        setResults((prev: any) => ({ 
           ...prev, 
           [`user_${userId}`]: { error: error.message } 
         }));
