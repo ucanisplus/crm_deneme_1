@@ -80,10 +80,19 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (user?.id) {
+      // Check for user with any identifier (id, user_id, or username)
+      const userId = user?.id || user?.user_id || user?.username;
+      
+      if (userId) {
         try {
-          const data = await notificationsApi.getNotifications(user.id);
-          setNotifications(data);
+          const data = await notificationsApi.getNotifications(userId);
+          // Ensure data is an array
+          if (Array.isArray(data)) {
+            setNotifications(data);
+          } else {
+            console.error('Invalid notifications data:', data);
+            setNotifications(mockNotifications);
+          }
         } catch (error) {
           console.error('Error fetching notifications:', error);
           // Use mock data as fallback
@@ -93,6 +102,7 @@ export default function NotificationsPage() {
         }
       } else {
         // Use mock data if no user ID
+        console.log('No user ID found, using mock data');
         setNotifications(mockNotifications);
         setLoading(false);
       }
@@ -114,8 +124,9 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      if (user?.id) {
-        await notificationsApi.markAllAsRead(user.id);
+      const userId = user?.id || user?.user_id || user?.username;
+      if (userId) {
+        await notificationsApi.markAllAsRead(userId);
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
