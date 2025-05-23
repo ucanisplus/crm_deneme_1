@@ -244,7 +244,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <div className={`bg-gray-900 text-white transition-all duration-300 flex flex-col ${navExpanded ? 'w-72' : 'w-20'} relative z-20`}>
         {/* Logo Area */}
         <div className="flex justify-between items-center p-4 border-b border-gray-800">
-          <div className="flex items-center space-x-3">
+          <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <Image
                 src="/logo_sade.png"
                 alt="Albayrak Logo"
@@ -255,7 +255,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             {navExpanded && (
               <div className="text-white font-semibold">Albayrak</div>
             )}
-          </div>
+          </Link>
         </div>
 
         {/* Navigation Menu */}
@@ -364,7 +364,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
         {/* Profile Section - Updated to use Auth Context */}
         <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800 transition-colors">
+          <Link href="/profil" className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-800 transition-colors">
             <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-red-600">
               {profilePicture ? (
                 <img src={profilePicture} alt={user?.username} className="w-full h-full object-cover" />
@@ -377,10 +377,10 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             {navExpanded && (
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium truncate">{user?.username}</p>
-                <p className="text-gray-400 text-sm truncate">{user?.role}</p>
+                <p className="text-gray-400 text-sm truncate">{user?.role === 'admin' ? 'Yönetici' : 'Kullanıcı'}</p>
               </div>
             )}
-          </div>
+          </Link>
 
           <button 
             onClick={handleLogout}
@@ -481,14 +481,14 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             
             {/* Right Side - Search, Notifications */}
             <div className="flex items-center space-x-6">
-              <button className="text-white p-2 rounded-full hover:bg-gray-700 transition-colors">
+              <Link href="/arama" className="text-white p-2 rounded-full hover:bg-gray-700 transition-colors" title="Arama">
                 <Search size={20} />
-              </button>
+              </Link>
               
-              <button className="text-white p-2 relative rounded-full hover:bg-gray-700 transition-colors">
+              <Link href="/bildirimler" className="text-white p-2 relative rounded-full hover:bg-gray-700 transition-colors" title="Bildirimler">
                 <Bell size={20} />
                 <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-              </button>
+              </Link>
             </div>
           </div>
         </header>
