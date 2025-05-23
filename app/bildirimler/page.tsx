@@ -13,14 +13,28 @@ interface Notification {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
   timestamp: Date;
+  created_at?: string;
+  is_read?: boolean;
   read: boolean;
   icon: React.ReactNode;
+  action_link?: string;
   actionLink?: string;
 }
 
 export default function NotificationsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+
+  // Icon mapping from string to React component
+  const iconMap: { [key: string]: React.ReactNode } = {
+    'Bell': <Bell size={20} />,
+    'Package': <Package size={20} />,
+    'AlertCircle': <AlertCircle size={20} />,
+    'TrendingUp': <TrendingUp size={20} />,
+    'Users': <Users size={20} />,
+    'Calendar': <Calendar size={20} />,
+    'Clock': <Clock size={20} />
+  };
   
   // Mock data as fallback
   const mockNotifications: Notification[] = [
@@ -91,9 +105,19 @@ export default function NotificationsPage() {
           const data = await response.json();
           console.log('Response data:', data);
           
-          // Ensure data is an array
+          // Ensure data is an array and convert to our format
           if (Array.isArray(data)) {
-            setNotifications(data);
+            const formattedNotifications = data.map(notif => ({
+              id: notif.id,
+              title: notif.title,
+              message: notif.message,
+              type: notif.type,
+              timestamp: new Date(notif.created_at || notif.timestamp),
+              read: notif.is_read || notif.read || false,
+              icon: iconMap[notif.icon] || iconMap['Bell'],
+              actionLink: notif.action_link || notif.actionLink
+            }));
+            setNotifications(formattedNotifications);
           } else {
             console.error('Invalid notifications data:', data);
             setNotifications(mockNotifications);
