@@ -53,8 +53,8 @@ export function AuthProvider({ children }) {
     // Fetch user permissions
     await fetchPermissions(data.user.id);
     
-    // Fetch profile picture
-    await fetchProfilePicture(data.user.username);
+    // Fetch profile picture - disabled until backend endpoint is ready
+    // await fetchProfilePicture(data.user.username);
     
     return data;
   };

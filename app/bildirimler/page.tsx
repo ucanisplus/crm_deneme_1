@@ -136,7 +136,7 @@ export default function NotificationsPage() {
     setNotifications([]);
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications?.filter(n => !n.read).length || 0;
 
   const getTimeAgo = (date: Date) => {
     const now = new Date();
@@ -201,7 +201,16 @@ export default function NotificationsPage() {
           </div>
 
           <div className="space-y-3">
-            {notifications.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4 animate-pulse">
+                  <Bell className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Bildirimler yükleniyor...
+                </h3>
+              </div>
+            ) : notifications?.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
                   <Bell className="h-8 w-8 text-gray-400" />
@@ -214,7 +223,7 @@ export default function NotificationsPage() {
                 </p>
               </div>
             ) : (
-              notifications.map((notification) => (
+              notifications?.map((notification) => (
                 <div
                   key={notification.id}
                   className={`bg-white rounded-lg border ${notification.read ? 'border-gray-200' : 'border-red-300'} p-4 transition-all hover:shadow-md`}
