@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Check, X, Calendar, Package, AlertCircle, TrendingUp, Users, Clock } from 'lucide-react';
 import MainLayout3 from '@/components/MainLayout3';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 import { useAuth } from '@/context/AuthContext';
+import { notificationsApi } from '@/lib/crmApi';
 
 interface Notification {
   id: string;
@@ -19,8 +20,10 @@ interface Notification {
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   
-  const [notifications, setNotifications] = useState<Notification[]>([
+  // Mock data as fallback
+  const mockNotifications: Notification[] = [
     {
       id: '1',
       title: 'Yeni Galvaniz Talebi',
@@ -71,19 +74,61 @@ export default function NotificationsPage() {
       icon: <Calendar size={20} />,
       actionLink: '/under-construction'
     }
-  ]);
+  ];
+  
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const markAsRead = (id: string) => {
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (user?.id) {
+        try {
+          const data = await notificationsApi.getNotifications(user.id);
+          setNotifications(data);
+        } catch (error) {
+          console.error('Error fetching notifications:', error);
+          // Use mock data as fallback
+          setNotifications(mockNotifications);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Use mock data if no user ID
+        setNotifications(mockNotifications);
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, [user]);
+
+  const markAsRead = async (id: string) => {
+    try {
+      await notificationsApi.markAsRead(id);
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
     setNotifications(notifications.map(notif => 
       notif.id === id ? { ...notif, read: true } : notif
     ));
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    try {
+      if (user?.id) {
+        await notificationsApi.markAllAsRead(user.id);
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
     setNotifications(notifications.map(notif => ({ ...notif, read: true })));
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
+    try {
+      await notificationsApi.deleteNotification(id);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
     setNotifications(notifications.filter(notif => notif.id !== id));
   };
 
