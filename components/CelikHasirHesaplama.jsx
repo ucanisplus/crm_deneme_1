@@ -1185,43 +1185,22 @@ const handleCellChange = (rowIndex, field, value) => {
   const updatedRows = [...rows];
   const row = updatedRows[rowIndex];
   
-  // Gerekiyorsa sayıyı formatla
-  if (typeof value === 'string' && field !== 'hasirTipi' && field !== 'aciklama') {
-      value = formatNumber(value);
-  }
-  
-  if (field === 'hasirTipi') {
-    value = standardizeHasirTipi(value);
-  }
-  
   // Önceki değeri sakla
   const previousValue = row[field];
   
-  // Değeri güncelle
-  row[field] = value;
-  
-  // Elle değiştirildi mesajını ekle (hasirTipi ve aciklama hariç)
-  if (field !== 'hasirTipi' && field !== 'aciklama' && previousValue !== value && value !== '') {
-    const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
-    if (!row.aciklama.includes('ELLE DEĞİŞTİRİLDİ!')) {
-      row.aciklama = (row.aciklama || '') + ` [${timestamp}] ELLE DEĞİŞTİRİLDİ! `;
-    }
-  }
-  
-// Özel durumlar için kontrol - Cubuk sayıları için özel işlem
-if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
-    // Allow empty value for backspace to work
-    if (value === '') {
-        row[field] = '';
-        setRows(updatedRows);
-        return;
-    }
+  // Özel durumlar için kontrol - Cubuk sayıları için özel işlem
+  if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
+    // Store the raw string value to allow proper editing
+    row[field] = value;
     
     // Çubuk sayısı değiştirildi, işaretle
     row.modified[field] = true;
     
+    // Parse the value for calculations
+    const numericValue = value === '' ? 0 : parseFloat(value);
+    
     // Eğer değer geçerli bir sayı ise ve hasır tipi doluysa filiz değerlerini güncelle
-    if (!isNaN(parseFloat(value)) && row.hasirTipi) {
+    if (!isNaN(numericValue) && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
         // Filiz modified durumlarını temizle - yeni hesaplama yapılacak
         row.modified.solFiliz = false;
         row.modified.sagFiliz = false;
@@ -1234,9 +1213,32 @@ if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
         // Ağırlık değerlerini de güncelle
         calculateWeight(row);
     }
-}
+    
+    setRows(updatedRows);
+    return;
+  }
   
-// Kırmızı işaretleri kaldır - Filiz alanları ve çubuk sayıları hariç
+  // Gerekiyorsa sayıyı formatla
+  if (typeof value === 'string' && field !== 'hasirTipi' && field !== 'aciklama') {
+      value = formatNumber(value);
+  }
+  
+  if (field === 'hasirTipi') {
+    value = standardizeHasirTipi(value);
+  }
+  
+  // Değeri güncelle
+  row[field] = value;
+  
+  // Elle değiştirildi mesajını ekle (hasirTipi ve aciklama hariç)
+  if (field !== 'hasirTipi' && field !== 'aciklama' && previousValue !== value && value !== '') {
+    const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+    if (!row.aciklama.includes('ELLE DEĞİŞTİRİLDİ!')) {
+      row.aciklama = (row.aciklama || '') + ` [${timestamp}] ELLE DEĞİŞTİRİLDİ! `;
+    }
+  }
+  
+  // Kırmızı işaretleri kaldır - Filiz alanları ve çubuk sayıları hariç
 if (row.modified && row.modified[field] && 
     field !== 'solFiliz' && field !== 'sagFiliz' && 
     field !== 'onFiliz' && field !== 'arkaFiliz' &&
