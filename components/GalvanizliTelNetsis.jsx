@@ -5865,7 +5865,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2), // Çap (NOKTA)
+      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
       mmGtData.kaplama, // Kaplama
       mmGtData.min_mukavemet, // Min Mukavemet
       mmGtData.max_mukavemet, // Max Mukavemet
@@ -5963,7 +5963,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2), // Çap (NOKTA)
+      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
       mmGtData.kaplama, // Kaplama
       mmGtData.min_mukavemet, // Min Mukavemet
       mmGtData.max_mukavemet, // Max Mukavemet
