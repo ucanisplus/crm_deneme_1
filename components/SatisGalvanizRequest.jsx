@@ -512,9 +512,9 @@ const SatisGalvanizRequest = () => {
         console.log('📧 Sending email notification for request:', data.id);
         
         // Get the backend URL based on the environment
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://crm-deneme-backend.vercel.app';
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://crm-deneme-backend.vercel.app/api';
         
-        const emailResponse = await fetch(`${backendUrl}/api/send-galvaniz-notification`, {
+        const emailResponse = await fetch(`${backendUrl}/send-galvaniz-notification`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
