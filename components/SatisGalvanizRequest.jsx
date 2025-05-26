@@ -531,6 +531,9 @@ const SatisGalvanizRequest = () => {
           console.log('✅ Talep bildirim e-postası başarıyla gönderildi');
         } else {
           console.warn('⚠️ Talep bildirim e-postası gönderilemedi, ancak talep oluşturuldu');
+          if (emailResult.error) {
+            console.error('Email error details:', emailResult.error);
+          }
         }
       } catch (emailError) {
         // Email error doesn't affect the main flow
