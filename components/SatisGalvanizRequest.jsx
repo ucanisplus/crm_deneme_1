@@ -507,32 +507,37 @@ const SatisGalvanizRequest = () => {
       // Get the response data
       const data = await response.json();
       
-      // Email notification functionality disabled - talep oluşturuldu, email gönderilmedi
-      // try {
-      //   // Send email notification to admin
-      //   const emailTemplate = generateNewRequestEmailTemplate(data);
-      //   const emailSent = await sendEmailNotification(
-      //     data, 
-      //     ['hakannoob@gmail.com'], // Test recipient 
-      //     'Yeni Galvanizli Tel Talebi Oluşturuldu', 
-      //     emailTemplate,
-      //     { 
-      //       fromName: 'TLC Metal CRM',
-      //       from: 'ucanisplus@gmail.com' 
-      //     }
-      //   );
-      //   
-      //   if (emailSent) {
-      //     console.log('✅ Talep bildirim e-postası başarıyla gönderildi');
-      //   } else {
-      //     console.warn('⚠️ Talep bildirim e-postası gönderilemedi, ancak talep oluşturuldu');
-      //   }
-      // } catch (emailError) {
-      //   console.error('❌ E-posta gönderme hatası:', emailError);
-      //   // E-posta hatası durumunda bile talep kaydedildi, devam et
-      // }
+      // Send email notification through isolated backend endpoint
+      try {
+        console.log('📧 Sending email notification for request:', data.id);
+        
+        // Get the backend URL based on the environment
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://crm-deneme-backend.vercel.app';
+        
+        const emailResponse = await fetch(`${backendUrl}/api/send-galvaniz-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            requestData: request,
+            requestId: data.id
+          })
+        });
+        
+        const emailResult = await emailResponse.json();
+        
+        if (emailResult.emailSent) {
+          console.log('✅ Talep bildirim e-postası başarıyla gönderildi');
+        } else {
+          console.warn('⚠️ Talep bildirim e-postası gönderilemedi, ancak talep oluşturuldu');
+        }
+      } catch (emailError) {
+        // Email error doesn't affect the main flow
+        console.error('⚠️ E-posta gönderme hatası (ignored):', emailError);
+      }
       
-      console.log('✅ Talep başarıyla oluşturuldu (E-posta bildirimi devre dışı)');
+      console.log('✅ Talep başarıyla oluşturuldu');
       
       // Reset form after successful submission
       setRequestData({
