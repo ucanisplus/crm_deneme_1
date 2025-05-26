@@ -13,13 +13,14 @@ const LogoUploadPage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Check permissions
-  if (!hasPermission('all')) {
+  // Check permissions using the database permission system
+  if (!hasPermission('access:admin') && !hasPermission('access:settings')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Erişim Reddedildi</h1>
           <p>Bu sayfaya erişim yetkiniz bulunmamaktadır.</p>
+          <p className="text-sm text-gray-600 mt-2">Gerekli yetki: Admin veya Ayarlar erişimi</p>
         </div>
       </div>
     );
