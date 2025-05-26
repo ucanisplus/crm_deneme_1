@@ -1196,22 +1196,45 @@ const handleCellChange = (rowIndex, field, value) => {
     // Çubuk sayısı değiştirildi, işaretle
     row.modified[field] = true;
     
+    // Mark that user is manually editing to prevent auto-adjustment
+    row.userEditingCubuk = true;
+    
     // Parse the value for calculations
     const numericValue = value === '' ? 0 : parseFloat(value);
     
-    // Eğer değer geçerli bir sayı ise ve hasır tipi doluysa filiz değerlerini güncelle
-    if (!isNaN(numericValue) && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
-        // Filiz modified durumlarını temizle - yeni hesaplama yapılacak
-        row.modified.solFiliz = false;
-        row.modified.sagFiliz = false;
-        row.modified.onFiliz = false;
-        row.modified.arkaFiliz = false;
+    // Only recalculate filiz if we have a valid complete number
+    if (!isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
+        // Create a temporary copy to calculate filiz without modifying cubuk values
+        const tempRow = { ...row };
         
-        // Filiz değerlerini yeniden hesapla
-        calculateFilizValues(row);
+        // Calculate filiz values manually without auto-adjustment
+        const uzunlukBoy = parseFloat(tempRow.uzunlukBoy) || 0;
+        const uzunlukEn = parseFloat(tempRow.uzunlukEn) || 0;
+        const cubukSayisiBoy = field === 'cubukSayisiBoy' ? numericValue : (parseInt(tempRow.cubukSayisiBoy) || 0);
+        const cubukSayisiEn = field === 'cubukSayisiEn' ? numericValue : (parseInt(tempRow.cubukSayisiEn) || 0);
+        const boyAraligi = parseFloat(tempRow.boyAraligi) || 0;
+        const enAraligi = parseFloat(tempRow.enAraligi) || 0;
         
-        // Ağırlık değerlerini de güncelle
-        calculateWeight(row);
+        // Calculate filiz values directly
+        if (cubukSayisiBoy >= 2 && cubukSayisiEn >= 2 && boyAraligi > 0 && enAraligi > 0) {
+            const solFiliz = (uzunlukEn - ((cubukSayisiBoy - 1) * boyAraligi)) / 2;
+            const onFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
+            
+            // Update filiz values without modifying cubuk counts
+            row.solFiliz = parseFloat(solFiliz.toFixed(5));
+            row.sagFiliz = parseFloat(solFiliz.toFixed(5));
+            row.onFiliz = parseFloat(onFiliz.toFixed(5));
+            row.arkaFiliz = parseFloat(onFiliz.toFixed(5));
+            
+            // Clear modified flags for filiz
+            row.modified.solFiliz = false;
+            row.modified.sagFiliz = false;
+            row.modified.onFiliz = false;
+            row.modified.arkaFiliz = false;
+            
+            // Calculate weight
+            calculateWeight(row);
+        }
     }
     
     setRows(updatedRows);
@@ -1568,6 +1591,9 @@ const calculateFilizValues = (row) => {
   const boyAraligi = parseFloat(row.boyAraligi) || 0;
   const enAraligi = parseFloat(row.enAraligi) || 0;
   
+  // Check if user is manually editing cubuk values
+  const isUserEditing = row.userEditingCubuk;
+  
   // Değerlerin geçerli olup olmadığını kontrol et
   if (isNaN(uzunlukBoy) || isNaN(uzunlukEn) || 
       isNaN(cubukSayisiBoy) || isNaN(cubukSayisiEn) || 
@@ -1601,7 +1627,7 @@ const calculateFilizValues = (row) => {
     const maxPossibleCubukSayisiBoy = Math.floor((uzunlukEn - (2 * solSagMinFiliz)) / boyAraligi) + 1;
     
     // Eğer mevcut çubuk sayısı bu değeri aşıyorsa düzelt
-    if (cubukSayisiBoy > maxPossibleCubukSayisiBoy) {
+    if (cubukSayisiBoy > maxPossibleCubukSayisiBoy && !isUserEditing) {
       row.cubukSayisiBoy = maxPossibleCubukSayisiBoy;
       row.modified.cubukSayisiBoy = true;
       
@@ -1622,7 +1648,7 @@ const calculateFilizValues = (row) => {
       newSolFiliz = (uzunlukEn - ((newCubukSayisiBoy - 1) * boyAraligi)) / 2;
     }
     
-    if (newSolFiliz >= solSagMinFiliz && newSolFiliz <= 9) {
+    if (newSolFiliz >= solSagMinFiliz && newSolFiliz <= 9 && !isUserEditing) {
       row.cubukSayisiBoy = newCubukSayisiBoy;
       row.modified.cubukSayisiBoy = true;
       adjustedSolFiliz = newSolFiliz;
@@ -1675,7 +1701,7 @@ const calculateFilizValues = (row) => {
         }
         
         // En iyi değeri bulduk mu?
-        if (bestFilizValue >= MIN_DOSEME_FILIZ && bestFilizValue <= MAX_DOSEME_FILIZ) {
+        if (bestFilizValue >= MIN_DOSEME_FILIZ && bestFilizValue <= MAX_DOSEME_FILIZ && !isUserEditing) {
           row.cubukSayisiEn = bestCubukSayisiEn;
           row.modified.cubukSayisiEn = true;
           onFiliz = bestFilizValue;
@@ -1692,7 +1718,7 @@ const calculateFilizValues = (row) => {
               testFiliz = (uzunlukBoy - ((testCount - 1) * enAraligi)) / 2;
             }
             
-            if (testFiliz >= MIN_DOSEME_FILIZ) {
+            if (testFiliz >= MIN_DOSEME_FILIZ && !isUserEditing) {
               row.cubukSayisiEn = testCount;
               row.modified.cubukSayisiEn = true;
               onFiliz = testFiliz;
@@ -1822,6 +1848,9 @@ const iyilestir = async (rowIndex) => {
     // Deep copy kullanarak satırları kopyala
     const updatedRows = JSON.parse(JSON.stringify(rows));
     const row = updatedRows[rowIndex];
+    
+    // Clear user editing flag when iyilestir is called
+    row.userEditingCubuk = false;
     
     // Mevcut açıklamayı sakla
     const previousAciklama = row.aciklama || '';
@@ -6400,6 +6429,11 @@ useEffect(() => {
                         className={`w-full p-1 border ${row.modified.cubukSayisiBoy ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={formatDisplayValue(row.cubukSayisiBoy)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiBoy', e.target.value)}
+                        onBlur={() => {
+                          const updatedRows = [...rows];
+                          updatedRows[rowIndex].userEditingCubuk = false;
+                          setRows(updatedRows);
+                        }}
                         disabled={!isBasicFieldsFilled}
                       />
                     </td>
@@ -6410,6 +6444,11 @@ useEffect(() => {
                         className={`w-full p-1 border ${row.modified.cubukSayisiEn ? 'border-red-300 bg-red-50' : 'border-gray-300'} ${!isBasicFieldsFilled ? 'bg-gray-100' : ''}`}
                         value={formatDisplayValue(row.cubukSayisiEn)}
                         onChange={(e) => handleCellChange(rowIndex, 'cubukSayisiEn', e.target.value)}
+                        onBlur={() => {
+                          const updatedRows = [...rows];
+                          updatedRows[rowIndex].userEditingCubuk = false;
+                          setRows(updatedRows);
+                        }}
                         disabled={!isBasicFieldsFilled}
                       />
                     </td>
