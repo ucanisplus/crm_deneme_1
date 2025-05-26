@@ -6101,7 +6101,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu === 'GTPKT01' ? 'Operasyon' : 'Bileşen', // GTPKT01 should be marked as Operasyon per Excel format
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      miktar, // Miktar (nokta formatında internal)
+      miktar.toString().replace('.', ','), // Miktar - virgül formatında Excel için
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -6109,7 +6109,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'GTPKT01' ? miktar : '', // Üretim Süresi - only for GTPKT01
+      bilesenKodu === 'GTPKT01' ? miktar.toString().replace('.', ',') : '', // Üretim Süresi - only for GTPKT01
       'evet', // Ü.A.Dahil Edilsin
       'evet', // Son Operasyon
       '', // Öncelik
@@ -6135,7 +6135,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu === 'GLV01' ? 'Operasyon' : 'Bileşen', // According to Excel format, only GLV01 is Operasyon, all others are Bileşen
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      miktar, // Miktar (nokta formatında internal)
+      miktar.toString().replace('.', ','), // Miktar - virgül formatında Excel için
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -6143,7 +6143,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'GLV01' ? miktar : '', // Üretim Süresi - only for GLV01
+      bilesenKodu === 'GLV01' ? miktar.toString().replace('.', ',') : '', // Üretim Süresi - only for GLV01
       '', // Ü.A.Dahil Edilsin
       '', // Son Operasyon
       '', // Öncelik
@@ -6167,7 +6167,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu.includes('FLM.') ? 'Bileşen' : (bilesenKodu === 'TLC01' ? 'Operasyon' : 'Bileşen'), // FLM kodu her zaman Bileşen olmalı, sadece TLC01 Operasyon olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      miktar, // Miktar (nokta formatında internal)
+      miktar.toString().replace('.', ','), // Miktar - virgül formatında Excel için
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -6175,7 +6175,7 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'TLC01' ? miktar : '', // Üretim Süresi - Sadece TLC01 için
+      bilesenKodu === 'TLC01' ? miktar.toString().replace('.', ',') : '', // Üretim Süresi - Sadece TLC01 için
       '', // Ü.A.Dahil Edilsin
       '', // Son Operasyon
       '', // Öncelik
