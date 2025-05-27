@@ -291,20 +291,31 @@ const ProfilHesaplama = ({
         const kapakAdet = safeParseFloat(profil.kapak_adet, 0);
 
         // Profil ağırlık hesaplaması
-        // Formül: Weight = (Perimeter - 4 × thickness) × thickness × length × density / 1000
-        // Perimeter = 2 × (en1 + en2) mm
-        // Thickness = profil_et_kalinligi mm
-        // Length = yukseklik cm (converted to mm by multiplying by 10)
-        // Density = 7.85 g/cm³ = 0.00785 kg/cm³
-        const perimeter = 2 * (profilEn1 + profilEn2); // mm
+        // Formül: Weight = Cross-sectional area × length × density / 1000
+        // Standard hollow rectangular tube formula with corner radius correction
+        // Corner radius typically = 1.5 × thickness (reduces weight by ~3%)
         const lengthInMm = yukseklik * 10; // cm to mm conversion
-        const baseProfilAgirlik = ((perimeter - 4 * profilEtKalinligi) * profilEtKalinligi * lengthInMm * 0.00785) / 1000;
+        
+        // Method 1: Exact calculation (outer area - inner area)
+        const outerArea = profilEn1 * profilEn2;
+        const innerWidth = profilEn1 - 2 * profilEtKalinligi;
+        const innerHeight = profilEn2 - 2 * profilEtKalinligi;
+        const innerArea = innerWidth * innerHeight;
+        const crossSectionalArea = outerArea - innerArea;
+        
+        // Apply corner radius correction factor (typically reduces weight by 2-3%)
+        const cornerCorrectionFactor = 0.975; // 2.5% reduction for rounded corners
+        const correctedArea = crossSectionalArea * cornerCorrectionFactor;
+        
+        // Density = 7.85 g/cm³ = 0.00785 kg/cm³
+        const baseProfilAgirlik = (correctedArea * lengthInMm * 0.00785) / 1000;
         
         // Galvaniz kaplama ağırlığı hesaplaması
         // Tipik galvaniz kaplama: 275-600 g/m² (ortalama 400 g/m² kullanıyoruz)
         // Yüzey alanı = perimeter × length (mm² to m² conversion: /1,000,000)
         let profilAgirlik = baseProfilAgirlik;
         if (galvanizli) {
+          const perimeter = 2 * (profilEn1 + profilEn2); // mm
           const surfaceAreaM2 = (perimeter * lengthInMm) / 1000000; // Convert mm² to m²
           const galvanizCoatingWeight = surfaceAreaM2 * 0.400; // 400 g/m² = 0.400 kg/m²
           profilAgirlik = baseProfilAgirlik + galvanizCoatingWeight;

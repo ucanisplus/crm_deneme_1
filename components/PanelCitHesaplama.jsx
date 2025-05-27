@@ -1112,8 +1112,38 @@ const calculatePanelKodu = (panel) => {
         const boyaliAdetUSD = adetUSD + boyaAdetUSD;
 
 	
-	//Profil Agirlik Yeni formul
-	const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + materialHeight) * profilEtKalinligi * 7.85) / 1000;
+	// Profil Ağırlık Hesaplaması - Düzeltilmiş Formül
+	// Formül: Weight = Cross-sectional area × length × density / 1000
+	// Standard hollow rectangular tube formula with corner radius correction
+	const lengthInMm = materialHeight * 10; // cm to mm conversion
+	
+	// Exact calculation (outer area - inner area)
+	const outerArea = profilEn1 * profilEn2;
+	const innerWidth = profilEn1 - 2 * profilEtKalinligi;
+	const innerHeight = profilEn2 - 2 * profilEtKalinligi;
+	const innerArea = innerWidth * innerHeight;
+	const crossSectionalArea = outerArea - innerArea;
+	
+	// Apply corner radius correction factor (typically reduces weight by 2-3%)
+	const cornerCorrectionFactor = 0.975; // 2.5% reduction for rounded corners
+	const correctedArea = crossSectionalArea * cornerCorrectionFactor;
+	
+	// Density = 7.85 g/cm³ = 0.00785 kg/cm³
+	const baseProfilAgirlik = (correctedArea * lengthInMm * 0.00785) / 1000;
+	
+	// Galvaniz kaplama ağırlığı hesaplaması
+	// Tipik galvaniz kaplama: 275-600 g/m² (ortalama 400 g/m² kullanıyoruz)
+	let profilAgirlik = baseProfilAgirlik;
+	if (isGalvanizli) {
+	  const perimeter = 2 * (profilEn1 + profilEn2); // mm
+	  const surfaceAreaM2 = (perimeter * lengthInMm) / 1000000; // Convert mm² to m²
+	  const galvanizCoatingWeight = surfaceAreaM2 * 0.400; // 400 g/m² = 0.400 kg/m²
+	  profilAgirlik = baseProfilAgirlik + galvanizCoatingWeight;
+	}
+	
+	// Flanş ağırlığı - sadece ağırlık hesaplamasına eklenir, maliyet hesaplamasına eklenmez
+	// Her flanş 400g = 0.4 kg
+	const profilAgirlikWithFlange = profilAgirlik + 0.4; // Her profilde flanş var
         // SetUSD hesapla
         // Seçilen profil tipine göre profil fiyatını belirle (isGalvanizli parametresini kullanarak)
         const profilFiyatKgForSet = isGalvanizli 
@@ -1125,7 +1155,7 @@ const calculatePanelKodu = (panel) => {
           profilElektrikKaynakAd +
           profilIsciUretimAd +
           profilHammaddeToplamAd +
-          (profilFiyatKgForSet * profilAgirlik) +
+          (profilFiyatKgForSet * profilAgirlik) + // Maliyet hesaplamasında flanş ağırlığı dahil değil
           profilDogalgazTuketimOran +
           profilBoyaElektrikTuketimOran;
 
@@ -1164,7 +1194,7 @@ const calculatePanelKodu = (panel) => {
           manual_order: manualOrder,
           panel_kodu: panelKodu,
           profil_yukseklik: Number(materialHeight || 0),
-          profil_agirlik: Number(profilAgirlik || 0),
+          profil_agirlik: Number(profilAgirlikWithFlange || 0),
           flans_adet: Number(flansAdet || 0),
           vida_adet: Number(vidaAdet || 0),
           klips_adet: Number(klipsAdet || 0),
