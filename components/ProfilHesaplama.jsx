@@ -291,7 +291,31 @@ const ProfilHesaplama = ({
         const kapakAdet = safeParseFloat(profil.kapak_adet, 0);
 
         // Profil ağırlık hesaplaması
-        const profilAgirlik = ((2 * profilEn1 + 2 * profilEn2 + yukseklik) * profilEtKalinligi * 7.85) / 1000;
+        // Formül: Weight = (Perimeter - 4 × thickness) × thickness × length × density / 1000
+        // Perimeter = 2 × (en1 + en2) mm
+        // Thickness = profil_et_kalinligi mm
+        // Length = yukseklik cm (converted to mm by multiplying by 10)
+        // Density = 7.85 g/cm³ = 0.00785 kg/cm³
+        const perimeter = 2 * (profilEn1 + profilEn2); // mm
+        const lengthInMm = yukseklik * 10; // cm to mm conversion
+        const baseProfilAgirlik = ((perimeter - 4 * profilEtKalinligi) * profilEtKalinligi * lengthInMm * 0.00785) / 1000;
+        
+        // Galvaniz kaplama ağırlığı hesaplaması
+        // Tipik galvaniz kaplama: 275-600 g/m² (ortalama 400 g/m² kullanıyoruz)
+        // Yüzey alanı = perimeter × length (mm² to m² conversion: /1,000,000)
+        let profilAgirlik = baseProfilAgirlik;
+        if (galvanizli) {
+          const surfaceAreaM2 = (perimeter * lengthInMm) / 1000000; // Convert mm² to m²
+          const galvanizCoatingWeight = surfaceAreaM2 * 0.400; // 400 g/m² = 0.400 kg/m²
+          profilAgirlik = baseProfilAgirlik + galvanizCoatingWeight;
+        }
+        
+        // Flanş ağırlığı - sadece ağırlık hesaplamasına eklenir, maliyet hesaplamasına eklenmez
+        // Her flanş 400g = 0.4 kg
+        const profilAgirlikWithFlange = flansli ? profilAgirlik + 0.4 : profilAgirlik;
+        
+        // Toplam ağırlık (adet ile çarpılmış)
+        const toplamAgirlik = profilAgirlikWithFlange * adet;
 
         // Profil kapasitesini hesapla
         const profilKapasiteAd = profilOrtalama * 26 * 7 * vardiyaProfil;
@@ -352,7 +376,7 @@ const ProfilHesaplama = ({
           profilElektrikKaynakAd +
           profilIsciUretimAd +
           profilHammaddeToplamAd +
-          (profilFiyatKg * profilAgirlik) +
+          (profilFiyatKg * profilAgirlik) + // Maliyet hesaplamasında flanş ağırlığı dahil değil
           profilDogalgazTuketimOran +
           profilBoyaElektrikTuketimOran;
 
@@ -373,7 +397,8 @@ const ProfilHesaplama = ({
           klips_adet: klipsAdet,
           dubel_adet: dubelAdet,
           kapak_adet: kapakAdet,
-          profil_agirlik: profilAgirlik,
+          profil_agirlik: profilAgirlikWithFlange,
+          toplam_agirlik: toplamAgirlik,
           hammadde_maliyet: profilHammaddeToplamAd,
           birim_fiyat_usd: SetUSD,
           birim_fiyat_eur: SetUSD / eurUsd,
@@ -416,6 +441,7 @@ const ProfilHesaplama = ({
           "Dubel Adedi": result.dubel_adet,
           "Kapak Adedi": result.kapak_adet,
           "Profil Ağırlık (kg)": formatTableValue(result.profil_agirlik, 'decimal'),
+          "Toplam Ağırlık (kg)": formatTableValue(result.toplam_agirlik, 'decimal'),
           "Birim Fiyat (USD)": formatTableValue(result.birim_fiyat_usd, 'price'),
           "Birim Fiyat (EUR)": formatTableValue(result.birim_fiyat_eur, 'price'),
           "Birim Fiyat (TRY)": formatTableValue(result.birim_fiyat_try, 'price'),
@@ -639,6 +665,16 @@ const ProfilHesaplama = ({
                   <FileSpreadsheet className="mr-1 h-4 w-4" />
                   Excel'e Aktar
                 </button>
+                <button
+                  onClick={() => {
+                    setSonuclar([]);
+                    setShowResults(false);
+                  }}
+                  className="flex items-center px-3 py-2 h-10 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow transition-colors"
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Temizle
+                </button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -674,6 +710,7 @@ const ProfilHesaplama = ({
                     <TableHead className="hover:text-white">Flanşlı</TableHead>
                     <TableHead className="hover:text-white">Adet</TableHead>
                     <TableHead className="hover:text-white">Profil Ağırlık (kg)</TableHead>
+                    <TableHead className="hover:text-white">Toplam Ağırlık (kg)</TableHead>
                     {resultFilter.currency === 'all' || resultFilter.currency === 'usd' ? (
                       <TableHead className="hover:text-white">Birim Fiyat (USD)</TableHead>
                     ) : null}
@@ -702,6 +739,7 @@ const ProfilHesaplama = ({
                       <TableCell>{result.flansli ? "Evet" : "Hayır"}</TableCell>
                       <TableCell>{formatTableValue(result.adet)}</TableCell>
                       <TableCell>{formatTableValue(result.profil_agirlik, 'decimal')}</TableCell>
+                      <TableCell>{formatTableValue(result.toplam_agirlik, 'decimal')}</TableCell>
                       {(result.currency_filter === 'usd' || !result.currency_filter) && (
                         <TableCell>{formatTableValue(result.birim_fiyat_usd, 'price')}</TableCell>
                       )}

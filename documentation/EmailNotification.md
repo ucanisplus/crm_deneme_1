@@ -4,7 +4,7 @@ Bu dokümantasyon, CRM sisteminde e-posta bildirimleri gönderme işlevinin nas�
 
 ## Genel Bakış
 
-E-posta bildirimleri, SendGrid servisi kullanılarak gönderilir. Bu özellik, kullanıcılara bildirim göndermek, talep onayları, satış durumları ve diğer önemli bilgileri iletmek için kullanılabilir.
+E-posta bildirimleri, Resend servisi kullanılarak gönderilir. Bu özellik, kullanıcılara bildirim göndermek, talep onayları, satış durumları ve diğer önemli bilgileri iletmek için kullanılabilir.
 
 ## API Endpoint
 
@@ -155,8 +155,8 @@ E-posta gönderimi başarısız olduğunda, API aşağıdaki formatta bir hata y
 {
   "error": "E-posta gönderilemedi",
   "details": "Hata mesajı",
-  "sendgridError": {
-    // SendGrid'den dönen hata detayları (mevcutsa)
+  "resendError": {
+    // Resend'den dönen hata detayları (mevcutsa)
   }
 }
 ```
@@ -165,16 +165,14 @@ E-posta gönderimi başarısız olduğunda, API aşağıdaki formatta bir hata y
 
 E-posta gönderimini kullanabilmek için, sistem yöneticisinin aşağıdaki adımları tamamlaması gerekir:
 
-1. Brevo (eski adıyla Sendinblue) hesabı oluşturulması
+1. Resend hesabı oluşturulması
 2. API anahtarının alınması
-3. `.env` dosyasında `BREVO_API_KEY` değişkeninin ayarlanması
-4. Gönderici e-posta adresinin Brevo'da doğrulanması
-
-Detaylı kurulum kılavuzu için `documentation/BrevoEmailSetup.md` dosyasına bakabilirsiniz.
+3. `.env` dosyasında `RESEND_API_KEY` değişkeninin ayarlanması
+4. Gönderici domain'inin Resend'de doğrulanması
 
 ## Önemli Notlar
 
 - E-posta gönderimleri asenkron olarak çalışır ve API yanıtı gönderimlerin tamamlandığı anlamına gelir.
-- Büyük miktarda e-posta gönderimi gerekiyorsa, Brevo API limitlerine dikkat edilmelidir (ücretsiz planda günlük 300 e-posta).
+- Büyük miktarda e-posta gönderimi gerekiyorsa, Resend API limitlerine dikkat edilmelidir.
 - HTML e-postalar için mobil cihazlarla uyumlu tasarım kullanılması önerilir.
-- Brevo'nun ücretsiz planı çoğu küçük-orta ölçekli kullanım için yeterlidir ancak daha fazla e-posta gerekirse ücretli plana geçilebilir.
+- Domain doğrulaması yapılana kadar test modunda çalışır.
