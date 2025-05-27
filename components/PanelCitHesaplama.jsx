@@ -1124,8 +1124,8 @@ const calculatePanelKodu = (panel) => {
 	const innerArea = innerWidth * innerHeight;
 	const crossSectionalArea = outerArea - innerArea;
 	
-	// Apply corner radius correction factor (typically reduces weight by 2-3%)
-	const cornerCorrectionFactor = 0.975; // 2.5% reduction for rounded corners
+	// Apply corner radius correction factor (typically reduces weight by 1-2%)
+	const cornerCorrectionFactor = 0.985; // 1.5% reduction for rounded corners
 	const correctedArea = crossSectionalArea * cornerCorrectionFactor;
 	
 	// Density = 7.85 g/cm³ = 0.00785 kg/cm³
@@ -1142,8 +1142,8 @@ const calculatePanelKodu = (panel) => {
 	}
 	
 	// Flanş ağırlığı - sadece ağırlık hesaplamasına eklenir, maliyet hesaplamasına eklenmez
-	// Her flanş 400g = 0.4 kg
-	const profilAgirlikWithFlange = profilAgirlik + 0.4; // Her profilde flanş var
+	// Her flanş 385g = 0.385 kg
+	const profilAgirlikWithFlange = profilAgirlik + 0.385; // Her profilde flanş var
         // SetUSD hesapla
         // Seçilen profil tipine göre profil fiyatını belirle (isGalvanizli parametresini kullanarak)
         const profilFiyatKgForSet = isGalvanizli 

@@ -104,6 +104,8 @@ const formatTableValue = (value, columnType) => {
   switch (columnType) {
     case 'price':
       return num.toFixed(5);
+    case 'weight':
+      return num.toFixed(5); // Always show 5 decimal places for weight
     case 'decimal':
       return num.toString().replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
     default:
@@ -303,8 +305,8 @@ const ProfilHesaplama = ({
         const innerArea = innerWidth * innerHeight;
         const crossSectionalArea = outerArea - innerArea;
         
-        // Apply corner radius correction factor (typically reduces weight by 2-3%)
-        const cornerCorrectionFactor = 0.975; // 2.5% reduction for rounded corners
+        // Apply corner radius correction factor (typically reduces weight by 1-2%)
+        const cornerCorrectionFactor = 0.985; // 1.5% reduction for rounded corners
         const correctedArea = crossSectionalArea * cornerCorrectionFactor;
         
         // Density = 7.85 g/cm³ = 0.00785 kg/cm³
@@ -322,8 +324,8 @@ const ProfilHesaplama = ({
         }
         
         // Flanş ağırlığı - sadece ağırlık hesaplamasına eklenir, maliyet hesaplamasına eklenmez
-        // Her flanş 400g = 0.4 kg
-        const profilAgirlikWithFlange = flansli ? profilAgirlik + 0.4 : profilAgirlik;
+        // Her flanş 385g = 0.385 kg
+        const profilAgirlikWithFlange = flansli ? profilAgirlik + 0.385 : profilAgirlik;
         
         // Toplam ağırlık (adet ile çarpılmış)
         const toplamAgirlik = profilAgirlikWithFlange * adet;
@@ -451,8 +453,8 @@ const ProfilHesaplama = ({
           "Klips Adedi": result.klips_adet,
           "Dubel Adedi": result.dubel_adet,
           "Kapak Adedi": result.kapak_adet,
-          "Profil Ağırlık (kg)": formatTableValue(result.profil_agirlik, 'decimal'),
-          "Toplam Ağırlık (kg)": formatTableValue(result.toplam_agirlik, 'decimal'),
+          "Profil Ağırlık (kg)": formatTableValue(result.profil_agirlik, 'weight'),
+          "Toplam Ağırlık (kg)": formatTableValue(result.toplam_agirlik, 'weight'),
           "Birim Fiyat (USD)": formatTableValue(result.birim_fiyat_usd, 'price'),
           "Birim Fiyat (EUR)": formatTableValue(result.birim_fiyat_eur, 'price'),
           "Birim Fiyat (TRY)": formatTableValue(result.birim_fiyat_try, 'price'),
@@ -749,8 +751,8 @@ const ProfilHesaplama = ({
                       <TableCell>{result.galvanizli ? "Evet" : "Hayır"}</TableCell>
                       <TableCell>{result.flansli ? "Evet" : "Hayır"}</TableCell>
                       <TableCell>{formatTableValue(result.adet)}</TableCell>
-                      <TableCell>{formatTableValue(result.profil_agirlik, 'decimal')}</TableCell>
-                      <TableCell>{formatTableValue(result.toplam_agirlik, 'decimal')}</TableCell>
+                      <TableCell>{formatTableValue(result.profil_agirlik, 'weight')}</TableCell>
+                      <TableCell>{formatTableValue(result.toplam_agirlik, 'weight')}</TableCell>
                       {(result.currency_filter === 'usd' || !result.currency_filter) && (
                         <TableCell>{formatTableValue(result.birim_fiyat_usd, 'price')}</TableCell>
                       )}
