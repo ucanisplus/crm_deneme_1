@@ -152,7 +152,7 @@ const ProfilHesaplama = ({
     const newProfil = {
       id: Date.now(),
       yukseklik: 200, // cm
-      galvanizli: true,
+      galvanizli: false, // Default changed to false (Hayır)
       flansli: true,
       adet: 1,
       vida_adet: 3,
@@ -306,7 +306,7 @@ const ProfilHesaplama = ({
         const crossSectionalArea = outerArea - innerArea;
         
         // Apply corner radius correction factor (typically reduces weight by 1-2%)
-        const cornerCorrectionFactor = 0.985; // 1.5% reduction for rounded corners
+        const cornerCorrectionFactor = 0.988; // 1.2% reduction for rounded corners
         const correctedArea = crossSectionalArea * cornerCorrectionFactor;
         
         // Density = 7.85 g/cm³ = 0.00785 kg/cm³

@@ -1125,7 +1125,7 @@ const calculatePanelKodu = (panel) => {
 	const crossSectionalArea = outerArea - innerArea;
 	
 	// Apply corner radius correction factor (typically reduces weight by 1-2%)
-	const cornerCorrectionFactor = 0.985; // 1.5% reduction for rounded corners
+	const cornerCorrectionFactor = 0.988; // 1.2% reduction for rounded corners
 	const correctedArea = crossSectionalArea * cornerCorrectionFactor;
 	
 	// Density = 7.85 g/cm³ = 0.00785 kg/cm³
