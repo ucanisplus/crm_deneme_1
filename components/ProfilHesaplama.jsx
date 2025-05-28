@@ -796,7 +796,7 @@ const ProfilHesaplama = ({
                       <TableHead className="hover:text-white">Birim Fiyat (TRY)</TableHead>
                     ) : null}
                     {resultFilter.currency === 'all' || resultFilter.currency === 'usd' ? (
-                      <TableHead className="hover:text-white">Toplam Fiyat (USD)</TableHead>
+                      <TableHead className="hover:text-white bg-green-800">Toplam Fiyat (USD)</TableHead>
                     ) : null}
                     {resultFilter.currency === 'all' || resultFilter.currency === 'eur' ? (
                       <TableHead className="hover:text-white">Toplam Fiyat (EUR)</TableHead>
@@ -836,7 +836,7 @@ const ProfilHesaplama = ({
                         <TableCell>{formatTableValue(result.birim_fiyat_try, 'price')}</TableCell>
                       )}
                       {(result.currency_filter === 'usd' || !result.currency_filter) && (
-                        <TableCell>{formatTableValue(result.toplam_fiyat_usd, 'price')}</TableCell>
+                        <TableCell className="bg-green-50 font-semibold">{formatTableValue(result.toplam_fiyat_usd, 'price')}</TableCell>
                       )}
                       {(result.currency_filter === 'eur' || !result.currency_filter) && (
                         <TableCell>{formatTableValue(result.toplam_fiyat_eur, 'price')}</TableCell>
