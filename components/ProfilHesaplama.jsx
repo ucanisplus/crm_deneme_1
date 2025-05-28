@@ -130,6 +130,7 @@ const ProfilHesaplama = ({
     currency: 'all',
     option: 'galvanizli' // 'galvanizli' veya 'galvanizsiz'
   });
+  const [showAccessories, setShowAccessories] = useState(false); // Toggle for accessory columns
 
   // Sayfa yüklendiğinde verileri kontrol et
   useEffect(() => {
@@ -347,12 +348,15 @@ const ProfilHesaplama = ({
         // İşçi maliyeti
         const profilIsciUretimAd = (ortalamaIsciMaasiUSD * profilIsciSayisi) / profilAylikKapasite;
 
-        // Hammadde maliyeti
-        const profilHammaddeToplamAd = (flansli ? flansUSD : 0) +
-          (vidaAdet * vidaUSD) +
-          (klipsAdet * klipsUSD) +
-          (dubelAdet * dubelUSD) +
-          (kapakAdet * kapakUSD);
+        // Individual accessory costs
+        const flansMaliyet = flansli ? flansUSD : 0;
+        const vidaMaliyet = vidaAdet * vidaUSD;
+        const klipsMaliyet = klipsAdet * klipsUSD;
+        const dubelMaliyet = dubelAdet * dubelUSD;
+        const kapakMaliyet = kapakAdet * kapakUSD;
+        
+        // Hammadde maliyeti (total accessories)
+        const profilHammaddeToplamAd = flansMaliyet + vidaMaliyet + klipsMaliyet + dubelMaliyet + kapakMaliyet;
 
         // Üretim kapasitesini hesapla
         let profilSaatlikUretimKapasitesi = 0;
@@ -427,7 +431,31 @@ const ProfilHesaplama = ({
           hammadde: profilHammaddeToplamAd,
           malzeme_maliyet: profilFiyatKg * profilAgirlik,
           dogalgaz: profilDogalgazTuketimOran,
-          boya_elektrik: profilBoyaElektrikTuketimOran
+          boya_elektrik: profilBoyaElektrikTuketimOran,
+          // Individual accessory costs
+          flans_maliyet_usd: flansMaliyet,
+          flans_maliyet_eur: flansMaliyet / eurUsd,
+          flans_maliyet_try: flansMaliyet * usdTl,
+          vida_maliyet_usd: vidaMaliyet,
+          vida_maliyet_eur: vidaMaliyet / eurUsd,
+          vida_maliyet_try: vidaMaliyet * usdTl,
+          klips_maliyet_usd: klipsMaliyet,
+          klips_maliyet_eur: klipsMaliyet / eurUsd,
+          klips_maliyet_try: klipsMaliyet * usdTl,
+          dubel_maliyet_usd: dubelMaliyet,
+          dubel_maliyet_eur: dubelMaliyet / eurUsd,
+          dubel_maliyet_try: dubelMaliyet * usdTl,
+          kapak_maliyet_usd: kapakMaliyet,
+          kapak_maliyet_eur: kapakMaliyet / eurUsd,
+          kapak_maliyet_try: kapakMaliyet * usdTl,
+          // Total accessory costs per unit
+          toplam_aksesuar_usd: profilHammaddeToplamAd,
+          toplam_aksesuar_eur: profilHammaddeToplamAd / eurUsd,
+          toplam_aksesuar_try: profilHammaddeToplamAd * usdTl,
+          // Total accessory costs for all units
+          toplam_aksesuar_adet_usd: profilHammaddeToplamAd * adet,
+          toplam_aksesuar_adet_eur: (profilHammaddeToplamAd * adet) / eurUsd,
+          toplam_aksesuar_adet_try: (profilHammaddeToplamAd * adet) * usdTl
         });
       } catch (error) {
         console.error(`Hesaplama hatası (Profil ${profil.id}):`, error);
@@ -460,7 +488,29 @@ const ProfilHesaplama = ({
           "Birim Fiyat (TRY)": formatTableValue(result.birim_fiyat_try, 'price'),
           "Toplam Fiyat (USD)": formatTableValue(result.toplam_fiyat_usd, 'price'),
           "Toplam Fiyat (EUR)": formatTableValue(result.toplam_fiyat_eur, 'price'),
-          "Toplam Fiyat (TRY)": formatTableValue(result.toplam_fiyat_try, 'price')
+          "Toplam Fiyat (TRY)": formatTableValue(result.toplam_fiyat_try, 'price'),
+          // Accessory columns - always included in Excel
+          "Flanş Maliyeti (USD)": formatTableValue(result.flans_maliyet_usd, 'price'),
+          "Flanş Maliyeti (EUR)": formatTableValue(result.flans_maliyet_eur, 'price'),
+          "Flanş Maliyeti (TRY)": formatTableValue(result.flans_maliyet_try, 'price'),
+          "Vida Maliyeti (USD)": formatTableValue(result.vida_maliyet_usd, 'price'),
+          "Vida Maliyeti (EUR)": formatTableValue(result.vida_maliyet_eur, 'price'),
+          "Vida Maliyeti (TRY)": formatTableValue(result.vida_maliyet_try, 'price'),
+          "Klips Maliyeti (USD)": formatTableValue(result.klips_maliyet_usd, 'price'),
+          "Klips Maliyeti (EUR)": formatTableValue(result.klips_maliyet_eur, 'price'),
+          "Klips Maliyeti (TRY)": formatTableValue(result.klips_maliyet_try, 'price'),
+          "Dübel Maliyeti (USD)": formatTableValue(result.dubel_maliyet_usd, 'price'),
+          "Dübel Maliyeti (EUR)": formatTableValue(result.dubel_maliyet_eur, 'price'),
+          "Dübel Maliyeti (TRY)": formatTableValue(result.dubel_maliyet_try, 'price'),
+          "Kapak Maliyeti (USD)": formatTableValue(result.kapak_maliyet_usd, 'price'),
+          "Kapak Maliyeti (EUR)": formatTableValue(result.kapak_maliyet_eur, 'price'),
+          "Kapak Maliyeti (TRY)": formatTableValue(result.kapak_maliyet_try, 'price'),
+          "Toplam Aksesuar (USD)": formatTableValue(result.toplam_aksesuar_usd, 'price'),
+          "Toplam Aksesuar (EUR)": formatTableValue(result.toplam_aksesuar_eur, 'price'),
+          "Toplam Aksesuar (TRY)": formatTableValue(result.toplam_aksesuar_try, 'price'),
+          "Toplam Aksesuar Adet (USD)": formatTableValue(result.toplam_aksesuar_adet_usd, 'price'),
+          "Toplam Aksesuar Adet (EUR)": formatTableValue(result.toplam_aksesuar_adet_eur, 'price'),
+          "Toplam Aksesuar Adet (TRY)": formatTableValue(result.toplam_aksesuar_adet_try, 'price')
         };
       });
 
@@ -711,6 +761,18 @@ const ProfilHesaplama = ({
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowAccessories(!showAccessories)}
+                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    showAccessories 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {showAccessories ? 'Aksesuarları Gizle' : 'Aksesuarları Göster'}
+                </button>
+              </div>
             </div>
 
             {/* Sonuç Tablosu */}
@@ -742,6 +804,44 @@ const ProfilHesaplama = ({
                     {resultFilter.currency === 'all' || resultFilter.currency === 'try' ? (
                       <TableHead className="hover:text-white">Toplam Fiyat (TRY)</TableHead>
                     ) : null}
+                    {/* Accessory columns */}
+                    {showAccessories && (
+                      <>
+                        {resultFilter.currency === 'all' || resultFilter.currency === 'usd' ? (
+                          <>
+                            <TableHead className="hover:text-white">Flanş Maliyeti (USD)</TableHead>
+                            <TableHead className="hover:text-white">Vida Maliyeti (USD)</TableHead>
+                            <TableHead className="hover:text-white">Klips Maliyeti (USD)</TableHead>
+                            <TableHead className="hover:text-white">Dübel Maliyeti (USD)</TableHead>
+                            <TableHead className="hover:text-white">Kapak Maliyeti (USD)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar (USD)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar Adet (USD)</TableHead>
+                          </>
+                        ) : null}
+                        {resultFilter.currency === 'all' || resultFilter.currency === 'eur' ? (
+                          <>
+                            <TableHead className="hover:text-white">Flanş Maliyeti (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Vida Maliyeti (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Klips Maliyeti (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Dübel Maliyeti (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Kapak Maliyeti (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar (EUR)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar Adet (EUR)</TableHead>
+                          </>
+                        ) : null}
+                        {resultFilter.currency === 'all' || resultFilter.currency === 'try' ? (
+                          <>
+                            <TableHead className="hover:text-white">Flanş Maliyeti (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Vida Maliyeti (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Klips Maliyeti (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Dübel Maliyeti (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Kapak Maliyeti (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar (TRY)</TableHead>
+                            <TableHead className="hover:text-white">Toplam Aksesuar Adet (TRY)</TableHead>
+                          </>
+                        ) : null}
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -770,6 +870,44 @@ const ProfilHesaplama = ({
                       )}
                       {(result.currency_filter === 'try' || !result.currency_filter) && (
                         <TableCell>{formatTableValue(result.toplam_fiyat_try, 'price')}</TableCell>
+                      )}
+                      {/* Accessory data cells */}
+                      {showAccessories && (
+                        <>
+                          {(result.currency_filter === 'usd' || !result.currency_filter) && (
+                            <>
+                              <TableCell>{formatTableValue(result.flans_maliyet_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.vida_maliyet_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.klips_maliyet_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.dubel_maliyet_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.kapak_maliyet_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_usd, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_adet_usd, 'price')}</TableCell>
+                            </>
+                          )}
+                          {(result.currency_filter === 'eur' || !result.currency_filter) && (
+                            <>
+                              <TableCell>{formatTableValue(result.flans_maliyet_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.vida_maliyet_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.klips_maliyet_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.dubel_maliyet_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.kapak_maliyet_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_eur, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_adet_eur, 'price')}</TableCell>
+                            </>
+                          )}
+                          {(result.currency_filter === 'try' || !result.currency_filter) && (
+                            <>
+                              <TableCell>{formatTableValue(result.flans_maliyet_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.vida_maliyet_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.klips_maliyet_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.dubel_maliyet_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.kapak_maliyet_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_try, 'price')}</TableCell>
+                              <TableCell>{formatTableValue(result.toplam_aksesuar_adet_try, 'price')}</TableCell>
+                            </>
+                          )}
+                        </>
                       )}
                     </TableRow>
                   ))}
