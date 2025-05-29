@@ -5,7 +5,6 @@ import { Grid, Link, Link2, Hammer } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import PanelCitHesaplamaRestricted from '@/components/PanelCitHesaplamaRestricted';
 import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
-import ProfilHesaplama from '@/components/ProfilHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 
@@ -30,26 +29,10 @@ const HesaplamalarPageRestricted = () => {
     { id: 'panel-cit', name: 'Panel Çit', icon: <Grid size={16} />, permission: 'access:panel-cit' },
     { id: 'celik-hasir', name: 'Çelik Hasır', icon: <Grid size={16} />, permission: 'access:celik-hasir' },
     { id: 'galvanizli-tel', name: 'Galvanizli Tel', icon: <Link size={16} />, permission: 'access:galvanizli-tel' },
-    { id: 'profil', name: 'Profil', icon: <Grid size={16} />, permission: 'access:profil' },
   ];
 
   const [activeTab, setActiveTab] = useState(null);
   const allowedTabs = allTabs.filter(tab => hasPermission(tab.permission));
-
-  // State for profil component (needed for ProfilHesaplama)
-  const [genelDegiskenler, setGenelDegiskenler] = useState({});
-  const [profilDegiskenler, setProfilDegiskenler] = useState({});
-
-  // Dummy fetch functions for ProfilHesaplama (can be replaced with actual API calls if needed)
-  const fetchGenelDegiskenler = () => {
-    // This would normally fetch from API
-    console.log('Fetching genel degiskenler...');
-  };
-
-  const fetchProfilDegiskenler = () => {
-    // This would normally fetch from API
-    console.log('Fetching profil degiskenler...');
-  };
 
   // Eğer seçilen sekmeye erişim yoksa sıfırla
   useEffect(() => {
@@ -101,14 +84,6 @@ const HesaplamalarPageRestricted = () => {
               {activeTab === 'panel-cit' && <PanelCitHesaplamaRestricted />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
               {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
-              {activeTab === 'profil' && (
-                <ProfilHesaplama 
-                  genelDegiskenler={genelDegiskenler} 
-                  profilDegiskenler={profilDegiskenler}
-                  fetchGenelDegiskenler={fetchGenelDegiskenler}
-                  fetchProfilDegiskenler={fetchProfilDegiskenler}
-                />
-              )}
             </>
           )}
         </div>
