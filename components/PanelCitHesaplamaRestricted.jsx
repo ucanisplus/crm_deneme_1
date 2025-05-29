@@ -4817,6 +4817,7 @@ const renderActiveTabContent = () => {
         profilDegiskenler={profilDegiskenler}
         fetchGenelDegiskenler={() => fetchSectionData("genel")}
         fetchProfilDegiskenler={() => fetchSectionData("profil")}
+        hidePrices={true}
       />
     </div>
   )
