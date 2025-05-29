@@ -3160,6 +3160,705 @@ const renderPanelList = () => (
 // Değişkenler Akordiyon - REMOVED FOR RESTRICTED VERSION
 const renderDegiskenlerAccordion = () => null;
 
+// Original accordion commented out for restricted version
+/*
+const renderDegiskenlerAccordion = () => (
+  <Accordion type= "single" collapsible className = "bg-white rounded-lg border shadow-sm mb-6" >
+    <!-- Genel Değişkenler Akordiyon Öğesi -->
+    < AccordionItem value = "genel-degiskenler" >
+      <AccordionTrigger className="px-4 py-2 hover:bg-gray-50" >
+        <div className="flex items-center" >
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 mr-3" >
+            <RefreshCw size={ 18 } />
+              </div>
+              < span className = "font-semibold text-lg" > Kur ve Genel Değişkenler </span>
+                </div>
+                </AccordionTrigger>
+                < AccordionContent className = "px-4 py-4 border-t" >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4" >
+                    {/* Kur Bilgileri */ }
+                    < div className = "bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+                      <div className="flex items-center mb-3" >
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3" >
+                          <RefreshCw size={ 20 } />
+                            </div>
+                            < h4 className = "font-medium" > KUR </h4>
+                              </div>
+                              < div className = "space-y-3" >
+                                <div className="flex flex-col" >
+                                  <label className="text-sm text-gray-500 mb-1" > USD / TL </label>
+                                    < input
+type = "text"
+value = { genelDegiskenler.usd_tl || '' }
+onChange = {(e) => handleGenelDegiskenlerChange('usd_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > EUR / USD </label>
+      < input
+type = "text"
+value = { genelDegiskenler.eur_usd || '' }
+onChange = {(e) => handleGenelDegiskenlerChange('eur_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Genel Değişkenler */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <div className="flex items-center mb-3" >
+    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3" >
+      <Calculator size={ 20 } />
+        </div>
+        < h4 className = "font-medium" > Genel Değişkenler </h4>
+          </div>
+          < div className = "space-y-3" >
+            <div className="flex flex-col" >
+              <label className="text-sm text-gray-500 mb-1" > Boya Fiyatı(kg)(€) </label>
+                < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.boya_fiyati_kg_eur) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('boya_fiyati_kg_eur', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Elektrik Fiyatı(kW)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.elektrik_fiyati_kw_tl) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('elektrik_fiyati_kw_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Doğalgaz Fiyatı(Stn.m³)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.dogalgaz_fiyati_stn_m3_tl) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('dogalgaz_fiyati_stn_m3_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Amortisman & Diğer($) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.amortisman_diger_usd) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('amortisman_diger_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > KAR Oranı(Toplama Ek %) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.kar_toplama_ek_percent) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('kar_toplama_ek_percent', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Ort.İşçi Maaşı(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(genelDegiskenler.ort_isci_maasi) || ''}
+onChange = {(e) => handleGenelDegiskenlerChange('ort_isci_maasi', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+  </div>
+
+{/* Satış Marjları */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4" >
+  <div className="flex items-center mb-3" >
+    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 mr-3" >
+      <TrendingUp size={ 20 } />
+        </div>
+        < h4 className = "font-medium" > Satış Marjları </h4>
+          </div>
+          < div className = "grid grid-cols-1 md:grid-cols-3 gap-4" >
+            <div className="flex flex-col" >
+              <label className="text-sm text-gray-500 mb-1" > Bronz Marjı(%) </label>
+                < input
+type = "text"
+value = { salesMargins.bronze || 10 }
+onChange = {(e) => handleSalesMarginChange('bronze', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Gümüş Marjı(%) </label>
+      < input
+type = "text"
+value = { salesMargins.silver || 20 }
+onChange = {(e) => handleSalesMarginChange('silver', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Altın Marjı(%) </label>
+      < input
+type = "text"
+value = { salesMargins.gold || 30 }
+onChange = {(e) => handleSalesMarginChange('gold', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Save & Refresh Section at the Bottom */ }
+<div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center" >
+  <div className="text-sm text-gray-600 flex items-center" >
+    <span>Son Güncelleme: </span>
+      < span className = "ml-1 font-medium" >
+      {
+        genelDegiskenler.genel_latest_update ?
+          new Date(genelDegiskenler.genel_latest_update).toLocaleString('tr-TR') :
+          'Bilinmiyor'
+      }
+        </span>
+        < button
+onClick = {() => fetchSectionData('genel')}
+className = "ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+title = "Yenile"
+disabled = { sectionLoading.genel }
+  >
+  <RefreshCw size={ 16 } className = { sectionLoading.genel ? 'animate-spin' : '' } />
+    </button>
+    </div>
+    < button
+onClick = {() => updateGenelDegiskenler()}
+className = "px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+disabled = { sectionLoading.genel }
+  >
+  <Save className="w-4 h-4 mr-1.5" />
+    Kur ve Genel Değişkenleri Kaydet
+      </button>
+      </div>
+      </AccordionContent>
+      </AccordionItem>
+
+{/* Panel Çit Değişkenleri Akordiyon Öğesi */ }
+<AccordionItem value="panel-cit-degiskenler" >
+  <AccordionTrigger className="px-4 py-2 hover:bg-gray-50" >
+    <div className="flex items-center" >
+      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3" >
+        <Filter size={ 18 } />
+          </div>
+          < span className = "font-semibold text-lg" > Panel Çit Değişkenleri </span>
+            </div>
+            </AccordionTrigger>
+            < AccordionContent className = "px-4 py-4 border-t" >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4" >
+                {/* İşçi Sayıları ve Vardiyalar */ }
+                < div className = "bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+                  <h4 className="font-medium mb-3" > İşçi Sayıları ve Vardiyalar </h4>
+                    < div className = "space-y-3" >
+                      <div className="flex flex-col" >
+                        <label className="text-sm text-gray-500 mb-1" > Panel Boya İşçi Sayısı(ad) </label>
+                          < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_boya_isci_sayisi_ad) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_boya_isci_sayisi_ad', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Boya Vardiya </label>
+      < select
+value = { formatDisplayValue(panelCitDegiskenler.panel_boya_vardiya) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_boya_vardiya', e.target.value)}
+className = "border rounded p-2"
+  >
+{
+  [1, 2, 3, 4, 5, 6].map(num => (
+    <option key= { num } value = { num } > { num } </option>
+  ))
+}
+  </select>
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Kaynak İşçi Sayısı(ad) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_kaynak_isci_sayisi_ad) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kaynak_isci_sayisi_ad', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Kaynak Vardiya </label>
+      < select
+value = { formatDisplayValue(panelCitDegiskenler.panel_kaynak_vardiya) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kaynak_vardiya', e.target.value)}
+className = "border rounded p-2"
+  >
+{
+  [1, 2, 3, 4, 5, 6].map(num => (
+    <option key= { num } value = { num } > { num } </option>
+  ))
+}
+  </select>
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Kesme İşçi Sayısı(ad) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_kesme_isci_sayisi_ad) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kesme_isci_sayisi_ad', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Kesme Vardiya </label>
+      < select
+value = { formatDisplayValue(panelCitDegiskenler.panel_kesme_vardiya) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kesme_vardiya', e.target.value)}
+className = "border rounded p-2"
+  >
+{
+  [1, 2, 3, 4, 5, 6].map(num => (
+    <option key= { num } value = { num } > { num } </option>
+  ))
+}
+  </select>
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Palet İşçi Sayısı(ad) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_palet_isci_sayisi_ad) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_palet_isci_sayisi_ad', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Palet Vardiya </label>
+      < select
+value = { formatDisplayValue(panelCitDegiskenler.panel_palet_vardiya) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_palet_vardiya', e.target.value)}
+className = "border rounded p-2"
+  >
+{
+  [1, 2, 3, 4, 5, 6].map(num => (
+    <option key= { num } value = { num } > { num } </option>
+  ))
+}
+  </select>
+  </div>
+  </div>
+  </div>
+
+{/* Tüketim ve Malzeme */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Tüketim ve Malzeme </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Panel Kaynak Elektrik Tüketim(kWh) </label>
+          < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Kesme Elektrik Tüketim(kWh) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_kesme_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_kesme_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Boya Elektrik Tüketim(kWh) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.panel_boya_makinesi_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Panel Doğalgaz Tüketim(Stn.m³/h)</label >
+      <input 
+                    type="text" 
+                    value = { formatDisplayValue(panelCitDegiskenler.panel_dogalgaz_tuketim_stn_m3) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('panel_dogalgaz_tuketim_stn_m3', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Galvanizli Tel(Ton)($) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.galvanizli_tel_ton_usd) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('galvanizli_tel_ton_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Hurda(Ton)($) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.hurda_ton_usd) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('hurda_ton_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Boya ve Üretim Kapasitesi */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Boya ve Üretim Kapasitesi </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > SP Boya Tüketim Miktarı(gr / m²) </label>
+          < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.sp_boya_tuketim_miktari) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('sp_boya_tuketim_miktari', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > DP Boya Tüketim Miktarı(gr / m²) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.dp_boya_tuketim_miktari) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('dp_boya_tuketim_miktari', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > GP Boya Tüketim Miktarı(gr / m²) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(panelCitDegiskenler.guvenlik_boya_tuketim_miktari_gr) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('guvenlik_boya_tuketim_miktari_gr', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Ort.Panel Ürt.Kapasitesi(m²/Ay)</label >
+      <input 
+                    type="text" 
+                    value = { formatDisplayValue(panelCitDegiskenler.uretim_kapasite) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('uretim_kapasite', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Ortalama Saatlik Üretim(m²/h)</label >
+      <input 
+                    type="text" 
+                    value = { formatDisplayValue(panelCitDegiskenler.saatlik_uretim) || ''}
+onChange = {(e) => handlePanelCitDegiskenlerChange('saatlik_uretim', e.target.value)}
+className = "border rounded p-2"
+disabled
+  />
+  </div>
+  </div>
+  </div>
+  </div>
+
+{/* Save & Refresh Section at the Bottom */ }
+<div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center" >
+  <div className="text-sm text-gray-600 flex items-center" >
+    <span>Son Güncelleme: </span>
+      < span className = "ml-1 font-medium" >
+      {
+        panelCitDegiskenler.panel_cit_latest_update ?
+          new Date(panelCitDegiskenler.panel_cit_latest_update).toLocaleString('tr-TR') :
+          'Bilinmiyor'
+      }
+        </span>
+        < button
+onClick = {() => fetchSectionData('panelCit')}
+className = "ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+title = "Yenile"
+disabled = { sectionLoading.panelCit }
+  >
+  <RefreshCw size={ 16 } className = { sectionLoading.panelCit ? 'animate-spin' : '' } />
+    </button>
+    </div>
+    < button
+onClick = {() => updatePanelCitDegiskenler()}
+className = "px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+disabled = { sectionLoading.panelCit }
+  >
+  <Save className="w-4 h-4 mr-1.5" />
+    Panel Çit Değişkenlerini Kaydet
+      </button>
+      </div>
+      </AccordionContent>
+      </AccordionItem>
+
+{/* Profil Değişkenleri Akordiyon Öğesi */ }
+<AccordionItem value="profil-degiskenler" >
+  <AccordionTrigger className="px-4 py-2 hover:bg-gray-50" >
+    <div className="flex items-center" >
+      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-3" >
+        <Filter size={ 18 } />
+          </div>
+          < span className = "font-semibold text-lg" > Profil Değişkenleri </span>
+            </div>
+            </AccordionTrigger>
+            < AccordionContent className = "px-4 py-4 border-t" >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4" >
+                {/* Profil Fiyatları */ }
+                < div className = "bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+                  <h4 className="font-medium mb-3" > Profil Fiyatları </h4>
+                    < div className = "space-y-3" >
+                      <div className="flex flex-col" >
+                        <label className="text-sm text-gray-500 mb-1" > Galvanizli Profil(Ton)($) </label>
+                          < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.galvanizli_profil_kg_usd) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('galvanizli_profil_kg_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Galvanizsiz Profil(Ton)($) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.galvanizsiz_profil_kg_usd) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('galvanizsiz_profil_kg_usd', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Üretim Kapasitesi ve İşçilik */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Üretim Kapasitesi ve İşçilik </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Profil Min.Ürt.Kapasitesi(ad / h) </label>
+          < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_uretim_kapasitesi_m2_h) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_uretim_kapasitesi_m2_h', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil Vardiya </label>
+      < select
+value = { formatDisplayValue(profilDegiskenler.profil_isci_sayisi_ad) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_vardiya', e.target.value)}
+className = "border rounded p-2"
+  >
+{
+  [1, 2, 3, 4, 5, 6].map(num => (
+    <option key= { num } value = { num } > { num } </option>
+  ))
+}
+  </select>
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil İşçi Sayısı(ad) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_vardiya) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_isci_sayisi_ad', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+{/* Elektrik Tüketimi */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Elektrik Tüketimi </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Profil Kaynak Makinesi Elektrik Tüketim Miktarı(kWh) </label>
+          < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_kaynak_makinesi_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_kaynak_makinesi_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil Kesme Makinesi Elektrik Tüketim Miktarı(kWh) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_kesme_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_kesme_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil Boya Makinesi Elektrik Tüketim Miktarı(kWh) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_boya_makinesi_elektrik_tuketim_kwh) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_boya_makinesi_elektrik_tuketim_kwh', e.target.value)}
+className = "border rounded p-2"
+  />
+  {/* buraya dönebilirin */ }
+  </div>
+  </div>
+  </div>
+
+{/* Doğalgaz ve Boya Tüketimi */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Doğalgaz ve Boya Tüketimi </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Profil Doğalgaz Tüketim Miktarı(Stn.m³/h)</label >
+          <input 
+                    type="text" 
+                    value = { formatDisplayValue(profilDegiskenler.profil_dogalgaz_tuketim_stn_m3) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_dogalgaz_tuketim_stn_m3', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil Boya Tüketim Miktarı(gr / m²) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_boya_tuketim) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_boya_tuketim', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Fiziksel Özellikler */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Fiziksel Özellikler </h4>
+    < div className = "space-y-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Profil En 1 </label>
+          < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_en1) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_en1', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil En 2 </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_en2) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_en2', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Profil Et Kalınlığı </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.profil_et_kalinligi) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('profil_et_kalinligi', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+
+{/* Aksam Fiyatları */ }
+<div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm" >
+  <h4 className="font-medium mb-3" > Aksam Fiyatları </h4>
+    < div className = "grid grid-cols-2 gap-3" >
+      <div className="flex flex-col" >
+        <label className="text-sm text-gray-500 mb-1" > Flans Fyt(ad)(₺) </label>
+          < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.flans_ad_tl) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('flans_ad_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Vida Fyt(ad)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.vida_ad_tl) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('vida_ad_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Klips Fyt(ad)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.klips_ad_tl) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('klips_ad_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Dubel Fyt(ad)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.dubel_ad_tl) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('dubel_ad_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  < div className = "flex flex-col" >
+    <label className="text-sm text-gray-500 mb-1" > Kapak Fyt(ad)(₺) </label>
+      < input
+type = "text"
+value = { formatDisplayValue(profilDegiskenler.kapak_ad_tl) || ''}
+onChange = {(e) => handleProfilDegiskenlerChange('kapak_ad_tl', e.target.value)}
+className = "border rounded p-2"
+  />
+  </div>
+  </div>
+  </div>
+  </div>
+
+{/* Save & Refresh Section at the Bottom */ }
+<div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center" >
+  <div className="text-sm text-gray-600 flex items-center" >
+    <span>Son Güncelleme: </span>
+      < span className = "ml-1 font-medium" >
+      {
+        profilDegiskenler.profil_latest_update ?
+          new Date(profilDegiskenler.profil_latest_update).toLocaleString('tr-TR') :
+          'Bilinmiyor'
+      }
+        </span>
+        < button
+onClick = {() => fetchSectionData('profil')}
+className = "ml-2 p-1 text-blue-600 rounded hover:bg-blue-50"
+title = "Yenile"
+disabled = { sectionLoading.profil }
+  >
+  <RefreshCw size={ 16 } className = { sectionLoading.profil ? 'animate-spin' : '' } />
+    </button>
+    </div>
+    < button
+onClick = {() => updateProfilDegiskenler()}
+className = "px-4 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm flex items-center"
+disabled = { sectionLoading.profil }
+  >
+  <Save className="w-4 h-4 mr-1.5" />
+    Profil Değişkenlerini Kaydet
+      </button>
+      </div>
+      </AccordionContent>
+      </AccordionItem>
+      </Accordion>
+  );
+  */
+
 // Özel Panel & Palet Bilgileri Hesaplama - COMPLETELY REDESIGNED to be fully interactive
 const renderSpecialPanelEntry = () => {
   // NumberInput bileşeni - ondalık giriş sorunlarını önlemek için
