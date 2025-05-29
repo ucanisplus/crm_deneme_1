@@ -22,14 +22,14 @@ const HesaplamalarPage = () => {
     setIsMounted(true);
   }, []);
 
-  // Tüm sekmeler (izin bilgileri dahil)
+  // Tüm sekmeler (izin bilgileri dahil) - Maliyet hesaplama için
   const allTabs = [
-    { id: 'panel-cit', name: 'Panel Çit', icon: <Grid size={16} />, permission: 'access:panel-cit' },
-    { id: 'celik-hasir', name: 'Çelik Hasır', icon: <Grid size={16} />, permission: 'access:celik-hasir' },
-    { id: 'galvanizli-tel', name: 'Galvanizli Tel', icon: <Link size={16} />, permission: 'access:galvanizli-tel' },
-    { id: 'tavli-tel', name: 'Tavlı Tel', icon: <Link2 size={16} />, permission: 'access:tavli-tel' },
-    { id: 'civi', name: 'Çivi', icon: <Hammer size={16} />, permission: 'access:civi' },
-    { id: 'zirhli-tel', name: 'Zırhlı Tel', icon: <Link size={16} />, permission: 'access:zirhli-tel' },
+    { id: 'panel-cit', name: 'Panel Çit', icon: <Grid size={16} />, permission: 'maliyet:panel-cit' },
+    { id: 'celik-hasir', name: 'Çelik Hasır', icon: <Grid size={16} />, permission: 'maliyet:celik-hasir' },
+    { id: 'galvanizli-tel', name: 'Galvanizli Tel', icon: <Link size={16} />, permission: 'maliyet:galvanizli-tel' },
+    { id: 'tavli-tel', name: 'Tavlı Tel', icon: <Link2 size={16} />, permission: 'maliyet:tavli-tel' },
+    { id: 'civi', name: 'Çivi', icon: <Hammer size={16} />, permission: 'maliyet:civi' },
+    { id: 'zirhli-tel', name: 'Zırhlı Tel', icon: <Link size={16} />, permission: 'maliyet:zirhli-tel' },
   ];
 
   const [activeTab, setActiveTab] = useState(null);
