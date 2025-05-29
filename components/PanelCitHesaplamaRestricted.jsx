@@ -3038,23 +3038,6 @@ const renderPanelList = () => (
           Excel'e Aktar
         </button>
 
-        <button
-          onClick={() => handleHesaplaClick('main-panel')}
-          disabled={calculating || filteredPanelList.length === 0}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
-        >
-          {calculating ? (
-            <>
-              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-              Hesaplanıyor...
-            </>
-          ) : (
-            <>
-              <Calculator className="w-5 h-5 mr-2" />
-              Hesapla
-            </>
-          )}
-        </button>
 
         <button
           onClick={() => createOzelPanelsFromFiltered()}
@@ -3203,23 +3186,6 @@ const renderSpecialPanelEntry = () => {
               Sıfırla
             </button>
             
-            <button
-              onClick={() => handleHesaplaClick('special-panel')}
-              disabled={calculating || ozelPanelList.length === 0}
-              className="flex items-center px-4 py-3 bg-blue-200 text-gray-800 rounded-md hover:bg-blue-300 disabled:bg-blue-100 text-sm"
-            >
-              {calculating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-                  Hesaplanıyor...
-                </>
-              ) : (
-                <>
-                  <Calculator className="w-4 h-4 mr-1.5" />
-                  Hesapla
-                </>
-              )}
-            </button>
             
             {/* Veritabanına Kaydet button removed for restricted version */}
             
@@ -4791,47 +4757,6 @@ disabled = { geciciHesaplar.length === 0 }
   </div>
   );
 
-// Render weight results for restricted version - only weight data, no costs
-const renderWeightResults = () => (
-  <div className="bg-white rounded-lg border shadow-sm">
-    <div className="p-4 border-b">
-      <h3 className="text-lg font-semibold">Hesaplama Sonuçları - Ağırlık Bilgileri</h3>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panel Kodu</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yükseklik</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Genişlik</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık (kg)</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Palet Ağırlık (kg)</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paletli Toplam Ağırlık (kg)</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">m² Ağırlık</th>
-            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Panel Sayısı/Palet</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {maliyetListesi.map((item, index) => {
-            const geciciData = geciciHesaplar.find(g => g.panel_kodu === item.panel_kodu);
-            return (
-              <tr key={index}>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{item.panel_kodu}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{formatTableValue(item.panel_yuksekligi)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{formatTableValue(item.panel_genisligi)}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{formatTableValue(item.panel_agirlik_kg, 'decimal')}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{geciciData ? formatTableValue(geciciData.palet_dolu_agirlik, 'decimal') : '-'}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{geciciData ? formatTableValue(geciciData.paletsiz_toplam_agirlik, 'decimal') : '-'}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{geciciData ? formatTableValue(geciciData.m2_agirlik, 'decimal') : '-'}</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">{geciciData ? formatTableValue(geciciData.paletteki_panel_sayisi) : '-'}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
 
 // Sekme butonlarını render eden fonksiyon
 const renderTabButtons = () => (
@@ -4874,12 +4799,6 @@ const renderActiveTabContent = () => {
     { activeTab === 'main-panel' && (
       <div key= "main-panel-content" className = "tab-panel" >
         { renderPanelList() }
-        {/* Show results inline for restricted version */}
-        {showResults && maliyetListesi.length > 0 && (
-          <div className="mt-6">
-            {renderWeightResults()}
-          </div>
-        )}
         </div>
       )}
 
@@ -4887,12 +4806,6 @@ const renderActiveTabContent = () => {
   activeTab === 'special-panel' && (
     <div key="special-panel-content" className = "tab-panel" >
       { renderSpecialPanelEntry() }
-      {/* Show results inline for restricted version */}
-      {showResults && maliyetListesi.length > 0 && (
-        <div className="mt-6">
-          {renderWeightResults()}
-        </div>
-      )}
       </div>
       )
 }
