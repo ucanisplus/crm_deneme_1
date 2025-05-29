@@ -65,6 +65,8 @@ export function AuthProvider({ children }) {
       const response = await fetch(API_URLS.getUserPermissions(userId));
       const data = await response.json();
       
+      console.log('Fetched permissions data:', data);
+      
       if (response.ok) {
         setPermissions(data.permissions || []);
         sessionStorage.setItem('permissions', JSON.stringify(data.permissions || []));
@@ -107,6 +109,9 @@ export function AuthProvider({ children }) {
 
   // Check if user has a specific permission
   const hasPermission = (permissionName) => {
+    console.log('Checking permission:', permissionName);
+    console.log('User permissions:', permissions);
+    console.log('Has permission:', permissions.includes(permissionName));
     return permissions.includes(permissionName);
   };
 
