@@ -4,6 +4,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Home, 
   Settings, 
@@ -70,13 +77,14 @@ interface Category {
 const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout, profilePicture } = useAuth();
+  const { user, logout, profilePicture, hasPermission } = useAuth();
   
   // Navigation states
   const [navExpanded, setNavExpanded] = useState(false);
   const [activeMainCategory, setActiveMainCategory] = useState<string | null>(null);
   const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
   const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({});
+  const [showPermissionWarning, setShowPermissionWarning] = useState(false);
   
   // Route tracking
   const [activeItem, setActiveItem] = useState<string | null>(null);
@@ -99,6 +107,8 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         
         if (path.includes('/hesaplamalar/maliyet')) {
           setActiveItem('maliyet');
+        } else if (path.includes('/hesaplamalar/urun')) {
+          setActiveItem('urun');
         }
       }
     } else if (path.includes('/satis')) {
@@ -194,6 +204,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           path: '/uretim/hesaplamalar',
           hasSubItems: true,
           subItems: [
+            { id: 'urun', name: 'Ürün Hesaplamaları', icon: <Package size={14} />, path: '/uretim/hesaplamalar/urun', hasSubItems: false },
             { id: 'maliyet', name: 'Maliyet Hesaplama', icon: <DollarSign size={14} />, path: '/uretim/hesaplamalar/maliyet', hasSubItems: false },
             { id: 'kapasite', name: 'Kapasite Analizi', icon: <BarChart size={14} />, path: '/uretim/hesaplamalar/kapasite' },
             { id: 'planlama', name: 'Üretim Planlama', icon: <FileText size={14} />, path: '/uretim/hesaplamalar/planlama' },
@@ -338,20 +349,31 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                       {/* Sub items remain the same... */}
                       {navExpanded && expandedSubCategories[subCategory.id] && subCategory.subItems && (
                         <div className="ml-6 mt-1 space-y-1 border-l-2 border-red-500/50 pl-2">
-                          {subCategory.subItems.map((item) => (
-                            <Link 
-                              key={item.id}
-                              href={item.path}
-                              className={`w-full flex items-center py-1.5 px-3 text-sm rounded-md ${
-                                activeItem === item.id 
-                                  ? 'bg-red-600/40 text-white' 
-                                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                              } transition-colors`}
-                            >
-                              <span className="mr-2 text-gray-500">{item.icon}</span>
-                              <span>{item.name}</span>
-                            </Link>
-                          ))}
+                          {subCategory.subItems.map((item) => {
+                            // Check permission for Maliyet Hesaplama
+                            const handleClick = (e: React.MouseEvent) => {
+                              if (item.id === 'maliyet' && !hasPermission('access:maliyet-hesaplama')) {
+                                e.preventDefault();
+                                setShowPermissionWarning(true);
+                              }
+                            };
+                            
+                            return (
+                              <Link 
+                                key={item.id}
+                                href={item.path}
+                                onClick={handleClick}
+                                className={`w-full flex items-center py-1.5 px-3 text-sm rounded-md ${
+                                  activeItem === item.id 
+                                    ? 'bg-red-600/40 text-white' 
+                                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                } transition-colors`}
+                              >
+                                <span className="mr-2 text-gray-500">{item.icon}</span>
+                                <span>{item.name}</span>
+                              </Link>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -425,6 +447,8 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   ? activeSubCategory 
                     ? activeItem === 'maliyet'
                       ? "Üretim / Hesaplamalar / Maliyet Hesaplama"
+                      : activeItem === 'urun'
+                      ? "Üretim / Hesaplamalar / Ürün Hesaplamaları"
                       : `${activeCategory?.name} / ${activeSubCategoryObject?.name}`
                     : activeCategory?.name
                   : 'Hoşgeldiniz'
@@ -475,6 +499,13 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                       <span className="text-white">Maliyet Hesaplama</span>
                     </>
                   )}
+                  
+                  {activeItem === 'urun' && (
+                    <>
+                      <span className="mx-2">/</span>
+                      <span className="text-white">Ürün Hesaplamaları</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -500,6 +531,43 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Permission Warning Dialog */}
+      <Dialog open={showPermissionWarning} onOpenChange={setShowPermissionWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center">
+              <Settings className="mr-2 h-5 w-5" />
+              Erişim İzni Gerekli
+            </DialogTitle>
+            <DialogDescription className="space-y-3 pt-4">
+              <p>
+                Maliyet Hesaplama sayfasına erişim izniniz bulunmamaktadır.
+              </p>
+              <p>
+                Ürün Hesaplamaları sayfasını kullanarak ağırlık ve diğer ürün hesaplamalarını görüntüleyebilirsiniz.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 pt-4">
+            <button
+              onClick={() => setShowPermissionWarning(false)}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Kapat
+            </button>
+            <button
+              onClick={() => {
+                setShowPermissionWarning(false);
+                router.push('/uretim/hesaplamalar/urun');
+              }}
+              className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Ürün Hesaplamalarına Git
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
