@@ -110,7 +110,7 @@ export function AuthProvider({ children }) {
   // Check if user has a specific permission
   const hasPermission = (permissionName) => {
     console.log('Checking permission:', permissionName);
-    console.log('User permissions:', permissions);
+    console.log('User permissions array:', permissions);
     console.log('Has permission:', permissions.includes(permissionName));
     return permissions.includes(permissionName);
   };

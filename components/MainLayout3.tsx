@@ -352,7 +352,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                           {subCategory.subItems.map((item) => {
                             // Check permission for Maliyet Hesaplama
                             const handleClick = (e: React.MouseEvent) => {
-                              if (item.id === 'maliyet' && !hasPermission('access:maliyet-hesaplama')) {
+                              if (item.id === 'maliyet' && !hasPermission('page:maliyet-hesaplama')) {
                                 e.preventDefault();
                                 setShowPermissionWarning(true);
                               }
