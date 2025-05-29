@@ -34,7 +34,9 @@ export default function RolePermissionsPage() {
       setPermissions(data);
       
       // Extract unique roles
-      const uniqueRoles = [...new Set(data.map((p: Permission) => p.role))];
+      const roleSet = new Set<string>();
+      data.forEach((p: Permission) => roleSet.add(p.role));
+      const uniqueRoles = Array.from(roleSet);
       setRoles(uniqueRoles.sort());
     } catch (error) {
       console.error('Error fetching permissions:', error);
