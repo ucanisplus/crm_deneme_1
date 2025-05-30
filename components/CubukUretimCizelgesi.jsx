@@ -175,13 +175,15 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       'Filmaşin Kalite': rod.flmQuality
     }));
     
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(data, { origin: 'A2' });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Çubuk Üretim');
     
-    // Add title
-    XLSX.utils.sheet_add_aoa(ws, [['ÇELİK HASIR ÇUBUK ÜRETİM ÇİZELGESİ']], { origin: 'A1' });
-    XLSX.utils.sheet_add_aoa(ws, [[`Tarih: ${date}`]], { origin: 'A2' });
+    // Add title with date in the first row
+    XLSX.utils.sheet_add_aoa(ws, [[`ÇELİK HASIR ÇUBUK ÜRETİM ÇİZELGESİ - ${date}`]], { origin: 'A1' });
+    
+    // Merge cells for the title
+    ws['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
     
     // Adjust column widths
     const cols = [
