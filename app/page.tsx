@@ -10,7 +10,7 @@ export default function Home() {
   const { hasPermission } = useAuth();
   const router = useRouter();
 
-  const handleMaliyetClick = (e) => {
+  const handleMaliyetClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     if (hasPermission('page:maliyet-hesaplama')) {
       router.push('/uretim/hesaplamalar/maliyet');
