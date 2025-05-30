@@ -34,6 +34,9 @@ import axios from 'axios';
 // FuzzySearch for better column matching
 import Fuse from 'fuse.js';
 
+// Import the rod production schedule component
+import CubukUretimCizelgesi from './CubukUretimCizelgesi';
+
 
 // Sütun eşleştirme modalı
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
@@ -484,6 +487,9 @@ const processExcelWithMapping = (sheets, mapping) => {
   // İyileştirme işlemi durumu
   const [processingRowIndex, setProcessingRowIndex] = useState(null);
   const [batchProcessing, setBatchProcessing] = useState(false);
+  
+  // Çubuk üretim çizelgesi modal durumu
+  const [showCubukCizelgesi, setShowCubukCizelgesi] = useState(false);
 
   // Veritabanı işlemleri için durum
   const [savingToDatabase, setSavingToDatabase] = useState(false);
@@ -6593,6 +6599,15 @@ useEffect(() => {
               </button>
               
               <button
+                onClick={() => setShowCubukCizelgesi(true)}
+                disabled={rows.filter(r => r.uzunlukBoy && r.uzunlukEn).length === 0}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md flex items-center gap-2 hover:bg-purple-700 transition-colors"
+              >
+                <Table size={18} />
+                Toplam Çubuk Sayıları
+              </button>
+              
+              <button
                 onClick={restoreAllRows}
                 disabled={Object.keys(rowBackups).length === 0}
                 className="px-4 py-2 bg-orange-600 text-white rounded-md flex items-center gap-2 hover:bg-orange-700 transition-colors"
@@ -6657,6 +6672,12 @@ useEffect(() => {
       onClose={() => setShowMappingModal(false)}
       sheetData={sheetData}
       onConfirmMapping={handleConfirmMapping}
+    />
+    
+    <CubukUretimCizelgesi
+      isOpen={showCubukCizelgesi}
+      onClose={() => setShowCubukCizelgesi(false)}
+      mainTableData={rows}
     />
 
 
