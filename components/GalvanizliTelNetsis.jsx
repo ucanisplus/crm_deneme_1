@@ -86,6 +86,9 @@ const GalvanizliTelNetsis = () => {
   const [duplicateProducts, setDuplicateProducts] = useState([]);
   const [pendingSaveData, setPendingSaveData] = useState(null);
   
+  // Track if viewing existing product from database
+  const [isViewingExistingProduct, setIsViewingExistingProduct] = useState(false);
+  
   // Session tracking - aynı oturumda kaydedilen ürünleri takip etmek için
   const [sessionSavedProducts, setSessionSavedProducts] = useState({
     mmGtIds: [],
@@ -1085,6 +1088,8 @@ const GalvanizliTelNetsis = () => {
   // Mevcut MM GT seçimi
   const handleSelectExistingMmGt = async (mmGt) => {
     setSelectedExistingMmGt(mmGt);
+    setIsViewingExistingProduct(true); // Mark as viewing existing product
+    
     // Use normalized decimal display for numeric values to ensure points not commas
     setMmGtData({
       cap: mmGt.cap ? normalizeDecimalDisplay(mmGt.cap) : '',
@@ -1114,6 +1119,9 @@ const GalvanizliTelNetsis = () => {
     if (mmGt.id) {
       await fetchExistingRecipes(mmGt.id, ymGtId, ymStIds);
     }
+    
+    // Show info message
+    toast.info('Mevcut ürünü görüntülüyorsunuz. Excel dosyalarını oluşturabilirsiniz ancak veritabanında değişiklik yapamazsınız.');
   };
 
   // YM GT verilerini otomatik oluştur
@@ -2498,72 +2506,79 @@ const GalvanizliTelNetsis = () => {
         return false;
       }
       
-      const nextSequence = await checkForExistingProducts(
-        mmGtData.cap,
-        mmGtData.kod_2,
-        mmGtData.kaplama,
-        mmGtData.min_mukavemet,
-        mmGtData.max_mukavemet,
-        mmGtData.kg
-      );
-      
+      // First check if an exact duplicate exists (all fields match)
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const sequence = nextSequence.toString().padStart(2, '0');
+      const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
       
-      // Store the sequence for Excel generation
-      setProcessSequence(sequence);
-      console.log(`🔥 PROCESS SEQUENCE SET FOR BOTH DB AND EXCEL: ${sequence}`);
-      
-      // Check for existing products
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      
-      const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
-      const existingMmGt = await checkExistingProduct(API_URLS.galMmGt, mmGtStokKodu);
-      
-      const duplicates = [];
-      
-      if (existingYmGt) {
-        duplicates.push({
-          type: 'YM GT',
-          stok_kodu: ymGtStokKodu,
-          stok_adi: existingYmGt.stok_adi || 'N/A'
-        });
-      }
-      
-      if (existingMmGt) {
-        duplicates.push({
-          type: 'MM GT',
-          stok_kodu: mmGtStokKodu,
-          stok_adi: existingMmGt.stok_adi || 'N/A'
-        });
-      }
-      
-      // Check for YM ST duplicates
-      for (const ymSt of allYmSts) {
-        if (ymSt.source === 'auto-generated' || ymSt.source === 'manual-added') {
-          const existingYmSt = await checkExistingProduct(API_URLS.galYmSt, ymSt.stok_kodu);
-          if (existingYmSt) {
-            duplicates.push({
-              type: 'YM ST',
-              stok_kodu: ymSt.stok_kodu,
-              stok_adi: existingYmSt.stok_adi || 'N/A'
-            });
+      // Get all existing products with same base code
+      const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+      if (response && response.ok) {
+        const existingProducts = await response.json();
+        
+        if (existingProducts.length > 0) {
+          // Check each existing product for matches
+          for (const existingProduct of existingProducts) {
+            // Check if ALL fields match (exact duplicate)
+            const allFieldsMatch = 
+              existingProduct.cap == mmGtData.cap &&
+              existingProduct.kod_2 === mmGtData.kod_2 &&
+              existingProduct.tolerans_plus == mmGtData.tolerans_plus &&
+              existingProduct.tolerans_minus == mmGtData.tolerans_minus &&
+              existingProduct.kaplama == mmGtData.kaplama &&
+              existingProduct.min_mukavemet == mmGtData.min_mukavemet &&
+              existingProduct.max_mukavemet == mmGtData.max_mukavemet &&
+              existingProduct.kg == mmGtData.kg &&
+              existingProduct.ic_cap == mmGtData.ic_cap &&
+              existingProduct.dis_cap == mmGtData.dis_cap &&
+              existingProduct.cast_kont === mmGtData.cast_kont &&
+              existingProduct.shrink === mmGtData.shrink &&
+              existingProduct.unwinding === mmGtData.unwinding &&
+              existingProduct.helix_kont === mmGtData.helix_kont &&
+              existingProduct.elongation === mmGtData.elongation;
+            
+            if (allFieldsMatch) {
+              // Exact duplicate found
+              toast.error(`Bu ürün zaten mevcut! Stok Kodu: ${existingProduct.stok_kodu}`);
+              setIsLoading(false);
+              return false;
+            }
+            
+            // Check if only key fields match (stok_adi would be the same)
+            const keyFieldsMatch = existingProduct.stok_adi === generateStokAdi();
+            
+            if (keyFieldsMatch) {
+              // Key fields match but non-key fields are different
+              toast.error(`Bu anahtar özelliklere sahip bir ürün zaten mevcut (${existingProduct.stok_kodu}). Lütfen mevcut ürünü seçin veya ERP Yöneticisine danışın.`);
+              setIsLoading(false);
+              return false;
+            }
           }
+          
+          // If we get here, key fields are different, so create new product with incremented sequence
+          let maxSequence = -1;
+          existingProducts.forEach(product => {
+            const sequencePart = product.stok_kodu.split('.').pop();
+            const sequenceNum = parseInt(sequencePart);
+            if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+              maxSequence = sequenceNum;
+            }
+          });
+          
+          const nextSequence = maxSequence + 1;
+          const sequence = nextSequence.toString().padStart(2, '0');
+          
+          // Store the sequence for Excel generation
+          setProcessSequence(sequence);
+          console.log(`New product with incremented sequence: ${sequence}`);
+          
+          // Proceed with save as new product
+          return await proceedWithSave(allYmSts, nextSequence);
+        } else {
+          // No existing products, create with sequence 00
+          setProcessSequence('00');
+          return await proceedWithSave(allYmSts, 0);
         }
       }
-      
-      if (duplicates.length > 0) {
-        // Show confirmation dialog for duplicates
-        setDuplicateProducts(duplicates);
-        setPendingSaveData({ allYmSts, nextSequence });
-        setShowDuplicateConfirmModal(true);
-        setIsLoading(false); // Reset loading for dialog interaction
-        return false; // Don't proceed with save yet
-      }
-      
-      // No duplicates found, proceed with save
-      return await proceedWithSave(allYmSts, nextSequence);
       
     } catch (error) {
       console.error('Duplicate check error:', error);
@@ -2584,56 +2599,28 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const sequence = nextSequence.toString().padStart(2, '0');
       
-      // Save YM GT
-      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
+      // Save YM GT - Always create new, never update
+      const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generateYmGtDatabaseData(sequence))
+      });
       
-      if (existingYmGt) {
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateYmGtDatabaseData(sequence))
-        });
-        if (ymGtResponse && ymGtResponse.ok) {
-          ymGtId = existingYmGt.id;
-        }
-      } else {
-        const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateYmGtDatabaseData(sequence))
-        });
-        
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGtResult = await ymGtResponse.json();
-          ymGtId = ymGtResult.id;
-        }
+      if (ymGtResponse && ymGtResponse.ok) {
+        const ymGtResult = await ymGtResponse.json();
+        ymGtId = ymGtResult.id;
       }
       
-      // Save MM GT
-      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      const existingMmGt = await checkExistingProduct(API_URLS.galMmGt, mmGtStokKodu);
+      // Save MM GT - Always create new, never update
+      const mmGtResponse = await fetchWithAuth(API_URLS.galMmGt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generateMmGtDatabaseData(sequence))
+      });
       
-      if (existingMmGt) {
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${existingMmGt.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
-        });
-        if (mmGtResponse && mmGtResponse.ok) {
-          mmGtIds.push(existingMmGt.id);
-        }
-      } else {
-        const mmGtResponse = await fetchWithAuth(API_URLS.galMmGt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
-        });
-        
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGtResult = await mmGtResponse.json();
-          mmGtIds.push(mmGtResult.id);
-        }
+      if (mmGtResponse && mmGtResponse.ok) {
+        const mmGtResult = await mmGtResponse.json();
+        mmGtIds.push(mmGtResult.id);
       }
       
       // Save all YM STs
@@ -2756,7 +2743,7 @@ const GalvanizliTelNetsis = () => {
       // Store the sequence for Excel generation
       const sequence = nextSequence.toString().padStart(2, '0');
       setProcessSequence(sequence);
-      console.log(`🔥 PROCESS SEQUENCE SET FOR BOTH DB AND EXCEL: ${sequence}`);
+      console.log(`PROCESS SEQUENCE SET FOR BOTH DB AND EXCEL: ${sequence}`);
       
       const mmGtIds = [];
       const ymStIds = [];
@@ -5435,7 +5422,7 @@ const GalvanizliTelNetsis = () => {
   const generateStokKartiExcel = async (sequenceParam = '00') => {
     // Use the processSequence that was set during database save
     const sequence = processSequence;
-    console.log(`🔥 EXCEL USING PROCESS SEQUENCE: ${sequence}`);
+    console.log(`EXCEL USING PROCESS SEQUENCE: ${sequence}`);
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
@@ -5510,7 +5497,7 @@ const GalvanizliTelNetsis = () => {
   const generateReceteExcel = async (sequenceParam = '00') => {
     // Use the processSequence that was set during database save
     const sequence = processSequence;
-    console.log(`🔥 RECETE EXCEL USING PROCESS SEQUENCE: ${sequence}`);
+    console.log(`RECETE EXCEL USING PROCESS SEQUENCE: ${sequence}`);
     
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
@@ -7452,6 +7439,7 @@ const GalvanizliTelNetsis = () => {
                   setSelectedYmSts([]);
                   setAutoGeneratedYmSts([]);
                   setIsLoading(false);
+                  setIsViewingExistingProduct(false); // Reset viewing flag
                 }}
                 className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors shadow-lg flex items-center gap-2"
               >
@@ -7465,33 +7453,44 @@ const GalvanizliTelNetsis = () => {
                 onClick={async () => {
                   try {
                     setIsLoading(true);
-                    console.log("🔄 Veritabanına kaydetme ve Excel oluşturma işlemi başlatılıyor...");
-                    // First save to database if not already saved
-                    if (!savedToDatabase) {
-                      console.log("💾 Veritabanına kaydetme işlemi başlatılıyor...");
-                      const saveResult = await checkForDuplicatesAndConfirm();
-                      if (!saveResult) {
-                        // Either duplicates found (dialog shown) or error occurred
-                        setIsLoading(false);
-                        return;
-                      }
-                      console.log("✅ Veritabanına kaydetme işlemi tamamlandı");
+                    
+                    if (isViewingExistingProduct) {
+                      // Only generate Excel files when viewing existing product
+                      console.log("Viewing existing product - only generating Excel files");
+                      toast.info("Excel dosyaları oluşturuluyor...");
+                      await generateExcelFiles();
+                      toast.success("Excel dosyaları başarıyla oluşturuldu!");
                     } else {
-                      console.log("ℹ️ Veriler zaten veritabanına kaydedilmiş, atlama yapılıyor");
+                      // Normal flow for new products
+                      console.log("Creating new product - saving to database and generating Excel");
+                      
+                      // First save to database if not already saved
+                      if (!savedToDatabase) {
+                        console.log("Saving to database...");
+                        const saveResult = await checkForDuplicatesAndConfirm();
+                        if (!saveResult) {
+                          // Either duplicates found or error occurred
+                          setIsLoading(false);
+                          return;
+                        }
+                        console.log("Database save completed");
+                      } else {
+                        console.log("Already saved to database, skipping");
+                      }
+                      
+                      // Show notification that we're generating Excel files
+                      toast.info("Excel dosyaları oluşturuluyor...");
+                      
+                      // Then generate Excel files
+                      console.log("Generating Excel files...");
+                      await generateExcelFiles();
+                      console.log("Excel generation completed");
+                      
+                      // Success notification
+                      toast.success("İşlem başarıyla tamamlandı!");
                     }
-                    
-                    // Show notification that we're generating Excel files
-                    toast.info("Excel dosyaları oluşturuluyor...");
-                    
-                    // Then generate Excel files
-                    console.log("📊 Excel dosyaları oluşturma işlemi başlatılıyor...");
-                    await generateExcelFiles();
-                    console.log("✅ Excel dosyaları oluşturma işlemi tamamlandı");
-                    
-                    // Success notification
-                    toast.success("İşlem başarıyla tamamlandı!");
                   } catch (error) {
-                    console.error("❌ İşlem sırasında hata oluştu:", error);
+                    console.error("Error during operation:", error);
                     setError(`İşlem hatası: ${error.message}`);
                     toast.error(`İşlem hatası: ${error.message}`);
                     
@@ -7517,7 +7516,7 @@ const GalvanizliTelNetsis = () => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                     </svg>
-                    Veritabanına Kaydet ve Excel Oluştur
+                    {isViewingExistingProduct ? 'Excel Oluştur' : 'Veritabanına Kaydet ve Excel Oluştur'}
                   </>
                 )}
               </button>
@@ -8625,7 +8624,9 @@ const GalvanizliTelNetsis = () => {
               </div>
               
               <p className="text-gray-600 mb-4">
-                Tüm MM GT ve YM ST verilerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+                {activeDbTab === 'mmgt' 
+                  ? 'Tüm MM GT ve ilişkili YM GT verilerini ve bunların tüm reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'
+                  : 'Tüm YM ST verilerini ve reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'}
               </p>
               
               <p className="text-red-600 font-medium mb-4">
