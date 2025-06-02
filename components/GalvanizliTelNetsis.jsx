@@ -5476,9 +5476,9 @@ const GalvanizliTelNetsis = () => {
 
   // Stok Kartı Excel oluştur - yeni 1:1:n ilişki modeli ile
   const generateStokKartiExcel = async (sequenceParam = '00') => {
-    // Use the passed sequence parameter if provided, otherwise fall back to processSequence
-    const sequence = sequenceParam || processSequence || '00';
-    console.log(`EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
+    // ALWAYS use processSequence state (like in old working version)
+    const sequence = processSequence;
+    console.log(`EXCEL USING PROCESS SEQUENCE: ${sequence} (ignoring param: ${sequenceParam})`);
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
@@ -5551,9 +5551,9 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete Excel oluştur - Yeni 1:1:n ilişki modeli ile
   const generateReceteExcel = async (sequenceParam = '00') => {
-    // Use the passed sequence parameter if provided, otherwise fall back to processSequence
-    const sequence = sequenceParam || processSequence || '00';
-    console.log(`RECETE EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
+    // ALWAYS use processSequence state (like in old working version)
+    const sequence = processSequence;
+    console.log(`RECETE EXCEL USING PROCESS SEQUENCE: ${sequence} (ignoring param: ${sequenceParam})`);
     
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
