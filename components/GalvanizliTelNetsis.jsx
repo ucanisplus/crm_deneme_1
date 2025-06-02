@@ -723,7 +723,7 @@ const GalvanizliTelNetsis = () => {
 
     try {
       setIsLoading(true);
-      console.log('🗑️ Starting bulk delete operation...');
+      console.log('Starting bulk delete operation...');
       console.log(`Active tab: ${activeDbTab}`);
       
       // Use batch operations with limited concurrency to avoid overwhelming the server
@@ -735,7 +735,7 @@ const GalvanizliTelNetsis = () => {
         console.log(`Deleting ${mmGtIds.length} MM GTs (and their related YMGTs and all recipes)`);
         
         if (mmGtIds.length > 0) {
-          console.log('🔄 Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
+          console.log('Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
             const batch = mmGtIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -747,7 +747,7 @@ const GalvanizliTelNetsis = () => {
               })
             );
             await Promise.all(batchPromises);
-            console.log(`✅ Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+            console.log(`Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
           }
         }
       } else if (activeDbTab === 'ymst') {
@@ -756,7 +756,7 @@ const GalvanizliTelNetsis = () => {
         console.log(`Deleting ${ymStIds.length} YM STs and their recipes`);
         
         if (ymStIds.length > 0) {
-          console.log('🔄 Deleting YM STs in batches...');
+          console.log('Deleting YM STs in batches...');
           for (let i = 0; i < ymStIds.length; i += batchSize) {
             const batch = ymStIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -768,12 +768,12 @@ const GalvanizliTelNetsis = () => {
               })
           );
           await Promise.all(batchPromises);
-          console.log(`✅ Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
+          console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
         }
       }
       
       // Refresh data
-      console.log('🔄 Refreshing data...');
+      console.log('Refreshing data...');
       await Promise.all([
         fetchExistingMmGts(),
         fetchExistingYmSts()
@@ -791,10 +791,10 @@ const GalvanizliTelNetsis = () => {
         toast.success(`${deletedCount} YM ST ve reçeteleri başarıyla silindi`);
       }
       
-      console.log('✅ Bulk delete operation completed successfully');
+      console.log('Bulk delete operation completed successfully');
       
     } catch (error) {
-      console.error('❌ Toplu silme hatası:', error);
+      console.error('Toplu silme hatası:', error);
       toast.error('Toplu silme hatası: ' + error.message);
     } finally {
       setIsLoading(false);
