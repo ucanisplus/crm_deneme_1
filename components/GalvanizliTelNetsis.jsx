@@ -729,14 +729,13 @@ const GalvanizliTelNetsis = () => {
       // Use batch operations with limited concurrency to avoid overwhelming the server
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
-      // Only delete items from the active tab
       if (activeDbTab === 'mmgt') {
-        // Delete only MM GTs
+        // Delete MM GTs - this will cascade delete YMGT, MMGT recipes, and YMGT recipes via backend
         const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-        console.log(`Deleting ${mmGtIds.length} MM GTs`);
+        console.log(`Deleting ${mmGtIds.length} MM GTs (and their related YMGTs and all recipes)`);
         
         if (mmGtIds.length > 0) {
-          console.log('🔄 Deleting MM GTs in batches...');
+          console.log('🔄 Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
             const batch = mmGtIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -752,9 +751,9 @@ const GalvanizliTelNetsis = () => {
           }
         }
       } else if (activeDbTab === 'ymst') {
-        // Delete only YM STs
+        // Delete only YM STs and their recipes
         const ymStIds = existingYmSts.map(ymSt => ymSt.id);
-        console.log(`Deleting ${ymStIds.length} YM STs`);
+        console.log(`Deleting ${ymStIds.length} YM STs and their recipes`);
         
         if (ymStIds.length > 0) {
           console.log('🔄 Deleting YM STs in batches...');
@@ -784,12 +783,14 @@ const GalvanizliTelNetsis = () => {
       setDeleteAllConfirmText('');
       
       // Show success message based on active tab
-      const deletedCount = activeDbTab === 'mmgt' 
-        ? existingMmGts.length 
-        : existingYmSts.length;
-      const productType = activeDbTab === 'mmgt' ? 'MM GT' : 'YM ST';
+      if (activeDbTab === 'mmgt') {
+        const deletedCount = existingMmGts.length;
+        toast.success(`${deletedCount} MM GT ve ilişkili YM GT'ler ile tüm reçeteler başarıyla silindi`);
+      } else {
+        const deletedCount = existingYmSts.length;
+        toast.success(`${deletedCount} YM ST ve reçeteleri başarıyla silindi`);
+      }
       
-      toast.success(`${deletedCount} ${productType} başarıyla silindi`);
       console.log('✅ Bulk delete operation completed successfully');
       
     } catch (error) {
