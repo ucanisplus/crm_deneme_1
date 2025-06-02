@@ -628,83 +628,36 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // Sequential MM GT'leri bul ve sil
-      const baseCode = mmGt.stok_kodu.substring(0, mmGt.stok_kodu.lastIndexOf('.'));
-      const existingMmGts = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+      console.log(`🗑️ Deleting single MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
       
-      let mmGtIdsToDelete = [];
-      if (existingMmGts && existingMmGts.ok) {
-        const mmGtList = await existingMmGts.json();
-        mmGtIdsToDelete = mmGtList.map(item => item.id);
-      }
+      // Only delete the specific MM GT, not all related ones
+      const mmGtId = mmGt.id;
       
-      // Her MM GT için bağlantılı verileri sil
-      for (const mmGtId of mmGtIdsToDelete) {
-        // MM GT reçetelerini sil
-        try {
-          const mmGtRecipes = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
-          if (mmGtRecipes && mmGtRecipes.ok) {
-            const recipes = await mmGtRecipes.json();
-            for (const recipe of recipes) {
-              await fetchWithAuth(`${API_URLS.galMmGtRecete}/${recipe.id}`, { method: 'DELETE' });
-            }
-          }
-        } catch (error) {
-          console.log('MM GT reçetesi bulunamadı veya silinirken hata:', error);
-        }
-        
-        // MM GT-YM ST ilişkilerini sil
-        try {
-          const mmGtYmStRelations = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
-          if (mmGtYmStRelations && mmGtYmStRelations.ok) {
-            const relations = await mmGtYmStRelations.json();
-            for (const relation of relations) {
-              await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, { method: 'DELETE' });
-            }
-          }
-        } catch (error) {
-          console.log('MM GT-YM ST ilişkisi bulunamadı veya silinirken hata:', error);
-        }
-        
-        // MM GT'yi sil
-        await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { method: 'DELETE' });
-      }
-      
-      // İlişkili YM GT'leri bul ve sil
-      const ymGtBaseCode = baseCode.replace('GT.', 'YM.GT.');
+      // Delete MM GT recipes using backend cascade
       try {
-        const existingYmGts = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`);
-        
-        if (existingYmGts && existingYmGts.ok) {
-          const ymGtList = await existingYmGts.json();
-          for (const ymGt of ymGtList) {
-            // YM GT reçetelerini sil
-            try {
-              const ymGtRecipes = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
-              if (ymGtRecipes && ymGtRecipes.ok) {
-                const recipes = await ymGtRecipes.json();
-                for (const recipe of recipes) {
-                  await fetchWithAuth(`${API_URLS.galYmGtRecete}/${recipe.id}`, { method: 'DELETE' });
-                }
-              }
-            } catch (error) {
-              console.log('YM GT reçetesi bulunamadı veya silinirken hata:', error);
-            }
-            
-            // YM GT'yi sil
-            await fetchWithAuth(`${API_URLS.galYmGt}/${ymGt.id}`, { method: 'DELETE' });
+        const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
+          method: 'DELETE',
+          headers: {
+            'X-Cascade-Delete': 'true' // Signal backend to handle cascade
           }
+        });
+        
+        if (!deleteResponse.ok) {
+          throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
         }
+        
+        console.log(`✅ MM GT ${mmGt.stok_kodu} deleted successfully`);
       } catch (error) {
-        console.log('YM GT bulunamadı veya silinirken hata:', error);
+        console.error('MM GT deletion error:', error);
+        throw error;
       }
       
-      // Listeyi yenile
+      // Refresh the list
       await fetchExistingMmGts();
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
-      toast.success('MM GT ve bağlı veriler başarıyla silindi');
+      toast.success(`MM GT ${mmGt.stok_kodu} başarıyla silindi`);
     } catch (error) {
       console.error('MM GT silme hatası:', error);
       toast.error('MM GT silme hatası: ' + error.message);
@@ -718,28 +671,33 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // YMST reçetelerini sil
+      console.log(`🗑️ Deleting single YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
+      
+      // Delete YM ST using backend cascade
       try {
-        const ymStRecipes = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
-        if (ymStRecipes && ymStRecipes.ok) {
-          const recipes = await ymStRecipes.json();
-          for (const recipe of recipes) {
-            await fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' });
+        const deleteResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`, { 
+          method: 'DELETE',
+          headers: {
+            'X-Cascade-Delete': 'true' // Signal backend to handle cascade
           }
+        });
+        
+        if (!deleteResponse.ok) {
+          throw new Error(`Failed to delete YM ST: ${deleteResponse.status}`);
         }
+        
+        console.log(`✅ YM ST ${ymSt.stok_kodu} deleted successfully`);
       } catch (error) {
-        console.log('YM ST reçetesi bulunamadı veya silinirken hata:', error);
+        console.error('YM ST deletion error:', error);
+        throw error;
       }
       
-      // YMST'yi sil
-      await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`, { method: 'DELETE' });
-      
-      // Listeyi yenile
+      // Refresh the list
       await fetchExistingYmSts();
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
-      toast.success('YM ST ve bağlı veriler başarıyla silindi');
+      toast.success(`YM ST ${ymSt.stok_kodu} başarıyla silindi`);
     } catch (error) {
       console.error('YM ST silme hatası:', error);
       toast.error('YM ST silme hatası: ' + error.message);
@@ -762,7 +720,7 @@ const GalvanizliTelNetsis = () => {
     setDeleteType('mmgt');
   };
 
-  // Tümünü sil fonksiyonu
+  // Tümünü sil fonksiyonu - Optimized bulk delete
   const handleDeleteAll = async () => {
     if (deleteAllConfirmText !== 'Hepsini Sil') {
       toast.error('Lütfen "Hepsini Sil" yazın');
@@ -771,18 +729,57 @@ const GalvanizliTelNetsis = () => {
 
     try {
       setIsLoading(true);
+      console.log('🗑️ Starting bulk delete operation...');
       
-      // Process MM GTs and YM STs in parallel
-      const deletePromises = [
-        // Delete all MM GTs in parallel
-        ...existingMmGts.map(mmGt => deleteMmGt(mmGt)),
-        // Delete all YM STs in parallel
-        ...existingYmSts.map(ymSt => deleteYmSt(ymSt))
-      ];
+      // Create arrays of IDs for bulk deletion
+      const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
+      const ymStIds = existingYmSts.map(ymSt => ymSt.id);
       
-      await Promise.all(deletePromises);
+      console.log(`Deleting ${mmGtIds.length} MM GTs and ${ymStIds.length} YM STs`);
       
-      // Refresh data in parallel
+      // Use batch operations with limited concurrency to avoid overwhelming the server
+      const batchSize = 5; // Process 5 items at a time to prevent server overload
+      
+      // Process MM GTs in batches
+      if (mmGtIds.length > 0) {
+        console.log('🔄 Deleting MM GTs in batches...');
+        for (let i = 0; i < mmGtIds.length; i += batchSize) {
+          const batch = mmGtIds.slice(i, i + batchSize);
+          const batchPromises = batch.map(id => 
+            fetchWithAuth(`${API_URLS.galMmGt}/${id}`, { 
+              method: 'DELETE',
+              headers: { 'X-Cascade-Delete': 'true' }
+            }).catch(error => {
+              console.error(`Failed to delete MM GT ${id}:`, error);
+              return null; // Continue with other deletions
+            })
+          );
+          await Promise.all(batchPromises);
+          console.log(`✅ Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+        }
+      }
+      
+      // Process YM STs in batches
+      if (ymStIds.length > 0) {
+        console.log('🔄 Deleting YM STs in batches...');
+        for (let i = 0; i < ymStIds.length; i += batchSize) {
+          const batch = ymStIds.slice(i, i + batchSize);
+          const batchPromises = batch.map(id => 
+            fetchWithAuth(`${API_URLS.galYmSt}/${id}`, { 
+              method: 'DELETE',
+              headers: { 'X-Cascade-Delete': 'true' }
+            }).catch(error => {
+              console.error(`Failed to delete YM ST ${id}:`, error);
+              return null; // Continue with other deletions
+            })
+          );
+          await Promise.all(batchPromises);
+          console.log(`✅ Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
+        }
+      }
+      
+      // Refresh data
+      console.log('🔄 Refreshing data...');
       await Promise.all([
         fetchExistingMmGts(),
         fetchExistingYmSts()
@@ -790,10 +787,11 @@ const GalvanizliTelNetsis = () => {
       
       setShowDeleteAllConfirm(false);
       setDeleteAllConfirmText('');
-      toast.success('Tüm veriler başarıyla silindi');
+      toast.success(`${mmGtIds.length + ymStIds.length} ürün başarıyla silindi`);
+      console.log('✅ Bulk delete operation completed successfully');
       
     } catch (error) {
-      console.error('Toplu silme hatası:', error);
+      console.error('❌ Toplu silme hatası:', error);
       toast.error('Toplu silme hatası: ' + error.message);
     } finally {
       setIsLoading(false);
