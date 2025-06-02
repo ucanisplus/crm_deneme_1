@@ -137,35 +137,97 @@ const SatisGalvanizRequest = () => {
   // Check for duplicate product when submitting
   const checkForDuplicateProduct = async () => {
     try {
-      // Parse all values for comparison
-      const capValue = parseFloat(requestData.cap);
-      const kaplamaValue = parseFloat(requestData.kaplama);
-      const minMukValue = parseFloat(requestData.min_mukavemet);
-      const maxMukValue = parseFloat(requestData.max_mukavemet);
-      const kgValue = parseFloat(requestData.kg);
+      // Parse all values for comparison with proper normalization
+      const capValue = parseFloat(normalizeInputValue(requestData.cap));
+      const kaplamaValue = parseFloat(normalizeInputValue(requestData.kaplama));
+      const minMukValue = parseFloat(normalizeInputValue(requestData.min_mukavemet));
+      const maxMukValue = parseFloat(normalizeInputValue(requestData.max_mukavemet));
+      const kgValue = parseFloat(normalizeInputValue(requestData.kg));
       
       if (isNaN(capValue) || isNaN(kaplamaValue) || isNaN(minMukValue) || isNaN(maxMukValue) || isNaN(kgValue)) {
         setDuplicateProduct(null);
-        return;
+        return false;
       }
       
-      // Find matching products in existing products
+      // Check 1: Find matching products in existing MM GT database
       const matchingProduct = existingProducts.find(product => {
-        return product.cap === capValue &&
+        // Compare with tolerance for floating point numbers
+        return Math.abs(product.cap - capValue) < 0.001 &&
                product.kod_2 === requestData.kod_2 &&
-               product.kaplama === kaplamaValue &&
-               product.min_mukavemet === minMukValue &&
-               product.max_mukavemet === maxMukValue &&
-               product.kg === kgValue;
+               Math.abs(product.kaplama - kaplamaValue) < 0.001 &&
+               Math.abs(product.min_mukavemet - minMukValue) < 0.001 &&
+               Math.abs(product.max_mukavemet - maxMukValue) < 0.001 &&
+               Math.abs(product.kg - kgValue) < 0.001;
       });
       
       if (matchingProduct) {
-        setDuplicateProduct(matchingProduct);
-        return true; // Found duplicate
-      } else {
-        setDuplicateProduct(null);
-        return false; // No duplicate
+        setDuplicateProduct({
+          ...matchingProduct,
+          source: 'product_database',
+          message: 'Bu ürün zaten üretim veritabanında mevcut!'
+        });
+        return true; // Found duplicate in products
       }
+      
+      // Check 2: Find matching in existing requests (all users' requests)
+      try {
+        // Fetch ALL requests, not just current user's
+        const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
+        if (allRequestsResponse && allRequestsResponse.ok) {
+          const allRequests = await allRequestsResponse.json();
+          
+          // Find matching request
+          const matchingRequest = allRequests.find(request => {
+            // Skip completed or rejected requests
+            if (request.status === 'completed' || request.status === 'rejected') {
+              return false;
+            }
+            
+            // Compare with tolerance for floating point numbers
+            const reqCap = parseFloat(request.cap);
+            const reqKaplama = parseFloat(request.kaplama);
+            const reqMinMuk = parseFloat(request.min_mukavemet);
+            const reqMaxMuk = parseFloat(request.max_mukavemet);
+            const reqKg = parseFloat(request.kg);
+            
+            return Math.abs(reqCap - capValue) < 0.001 &&
+                   request.kod_2 === requestData.kod_2 &&
+                   Math.abs(reqKaplama - kaplamaValue) < 0.001 &&
+                   Math.abs(reqMinMuk - minMukValue) < 0.001 &&
+                   Math.abs(reqMaxMuk - maxMukValue) < 0.001 &&
+                   Math.abs(reqKg - kgValue) < 0.001;
+          });
+          
+          if (matchingRequest) {
+            // Generate a temporary stok_kodu format for the request
+            const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
+            const tempStokKodu = `GT.${requestData.kod_2}.${capFormatted}.XX`;
+            
+            setDuplicateProduct({
+              stok_kodu: tempStokKodu,
+              stok_adi: `${requestData.kod_2} ${kaplamaValue}gr/m² Ø${capValue}mm ${minMukValue}-${maxMukValue}MPa ${kgValue}kg`,
+              cap: capValue,
+              kod_2: requestData.kod_2,
+              kaplama: kaplamaValue,
+              min_mukavemet: minMukValue,
+              max_mukavemet: maxMukValue,
+              kg: kgValue,
+              source: 'pending_request',
+              message: `Bu ürün için zaten ${matchingRequest.status === 'pending' ? 'bekleyen' : 'işlenen'} bir talep var!`,
+              request_id: matchingRequest.id,
+              request_status: matchingRequest.status,
+              created_at: matchingRequest.created_at
+            });
+            return true; // Found duplicate in requests
+          }
+        }
+      } catch (error) {
+        console.error('Error checking existing requests:', error);
+        // Continue even if request check fails
+      }
+      
+      setDuplicateProduct(null);
+      return false; // No duplicate found
     } catch (error) {
       console.error('Duplicate check error:', error);
       return false;
@@ -278,15 +340,18 @@ const SatisGalvanizRequest = () => {
       filteredRequests = filteredRequests.filter(request => request.status === statusFilter);
     }
     
-    // Apply search query
+    // Apply search query with partial matching
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
       filteredRequests = filteredRequests.filter(request => 
-        request.cap.toString().includes(query) ||
+        request.cap.toString().startsWith(query) ||
         request.kod_2.toLowerCase().includes(query) ||
-        request.kaplama.toString().includes(query) ||
+        request.kaplama.toString().startsWith(query) ||
         request.id.toLowerCase().includes(query) ||
-        (request.cast_kont && request.cast_kont.toString().includes(query)) ||
+        request.min_mukavemet.toString().startsWith(query) ||
+        request.max_mukavemet.toString().startsWith(query) ||
+        request.kg.toString().startsWith(query) ||
+        (request.cast_kont && request.cast_kont.toString().startsWith(query)) ||
         (request.unwinding && request.unwinding.toLowerCase().includes(query)) ||
         (request.helix_kont && request.helix_kont.toString().includes(query)) ||
         (request.elongation && request.elongation.toString().includes(query))
@@ -644,12 +709,12 @@ const SatisGalvanizRequest = () => {
       );
     }
     
-    // Apply filters
+    // Apply filters with partial matching
     if (productFilter.cap !== '') {
-      const capValue = parseFloat(productFilter.cap);
-      if (!isNaN(capValue)) {
-        filtered = filtered.filter(product => product.cap === capValue);
-      }
+      // Allow partial matching for cap - convert to string and check if it starts with the filter value
+      filtered = filtered.filter(product => 
+        product.cap.toString().startsWith(productFilter.cap)
+      );
     }
     
     if (productFilter.kod_2 !== 'all') {
@@ -657,10 +722,10 @@ const SatisGalvanizRequest = () => {
     }
     
     if (productFilter.kaplama !== '') {
-      const kaplamaValue = parseFloat(productFilter.kaplama);
-      if (!isNaN(kaplamaValue)) {
-        filtered = filtered.filter(product => product.kaplama === kaplamaValue);
-      }
+      // Allow partial matching for kaplama - convert to string and check if it starts with the filter value
+      filtered = filtered.filter(product => 
+        product.kaplama.toString().startsWith(productFilter.kaplama)
+      );
     }
     
     // Sort by stok_kodu
@@ -1807,39 +1872,57 @@ const SatisGalvanizRequest = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-center text-gray-900 mb-4">Bu Ürün Zaten Mevcut!</h3>
+              <h3 className="text-lg font-medium text-center text-gray-900 mb-4">
+                {duplicateProduct.source === 'product_database' ? 'Bu Ürün Zaten Mevcut!' : 'Bu Ürün İçin Talep Var!'}
+              </h3>
               <p className="text-center text-gray-700 mb-6">
-                Girdiğiniz özelliklerde bir ürün veritabanında zaten bulunmaktadır.
+                {duplicateProduct.message}
               </p>
               
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <p className="text-sm font-medium text-gray-700 mb-2">Mevcut Ürün Bilgileri:</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  {duplicateProduct.source === 'product_database' ? 'Mevcut Ürün Bilgileri:' : 'Mevcut Talep Bilgileri:'}
+                </p>
                 <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="font-medium">Stok Kodu:</span> {duplicateProduct.stok_kodu}
-                  </p>
+                  {duplicateProduct.source === 'product_database' && (
+                    <p className="text-sm">
+                      <span className="font-medium">Stok Kodu:</span> {duplicateProduct.stok_kodu}
+                    </p>
+                  )}
                   <p className="text-sm">
                     <span className="font-medium">Stok Adı:</span> {duplicateProduct.stok_adi}
                   </p>
                   <p className="text-sm">
                     <span className="font-medium">Özellikler:</span> {duplicateProduct.cap}mm, {duplicateProduct.kod_2} {duplicateProduct.kaplama}g/m², {duplicateProduct.min_mukavemet}-{duplicateProduct.max_mukavemet} MPa, {duplicateProduct.kg}kg
                   </p>
+                  {duplicateProduct.source === 'pending_request' && (
+                    <>
+                      <p className="text-sm">
+                        <span className="font-medium">Talep Durumu:</span> {duplicateProduct.request_status === 'pending' ? 'Beklemede' : duplicateProduct.request_status === 'in_progress' ? 'İşleniyor' : 'Onaylandı'}
+                      </p>
+                      <p className="text-sm">
+                        <span className="font-medium">Talep Tarihi:</span> {new Date(duplicateProduct.created_at).toLocaleString('tr-TR')}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               
               <div className="flex flex-col space-y-3">
-                <button
-                  onClick={() => {
-                    copyStokKodu(duplicateProduct.stok_kodu);
-                    setShowDuplicateWarning(false);
-                  }}
-                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Stok Kodunu Kopyala ve Kapat
-                </button>
+                {duplicateProduct.source === 'product_database' && (
+                  <button
+                    onClick={() => {
+                      copyStokKodu(duplicateProduct.stok_kodu);
+                      setShowDuplicateWarning(false);
+                    }}
+                    className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Stok Kodunu Kopyala ve Kapat
+                  </button>
+                )}
                 
                 <button
                   onClick={() => setShowDuplicateWarning(false)}
@@ -1850,7 +1933,9 @@ const SatisGalvanizRequest = () => {
               </div>
               
               <p className="mt-4 text-xs text-center text-gray-500">
-                Bu ürünü talep etmek için stok kodunu kopyalayıp üretim ekibine WhatsApp veya e-posta ile iletebilirsiniz.
+                {duplicateProduct.source === 'product_database' 
+                  ? 'Bu ürünü talep etmek için stok kodunu kopyalayıp üretim ekibine WhatsApp veya e-posta ile iletebilirsiniz.'
+                  : 'Bu ürün için zaten bir talep bulunmaktadır. Lütfen mevcut talebin durumunu kontrol ediniz.'}
               </p>
             </div>
           </div>
