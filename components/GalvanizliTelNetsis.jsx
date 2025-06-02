@@ -724,46 +724,49 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       console.log('🗑️ Starting bulk delete operation...');
-      
-      // Create arrays of IDs for bulk deletion
-      const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-      const ymStIds = existingYmSts.map(ymSt => ymSt.id);
-      
-      console.log(`Deleting ${mmGtIds.length} MM GTs and ${ymStIds.length} YM STs`);
+      console.log(`Active tab: ${activeDbTab}`);
       
       // Use batch operations with limited concurrency to avoid overwhelming the server
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
-      // Process MM GTs in batches
-      if (mmGtIds.length > 0) {
-        console.log('🔄 Deleting MM GTs in batches...');
-        for (let i = 0; i < mmGtIds.length; i += batchSize) {
-          const batch = mmGtIds.slice(i, i + batchSize);
-          const batchPromises = batch.map(id => 
-            fetchWithAuth(`${API_URLS.galMmGt}/${id}`, { 
-              method: 'DELETE'
-            }).catch(error => {
-              console.error(`Failed to delete MM GT ${id}:`, error);
-              return null; // Continue with other deletions
-            })
-          );
-          await Promise.all(batchPromises);
-          console.log(`✅ Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+      // Only delete items from the active tab
+      if (activeDbTab === 'mmgt') {
+        // Delete only MM GTs
+        const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
+        console.log(`Deleting ${mmGtIds.length} MM GTs`);
+        
+        if (mmGtIds.length > 0) {
+          console.log('🔄 Deleting MM GTs in batches...');
+          for (let i = 0; i < mmGtIds.length; i += batchSize) {
+            const batch = mmGtIds.slice(i, i + batchSize);
+            const batchPromises = batch.map(id => 
+              fetchWithAuth(`${API_URLS.galMmGt}/${id}`, { 
+                method: 'DELETE'
+              }).catch(error => {
+                console.error(`Failed to delete MM GT ${id}:`, error);
+                return null; // Continue with other deletions
+              })
+            );
+            await Promise.all(batchPromises);
+            console.log(`✅ Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+          }
         }
-      }
-      
-      // Process YM STs in batches
-      if (ymStIds.length > 0) {
-        console.log('🔄 Deleting YM STs in batches...');
-        for (let i = 0; i < ymStIds.length; i += batchSize) {
-          const batch = ymStIds.slice(i, i + batchSize);
-          const batchPromises = batch.map(id => 
-            fetchWithAuth(`${API_URLS.galYmSt}/${id}`, { 
-              method: 'DELETE'
-            }).catch(error => {
-              console.error(`Failed to delete YM ST ${id}:`, error);
-              return null; // Continue with other deletions
-            })
+      } else if (activeDbTab === 'ymst') {
+        // Delete only YM STs
+        const ymStIds = existingYmSts.map(ymSt => ymSt.id);
+        console.log(`Deleting ${ymStIds.length} YM STs`);
+        
+        if (ymStIds.length > 0) {
+          console.log('🔄 Deleting YM STs in batches...');
+          for (let i = 0; i < ymStIds.length; i += batchSize) {
+            const batch = ymStIds.slice(i, i + batchSize);
+            const batchPromises = batch.map(id => 
+              fetchWithAuth(`${API_URLS.galYmSt}/${id}`, { 
+                method: 'DELETE'
+              }).catch(error => {
+                console.error(`Failed to delete YM ST ${id}:`, error);
+                return null; // Continue with other deletions
+              })
           );
           await Promise.all(batchPromises);
           console.log(`✅ Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
@@ -779,7 +782,14 @@ const GalvanizliTelNetsis = () => {
       
       setShowDeleteAllConfirm(false);
       setDeleteAllConfirmText('');
-      toast.success(`${mmGtIds.length + ymStIds.length} ürün başarıyla silindi`);
+      
+      // Show success message based on active tab
+      const deletedCount = activeDbTab === 'mmgt' 
+        ? existingMmGts.length 
+        : existingYmSts.length;
+      const productType = activeDbTab === 'mmgt' ? 'MM GT' : 'YM ST';
+      
+      toast.success(`${deletedCount} ${productType} başarıyla silindi`);
       console.log('✅ Bulk delete operation completed successfully');
       
     } catch (error) {
@@ -8526,8 +8536,9 @@ const GalvanizliTelNetsis = () => {
                 </>
               )}
               
-              {/* Delete All Button */}
-              {(existingMmGts.length > 0 || existingYmSts.length > 0) && (
+              {/* Delete All Button - Only show for active tab with items */}
+              {((activeDbTab === 'mmgt' && existingMmGts.length > 0) || 
+                (activeDbTab === 'ymst' && existingYmSts.length > 0)) && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="flex justify-center">
                     <button
