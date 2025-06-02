@@ -769,6 +769,7 @@ const GalvanizliTelNetsis = () => {
             );
             await Promise.all(batchPromises);
             console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
+          }
         }
       }
       
