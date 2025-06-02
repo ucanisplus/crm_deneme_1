@@ -40,6 +40,23 @@ const SatisGalvanizRequest = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState(null);
   
+  // Product search and viewing state
+  const [showProductSearchModal, setShowProductSearchModal] = useState(false);
+  const [existingProducts, setExistingProducts] = useState([]);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showProductDetailsModal, setShowProductDetailsModal] = useState(false);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productFilter, setProductFilter] = useState({
+    cap: '',
+    kod_2: 'all',
+    kaplama: ''
+  });
+  
+  // Duplicate product warning state
+  const [duplicateProduct, setDuplicateProduct] = useState(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  
   // Form data for MM GT request
   const [requestData, setRequestData] = useState({
     cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
@@ -62,12 +79,15 @@ const SatisGalvanizRequest = () => {
   // Fetch existing requests on component mount
   useEffect(() => {
     fetchRequests();
+    fetchExistingProducts();
   }, []);
   
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [statusFilter, searchQuery, sortField, sortDirection]);
+  
+  // Remove real-time duplicate checking - will check on submit instead
   
   // Fetch requests from API
   const fetchRequests = async () => {
@@ -90,6 +110,65 @@ const SatisGalvanizRequest = () => {
       toast.error('Talepler alınamadı: ' + error.message);
     } finally {
       setIsLoadingRequests(false);
+    }
+  };
+  
+  // Fetch existing products from MM GT database
+  const fetchExistingProducts = async () => {
+    try {
+      setIsLoadingProducts(true);
+      
+      const response = await fetchWithAuth(API_URLS.galMmGt);
+      
+      if (!response || !response.ok) {
+        throw new Error('Ürün listesi alınamadı');
+      }
+      
+      const productsData = await response.json();
+      setExistingProducts(productsData || []);
+    } catch (error) {
+      console.error('Ürün listesi alınamadı:', error);
+      // Don't show error toast for products, it's not critical
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+  
+  // Check for duplicate product when submitting
+  const checkForDuplicateProduct = async () => {
+    try {
+      // Parse all values for comparison
+      const capValue = parseFloat(requestData.cap);
+      const kaplamaValue = parseFloat(requestData.kaplama);
+      const minMukValue = parseFloat(requestData.min_mukavemet);
+      const maxMukValue = parseFloat(requestData.max_mukavemet);
+      const kgValue = parseFloat(requestData.kg);
+      
+      if (isNaN(capValue) || isNaN(kaplamaValue) || isNaN(minMukValue) || isNaN(maxMukValue) || isNaN(kgValue)) {
+        setDuplicateProduct(null);
+        return;
+      }
+      
+      // Find matching products in existing products
+      const matchingProduct = existingProducts.find(product => {
+        return product.cap === capValue &&
+               product.kod_2 === requestData.kod_2 &&
+               product.kaplama === kaplamaValue &&
+               product.min_mukavemet === minMukValue &&
+               product.max_mukavemet === maxMukValue &&
+               product.kg === kgValue;
+      });
+      
+      if (matchingProduct) {
+        setDuplicateProduct(matchingProduct);
+        return true; // Found duplicate
+      } else {
+        setDuplicateProduct(null);
+        return false; // No duplicate
+      }
+    } catch (error) {
+      console.error('Duplicate check error:', error);
+      return false;
     }
   };
   
@@ -389,6 +468,15 @@ const SatisGalvanizRequest = () => {
       return;
     }
     
+    // Check for duplicate product before submitting
+    const hasDuplicate = await checkForDuplicateProduct();
+    
+    // If duplicate exists, show warning modal instead of submitting
+    if (hasDuplicate) {
+      setShowDuplicateWarning(true);
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -542,6 +630,51 @@ const SatisGalvanizRequest = () => {
     }
   };
   
+  // Get filtered products based on search and filters
+  const getFilteredProducts = () => {
+    let filtered = [...existingProducts];
+    
+    // Apply search query
+    if (productSearchQuery.trim() !== '') {
+      const query = productSearchQuery.toLowerCase();
+      filtered = filtered.filter(product => 
+        product.stok_kodu.toLowerCase().includes(query) ||
+        product.stok_adi.toLowerCase().includes(query) ||
+        product.cap.toString().includes(query)
+      );
+    }
+    
+    // Apply filters
+    if (productFilter.cap !== '') {
+      const capValue = parseFloat(productFilter.cap);
+      if (!isNaN(capValue)) {
+        filtered = filtered.filter(product => product.cap === capValue);
+      }
+    }
+    
+    if (productFilter.kod_2 !== 'all') {
+      filtered = filtered.filter(product => product.kod_2 === productFilter.kod_2);
+    }
+    
+    if (productFilter.kaplama !== '') {
+      const kaplamaValue = parseFloat(productFilter.kaplama);
+      if (!isNaN(kaplamaValue)) {
+        filtered = filtered.filter(product => product.kaplama === kaplamaValue);
+      }
+    }
+    
+    // Sort by stok_kodu
+    filtered.sort((a, b) => a.stok_kodu.localeCompare(b.stok_kodu));
+    
+    return filtered;
+  };
+  
+  // Copy stok kodu to clipboard
+  const copyStokKodu = (stokKodu) => {
+    navigator.clipboard.writeText(stokKodu);
+    toast.success(`Stok kodu kopyalandı: ${stokKodu}`);
+  };
+  
   return (
     <div className="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
       {/* Header with toggle button */}
@@ -553,15 +686,27 @@ const SatisGalvanizRequest = () => {
           Galvanizli Tel Talebi Oluştur
         </h1>
         
-        <button 
-          onClick={() => setShowRequestsModal(!showRequestsModal)}
-          className="flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-          </svg>
-          {showRequestsModal ? 'Talep Formu' : 'Taleplerim'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowProductSearchModal(true)}
+            className="flex items-center px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            Mevcut Ürünler
+          </button>
+          
+          <button 
+            onClick={() => setShowRequestsModal(!showRequestsModal)}
+            className="flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+            {showRequestsModal ? 'Talep Formu' : 'Taleplerim'}
+          </button>
+        </div>
       </div>
       
       {/* Main content - Toggle between form and requests list */}
@@ -1351,6 +1496,362 @@ const SatisGalvanizRequest = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Product Search Modal */}
+      {showProductSearchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Mevcut Ürünler
+              </h3>
+              <button 
+                onClick={() => setShowProductSearchModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-auto">
+              {/* Search and Filters */}
+              <div className="mb-6 space-y-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <label htmlFor="productSearch" className="block text-sm font-medium text-gray-700 mb-1">Ara</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="productSearch"
+                        value={productSearchQuery}
+                        onChange={(e) => setProductSearchQuery(e.target.value)}
+                        placeholder="Stok kodu, stok adı veya çap ile ara..."
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="filterCap" className="block text-sm font-medium text-gray-700 mb-1">Çap (mm)</label>
+                    <input
+                      type="text"
+                      id="filterCap"
+                      value={productFilter.cap}
+                      onChange={(e) => setProductFilter({ ...productFilter, cap: e.target.value })}
+                      placeholder="Örn: 2.50"
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="filterKod2" className="block text-sm font-medium text-gray-700 mb-1">Kaplama Türü</label>
+                    <select
+                      id="filterKod2"
+                      value={productFilter.kod_2}
+                      onChange={(e) => setProductFilter({ ...productFilter, kod_2: e.target.value })}
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="all">Tümü</option>
+                      <option value="NIT">NIT</option>
+                      <option value="PAD">PAD</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="filterKaplama" className="block text-sm font-medium text-gray-700 mb-1">Kaplama (g/m²)</label>
+                    <input
+                      type="text"
+                      id="filterKaplama"
+                      value={productFilter.kaplama}
+                      onChange={(e) => setProductFilter({ ...productFilter, kaplama: e.target.value })}
+                      placeholder="Örn: 100"
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                {(productSearchQuery || productFilter.cap || productFilter.kod_2 !== 'all' || productFilter.kaplama) && (
+                  <button
+                    onClick={() => {
+                      setProductSearchQuery('');
+                      setProductFilter({ cap: '', kod_2: 'all', kaplama: '' });
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                )}
+              </div>
+              
+              {/* Products Table */}
+              {isLoadingProducts ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                </div>
+              ) : getFilteredProducts().length === 0 ? (
+                <div className="bg-gray-50 rounded-lg p-8 text-center">
+                  <svg className="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  <p className="mt-4 text-gray-600">
+                    {productSearchQuery || productFilter.cap || productFilter.kod_2 !== 'all' || productFilter.kaplama
+                      ? 'Arama kriterlerine uygun ürün bulunamadı.'
+                      : 'Henüz kayıtlı ürün bulunmamaktadır.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Adı</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getFilteredProducts().map((product, index) => (
+                        <tr key={product.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {product.stok_kodu}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {product.stok_adi}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.cap} mm
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.kod_2} {product.kaplama} g/m²
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.min_mukavemet} - {product.max_mukavemet} MPa
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {product.kg} kg
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedProduct(product);
+                                  setShowProductDetailsModal(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                Detay
+                              </button>
+                              <button
+                                onClick={() => copyStokKodu(product.stok_kodu)}
+                                className="text-green-600 hover:text-green-800"
+                              >
+                                Kopyala
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              <div className="mt-4 text-sm text-gray-500">
+                Toplam {getFilteredProducts().length} ürün bulundu
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Product Details Modal */}
+      {showProductDetailsModal && selectedProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Ürün Detayları
+              </h3>
+              <button 
+                onClick={() => setShowProductDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Stok Kodu</p>
+                    <p className="text-lg font-semibold text-gray-900">{selectedProduct.stok_kodu}</p>
+                  </div>
+                  <button
+                    onClick={() => copyStokKodu(selectedProduct.stok_kodu)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm leading-5 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:border-blue-300 focus:ring-blue"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Stok Kodunu Kopyala
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Stok Adı</p>
+                    <p className="text-base text-gray-900">{selectedProduct.stok_adi}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tel Çapı</p>
+                    <p className="text-base text-gray-900">{selectedProduct.cap} mm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Kaplama</p>
+                    <p className="text-base text-gray-900">{selectedProduct.kod_2} {selectedProduct.kaplama} g/m²</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Mukavemet</p>
+                    <p className="text-base text-gray-900">{selectedProduct.min_mukavemet} - {selectedProduct.max_mukavemet} MPa</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Ağırlık</p>
+                    <p className="text-base text-gray-900">{selectedProduct.kg} kg</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">İç Çap</p>
+                    <p className="text-base text-gray-900">{selectedProduct.ic_cap} cm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Dış Çap</p>
+                    <p className="text-base text-gray-900">{selectedProduct.dis_cap} cm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tolerans</p>
+                    <p className="text-base text-gray-900">+{selectedProduct.tolerans_plus} / -{selectedProduct.tolerans_minus} mm</p>
+                  </div>
+                </div>
+                
+                {selectedProduct.shrink && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Shrink</p>
+                    <p className="text-base text-gray-900">{selectedProduct.shrink}</p>
+                  </div>
+                )}
+                
+                {selectedProduct.unwinding && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Unwinding</p>
+                    <p className="text-base text-gray-900">{selectedProduct.unwinding}</p>
+                  </div>
+                )}
+                
+                {selectedProduct.cast_kont && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Bağ Miktarı</p>
+                    <p className="text-base text-gray-900">{selectedProduct.cast_kont}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-6 bg-blue-50 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Not:</strong> Bu ürünü talep etmek için stok kodunu kopyalayıp üretim ekibine WhatsApp veya e-posta ile iletebilirsiniz.
+                </p>
+              </div>
+            </div>
+            
+            <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+              <button
+                onClick={() => setShowProductDetailsModal(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Duplicate Product Warning Modal */}
+      {showDuplicateWarning && duplicateProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-center text-yellow-600 mb-4">
+                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-center text-gray-900 mb-4">Bu Ürün Zaten Mevcut!</h3>
+              <p className="text-center text-gray-700 mb-6">
+                Girdiğiniz özelliklerde bir ürün veritabanında zaten bulunmaktadır.
+              </p>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <p className="text-sm font-medium text-gray-700 mb-2">Mevcut Ürün Bilgileri:</p>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium">Stok Kodu:</span> {duplicateProduct.stok_kodu}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Stok Adı:</span> {duplicateProduct.stok_adi}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Özellikler:</span> {duplicateProduct.cap}mm, {duplicateProduct.kod_2} {duplicateProduct.kaplama}g/m², {duplicateProduct.min_mukavemet}-{duplicateProduct.max_mukavemet} MPa, {duplicateProduct.kg}kg
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col space-y-3">
+                <button
+                  onClick={() => {
+                    copyStokKodu(duplicateProduct.stok_kodu);
+                    setShowDuplicateWarning(false);
+                  }}
+                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Stok Kodunu Kopyala ve Kapat
+                </button>
+                
+                <button
+                  onClick={() => setShowDuplicateWarning(false)}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  İptal
+                </button>
+              </div>
+              
+              <p className="mt-4 text-xs text-center text-gray-500">
+                Bu ürünü talep etmek için stok kodunu kopyalayıp üretim ekibine WhatsApp veya e-posta ile iletebilirsiniz.
+              </p>
             </div>
           </div>
         </div>
