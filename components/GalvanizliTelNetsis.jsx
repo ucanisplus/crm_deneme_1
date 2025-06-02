@@ -2720,6 +2720,10 @@ const GalvanizliTelNetsis = () => {
       setProcessSequence(sequence);
       console.log(`PROCESS SEQUENCE SET IN proceedWithSave: ${sequence} (from nextSequence: ${nextSequence})`);
       
+      // Also store sequence in sessionStorage for debugging
+      sessionStorage.setItem('lastProcessSequence', sequence);
+      console.log(`Sequence stored in sessionStorage: ${sequence}`);
+      
       // Save YM GT - Always create new, never update
       const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
         method: 'POST',
@@ -5399,6 +5403,20 @@ const GalvanizliTelNetsis = () => {
       // Excel generation should use the processSequence that was set during database save
       // This ensures consistency between database and Excel files
       console.log(`Excel oluşturma için processSequence kullanılıyor: ${processSequence}`);
+      console.log(`Current mmGtData.cap: ${mmGtData.cap}, kod_2: ${mmGtData.kod_2}`);
+      
+      // Debug: Check sessionStorage for sequence consistency
+      const storedSequence = sessionStorage.getItem('lastProcessSequence');
+      console.log(`Stored sequence in sessionStorage: ${storedSequence}`);
+      
+      if (storedSequence && storedSequence !== processSequence) {
+        console.warn(`SEQUENCE MISMATCH! processSequence: ${processSequence}, stored: ${storedSequence}`);
+      }
+      
+      // Calculate what the expected stok_kodu should be
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const expectedStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
+      console.log(`Expected MMGT stok_kodu for Excel: ${expectedStokKodu}`);
       
       if (!processSequence || processSequence === '00') {
         console.warn(`UYARI: processSequence '${processSequence}' - bu beklenmeyen bir durum olabilir`);
@@ -5871,9 +5889,13 @@ const GalvanizliTelNetsis = () => {
   const generateMmGtStokKartiData = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+    const stokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+    
+    console.log(`generateMmGtStokKartiData called with sequence: ${sequence}`);
+    console.log(`Generated MMGT stok_kodu: ${stokKodu}`);
     
     return [
-      `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu
+      stokKodu, // Stok Kodu
       generateStokAdiForExcel(), // Stok Adı
       'MM', // Grup Kodu
       'GT', // Kod-1
