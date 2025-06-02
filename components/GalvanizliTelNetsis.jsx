@@ -633,13 +633,10 @@ const GalvanizliTelNetsis = () => {
       // Only delete the specific MM GT, not all related ones
       const mmGtId = mmGt.id;
       
-      // Delete MM GT recipes using backend cascade
+      // Delete MM GT using backend cascade (backend handles related data automatically)
       try {
         const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
-          method: 'DELETE',
-          headers: {
-            'X-Cascade-Delete': 'true' // Signal backend to handle cascade
-          }
+          method: 'DELETE'
         });
         
         if (!deleteResponse.ok) {
@@ -673,13 +670,10 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`🗑️ Deleting single YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
       
-      // Delete YM ST using backend cascade
+      // Delete YM ST using backend cascade (backend handles related data automatically)
       try {
         const deleteResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`, { 
-          method: 'DELETE',
-          headers: {
-            'X-Cascade-Delete': 'true' // Signal backend to handle cascade
-          }
+          method: 'DELETE'
         });
         
         if (!deleteResponse.ok) {
@@ -747,8 +741,7 @@ const GalvanizliTelNetsis = () => {
           const batch = mmGtIds.slice(i, i + batchSize);
           const batchPromises = batch.map(id => 
             fetchWithAuth(`${API_URLS.galMmGt}/${id}`, { 
-              method: 'DELETE',
-              headers: { 'X-Cascade-Delete': 'true' }
+              method: 'DELETE'
             }).catch(error => {
               console.error(`Failed to delete MM GT ${id}:`, error);
               return null; // Continue with other deletions
@@ -766,8 +759,7 @@ const GalvanizliTelNetsis = () => {
           const batch = ymStIds.slice(i, i + batchSize);
           const batchPromises = batch.map(id => 
             fetchWithAuth(`${API_URLS.galYmSt}/${id}`, { 
-              method: 'DELETE',
-              headers: { 'X-Cascade-Delete': 'true' }
+              method: 'DELETE'
             }).catch(error => {
               console.error(`Failed to delete YM ST ${id}:`, error);
               return null; // Continue with other deletions
