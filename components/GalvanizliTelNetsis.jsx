@@ -766,9 +766,9 @@ const GalvanizliTelNetsis = () => {
                 console.error(`Failed to delete YM ST ${id}:`, error);
                 return null; // Continue with other deletions
               })
-          );
-          await Promise.all(batchPromises);
-          console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
+            );
+            await Promise.all(batchPromises);
+            console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
         }
       }
       
