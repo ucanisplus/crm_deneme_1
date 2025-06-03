@@ -1099,6 +1099,11 @@ const GalvanizliTelNetsis = () => {
     setSelectedExistingMmGt(mmGt);
     setIsViewingExistingProduct(true); // Mark as viewing existing product
     
+    // Extract sequence from existing product's stok_kodu
+    const existingSequence = mmGt.stok_kodu ? mmGt.stok_kodu.split('.').pop() : '00';
+    console.log(`Extracted sequence from existing product: ${existingSequence} from stok_kodu: ${mmGt.stok_kodu}`);
+    setProcessSequence(existingSequence);
+    
     // Use normalized decimal display for numeric values to ensure points not commas
     setMmGtData({
       cap: mmGt.cap ? normalizeDecimalDisplay(mmGt.cap) : '',
@@ -1140,7 +1145,7 @@ const GalvanizliTelNetsis = () => {
     // Çap formatını düzelt: 2.50 -> 0250 (tam 4 karakter)
     const capValue = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
-    const sequence = '00'; // İlk YM GT için
+    const sequence = processSequence || '00'; // Use processSequence state instead of hardcoded '00'
     
     const ymGt = {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
