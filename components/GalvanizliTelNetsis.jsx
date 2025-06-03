@@ -105,27 +105,29 @@ const GalvanizliTelNetsis = () => {
     ymStIds: []
   });
   
-  // Form verileri - Decimal değerleri nokta formatına çeviren yardımcı fonksiyon - NOKTA KULLAN
+  // Form verileri - Decimal değerleri nokta formatına çeviren yardımcı fonksiyon - NOKTA KULLAN, trailing zeros'ları kaldır
   const normalizeDecimalDisplay = (value) => {
     // Handle null or undefined
     if (value === null || value === undefined) {
       return '';
     }
     
-    // For numbers, force specific formatting with points
+    // For numbers, format to remove trailing zeros (like 0.020000 -> 0.02)
     if (typeof value === 'number') {
-      // Use string conversion to force point as decimal separator
-      return value.toString();
+      // Use parseFloat to clean the number and remove trailing zeros
+      return parseFloat(value.toString()).toString();
     }
     
-    // For strings with commas, convert to points
+    // For strings with commas, convert to points and clean up
     if (typeof value === 'string' && value.includes(',')) {
-      return value.replace(/,/g, '.');
+      const cleanValue = parseFloat(value.replace(/,/g, '.'));
+      return isNaN(cleanValue) ? value.replace(/,/g, '.') : cleanValue.toString();
     }
     
-    // For strings that are already properly formatted with points, return as is
+    // For strings that are numeric, clean them up
     if (typeof value === 'string') {
-      return value;
+      const numValue = parseFloat(value);
+      return isNaN(numValue) ? value : numValue.toString();
     }
     
     // Fallback
@@ -189,6 +191,10 @@ const GalvanizliTelNetsis = () => {
   // TLC_Hizlar cache - we'll fetch the data from the database
   const [tlcHizlarCache, setTlcHizlarCache] = useState({});
   const [tlcHizlarLoading, setTlcHizlarLoading] = useState(false);
+  
+  // Request selection state for Excel export
+  const [selectedRequestIds, setSelectedRequestIds] = useState([]);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   // Dostça alan adları
   const friendlyNames = {
@@ -5773,6 +5779,304 @@ const GalvanizliTelNetsis = () => {
     return fallbackValue * 0.7; 
   };
 
+  // Request selection handlers
+  const handleSelectAllRequests = () => {
+    const approvedRequests = getFilteredAndSortedRequests().filter(req => req.status === 'approved');
+    const allIds = approvedRequests.map(req => req.id);
+    
+    if (selectedRequestIds.length === allIds.length) {
+      // Deselect all
+      setSelectedRequestIds([]);
+    } else {
+      // Select all approved
+      setSelectedRequestIds(allIds);
+    }
+  };
+
+  const handleToggleRequestSelection = (requestId) => {
+    setSelectedRequestIds(prev => {
+      if (prev.includes(requestId)) {
+        return prev.filter(id => id !== requestId);
+      } else {
+        return [...prev, requestId];
+      }
+    });
+  };
+
+  // Export all approved requests to Excel
+  const exportAllApprovedToExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const approvedRequests = requests.filter(req => req.status === 'approved');
+      
+      if (approvedRequests.length === 0) {
+        toast.warning('Onaylanmış talep bulunamadı');
+        return;
+      }
+      
+      console.log(`Exporting ${approvedRequests.length} approved requests to Excel`);
+      await generateBatchExcelFromRequests(approvedRequests);
+      toast.success(`${approvedRequests.length} onaylanmış talep için Excel dosyaları oluşturuldu`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // Export selected approved requests to Excel
+  const exportSelectedToExcel = async () => {
+    try {
+      if (selectedRequestIds.length === 0) {
+        toast.warning('Lütfen en az bir onaylanmış talep seçin');
+        return;
+      }
+      
+      setIsExportingExcel(true);
+      const selectedRequests = requests.filter(req => 
+        selectedRequestIds.includes(req.id) && req.status === 'approved'
+      );
+      
+      if (selectedRequests.length === 0) {
+        toast.warning('Seçilen taleplerin hiçbiri onaylanmış değil');
+        return;
+      }
+      
+      console.log(`Exporting ${selectedRequests.length} selected approved requests to Excel`);
+      await generateBatchExcelFromRequests(selectedRequests);
+      toast.success(`${selectedRequests.length} seçili onaylanmış talep için Excel dosyaları oluşturuldu`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // Generate Excel files from multiple requests (creates combined stok and recipe Excel files)
+  const generateBatchExcelFromRequests = async (requestsList) => {
+    if (!requestsList || requestsList.length === 0) {
+      throw new Error('Hiçbir talep bulunamadı');
+    }
+
+    console.log(`Creating batch Excel for ${requestsList.length} requests`);
+    
+    // Collect all products from all requests
+    const allMmGtData = [];
+    const allYmGtData = [];
+    const allYmStData = [];
+    const allMmGtRecipes = [];
+    const allYmGtRecipes = [];
+    const allYmStRecipes = [];
+
+    for (const request of requestsList) {
+      try {
+        // Find MM GT for this request
+        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?request_id=${request.id}`);
+        if (mmGtResponse && mmGtResponse.ok) {
+          const mmGtProducts = await mmGtResponse.json();
+          
+          for (const mmGt of mmGtProducts) {
+            // Add MM GT data
+            allMmGtData.push(mmGt);
+            
+            // Find related YM GT and YM STs through relationship table
+            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            if (relationResponse && relationResponse.ok) {
+              const relations = await relationResponse.json();
+              
+              if (relations.length > 0) {
+                const ymGtId = relations[0].ym_gt_id;
+                
+                // Add YM GT data
+                if (ymGtId) {
+                  const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+                  if (ymGtResponse && ymGtResponse.ok) {
+                    const ymGt = await ymGtResponse.json();
+                    allYmGtData.push(ymGt);
+                    
+                    // Add YM GT recipes
+                    const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                    if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                      const ymGtRecipes = await ymGtRecipeResponse.json();
+                      allYmGtRecipes.push(...ymGtRecipes);
+                    }
+                  }
+                }
+                
+                // Add YM ST data and recipes
+                for (const relation of relations) {
+                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+                  if (ymStResponse && ymStResponse.ok) {
+                    const ymSt = await ymStResponse.json();
+                    allYmStData.push(ymSt);
+                    
+                    // Add YM ST recipes
+                    const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
+                    if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                      const ymStRecipes = await ymStRecipeResponse.json();
+                      allYmStRecipes.push(...ymStRecipes);
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Add MM GT recipes
+            const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+            if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
+              const mmGtRecipes = await mmGtRecipeResponse.json();
+              allMmGtRecipes.push(...mmGtRecipes);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error loading data for request ${request.id}:`, error);
+      }
+    }
+
+    // Generate combined Excel files
+    console.log(`Collected data - MM GT: ${allMmGtData.length}, YM GT: ${allYmGtData.length}, YM ST: ${allYmStData.length}`);
+    console.log(`Collected recipes - MM GT: ${allMmGtRecipes.length}, YM GT: ${allYmGtRecipes.length}, YM ST: ${allYmStRecipes.length}`);
+    
+    if (allMmGtData.length === 0) {
+      throw new Error('Seçilen taleplerde hiçbir ürün bulunamadı');
+    }
+
+    // Create combined stock Excel
+    await generateBatchStokKartiExcel(allMmGtData, allYmGtData, allYmStData);
+    
+    // Create combined recipe Excel
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes);
+  };
+
+  // Generate combined stock card Excel file from multiple products
+  const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData) => {
+    const workbook = new ExcelJS.Workbook();
+    
+    // Create MM GT sheet
+    if (mmGtData.length > 0) {
+      const mmGtSheet = workbook.addWorksheet('MM GT Stok Kartları');
+      await addStokKartiData(mmGtSheet, mmGtData, 'MM GT');
+    }
+    
+    // Create YM GT sheet
+    if (ymGtData.length > 0) {
+      const ymGtSheet = workbook.addWorksheet('YM GT Stok Kartları');
+      await addStokKartiData(ymGtSheet, ymGtData, 'YM GT');
+    }
+    
+    // Create YM ST sheet
+    if (ymStData.length > 0) {
+      const ymStSheet = workbook.addWorksheet('YM ST Stok Kartları');
+      await addStokKartiData(ymStSheet, ymStData, 'YM ST');
+    }
+    
+    // Save the file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const fileName = `Toplu_Stok_Kartlari_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    saveAs(blob, fileName);
+    
+    console.log(`Generated batch stock card Excel: ${fileName}`);
+  };
+
+  // Generate combined recipe Excel file from multiple recipes
+  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes) => {
+    const workbook = new ExcelJS.Workbook();
+    
+    // Create MM GT recipe sheet
+    if (mmGtRecipes.length > 0) {
+      const mmGtSheet = workbook.addWorksheet('MM GT Reçeteleri');
+      await addReceteData(mmGtSheet, mmGtRecipes, 'MM GT');
+    }
+    
+    // Create YM GT recipe sheet
+    if (ymGtRecipes.length > 0) {
+      const ymGtSheet = workbook.addWorksheet('YM GT Reçeteleri');
+      await addReceteData(ymGtSheet, ymGtRecipes, 'YM GT');
+    }
+    
+    // Create YM ST recipe sheet
+    if (ymStRecipes.length > 0) {
+      const ymStSheet = workbook.addWorksheet('YM ST Reçeteleri');
+      await addReceteData(ymStSheet, ymStRecipes, 'YM ST');
+    }
+    
+    // Save the file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const fileName = `Toplu_Receteler_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    saveAs(blob, fileName);
+    
+    console.log(`Generated batch recipe Excel: ${fileName}`);
+  };
+
+  // Helper function to add stock card data to worksheet
+  const addStokKartiData = async (worksheet, dataArray, type) => {
+    if (dataArray.length === 0) return;
+    
+    // Define columns based on first item
+    const firstItem = dataArray[0];
+    const columns = Object.keys(firstItem).map(key => ({
+      header: key.toUpperCase(),
+      key: key,
+      width: 15
+    }));
+    
+    worksheet.columns = columns;
+    
+    // Add header row formatting
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } };
+    
+    // Add data rows
+    dataArray.forEach(item => {
+      worksheet.addRow(item);
+    });
+    
+    // Auto-fit columns
+    worksheet.columns.forEach(column => {
+      column.width = Math.max(column.width, 10);
+    });
+  };
+
+  // Helper function to add recipe data to worksheet
+  const addReceteData = async (worksheet, recipeArray, type) => {
+    if (recipeArray.length === 0) return;
+    
+    // Define recipe columns
+    const columns = [
+      { header: 'MAMUL_KODU', key: 'mamul_kodu', width: 25 },
+      { header: 'BILESEN_KODU', key: 'bilesen_kodu', width: 25 },
+      { header: 'MIKTAR', key: 'miktar', width: 15 },
+      { header: 'SIRA_NO', key: 'sira_no', width: 10 },
+      { header: 'OPERASYON_BILESEN', key: 'operasyon_bilesen', width: 20 },
+      { header: 'OLCU_BR', key: 'olcu_br', width: 10 },
+      { header: 'ACIKLAMA', key: 'aciklama', width: 30 }
+    ];
+    
+    worksheet.columns = columns;
+    
+    // Add header row formatting
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE6E6' } };
+    
+    // Add data rows
+    recipeArray.forEach(recipe => {
+      worksheet.addRow({
+        mamul_kodu: recipe.mamul_kodu,
+        bilesen_kodu: recipe.bilesen_kodu,
+        miktar: recipe.miktar,
+        sira_no: recipe.sira_no,
+        operasyon_bilesen: recipe.operasyon_bilesen,
+        olcu_br: recipe.olcu_br,
+        aciklama: recipe.aciklama || ''
+      });
+    });
+  };
+
   // Excel dosyalarını oluştur
   const generateExcelFiles = async () => {
     try {
@@ -8004,6 +8308,52 @@ const GalvanizliTelNetsis = () => {
                   </>
                 )}
               </button>
+              
+              {/* Sadece Kaydet button - only show if not viewing existing product and not already saved */}
+              {!isViewingExistingProduct && !savedToDatabase && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsLoading(true);
+                      console.log("Sadece Kaydet - saving to database only");
+                      
+                      // Save to database without generating Excel
+                      const saveResult = await checkForDuplicatesAndConfirm();
+                      if (saveResult) {
+                        toast.success("Veriler başarıyla veritabanına kaydedildi!");
+                        console.log("Database save completed successfully");
+                      } else {
+                        console.log("Save operation was cancelled or failed");
+                      }
+                    } catch (error) {
+                      console.error("Error during save operation:", error);
+                      setError(`Kaydetme hatası: ${error.message}`);
+                      toast.error(`Kaydetme hatası: ${error.message}`);
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Kaydediliyor...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Sadece Kaydet
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -8273,6 +8623,31 @@ const GalvanizliTelNetsis = () => {
                   Galvanizli Tel Talepleri
                 </h2>
                 <div className="flex gap-3">
+                  {/* Excel Export Buttons */}
+                  <button
+                    onClick={exportAllApprovedToExcel}
+                    disabled={isExportingExcel || requests.filter(req => req.status === 'approved').length === 0}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Tüm onaylanmış talepleri Excel'e aktar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {isExportingExcel ? 'İşleniyor...' : 'Tüm Onaylanmışlar Excel'}
+                  </button>
+                  
+                  <button
+                    onClick={exportSelectedToExcel}
+                    disabled={isExportingExcel || selectedRequestIds.length === 0}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={`${selectedRequestIds.length} seçili onaylanmış talebi Excel'e aktar`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {isExportingExcel ? 'İşleniyor...' : `Seçili Onaylanmışlar Excel (${selectedRequestIds.length})`}
+                  </button>
+                  
                   <button
                     onClick={fetchRequests}
                     disabled={isLoading}
@@ -8425,6 +8800,22 @@ const GalvanizliTelNetsis = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedRequestIds.length > 0 && 
+                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status === 'approved').length &&
+                                getFilteredAndSortedRequests().filter(req => req.status === 'approved').length > 0
+                              }
+                              onChange={handleSelectAllRequests}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              title="Tüm onaylanmış talepleri seç/kaldır"
+                            />
+                            <span className="ml-2">Seç</span>
+                          </div>
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Çap
                         </th>
@@ -8457,6 +8848,18 @@ const GalvanizliTelNetsis = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getFilteredAndSortedRequests().map((request) => (
                         <tr key={request.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedRequestIds.includes(request.id)}
+                                onChange={() => handleToggleRequestSelection(request.id)}
+                                disabled={request.status !== 'approved'}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={request.status === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
+                              />
+                            </div>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.cap || 0} mm
                           </td>
