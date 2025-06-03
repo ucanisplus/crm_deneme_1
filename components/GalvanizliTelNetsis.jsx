@@ -1381,13 +1381,32 @@ const GalvanizliTelNetsis = () => {
         // Calculate YM GT recipes when no database recipes exist
         if (loadedYmSts.length > 0) {
           const mainYmSt = loadedYmSts[mainYmStIndex] || loadedYmSts[0];
+          const cap = parseFloat(mmGt.cap) || parseFloat(mmGtData.cap) || 0;
+          const kaplama = parseInt(mmGt.kaplama) || parseInt(mmGtData.kaplama) || 0;
+          const dvValue = calculateDV(parseInt(mmGt.min_mukavemet) || parseInt(mmGtData.min_mukavemet));
+          
+          // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
+          const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
+          const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
+          
+          // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
+          const zincConsumption = parseFloat((
+            ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
+            (userInputValues.ash * 0.6) + 
+            (userInputValues.lapa * 0.7)) / 1000
+          ).toFixed(5));
+          
+          // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
+          const yuzeyAlani = calculateYuzeyAlani(cap);
+          const tuketilenAsit = calculateTuketilenAsit();
+          const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
           
           // Calculate YM GT recipe values based on main YM ST
           const ymGtRecipeValues = {
             [mainYmSt.stok_kodu]: 1, // Ana hammadde
-            'GLV01': parseFloat((2 * 0.14).toFixed(4)), // Galvaniz işçilik
-            '150 03': parseFloat((userInputValues.ash / 1000).toFixed(4)), // Ash (Kül)
-            'SM.HİDROLİK.ASİT': parseFloat((userInputValues.lapa / 1000).toFixed(4)) // Lapa
+            'GLV01': glvTime, // Galvaniz işçilik - calculated properly
+            '150 03': zincConsumption, // Çinko consumption - calculated properly
+            'SM.HİDROLİK.ASİT': acidConsumption // Asit consumption - calculated properly
           };
           
           // Set the calculated values
@@ -5988,100 +6007,112 @@ const GalvanizliTelNetsis = () => {
 
     for (const request of requestsList) {
       try {
-        // Find MM GT for this request
+        console.log(`Processing request ${request.id} for batch Excel...`);
+        
+        // Find MM GT for this specific request only
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?request_id=${request.id}`);
         if (mmGtResponse && mmGtResponse.ok) {
           const mmGtProducts = await mmGtResponse.json();
+          console.log(`Found ${mmGtProducts.length} MM GT products for request ${request.id}`);
           
           for (const mmGt of mmGtProducts) {
-            // Add MM GT data (avoid duplicates)
-            mmGtMap.set(mmGt.stok_kodu, mmGt);
-            
-            // Find related YM GT and YM STs through relationship table
-            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-            if (relationResponse && relationResponse.ok) {
-              const relations = await relationResponse.json();
+            // Only add MM GT if it belongs to this specific request
+            if (mmGt.request_id === request.id) {
+              mmGtMap.set(mmGt.stok_kodu, mmGt);
+              console.log(`Added MM GT: ${mmGt.stok_kodu} for request ${request.id}`);
               
-              if (relations.length > 0) {
-                const ymGtId = relations[0].ym_gt_id;
+              // Find relationships created specifically for this request's MM GT
+              const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+              if (relationResponse && relationResponse.ok) {
+                const relations = await relationResponse.json();
+                console.log(`Found ${relations.length} relationships for MM GT ${mmGt.id}`);
                 
-                // Add YM GT data
-                if (ymGtId) {
-                  try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
-                    if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGtData = await ymGtResponse.json();
-                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
-                      if (ymGt) {
-                        ymGtMap.set(ymGt.stok_kodu, ymGt);
-                        
-                        // Add YM GT recipes
-                        const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
-                        if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-                          const ymGtRecipes = await ymGtRecipeResponse.json();
-                          // Add recipes to map (avoid duplicates)
-                          ymGtRecipes.forEach(r => {
-                            const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
-                            ymGtRecipeMap.set(key, {
-                              ...r,
-                              mm_gt_stok_kodu: mmGt.stok_kodu,
-                              sequence: mmGt.stok_kodu?.split('.').pop() || '00',
-                              ym_gt_stok_kodu: ymGt.stok_kodu
+                if (relations.length > 0) {
+                  const ymGtId = relations[0].ym_gt_id;
+                  
+                  // Add YM GT data if it exists
+                  if (ymGtId) {
+                    try {
+                      const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                      if (ymGtResponse && ymGtResponse.ok) {
+                        const ymGtData = await ymGtResponse.json();
+                        const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
+                        if (ymGt) {
+                          ymGtMap.set(ymGt.stok_kodu, ymGt);
+                          console.log(`Added YM GT: ${ymGt.stok_kodu}`);
+                          
+                          // Add YM GT recipes
+                          const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                          if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                            const ymGtRecipes = await ymGtRecipeResponse.json();
+                            ymGtRecipes.forEach(r => {
+                              const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
+                              ymGtRecipeMap.set(key, {
+                                ...r,
+                                mm_gt_stok_kodu: mmGt.stok_kodu,
+                                sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                                ym_gt_stok_kodu: ymGt.stok_kodu
+                              });
                             });
-                          });
+                          }
                         }
                       }
+                    } catch (error) {
+                      console.error(`YM GT ${ymGtId} might be deleted, skipping:`, error);
                     }
-                  } catch (error) {
-                    console.error(`YM GT ${ymGtId} might be deleted, skipping:`, error);
                   }
-                }
-                
-                // Add YM ST data and recipes
-                for (const relation of relations) {
-                  try {
-                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
-                    if (ymStResponse && ymStResponse.ok) {
-                      const ymStData = await ymStResponse.json();
-                      const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
-                      if (ymSt) {
-                        ymStMap.set(ymSt.stok_kodu, ymSt);
-                        
-                        // Add YM ST recipes
-                        const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
-                        if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                          const ymStRecipes = await ymStRecipeResponse.json();
-                          // Add recipes to map (avoid duplicates)
-                          ymStRecipes.forEach(r => {
-                            const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                            ymStRecipeMap.set(key, {
-                              ...r,
-                              ym_st_stok_kodu: ymSt.stok_kodu
-                            });
-                          });
+                  
+                  // Only add YM STs that were specifically selected for this request
+                  // Filter by checking if they were part of the approved calculation for this MM GT
+                  for (const relation of relations) {
+                    try {
+                      const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
+                      if (ymStResponse && ymStResponse.ok) {
+                        const ymStData = await ymStResponse.json();
+                        const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
+                        if (ymSt) {
+                          // Only include YM STs that were marked as main or specifically selected
+                          if (relation.is_main === true || relation.is_main === 1) {
+                            ymStMap.set(ymSt.stok_kodu, ymSt);
+                            console.log(`Added main YM ST: ${ymSt.stok_kodu} (is_main: ${relation.is_main})`);
+                            
+                            // Add YM ST recipes
+                            const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
+                            if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                              const ymStRecipes = await ymStRecipeResponse.json();
+                              ymStRecipes.forEach(r => {
+                                const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                                ymStRecipeMap.set(key, {
+                                  ...r,
+                                  ym_st_stok_kodu: ymSt.stok_kodu
+                                });
+                              });
+                            }
+                          } else {
+                            console.log(`Skipping non-main YM ST: ${ymSt.stok_kodu} (is_main: ${relation.is_main})`);
+                          }
                         }
                       }
+                    } catch (error) {
+                      console.error(`YM ST ${relation.ym_st_id} might be deleted, skipping:`, error);
                     }
-                  } catch (error) {
-                    console.error(`YM ST ${relation.ym_st_id} might be deleted, skipping:`, error);
                   }
                 }
               }
-            }
-            
-            // Add MM GT recipes
-            const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
-            if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
-              const mmGtRecipes = await mmGtRecipeResponse.json();
-              // Add recipes to map (avoid duplicates)
-              mmGtRecipes.forEach(r => {
-                const key = `${mmGt.stok_kodu}-${r.bilesen_kodu}`;
-                mmGtRecipeMap.set(key, {
-                  ...r,
-                  mm_gt_stok_kodu: mmGt.stok_kodu,
-                  sequence: mmGt.stok_kodu?.split('.').pop() || '00'
+              
+              // Add MM GT recipes for this specific MM GT
+              const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+              if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
+                const mmGtRecipes = await mmGtRecipeResponse.json();
+                mmGtRecipes.forEach(r => {
+                  const key = `${mmGt.stok_kodu}-${r.bilesen_kodu}`;
+                  mmGtRecipeMap.set(key, {
+                    ...r,
+                    mm_gt_stok_kodu: mmGt.stok_kodu,
+                    sequence: mmGt.stok_kodu?.split('.').pop() || '00'
+                  });
                 });
-              });
+              }
             }
           }
         }
@@ -9307,6 +9338,12 @@ const GalvanizliTelNetsis = () => {
                           Tarih
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Talep Eden
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          İşleyen
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           İşlem
                         </th>
                       </tr>
@@ -9355,6 +9392,12 @@ const GalvanizliTelNetsis = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(request.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.created_by || 'Bilinmiyor'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {request.processed_by || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
@@ -10052,14 +10095,23 @@ const GalvanizliTelNetsis = () => {
               </div>
               
               <p className="text-gray-600 mb-4">
-                Girdiğiniz değerlerle eşleşen ürün bulundu. Mevcut ürüne gitmek ister misiniz?
+                Girdiğiniz değerlerle eşleşen ürün bulundu. Lütfen kullanmak istediğiniz ürünü seçin:
               </p>
               
               <div className="max-h-60 overflow-y-auto mb-6">
                 {duplicateProducts.map((product, index) => (
-                  <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-3">
+                  <div 
+                    key={index} 
+                    className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-3 cursor-pointer hover:bg-orange-100 transition-colors"
+                    onClick={() => {
+                      // User clicked on a specific product
+                      setShowDuplicateConfirmModal(false);
+                      handleSelectExistingMmGt(product);
+                      setShowExistingMmGtModal(false);
+                    }}
+                  >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <span className="inline-block bg-orange-100 text-orange-800 text-xs font-medium px-2 py-1 rounded-full">
                           {product.type}
                         </span>
@@ -10070,6 +10122,9 @@ const GalvanizliTelNetsis = () => {
                           Stok Adı: {product.stok_adi}
                         </p>
                       </div>
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
                   </div>
                 ))}
@@ -10086,18 +10141,6 @@ const GalvanizliTelNetsis = () => {
                   className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   İptal
-                </button>
-                <button
-                  onClick={() => {
-                    // User wants to load the existing product
-                    setShowDuplicateConfirmModal(false);
-                    const existingProduct = duplicateProducts[0];
-                    handleSelectExistingMmGt(existingProduct);
-                    setShowExistingMmGtModal(false);
-                  }}
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  Mevcut Ürüne Git
                 </button>
                 {duplicateProducts.some(p => p.type === 'YM ST') && (
                   <button
@@ -10187,7 +10230,7 @@ const GalvanizliTelNetsis = () => {
                   }}
                   className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
                 >
-                  Evet, Güncelle
+                  Yeni Ürün Oluştur
                 </button>
               </div>
             </div>
