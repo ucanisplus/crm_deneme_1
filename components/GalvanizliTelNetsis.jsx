@@ -2483,7 +2483,7 @@ const GalvanizliTelNetsis = () => {
     return errors;
   };
   
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate all fields before proceeding
     const validationErrors = validateMmGtData();
     
@@ -2498,6 +2498,41 @@ const GalvanizliTelNetsis = () => {
     
     // Clear any existing errors
     setError(null);
+    
+    // Check for duplicate product
+    try {
+      setIsLoading(true);
+      
+      // Search for existing MM GT with same key fields
+      const searchParams = new URLSearchParams({
+        cap: mmGtData.cap,
+        kod_2: mmGtData.kod_2,
+        kaplama: mmGtData.kaplama,
+        min_mukavemet: mmGtData.min_mukavemet,
+        max_mukavemet: mmGtData.max_mukavemet,
+        kg: mmGtData.kg
+      });
+      
+      const existingResponse = await fetchWithAuth(`${API_URLS.galMmGt}?${searchParams.toString()}`);
+      
+      if (existingResponse && existingResponse.ok) {
+        const existingProducts = await existingResponse.json();
+        
+        if (existingProducts.length > 0 && !isViewingExistingProduct) {
+          // Found duplicate - show warning
+          const existingProduct = existingProducts[0];
+          setDuplicateProducts(existingProducts);
+          setShowDuplicateConfirmModal(true);
+          setIsLoading(false);
+          return; // Don't proceed, wait for user decision
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      // Continue anyway if duplicate check fails
+    } finally {
+      setIsLoading(false);
+    }
     
     // Continue to next step
     setCurrentStep('summary');
@@ -5940,33 +5975,53 @@ const GalvanizliTelNetsis = () => {
                 
                 // Add YM GT data
                 if (ymGtId) {
-                  const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
-                  if (ymGtResponse && ymGtResponse.ok) {
-                    const ymGt = await ymGtResponse.json();
-                    allYmGtData.push(ymGt);
-                    
-                    // Add YM GT recipes
-                    const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
-                    if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-                      const ymGtRecipes = await ymGtRecipeResponse.json();
-                      allYmGtRecipes.push(...ymGtRecipes);
+                  try {
+                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+                    if (ymGtResponse && ymGtResponse.ok) {
+                      const ymGt = await ymGtResponse.json();
+                      allYmGtData.push(ymGt);
+                      
+                      // Add YM GT recipes
+                      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                      if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                        const ymGtRecipes = await ymGtRecipeResponse.json();
+                        // Add mm_gt_stok_kodu and sequence to each recipe for batch processing
+                        const enrichedRecipes = ymGtRecipes.map(r => ({
+                          ...r,
+                          mm_gt_stok_kodu: mmGt.stok_kodu,
+                          sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                          ym_gt_stok_kodu: ymGt.stok_kodu
+                        }));
+                        allYmGtRecipes.push(...enrichedRecipes);
+                      }
                     }
+                  } catch (error) {
+                    console.error(`YM GT ${ymGtId} might be deleted, skipping:`, error);
                   }
                 }
                 
                 // Add YM ST data and recipes
                 for (const relation of relations) {
-                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
-                  if (ymStResponse && ymStResponse.ok) {
-                    const ymSt = await ymStResponse.json();
-                    allYmStData.push(ymSt);
-                    
-                    // Add YM ST recipes
-                    const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
-                    if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                      const ymStRecipes = await ymStRecipeResponse.json();
-                      allYmStRecipes.push(...ymStRecipes);
+                  try {
+                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+                    if (ymStResponse && ymStResponse.ok) {
+                      const ymSt = await ymStResponse.json();
+                      allYmStData.push(ymSt);
+                      
+                      // Add YM ST recipes
+                      const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
+                      if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                        const ymStRecipes = await ymStRecipeResponse.json();
+                        // Add ym_st_stok_kodu to each recipe for batch processing
+                        const enrichedRecipes = ymStRecipes.map(r => ({
+                          ...r,
+                          ym_st_stok_kodu: ymSt.stok_kodu
+                        }));
+                        allYmStRecipes.push(...enrichedRecipes);
+                      }
                     }
+                  } catch (error) {
+                    console.error(`YM ST ${relation.ym_st_id} might be deleted, skipping:`, error);
                   }
                 }
               }
@@ -5976,7 +6031,13 @@ const GalvanizliTelNetsis = () => {
             const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
               const mmGtRecipes = await mmGtRecipeResponse.json();
-              allMmGtRecipes.push(...mmGtRecipes);
+              // Add mm_gt_stok_kodu and sequence to each recipe for batch processing
+              const enrichedRecipes = mmGtRecipes.map(r => ({
+                ...r,
+                mm_gt_stok_kodu: mmGt.stok_kodu,
+                sequence: mmGt.stok_kodu?.split('.').pop() || '00'
+              }));
+              allMmGtRecipes.push(...enrichedRecipes);
             }
           }
         }
@@ -6009,8 +6070,8 @@ const GalvanizliTelNetsis = () => {
     
     // Add multiple MM GT rows (one per product)
     for (const mmGt of mmGtData) {
-      const sequence = mmGt.stok_kodu?.split('.').pop() || '00';
-      mmGtSheet.addRow(generateMmGtStokKartiData(sequence));
+      // Create a batch-specific row with actual MM GT data
+      mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(mmGt));
     }
     
     // YM GT Sheet - EXACT same structure as individual
@@ -6020,8 +6081,8 @@ const GalvanizliTelNetsis = () => {
     
     // Add multiple YM GT rows (one per product)
     for (const ymGt of ymGtData) {
-      const sequence = ymGt.stok_kodu?.split('.').pop() || '00';
-      ymGtSheet.addRow(generateYmGtStokKartiData(sequence));
+      // Create a batch-specific row with actual YM GT data
+      ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     }
     
     // YM ST Sheet - EXACT same structure as individual
@@ -6604,6 +6665,115 @@ const GalvanizliTelNetsis = () => {
   ];
 
   // Excel veri oluşturma fonksiyonları - doğru formatlar ve COMMA usage
+  // Batch version that takes MM GT data as parameter
+  const generateMmGtStokKartiDataForBatch = (mmGt) => {
+    const cap = parseFloat(mmGt.cap);
+    const toleransPlus = parseFloat(mmGt.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(mmGt.tolerans_minus) || 0;
+    
+    // Generate stok_adi for this specific MM GT
+    const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
+      ? `/${mmGt.cast_kont}` 
+      : '';
+    const stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    
+    // Generate English name
+    const englishName = `Galvanized Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    
+    return [
+      mmGt.stok_kodu, // Stok Kodu - use actual stok_kodu from database
+      stokAdi, // Stok Adı
+      'MM', // Grup Kodu
+      'GT', // Kod-1
+      mmGt.kod_2, // Kod-2
+      '', // Cari/Satıcı Kodu
+      englishName, // İngilizce İsim
+      '', // Satıcı İsmi
+      '26', // Muh. Detay
+      '36', // Depo Kodu
+      'KG', // Br-1
+      'TN', // Br-2
+      '1', // Pay-1
+      '1000', // Payda-1 (Excel formatı - keep as 1000)
+      '0.001', // Çevrim Değeri-1
+      '', // Ölçü Br-3
+      '1', // Çevrim Pay-2
+      '1', // Çevrim Payda-2
+      '1', // Çevrim Değeri-2
+      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
+      mmGt.kaplama, // Kaplama
+      mmGt.min_mukavemet, // Min Mukavemet
+      mmGt.max_mukavemet, // Max Mukavemet
+      mmGt.kg, // KG
+      mmGt.ic_cap, // İç Çap
+      mmGt.dis_cap, // Dış Çap
+      '', // Çap2
+      mmGt.shrink, // Shrink
+      mmGt.tolerans_plus, // Tolerans(+) (NOKTA format)
+      mmGt.tolerans_minus, // Tolerans(-) (NOKTA format)
+      '', // Ebat(En)
+      '', // Göz Aralığı
+      '', // Ebat(Boy)
+      '', // Hasır Tipi
+      '', // Özel Saha 8 (Alf.)
+      '0', // Alış Fiyatı
+      '1', // Fiyat Birimi
+      '0', // Satış Fiyatı-1
+      '0', // Satış Fiyatı-2
+      '0', // Satış Fiyatı-3
+      '0', // Satış Fiyatı-4
+      '1', // Satış Tipi
+      '0', // Döviz Alış
+      '0', // Döviz Maliyeti
+      '0', // Döviz Satış Fiyatı
+      '0', // Azami Stok
+      '0', // Asgari Stok
+      '', // Döv.Tutar
+      '0', // Döv.Tipi
+      '0', // Bekleme Süresi
+      '0', // Temin Süresi
+      '0', // Birim Ağırlık
+      '0', // Nakliye Tutar
+      '20', // Satış KDV Oranı
+      '20', // Alış KDV Oranı
+      'D', // Stok Türü
+      '', // Mali Grup Kodu
+      '', // Barkod 1
+      '', // Barkod 2
+      '', // Barkod 3
+      '', // Kod-3
+      '', // Kod-4
+      '', // Kod-5
+      'H', // Esnek Yapılandır
+      'H', // Süper Reçete Kullanılsın
+      '', // Bağlı Stok Kodu
+      '', // Yapılandırma Kodu
+      '', // Yap. Açıklama
+      '2', // Alış Döviz Tipi
+      getGumrukTarifeKodu(), // Gümrük Tarife Kodu
+      '', // Dağıtıcı Kodu
+      '052', // Menşei
+      'Galvanizli Tel', // METARIAL
+      cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
+      toleransPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA
+      toleransMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA
+      mmGt.kaplama, // ZING COATING (GR/M2)
+      mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
+      mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
+      '+', // WAX
+      '+', // LIFTING LUGS
+      mmGt.unwinding === 'Clockwise' ? 'Clockwise' : '', // UNWINDING
+      mmGt.cast_kont || '', // CAST KONT. (CM)
+      mmGt.helix_kont || '', // HELIX KONT. (CM)
+      mmGt.elongation || '', // ELONGATION (%) MIN
+      mmGt.ic_cap, // COIL DIMENSIONS (CM) ID
+      mmGt.dis_cap, // COIL DIMENSIONS (CM) OD
+      mmGt.kg, // COIL WEIGHT (KG)
+      '', // COIL WEIGHT (KG) MIN
+      '' // COIL WEIGHT (KG) MAX
+    ];
+  };
+
   const generateMmGtStokKartiData = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
@@ -6701,6 +6871,111 @@ const GalvanizliTelNetsis = () => {
       mmGtData.ic_cap, // COIL DIMENSIONS (CM) ID
       mmGtData.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGtData.kg, // COIL WEIGHT (KG)
+      '', // COIL WEIGHT (KG) MIN
+      '' // COIL WEIGHT (KG) MAX
+    ];
+  };
+
+  // Batch version that takes YM GT data as parameter
+  const generateYmGtStokKartiDataForBatch = (ymGt) => {
+    // Extract cap and kod_2 from stok_kodu to recreate display values
+    const stokParts = ymGt.stok_kodu.split('.');
+    const kod2 = stokParts[2]; // GT kod_2
+    const capCode = stokParts[3]; // cap code like 0250
+    const cap = parseInt(capCode) / 100; // Convert back to decimal (0250 -> 2.50)
+    
+    // Generate stok_adi
+    const stokAdi = `(${cap.toFixed(2).replace('.', ',')} mm Galvanizli Tel)`;
+    
+    return [
+      ymGt.stok_kodu, // Stok Kodu - use actual from database
+      stokAdi, // Stok Adı
+      'YM', // Grup Kodu
+      'GT', // Kod-1
+      kod2, // Kod-2
+      `(${cap.toFixed(2)} mm Galvanizli Tel)`, // Cari/Satıcı Kodu
+      `(${cap.toFixed(2)} mm Galvanized Wire)`, // İngilizce İsim
+      '', // Satıcı İsmi
+      '83', // Muh. Detay
+      '35', // Depo Kodu
+      'KG', // Br-1
+      'TN', // Br-2
+      '1', // Pay-1
+      '1000', // Payda-1
+      '0.001', // Çevrim Değeri-1
+      '', // Ölçü Br-3
+      '1', // Çevrim Pay-2
+      '1', // Çevrim Payda-2
+      '1', // Çevrim Değeri-2
+      cap.toFixed(2).replace('.', ','), // Çap
+      '', // Kaplama - YM GT doesn't have these values
+      '', // Min Mukavemet
+      '', // Max Mukavemet
+      '', // KG
+      '', // İç Çap
+      '', // Dış Çap
+      '', // Çap2
+      '', // Shrink
+      '', // Tolerans(+)
+      '', // Tolerans(-)
+      '', // Ebat(En)
+      '', // Göz Aralığı
+      '', // Ebat(Boy)
+      '', // Hasır Tipi
+      '', // Özel Saha 8 (Alf.)
+      '0', // Alış Fiyatı
+      '1', // Fiyat Birimi
+      '0', // Satış Fiyatı-1
+      '0', // Satış Fiyatı-2
+      '0', // Satış Fiyatı-3
+      '0', // Satış Fiyatı-4
+      '1', // Satış Tipi
+      '0', // Döviz Alış
+      '0', // Döviz Maliyeti
+      '0', // Döviz Satış Fiyatı
+      '0', // Azami Stok
+      '0', // Asgari Stok
+      '', // Döv.Tutar
+      '0', // Döv.Tipi
+      '0', // Bekleme Süresi
+      '0', // Temin Süresi
+      '0', // Birim Ağırlık
+      '0', // Nakliye Tutar
+      '20', // Satış KDV Oranı
+      '20', // Alış KDV Oranı
+      'M', // Stok Türü
+      '', // Mali Grup Kodu
+      '', // Barkod 1
+      '', // Barkod 2
+      '', // Barkod 3
+      '', // Kod-3
+      '', // Kod-4
+      '', // Kod-5
+      'H', // Esnek Yapılandır
+      'H', // Süper Reçete Kullanılsın
+      '', // Bağlı Stok Kodu
+      '', // Yapılandırma Kodu
+      '', // Yap. Açıklama
+      '2', // Alış Döviz Tipi
+      getGumrukTarifeKodu(), // Gümrük Tarife Kodu
+      '', // Dağıtıcı Kodu
+      '052', // Menşei
+      'Galvanizli Tel', // METARIAL
+      cap.toFixed(2).replace('.', ','), // DIA (MM)
+      '', // DIA TOL (MM) +
+      '', // DIA TOL (MM) -
+      '', // ZING COATING (GR/M2)
+      '', // TENSILE ST. (MPA) MIN
+      '', // TENSILE ST. (MPA) MAX
+      '', // WAX
+      '', // LIFTING LUGS
+      '', // UNWINDING
+      '', // CAST KONT. (CM)
+      '', // HELIX KONT. (CM)
+      '', // ELONGATION (%) MIN
+      '', // COIL DIMENSIONS (CM) ID
+      '', // COIL DIMENSIONS (CM) OD
+      '', // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
       '' // COIL WEIGHT (KG) MAX
     ];
@@ -9733,6 +10008,32 @@ const GalvanizliTelNetsis = () => {
                   className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                 >
                   İptal
+                </button>
+                <button
+                  onClick={() => {
+                    // User wants to load the existing product
+                    setShowDuplicateConfirmModal(false);
+                    const existingProduct = duplicateProducts[0];
+                    handleSelectExistingMmGt(existingProduct);
+                    setShowExistingMmGtModal(false);
+                  }}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  Mevcut Ürüne Git
+                </button>
+                <button
+                  onClick={() => {
+                    // User wants to continue with new product anyway
+                    setShowDuplicateConfirmModal(false);
+                    setDuplicateProducts([]);
+                    setCurrentStep('summary');
+                    generateYmGtData();
+                    findSuitableYmSts();
+                    calculateAutoRecipeValues();
+                  }}
+                  className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                >
+                  Yeni Ürün Oluştur
                 </button>
                 {duplicateProducts.some(p => p.type === 'YM ST') && (
                   <button
