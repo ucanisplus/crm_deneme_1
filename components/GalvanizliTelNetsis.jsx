@@ -13,6 +13,9 @@ const GalvanizliTelNetsis = () => {
   // Ref to prevent multiple executions of approval process
   const isProcessingApproval = useRef(false);
   
+  // State to track if we're in the middle of an approval process to prevent double modals
+  const [isInApprovalProcess, setIsInApprovalProcess] = useState(false);
+  
   // Ana state değişkenleri
   const [currentStep, setCurrentStep] = useState('input'); // input, summary, processing
   const [isLoading, setIsLoading] = useState(false);
@@ -2435,7 +2438,7 @@ const GalvanizliTelNetsis = () => {
     return errors;
   };
   
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate all fields before proceeding
     const validationErrors = validateMmGtData();
     
@@ -2451,10 +2454,111 @@ const GalvanizliTelNetsis = () => {
     // Clear any existing errors
     setError(null);
     
+    try {
+      setIsLoading(true);
+      
+      // Check if MM GT product already exists in database
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      
+      // Search for existing MM GT with same key fields (cap, kod_2, kaplama, mukavemet, kg)
+      const searchParams = new URLSearchParams({
+        cap: mmGtData.cap,
+        kod_2: mmGtData.kod_2,
+        kaplama: mmGtData.kaplama,
+        min_mukavemet: mmGtData.min_mukavemet,
+        max_mukavemet: mmGtData.max_mukavemet,
+        kg: mmGtData.kg
+      });
+      
+      console.log(`🔍 Checking for existing MM GT with params:`, searchParams.toString());
+      
+      const existingResponse = await fetchWithAuth(`${API_URLS.galMmGt}?${searchParams.toString()}`);
+      
+      if (existingResponse && existingResponse.ok) {
+        const existingProducts = await existingResponse.json();
+        
+        if (existingProducts.length > 0) {
+          // Found existing product(s) - use the first one
+          const existingMmGt = existingProducts[0];
+          const existingSequence = existingMmGt.stok_kodu ? existingMmGt.stok_kodu.split('.').pop() : '00';
+          
+          console.log(`✅ Found existing MM GT: ${existingMmGt.stok_kodu} (ID: ${existingMmGt.id})`);
+          
+          // Set the process sequence from existing product
+          setProcessSequence(existingSequence);
+          setIsViewingExistingProduct(true);
+          
+          // Load associated YM STs from the enhanced relationship table
+          const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${existingMmGt.id}`);
+          
+          if (relationResponse && relationResponse.ok) {
+            const relations = await relationResponse.json();
+            console.log(`✅ Found ${relations.length} YM ST relationships`);
+            
+            if (relations.length > 0) {
+              // Sort relations by sequence_index
+              const sortedRelations = relations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
+              
+              // Load YM STs
+              const loadedYmSts = [];
+              let mainIndex = 0;
+              
+              for (let i = 0; i < sortedRelations.length; i++) {
+                const relation = sortedRelations[i];
+                try {
+                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+                  if (ymStResponse && ymStResponse.ok) {
+                    const ymSt = await ymStResponse.json();
+                    loadedYmSts.push({ ...ymSt, source: 'database' });
+                    
+                    if (relation.is_main) {
+                      mainIndex = i;
+                    }
+                    
+                    console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu}`);
+                  }
+                } catch (error) {
+                  console.error(`Error loading YM ST ${relation.ym_st_id}:`, error);
+                }
+              }
+              
+              // Set loaded YM STs
+              if (loadedYmSts.length > 0) {
+                setSelectedYmSts(loadedYmSts);
+                setMainYmStIndex(mainIndex);
+                console.log(`🎯 Loaded ${loadedYmSts.length} existing YM STs, main index: ${mainIndex}`);
+                
+                toast.success(`Mevcut ürün bulundu! ${loadedYmSts.length} YM ST yüklendi.`);
+              }
+            } else {
+              console.log('ℹ️ Existing MM GT found but no YM ST relationships');
+              toast.info('Mevcut ürün bulundu ancak ilişkili YM ST bulunamadı');
+            }
+          }
+        } else {
+          console.log('ℹ️ No existing MM GT found - new product');
+          setProcessSequence('00');
+          setIsViewingExistingProduct(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for existing MM GT:', error);
+      toast.warning('Mevcut ürün kontrolünde hata oluştu, yeni ürün olarak devam ediliyor');
+      setProcessSequence('00');
+      setIsViewingExistingProduct(false);
+    } finally {
+      setIsLoading(false);
+    }
+    
     // Continue to next step
     setCurrentStep('summary');
     generateYmGtData();
-    findSuitableYmSts();
+    
+    // Only find suitable YM STs if no existing ones were loaded
+    if (selectedYmSts.length === 0) {
+      findSuitableYmSts();
+    }
+    
     calculateAutoRecipeValues();
   };
 
@@ -3766,6 +3870,7 @@ const GalvanizliTelNetsis = () => {
       
       // Reset editing state since it's now approved
       setIsEditingRequest(false);
+      setIsInApprovalProcess(false); // Reset approval process flag to prevent double modals
       
       // Continue with database save, passing the database IDs
       console.log('Veritabanına kayıt işlemi başlatılıyor...');
@@ -5944,137 +6049,93 @@ const GalvanizliTelNetsis = () => {
       throw new Error('Seçilen taleplerde hiçbir ürün bulunamadı');
     }
 
-    // Create combined stock Excel
+    // Create two separate Excel files with EXACT same format as individual exports
     await generateBatchStokKartiExcel(allMmGtData, allYmGtData, allYmStData);
-    
-    // Create combined recipe Excel
     await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes);
   };
 
-  // Generate combined stock card Excel file from multiple products
+  // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
   const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData) => {
     const workbook = new ExcelJS.Workbook();
     
-    // Create MM GT sheet
-    if (mmGtData.length > 0) {
-      const mmGtSheet = workbook.addWorksheet('MM GT Stok Kartları');
-      await addStokKartiData(mmGtSheet, mmGtData, 'MM GT');
+    // MM GT Sheet - EXACT same structure as individual
+    const mmGtSheet = workbook.addWorksheet('MM GT');
+    const mmGtHeaders = getStokKartiHeaders();
+    mmGtSheet.addRow(mmGtHeaders);
+    
+    // Add multiple MM GT rows (one per product)
+    for (const mmGt of mmGtData) {
+      const sequence = mmGt.stok_kodu?.split('.').pop() || '00';
+      mmGtSheet.addRow(generateMmGtStokKartiData(sequence));
     }
     
-    // Create YM GT sheet
-    if (ymGtData.length > 0) {
-      const ymGtSheet = workbook.addWorksheet('YM GT Stok Kartları');
-      await addStokKartiData(ymGtSheet, ymGtData, 'YM GT');
+    // YM GT Sheet - EXACT same structure as individual
+    const ymGtSheet = workbook.addWorksheet('YM GT');
+    const ymGtHeaders = getYmGtHeaders();
+    ymGtSheet.addRow(ymGtHeaders);
+    
+    // Add multiple YM GT rows (one per product)
+    for (const ymGt of ymGtData) {
+      const sequence = ymGt.stok_kodu?.split('.').pop() || '00';
+      ymGtSheet.addRow(generateYmGtStokKartiData(sequence));
     }
     
-    // Create YM ST sheet
-    if (ymStData.length > 0) {
-      const ymStSheet = workbook.addWorksheet('YM ST Stok Kartları');
-      await addStokKartiData(ymStSheet, ymStData, 'YM ST');
+    // YM ST Sheet - EXACT same structure as individual
+    const ymStSheet = workbook.addWorksheet('YM ST');
+    const ymStHeaders = getYmStHeaders();
+    ymStSheet.addRow(ymStHeaders);
+    
+    // Add multiple YM ST rows (all YM STs from all products)
+    for (const ymSt of ymStData) {
+      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     }
     
-    // Save the file
+    // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const fileName = `Toplu_Stok_Kartlari_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    saveAs(blob, fileName);
+    saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
     
     console.log(`Generated batch stock card Excel: ${fileName}`);
   };
 
-  // Generate combined recipe Excel file from multiple recipes
+  // Generate batch recipe Excel - EXACT same format as individual, just multiple rows  
   const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes) => {
     const workbook = new ExcelJS.Workbook();
     
-    // Create MM GT recipe sheet
-    if (mmGtRecipes.length > 0) {
-      const mmGtSheet = workbook.addWorksheet('MM GT Reçeteleri');
-      await addReceteData(mmGtSheet, mmGtRecipes, 'MM GT');
-    }
+    // MM GT REÇETE Sheet - EXACT same structure as individual
+    const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
+    const receteHeaders = getReceteHeaders();
+    mmGtReceteSheet.addRow(receteHeaders);
     
-    // Create YM GT recipe sheet
-    if (ymGtRecipes.length > 0) {
-      const ymGtSheet = workbook.addWorksheet('YM GT Reçeteleri');
-      await addReceteData(ymGtSheet, ymGtRecipes, 'YM GT');
-    }
+    // Add multiple MM GT recipe rows (all recipes from all products)
+    mmGtRecipes.forEach(recipe => {
+      mmGtReceteSheet.addRow(generateMmGtReceteRow(recipe, recipe.mamul_kodu));
+    });
     
-    // Create YM ST recipe sheet
-    if (ymStRecipes.length > 0) {
-      const ymStSheet = workbook.addWorksheet('YM ST Reçeteleri');
-      await addReceteData(ymStSheet, ymStRecipes, 'YM ST');
-    }
+    // YM GT REÇETE Sheet - EXACT same structure as individual
+    const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
+    ymGtReceteSheet.addRow(receteHeaders);
     
-    // Save the file
+    // Add multiple YM GT recipe rows (all recipes from all products)
+    ymGtRecipes.forEach(recipe => {
+      ymGtReceteSheet.addRow(generateYmGtReceteRow(recipe, recipe.mamul_kodu));
+    });
+    
+    // YM ST REÇETE Sheet - EXACT same structure as individual
+    const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
+    ymStReceteSheet.addRow(receteHeaders);
+    
+    // Add multiple YM ST recipe rows (all recipes from all products)
+    ymStRecipes.forEach(recipe => {
+      ymStReceteSheet.addRow(generateYmStReceteRow(recipe, recipe.mamul_kodu));
+    });
+    
+    // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const fileName = `Toplu_Receteler_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    saveAs(blob, fileName);
+    saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
     
     console.log(`Generated batch recipe Excel: ${fileName}`);
-  };
-
-  // Helper function to add stock card data to worksheet
-  const addStokKartiData = async (worksheet, dataArray, type) => {
-    if (dataArray.length === 0) return;
-    
-    // Define columns based on first item
-    const firstItem = dataArray[0];
-    const columns = Object.keys(firstItem).map(key => ({
-      header: key.toUpperCase(),
-      key: key,
-      width: 15
-    }));
-    
-    worksheet.columns = columns;
-    
-    // Add header row formatting
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } };
-    
-    // Add data rows
-    dataArray.forEach(item => {
-      worksheet.addRow(item);
-    });
-    
-    // Auto-fit columns
-    worksheet.columns.forEach(column => {
-      column.width = Math.max(column.width, 10);
-    });
-  };
-
-  // Helper function to add recipe data to worksheet
-  const addReceteData = async (worksheet, recipeArray, type) => {
-    if (recipeArray.length === 0) return;
-    
-    // Define recipe columns
-    const columns = [
-      { header: 'MAMUL_KODU', key: 'mamul_kodu', width: 25 },
-      { header: 'BILESEN_KODU', key: 'bilesen_kodu', width: 25 },
-      { header: 'MIKTAR', key: 'miktar', width: 15 },
-      { header: 'SIRA_NO', key: 'sira_no', width: 10 },
-      { header: 'OPERASYON_BILESEN', key: 'operasyon_bilesen', width: 20 },
-      { header: 'OLCU_BR', key: 'olcu_br', width: 10 },
-      { header: 'ACIKLAMA', key: 'aciklama', width: 30 }
-    ];
-    
-    worksheet.columns = columns;
-    
-    // Add header row formatting
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE6E6' } };
-    
-    // Add data rows
-    recipeArray.forEach(recipe => {
-      worksheet.addRow({
-        mamul_kodu: recipe.mamul_kodu,
-        bilesen_kodu: recipe.bilesen_kodu,
-        miktar: recipe.miktar,
-        sira_no: recipe.sira_no,
-        operasyon_bilesen: recipe.operasyon_bilesen,
-        olcu_br: recipe.olcu_br,
-        aciklama: recipe.aciklama || ''
-      });
-    });
   };
 
   // Excel dosyalarını oluştur
@@ -6183,8 +6244,9 @@ const GalvanizliTelNetsis = () => {
     // Use the passed sequence parameter which should be the correct one
     const sequence = sequenceParam || processSequence || '00';
     console.log(`EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
-    // Check if we're editing a request and need approval
-    if (isEditingRequest && selectedRequest) {
+    // Check if we're editing a request and need approval (but not already in approval process)
+    if (isEditingRequest && selectedRequest && !isInApprovalProcess) {
+      setIsInApprovalProcess(true);
       setShowApproveConfirmModal(true);
       return; // Wait for approval
     }
@@ -6259,8 +6321,9 @@ const GalvanizliTelNetsis = () => {
     const sequence = sequenceParam || processSequence || '00';
     console.log(`RECETE EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
     
-    // Check if we're editing a request and need approval
-    if (isEditingRequest && selectedRequest) {
+    // Check if we're editing a request and need approval (but not already in approval process)
+    if (isEditingRequest && selectedRequest && !isInApprovalProcess) {
+      setIsInApprovalProcess(true);
       setShowApproveConfirmModal(true);
       return; // Wait for approval
     }
@@ -8309,8 +8372,8 @@ const GalvanizliTelNetsis = () => {
                 )}
               </button>
               
-              {/* Sadece Kaydet button - only show if not viewing existing product and not already saved */}
-              {!isViewingExistingProduct && !savedToDatabase && (
+              {/* Sadece Kaydet button - show for new products or when editing requests */}
+              {((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && (
                 <button
                   onClick={async () => {
                     try {
@@ -9159,7 +9222,10 @@ const GalvanizliTelNetsis = () => {
                   Talebi Onaylama
                 </h2>
                 <button
-                  onClick={() => setShowApproveConfirmModal(false)}
+                  onClick={() => {
+                    setShowApproveConfirmModal(false);
+                    setIsInApprovalProcess(false); // Reset approval flag when cancelled
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -9178,7 +9244,10 @@ const GalvanizliTelNetsis = () => {
               
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setShowApproveConfirmModal(false)}
+                  onClick={() => {
+                    setShowApproveConfirmModal(false);
+                    setIsInApprovalProcess(false); // Reset approval flag when cancelled
+                  }}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   İptal
