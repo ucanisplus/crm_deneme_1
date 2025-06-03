@@ -601,16 +601,19 @@ const GalvanizliTelNetsis = () => {
                 
                 // First load the YM ST product itself
                 try {
-                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymStId}`);
+                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
                   if (ymStResponse && ymStResponse.ok) {
-                    const ymSt = await ymStResponse.json();
-                    loadedYmSts.push({ ...ymSt, source: 'database' });
-                    
-                    if (relation.is_main) {
-                      mainIndex = i;
+                    const ymStData = await ymStResponse.json();
+                    const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
+                    if (ymSt) {
+                      loadedYmSts.push({ ...ymSt, source: 'database' });
+                      
+                      if (relation.is_main) {
+                        mainIndex = i;
+                      }
+                      
+                      console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu}`);
                     }
-                    
-                    console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu}`);
                   }
                 } catch (error) {
                   console.error(`Error loading YM ST ${ymStId}:`, error);
@@ -1263,18 +1266,21 @@ const GalvanizliTelNetsis = () => {
           for (let i = 0; i < sortedRelations.length; i++) {
             const relation = sortedRelations[i];
             try {
-              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
               if (ymStResponse && ymStResponse.ok) {
-                const ymSt = await ymStResponse.json();
-                loadedYmSts.push({ ...ymSt, source: 'database' });
-                
-                // 🆕 NEW: Track which YM ST is the main one
-                if (relation.is_main) {
-                  mainYmStIndex = i;
-                  console.log(`🎯 Main YM ST found at index ${i}: ${ymSt.stok_kodu}`);
+                const ymStData = await ymStResponse.json();
+                const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
+                if (ymSt) {
+                  loadedYmSts.push({ ...ymSt, source: 'database' });
+                  
+                  // 🆕 NEW: Track which YM ST is the main one
+                  if (relation.is_main) {
+                    mainYmStIndex = i;
+                    console.log(`🎯 Main YM ST found at index ${i}: ${ymSt.stok_kodu}`);
+                  }
+                  
+                  console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu} (ID: ${ymSt.id}, Main: ${relation.is_main})`);
                 }
-                
-                console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu} (ID: ${ymSt.id}, Main: ${relation.is_main})`);
               } else {
                 console.warn(`⚠️ Failed to load YM ST with ID: ${relation.ym_st_id}`);
               }
@@ -5976,23 +5982,26 @@ const GalvanizliTelNetsis = () => {
                 // Add YM GT data
                 if (ymGtId) {
                   try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
                     if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGt = await ymGtResponse.json();
-                      allYmGtData.push(ymGt);
-                      
-                      // Add YM GT recipes
-                      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
-                      if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-                        const ymGtRecipes = await ymGtRecipeResponse.json();
-                        // Add mm_gt_stok_kodu and sequence to each recipe for batch processing
-                        const enrichedRecipes = ymGtRecipes.map(r => ({
-                          ...r,
-                          mm_gt_stok_kodu: mmGt.stok_kodu,
-                          sequence: mmGt.stok_kodu?.split('.').pop() || '00',
-                          ym_gt_stok_kodu: ymGt.stok_kodu
-                        }));
-                        allYmGtRecipes.push(...enrichedRecipes);
+                      const ymGtData = await ymGtResponse.json();
+                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
+                      if (ymGt) {
+                        allYmGtData.push(ymGt);
+                        
+                        // Add YM GT recipes
+                        const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                        if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                          const ymGtRecipes = await ymGtRecipeResponse.json();
+                          // Add mm_gt_stok_kodu and sequence to each recipe for batch processing
+                          const enrichedRecipes = ymGtRecipes.map(r => ({
+                            ...r,
+                            mm_gt_stok_kodu: mmGt.stok_kodu,
+                            sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                            ym_gt_stok_kodu: ymGt.stok_kodu
+                          }));
+                          allYmGtRecipes.push(...enrichedRecipes);
+                        }
                       }
                     }
                   } catch (error) {
@@ -6003,21 +6012,24 @@ const GalvanizliTelNetsis = () => {
                 // Add YM ST data and recipes
                 for (const relation of relations) {
                   try {
-                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
                     if (ymStResponse && ymStResponse.ok) {
-                      const ymSt = await ymStResponse.json();
-                      allYmStData.push(ymSt);
-                      
-                      // Add YM ST recipes
-                      const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
-                      if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                        const ymStRecipes = await ymStRecipeResponse.json();
-                        // Add ym_st_stok_kodu to each recipe for batch processing
-                        const enrichedRecipes = ymStRecipes.map(r => ({
-                          ...r,
-                          ym_st_stok_kodu: ymSt.stok_kodu
-                        }));
-                        allYmStRecipes.push(...enrichedRecipes);
+                      const ymStData = await ymStResponse.json();
+                      const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
+                      if (ymSt) {
+                        allYmStData.push(ymSt);
+                        
+                        // Add YM ST recipes
+                        const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
+                        if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                          const ymStRecipes = await ymStRecipeResponse.json();
+                          // Add ym_st_stok_kodu to each recipe for batch processing
+                          const enrichedRecipes = ymStRecipes.map(r => ({
+                            ...r,
+                            ym_st_stok_kodu: ymSt.stok_kodu
+                          }));
+                          allYmStRecipes.push(...enrichedRecipes);
+                        }
                       }
                     }
                   } catch (error) {
