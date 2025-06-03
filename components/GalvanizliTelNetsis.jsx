@@ -3452,7 +3452,7 @@ const GalvanizliTelNetsis = () => {
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
       // Sequence değeri MMGT ID'sinden değil, stok_kodu'ndan alınacak
-      let sequence = '00'; // Varsayılan değer
+      let sequence = processSequence || '00'; // Use processSequence state instead of hardcoded '00'
       console.log(`REÇETE KAYDI İÇİN SEQUENCE: ${sequence}`);
       
       let mmGtSequence = sequence; // Öncelikle sequence parametresini kullan
@@ -5414,24 +5414,32 @@ const GalvanizliTelNetsis = () => {
       const storedSequence = sessionStorage.getItem('lastProcessSequence');
       console.log(`Stored sequence in sessionStorage: ${storedSequence}`);
       
+      // If processSequence is reset to 00 but we have the correct sequence in sessionStorage, use it
+      const sequenceToUse = (processSequence === '00' && storedSequence && storedSequence !== '00') 
+        ? storedSequence 
+        : processSequence;
+        
       if (storedSequence && storedSequence !== processSequence) {
         console.warn(`SEQUENCE MISMATCH! processSequence: ${processSequence}, stored: ${storedSequence}`);
+        console.log(`Using stored sequence from sessionStorage: ${storedSequence}`);
+        // Update processSequence to match the stored value
+        setProcessSequence(storedSequence);
       }
       
       // Calculate what the expected stok_kodu should be
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const expectedStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
+      const expectedStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequenceToUse}`;
       console.log(`Expected MMGT stok_kodu for Excel: ${expectedStokKodu}`);
       
-      if (!processSequence || processSequence === '00') {
-        console.warn(`UYARI: processSequence '${processSequence}' - bu beklenmeyen bir durum olabilir`);
+      if (!sequenceToUse || sequenceToUse === '00') {
+        console.warn(`UYARI: sequenceToUse '${sequenceToUse}' - bu beklenmeyen bir durum olabilir`);
       }
       
       // Her iki Excel'de de aynı sequence'i kullan
       // Stok Kartı Excel
       try {
         console.log('Stok kartı Excel oluşturuluyor...');
-        await generateStokKartiExcel(processSequence);
+        await generateStokKartiExcel(sequenceToUse);
         console.log('Stok kartı Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('Stok kartı Excel oluşturma hatası:', excelError);
@@ -5441,7 +5449,7 @@ const GalvanizliTelNetsis = () => {
       
       try {
         console.log('Reçete Excel oluşturuluyor...');
-        await generateReceteExcel(processSequence);
+        await generateReceteExcel(sequenceToUse);
         console.log('Reçete Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('Reçete Excel oluşturma hatası:', excelError);
@@ -5481,9 +5489,9 @@ const GalvanizliTelNetsis = () => {
 
   // Stok Kartı Excel oluştur - yeni 1:1:n ilişki modeli ile
   const generateStokKartiExcel = async (sequenceParam = '00') => {
-    // ALWAYS use processSequence state (like in old working version)
-    const sequence = processSequence;
-    console.log(`EXCEL USING PROCESS SEQUENCE: ${sequence} (ignoring param: ${sequenceParam})`);
+    // Use the passed sequence parameter which should be the correct one
+    const sequence = sequenceParam || processSequence || '00';
+    console.log(`EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
       setShowApproveConfirmModal(true);
@@ -5556,9 +5564,9 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete Excel oluştur - Yeni 1:1:n ilişki modeli ile
   const generateReceteExcel = async (sequenceParam = '00') => {
-    // ALWAYS use processSequence state (like in old working version)
-    const sequence = processSequence;
-    console.log(`RECETE EXCEL USING PROCESS SEQUENCE: ${sequence} (ignoring param: ${sequenceParam})`);
+    // Use the passed sequence parameter which should be the correct one
+    const sequence = sequenceParam || processSequence || '00';
+    console.log(`RECETE EXCEL USING SEQUENCE: ${sequence} (param: ${sequenceParam}, processSequence: ${processSequence})`);
     
     // Check if we're editing a request and need approval
     if (isEditingRequest && selectedRequest) {
