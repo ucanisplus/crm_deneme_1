@@ -181,6 +181,14 @@ const GalvanizliTelNetsis = () => {
     ymGtId: null,
     ymStIds: []
   });
+  
+  // State for edit notes modal
+  const [showEditNotesModal, setShowEditNotesModal] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
+  
+  // TLC_Hizlar cache - we'll fetch the data from the database
+  const [tlcHizlarCache, setTlcHizlarCache] = useState({});
+  const [tlcHizlarLoading, setTlcHizlarLoading] = useState(false);
 
   // Dostça alan adları
   const friendlyNames = {
@@ -199,6 +207,45 @@ const GalvanizliTelNetsis = () => {
     'SM.DESİ.PAK': 'Silkajel Tüketimi (AD)'
   };
 
+  // All useEffect hooks - moved before permission check to comply with Rules of Hooks
+  
+  // Sayfa yüklendiğinde talepleri getir
+  useEffect(() => {
+    fetchRequests();
+    fetchExistingMmGts();
+    fetchExistingYmSts();
+    fetchUserInputValues();
+  }, []);
+  
+  // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
+  useEffect(() => {
+    if (mmGtData.cap && mmGtData.ic_cap) {
+      const cap = parseFloat(mmGtData.cap) || 0;
+      const icCap = parseInt(mmGtData.ic_cap) || 45;
+      let disCap;
+      
+      // Çap ve iç çapa göre dış çap hesaplama
+      if (icCap === 45) disCap = 75;
+      else if (icCap === 50) disCap = 90;
+      else if (icCap === 55) disCap = 105;
+      else disCap = icCap + (cap * 10); // Genel hesaplama
+      
+      setMmGtData(prev => ({ ...prev, dis_cap: disCap }));
+    }
+  }, [mmGtData.cap, mmGtData.ic_cap]);
+  
+  // Kod-2 değişikliğinde kaplama değerini güncelle
+  useEffect(() => {
+    if (mmGtData.kod_2 === 'PAD') {
+      setMmGtData(prev => ({ ...prev, kaplama: '50' }));
+    }
+  }, [mmGtData.kod_2]);
+  
+  // Load TLC_Hizlar data from the database when component mounts
+  useEffect(() => {
+    fetchTlcHizlarData();
+  }, []);
+
   // İzin kontrolü
   if (!hasPermission('access:galvanizli-tel')) {
     return (
@@ -210,14 +257,6 @@ const GalvanizliTelNetsis = () => {
     );
   }
 
-  // Sayfa yüklendiğinde talepleri getir
-  useEffect(() => {
-    fetchRequests();
-    fetchExistingMmGts();
-    fetchExistingYmSts();
-    fetchUserInputValues();
-  }, []);
-  
   // Fetch user input values from database
   const fetchUserInputValues = async () => {
     try {
@@ -306,29 +345,6 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
-  useEffect(() => {
-    if (mmGtData.cap && mmGtData.ic_cap) {
-      const cap = parseFloat(mmGtData.cap) || 0;
-      const icCap = parseInt(mmGtData.ic_cap) || 45;
-      let disCap;
-      
-      // Çap ve iç çapa göre dış çap hesaplama
-      if (icCap === 45) disCap = 75;
-      else if (icCap === 50) disCap = 90;
-      else if (icCap === 55) disCap = 105;
-      else disCap = icCap + (cap * 10); // Genel hesaplama
-      
-      setMmGtData(prev => ({ ...prev, dis_cap: disCap }));
-    }
-  }, [mmGtData.cap, mmGtData.ic_cap]);
-
-  // Kod-2 değişikliğinde kaplama değerini güncelle
-  useEffect(() => {
-    if (mmGtData.kod_2 === 'PAD') {
-      setMmGtData(prev => ({ ...prev, kaplama: '50' }));
-    }
-  }, [mmGtData.kod_2]);
 
   // Talepleri getir
   const fetchRequests = async () => {
@@ -453,7 +469,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Veritabanından reçete getir fonksiyonu
+  // Veritabanından reçete getir fonksiyonu - Enhanced with relationship table
   const fetchRecipesFromDatabase = async () => {
     try {
       setIsLoading(true);
@@ -465,121 +481,163 @@ const GalvanizliTelNetsis = () => {
         ymStRecipes: {}
       };
       
-      // ÖNEMLİ: Bu kısım sadece mevcut reçeteleri kontrol etmek için kullanılıyor
-      // Burada sadece mainYmSt için MMGT reçetesi aranmalı
-      const mainYmStIndex = 0; // Ana YMST'yi kullan
+      console.log('🔍 Manual recipe fetch requested');
       
-      // Sequence için veritabanını kontrol et, eğer yeni ürün ise '00'
-      let mainSequence = '00';
-      for (let i = 0; i < 1; i++) { // Sadece bir kez çalıştır (ana YMST için)
-        const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-        // Eğer yeni ürün değilse mevcut sequence kullanılacak
-        const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${mainSequence}`;
-        
-        // MM GT'yi bul
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(mmGtStokKodu)}`);
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGtData = await mmGtResponse.json();
-          if (mmGtData.length > 0) {
-            const mmGtId = mmGtData[0].id;
-            
-            // MM GT reçetesini getir
-            const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
-            if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
-              const mmGtRecipeData = await mmGtRecipeResponse.json();
-              if (mmGtRecipeData.length > 0) {
-                const parsedMmGtRecipe = {};
-                mmGtRecipeData.forEach(item => {
-                  parsedMmGtRecipe[item.bilesen_kodu] = item.miktar;
-                  if (!statusUpdates.mmGtRecipes[i]) statusUpdates.mmGtRecipes[i] = {};
-                  statusUpdates.mmGtRecipes[i][item.bilesen_kodu] = 'database';
-                });
-                setAllRecipes(prev => ({
-                  ...prev,
-                  mmGtRecipes: { ...prev.mmGtRecipes, [i]: parsedMmGtRecipe }
-                }));
-                foundAny = true;
-              }
-            }
-          }
-        }
+      if (allYmSts.length === 0) {
+        toast.warning('Henüz YM ST seçilmemiş. Önce YM ST sedin veya oluşturun.');
+        setIsLoading(false);
+        return;
       }
       
-      // YM GT reçetelerini getir (her sequence için)
-      for (let i = 0; i < allYmSts.length; i++) {
-        const sequence = i.toString().padStart(2, '0');
-        const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-        const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-        
-        // YM GT'yi bul
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(ymGtStokKodu)}`);
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGtData = await ymGtResponse.json();
-          if (ymGtData.length > 0) {
-            const ymGtId = ymGtData[0].id;
-            
-            // YM GT reçetesini getir
-            const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
-            if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-              const ymGtRecipeData = await ymGtRecipeResponse.json();
-              if (ymGtRecipeData.length > 0) {
-                const parsedYmGtRecipe = {};
-                ymGtRecipeData.forEach(item => {
-                  // YM ST bağlantısını sequence'e göre güncelle
-                  if (item.bilesen_kodu.includes('YM.ST.')) {
-                    parsedYmGtRecipe[allYmSts[i].stok_kodu] = item.miktar;
-                    statusUpdates.ymGtRecipe[allYmSts[i].stok_kodu] = 'database';
-                  } else {
-                    parsedYmGtRecipe[item.bilesen_kodu] = item.miktar;
-                    statusUpdates.ymGtRecipe[item.bilesen_kodu] = 'database';
-                  }
-                });
-                setAllRecipes(prev => ({
-                  ...prev,
-                  ymGtRecipe: parsedYmGtRecipe
-                }));
-                foundAny = true;
-              }
-            }
-          }
-        }
-      }
+      // Try to find MM GT based on current form data
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const sequence = processSequence || '00';
+      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
-      // YM ST reçetelerini getir
-      for (let i = 0; i < allYmSts.length; i++) {
-        const ymSt = allYmSts[i];
-        
-        // YM ST'yi bul
-        let ymStResponse;
-        if (ymSt.id) {
-          // Veritabanından seçilmiş YM ST
-          ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`);
-        } else {
-          // Otomatik oluşturulmuş YM ST için stok koduna göre ara
-          ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
-        }
-        
-        if (ymStResponse && ymStResponse.ok) {
-          let ymStData = await ymStResponse.json();
-          if (Array.isArray(ymStData)) ymStData = ymStData[0];
+      console.log(`🔍 Looking for MM GT with stok_kodu: ${mmGtStokKodu}`);
+      
+      // Find MM GT
+      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(mmGtStokKodu)}`);
+      if (mmGtResponse && mmGtResponse.ok) {
+        const mmGtData = await mmGtResponse.json();
+        if (mmGtData.length > 0) {
+          const mmGt = mmGtData[0];
+          console.log(`✅ Found MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
           
-          if (ymStData && ymStData.id) {
-            // YM ST reçetesini getir
-            const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStData.id}`);
-            if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-              const ymStRecipeData = await ymStRecipeResponse.json();
-              if (ymStRecipeData.length > 0) {
-                const parsedYmStRecipe = {};
-                ymStRecipeData.forEach(item => {
-                  parsedYmStRecipe[item.bilesen_kodu] = item.miktar;
-                  if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
-                  statusUpdates.ymStRecipes[i][item.bilesen_kodu] = 'database';
-                });
-                setAllRecipes(prev => ({
-                  ...prev,
-                  ymStRecipes: { ...prev.ymStRecipes, [i]: parsedYmStRecipe }
-                }));
-                foundAny = true;
+          // 🆕 NEW: Use enhanced relationship table to find YM GT and YM STs
+          const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+          if (relationResponse && relationResponse.ok) {
+            const relations = await relationResponse.json();
+            console.log(`✅ Found ${relations.length} relationships`);
+            
+            if (relations.length > 0) {
+              const ymGtId = relations[0].ym_gt_id; // All relations should have same ym_gt_id
+              
+              // Load MM GT recipes
+              const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+              if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
+                const mmGtRecipeData = await mmGtRecipeResponse.json();
+                if (mmGtRecipeData.length > 0) {
+                  console.log(`✅ Loading ${mmGtRecipeData.length} MM GT recipes`);
+                  
+                  // Apply MM GT recipes to all YM ST indices
+                  for (let i = 0; i < allYmSts.length; i++) {
+                    const parsedMmGtRecipe = {};
+                    mmGtRecipeData.forEach(item => {
+                      parsedMmGtRecipe[item.bilesen_kodu] = item.miktar;
+                      if (!statusUpdates.mmGtRecipes[i]) statusUpdates.mmGtRecipes[i] = {};
+                      statusUpdates.mmGtRecipes[i][item.bilesen_kodu] = 'database';
+                    });
+                    setAllRecipes(prev => ({
+                      ...prev,
+                      mmGtRecipes: { ...prev.mmGtRecipes, [i]: parsedMmGtRecipe }
+                    }));
+                  }
+                  foundAny = true;
+                }
+              }
+              
+              // 🆕 NEW: Load YM GT recipes using the relationship
+              if (ymGtId) {
+                const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                  const ymGtRecipeData = await ymGtRecipeResponse.json();
+                  if (ymGtRecipeData.length > 0) {
+                    console.log(`✅ Loading ${ymGtRecipeData.length} YM GT recipes`);
+                    
+                    const parsedYmGtRecipe = {};
+                    ymGtRecipeData.forEach(item => {
+                      parsedYmGtRecipe[item.bilesen_kodu] = item.miktar;
+                      statusUpdates.ymGtRecipe[item.bilesen_kodu] = 'database';
+                    });
+                    setAllRecipes(prev => ({
+                      ...prev,
+                      ymGtRecipe: parsedYmGtRecipe
+                    }));
+                    foundAny = true;
+                  }
+                }
+              }
+              
+              // 🆕 NEW: Load YM ST recipes using the enhanced relationship table
+              console.log(`✅ Loading YM ST recipes for ${relations.length} relationships`);
+              
+              // Sort relations by sequence_index to maintain order
+              const sortedRelations = relations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
+              
+              // Load YM ST recipes for each relationship
+              for (let i = 0; i < sortedRelations.length; i++) {
+                const relation = sortedRelations[i];
+                const ymStId = relation.ym_st_id;
+                
+                console.log(`🔍 Loading YM ST recipe for ID: ${ymStId} (index: ${i})`);
+                
+                // YM ST reçetesini getir
+                const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+                if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                  const ymStRecipeData = await ymStRecipeResponse.json();
+                  if (ymStRecipeData.length > 0) {
+                    console.log(`✅ Loading ${ymStRecipeData.length} YM ST recipes for index ${i}`);
+                    
+                    const parsedYmStRecipe = {};
+                    ymStRecipeData.forEach(item => {
+                      parsedYmStRecipe[item.bilesen_kodu] = item.miktar;
+                      if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
+                      statusUpdates.ymStRecipes[i][item.bilesen_kodu] = 'database';
+                    });
+                    setAllRecipes(prev => ({
+                      ...prev,
+                      ymStRecipes: { ...prev.ymStRecipes, [i]: parsedYmStRecipe }
+                    }));
+                    foundAny = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // If MM GT wasn't found, try fallback for individual YM ST search (for manual recipe loading)
+      if (!foundAny) {
+        console.log('⚠️ No MM GT relationships found, falling back to individual YM ST search');
+        
+        // Fallback: YM ST reçetelerini tek tek getir
+        for (let i = 0; i < allYmSts.length; i++) {
+          const ymSt = allYmSts[i];
+          
+          // YM ST'yi bul
+          let ymStResponse;
+          if (ymSt.id) {
+            // Veritabanından seçilmiş YM ST
+            ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`);
+          } else {
+            // Otomatik oluşturulmuş YM ST için stok koduna göre ara
+            ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+          }
+          
+          if (ymStResponse && ymStResponse.ok) {
+            let ymStData = await ymStResponse.json();
+            if (Array.isArray(ymStData)) ymStData = ymStData[0];
+            
+            if (ymStData && ymStData.id) {
+              // YM ST reçetesini getir
+              const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStData.id}`);
+              if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                const ymStRecipeData = await ymStRecipeResponse.json();
+                if (ymStRecipeData.length > 0) {
+                  const parsedYmStRecipe = {};
+                  ymStRecipeData.forEach(item => {
+                    parsedYmStRecipe[item.bilesen_kodu] = item.miktar;
+                    if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
+                    statusUpdates.ymStRecipes[i][item.bilesen_kodu] = 'database';
+                  });
+                  setAllRecipes(prev => ({
+                    ...prev,
+                    ymStRecipes: { ...prev.ymStRecipes, [i]: parsedYmStRecipe }
+                  }));
+                  foundAny = true;
+                }
               }
             }
           }
@@ -820,10 +878,6 @@ const GalvanizliTelNetsis = () => {
     setShowRequestsModal(false);
     setShowRequestDetailModal(true);
   };
-  
-  // State for edit notes modal
-  const [showEditNotesModal, setShowEditNotesModal] = useState(false);
-  const [editNotes, setEditNotes] = useState('');
   
   // Helper function to format date for display
   const formatDate = (dateString) => {
@@ -1131,33 +1185,47 @@ const GalvanizliTelNetsis = () => {
       setAllRecipes({ mmGtRecipes: {}, ymGtRecipe: {}, ymStRecipes: {} });
       setRecipeStatus({ mmGtRecipes: {}, ymGtRecipe: {}, ymStRecipes: {} });
       
-      // 🔄 STEP 1: Find all related YM STs through the relationship table
-      console.log('🔍 Step 1: Finding related YM STs...');
+      // 🔄 STEP 1: Find all related data through the enhanced relationship table
+      console.log('🔍 Step 1: Finding related YM STs and YM GT...');
       const mmGtYmStResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
       
       let loadedYmSts = [];
+      let relatedYmGtId = null;
+      let mainYmStIndex = 0;
+      
       if (mmGtYmStResponse && mmGtYmStResponse.ok) {
         const mmGtYmStRelations = await mmGtYmStResponse.json();
         console.log(`✅ Found ${mmGtYmStRelations.length} MM GT - YM ST relations`);
         
         if (mmGtYmStRelations.length > 0) {
-          // Get unique YM ST IDs (there might be duplicates)
-          const uniqueYmStIds = [...new Set(mmGtYmStRelations.map(rel => rel.ym_st_id))];
-          console.log(`🎯 Unique YM ST IDs: ${uniqueYmStIds.join(', ')}`);
+          // 🆕 NEW: Get YM GT ID from the relationship (all relations should have the same ym_gt_id)
+          relatedYmGtId = mmGtYmStRelations[0].ym_gt_id;
+          console.log(`🎯 Found related YM GT ID: ${relatedYmGtId}`);
           
-          // Load each related YM ST
-          for (const ymStId of uniqueYmStIds) {
+          // 🆕 NEW: Sort relations by sequence_index to maintain order
+          const sortedRelations = mmGtYmStRelations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
+          
+          // Load each related YM ST in the correct order
+          for (let i = 0; i < sortedRelations.length; i++) {
+            const relation = sortedRelations[i];
             try {
-              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymStId}`);
+              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
               if (ymStResponse && ymStResponse.ok) {
                 const ymSt = await ymStResponse.json();
                 loadedYmSts.push({ ...ymSt, source: 'database' });
-                console.log(`✅ Loaded YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
+                
+                // 🆕 NEW: Track which YM ST is the main one
+                if (relation.is_main) {
+                  mainYmStIndex = i;
+                  console.log(`🎯 Main YM ST found at index ${i}: ${ymSt.stok_kodu}`);
+                }
+                
+                console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu} (ID: ${ymSt.id}, Main: ${relation.is_main})`);
               } else {
-                console.warn(`⚠️ Failed to load YM ST with ID: ${ymStId}`);
+                console.warn(`⚠️ Failed to load YM ST with ID: ${relation.ym_st_id}`);
               }
             } catch (ymStError) {
-              console.error(`❌ Error loading YM ST ${ymStId}:`, ymStError);
+              console.error(`❌ Error loading YM ST ${relation.ym_st_id}:`, ymStError);
             }
           }
         }
@@ -1174,8 +1242,8 @@ const GalvanizliTelNetsis = () => {
       // Set the loaded YM STs and main index
       setSelectedYmSts(loadedYmSts);
       if (loadedYmSts.length > 0) {
-        setMainYmStIndex(0);
-        console.log(`🎯 Set main YM ST index to 0: ${loadedYmSts[0].stok_kodu}`);
+        setMainYmStIndex(mainYmStIndex); // 🆕 NEW: Use the actual main index from database
+        console.log(`🎯 Set main YM ST index to ${mainYmStIndex}: ${loadedYmSts[mainYmStIndex]?.stok_kodu || 'none'}`);
       }
       
       // 🔄 STEP 2: Load all recipes
@@ -1220,40 +1288,32 @@ const GalvanizliTelNetsis = () => {
         console.error('❌ Error loading MM GT recipes:', mmGtError);
       }
       
-      // 2B. Load YM GT recipes
-      try {
-        console.log('🍳 Loading YM GT recipes...');
-        const capFormatted = Math.round(parseFloat(mmGt.cap) * 100).toString().padStart(4, '0');
-        const ymGtStokKodu = `YM.GT.${mmGt.kod_2}.${capFormatted}.${existingSequence}`;
-        console.log(`🔍 Looking for YM GT with stok_kodu: ${ymGtStokKodu}`);
-        
-        const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(ymGtStokKodu)}`);
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGtData = await ymGtResponse.json();
-          if (ymGtData.length > 0) {
-            const ymGt = ymGtData[0];
-            console.log(`✅ Found YM GT: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
+      // 2B. Load YM GT recipes using the relationship
+      if (relatedYmGtId) {
+        try {
+          console.log(`🍳 Loading YM GT recipes for YM GT ID: ${relatedYmGtId}`);
+          
+          // 🆕 NEW: Use the YM GT ID from the relationship instead of searching by stok_kodu
+          const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${relatedYmGtId}`);
+          if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+            const ymGtRecipes = await ymGtRecipeResponse.json();
+            console.log(`✅ Loaded ${ymGtRecipes.length} YM GT recipes from relationship`);
             
-            // Load YM GT recipes
-            const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGt.id}`);
-            if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-              const ymGtRecipes = await ymGtRecipeResponse.json();
-              console.log(`✅ Loaded ${ymGtRecipes.length} YM GT recipes`);
-              
-              // Store YM GT recipes
-              ymGtRecipes.forEach(recipe => {
-                if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                  updatedAllRecipes.ymGtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
-                  updatedRecipeStatus.ymGtRecipe[recipe.bilesen_kodu] = 'database';
-                }
-              });
-            }
+            // Store YM GT recipes
+            ymGtRecipes.forEach(recipe => {
+              if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
+                updatedAllRecipes.ymGtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
+                updatedRecipeStatus.ymGtRecipe[recipe.bilesen_kodu] = 'database';
+              }
+            });
           } else {
-            console.log('ℹ️ No YM GT found with stok_kodu:', ymGtStokKodu);
+            console.log('ℹ️ No YM GT recipes found for ID:', relatedYmGtId);
           }
+        } catch (ymGtError) {
+          console.error('❌ Error loading YM GT recipes:', ymGtError);
         }
-      } catch (ymGtError) {
-        console.error('❌ Error loading YM GT recipes:', ymGtError);
+      } else {
+        console.log('ℹ️ No related YM GT ID found, skipping YM GT recipe loading');
       }
       
       // 2C. Load YM ST recipes for each loaded YM ST
@@ -3100,18 +3160,32 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Create relationship between main YM ST and MM GT
-      try {
-        await fetchWithAuth(API_URLS.galMmGtYmSt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      // Create relationships between ALL YM STs and MM GT, including YM GT reference
+      console.log(`🔗 Creating relationships: MM GT=${mmGtIds[0]}, YM GT=${ymGtId}, YM STs=${ymStIds.length}`);
+      
+      for (let i = 0; i < ymStIds.length; i++) {
+        try {
+          const relationshipData = {
             mm_gt_id: mmGtIds[0],
-            ym_st_id: ymStIds[mainYmStIndex]
-          })
-        });
-      } catch (relationError) {
-        console.log('İlişki zaten mevcut veya hata oluştu:', relationError);
+            ym_gt_id: ymGtId, // 🆕 NEW: Include YM GT ID in relationship
+            ym_st_id: ymStIds[i],
+            is_main: i === mainYmStIndex, // 🆕 NEW: Mark main YM ST
+            sequence_index: i // 🆕 NEW: Store sequence/order
+          };
+          
+          console.log(`🔗 Creating relationship ${i + 1}/${ymStIds.length}:`, relationshipData);
+          
+          await fetchWithAuth(API_URLS.galMmGtYmSt, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(relationshipData)
+          });
+          
+          console.log(`✅ Relationship created for YM ST ${i + 1}`);
+        } catch (relationError) {
+          console.error(`❌ Error creating relationship for YM ST ${i + 1}:`, relationError);
+          // Continue with other relationships even if one fails
+        }
       }
       
       const newDatabaseIds = {
@@ -5215,14 +5289,6 @@ const GalvanizliTelNetsis = () => {
     return filmasinCode;
   };
 
-  // TLC_Hizlar cache - we'll fetch the data from the database
-  const [tlcHizlarCache, setTlcHizlarCache] = useState({});
-  const [tlcHizlarLoading, setTlcHizlarLoading] = useState(false);
-
-  // Load TLC_Hizlar data from the database when component mounts
-  useEffect(() => {
-    fetchTlcHizlarData();
-  }, []);
   
   // Function to fetch TLC_Hizlar data from the database
   const fetchTlcHizlarData = async () => {
