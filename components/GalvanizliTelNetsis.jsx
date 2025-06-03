@@ -547,7 +547,7 @@ const GalvanizliTelNetsis = () => {
                   for (let i = 0; i < allYmSts.length; i++) {
                     const parsedMmGtRecipe = {};
                     mmGtRecipeData.forEach(item => {
-                      parsedMmGtRecipe[item.bilesen_kodu] = item.miktar;
+                      parsedMmGtRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
                       if (!statusUpdates.mmGtRecipes[i]) statusUpdates.mmGtRecipes[i] = {};
                       statusUpdates.mmGtRecipes[i][item.bilesen_kodu] = 'database';
                     });
@@ -570,7 +570,7 @@ const GalvanizliTelNetsis = () => {
                     
                     const parsedYmGtRecipe = {};
                     ymGtRecipeData.forEach(item => {
-                      parsedYmGtRecipe[item.bilesen_kodu] = item.miktar;
+                      parsedYmGtRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
                       statusUpdates.ymGtRecipe[item.bilesen_kodu] = 'database';
                     });
                     setAllRecipes(prev => ({
@@ -628,7 +628,7 @@ const GalvanizliTelNetsis = () => {
                     
                     const parsedYmStRecipe = {};
                     ymStRecipeData.forEach(item => {
-                      parsedYmStRecipe[item.bilesen_kodu] = item.miktar;
+                      parsedYmStRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
                       if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
                       statusUpdates.ymStRecipes[i][item.bilesen_kodu] = 'database';
                     });
@@ -1359,7 +1359,7 @@ const GalvanizliTelNetsis = () => {
             const ymGtRecipes = await ymGtRecipeResponse.json();
             console.log(`✅ Loaded ${ymGtRecipes.length} YM GT recipes from relationship`);
             
-            // Store YM GT recipes
+            // Store YM GT recipes from database exactly as they are
             ymGtRecipes.forEach(recipe => {
               if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
                 updatedAllRecipes.ymGtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
@@ -1378,35 +1378,13 @@ const GalvanizliTelNetsis = () => {
         // Generate YM GT data first
         generateYmGtData();
         
-        // Calculate YM GT recipes when no database recipes exist
+        // Only calculate YM GT recipes if NO database recipes exist
         if (loadedYmSts.length > 0) {
           const mainYmSt = loadedYmSts[mainYmStIndex] || loadedYmSts[0];
-          const cap = parseFloat(mmGt.cap) || parseFloat(mmGtData.cap) || 0;
-          const kaplama = parseInt(mmGt.kaplama) || parseInt(mmGtData.kaplama) || 0;
-          const dvValue = calculateDV(parseInt(mmGt.min_mukavemet) || parseInt(mmGtData.min_mukavemet));
           
-          // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-          const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
-          const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
-          
-          // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
-          const zincConsumption = parseFloat((
-            ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
-            (userInputValues.ash * 0.6) + 
-            (userInputValues.lapa * 0.7)) / 1000
-          ).toFixed(5));
-          
-          // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
-          const yuzeyAlani = calculateYuzeyAlani(cap);
-          const tuketilenAsit = calculateTuketilenAsit();
-          const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
-          
-          // Calculate YM GT recipe values based on main YM ST
+          // Simply set the main YM ST relationship - calculations will be done later if needed
           const ymGtRecipeValues = {
-            [mainYmSt.stok_kodu]: 1, // Ana hammadde
-            'GLV01': glvTime, // Galvaniz işçilik - calculated properly
-            '150 03': zincConsumption, // Çinko consumption - calculated properly
-            'SM.HİDROLİK.ASİT': acidConsumption // Asit consumption - calculated properly
+            [mainYmSt.stok_kodu]: 1 // Ana hammadde - other recipes should come from database
           };
           
           // Set the calculated values
@@ -2550,28 +2528,26 @@ const GalvanizliTelNetsis = () => {
     // Clear any existing errors
     setError(null);
     
-    // Check for duplicate product
+    // Check for duplicate product by exact stok_kodu
     try {
       setIsLoading(true);
       
-      // Search for existing MM GT with same key fields
-      const searchParams = new URLSearchParams({
-        cap: mmGtData.cap,
-        kod_2: mmGtData.kod_2,
-        kaplama: mmGtData.kaplama,
-        min_mukavemet: mmGtData.min_mukavemet,
-        max_mukavemet: mmGtData.max_mukavemet,
-        kg: mmGtData.kg
-      });
+      // Generate the exact stok_kodu that would be created
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const sequence = processSequence || '00';
+      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
-      const existingResponse = await fetchWithAuth(`${API_URLS.galMmGt}?${searchParams.toString()}`);
+      console.log(`🔍 Checking for duplicate with exact stok_kodu: ${mmGtStokKodu}`);
+      
+      // Search for existing MM GT with exact stok_kodu
+      const existingResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(mmGtStokKodu)}`);
       
       if (existingResponse && existingResponse.ok) {
         const existingProducts = await existingResponse.json();
         
         if (existingProducts.length > 0 && !isViewingExistingProduct) {
-          // Found duplicate - show warning
-          const existingProduct = existingProducts[0];
+          // Found exact duplicate - show warning
+          console.log(`✅ Found exact duplicate: ${existingProducts[0].stok_kodu}`);
           setDuplicateProducts(existingProducts);
           setShowDuplicateConfirmModal(true);
           setIsLoading(false);
@@ -10230,7 +10206,7 @@ const GalvanizliTelNetsis = () => {
                   }}
                   className="flex-1 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
                 >
-                  Yeni Ürün Oluştur
+                  İptal
                 </button>
               </div>
             </div>
