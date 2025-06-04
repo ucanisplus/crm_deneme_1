@@ -518,6 +518,32 @@ const SatisGalvanizRequest = () => {
     return validationErrors;
   };
   
+  // Generate stok kodu and stok adi for the request
+  const generateStokKoduAndAdi = async (data) => {
+    try {
+      // Get the next sequence number from API
+      const sequenceResponse = await fetchWithAuth(
+        `${API_URLS.galSequence}/next?kod_2=${data.kod_2}&cap=${data.cap}`
+      );
+      
+      if (!sequenceResponse || !sequenceResponse.ok) {
+        throw new Error('Sequence number could not be generated');
+      }
+      
+      const sequenceData = await sequenceResponse.json();
+      const stokKodu = sequenceData.stok_kodu;
+      
+      // Generate stok adi
+      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm -${data.tolerans_minus}/+${data.tolerans_plus} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg} kg`;
+      
+      return { stokKodu, stokAdi };
+    } catch (error) {
+      console.error('Error generating stok kodu/adi:', error);
+      // Return null if generation fails - the request can still be saved without these
+      return { stokKodu: null, stokAdi: null };
+    }
+  };
+
   // Submit the request
   const submitRequest = async (e) => {
     e.preventDefault();
@@ -547,6 +573,9 @@ const SatisGalvanizRequest = () => {
       setError(null);
       setSuccessMessage('');
       
+      // Generate stok kodu and stok adi
+      const { stokKodu, stokAdi } = await generateStokKoduAndAdi(requestData);
+      
       // Create request object with only fields that exist in the database
       const request = {
         cap: requestData.cap,
@@ -565,7 +594,9 @@ const SatisGalvanizRequest = () => {
         helix_kont: requestData.helix_kont || null,       // Helix kontrol
         elongation: requestData.elongation || null,       // Elongation
         status: 'pending',                // Initial status: pending
-        created_by: user?.id || null      // Track who created the request
+        created_by: user?.id || null,     // Track who created the request
+        stok_kodu: stokKodu,              // Generated stok kodu
+        stok_adi: stokAdi                 // Generated stok adi
       };
       
       // Send the request to the API
@@ -931,6 +962,7 @@ const SatisGalvanizRequest = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
@@ -947,6 +979,9 @@ const SatisGalvanizRequest = () => {
                         <tr key={request.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.id.substring(0, 8)}...
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {request.stok_kodu || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.cap} mm
@@ -1414,6 +1449,16 @@ const SatisGalvanizRequest = () => {
                     <p className="text-sm font-medium text-gray-500">Talep ID</p>
                     <p className="text-base text-gray-900">{selectedRequest.id}</p>
                   </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Stok Kodu</p>
+                    <p className="text-base text-gray-900 font-mono">{selectedRequest.stok_kodu || '-'}</p>
+                  </div>
+                  {selectedRequest.stok_adi && (
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium text-gray-500">Stok Adı</p>
+                      <p className="text-base text-gray-900">{selectedRequest.stok_adi}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm font-medium text-gray-500">Durum</p>
                     <div className="mt-1">

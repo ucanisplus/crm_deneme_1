@@ -6328,36 +6328,45 @@ const GalvanizliTelNetsis = () => {
       try {
         console.log(`Processing request ${request.id} for batch Excel...`);
         
-        // Find MM GT for this specific request only
-        console.log(`🔍 [${request.id}] Fetching MM GT products...`);
-        console.log(`🔗 [${request.id}] API URL: ${API_URLS.galMmGt}?request_id=${request.id}`);
+        // Check if request has stok_kodu
+        if (!request.stok_kodu) {
+          console.warn(`⚠️ [${request.id}] Request has no stok_kodu - skipping`);
+          continue;
+        }
+        
+        // Find MM GT by stok_kodu
+        console.log(`🔍 [${request.id}] Fetching MM GT product by stok_kodu: ${request.stok_kodu}`);
+        console.log(`🔗 [${request.id}] API URL: ${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
         totalApiCalls++;
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?request_id=${request.id}`);
+        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
         if (mmGtResponse && mmGtResponse.ok) {
           const mmGtProducts = await mmGtResponse.json();
           successfulApiCalls++;
           
-          console.log(`✅ [${request.id}] MM GT API success - Found ${mmGtProducts.length} products`);
-          if (mmGtProducts.length > 0) {
-            console.log(`📦 [${request.id}] MM GT products:`, mmGtProducts.map(m => ({ 
-              stok_kodu: m.stok_kodu, 
-              id: m.id, 
-              request_id: m.request_id,
-              cap: m.cap,
-              kg: m.kg
-            })));
+          // The API returns an array even for single stok_kodu query
+          const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
+          
+          console.log(`✅ [${request.id}] MM GT API success - Found ${mmGtArray.length} product(s)`);
+          if (mmGtArray.length > 0) {
+            console.log(`📦 [${request.id}] MM GT product:`, { 
+              stok_kodu: mmGtArray[0].stok_kodu, 
+              id: mmGtArray[0].id, 
+              cap: mmGtArray[0].cap,
+              kg: mmGtArray[0].kg
+            });
           }
           
-          if (mmGtProducts.length === 0) {
-            console.warn(`⚠️ [${request.id}] No MM GT products found for this approved request`);
-            console.warn(`⚠️ [${request.id}] This could mean: 1) Request was approved but no products saved, 2) Products were deleted, 3) Wrong request_id`);
+          if (mmGtArray.length === 0) {
+            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: ${request.stok_kodu}`);
+            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu`);
             continue;
           }
           
-          for (const mmGt of mmGtProducts) {
-            // Add MM GT since API already filtered by request_id
+          // Process only the specific MM GT for this request
+          for (const mmGt of mmGtArray) {
+            // Add MM GT
             mmGtMap.set(mmGt.stok_kodu, mmGt);
             console.log(`➕ Added MM GT: ${mmGt.stok_kodu} for request ${request.id}`);
             
