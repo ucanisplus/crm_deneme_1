@@ -2668,23 +2668,35 @@ const GalvanizliTelNetsis = () => {
     // Session tracking temizle
     setSessionSavedProducts({ mmGtIds: [], ymGtId: null, ymStIds: [] });
     
-    // Formu temizle - NOKTA ile default değerler
+    // Additional state resets
+    setMainYmStIndex(0);
+    setShowDuplicateConfirmModal(false);
+    setDuplicateProducts([]);
+    setPendingSaveData(null);
+    setShowProductConflictModal(false);
+    setConflictProduct(null);
+    setConflictType('');
+    setShowYmStExistsModal(false);
+    setExistingYmStsForModal([]);
+    setIsEditingRequest(false);
+    setProcessSequence('00');
+    setIsInApprovalProcess(false);
+    
+    // Clear MM GT form data - reset to empty values
     setMmGtData({
-      cap: '2.50', // Using point as decimal separator
-      kod_2: 'NIT',
-      kaplama: '50',
-      min_mukavemet: '350',
-      max_mukavemet: '550',
-      kg: '500',
-      ic_cap: 45,
-      dis_cap: 75,
-      tolerans_plus: '0.05',
-      tolerans_minus: '0.06',
-      shrink: 'evet',
-      unwinding: '',
+      cap: '',
+      kaplama: '',
+      tolerans_plus: '',
+      tolerans_minus: '',
+      min_mukavemet: '',
+      max_mukavemet: '',
+      ic_cap: '45',
+      dis_cap: '75',
+      kg: '',
+      kod_2: 'PAD',
+      kod_3: 'PAD',
       cast_kont: '',
       helix_kont: '',
-      elongation: ''
     });
   };
 
