@@ -6691,7 +6691,6 @@ const GalvanizliTelNetsis = () => {
     ymStReceteSheet.addRow(receteHeaders);
     
     // İlk olarak ana YM ST'nin reçetesini ekle
-    const mainYmStRecipe = allRecipes.ymStRecipes[mainYmStIndex_] || {};
     let siraNoMain = 1;
     
     // Ana YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
