@@ -623,7 +623,9 @@ const SatisGalvanizRequest = () => {
       // Get the response data
       const data = await response.json();
       
-      // Send email notification through isolated backend endpoint
+      // COMMENTED OUT: Send email notification through isolated backend endpoint
+      // Temporarily disabled to prevent API exhaustion during testing
+      /*
       try {
         console.log('📧 Sending email notification for request:', data.id);
         
@@ -655,6 +657,7 @@ const SatisGalvanizRequest = () => {
         // Email error doesn't affect the main flow
         console.error('⚠️ E-posta gönderme hatası (ignored):', emailError);
       }
+      */
       
       console.log('✅ Talep başarıyla oluşturuldu');
       
