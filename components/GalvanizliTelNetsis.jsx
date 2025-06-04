@@ -7034,6 +7034,7 @@ const GalvanizliTelNetsis = () => {
     let siraNoMain = 1;
     
     // Ana YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
+    const mainYmStRecipe = allRecipes.ymStRecipes[mainYmStIndex_] || {};
     const mainRecipeEntries = Object.entries(mainYmStRecipe);
     
     // Fixed order: FLM.*.*, TLC01
