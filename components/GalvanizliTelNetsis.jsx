@@ -1823,11 +1823,13 @@ const GalvanizliTelNetsis = () => {
 
   // Çap değerine göre filmaşin seç
   const getFilmasinForCap = (cap) => {
+    // NEW RULE: For YM ST diameters ≤ 2mm, use 6mm filmaşin
+    if (cap <= 2.00) return '0600';  // 6.00mm for all diameters up to 2.00mm
+    
+    // Original logic for larger diameters
     // Filmaşin diameter must be HIGHER than YMST cap for production logic
     // FLM gets thinner during production to create YMST, then galvanized to create YMGT
-    if (cap <= 0.88) return '0550';  // 5.50mm → 0.88mm
-    if (cap <= 1.49) return '0550';  // 5.50mm → 1.20-1.49mm 
-    if (cap <= 4.50) return '0600';  // 6.00mm → 1.20-4.50mm
+    if (cap <= 4.50) return '0600';  // 6.00mm → 2.01-4.50mm
     if (cap <= 4.49) return '0600';  // 6.00mm → 2.00-4.49mm (1008 quality)
     if (cap <= 6.10) return '0700';  // 7.00mm → 4.50-6.10mm
     if (cap <= 6.90) return '0800';  // 8.00mm → 5.50-6.90mm
@@ -1837,9 +1839,11 @@ const GalvanizliTelNetsis = () => {
 
   // Çap değerine göre kalite seç - matches filmaşin production ranges
   const getQualityForCap = (cap) => {
-    if (cap <= 0.88) return '1005';  // 5.50mm 1005 → 0.88mm
-    if (cap <= 1.49) return '1006';  // 5.50mm 1006 → 1.20-1.49mm
-    if (cap <= 4.50) return '1006';  // 6.00mm 1006 → 1.20-4.50mm
+    // NEW RULE: For YM ST diameters ≤ 2mm, use 1006 quality with 6mm filmaşin
+    if (cap <= 2.00) return '1006';  // 6.00mm 1006 for all diameters up to 2.00mm
+    
+    // Original logic for larger diameters
+    if (cap <= 4.50) return '1006';  // 6.00mm 1006 → 2.01-4.50mm
     if (cap <= 4.49) return '1008';  // 6.00mm 1008 → 2.00-4.49mm
     if (cap <= 6.10) return '1008';  // 7.00mm 1008 → 4.50-6.10mm
     if (cap <= 6.10) return '1010';  // 7.00mm 1010 → 3.50-6.10mm (alternative)
@@ -2119,17 +2123,19 @@ const GalvanizliTelNetsis = () => {
       console.log(`🧪 Using filmasin code ${filmasinKodu} with HM_Cap=${hmCap} for YM ST cap=${ymSt.cap}`);
       
       // Otomatik Doldur: YM ST Filmaşin ve Kalite değerlerini otomatik seç (kullanıcı değiştirebilir)
+      // NOTE: getFilmasinKodu already updates ymSt.filmasin and ymSt.quality for ≤ 2mm diameters
+      // But we still need to handle cases where they weren't set properly
       if (!ymSt.filmasin || !ymSt.quality || ymSt.source === 'auto-generated') {
         if (hmCapMatch) {
           // Filmaşin Çapı (HM_Cap) otomatik belirle
           ymSt.filmasin = parseInt(hmCapMatch[1]);
-          // console.log(`Otomatik Doldur: Filmaşin Çapı = ${ymSt.filmasin/100}mm seçildi`);
+          console.log(`🔄 Otomatik Doldur: Filmaşin Çapı = ${ymSt.filmasin/100}mm seçildi for cap ${ymSt.cap}`);
         }
         const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
         if (qualityMatch) {
           // Filmaşin Kalitesi otomatik belirle
           ymSt.quality = qualityMatch[1];
-          // console.log(`Otomatik Doldur: Filmaşin Kalitesi = ${ymSt.quality} seçildi`);
+          console.log(`🔄 Otomatik Doldur: Filmaşin Kalitesi = ${ymSt.quality} seçildi for cap ${ymSt.cap}`);
         }
         
         // Auto-selected flag ekle - kullanıcının değiştirebileceğini belirt
@@ -4132,9 +4138,15 @@ const GalvanizliTelNetsis = () => {
     
     try {
       setIsLoading(true);
-      console.log('Başlama: approveRequestAndContinue - İstek Onaylama');
+      console.log('Başlama: approveRequestAndContinue - Database Save First');
       
-      // Update request status to approved
+      // FIXED: First save to database, THEN approve request only if save succeeds
+      console.log('Veritabanına kayıt işlemi başlatılıyor...');
+      await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
+      console.log('Veritabanına kayıt işlemi tamamlandı');
+      
+      // Only approve request AFTER successful database save
+      console.log('Database save başarılı, request onaylama işlemi başlatılıyor...');
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -4151,17 +4163,12 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Talep durumu güncellenemedi');
       }
       
-      // Only show toast if we successfully updated the request
+      // Only show approval success if we successfully updated the request
       toast.success('Talep başarıyla onaylandı');
       
       // Reset editing state since it's now approved
       setIsEditingRequest(false);
       setIsInApprovalProcess(false); // Reset approval process flag to prevent double modals
-      
-      // Continue with database save, passing the database IDs
-      console.log('Veritabanına kayıt işlemi başlatılıyor...');
-      await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
-      console.log('Veritabanına kayıt işlemi tamamlandı');
       
       // Now also generate Excel files as the final step
       console.log('Excel dosyalarını oluşturma işlemi başlatılıyor...');
@@ -5660,16 +5667,27 @@ const GalvanizliTelNetsis = () => {
     
     // Get cap and determine appropriate filmasin type
     const cap = parseFloat(ymSt.cap) || parseFloat(mmGtData.cap) || 0;
+    console.log(`🔍 getFilmasinKodu called with cap: ${cap} (type: ${typeof cap}), ymSt.cap: ${ymSt.cap}, mmGtData.cap: ${mmGtData.cap}`);
     
     // If ymSt has filmasin and quality defined, use those values
     // If not, determine appropriate values based on cap
     let filmasin, quality;
     
-    if (ymSt.filmasin && ymSt.quality) {
-      // Use existing values from ymSt
+    // IMPORTANT: For diameters ≤ 2mm, always use new rules regardless of existing values
+    if (cap <= 2.00) {
+      filmasin = getFilmasinForCap(cap);
+      quality = getQualityForCap(cap) || '1006';
+      console.log(`✅ Applied new rule for cap ${cap} ≤ 2mm: filmasin ${filmasin}, quality ${quality}`);
+      
+      // FORCE UPDATE: Always update the ymSt object with the new values for ≤ 2mm diameters
+      ymSt.filmasin = parseInt(filmasin);
+      ymSt.quality = quality;
+      console.log(`🔄 Force updated ymSt object: filmasin=${ymSt.filmasin}, quality=${ymSt.quality}`);
+    } else if (ymSt.filmasin && ymSt.quality) {
+      // For diameters > 2mm, use existing values from ymSt if available
       filmasin = ymSt.filmasin.toString();
       quality = ymSt.quality;
-      console.log(`Using existing filmasin: ${filmasin}, quality: ${quality} for cap ${cap}`);
+      console.log(`🚨 PROBLEM: Using existing filmasin: ${filmasin}, quality: ${quality} for cap ${cap} (should not happen for cap ≤ 2)`);
     } else {
       // Otherwise, determine appropriate values based on cap
       filmasin = getFilmasinForCap(cap);
