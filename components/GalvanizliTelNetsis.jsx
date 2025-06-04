@@ -2702,21 +2702,23 @@ const GalvanizliTelNetsis = () => {
     // Use the comprehensive reset function
     resetApplicationState();
     
-    // Clear MM GT form data - reset to empty values
+    // Clear MM GT form data - reset to DEFAULT VALUES (same as initial page load)
     setMmGtData({
-      cap: '',
-      kaplama: '',
-      tolerans_plus: '',
-      tolerans_minus: '',
-      min_mukavemet: '',
-      max_mukavemet: '',
-      ic_cap: '45',
-      dis_cap: '75',
-      kg: '',
-      kod_2: 'PAD',
-      kod_3: 'PAD',
-      cast_kont: '',
-      helix_kont: '',
+      cap: '2.50',           // Default cap value
+      kod_2: 'NIT',          // Default to NIT not PAD
+      kaplama: '50',         // Default kaplama value
+      min_mukavemet: '350',  // Default min strength
+      max_mukavemet: '550',  // Default max strength
+      kg: '500',             // Default weight
+      ic_cap: 45,            // Default inner diameter (number, not string)
+      dis_cap: 75,           // Default outer diameter (number, not string)
+      tolerans_plus: '0.05', // Default plus tolerance
+      tolerans_minus: '0.06', // Default minus tolerance
+      shrink: 'evet',        // Default shrink setting
+      unwinding: '',         // Empty unwinding
+      cast_kont: '',         // Empty cast control
+      helix_kont: '',        // Empty helix control
+      elongation: ''         // Empty elongation
     });
   };
 
@@ -6673,34 +6675,63 @@ const GalvanizliTelNetsis = () => {
     const receteHeaders = getReceteHeaders();
     mmGtReceteSheet.addRow(receteHeaders);
     
-    // Add multiple MM GT recipe rows (all recipes from all products)
-    let globalSiraNo = 1;
+    // FIXED: Add multiple MM GT recipe rows with per-product sequence numbering
+    const mmGtByProduct = {};
     mmGtRecipes.forEach(recipe => {
-      // Each recipe object should have: bilesen_kodu, miktar, mm_gt_stok_kodu, sequence
-      mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, globalSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
-      globalSiraNo++;
+      if (!mmGtByProduct[recipe.mm_gt_stok_kodu]) {
+        mmGtByProduct[recipe.mm_gt_stok_kodu] = [];
+      }
+      mmGtByProduct[recipe.mm_gt_stok_kodu].push(recipe);
+    });
+    
+    Object.keys(mmGtByProduct).forEach(stokKodu => {
+      let productSiraNo = 1; // Restart sequence for each product
+      mmGtByProduct[stokKodu].forEach(recipe => {
+        mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
+        productSiraNo++;
+      });
     });
     
     // YM GT REÇETE Sheet - EXACT same structure as individual
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
-    // Add multiple YM GT recipe rows (all recipes from all products)
-    globalSiraNo = 1;
+    // FIXED: Add multiple YM GT recipe rows with per-product sequence numbering
+    const ymGtByProduct = {};
     ymGtRecipes.forEach(recipe => {
-      ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, globalSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
-      globalSiraNo++;
+      if (!ymGtByProduct[recipe.ym_gt_stok_kodu]) {
+        ymGtByProduct[recipe.ym_gt_stok_kodu] = [];
+      }
+      ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
+    });
+    
+    Object.keys(ymGtByProduct).forEach(stokKodu => {
+      let productSiraNo = 1; // Restart sequence for each product
+      ymGtByProduct[stokKodu].forEach(recipe => {
+        ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+        productSiraNo++;
+      });
     });
     
     // YM ST REÇETE Sheet - EXACT same structure as individual
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
     
-    // Add multiple YM ST recipe rows (all recipes from all products)
-    globalSiraNo = 1;
+    // FIXED: Add multiple YM ST recipe rows with per-product sequence numbering
+    const ymStByProduct = {};
     ymStRecipes.forEach(recipe => {
-      ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, globalSiraNo, recipe.ym_st_stok_kodu));
-      globalSiraNo++;
+      if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
+        ymStByProduct[recipe.ym_st_stok_kodu] = [];
+      }
+      ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
+    });
+    
+    Object.keys(ymStByProduct).forEach(stokKodu => {
+      let productSiraNo = 1; // Restart sequence for each product
+      ymStByProduct[stokKodu].forEach(recipe => {
+        ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
+        productSiraNo++;
+      });
     });
     
     // Save with timestamp filename
@@ -7810,11 +7841,11 @@ const GalvanizliTelNetsis = () => {
 
   // Batch Excel için MM GT recipe row generator
   const generateMmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmGtStokKodu) => {
-    // Generate YM GT stok kodu from MM GT stok kodu (replace GT with YM.GT)
-    const ymGtStokKodu = mmGtStokKodu.replace('GT.', 'YM.GT.');
+    // FIXED: MM GT recipe should use MM GT stok kodu, not YM GT format
+    // The mmGtStokKodu is already in correct format (GT.PAD.0087.00)
     
     return [
-      ymGtStokKodu, // Mamul Kodu - YM GT kodu
+      mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
       '', // Fire Oranı (%)
       '', // Oto.Reç.
