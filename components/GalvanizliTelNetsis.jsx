@@ -6333,9 +6333,10 @@ const GalvanizliTelNetsis = () => {
           console.warn(`⚠️ [${request.id}] Request has no stok_kodu - skipping (old request without stok_kodu)`);
           continue;
         }
-          // Find MM GT by stok_kodu
-          console.log(`🔍 [${request.id}] Fetching MM GT product by stok_kodu: ${request.stok_kodu}`);
-          console.log(`🔗 [${request.id}] API URL: ${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
+        
+        // Find MM GT by stok_kodu
+        console.log(`🔍 [${request.id}] Fetching MM GT product by stok_kodu: ${request.stok_kodu}`);
+        console.log(`🔗 [${request.id}] API URL: ${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
         totalApiCalls++;
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
@@ -6467,7 +6468,6 @@ const GalvanizliTelNetsis = () => {
           console.error(`❌ [${request.id}] MM GT API failed - Response status: ${mmGtResponse?.status}`);
           console.error(`❌ [${request.id}] Response text:`, await mmGtResponse?.text().catch(() => 'Unable to read response'));
         }
-        } // End of stok_kodu else block
       } catch (error) {
         failedApiCalls++;
         console.error(`❌ [${request.id}] Exception during data loading:`, error);
