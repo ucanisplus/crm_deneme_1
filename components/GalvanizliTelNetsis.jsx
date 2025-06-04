@@ -1133,6 +1133,9 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
+      // CRITICAL: Reset application state before setting new request data
+      resetApplicationState();
+      
       // Update the request status directly without asking for edit notes
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
@@ -1191,6 +1194,9 @@ const GalvanizliTelNetsis = () => {
   const handleDetailApproveRequest = async () => {
     try {
       setIsLoading(true);
+      
+      // CRITICAL: Reset application state before setting new request data
+      resetApplicationState();
       
       // Update request status to approved
       const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
@@ -2648,14 +2654,10 @@ const GalvanizliTelNetsis = () => {
     }, 100);
   };
 
-  // Manuel girişe geri dön - tüm state'i temizle
-  const handleBackToManual = () => {
-    toast.dismiss(); // Clear all toast messages when switching to manual input
-    setCurrentStep('input');
-    setSelectedRequest(null);
-    setSelectedExistingMmGt(null);
-    setIsRequestUsed(false); // Talep kullanım durumunu sıfırla
-    setIsViewingExistingProduct(false); // Reset existing product flag
+  // Comprehensive state reset function - used when switching between requests
+  const resetApplicationState = () => {
+    console.log('🔄 Resetting application state for new request...');
+    
     setYmGtData(null);
     setSuitableYmSts([]);
     setSelectedYmSts([]);
@@ -2681,9 +2683,24 @@ const GalvanizliTelNetsis = () => {
     setConflictType('');
     setShowYmStExistsModal(false);
     setExistingYmStsForModal([]);
-    setIsEditingRequest(false);
     setProcessSequence('00');
     setIsInApprovalProcess(false);
+    setIsViewingExistingProduct(false);
+    
+    console.log('✅ Application state reset completed');
+  };
+
+  // Manuel girişe geri dön - tüm state'i temizle
+  const handleBackToManual = () => {
+    toast.dismiss(); // Clear all toast messages when switching to manual input
+    setCurrentStep('input');
+    setSelectedRequest(null);
+    setSelectedExistingMmGt(null);
+    setIsRequestUsed(false); // Talep kullanım durumunu sıfırla
+    setIsEditingRequest(false);
+    
+    // Use the comprehensive reset function
+    resetApplicationState();
     
     // Clear MM GT form data - reset to empty values
     setMmGtData({
