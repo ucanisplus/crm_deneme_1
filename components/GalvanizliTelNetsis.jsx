@@ -6177,7 +6177,7 @@ const GalvanizliTelNetsis = () => {
 
   // Request selection handlers
   const handleSelectAllRequests = () => {
-    const approvedRequests = getFilteredAndSortedRequests().filter(req => req.status === 'approved');
+    const approvedRequests = getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved');
     const allIds = approvedRequests.map(req => req.id);
     
     if (selectedRequestIds.length === allIds.length) {
@@ -6203,21 +6203,60 @@ const GalvanizliTelNetsis = () => {
   const exportAllApprovedToExcel = async () => {
     try {
       setIsExportingExcel(true);
-      const approvedRequests = requests.filter(req => req.status === 'approved');
+      console.log('🎯 === BATCH EXCEL EXPORT STARTED ===');
+      console.log('🔍 Total requests loaded:', requests.length);
+      console.log('🔍 All requests:', requests.map(r => ({ 
+        id: r.id, 
+        status: r.status, 
+        raw_status: typeof r.status,
+        created_at: r.created_at 
+      })));
+      
+      // Multiple validation approaches to catch edge cases
+      const approvedRequests = requests.filter(req => {
+        if (!req || !req.status) {
+          console.warn('⚠️ Request missing status:', req);
+          return false;
+        }
+        
+        const status = req.status.toString().toLowerCase().trim();
+        const isApproved = status === 'approved';
+        
+        if (isApproved) {
+          console.log('✅ Found approved request:', { 
+            id: req.id, 
+            original_status: req.status, 
+            normalized_status: status 
+          });
+        }
+        
+        return isApproved;
+      });
+      
+      console.log('✅ Final approved requests count:', approvedRequests.length);
+      console.log('✅ Approved requests details:', approvedRequests.map(r => ({ 
+        id: r.id, 
+        status: r.status, 
+        created_at: r.created_at 
+      })));
       
       if (approvedRequests.length === 0) {
-        toast.warning('Onaylanmış talep bulunamadı');
+        console.log('❌ No approved requests found - showing warning');
+        toast.warning('Onaylanmış talep bulunamadı. Lütfen önce en az bir talebi onaylayın.');
         return;
       }
       
-      console.log(`Exporting ${approvedRequests.length} approved requests to Excel`);
+      console.log(`🚀 Starting Excel generation for ${approvedRequests.length} approved requests`);
       await generateBatchExcelFromRequests(approvedRequests);
-      toast.success(`${approvedRequests.length} onaylanmış talep için Excel dosyaları oluşturuldu`);
+      console.log('🎉 Excel generation completed successfully');
+      toast.success(`${approvedRequests.length} onaylanmış talep için Excel dosyaları başarıyla oluşturuldu!`);
     } catch (error) {
-      console.error('Excel export error:', error);
+      console.error('❌ BATCH EXCEL EXPORT FAILED:', error);
+      console.error('❌ Error stack:', error.stack);
       toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setIsExportingExcel(false);
+      console.log('🏁 === BATCH EXCEL EXPORT FINISHED ===');
     }
   };
 
@@ -6230,9 +6269,10 @@ const GalvanizliTelNetsis = () => {
       }
       
       setIsExportingExcel(true);
-      const selectedRequests = requests.filter(req => 
-        selectedRequestIds.includes(req.id) && req.status === 'approved'
-      );
+      const selectedRequests = requests.filter(req => {
+        const status = req.status?.toString().toLowerCase().trim();
+        return selectedRequestIds.includes(req.id) && status === 'approved';
+      });
       
       if (selectedRequests.length === 0) {
         toast.warning('Seçilen taleplerin hiçbiri onaylanmış değil');
@@ -6252,11 +6292,25 @@ const GalvanizliTelNetsis = () => {
 
   // Generate Excel files from multiple requests (creates combined stok and recipe Excel files)
   const generateBatchExcelFromRequests = async (requestsList) => {
+    console.log('📋 === BATCH EXCEL GENERATION STARTED ===');
+    
+    // Input validation
     if (!requestsList || requestsList.length === 0) {
+      console.error('❌ No requests provided to generateBatchExcelFromRequests');
       throw new Error('Hiçbir talep bulunamadı');
     }
 
-    console.log(`Creating batch Excel for ${requestsList.length} requests`);
+    if (!Array.isArray(requestsList)) {
+      console.error('❌ requestsList is not an array:', typeof requestsList);
+      throw new Error('Geçersiz talep listesi formatı');
+    }
+
+    console.log(`🚀 Creating batch Excel for ${requestsList.length} requests`);
+    console.log('📝 Request details:', requestsList.map(r => ({ 
+      id: r.id, 
+      status: r.status,
+      created_at: r.created_at?.substring(0, 10) || 'unknown'
+    })));
     
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
@@ -6266,20 +6320,46 @@ const GalvanizliTelNetsis = () => {
     const ymGtRecipeMap = new Map(); // key: `${ym_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymStRecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe
 
+    let totalApiCalls = 0;
+    let successfulApiCalls = 0;
+    let failedApiCalls = 0;
+
     for (const request of requestsList) {
       try {
         console.log(`Processing request ${request.id} for batch Excel...`);
         
         // Find MM GT for this specific request only
+        console.log(`🔍 [${request.id}] Fetching MM GT products...`);
+        console.log(`🔗 [${request.id}] API URL: ${API_URLS.galMmGt}?request_id=${request.id}`);
+        
+        totalApiCalls++;
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?request_id=${request.id}`);
+        
         if (mmGtResponse && mmGtResponse.ok) {
           const mmGtProducts = await mmGtResponse.json();
-          console.log(`Found ${mmGtProducts.length} MM GT products for request ${request.id}`);
+          successfulApiCalls++;
+          
+          console.log(`✅ [${request.id}] MM GT API success - Found ${mmGtProducts.length} products`);
+          if (mmGtProducts.length > 0) {
+            console.log(`📦 [${request.id}] MM GT products:`, mmGtProducts.map(m => ({ 
+              stok_kodu: m.stok_kodu, 
+              id: m.id, 
+              request_id: m.request_id,
+              cap: m.cap,
+              kg: m.kg
+            })));
+          }
+          
+          if (mmGtProducts.length === 0) {
+            console.warn(`⚠️ [${request.id}] No MM GT products found for this approved request`);
+            console.warn(`⚠️ [${request.id}] This could mean: 1) Request was approved but no products saved, 2) Products were deleted, 3) Wrong request_id`);
+            continue;
+          }
           
           for (const mmGt of mmGtProducts) {
             // Add MM GT since API already filtered by request_id
             mmGtMap.set(mmGt.stok_kodu, mmGt);
-            console.log(`Added MM GT: ${mmGt.stok_kodu} for request ${request.id}`);
+            console.log(`➕ Added MM GT: ${mmGt.stok_kodu} for request ${request.id}`);
             
             // Find relationships created specifically for this request's MM GT
             const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
@@ -6374,11 +6454,24 @@ const GalvanizliTelNetsis = () => {
               });
             }
           }
+        } else {
+          failedApiCalls++;
+          console.error(`❌ [${request.id}] MM GT API failed - Response status: ${mmGtResponse?.status}`);
+          console.error(`❌ [${request.id}] Response text:`, await mmGtResponse?.text().catch(() => 'Unable to read response'));
         }
       } catch (error) {
-        console.error(`Error loading data for request ${request.id}:`, error);
+        failedApiCalls++;
+        console.error(`❌ [${request.id}] Exception during data loading:`, error);
+        console.error(`❌ [${request.id}] Error details:`, error.message);
       }
     }
+
+    // API call statistics
+    console.log('📊 === API CALL STATISTICS ===');
+    console.log(`📞 Total API calls: ${totalApiCalls}`);
+    console.log(`✅ Successful calls: ${successfulApiCalls}`);
+    console.log(`❌ Failed calls: ${failedApiCalls}`);
+    console.log(`📈 Success rate: ${totalApiCalls > 0 ? Math.round((successfulApiCalls / totalApiCalls) * 100) : 0}%`);
 
     // Convert Maps to arrays for Excel generation
     const allMmGtData = Array.from(mmGtMap.values());
@@ -6388,21 +6481,78 @@ const GalvanizliTelNetsis = () => {
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
     
-    // Generate combined Excel files
-    console.log(`Collected data - MM GT: ${allMmGtData.length}, YM GT: ${allYmGtData.length}, YM ST: ${allYmStData.length}`);
-    console.log(`Collected recipes - MM GT: ${allMmGtRecipes.length}, YM GT: ${allYmGtRecipes.length}, YM ST: ${allYmStRecipes.length}`);
+    // Final data collection summary
+    console.log('📊 === FINAL DATA COLLECTION SUMMARY ===');
+    console.log(`📦 Products collected:`);
+    console.log(`   📍 MM GT: ${allMmGtData.length} products`);
+    console.log(`   📍 YM GT: ${allYmGtData.length} products`);
+    console.log(`   📍 YM ST: ${allYmStData.length} products`);
+    console.log(`📋 Recipes collected:`);
+    console.log(`   📍 MM GT recipes: ${allMmGtRecipes.length} recipes`);
+    console.log(`   📍 YM GT recipes: ${allYmGtRecipes.length} recipes`);
+    console.log(`   📍 YM ST recipes: ${allYmStRecipes.length} recipes`);
     
-    if (allMmGtData.length === 0) {
-      throw new Error('Seçilen taleplerde hiçbir ürün bulunamadı');
+    // Detailed product information
+    if (allMmGtData.length > 0) {
+      console.log('📦 MM GT Products details:', allMmGtData.map(m => ({ 
+        stok_kodu: m.stok_kodu, 
+        id: m.id, 
+        request_id: m.request_id,
+        cap: m.cap,
+        kg: m.kg
+      })));
     }
+    if (allYmGtData.length > 0) {
+      console.log('📦 YM GT Products details:', allYmGtData.map(y => ({ 
+        stok_kodu: y.stok_kodu, 
+        id: y.id 
+      })));
+    }
+    if (allYmStData.length > 0) {
+      console.log('📦 YM ST Products details:', allYmStData.map(s => ({ 
+        stok_kodu: s.stok_kodu, 
+        id: s.id,
+        cap: s.cap,
+        filmasin: s.filmasin
+      })));
+    }
+    
+    // Critical validation
+    if (allMmGtData.length === 0) {
+      console.error('💥 CRITICAL ERROR: No MM GT products found in any approved requests!');
+      console.error('💡 Possible causes:');
+      console.error('   1. Approved requests exist but have no saved MM GT products');
+      console.error('   2. Database connection issue');
+      console.error('   3. API filtering problem');
+      console.error('   4. Products were deleted after approval');
+      throw new Error('Seçilen onaylanmış taleplerde hiçbir ürün bulunamadı. Lütfen taleplerin doğru şekilde kaydedildiğinden emin olun.');
+    }
+    
+    console.log('✅ Data validation passed - proceeding with Excel generation');
 
     // Create two separate Excel files with EXACT same format as individual exports
+    console.log('📄 Starting Stok Kartı Excel generation...');
     await generateBatchStokKartiExcel(allMmGtData, allYmGtData, allYmStData);
+    console.log('✅ Stok Kartı Excel generated successfully');
+    
+    console.log('📄 Starting Reçete Excel generation...');
     await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes);
+    console.log('✅ Reçete Excel generated successfully');
+    
+    console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
   };
 
   // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
   const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData) => {
+    console.log('📋 Batch Stok Kartı Excel - Input validation');
+    console.log(`   MM GT data: ${mmGtData?.length || 0} items`);
+    console.log(`   YM GT data: ${ymGtData?.length || 0} items`);
+    console.log(`   YM ST data: ${ymStData?.length || 0} items`);
+    
+    if (!mmGtData || mmGtData.length === 0) {
+      throw new Error('MM GT verisi bulunamadı - Stok Kartı Excel oluşturulamıyor');
+    }
+    
     const workbook = new ExcelJS.Workbook();
     
     // MM GT Sheet - EXACT same structure as individual
@@ -6447,6 +6597,11 @@ const GalvanizliTelNetsis = () => {
 
   // Generate batch recipe Excel - EXACT same format as individual, just multiple rows  
   const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes) => {
+    console.log('📋 Batch Reçete Excel - Input validation');
+    console.log(`   MM GT recipes: ${mmGtRecipes?.length || 0} items`);
+    console.log(`   YM GT recipes: ${ymGtRecipes?.length || 0} items`);
+    console.log(`   YM ST recipes: ${ymStRecipes?.length || 0} items`);
+    
     const workbook = new ExcelJS.Workbook();
     
     // MM GT REÇETE Sheet - EXACT same structure as individual
@@ -9364,7 +9519,7 @@ const GalvanizliTelNetsis = () => {
                   {/* Excel Export Buttons */}
                   <button
                     onClick={exportAllApprovedToExcel}
-                    disabled={isExportingExcel || requests.filter(req => req.status === 'approved').length === 0}
+                    disabled={isExportingExcel || requests.filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length === 0}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Tüm onaylanmış talepleri Excel'e aktar"
                   >
@@ -9544,8 +9699,8 @@ const GalvanizliTelNetsis = () => {
                               type="checkbox"
                               checked={
                                 selectedRequestIds.length > 0 && 
-                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status === 'approved').length &&
-                                getFilteredAndSortedRequests().filter(req => req.status === 'approved').length > 0
+                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length &&
+                                getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length > 0
                               }
                               onChange={handleSelectAllRequests}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -9600,7 +9755,7 @@ const GalvanizliTelNetsis = () => {
                                 onChange={() => handleToggleRequestSelection(request.id)}
                                 disabled={request.status !== 'approved'}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={request.status === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
+                                title={request.status?.toString().toLowerCase().trim() === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
                               />
                             </div>
                           </td>
@@ -9662,7 +9817,7 @@ const GalvanizliTelNetsis = () => {
                                   Sil
                                 </button>
                               )}
-                              {request.status === 'approved' && (
+                              {request.status?.toString().toLowerCase().trim() === 'approved' && (
                                 <button
                                   onClick={() => {
                                     if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz.')) {
@@ -9727,7 +9882,7 @@ const GalvanizliTelNetsis = () => {
                     <p className="text-sm font-medium text-gray-500">Durum</p>
                     <p className="px-2 py-1 text-xs inline-flex items-center font-medium rounded-full border bg-yellow-100 text-yellow-800 border-yellow-200">
                       {selectedRequest.status === 'pending' ? 'Beklemede' : 
-                       selectedRequest.status === 'approved' ? 'Onaylandı' : 
+                       selectedRequest.status?.toString().toLowerCase().trim() === 'approved' ? 'Onaylandı' : 
                        selectedRequest.status === 'rejected' ? 'Reddedildi' : 
                        selectedRequest.status === 'in_progress' ? 'İşleniyor' : 
                        selectedRequest.status === 'completed' ? 'Tamamlandı' : 
