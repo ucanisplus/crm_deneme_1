@@ -532,10 +532,9 @@ const SatisGalvanizRequest = () => {
       
       const sequenceData = await sequenceResponse.json();
       
-      // Fix the sequence to start from 00 instead of 01
-      // The backend starts from 1, but we need to start from 0
-      const correctedSequence = (sequenceData.next_sequence - 1).toString().padStart(2, '0');
-      const stokKodu = sequenceData.stok_kodu.replace(/\.\d{2}$/, `.${correctedSequence}`);
+      // Use the exact stok_kodu returned by the API - don't modify it
+      // The sequence logic should be handled in the backend
+      const stokKodu = sequenceData.stok_kodu;
       
       // Generate stok adi
       const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm -${data.tolerans_minus}/+${data.tolerans_plus} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg} kg`;

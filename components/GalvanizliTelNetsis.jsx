@@ -554,13 +554,13 @@ const GalvanizliTelNetsis = () => {
         const mmGtData = await mmGtResponse.json();
         if (mmGtData.length > 0) {
           const mmGt = mmGtData[0];
-          console.log(`✅ Found MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+          // console.log(`✅ Found MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
           
           // 🆕 NEW: Use enhanced relationship table to find YM GT and YM STs
           const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
           if (relationResponse && relationResponse.ok) {
             const relations = await relationResponse.json();
-            console.log(`✅ Found ${relations.length} relationships`);
+            // console.log(`✅ Found ${relations.length} relationships`);
             
             if (relations.length > 0) {
               const ymGtId = relations[0].ym_gt_id; // All relations should have same ym_gt_id
@@ -570,7 +570,7 @@ const GalvanizliTelNetsis = () => {
               if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
                 const mmGtRecipeData = await mmGtRecipeResponse.json();
                 if (mmGtRecipeData.length > 0) {
-                  console.log(`✅ Loading ${mmGtRecipeData.length} MM GT recipes`);
+                  // console.log(`✅ Loading ${mmGtRecipeData.length} MM GT recipes`);
                   
                   // Apply MM GT recipes to all YM ST indices
                   for (let i = 0; i < allYmSts.length; i++) {
@@ -580,7 +580,7 @@ const GalvanizliTelNetsis = () => {
                       let displayCode = item.bilesen_kodu;
                       if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
                         displayCode = '150 03';
-                        console.log(`✅ Found Çinko in MM GT recipes: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
+                        // console.log(`✅ Found Çinko in MM GT recipes: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
                       }
                       
                       parsedMmGtRecipe[displayCode] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
@@ -602,7 +602,7 @@ const GalvanizliTelNetsis = () => {
                 if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
                   const ymGtRecipeData = await ymGtRecipeResponse.json();
                   if (ymGtRecipeData.length > 0) {
-                    console.log(`✅ Loading ${ymGtRecipeData.length} YM GT recipes`);
+                    // console.log(`✅ Loading ${ymGtRecipeData.length} YM GT recipes`);
                     
                     const parsedYmGtRecipe = {};
                     ymGtRecipeData.forEach(item => {
@@ -610,7 +610,7 @@ const GalvanizliTelNetsis = () => {
                       let displayCode = item.bilesen_kodu;
                       if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
                         displayCode = '150 03';
-                        console.log(`✅ Found Çinko in fetchRecipesFromDatabase: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
+                        // console.log(`✅ Found Çinko in fetchRecipesFromDatabase: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
                       }
                       
                       parsedYmGtRecipe[displayCode] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
@@ -626,7 +626,7 @@ const GalvanizliTelNetsis = () => {
               }
               
               // 🆕 NEW: Load YM STs and their recipes using the enhanced relationship table
-              console.log(`✅ Loading YM STs and recipes for ${relations.length} relationships`);
+              // console.log(`✅ Loading YM STs and recipes for ${relations.length} relationships`);
               
               // Sort relations by sequence_index to maintain order
               const sortedRelations = relations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
@@ -655,7 +655,7 @@ const GalvanizliTelNetsis = () => {
                         mainIndex = i;
                       }
                       
-                      console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu}`);
+                      // console.log(`✅ Loaded YM ST ${i + 1}: ${ymSt.stok_kodu}`);
                     }
                   }
                 } catch (error) {
@@ -667,7 +667,7 @@ const GalvanizliTelNetsis = () => {
                 if (ymStRecipeResponse && ymStRecipeResponse.ok) {
                   const ymStRecipeData = await ymStRecipeResponse.json();
                   if (ymStRecipeData.length > 0) {
-                    console.log(`✅ Loading ${ymStRecipeData.length} YM ST recipes for index ${i}`);
+                    // console.log(`✅ Loading ${ymStRecipeData.length} YM ST recipes for index ${i}`);
                     
                     const parsedYmStRecipe = {};
                     ymStRecipeData.forEach(item => {
@@ -675,7 +675,7 @@ const GalvanizliTelNetsis = () => {
                       let displayCode = item.bilesen_kodu;
                       if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
                         displayCode = '150 03';
-                        console.log(`✅ Found Çinko in YM ST recipes: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
+                        // console.log(`✅ Found Çinko in YM ST recipes: bilesen_kodu='${item.bilesen_kodu}', aciklama='${item.aciklama}', mapping to '${displayCode}'`);
                       }
                       
                       parsedYmStRecipe[displayCode] = parseFloat(item.miktar || 0); // Clean number, no trailing zeros
@@ -695,7 +695,7 @@ const GalvanizliTelNetsis = () => {
               if (loadedYmSts.length > 0) {
                 setSelectedYmSts(loadedYmSts);
                 setMainYmStIndex(mainIndex);
-                console.log(`🎯 Loaded ${loadedYmSts.length} existing YM STs from database, main index: ${mainIndex}`);
+                // console.log(`🎯 Loaded ${loadedYmSts.length} existing YM STs from database, main index: ${mainIndex}`);
                 
                 // Clear any auto-generated YM STs since we're using database ones
                 setAutoGeneratedYmSts([]);
@@ -812,7 +812,7 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      console.log(`Deleting single MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+      // console.log(`Deleting single MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
       
       // Only delete the specific MM GT, not all related ones
       const mmGtId = mmGt.id;
@@ -827,7 +827,7 @@ const GalvanizliTelNetsis = () => {
           throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
         }
         
-        console.log(`MM GT ${mmGt.stok_kodu} deleted successfully`);
+        // console.log(`MM GT ${mmGt.stok_kodu} deleted successfully`);
       } catch (error) {
         console.error('MM GT deletion error:', error);
         throw error;
@@ -852,7 +852,7 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      console.log(`Deleting single YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
+      // console.log(`Deleting single YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
       
       // Delete YM ST using backend cascade (backend handles related data automatically)
       try {
@@ -864,7 +864,7 @@ const GalvanizliTelNetsis = () => {
           throw new Error(`Failed to delete YM ST: ${deleteResponse.status}`);
         }
         
-        console.log(`YM ST ${ymSt.stok_kodu} deleted successfully`);
+        // console.log(`YM ST ${ymSt.stok_kodu} deleted successfully`);
       } catch (error) {
         console.error('YM ST deletion error:', error);
         throw error;
@@ -907,8 +907,8 @@ const GalvanizliTelNetsis = () => {
 
     try {
       setIsLoading(true);
-      console.log('Starting bulk delete operation...');
-      console.log(`Active tab: ${activeDbTab}`);
+      // console.log('Starting bulk delete operation...');
+      // console.log(`Active tab: ${activeDbTab}`);
       
       // Use batch operations with limited concurrency to avoid overwhelming the server
       const batchSize = 5; // Process 5 items at a time to prevent server overload
@@ -916,10 +916,10 @@ const GalvanizliTelNetsis = () => {
       if (activeDbTab === 'mmgt') {
         // Delete MM GTs - this will cascade delete YMGT, MMGT recipes, and YMGT recipes via backend
         const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-        console.log(`Deleting ${mmGtIds.length} MM GTs (and their related YMGTs and all recipes)`);
+        // console.log(`Deleting ${mmGtIds.length} MM GTs (and their related YMGTs and all recipes)`);
         
         if (mmGtIds.length > 0) {
-          console.log('Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
+          // console.log('Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
             const batch = mmGtIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -931,16 +931,16 @@ const GalvanizliTelNetsis = () => {
               })
             );
             await Promise.all(batchPromises);
-            console.log(`Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+            // console.log(`Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
           }
         }
       } else if (activeDbTab === 'ymst') {
         // Delete only YM STs and their recipes
         const ymStIds = existingYmSts.map(ymSt => ymSt.id);
-        console.log(`Deleting ${ymStIds.length} YM STs and their recipes`);
+        // console.log(`Deleting ${ymStIds.length} YM STs and their recipes`);
         
         if (ymStIds.length > 0) {
-          console.log('Deleting YM STs in batches...');
+          // console.log('Deleting YM STs in batches...');
           for (let i = 0; i < ymStIds.length; i += batchSize) {
             const batch = ymStIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -952,13 +952,13 @@ const GalvanizliTelNetsis = () => {
               })
             );
             await Promise.all(batchPromises);
-            console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
+            // console.log(`Deleted YM ST batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(ymStIds.length/batchSize)}`);
           }
         }
       }
       
       // Refresh data
-      console.log('Refreshing data...');
+      // console.log('Refreshing data...');
       await Promise.all([
         fetchExistingMmGts(),
         fetchExistingYmSts()
@@ -976,7 +976,7 @@ const GalvanizliTelNetsis = () => {
         toast.success(`${deletedCount} YM ST ve reçeteleri başarıyla silindi`);
       }
       
-      console.log('Bulk delete operation completed successfully');
+      // console.log('Bulk delete operation completed successfully');
       
     } catch (error) {
       console.error('Toplu silme hatası:', error);
@@ -1947,9 +1947,9 @@ const GalvanizliTelNetsis = () => {
   const debugFormula = (name, inputs, result, steps = []) => {
     if (process.env.NODE_ENV === 'development') {
       console.group(`${name} Hesaplaması`);
-      console.log('Girişler:', inputs);
-      if (steps.length > 0) console.log('Adımlar:', steps);
-      console.log('Sonuç:', result);
+      // console.log('Girişler:', inputs);
+      // if (steps.length > 0) console.log('Adımlar:', steps);
+      // console.log('Sonuç:', result);
       console.groupEnd();
     }
   };
@@ -1958,7 +1958,7 @@ const GalvanizliTelNetsis = () => {
   const calculateAutoRecipeValues = () => {
     // Don't calculate auto values if viewing existing product - use database values instead
     if (isViewingExistingProduct) {
-      console.log('Viewing existing product - skipping auto recipe calculation');
+      // console.log('Viewing existing product - skipping auto recipe calculation');
       return;
     }
     
@@ -2002,12 +2002,12 @@ const GalvanizliTelNetsis = () => {
       // MM GT Reçete - her MM GT için
       // DÜZELTME: YMGT kod oluştur - sequence parametresini kullan
       let correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      console.log(`MMGT reçetesi için YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
+      // console.log(`MMGT reçetesi için YMGT kodu oluşturuluyor: ${correctYmGtStokKodu}`);
       
       // Otomatik Doldur: Shrink tipi ve miktarını otomatik belirle (İç Çap'a göre)
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
-      console.log(`Otomatik Doldur: İç Çap ${mmGtData.ic_cap}cm için Shrink Tipi = ${shrinkCode} seçildi`);
+      // console.log(`Otomatik Doldur: İç Çap ${mmGtData.ic_cap}cm için Shrink Tipi = ${shrinkCode} seçildi`);
       
       // We'll calculate values without modifying the YM ST objects directly
       // This avoids interfering with the selection functionality
@@ -2019,19 +2019,16 @@ const GalvanizliTelNetsis = () => {
       // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000 - Original formula
       const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.APEX CEMBER 38X080: Original coefficient 1.2 from formula, but Excel shows 1.6 kg/ton
-      // To get 1.6 kg/ton, we need coefficient 1.2
+      // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
       const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.TOKA.SIGNODE.114P. DKP: Original coefficient 4 from formula, Excel shows 5.3 adet/ton
-      // To get 5.3 adet/ton, coefficient should be 4.0 (as original)
+      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
       const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // SM.7MMHALKA: Same as TOKA - Original coefficient 4
+      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
       const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.ÇEM.KARTON.GAL: Original coefficient 8 from formula, Excel shows 10.7 adet/ton
-      // To get 10.7 adet/ton, coefficient should be 8.0 (as original)
+      // AMB.ÇEM.KARTON.GAL: =(8*(1000/'COIL WEIGHT (KG)'))/1000
       const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
       
       // GTPKT01: Keep formula but coefficients should now better match target ~0.011
@@ -2093,13 +2090,13 @@ const GalvanizliTelNetsis = () => {
         if (hmCapMatch) {
           // Filmaşin Çapı (HM_Cap) otomatik belirle
           ymSt.filmasin = parseInt(hmCapMatch[1]);
-          console.log(`Otomatik Doldur: Filmaşin Çapı = ${ymSt.filmasin/100}mm seçildi`);
+          // console.log(`Otomatik Doldur: Filmaşin Çapı = ${ymSt.filmasin/100}mm seçildi`);
         }
         const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
         if (qualityMatch) {
           // Filmaşin Kalitesi otomatik belirle
           ymSt.quality = qualityMatch[1];
-          console.log(`Otomatik Doldur: Filmaşin Kalitesi = ${ymSt.quality} seçildi`);
+          // console.log(`Otomatik Doldur: Filmaşin Kalitesi = ${ymSt.quality} seçildi`);
         }
         
         // Auto-selected flag ekle - kullanıcının değiştirebileceğini belirt
@@ -2112,7 +2109,7 @@ const GalvanizliTelNetsis = () => {
       const tlcHiz = calculateTlcHiz(hmCap, cap);
       
       // Log raw inputs and intermediate values to help debug
-      console.log(`TLC01 calculation inputs: MM GT Cap=${cap}, YM ST Cap=${ymSt.cap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
+      // console.log(`TLC01 calculation inputs: MM GT Cap=${cap}, YM ST Cap=${ymSt.cap}, HM_Cap=${hmCap}, TLC_Hiz=${tlcHiz}`);
       
           // TLC01 hesaplama - Referans formülüne göre düzeltildi
       // GTPKT01 gibi küçük değerler üretmemeli, referans formül büyük değerler verir
@@ -2131,17 +2128,16 @@ const GalvanizliTelNetsis = () => {
         (userInputValues.lapa * 0.7)) / 1000
       ).toFixed(5));
       
-      console.log(`Çinko calculation for YMST ${index}: ymStCap=${ymStCap}, mmGtCap=${cap}, coating=${ymStKaplama}, zincConsumption=${zincConsumption}`);
+      // console.log(`Çinko calculation for YMST ${index}: ymStCap=${ymStCap}, mmGtCap=${cap}, coating=${ymStKaplama}, zincConsumption=${zincConsumption}`);
 
       if (!tlcHiz || tlcHiz <= 0) {
-        console.log(`TLC01 için TLC_Hiz değeri bulunamadı veya geçersiz: ${tlcHiz}, TLC01 boş bırakılıyor`);
+        // console.log(`TLC01 için TLC_Hiz değeri bulunamadı veya geçersiz: ${tlcHiz}, TLC01 boş bırakılıyor`);
         newYmStRecipes[index] = {
           [filmasinKodu]: 1, // Use the Filmaşin code directly
-          'TLC01': '', // Empty if no valid TLC_Hiz
-          '150 03': zincConsumption // Add Çinko calculation per YMST
+          'TLC01': '' // Empty if no valid TLC_Hiz
         };
       } else {
-        console.log(`TLC01 için TLC_Hiz değeri: ${tlcHiz}`);
+        // console.log(`TLC01 için TLC_Hiz değeri: ${tlcHiz}`);
         
         // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
         // Excel shows 18.9 dk/ton, we need dk/kg so divide by 1000
@@ -2164,12 +2160,11 @@ const GalvanizliTelNetsis = () => {
           (userInputValues.lapa * 0.7)) / 1000
         ).toFixed(5));
         
-        console.log(`Çinko calculation for YMST ${index}: ymStCap=${ymStCap}, mmGtCap=${cap}, coating=${ymStKaplama}, zincConsumption=${zincConsumption}`);
+        // console.log(`Çinko calculation for YMST ${index}: ymStCap=${ymStCap}, mmGtCap=${cap}, coating=${ymStKaplama}, zincConsumption=${zincConsumption}`);
 
         newYmStRecipes[index] = {
           [filmasinKodu]: 1, // Use the Filmaşin code directly
-          'TLC01': tlcValue,
-          '150 03': zincConsumption // Add Çinko calculation per YMST
+          'TLC01': tlcValue
         };
       }
       
@@ -2196,11 +2191,22 @@ const GalvanizliTelNetsis = () => {
       const tuketilenAsit = calculateTuketilenAsit();
       const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
       
+      // Calculate Çinko consumption for YM GT (using main YM ST properties)
+      const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
+      const ymStCap = parseFloat(mainYmSt.cap) || cap;
+      const ymStKaplama = parseFloat(mainYmSt.kaplama) || kaplama;
+      
+      const zincConsumption = parseFloat((
+        ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * cap * Math.PI / 1000 * ymStKaplama / 1000) + 
+        (userInputValues.ash * 0.6) + 
+        (userInputValues.lapa * 0.7)) / 1000
+      ).toFixed(5));
+      
       newYmGtRecipe = {
-        [allYmSts[0].stok_kodu]: 1, // İlk YM ST
-        'GLV01': glvTime,
-        // Çinko moved to individual YMST recipes since it depends on YMST diameter
-        'SM.HİDROLİK.ASİT': acidConsumption
+        [allYmSts[0].stok_kodu]: 1, // İlk YM ST component
+        'GLV01': glvTime, // Galvanizleme operasyonu
+        '150 03': zincConsumption, // Çinko Tüketim Miktarı - restored to YM GT for correct Excel format
+        'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
       };
       
       // YM GT reçete durumlarını 'auto' olarak işaretle
@@ -2587,7 +2593,7 @@ const GalvanizliTelNetsis = () => {
     // If a key field is being changed and we haven't saved to database yet, reset sequence
     if (keyFields.includes(field) && !savedToDatabase) {
       setProcessSequence('00');
-      console.log(`Key field ${field} changed, resetting processSequence to 00`);
+      // console.log(`Key field ${field} changed, resetting processSequence to 00`);
     }
     
     // Enforce point as decimal separator for any input value
@@ -3509,11 +3515,11 @@ const GalvanizliTelNetsis = () => {
       
       // IMPORTANT: Set the processSequence state so Excel generation uses correct sequence
       setProcessSequence(sequence);
-      console.log(`PROCESS SEQUENCE SET IN proceedWithSave: ${sequence} (from nextSequence: ${nextSequence})`);
+      // console.log(`PROCESS SEQUENCE SET IN proceedWithSave: ${sequence} (from nextSequence: ${nextSequence})`);
       
       // Also store sequence in sessionStorage for debugging
       sessionStorage.setItem('lastProcessSequence', sequence);
-      console.log(`Sequence stored in sessionStorage: ${sequence}`);
+      // console.log(`Sequence stored in sessionStorage: ${sequence}`);
       
       // Save YM GT - Always create new, never update
       const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
@@ -3896,7 +3902,7 @@ const GalvanizliTelNetsis = () => {
     const toleransMinusValue = parseFloat(mmGtData.tolerans_minus) || 0;
 
     // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
-    console.log(`MMGT için doğrulanmış sequence değeri: ${validSequence}`);
+    // console.log(`MMGT için doğrulanmış sequence değeri: ${validSequence}`);
     return {
       stok_kodu: `GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
       stok_adi: generateStokAdi(),
@@ -4276,7 +4282,7 @@ const GalvanizliTelNetsis = () => {
               if (mmGtSequence === '00') {
                 console.warn(`UYARI: MMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
               } else {
-                console.log(`KRİTİK FIX! MMGT veritabanında bulunan GERÇEK stok_kodu: ${mmGtStokKodu} (sequence: ${mmGtSequence})`);
+                // console.log(`KRİTİK FIX! MMGT veritabanında bulunan GERÇEK stok_kodu: ${mmGtStokKodu} (sequence: ${mmGtSequence})`);
               }
             } else {
               console.error(`MMGT veritabanında bulunamadı veya stok_kodu eksik! ID: ${mmGtId}`);
@@ -4284,7 +4290,7 @@ const GalvanizliTelNetsis = () => {
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
               mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
               mmGtSequence = '00';
-              console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
+              // console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
             }
           } else {
             console.error(`MMGT veritabanından alınamadı! ID: ${mmGtId}`);
@@ -4292,7 +4298,7 @@ const GalvanizliTelNetsis = () => {
             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
             mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
             mmGtSequence = '00';
-            console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
+            // console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
           }
         } catch (error) {
           console.error(`MMGT bilgileri alınırken hata: ${error.message}`);
@@ -4300,7 +4306,7 @@ const GalvanizliTelNetsis = () => {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
           mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.00`;
           mmGtSequence = '00';
-          console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
+          // console.log(`MMGT için otomatik stok_kodu oluşturuldu: ${mmGtStokKodu}`);
         }
       }
       
@@ -4321,7 +4327,7 @@ const GalvanizliTelNetsis = () => {
               if (ymGtSequence === '00') {
                 console.warn(`UYARI: YMGT ürünü veritabanında "00" sequence ile kaydedilmiş`);
               } else {
-                console.log(`KRİTİK FIX! YMGT veritabanında bulunan GERÇEK stok_kodu: ${ymGtStokKodu} (sequence: ${ymGtSequence})`);
+                // console.log(`KRİTİK FIX! YMGT veritabanında bulunan GERÇEK stok_kodu: ${ymGtStokKodu} (sequence: ${ymGtSequence})`);
               }
               
               // MMGT ve YMGT aynı sequence'e sahip olmalı!
@@ -4336,7 +4342,7 @@ const GalvanizliTelNetsis = () => {
               const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
               // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
               ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
-              console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
+              // console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
             }
           } else {
             console.error(`YMGT veritabanından alınamadı! ID: ${ymGtId}`);
@@ -4344,7 +4350,7 @@ const GalvanizliTelNetsis = () => {
             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
             // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
             ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
-            console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
+            // console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
           }
         } catch (error) {
           console.error(`YMGT bilgileri alınırken hata: ${error.message}`);
@@ -4352,13 +4358,13 @@ const GalvanizliTelNetsis = () => {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
           // Veritabanında beklendiği şekilde oluştur - sequence değeri eksikse '00' kullan
           ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`; // sequence değeri fonksiyonun parametresi
-          console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
+          // console.log(`YMGT için otomatik stok_kodu oluşturuldu: ${ymGtStokKodu}`);
         }
       }
       
-      console.log(`REÇETELER İÇİN KULLANILACAK SEQUENCE: ${sequence}`);
-      console.log(`MMGT MAMUL_KODU: ${mmGtStokKodu}`);
-      console.log(`YMGT MAMUL_KODU: ${ymGtStokKodu}`);
+      // console.log(`REÇETELER İÇİN KULLANILACAK SEQUENCE: ${sequence}`);
+      // console.log(`MMGT MAMUL_KODU: ${mmGtStokKodu}`);
+      // console.log(`YMGT MAMUL_KODU: ${ymGtStokKodu}`);
       
       // YMGT kontrolü yap ve eğer gerekiyorsa MMGT ile aynı sequence'e güncelle
       if (ymGtId && sequence !== '00') {
@@ -6102,11 +6108,11 @@ const GalvanizliTelNetsis = () => {
     
     if (totalYuzeyAlani > 0) {
       const calculatedValue = toplam_tuketilen_asit / totalYuzeyAlani;
-      console.log(`🧪 Calculating acid consumption: ${toplam_tuketilen_asit} / ${totalYuzeyAlani} = ${calculatedValue}`);
+      // console.log(`🧪 Calculating acid consumption: ${toplam_tuketilen_asit} / ${totalYuzeyAlani} = ${calculatedValue}`);
       return calculatedValue;
     } else {
       // Use default value from historical data if we can't calculate
-      console.log(`Cannot calculate acid consumption (no surface area data). Using default value 0.0647625`);
+      // console.log(`Cannot calculate acid consumption (no surface area data). Using default value 0.0647625`);
       return 0.0647625; // Default value if totalYuzeyAlani is zero
     }
   };
@@ -6203,14 +6209,14 @@ const GalvanizliTelNetsis = () => {
   const exportAllApprovedToExcel = async () => {
     try {
       setIsExportingExcel(true);
-      console.log('🎯 === BATCH EXCEL EXPORT STARTED ===');
-      console.log('🔍 Total requests loaded:', requests.length);
-      console.log('🔍 All requests:', requests.map(r => ({ 
-        id: r.id, 
-        status: r.status, 
-        raw_status: typeof r.status,
-        created_at: r.created_at 
-      })));
+      // console.log('🎯 === BATCH EXCEL EXPORT STARTED ===');
+      // console.log('🔍 Total requests loaded:', requests.length);
+      // console.log('🔍 All requests:', requests.map(r => ({ 
+      //   id: r.id, 
+      //   status: r.status, 
+      //   raw_status: typeof r.status,
+      //   created_at: r.created_at 
+      // })));
       
       // Multiple validation approaches to catch edge cases
       const approvedRequests = requests.filter(req => {
@@ -6223,32 +6229,32 @@ const GalvanizliTelNetsis = () => {
         const isApproved = status === 'approved';
         
         if (isApproved) {
-          console.log('✅ Found approved request:', { 
-            id: req.id, 
-            original_status: req.status, 
-            normalized_status: status 
-          });
+          // console.log('✅ Found approved request:', { 
+          //   id: req.id, 
+          //   original_status: req.status, 
+          //   normalized_status: status 
+          // });
         }
         
         return isApproved;
       });
       
-      console.log('✅ Final approved requests count:', approvedRequests.length);
-      console.log('✅ Approved requests details:', approvedRequests.map(r => ({ 
-        id: r.id, 
-        status: r.status, 
-        created_at: r.created_at 
-      })));
+      // console.log('✅ Final approved requests count:', approvedRequests.length);
+      // console.log('✅ Approved requests details:', approvedRequests.map(r => ({ 
+      //   id: r.id, 
+      //   status: r.status, 
+      //   created_at: r.created_at 
+      // })));
       
       if (approvedRequests.length === 0) {
-        console.log('❌ No approved requests found - showing warning');
+        // console.log('❌ No approved requests found - showing warning');
         toast.warning('Onaylanmış talep bulunamadı. Lütfen önce en az bir talebi onaylayın.');
         return;
       }
       
-      console.log(`🚀 Starting Excel generation for ${approvedRequests.length} approved requests`);
+      // console.log(`🚀 Starting Excel generation for ${approvedRequests.length} approved requests`);
       await generateBatchExcelFromRequests(approvedRequests);
-      console.log('🎉 Excel generation completed successfully');
+      // console.log('🎉 Excel generation completed successfully');
       toast.success(`${approvedRequests.length} onaylanmış talep için Excel dosyaları başarıyla oluşturuldu!`);
     } catch (error) {
       console.error('❌ BATCH EXCEL EXPORT FAILED:', error);
@@ -6256,7 +6262,7 @@ const GalvanizliTelNetsis = () => {
       toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setIsExportingExcel(false);
-      console.log('🏁 === BATCH EXCEL EXPORT FINISHED ===');
+      // console.log('🏁 === BATCH EXCEL EXPORT FINISHED ===');
     }
   };
 
@@ -6279,7 +6285,7 @@ const GalvanizliTelNetsis = () => {
         return;
       }
       
-      console.log(`Exporting ${selectedRequests.length} selected approved requests to Excel`);
+      // console.log(`Exporting ${selectedRequests.length} selected approved requests to Excel`);
       await generateBatchExcelFromRequests(selectedRequests);
       toast.success(`${selectedRequests.length} seçili onaylanmış talep için Excel dosyaları oluşturuldu`);
     } catch (error) {
@@ -6666,14 +6672,14 @@ const GalvanizliTelNetsis = () => {
         return; // Wait for approval
       }
       
-      console.log('Excel dosyaları oluşturuluyor - Başlangıç');
+      // console.log('Excel dosyaları oluşturuluyor - Başlangıç');
       setIsLoading(true);
       setError(null);
       
       // Talep kullanıldıysa, onaylama penceresi göstermeden işleme devam et
       if (isRequestUsed) {
         // Excel oluşturmaya devam edecek, talep işlemleri ayrı bir süreçte yönetilecek
-        console.log('Talep kullanılıyor, işleme devam ediliyor...');
+        // console.log('Talep kullanılıyor, işleme devam ediliyor...');
       }
       
       if (![...selectedYmSts, ...autoGeneratedYmSts].length) {
@@ -6684,12 +6690,12 @@ const GalvanizliTelNetsis = () => {
       
       // Excel generation should use the processSequence that was set during database save
       // This ensures consistency between database and Excel files
-      console.log(`Excel oluşturma için processSequence kullanılıyor: ${processSequence}`);
-      console.log(`Current mmGtData.cap: ${mmGtData.cap}, kod_2: ${mmGtData.kod_2}`);
+      // console.log(`Excel oluşturma için processSequence kullanılıyor: ${processSequence}`);
+      // console.log(`Current mmGtData.cap: ${mmGtData.cap}, kod_2: ${mmGtData.kod_2}`);
       
       // Debug: Check sessionStorage for sequence consistency
       const storedSequence = sessionStorage.getItem('lastProcessSequence');
-      console.log(`Stored sequence in sessionStorage: ${storedSequence}`);
+      // console.log(`Stored sequence in sessionStorage: ${storedSequence}`);
       
       // If processSequence is reset to 00 but we have the correct sequence in sessionStorage, use it
       const sequenceToUse = (processSequence === '00' && storedSequence && storedSequence !== '00') 
@@ -6697,8 +6703,8 @@ const GalvanizliTelNetsis = () => {
         : processSequence;
         
       if (storedSequence && storedSequence !== processSequence) {
-        console.warn(`SEQUENCE MISMATCH! processSequence: ${processSequence}, stored: ${storedSequence}`);
-        console.log(`Using stored sequence from sessionStorage: ${storedSequence}`);
+        // console.warn(`SEQUENCE MISMATCH! processSequence: ${processSequence}, stored: ${storedSequence}`);
+        // console.log(`Using stored sequence from sessionStorage: ${storedSequence}`);
         // Update processSequence to match the stored value
         setProcessSequence(storedSequence);
       }
@@ -6706,18 +6712,18 @@ const GalvanizliTelNetsis = () => {
       // Calculate what the expected stok_kodu should be
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const expectedStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequenceToUse}`;
-      console.log(`Expected MMGT stok_kodu for Excel: ${expectedStokKodu}`);
+      // console.log(`Expected MMGT stok_kodu for Excel: ${expectedStokKodu}`);
       
       if (!sequenceToUse || sequenceToUse === '00') {
-        console.warn(`UYARI: sequenceToUse '${sequenceToUse}' - bu beklenmeyen bir durum olabilir`);
+        // console.warn(`UYARI: sequenceToUse '${sequenceToUse}' - bu beklenmeyen bir durum olabilir`);
       }
       
       // Her iki Excel'de de aynı sequence'i kullan
       // Stok Kartı Excel
       try {
-        console.log('Stok kartı Excel oluşturuluyor...');
+        // console.log('Stok kartı Excel oluşturuluyor...');
         await generateStokKartiExcel(sequenceToUse);
-        console.log('Stok kartı Excel başarıyla oluşturuldu');
+        // console.log('Stok kartı Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('Stok kartı Excel oluşturma hatası:', excelError);
         toast.error('Stok kartı Excel oluşturulamadı: ' + excelError.message);
@@ -6725,9 +6731,9 @@ const GalvanizliTelNetsis = () => {
       }
       
       try {
-        console.log('Reçete Excel oluşturuluyor...');
+        // console.log('Reçete Excel oluşturuluyor...');
         await generateReceteExcel(sequenceToUse);
-        console.log('Reçete Excel başarıyla oluşturuldu');
+        // console.log('Reçete Excel başarıyla oluşturuldu');
       } catch (excelError) {
         console.error('Reçete Excel oluşturma hatası:', excelError);
         toast.error('Reçete Excel oluşturulamadı: ' + excelError.message);
@@ -6735,7 +6741,7 @@ const GalvanizliTelNetsis = () => {
       }
       
       // Both Excel files generated successfully
-      console.log('Tüm Excel dosyaları başarıyla oluşturuldu');
+      // console.log('Tüm Excel dosyaları başarıyla oluşturuldu');
       
       // Only show success message if we're not in the request approval flow
       // (the approval flow will handle its own success message)
@@ -9699,10 +9705,10 @@ const GalvanizliTelNetsis = () => {
                     </div>
                   )}
                   
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="w-full divide-y divide-gray-200 table-fixed">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                           <div className="flex items-center">
                             <input
                               type="checkbox"
@@ -9715,40 +9721,39 @@ const GalvanizliTelNetsis = () => {
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                               title="Tüm onaylanmış talepleri seç/kaldır"
                             />
-                            <span className="ml-2">Seç</span>
                           </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Çap
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Kaplama Türü
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                          Tip
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Kaplama
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                           Mukavemet
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                           Ağırlık
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Unwinding
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Durum
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Tarih
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           Talep Eden
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                           İşleyen
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                           İşlem
                         </th>
                       </tr>
@@ -9756,7 +9761,7 @@ const GalvanizliTelNetsis = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getFilteredAndSortedRequests().map((request) => (
                         <tr key={request.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-4 whitespace-nowrap">
+                          <td className="px-2 py-3 whitespace-nowrap">
                             <div className="flex items-center">
                               <input
                                 type="checkbox"
@@ -9768,43 +9773,43 @@ const GalvanizliTelNetsis = () => {
                               />
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {request.cap || 0} mm
+                          <td className="px-3 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
+                            {request.cap || 0}mm
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            <span className={`px-1 py-0.5 rounded text-xs font-medium ${
                               request.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
                             }`}>
                               {request.kod_2 || ''}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.kaplama || '0'} gr/m²
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {request.kaplama || '0'}g/m²
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.min_mukavemet || '0'}-{request.max_mukavemet || '0'} MPa
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {request.min_mukavemet || '0'}-{request.max_mukavemet || '0'}MPa
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.kg || '0'} kg
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {request.kg || '0'}kg
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.unwinding || 'Anti-Clockwise'}
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {(request.unwinding || 'Anti-Clockwise').slice(0, 8)}...
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadgeColor(request.status)}`}>
-                              {getStatusText(request.status)}
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <span className={`px-1 py-0.5 text-xs font-medium rounded border ${getStatusBadgeColor(request.status)}`}>
+                              {getStatusText(request.status).slice(0, 6)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(request.created_at)}
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {formatDate(request.created_at)?.slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getUsernameById(request.created_by)}
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {getUsernameById(request.created_by)?.slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getUsernameById(request.processed_by)}
+                          <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
+                            {getUsernameById(request.processed_by)?.slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <td className="px-3 py-3 whitespace-nowrap text-xs font-medium">
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleSelectRequest(request)}

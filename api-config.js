@@ -35,7 +35,7 @@ export const API_URLS = {
   
   // User management
   users: 'https://crm-deneme-backend.vercel.app/api/users',
-  crmUsers: 'https://crm-deneme-backend.vercel.app/api/crm_users',
+  // crmUsers: 'https://crm-deneme-backend.vercel.app/api/crm_users', // Removed - causing 404 errors
   changePassword: 'https://crm-deneme-backend.vercel.app/api/change-password',
   
   // Permissions management
