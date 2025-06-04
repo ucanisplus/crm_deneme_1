@@ -2191,13 +2191,9 @@ const GalvanizliTelNetsis = () => {
       const tuketilenAsit = calculateTuketilenAsit();
       const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
       
-      // Calculate Çinko consumption for YM GT (using main YM ST properties)
-      const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
-      const ymStCap = parseFloat(mainYmSt.cap) || cap;
-      const ymStKaplama = parseFloat(mainYmSt.kaplama) || kaplama;
-      
+      // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
       const zincConsumption = parseFloat((
-        ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * cap * Math.PI / 1000 * ymStKaplama / 1000) + 
+        ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
         (userInputValues.ash * 0.6) + 
         (userInputValues.lapa * 0.7)) / 1000
       ).toFixed(5));
@@ -6999,12 +6995,11 @@ const GalvanizliTelNetsis = () => {
     const ymGtRecipeEntries = Object.entries(allRecipes.ymGtRecipe);
     
     // Fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
-    // Ana YMST'nin stok kodunu kullan
-    const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.') || key === mainYmSt.stok_kodu);
+    // Find YM.ST component in YM GT recipe
+    const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
     const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
-    // Get Çinko from main YMST recipe instead of YM GT recipe
-    const mainYmStRecipe = allRecipes.ymStRecipes[mainYmStIndex_] || {};
-    const zincEntry = mainYmStRecipe['150 03'] ? ['150 03', mainYmStRecipe['150 03']] : null;
+    // Get Çinko from YM GT recipe (NOT YM ST recipe)
+    const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
     const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
     
     // Other entries that might exist but aren't in the fixed order
@@ -7012,13 +7007,12 @@ const GalvanizliTelNetsis = () => {
       !key.includes('YM.ST.') && 
       key !== 'GLV01' && 
       key !== '150 03' && 
-      key !== 'SM.HİDROLİK.ASİT' && 
-      key !== mainYmSt.stok_kodu
+      key !== 'SM.HİDROLİK.ASİT'
     );
     
     // Sırayla ekle - exact order
     const orderedYmGtEntries = [
-      ymStEntry ? [mainYmSt.stok_kodu, ymStEntry[1]] : null,
+      ymStEntry, // Use the YM.ST entry as found
       glv01Entry,
       zincEntry,
       asitEntry,
