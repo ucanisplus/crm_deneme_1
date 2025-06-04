@@ -1992,11 +1992,8 @@ const GalvanizliTelNetsis = () => {
 
   // Otomatik reçete değerlerini hesapla - NOKTA kullan ve geliştirilmiş hata kontrolü ile
   const calculateAutoRecipeValues = () => {
-    // Don't calculate auto values if viewing existing product - use database values instead
-    if (isViewingExistingProduct) {
-      // console.log('Viewing existing product - skipping auto recipe calculation');
-      return;
-    }
+    // When viewing existing product, we still need to calculate values for newly added YM STs
+    // Remove the early return to allow calculations for new items
     
     // Giriş değerlerini doğrula
     const validationErrors = validateCalculationInputs();
@@ -8099,7 +8096,7 @@ const GalvanizliTelNetsis = () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            Veritabanından Seç
+            Veritabanı
           </button>
           
           <button
@@ -10175,7 +10172,7 @@ const GalvanizliTelNetsis = () => {
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                   </svg>
-                  Veritabanından Seç
+                  Veritabanı
                 </h2>
                 <div className="flex gap-3">
                   <button
@@ -10647,21 +10644,6 @@ const GalvanizliTelNetsis = () => {
                     YM ST Güncellemeden Devam Et
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    // User wants to create a new variant despite functional duplicates
-                    setShowDuplicateConfirmModal(false);
-                    setDuplicateProducts([]);
-                    setPendingSaveData(null);
-                    
-                    // Proceed to next step (show YM ST selection)
-                    setCurrentStep('summary');
-                    setIsLoading(false);
-                  }}
-                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                >
-                  Yeni Varyant Oluştur
-                </button>
               </div>
             </div>
           </div>
@@ -10897,7 +10879,7 @@ const GalvanizliTelNetsis = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">Aynı Ürün Zaten Mevcut</h3>
                     <p className="text-gray-600 mb-4">
-                      Bu ürün zaten veritabanında kayıtlı. Mevcut ürünü kullanmak için "Veritabanından Seç" seçeneğini kullanın.
+                      Bu ürün zaten veritabanında kayıtlı. Mevcut ürünü kullanmak için "Veritabanı" seçeneğini kullanın.
                     </p>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm font-medium text-gray-700">Mevcut Ürün:</p>
@@ -10943,7 +10925,7 @@ const GalvanizliTelNetsis = () => {
                   }}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Veritabanından Seç
+                  Veritabanı
                 </button>
               </div>
             </div>
