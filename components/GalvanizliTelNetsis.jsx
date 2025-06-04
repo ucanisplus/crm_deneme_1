@@ -914,12 +914,31 @@ const GalvanizliTelNetsis = () => {
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
       if (activeDbTab === 'mmgt') {
-        // Delete MM GTs - this will cascade delete YMGT, MMGT recipes, and YMGT recipes via backend
+        // First, get all YM GT IDs from relationships before deleting MM GTs
+        const ymGtIdsToDelete = new Set();
+        
+        // Collect YM GT IDs from relationships
+        for (const mmGt of existingMmGts) {
+          try {
+            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            if (relationResponse && relationResponse.ok) {
+              const relations = await relationResponse.json();
+              relations.forEach(rel => {
+                if (rel.ym_gt_id) {
+                  ymGtIdsToDelete.add(rel.ym_gt_id);
+                }
+              });
+            }
+          } catch (error) {
+            console.error(`Failed to fetch relationships for MM GT ${mmGt.id}:`, error);
+          }
+        }
+        
+        // Delete MM GTs first
         const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-        // console.log(`Deleting ${mmGtIds.length} MM GTs (and their related YMGTs and all recipes)`);
+        console.log(`Deleting ${mmGtIds.length} MM GTs`);
         
         if (mmGtIds.length > 0) {
-          // console.log('Deleting MM GTs in batches (cascade delete will handle YMGTs and recipes)...');
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
             const batch = mmGtIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
@@ -927,11 +946,28 @@ const GalvanizliTelNetsis = () => {
                 method: 'DELETE'
               }).catch(error => {
                 console.error(`Failed to delete MM GT ${id}:`, error);
-                return null; // Continue with other deletions
+                return null;
               })
             );
             await Promise.all(batchPromises);
-            // console.log(`Deleted MM GT batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(mmGtIds.length/batchSize)}`);
+          }
+        }
+        
+        // Then explicitly delete YM GTs
+        if (ymGtIdsToDelete.size > 0) {
+          console.log(`Deleting ${ymGtIdsToDelete.size} YM GTs`);
+          const ymGtIdArray = Array.from(ymGtIdsToDelete);
+          for (let i = 0; i < ymGtIdArray.length; i += batchSize) {
+            const batch = ymGtIdArray.slice(i, i + batchSize);
+            const batchPromises = batch.map(id => 
+              fetchWithAuth(`${API_URLS.galYmGt}/${id}`, { 
+                method: 'DELETE'
+              }).catch(error => {
+                console.error(`Failed to delete YM GT ${id}:`, error);
+                return null;
+              })
+            );
+            await Promise.all(batchPromises);
           }
         }
       } else if (activeDbTab === 'ymst') {
@@ -3310,7 +3346,9 @@ const GalvanizliTelNetsis = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               mm_gt_id: sessionSavedProducts.mmGtIds[0],
-              ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex]
+              ym_gt_id: sessionSavedProducts.ymGtId, // Include YM GT ID
+              ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex],
+              is_main: true
             })
           });
         }
@@ -3458,6 +3496,7 @@ const GalvanizliTelNetsis = () => {
       // console.log(`Sequence stored in sessionStorage: ${sequence}`);
       
       // Save YM GT - Always create new, never update
+      console.log('Saving YM GT with data:', generateYmGtDatabaseData(sequence));
       const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3467,6 +3506,10 @@ const GalvanizliTelNetsis = () => {
       if (ymGtResponse && ymGtResponse.ok) {
         const ymGtResult = await ymGtResponse.json();
         ymGtId = ymGtResult.id;
+        console.log('YM GT saved successfully with ID:', ymGtId);
+      } else {
+        console.error('YM GT save failed:', ymGtResponse?.status, await ymGtResponse?.text());
+        throw new Error('YM GT kaydedilemedi');
       }
       
       // Save MM GT - Always create new, never update
@@ -3707,7 +3750,9 @@ const GalvanizliTelNetsis = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             mm_gt_id: mmGtIds[0],
-            ym_st_id: ymStIds[mainYmStIndex]
+            ym_gt_id: ymGtId, // Include YM GT ID in relationship
+            ym_st_id: ymStIds[mainYmStIndex],
+            is_main: true
           })
         });
       } catch (relationError) {
@@ -6337,14 +6382,20 @@ const GalvanizliTelNetsis = () => {
               console.log(`Found ${relations.length} relationships for MM GT ${mmGt.id}`);
               
               if (relations.length > 0) {
+                console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
                 const ymGtId = relations[0].ym_gt_id;
+                console.log(`YM GT ID from relationship: ${ymGtId}`);
                 
                 // Add YM GT data if it exists
                 if (ymGtId) {
                   try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
+                    console.log(`Fetching YM GT with ID: ${ymGtId}`);
+                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                    console.log(`YM GT fetch response status: ${ymGtResponse?.status}`);
                     if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGt = await ymGtResponse.json();
+                      const ymGtData = await ymGtResponse.json();
+                      console.log(`YM GT data received:`, ymGtData);
+                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
                       if (ymGt) {
                         ymGtMap.set(ymGt.stok_kodu, ymGt);
                         console.log(`Added YM GT: ${ymGt.stok_kodu}`);
@@ -6368,15 +6419,18 @@ const GalvanizliTelNetsis = () => {
                   } catch (error) {
                     console.error(`YM GT ${ymGtId} might be deleted, skipping:`, error);
                   }
+                } else {
+                  console.warn(`No YM GT ID found in relationship for MM GT ${mmGt.id}`);
                 }
                 
                 // Only add YM STs that were specifically selected for this request
                 // Filter by checking if they were part of the approved calculation for this MM GT
                 for (const relation of relations) {
                   try {
-                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
+                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
                     if (ymStResponse && ymStResponse.ok) {
-                      const ymSt = await ymStResponse.json();
+                      const ymStData = await ymStResponse.json();
+                      const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
                       if (ymSt) {
                         // Only include YM STs that were marked as main or specifically selected
                         if (relation.is_main === true || relation.is_main === 1) {
