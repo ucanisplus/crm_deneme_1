@@ -2202,12 +2202,24 @@ const GalvanizliTelNetsis = () => {
         (userInputValues.lapa * 0.7)) / 1000
       ).toFixed(5));
       
+      // Safety check: Ensure the first YM ST has a valid stok_kodu
+      const firstYmSt = allYmSts[0];
+      if (!firstYmSt || !firstYmSt.stok_kodu) {
+        console.error('HATA: İlk YM ST eksik veya stok_kodu tanımsız!', firstYmSt);
+        toast.error('İlk YM ST eksik veya stok_kodu tanımsız! YM GT reçetesi oluşturulamadı.');
+        return;
+      }
+      
+      console.log('YM GT reçetesi oluşturuluyor, firstYmSt.stok_kodu:', firstYmSt.stok_kodu);
+      
       newYmGtRecipe = {
-        [allYmSts[0].stok_kodu]: 1, // İlk YM ST component
+        [firstYmSt.stok_kodu]: 1, // İlk YM ST component - use verified firstYmSt
         'GLV01': glvTime, // Galvanizleme operasyonu
         '150 03': zincConsumption, // Çinko Tüketim Miktarı - restored to YM GT for correct Excel format
         'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
       };
+      
+      console.log('YM GT reçetesi oluşturuldu:', newYmGtRecipe);
       
       // YM GT reçete durumlarını 'auto' olarak işaretle
       Object.keys(newYmGtRecipe).forEach(key => {
@@ -2809,37 +2821,32 @@ const GalvanizliTelNetsis = () => {
     // Clear any existing errors
     setError(null);
     
-    // Check for duplicate product by exact stok_kodu
+    // Check for duplicate product by stok_adi (functional duplicates regardless of sequence)
     try {
       setIsLoading(true);
       
-      // Generate the exact stok_kodu and stok_adi that would be created
-      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const sequence = processSequence || '00';
-      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-      
-      // Generate stok_adi for comparison
+      // Generate the stok_adi that would be created for comparison
       const capValue = parseFloat(mmGtData.cap).toFixed(2);
       const mmGtStokAdi = `Galvanizli Tel ${capValue} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
       
-      console.log(`🔍 Checking for duplicate with stok_kodu: ${mmGtStokKodu} and stok_adi: ${mmGtStokAdi}`);
+      console.log(`🔍 Checking for functional duplicates with stok_adi: ${mmGtStokAdi}`);
       
-      // Search for existing MM GT with exact stok_kodu
-      const existingResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(mmGtStokKodu)}`);
+      // Search ALL MM GT products to find functional duplicates by stok_adi
+      const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}`);
       
-      if (existingResponse && existingResponse.ok) {
-        const existingProducts = await existingResponse.json();
+      if (allProductsResponse && allProductsResponse.ok) {
+        const allProducts = await allProductsResponse.json();
         
-        if (existingProducts.length > 0 && !isViewingExistingProduct) {
-          // Check if both stok_kodu AND stok_adi match
-          const exactDuplicate = existingProducts.find(product => 
-            product.stok_kodu === mmGtStokKodu && product.stok_adi === mmGtStokAdi
+        if (allProducts.length > 0 && !isViewingExistingProduct) {
+          // Find products with the same stok_adi (functional duplicates)
+          const functionalDuplicates = allProducts.filter(product => 
+            product.stok_adi === mmGtStokAdi
           );
           
-          if (exactDuplicate) {
-            // Found exact duplicate with same stok_kodu AND stok_adi - show warning
-            console.log(`✅ Found exact duplicate with same stok_kodu AND stok_adi: ${exactDuplicate.stok_kodu}`);
-            setDuplicateProducts([exactDuplicate]);
+          if (functionalDuplicates.length > 0) {
+            // Found functional duplicate(s) with same specifications - show warning
+            console.log(`⚠️ Found ${functionalDuplicates.length} functional duplicate(s):`, functionalDuplicates.map(p => p.stok_kodu));
+            setDuplicateProducts(functionalDuplicates);
             setShowDuplicateConfirmModal(true);
             setIsLoading(false);
             return; // Don't proceed, wait for user decision
@@ -10518,7 +10525,7 @@ const GalvanizliTelNetsis = () => {
               </div>
               
               <p className="text-gray-600 mb-4">
-                Girdiğiniz değerlerle eşleşen ürün bulundu. Lütfen kullanmak istediğiniz ürünü seçin:
+                Aynı teknik özelliklere sahip {duplicateProducts.length} adet ürün bulundu. Mevcut ürünlerden birini kullanabilir veya yeni bir varyant oluşturabilirsiniz:
               </p>
               
               <div className="max-h-60 overflow-y-auto mb-6">
@@ -10631,6 +10638,21 @@ const GalvanizliTelNetsis = () => {
                     YM ST Güncellemeden Devam Et
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    // User wants to create a new variant despite functional duplicates
+                    setShowDuplicateConfirmModal(false);
+                    setDuplicateProducts([]);
+                    setPendingSaveData(null);
+                    
+                    // Proceed to next step (show YM ST selection)
+                    setCurrentStep('summary');
+                    setIsLoading(false);
+                  }}
+                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  Yeni Varyant Oluştur
+                </button>
               </div>
             </div>
           </div>
