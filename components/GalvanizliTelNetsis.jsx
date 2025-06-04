@@ -2795,9 +2795,8 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // Generate the stok_adi that would be created for comparison
-      const capValue = parseFloat(mmGtData.cap).toFixed(2);
-      const mmGtStokAdi = `Galvanizli Tel ${capValue} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+      // Generate the stok_adi that would be created for comparison - use the same function
+      const mmGtStokAdi = generateStokAdi();
       
       console.log(`🔍 Checking for functional duplicates with stok_adi: ${mmGtStokAdi}`);
       
