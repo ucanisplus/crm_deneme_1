@@ -6342,10 +6342,9 @@ const GalvanizliTelNetsis = () => {
                 // Add YM GT data if it exists
                 if (ymGtId) {
                   try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`);
                     if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGtData = await ymGtResponse.json();
-                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
+                      const ymGt = await ymGtResponse.json();
                       if (ymGt) {
                         ymGtMap.set(ymGt.stok_kodu, ymGt);
                         console.log(`Added YM GT: ${ymGt.stok_kodu}`);
@@ -6375,10 +6374,9 @@ const GalvanizliTelNetsis = () => {
                 // Filter by checking if they were part of the approved calculation for this MM GT
                 for (const relation of relations) {
                   try {
-                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
+                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${relation.ym_st_id}`);
                     if (ymStResponse && ymStResponse.ok) {
-                      const ymStData = await ymStResponse.json();
-                      const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
+                      const ymSt = await ymStResponse.json();
                       if (ymSt) {
                         // Only include YM STs that were marked as main or specifically selected
                         if (relation.is_main === true || relation.is_main === 1) {
