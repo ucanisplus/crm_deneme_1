@@ -4171,6 +4171,11 @@ const GalvanizliTelNetsis = () => {
       
       // Only approve request AFTER successful database save
       console.log('Database save başarılı, request onaylama işlemi başlatılıyor...');
+      
+      // Generate the actual stok_kodu that was used during database save
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
+      
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -4179,7 +4184,8 @@ const GalvanizliTelNetsis = () => {
         body: JSON.stringify({
           status: 'approved',
           processed_by: user?.username || user?.id || 'system',
-          processed_at: new Date().toISOString()
+          processed_at: new Date().toISOString(),
+          stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
         })
       });
       

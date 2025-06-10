@@ -494,20 +494,9 @@ const SatisGalvanizRequest = () => {
   // Generate stok kodu and stok adi for the request
   const generateStokKoduAndAdi = async (data) => {
     try {
-      // Get the next sequence number from API
-      const sequenceResponse = await fetchWithAuth(
-        `${API_URLS.galSequence}/next?kod_2=${data.kod_2}&cap=${data.cap}`
-      );
-      
-      if (!sequenceResponse || !sequenceResponse.ok) {
-        throw new Error('Sequence number could not be generated');
-      }
-      
-      const sequenceData = await sequenceResponse.json();
-      
-      // Use the exact stok_kodu returned by the API - don't modify it
-      // The sequence logic should be handled in the backend
-      const stokKodu = sequenceData.stok_kodu;
+      // For sales requests, always use sequence "00" - the actual sequence will be determined during approval
+      const capFormatted = Math.round(parseFloat(data.cap) * 100).toString().padStart(4, '0');
+      const stokKodu = `GT.${data.kod_2}.${capFormatted}.00`;
       
       // Generate stok adi with optional bag amount
       const bagAmount = data.cast_kont && data.cast_kont.trim() !== '' 
