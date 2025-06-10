@@ -272,6 +272,14 @@ const GalvanizliTelNetsis = () => {
   useEffect(() => {
     fetchTlcHizlarData();
   }, []);
+  
+  // Cleanup sessionStorage on component unmount
+  useEffect(() => {
+    return () => {
+      // Clean up sessionStorage when component unmounts
+      sessionStorage.removeItem('lastEditedRequestId');
+    };
+  }, []);
 
   // İzin kontrolü
   if (!hasPermission('access:galvanizli-tel')) {
@@ -1159,6 +1167,9 @@ const GalvanizliTelNetsis = () => {
       }
       
       toast.success('Talep düzenlemeye açıldı');
+      
+      // Store request ID in sessionStorage to preserve it across state resets
+      sessionStorage.setItem('lastEditedRequestId', selectedRequest.id);
       
       // Set data for editing
       setMmGtData({
@@ -3818,16 +3829,19 @@ const GalvanizliTelNetsis = () => {
       toast.success('Veriler başarıyla veritabanına kaydedildi');
       
       // Update request table with correct stok_kodu if this was from a request
-      console.log(`🔍 Checking if request should be updated: selectedRequest=${selectedRequest?.id}, isEditingRequest=${isEditingRequest}`);
-      if (selectedRequest && selectedRequest.id) {
+      // Check if we're working with a request by looking for recent PUT API calls in the session
+      const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
+      console.log(`🔍 Checking if request should be updated: selectedRequest=${selectedRequest?.id}, requestFromSession=${requestIdFromSession}, isEditingRequest=${isEditingRequest}`);
+      
+      if (requestIdFromSession || (selectedRequest && selectedRequest.id)) {
+        const requestId = requestIdFromSession || selectedRequest.id;
         try {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
           const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
           
-          console.log(`🔄 Updating request ${selectedRequest.id} with correct stok_kodu: ${actualStokKodu} (sequence: ${sequence})`);
-          console.log(`📝 Original request stok_kodu: ${selectedRequest.stok_kodu}`);
+          console.log(`🔄 Updating request ${requestId} with correct stok_kodu: ${actualStokKodu} (sequence: ${sequence})`);
           
-          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -3839,6 +3853,9 @@ const GalvanizliTelNetsis = () => {
             const updateResult = await updateResponse.json();
             console.log(`✅ Request stok_kodu updated successfully:`, updateResult);
             toast.success('Talep stok kodu güncellendi');
+            
+            // Clean up sessionStorage after successful update
+            sessionStorage.removeItem('lastEditedRequestId');
           } else {
             console.error(`❌ Failed to update request stok_kodu: ${updateResponse?.status}`);
           }
