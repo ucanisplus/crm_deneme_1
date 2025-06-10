@@ -1024,6 +1024,11 @@ const GalvanizliTelNetsis = () => {
 
   // Talep seçimi için detay modalı açma
   const handleSelectRequest = (request) => {
+    // CRITICAL: Reset application state when selecting ANY request (new or different)
+    // This ensures clean state for each request selection
+    console.log('🔄 New request selected, resetting application state...');
+    resetApplicationState();
+    
     setSelectedRequest(request);
     setShowRequestsModal(false);
     setShowRequestDetailModal(true);
@@ -1133,8 +1138,8 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // CRITICAL: Reset application state before setting new request data
-      resetApplicationState();
+      // NOTE: No need to reset here - already reset in handleSelectRequest
+      // resetApplicationState(); // REMOVED - already done when request was selected
       
       // Update the request status directly without asking for edit notes
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
@@ -1195,8 +1200,8 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // CRITICAL: Reset application state before setting new request data
-      resetApplicationState();
+      // DON'T RESET STATE HERE - we need existing data for approval process
+      // resetApplicationState(); // REMOVED - this was breaking the approval flow
       
       // Update request status to approved
       const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
