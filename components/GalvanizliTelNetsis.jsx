@@ -3694,8 +3694,33 @@ const GalvanizliTelNetsis = () => {
       // Ana YM ST'yi belirle
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
-      // Use the passed nextSequence parameter instead of recalculating
-      // This ensures consistency with the sequence determined in checkForDuplicatesAndConfirm
+      // Calculate the next sequence by checking existing products
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
+      
+      let nextSequence = 0;
+      try {
+        const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+        if (response && response.ok) {
+          const existingProducts = await response.json();
+          
+          if (existingProducts.length > 0) {
+            let maxSequence = -1;
+            existingProducts.forEach(product => {
+              const sequencePart = product.stok_kodu.split('.').pop();
+              const sequenceNum = parseInt(sequencePart);
+              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
+            });
+            nextSequence = maxSequence + 1;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch existing products for sequence calculation:', error);
+        nextSequence = 0;
+      }
+      
       const sequence = nextSequence.toString().padStart(2, '0');
       setProcessSequence(sequence);
       // Process sequence set for both database and Excel operations
@@ -3705,7 +3730,7 @@ const GalvanizliTelNetsis = () => {
       let ymGtId = null;
       
       // Aynı sequence ile 1 tane YM GT oluştur (MMGT ile aynı sequence)
-      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      // capFormatted already calculated above
       // sequence already defined above
       // MMGT ile aynı sequence'i kullan
       // Create YM GT stock code
