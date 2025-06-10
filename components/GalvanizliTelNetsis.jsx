@@ -1951,6 +1951,81 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
+        // Now check if these YM STs have relationships with MM GT and YM GT
+        // and load their recipes as well
+        for (let i = 0; i < selectedExisting.length; i++) {
+          const ymSt = selectedExisting[i];
+          if (ymSt.id) {
+            try {
+              // Find relationships for this YM ST
+              const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?ym_st_id=${ymSt.id}`);
+              if (relationResponse && relationResponse.ok) {
+                const relations = await relationResponse.json();
+                
+                if (relations && relations.length > 0) {
+                  // Found relationships - load MM GT and YM GT recipes
+                  for (const relation of relations) {
+                    const ymStIndex = prevSelectedLength + i;
+                    
+                    // Load MM GT recipes if relation has mm_gt_id
+                    if (relation.mm_gt_id) {
+                      const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${relation.mm_gt_id}`);
+                      if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
+                        const mmGtRecipes = await mmGtRecipeResponse.json();
+                        
+                        if (!updatedAllRecipes.mmGtRecipes[ymStIndex]) {
+                          updatedAllRecipes.mmGtRecipes[ymStIndex] = {};
+                        }
+                        if (!updatedRecipeStatus.mmGtRecipes[ymStIndex]) {
+                          updatedRecipeStatus.mmGtRecipes[ymStIndex] = {};
+                        }
+                        
+                        mmGtRecipes.forEach(recipe => {
+                          if (recipe.bilesen_kodu && recipe.miktar !== null) {
+                            updatedAllRecipes.mmGtRecipes[ymStIndex][recipe.bilesen_kodu] = parseFloat(recipe.miktar);
+                            updatedRecipeStatus.mmGtRecipes[ymStIndex][recipe.bilesen_kodu] = 'database';
+                          }
+                        });
+                        
+                        console.log(`Loaded MM GT recipes for YM ST ${ymSt.stok_kodu}`);
+                      }
+                    }
+                    
+                    // Load YM GT recipes if relation has ym_gt_id
+                    if (relation.ym_gt_id) {
+                      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${relation.ym_gt_id}`);
+                      if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+                        const ymGtRecipes = await ymGtRecipeResponse.json();
+                        
+                        if (!updatedAllRecipes.ymGtRecipe) {
+                          updatedAllRecipes.ymGtRecipe = {};
+                        }
+                        if (!updatedRecipeStatus.ymGtRecipe) {
+                          updatedRecipeStatus.ymGtRecipe = {};
+                        }
+                        
+                        ymGtRecipes.forEach(recipe => {
+                          if (recipe.bilesen_kodu && recipe.miktar !== null) {
+                            updatedAllRecipes.ymGtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
+                            updatedRecipeStatus.ymGtRecipe[recipe.bilesen_kodu] = 'database';
+                          }
+                        });
+                        
+                        console.log(`Loaded YM GT recipes for YM ST ${ymSt.stok_kodu}`);
+                      }
+                    }
+                    
+                    // Only process the first relationship (main relationship)
+                    break;
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`Error loading relationships for YM ST ${ymSt.stok_kodu}:`, error);
+            }
+          }
+        }
+        
         // Update the state with loaded recipes
         setAllRecipes(updatedAllRecipes);
         setRecipeStatus(updatedRecipeStatus);
@@ -1965,7 +2040,7 @@ const GalvanizliTelNetsis = () => {
           calculateAutoRecipeValues();
         }, 100);
         
-        toast.success(`${selectedExisting.length} mevcut YM ST seçildi ve reçete verileri yüklendi`);
+        toast.success(`${selectedExisting.length} mevcut YM ST seçildi ve tüm reçete verileri yüklendi`);
       }, 100);
       
     } catch (error) {
