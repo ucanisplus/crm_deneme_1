@@ -4176,22 +4176,34 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
       
+      console.log(`🔄 Updating request ${selectedRequest.id} with new stok_kodu: ${actualStokKodu} (sequence: ${processSequence})`);
+      console.log(`📝 Original request stok_kodu: ${selectedRequest.stok_kodu}`);
+      
+      const updateRequestData = {
+        status: 'approved',
+        processed_by: user?.username || user?.id || 'system',
+        processed_at: new Date().toISOString(),
+        stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
+      };
+      
+      console.log(`📤 Sending update request with data:`, updateRequestData);
+      
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          status: 'approved',
-          processed_by: user?.username || user?.id || 'system',
-          processed_at: new Date().toISOString(),
-          stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
-        })
+        body: JSON.stringify(updateRequestData)
       });
       
       if (!updateResponse || !updateResponse.ok) {
+        const errorText = await updateResponse?.text() || 'Unknown error';
+        console.error(`❌ Failed to update request: ${updateResponse?.status} - ${errorText}`);
         throw new Error('Talep durumu güncellenemedi');
       }
+      
+      const updateResult = await updateResponse.json();
+      console.log(`✅ Request update successful:`, updateResult);
       
       // Only show approval success if we successfully updated the request
       toast.success('Talep başarıyla onaylandı');
