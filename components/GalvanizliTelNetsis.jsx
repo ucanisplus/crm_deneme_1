@@ -3818,6 +3818,7 @@ const GalvanizliTelNetsis = () => {
       toast.success('Veriler başarıyla veritabanına kaydedildi');
       
       // Update request table with correct stok_kodu if this was from a request
+      console.log(`🔍 Checking if request should be updated: selectedRequest=${selectedRequest?.id}, isEditingRequest=${isEditingRequest}`);
       if (selectedRequest && selectedRequest.id) {
         try {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
