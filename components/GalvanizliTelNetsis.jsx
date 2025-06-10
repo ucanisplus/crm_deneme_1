@@ -1903,6 +1903,16 @@ const GalvanizliTelNetsis = () => {
         // Load existing recipe data for these YM STs
         await loadExistingRecipeData(selectedExisting);
         
+        // Switch to the first newly added YM ST tab to show it was added
+        if (selectedExisting.length > 0) {
+          // Get the current state to calculate the correct index
+          setSelectedYmSts(currentSelected => {
+            const firstNewIndex = currentSelected.length - selectedExisting.length;
+            setActiveRecipeTab(firstNewIndex);
+            return currentSelected; // Don't modify, just use for calculation
+          });
+        }
+        
         toast.success(`${existingYmStsForModal.length} mevcut YM ST seçildi ve reçete verileri yüklendi`);
       }, 100);
       
