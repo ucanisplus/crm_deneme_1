@@ -137,27 +137,15 @@ const SatisGalvanizRequest = () => {
   // Check for duplicate product when submitting
   const checkForDuplicateProduct = async () => {
     try {
-      // Parse all values for comparison with proper normalization
-      const capValue = parseFloat(normalizeInputValue(requestData.cap));
-      const kaplamaValue = parseFloat(normalizeInputValue(requestData.kaplama));
-      const minMukValue = parseFloat(normalizeInputValue(requestData.min_mukavemet));
-      const maxMukValue = parseFloat(normalizeInputValue(requestData.max_mukavemet));
-      const kgValue = parseFloat(normalizeInputValue(requestData.kg));
+      // Generate stok_adi for the current request to compare (including bag amount if present)
+      const bagAmount = requestData.cast_kont && requestData.cast_kont.trim() !== '' 
+        ? `/${requestData.cast_kont}` 
+        : '';
+      const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm -${requestData.tolerans_minus}/+${requestData.tolerans_plus} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg`;
       
-      if (isNaN(capValue) || isNaN(kaplamaValue) || isNaN(minMukValue) || isNaN(maxMukValue) || isNaN(kgValue)) {
-        setDuplicateProduct(null);
-        return false;
-      }
-      
-      // Check 1: Find matching products in existing MM GT database
+      // Check 1: Find matching products in existing MM GT database by stok_adi
       const matchingProduct = existingProducts.find(product => {
-        // Compare with tolerance for floating point numbers
-        return Math.abs(product.cap - capValue) < 0.001 &&
-               product.kod_2 === requestData.kod_2 &&
-               Math.abs(product.kaplama - kaplamaValue) < 0.001 &&
-               Math.abs(product.min_mukavemet - minMukValue) < 0.001 &&
-               Math.abs(product.max_mukavemet - maxMukValue) < 0.001 &&
-               Math.abs(product.kg - kgValue) < 0.001;
+        return product.stok_adi === currentStokAdi;
       });
       
       if (matchingProduct) {
@@ -169,49 +157,34 @@ const SatisGalvanizRequest = () => {
         return true; // Found duplicate in products
       }
       
-      // Check 2: Find matching in existing requests (all users' requests)
+      // Check 2: Find matching in existing requests (all users' requests) by stok_adi
       try {
         // Fetch ALL requests, not just current user's
         const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
         if (allRequestsResponse && allRequestsResponse.ok) {
           const allRequests = await allRequestsResponse.json();
           
-          // Find matching request
+          // Find matching request by stok_adi
           const matchingRequest = allRequests.find(request => {
             // Skip completed or rejected requests
             if (request.status === 'completed' || request.status === 'rejected') {
               return false;
             }
             
-            // Compare with tolerance for floating point numbers
-            const reqCap = parseFloat(request.cap);
-            const reqKaplama = parseFloat(request.kaplama);
-            const reqMinMuk = parseFloat(request.min_mukavemet);
-            const reqMaxMuk = parseFloat(request.max_mukavemet);
-            const reqKg = parseFloat(request.kg);
-            
-            return Math.abs(reqCap - capValue) < 0.001 &&
-                   request.kod_2 === requestData.kod_2 &&
-                   Math.abs(reqKaplama - kaplamaValue) < 0.001 &&
-                   Math.abs(reqMinMuk - minMukValue) < 0.001 &&
-                   Math.abs(reqMaxMuk - maxMukValue) < 0.001 &&
-                   Math.abs(reqKg - kgValue) < 0.001;
+            // Compare stok_adi
+            return request.stok_adi === currentStokAdi;
           });
           
           if (matchingRequest) {
-            // Generate a temporary stok_kodu format for the request
-            const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
-            const tempStokKodu = `GT.${requestData.kod_2}.${capFormatted}.XX`;
-            
             setDuplicateProduct({
-              stok_kodu: tempStokKodu,
-              stok_adi: `${requestData.kod_2} ${kaplamaValue}gr/m² Ø${capValue}mm ${minMukValue}-${maxMukValue}MPa ${kgValue}kg`,
-              cap: capValue,
-              kod_2: requestData.kod_2,
-              kaplama: kaplamaValue,
-              min_mukavemet: minMukValue,
-              max_mukavemet: maxMukValue,
-              kg: kgValue,
+              stok_kodu: matchingRequest.stok_kodu || 'Beklemede',
+              stok_adi: matchingRequest.stok_adi,
+              cap: matchingRequest.cap,
+              kod_2: matchingRequest.kod_2,
+              kaplama: matchingRequest.kaplama,
+              min_mukavemet: matchingRequest.min_mukavemet,
+              max_mukavemet: matchingRequest.max_mukavemet,
+              kg: matchingRequest.kg,
               source: 'pending_request',
               message: `Bu ürün için zaten ${matchingRequest.status === 'pending' ? 'bekleyen' : 'işlenen'} bir talep var!`,
               request_id: matchingRequest.id,
@@ -536,8 +509,11 @@ const SatisGalvanizRequest = () => {
       // The sequence logic should be handled in the backend
       const stokKodu = sequenceData.stok_kodu;
       
-      // Generate stok adi
-      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm -${data.tolerans_minus}/+${data.tolerans_plus} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg} kg`;
+      // Generate stok adi with optional bag amount
+      const bagAmount = data.cast_kont && data.cast_kont.trim() !== '' 
+        ? `/${data.cast_kont}` 
+        : '';
+      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm -${data.tolerans_minus}/+${data.tolerans_plus} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
       
       return { stokKodu, stokAdi };
     } catch (error) {
