@@ -3817,6 +3817,35 @@ const GalvanizliTelNetsis = () => {
       setSuccessMessage('Veriler başarıyla veritabanına kaydedildi');
       toast.success('Veriler başarıyla veritabanına kaydedildi');
       
+      // Update request table with correct stok_kodu if this was from a request
+      if (selectedRequest && selectedRequest.id) {
+        try {
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+          
+          console.log(`🔄 Updating request ${selectedRequest.id} with correct stok_kodu: ${actualStokKodu} (sequence: ${sequence})`);
+          console.log(`📝 Original request stok_kodu: ${selectedRequest.stok_kodu}`);
+          
+          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              stok_kodu: actualStokKodu
+            })
+          });
+          
+          if (updateResponse && updateResponse.ok) {
+            const updateResult = await updateResponse.json();
+            console.log(`✅ Request stok_kodu updated successfully:`, updateResult);
+            toast.success('Talep stok kodu güncellendi');
+          } else {
+            console.error(`❌ Failed to update request stok_kodu: ${updateResponse?.status}`);
+          }
+        } catch (error) {
+          console.error('Request stok_kodu update error:', error);
+        }
+      }
+      
       // Clear the success message after 5 seconds
       setTimeout(() => {
         setSuccessMessage('');
