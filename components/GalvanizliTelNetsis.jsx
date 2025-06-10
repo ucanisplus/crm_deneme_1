@@ -3641,6 +3641,42 @@ const GalvanizliTelNetsis = () => {
       toast.success('Veriler başarıyla kaydedildi');
       
       setSessionSavedProducts(newDatabaseIds);
+      
+      // Update request table with correct stok_kodu if this was from a request
+      const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
+      console.log(`🔍 [proceedWithSave] Checking if request should be updated: selectedRequest=${selectedRequest?.id}, requestFromSession=${requestIdFromSession}, isEditingRequest=${isEditingRequest}`);
+      
+      if (requestIdFromSession || (selectedRequest && selectedRequest.id)) {
+        const requestId = requestIdFromSession || selectedRequest.id;
+        try {
+          const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+          const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+          
+          console.log(`🔄 [proceedWithSave] Updating request ${requestId} with correct stok_kodu: ${actualStokKodu} (sequence: ${sequence})`);
+          
+          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              stok_kodu: actualStokKodu
+            })
+          });
+          
+          if (updateResponse && updateResponse.ok) {
+            const updateResult = await updateResponse.json();
+            console.log(`✅ [proceedWithSave] Request stok_kodu updated successfully:`, updateResult);
+            toast.success('Talep stok kodu güncellendi');
+            
+            // Clean up sessionStorage after successful update
+            sessionStorage.removeItem('lastEditedRequestId');
+          } else {
+            console.error(`❌ [proceedWithSave] Failed to update request stok_kodu: ${updateResponse?.status}`);
+          }
+        } catch (error) {
+          console.error('[proceedWithSave] Request stok_kodu update error:', error);
+        }
+      }
+      
       setIsLoading(false);
       
       return true;
@@ -3694,33 +3730,8 @@ const GalvanizliTelNetsis = () => {
       // Ana YM ST'yi belirle
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
-      // Calculate the next sequence by checking existing products
-      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-      const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
-      
-      let nextSequence = 0;
-      try {
-        const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
-        if (response && response.ok) {
-          const existingProducts = await response.json();
-          
-          if (existingProducts.length > 0) {
-            let maxSequence = -1;
-            existingProducts.forEach(product => {
-              const sequencePart = product.stok_kodu.split('.').pop();
-              const sequenceNum = parseInt(sequencePart);
-              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-                maxSequence = sequenceNum;
-              }
-            });
-            nextSequence = maxSequence + 1;
-          }
-        }
-      } catch (error) {
-        console.warn('Could not fetch existing products for sequence calculation:', error);
-        nextSequence = 0;
-      }
-      
+      // Use the passed nextSequence parameter instead of recalculating
+      // This ensures consistency with the sequence determined in checkForDuplicatesAndConfirm
       const sequence = nextSequence.toString().padStart(2, '0');
       setProcessSequence(sequence);
       // Process sequence set for both database and Excel operations
@@ -3730,7 +3741,7 @@ const GalvanizliTelNetsis = () => {
       let ymGtId = null;
       
       // Aynı sequence ile 1 tane YM GT oluştur (MMGT ile aynı sequence)
-      // capFormatted already calculated above
+      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       // sequence already defined above
       // MMGT ile aynı sequence'i kullan
       // Create YM GT stock code
