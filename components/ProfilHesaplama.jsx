@@ -488,36 +488,30 @@ const ProfilHesaplama = ({
         
         // Only add price data if not hidden
         if (!hidePrices) {
-          Object.assign(baseData, {
-            "Birim Fiyat (USD)": formatTableValue(result.birim_fiyat_usd, 'price'),
-            "Birim Fiyat (EUR)": formatTableValue(result.birim_fiyat_eur, 'price'),
-            "Birim Fiyat (TRY)": formatTableValue(result.birim_fiyat_try, 'price'),
-            "Toplam Fiyat (USD)": formatTableValue(result.toplam_fiyat_usd, 'price'),
-            "Toplam Fiyat (EUR)": formatTableValue(result.toplam_fiyat_eur, 'price'),
-            "Toplam Fiyat (TRY)": formatTableValue(result.toplam_fiyat_try, 'price'),
-            // Accessory columns
-            "Flanş Maliyeti (USD)": formatTableValue(result.flans_maliyet_usd, 'price'),
-            "Flanş Maliyeti (EUR)": formatTableValue(result.flans_maliyet_eur, 'price'),
-            "Flanş Maliyeti (TRY)": formatTableValue(result.flans_maliyet_try, 'price'),
-            "Vida Maliyeti (USD)": formatTableValue(result.vida_maliyet_usd, 'price'),
-            "Vida Maliyeti (EUR)": formatTableValue(result.vida_maliyet_eur, 'price'),
-            "Vida Maliyeti (TRY)": formatTableValue(result.vida_maliyet_try, 'price'),
-            "Klips Maliyeti (USD)": formatTableValue(result.klips_maliyet_usd, 'price'),
-            "Klips Maliyeti (EUR)": formatTableValue(result.klips_maliyet_eur, 'price'),
-            "Klips Maliyeti (TRY)": formatTableValue(result.klips_maliyet_try, 'price'),
-            "Dübel Maliyeti (USD)": formatTableValue(result.dubel_maliyet_usd, 'price'),
-            "Dübel Maliyeti (EUR)": formatTableValue(result.dubel_maliyet_eur, 'price'),
-            "Dübel Maliyeti (TRY)": formatTableValue(result.dubel_maliyet_try, 'price'),
-            "Kapak Maliyeti (USD)": formatTableValue(result.kapak_maliyet_usd, 'price'),
-            "Kapak Maliyeti (EUR)": formatTableValue(result.kapak_maliyet_eur, 'price'),
-            "Kapak Maliyeti (TRY)": formatTableValue(result.kapak_maliyet_try, 'price'),
-            "Toplam Aksesuar (USD)": formatTableValue(result.toplam_aksesuar_usd, 'price'),
-            "Toplam Aksesuar (EUR)": formatTableValue(result.toplam_aksesuar_eur, 'price'),
-            "Toplam Aksesuar (TRY)": formatTableValue(result.toplam_aksesuar_try, 'price'),
-            "Toplam Aksesuar Adet (USD)": formatTableValue(result.toplam_aksesuar_adet_usd, 'price'),
-            "Toplam Aksesuar Adet (EUR)": formatTableValue(result.toplam_aksesuar_adet_eur, 'price'),
-            "Toplam Aksesuar Adet (TRY)": formatTableValue(result.toplam_aksesuar_adet_try, 'price')
-          });
+          // Para birimi filtresine göre fiyat kolonlarını ekle
+          if (resultFilter.currency === 'all' || resultFilter.currency === 'usd') {
+            baseData["Birim Fiyat (USD)"] = formatTableValue(result.birim_fiyat_usd, 'price');
+            baseData["Toplam Fiyat (USD)"] = formatTableValue(result.toplam_fiyat_usd, 'price');
+          }
+          if (resultFilter.currency === 'all' || resultFilter.currency === 'eur') {
+            baseData["Birim Fiyat (EUR)"] = formatTableValue(result.birim_fiyat_eur, 'price');
+            baseData["Toplam Fiyat (EUR)"] = formatTableValue(result.toplam_fiyat_eur, 'price');
+          }
+          if (resultFilter.currency === 'all' || resultFilter.currency === 'try') {
+            baseData["Birim Fiyat (TRY)"] = formatTableValue(result.birim_fiyat_try, 'price');
+            baseData["Toplam Fiyat (TRY)"] = formatTableValue(result.toplam_fiyat_try, 'price');
+          }
+          
+          // Aksesuar kolonlarını sadece showAccessories true ise ekle
+          // Tabloda aksesuarlar sadece USD olarak gösteriliyor
+          if (showAccessories) {
+            baseData["Toplam Flanş (USD)"] = result.flansli ? formatTableValue(result.flans_maliyet_usd * result.adet, 'price') : '0';
+            baseData["Toplam Vida (USD)"] = formatTableValue(result.vida_maliyet_usd * result.adet, 'price');
+            baseData["Toplam Klips (USD)"] = formatTableValue(result.klips_maliyet_usd * result.adet, 'price');
+            baseData["Toplam Dübel (USD)"] = formatTableValue(result.dubel_maliyet_usd * result.adet, 'price');
+            baseData["Toplam Kapak (USD)"] = formatTableValue(result.kapak_maliyet_usd * result.adet, 'price');
+            baseData["Toplam Aksesuar Maliyeti (USD)"] = formatTableValue(result.toplam_aksesuar_adet_usd, 'price');
+          }
         }
         
         return baseData;
