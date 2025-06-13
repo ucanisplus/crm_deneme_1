@@ -824,14 +824,28 @@ const GalvanizliTelNetsis = () => {
       
       const mmGtId = mmGt.id;
       
-      // First, find and delete related YM GTs from relationship table
+      // First, find related YM GTs from relationship table
       try {
         const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
         if (relationResponse && relationResponse.ok) {
           const relations = await relationResponse.json();
           console.log(`Found ${relations.length} relationships for MM GT ${mmGt.stok_kodu}`);
           
-          // Delete all related YM GTs
+          // Step 1: Delete relationship records first
+          for (const relation of relations) {
+            try {
+              const relationDeleteResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
+                method: 'DELETE'
+              });
+              if (relationDeleteResponse.ok) {
+                console.log(`✅ Relationship ${relation.id} deleted successfully`);
+              }
+            } catch (relationError) {
+              console.error(`❌ Error deleting relationship ${relation.id}:`, relationError);
+            }
+          }
+          
+          // Step 2: Delete related YM GTs after relationships are removed
           for (const relation of relations) {
             if (relation.ym_gt_id) {
               console.log(`Deleting related YM GT ID: ${relation.ym_gt_id}`);
@@ -854,7 +868,7 @@ const GalvanizliTelNetsis = () => {
         console.error('❌ Error finding related YM GTs:', relationError);
       }
       
-      // Then delete the MM GT
+      // Step 3: Finally delete the MM GT
       const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
         method: 'DELETE'
       });
@@ -865,11 +879,8 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`✅ MM GT ${mmGt.stok_kodu} deleted successfully with all related YM GTs`);
       
-      // Refresh both lists
-      await Promise.all([
-        fetchExistingMmGts(),
-        fetchExistingYmGts()
-      ]);
+      // Refresh MM GT list only (YM GT refresh not needed since function doesn't exist in this scope)
+      await fetchExistingMmGts();
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
