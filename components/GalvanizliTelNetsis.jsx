@@ -820,12 +820,38 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // console.log(`Deleting single MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+      console.log(`Deleting single MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
       
-      // Only delete the specific MM GT, not all related ones
       const mmGtId = mmGt.id;
       
-      // Delete MM GT using backend cascade (backend handles related data automatically)
+      // First, find and delete related YM GTs from gal_cost_cal_ym_gt table
+      try {
+        const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
+        if (relationResponse && relationResponse.ok) {
+          const relations = await relationResponse.json();
+          
+          // Delete all related YM GTs
+          for (const relation of relations) {
+            if (relation.ym_gt_id) {
+              try {
+                console.log(`Deleting related YM GT ID: ${relation.ym_gt_id}`);
+                const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
+                  method: 'DELETE'
+                });
+                if (!ymGtDeleteResponse.ok) {
+                  console.error(`Failed to delete YM GT ${relation.ym_gt_id}: ${ymGtDeleteResponse.status}`);
+                }
+              } catch (ymGtError) {
+                console.error(`Error deleting YM GT ${relation.ym_gt_id}:`, ymGtError);
+              }
+            }
+          }
+        }
+      } catch (relationError) {
+        console.error('Error fetching MM GT relationships:', relationError);
+      }
+      
+      // Then delete the MM GT (backend should handle other cascading deletes)
       try {
         const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
           method: 'DELETE'
@@ -835,7 +861,7 @@ const GalvanizliTelNetsis = () => {
           throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
         }
         
-        // console.log(`MM GT ${mmGt.stok_kodu} deleted successfully`);
+        console.log(`MM GT ${mmGt.stok_kodu} deleted successfully`);
       } catch (error) {
         console.error('MM GT deletion error:', error);
         throw error;
@@ -2370,29 +2396,34 @@ const GalvanizliTelNetsis = () => {
     });
     
     // YM GT Reçete (sequence 00 için)
+    // Calculate YM GT recipe fields regardless of YM ST selection
+    // This allows users to see calculated values even before selecting YM STs
+    
+    // Calculate DV (Durdurma Vinç) value based on Min Mukavemet
+    const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
+    
+    // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
+    // Excel shows 126.7 dk/ton, we need dk/kg so divide by 1000
+    // Original formula gives dk/ton, convert to dk/kg
+    const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
+    const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
+    
+    // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
+    const yuzeyAlani = calculateYuzeyAlani(cap);
+    const tuketilenAsit = calculateTuketilenAsit();
+    const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
+    
+    // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
+    const zincConsumption = parseFloat((
+      ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
+      (userInputValues.ash * 0.6) + 
+      (userInputValues.lapa * 0.7)) / 1000
+    ).toFixed(5));
+    
+    console.log('Çinko (150 03) hesaplandı:', zincConsumption);
+    
     if (allYmSts.length > 0) {
-      // Calculate DV (Durdurma Vinç) value based on Min Mukavemet
-      const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
-      
-      // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-      // Excel shows 126.7 dk/ton, we need dk/kg so divide by 1000
-      // Original formula gives dk/ton, convert to dk/kg
-      const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
-      const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
-      
-      // SM.HİDROLİK.ASİT: =('YuzeyAlani'*'tuketilenAsit')/1000
-      const yuzeyAlani = calculateYuzeyAlani(cap);
-      const tuketilenAsit = calculateTuketilenAsit();
-      const acidConsumption = parseFloat(((yuzeyAlani * tuketilenAsit) / 1000).toFixed(5));
-      
-      // 150 03(Çinko) : =((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+('Ash'*0.6)+('Lapa'*0.7))/1000
-      const zincConsumption = parseFloat((
-        ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * kaplama / 1000) + 
-        (userInputValues.ash * 0.6) + 
-        (userInputValues.lapa * 0.7)) / 1000
-      ).toFixed(5));
-      
-      // Safety check: Ensure the first YM ST has a valid stok_kodu
+      // If YM STs are selected, include the first YM ST stok_kodu in the recipe
       const firstYmSt = allYmSts[0];
       if (!firstYmSt || !firstYmSt.stok_kodu) {
         console.error('HATA: İlk YM ST eksik veya stok_kodu tanımsız!', firstYmSt);
@@ -2408,14 +2439,23 @@ const GalvanizliTelNetsis = () => {
         '150 03': zincConsumption, // Çinko Tüketim Miktarı - restored to YM GT for correct Excel format
         'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
       };
-      
-      console.log('YM GT reçetesi oluşturuldu:', newYmGtRecipe);
-      
-      // YM GT reçete durumlarını 'auto' olarak işaretle
-      Object.keys(newYmGtRecipe).forEach(key => {
-        newRecipeStatus.ymGtRecipe[key] = 'auto';
-      });
+    } else {
+      // If no YM STs are selected, still calculate the other fields
+      // This allows the user to see the calculated values for GLV01, Zinc, and Acid
+      newYmGtRecipe = {
+        'GLV01': glvTime, // Galvanizleme operasyonu
+        '150 03': zincConsumption, // Çinko Tüketim Miktarı
+        'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
+      };
     }
+    
+    console.log('YM GT reçetesi oluşturuldu:', newYmGtRecipe);
+    console.log('Çinko (150 03) değeri:', zincConsumption);
+    
+    // YM GT reçete durumlarını 'auto' olarak işaretle
+    Object.keys(newYmGtRecipe).forEach(key => {
+      newRecipeStatus.ymGtRecipe[key] = 'auto';
+    });
     
     // YM ST dizilerini direkt güncellemeiyoruz - seçim sorunlarını önlemek için
     // Sadece reçeteler güncellenecek, orijinal YM ST objeleri korunacak
@@ -2450,8 +2490,12 @@ const GalvanizliTelNetsis = () => {
           // Only update if not from database
           if (!recipeStatus.ymGtRecipe[key] || recipeStatus.ymGtRecipe[key] !== 'database') {
             mergedYmGtRecipe[key] = newYmGtRecipe[key];
+            if (key === '150 03') {
+              console.log('Merging Çinko (150 03) value:', newYmGtRecipe[key]);
+            }
           }
         });
+        console.log('Final mergedYmGtRecipe:', mergedYmGtRecipe);
         
         // Merge YM ST recipes - preserve database values
         Object.keys(newYmStRecipes).forEach(index => {
