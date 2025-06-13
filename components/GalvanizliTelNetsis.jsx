@@ -960,12 +960,64 @@ const GalvanizliTelNetsis = () => {
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
       if (activeDbTab === 'mmgt') {
-        // Delete MM GTs - backend handles ALL cascade deletion automatically
-        // This includes: related YM GT records, recipes, and relationship records
-        const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-        console.log(`Deleting ${mmGtIds.length} MM GTs with backend cascade`);
+        // Delete MM GTs with proper cascade deletion for related YM GTs
+        console.log(`Deleting ${existingMmGts.length} MM GTs with related YM GTs`);
         
-        if (mmGtIds.length > 0) {
+        if (existingMmGts.length > 0) {
+          // First, collect all YM GT IDs from relationships
+          const allYmGtIds = new Set();
+          const allRelationshipIds = [];
+          
+          for (const mmGt of existingMmGts) {
+            try {
+              const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+              if (relationResponse && relationResponse.ok) {
+                const relations = await relationResponse.json();
+                relations.forEach(relation => {
+                  if (relation.ym_gt_id) {
+                    allYmGtIds.add(relation.ym_gt_id);
+                  }
+                  allRelationshipIds.push(relation.id);
+                });
+              }
+            } catch (error) {
+              console.error(`Error finding relationships for MM GT ${mmGt.id}:`, error);
+            }
+          }
+          
+          console.log(`Found ${allRelationshipIds.length} relationships and ${allYmGtIds.size} unique YM GTs to delete`);
+          
+          // Step 1: Delete all relationship records first
+          for (let i = 0; i < allRelationshipIds.length; i += batchSize) {
+            const batch = allRelationshipIds.slice(i, i + batchSize);
+            const batchPromises = batch.map(relationId => 
+              fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relationId}`, { 
+                method: 'DELETE'
+              }).catch(error => {
+                console.error(`Failed to delete relationship ${relationId}:`, error);
+                return null;
+              })
+            );
+            await Promise.all(batchPromises);
+          }
+          
+          // Step 2: Delete all YM GTs
+          const ymGtIdsArray = Array.from(allYmGtIds);
+          for (let i = 0; i < ymGtIdsArray.length; i += batchSize) {
+            const batch = ymGtIdsArray.slice(i, i + batchSize);
+            const batchPromises = batch.map(ymGtId => 
+              fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`, { 
+                method: 'DELETE'
+              }).catch(error => {
+                console.error(`Failed to delete YM GT ${ymGtId}:`, error);
+                return null;
+              })
+            );
+            await Promise.all(batchPromises);
+          }
+          
+          // Step 3: Delete all MM GTs
+          const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
             const batch = mmGtIds.slice(i, i + batchSize);
             const batchPromises = batch.map(id => 
