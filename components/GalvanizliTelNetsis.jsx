@@ -815,7 +815,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // MM GT silme fonksiyonu - Backend cascade deletion kullanılıyor
+  // MM GT silme fonksiyonu - İlişkili YM GT'leri de siler
   const deleteMmGt = async (mmGt) => {
     try {
       setIsLoading(true);
@@ -824,8 +824,37 @@ const GalvanizliTelNetsis = () => {
       
       const mmGtId = mmGt.id;
       
-      // Delete the MM GT - backend handles ALL cascade deletion automatically
-      // This includes: related YM GT records, recipes, and relationship records
+      // First, find and delete related YM GTs from relationship table
+      try {
+        const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
+        if (relationResponse && relationResponse.ok) {
+          const relations = await relationResponse.json();
+          console.log(`Found ${relations.length} relationships for MM GT ${mmGt.stok_kodu}`);
+          
+          // Delete all related YM GTs
+          for (const relation of relations) {
+            if (relation.ym_gt_id) {
+              console.log(`Deleting related YM GT ID: ${relation.ym_gt_id}`);
+              try {
+                const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
+                  method: 'DELETE'
+                });
+                if (ymGtDeleteResponse.ok) {
+                  console.log(`✅ YM GT ${relation.ym_gt_id} deleted successfully`);
+                } else {
+                  console.error(`❌ Failed to delete YM GT ${relation.ym_gt_id}: ${ymGtDeleteResponse.status}`);
+                }
+              } catch (ymGtError) {
+                console.error(`❌ Error deleting YM GT ${relation.ym_gt_id}:`, ymGtError);
+              }
+            }
+          }
+        }
+      } catch (relationError) {
+        console.error('❌ Error finding related YM GTs:', relationError);
+      }
+      
+      // Then delete the MM GT
       const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
         method: 'DELETE'
       });
@@ -834,15 +863,17 @@ const GalvanizliTelNetsis = () => {
         throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
       }
       
-      console.log(`MM GT ${mmGt.stok_kodu} deleted successfully with cascade`);
+      console.log(`✅ MM GT ${mmGt.stok_kodu} deleted successfully with all related YM GTs`);
       
-      // Refresh the MM GT list
-      await fetchExistingMmGts();
-      // Note: YM GT records are automatically cascade deleted by backend
+      // Refresh both lists
+      await Promise.all([
+        fetchExistingMmGts(),
+        fetchExistingYmGts()
+      ]);
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
-      toast.success(`MM GT ${mmGt.stok_kodu} başarıyla silindi`);
+      toast.success(`MM GT ${mmGt.stok_kodu} ve bağlantılı YM GT'ler başarıyla silindi`);
     } catch (error) {
       console.error('MM GT silme hatası:', error);
       toast.error('MM GT silme hatası: ' + error.message);
