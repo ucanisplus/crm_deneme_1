@@ -960,75 +960,66 @@ const GalvanizliTelNetsis = () => {
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
       if (activeDbTab === 'mmgt') {
-        // Delete MM GTs with proper cascade deletion for related YM GTs
-        console.log(`Deleting ${existingMmGts.length} MM GTs with related YM GTs`);
+        // Delete MM GTs one by one using the same logic as individual delete
+        console.log(`Deleting ${existingMmGts.length} MM GTs with related YM GTs (sequential processing)`);
         
-        if (existingMmGts.length > 0) {
-          // First, collect all YM GT IDs from relationships
-          const allYmGtIds = new Set();
-          const allRelationshipIds = [];
-          
-          for (const mmGt of existingMmGts) {
-            try {
-              const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-              if (relationResponse && relationResponse.ok) {
-                const relations = await relationResponse.json();
-                relations.forEach(relation => {
-                  if (relation.ym_gt_id) {
-                    allYmGtIds.add(relation.ym_gt_id);
+        for (const mmGt of existingMmGts) {
+          try {
+            console.log(`Processing MM GT: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+            
+            // Find related YM GTs from relationship table
+            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            if (relationResponse && relationResponse.ok) {
+              const relations = await relationResponse.json();
+              console.log(`Found ${relations.length} relationships for MM GT ${mmGt.stok_kodu}`);
+              
+              // Step 1: Delete relationship records first
+              for (const relation of relations) {
+                try {
+                  const relationDeleteResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
+                    method: 'DELETE'
+                  });
+                  if (relationDeleteResponse.ok) {
+                    console.log(`✅ Relationship ${relation.id} deleted successfully`);
                   }
-                  allRelationshipIds.push(relation.id);
-                });
+                } catch (relationError) {
+                  console.error(`❌ Error deleting relationship ${relation.id}:`, relationError);
+                }
               }
-            } catch (error) {
-              console.error(`Error finding relationships for MM GT ${mmGt.id}:`, error);
+              
+              // Step 2: Delete related YM GTs after relationships are removed
+              for (const relation of relations) {
+                if (relation.ym_gt_id) {
+                  console.log(`Deleting related YM GT ID: ${relation.ym_gt_id}`);
+                  try {
+                    const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
+                      method: 'DELETE'
+                    });
+                    if (ymGtDeleteResponse.ok) {
+                      console.log(`✅ YM GT ${relation.ym_gt_id} deleted successfully`);
+                    } else {
+                      console.error(`❌ Failed to delete YM GT ${relation.ym_gt_id}: ${ymGtDeleteResponse.status}`);
+                    }
+                  } catch (ymGtError) {
+                    console.error(`❌ Error deleting YM GT ${relation.ym_gt_id}:`, ymGtError);
+                  }
+                }
+              }
             }
-          }
-          
-          console.log(`Found ${allRelationshipIds.length} relationships and ${allYmGtIds.size} unique YM GTs to delete`);
-          
-          // Step 1: Delete all relationship records first
-          for (let i = 0; i < allRelationshipIds.length; i += batchSize) {
-            const batch = allRelationshipIds.slice(i, i + batchSize);
-            const batchPromises = batch.map(relationId => 
-              fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relationId}`, { 
-                method: 'DELETE'
-              }).catch(error => {
-                console.error(`Failed to delete relationship ${relationId}:`, error);
-                return null;
-              })
-            );
-            await Promise.all(batchPromises);
-          }
-          
-          // Step 2: Delete all YM GTs
-          const ymGtIdsArray = Array.from(allYmGtIds);
-          for (let i = 0; i < ymGtIdsArray.length; i += batchSize) {
-            const batch = ymGtIdsArray.slice(i, i + batchSize);
-            const batchPromises = batch.map(ymGtId => 
-              fetchWithAuth(`${API_URLS.galYmGt}/${ymGtId}`, { 
-                method: 'DELETE'
-              }).catch(error => {
-                console.error(`Failed to delete YM GT ${ymGtId}:`, error);
-                return null;
-              })
-            );
-            await Promise.all(batchPromises);
-          }
-          
-          // Step 3: Delete all MM GTs
-          const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-          for (let i = 0; i < mmGtIds.length; i += batchSize) {
-            const batch = mmGtIds.slice(i, i + batchSize);
-            const batchPromises = batch.map(id => 
-              fetchWithAuth(`${API_URLS.galMmGt}/${id}`, { 
-                method: 'DELETE'
-              }).catch(error => {
-                console.error(`Failed to delete MM GT ${id}:`, error);
-                return null;
-              })
-            );
-            await Promise.all(batchPromises);
+            
+            // Step 3: Delete the MM GT
+            const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGt.id}`, { 
+              method: 'DELETE'
+            });
+            
+            if (deleteResponse.ok) {
+              console.log(`✅ MM GT ${mmGt.stok_kodu} deleted successfully`);
+            } else {
+              console.error(`❌ Failed to delete MM GT ${mmGt.stok_kodu}: ${deleteResponse.status}`);
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error processing MM GT ${mmGt.stok_kodu}:`, error);
           }
         }
       } else if (activeDbTab === 'ymst') {
