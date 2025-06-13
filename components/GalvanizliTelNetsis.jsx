@@ -815,7 +815,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // MM GT silme fonksiyonu - İyileştirilmiş hata yönetimi
+  // MM GT silme fonksiyonu - Backend cascade deletion kullanılıyor
   const deleteMmGt = async (mmGt) => {
     try {
       setIsLoading(true);
@@ -824,51 +824,21 @@ const GalvanizliTelNetsis = () => {
       
       const mmGtId = mmGt.id;
       
-      // First, find and delete related YM GTs from gal_cost_cal_ym_gt table
-      try {
-        const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
-        if (relationResponse && relationResponse.ok) {
-          const relations = await relationResponse.json();
-          
-          // Delete all related YM GTs
-          for (const relation of relations) {
-            if (relation.ym_gt_id) {
-              try {
-                console.log(`Deleting related YM GT ID: ${relation.ym_gt_id}`);
-                const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
-                  method: 'DELETE'
-                });
-                if (!ymGtDeleteResponse.ok) {
-                  console.error(`Failed to delete YM GT ${relation.ym_gt_id}: ${ymGtDeleteResponse.status}`);
-                }
-              } catch (ymGtError) {
-                console.error(`Error deleting YM GT ${relation.ym_gt_id}:`, ymGtError);
-              }
-            }
-          }
-        }
-      } catch (relationError) {
-        console.error('Error fetching MM GT relationships:', relationError);
+      // Delete the MM GT - backend handles ALL cascade deletion automatically
+      // This includes: related YM GT records, recipes, and relationship records
+      const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
+        method: 'DELETE'
+      });
+      
+      if (!deleteResponse.ok) {
+        throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
       }
       
-      // Then delete the MM GT (backend should handle other cascading deletes)
-      try {
-        const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
-          method: 'DELETE'
-        });
-        
-        if (!deleteResponse.ok) {
-          throw new Error(`Failed to delete MM GT: ${deleteResponse.status}`);
-        }
-        
-        console.log(`MM GT ${mmGt.stok_kodu} deleted successfully`);
-      } catch (error) {
-        console.error('MM GT deletion error:', error);
-        throw error;
-      }
+      console.log(`MM GT ${mmGt.stok_kodu} deleted successfully with cascade`);
       
-      // Refresh the list
+      // Refresh the MM GT list
       await fetchExistingMmGts();
+      // Note: YM GT records are automatically cascade deleted by backend
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
@@ -948,29 +918,10 @@ const GalvanizliTelNetsis = () => {
       const batchSize = 5; // Process 5 items at a time to prevent server overload
       
       if (activeDbTab === 'mmgt') {
-        // First, get all YM GT IDs from relationships before deleting MM GTs
-        const ymGtIdsToDelete = new Set();
-        
-        // Collect YM GT IDs from relationships
-        for (const mmGt of existingMmGts) {
-          try {
-            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-            if (relationResponse && relationResponse.ok) {
-              const relations = await relationResponse.json();
-              relations.forEach(rel => {
-                if (rel.ym_gt_id) {
-                  ymGtIdsToDelete.add(rel.ym_gt_id);
-                }
-              });
-            }
-          } catch (error) {
-            console.error(`Failed to fetch relationships for MM GT ${mmGt.id}:`, error);
-          }
-        }
-        
-        // Delete MM GTs first
+        // Delete MM GTs - backend handles ALL cascade deletion automatically
+        // This includes: related YM GT records, recipes, and relationship records
         const mmGtIds = existingMmGts.map(mmGt => mmGt.id);
-        console.log(`Deleting ${mmGtIds.length} MM GTs`);
+        console.log(`Deleting ${mmGtIds.length} MM GTs with backend cascade`);
         
         if (mmGtIds.length > 0) {
           for (let i = 0; i < mmGtIds.length; i += batchSize) {
@@ -980,24 +931,6 @@ const GalvanizliTelNetsis = () => {
                 method: 'DELETE'
               }).catch(error => {
                 console.error(`Failed to delete MM GT ${id}:`, error);
-                return null;
-              })
-            );
-            await Promise.all(batchPromises);
-          }
-        }
-        
-        // Then explicitly delete YM GTs
-        if (ymGtIdsToDelete.size > 0) {
-          console.log(`Deleting ${ymGtIdsToDelete.size} YM GTs`);
-          const ymGtIdArray = Array.from(ymGtIdsToDelete);
-          for (let i = 0; i < ymGtIdArray.length; i += batchSize) {
-            const batch = ymGtIdArray.slice(i, i + batchSize);
-            const batchPromises = batch.map(id => 
-              fetchWithAuth(`${API_URLS.galYmGt}/${id}`, { 
-                method: 'DELETE'
-              }).catch(error => {
-                console.error(`Failed to delete YM GT ${id}:`, error);
                 return null;
               })
             );
