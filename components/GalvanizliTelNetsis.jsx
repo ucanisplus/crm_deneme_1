@@ -1859,6 +1859,7 @@ const GalvanizliTelNetsis = () => {
       cap: safeAdjustedCap,
       filmasin: parseInt(filmasinCap),
       quality: quality,
+      kaplama: kaplama, // Add coating property for proper differentiation
       source: 'auto-generated'
     });
     
@@ -1869,6 +1870,7 @@ const GalvanizliTelNetsis = () => {
       cap: safeAlternativeCap,
       filmasin: parseInt(filmasinCap),
       quality: quality,
+      kaplama: kaplama, // Add coating property for proper differentiation
       source: 'auto-generated'
     });
     
@@ -2361,8 +2363,10 @@ const GalvanizliTelNetsis = () => {
       // Reference formula uses MM GT diameter for all diameter references
       const ymStKaplama = parseFloat(ymSt.kaplama) || kaplama; // Use YMST coating if available
       
+      // Use YM ST cap for zinc consumption calculation to get accurate material usage
+      const ymStCap = parseFloat(ymSt.cap) || cap; // Use YM ST cap if available, fallback to MM GT cap
       const zincConsumption = parseFloat((
-        ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * ymStKaplama / 1000) + 
+        ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * ymStCap * Math.PI / 1000 * ymStKaplama / 1000) + 
         (userInputValues.ash * 0.6) + 
         (userInputValues.lapa * 0.7)) / 1000
       ).toFixed(5));
@@ -2380,20 +2384,23 @@ const GalvanizliTelNetsis = () => {
         
         // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
         // Excel shows 18.9 dk/ton, we need dk/kg so divide by 1000
-        // IMPORTANT: Cap here is the final product diameter (MM GT cap), not YM ST cap!
-        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / cap / cap / tlcHiz / 60);
+        // FIX: Use YM ST cap for TLC01 calculation to differentiate between different YM STs
+        const ymStCap = parseFloat(ymSt.cap) || cap; // Use YM ST cap if available, fallback to MM GT cap
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60);
         const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
         
         // Hesaplama debug bilgisi
-        console.log(`TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${cap}/${cap}/${tlcHiz}/60/1000) = ${tlcValue}`);
+        console.log(`TLC01 hesaplama: (1000*4000/${Math.PI}/7.85/${ymStCap}/${ymStCap}/${tlcHiz}/60/1000) = ${tlcValue}`);
+        console.log(`YM ST: ${ymSt.stok_kodu}, YM ST Cap: ${ymStCap}, MM GT Cap: ${cap}, TLC_Hiz: ${tlcHiz}`);
         
         // Calculate Çinko consumption for this specific YMST
         // Formula: ((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+(Ash*0.6)+(Lapa*0.7))/1000
         // Reference formula uses MM GT diameter for all diameter references
         const ymStKaplama = parseFloat(ymSt.kaplama) || kaplama; // Use YMST coating if available
         
+        // Use YM ST cap for zinc consumption calculation to get accurate material usage
         const zincConsumption = parseFloat((
-          ((1000 * 4000 / Math.PI / 7.85 / cap / cap * cap * Math.PI / 1000 * ymStKaplama / 1000) + 
+          ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * ymStCap * Math.PI / 1000 * ymStKaplama / 1000) + 
           (userInputValues.ash * 0.6) + 
           (userInputValues.lapa * 0.7)) / 1000
         ).toFixed(5));
@@ -8472,7 +8479,10 @@ const GalvanizliTelNetsis = () => {
           </button>
           
           <button
-            onClick={() => setShowRequestsModal(true)}
+            onClick={() => {
+              setShowRequestsModal(true);
+              fetchRequests(); // Auto-refresh when opening modal
+            }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg relative flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8860,7 +8870,7 @@ const GalvanizliTelNetsis = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  YM ST Oluştur
+                  Manuel YM ST Oluştur
                 </button>
                 <button
                   onClick={async () => {
