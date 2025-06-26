@@ -2364,7 +2364,7 @@ const GalvanizliTelNetsis = () => {
       const ymStKaplama = parseFloat(ymSt.kaplama) || kaplama; // Use YMST coating if available
       
       // Use YM ST cap for zinc consumption calculation to get accurate material usage
-      const ymStCap = parseFloat(ymSt.cap) || cap; // Use YM ST cap if available, fallback to MM GT cap
+      const ymStCap = parseFloat(ymSt.cap); // Each YM ST must use its own cap value
       const zincConsumption = parseFloat((
         ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * ymStCap * Math.PI / 1000 * ymStKaplama / 1000) + 
         (userInputValues.ash * 0.6) + 
@@ -2385,7 +2385,7 @@ const GalvanizliTelNetsis = () => {
         // ORİJİNAL FORMÜL: TLC01 = 1000*4000/3.14/7.85/Cap/Cap/TLC_Hiz/60
         // Excel shows 18.9 dk/ton, we need dk/kg so divide by 1000
         // FIX: Use YM ST cap for TLC01 calculation to differentiate between different YM STs
-        const ymStCap = parseFloat(ymSt.cap) || cap; // Use YM ST cap if available, fallback to MM GT cap
+        const ymStCap = parseFloat(ymSt.cap); // Each YM ST must use its own cap value
         const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60);
         const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
         
@@ -5994,8 +5994,8 @@ const GalvanizliTelNetsis = () => {
   const getFilmasinKodu = (ymSt) => {
     if (!ymSt) return 'FLM.0600.1006';
     
-    // Get cap and determine appropriate filmasin type
-    const cap = parseFloat(ymSt.cap) || parseFloat(mmGtData.cap) || 0;
+    // Get cap and determine appropriate filmasin type - each YM ST must use its own cap
+    const cap = parseFloat(ymSt.cap) || 0;
     console.log(`🔍 getFilmasinKodu called with cap: ${cap} (type: ${typeof cap}), ymSt.cap: ${ymSt.cap}, mmGtData.cap: ${mmGtData.cap}`);
     
     // If ymSt has filmasin and quality defined, use those values
