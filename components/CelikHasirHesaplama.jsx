@@ -48,7 +48,7 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   
   const sampleSheet = sheetData.length > 0 ? sheetData[0] : null;
   const headers = sampleSheet?.headers || [];
-  const sampleRows = sampleSheet?.data.slice(0, 3) || [];
+  const sampleRows = sampleSheet?.data.slice(0, 7) || [];
   
   const handleMappingChange = (field, columnIndex) => {
     setMapping({
@@ -3692,7 +3692,10 @@ const processExtractedTextFromOCR = (extractedText) => {
         // Tab, virgül veya boşluklarla ayrılmış verileri parçala
         const rowData = line.split(/\t|,|;|\s{2,}/g).map(item => item.trim()).filter(item => item);
         return rowData;
-      }).filter(row => row.length > 0);
+      }).filter(row => {
+        // En az 2 dolu hücre olmalı (başlık satırları ve tek değerli satırları hariç tut)
+        return row.length >= 2;
+      });
       
       // Verileri işle
       validateAndProcessTabularData(tableData);
@@ -4057,12 +4060,18 @@ const parseExcelData = (data, fileName = '') => {
       // JSON'a dönüştür
       let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
       
-      // Boş satırları filtrele
-      jsonData = jsonData.filter(row => 
-        row && row.length > 0 && row.some(cell => 
+      // Boş satırları ve yetersiz veri içeren satırları filtrele
+      jsonData = jsonData.filter(row => {
+        if (!row || row.length === 0) return false;
+        
+        // Dolu hücre sayısını say
+        const filledCells = row.filter(cell => 
           cell !== null && cell !== undefined && String(cell).trim() !== ''
-        )
-      );
+        );
+        
+        // En az 2 dolu hücre olmalı (başlık satırları ve tek değerli satırları hariç tut)
+        return filledCells.length >= 2;
+      });
       
       if (jsonData.length === 0) continue;
       
@@ -4814,7 +4823,21 @@ const parseCsvData = (data) => {
           return;
         }
         
-        const jsonData = results.data;
+        let jsonData = results.data;
+        
+        // Boş satırları ve yetersiz veri içeren satırları filtrele
+        jsonData = jsonData.filter(row => {
+          if (!row || row.length === 0) return false;
+          
+          // Dolu hücre sayısını say
+          const filledCells = row.filter(cell => 
+            cell !== null && cell !== undefined && String(cell).trim() !== ''
+          );
+          
+          // En az 2 dolu hücre olmalı (başlık satırları ve tek değerli satırları hariç tut)
+          return filledCells.length >= 2;
+        });
+        
         const sheetsData = [];
         
         // Başlıkları tespit et
