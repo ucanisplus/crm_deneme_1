@@ -6178,7 +6178,7 @@ useEffect(() => {
             <button 
               onClick={exportToExcel}
               title="Alt+E"
-              className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center gap-2 hover:bg-green-700 transition-colors text-sm"
+              className="px-2 py-1 bg-green-600 text-white rounded-md flex items-center gap-1 hover:bg-green-700 transition-colors text-sm"
             >
               <Download size={16} />
               Excel&apos;e Aktar

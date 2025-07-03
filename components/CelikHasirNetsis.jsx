@@ -364,6 +364,42 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           '1', '1', 'Yarı Otomatik Operasyon', '', '', '', '', '', '', '1', // Placeholder değer
           'evet', 'evet', '', '', '', '', '', '', ''
         ]);
+
+        // NCBK Reçeteler - Her boy için
+        [500, 215].forEach((length, index) => {
+          const ncbkStokKodu = `YM.NCBK.${String(Math.round(parseFloat(index === 0 ? product.boyCap : product.enCap) * 100)).padStart(4, '0')}.${length}`;
+          
+          // Bileşen - FLM
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '0', '', 'AD', '1', 'Bileşen', 'FLM.0600.1008',
+            'KG', '1', `FLM tüketimi - ${length}cm çubuk için`, '', '', '', '', '', '', '1',
+            'evet', 'evet', '', '', '', '', '', '', ''
+          ]);
+          
+          // Operasyon - YOTOCH
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '0', '', 'AD', '2', 'Operasyon', 'YOTOCH',
+            'AD', '1', 'Yarı Otomatik Nervürlü Çubuk Operasyonu', '', '', '', '', '', '', '1',
+            'evet', 'evet', '', '', '', '', '', '', ''
+          ]);
+        });
+
+        // NTEL Reçete
+        const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap || product.enCap) * 100)).padStart(4, '0')}`;
+        
+        // Bileşen - FLM
+        ntelReceteSheet.addRow([
+          ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen', 'FLM.0600.1008',
+          'KG', '1', 'FLM tüketimi - metre başına', '', '', '', '', '', '', '1',
+          'evet', 'evet', '', '', '', '', '', '', ''
+        ]);
+        
+        // Operasyon - OTOCH
+        ntelReceteSheet.addRow([
+          ntelStokKodu, '1', '0', '', 'MT', '2', 'Operasyon', 'OTOCH',
+          'MT', '1', 'Tam Otomatik Nervürlü Tel Operasyonu', '', '', '', '', '', '', '1',
+          'evet', 'evet', '', '', '', '', '', '', ''
+        ]);
       }
     });
 
@@ -607,14 +643,44 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         return;
       }
 
+      // Mevcut ürünleri getir ve karşılaştır
+      await fetchSavedProducts();
+      
+      // Mevcut stok kodlarını al
+      const existingStokKodlari = new Set([
+        ...savedProducts.mm.map(p => p.stok_kodu),
+        ...savedProducts.ncbk.map(p => p.stok_kodu),
+        ...savedProducts.ntel.map(p => p.stok_kodu)
+      ]);
+      
+      // Sadece yeni ürünleri filtrele
+      const newProducts = [];
+      const skippedProducts = [];
+      
+      for (const product of productsToSave) {
+        const chStokKodu = generateStokKodu(product, 'CH');
+        if (existingStokKodlari.has(chStokKodu)) {
+          skippedProducts.push(product);
+        } else {
+          newProducts.push(product);
+        }
+      }
+      
+      if (newProducts.length === 0) {
+        toast.info(`Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı.`);
+        return;
+      }
+      
+      toast.info(`${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor...`);
+
       // Optimize edilmemiş ürün sayısını kontrol et
-      const unoptimizedCount = productsToSave.filter(p => !isProductOptimized(p)).length;
+      const unoptimizedCount = newProducts.filter(p => !isProductOptimized(p)).length;
       if (unoptimizedCount > 0) {
         toast.info(`${unoptimizedCount} adet optimize edilmemiş ürün de kaydedildi.`);
       }
 
       // Her ürün için CH, NCBK ve NTEL kayıtları oluştur
-      for (const product of productsToSave) {
+      for (const product of newProducts) {
         // CH kaydı
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH'),
@@ -698,12 +764,16 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         await updateSequences(product);
       }
 
-      toast.success(`${optimizedProductsToSave.length} ürün ve reçeteleri başarıyla veritabanına kaydedildi!`);
+      toast.success(`${newProducts.length} yeni ürün ve reçeteleri başarıyla veritabanına kaydedildi!`);
       fetchSavedProducts(); // Listeyi güncelle
+      
+      // Sadece yeni kaydedilen ürünleri döndür
+      return newProducts;
       
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
       toast.error('Veritabanına kaydetme sırasında hata oluştu');
+      return [];
     } finally {
       setIsLoading(false);
       setShowModal(false);
@@ -755,6 +825,15 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       }
       
       const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
+      
+      // Eğer CH (mm) siliyorsak, sequence tablosunu da temizle
+      if (activeDbTab === 'mm' && savedProducts.mm.length > 0) {
+        // OZL sequence'ı sıfırla
+        await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
+          method: 'DELETE' 
+        }).catch(() => {}); // Hata olsa bile devam et
+      }
+      
       toast.success(`Tüm ${tabName} kayıtları başarıyla silindi`);
       setShowBulkDeleteModal(false);
       setBulkDeleteText('');
@@ -770,7 +849,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Modal aç
   const handleNetsiIslemleriClick = () => {
-    if (hasUnoptimizedProducts()) {
+    // Ürün yoksa direkt modal aç (veritabanı erişimi için)
+    if (optimizedProducts.length === 0) {
+      setShowModal(true);
+    } else if (hasUnoptimizedProducts()) {
       setShowOptimizationWarning(true);
     } else {
       setShowModal(true);
@@ -786,22 +868,27 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   return (
     <div className="p-4">
       {/* Ana Buton */}
-      <div className="mb-4">
+      <>
         <button
           onClick={handleNetsiIslemleriClick}
-          disabled={isLoading || optimizedProducts.length === 0}
-          className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
+          disabled={isLoading}
+          className="px-2 py-1 bg-blue-600 text-white rounded-md flex items-center gap-1 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
         >
-          {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+          {isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
           Netsis İşlemleri
         </button>
         
         {optimizedProducts.length === 0 && (
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 mt-1">
             * Netsis işlemleri için önce ürün verilerinizi optimize edin.
           </p>
         )}
-      </div>
+        {optimizedProducts.length > 0 && hasUnoptimizedProducts() && (
+          <p className="text-xs text-yellow-600 mt-1">
+            * Veritabanına kaydetmeden önce iyileştirme önerilir.
+          </p>
+        )}
+      </>
 
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
@@ -1060,7 +1147,11 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               <button
                 onClick={() => {
                   setShowDatabaseWarning(false);
-                  saveToDatabase(optimizedProducts).then(() => generateExcelFiles(optimizedProducts));
+                  saveToDatabase(optimizedProducts).then((newProducts) => {
+                    if (newProducts && newProducts.length > 0) {
+                      generateExcelFiles(newProducts);
+                    }
+                  });
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
