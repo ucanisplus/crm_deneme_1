@@ -29,6 +29,15 @@ export const API_URLS = {
   // TLC Hizlar data
   galTlcHizlar: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_tlc_hizlar',
 
+  // Çelik Hasır Netsis
+  celikHasirMm: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm',
+  celikHasirNcbk: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ncbk',
+  celikHasirNtel: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ntel',
+  celikHasirMmRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm_recete',
+  celikHasirNcbkRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
+  celikHasirNtelRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
+  celikHasirSequence: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_sequence',
+
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
   login: 'https://crm-deneme-backend.vercel.app/api/login',  

@@ -37,6 +37,9 @@ import Fuse from 'fuse.js';
 // Import the rod production schedule component
 import CubukUretimCizelgesi from './CubukUretimCizelgesi';
 
+// Import the Çelik Hasır Netsis component
+import CelikHasirNetsis from './CelikHasirNetsis';
+
 
 // Sütun eşleştirme modalı
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
@@ -6181,31 +6184,10 @@ useEffect(() => {
               Excel&apos;e Aktar
             </button>
             
-            <button 
-              onClick={saveToDatabase}
-              disabled={savingToDatabase}
-              className="px-4 py-2 bg-blue-400 text-white rounded-md flex items-center gap-2 hover:bg-blue-500 transition-colors"
-            >
-              {savingToDatabase ? (
-                <Loader size={18} className="animate-spin" />
-              ) : (
-                <Database size={18} />
-              )}
-              Veri Tabanına Kaydet
-            </button>
-            
-            <button 
-              onClick={createRecipe}
-              disabled={creatingRecipe}
-              className="px-4 py-2 bg-amber-100 text-amber-800 rounded-md flex items-center gap-2 hover:bg-amber-200 transition-colors"
-            >
-              {creatingRecipe ? (
-                <Loader size={18} className="animate-spin" />
-              ) : (
-                <FileText size={18} />
-              )}
-              Reçete Oluştur
-            </button>
+            {/* Çelik Hasır Netsis Integration - Replaces old database save and recipe buttons */}
+            <CelikHasirNetsis optimizedProducts={rows.filter(row => 
+              row.cubukSayisiBoy && row.cubukSayisiEn && row.boyCap && row.enCap
+            )} />
           </div>
           
           {/* Yedekleme düğmeleri - Yeni konum */}
