@@ -446,6 +446,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         const diameter = parseFloat(product.boyCap || product.enCap || 0);
         const flmTuketimi = (diameter * diameter * Math.PI * 7.85 * totalLength / 4000000).toFixed(6); // kg
         
+        // CH REÇETE entries
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
           `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
@@ -456,6 +457,42 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
           '1', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', '1', // Placeholder değer
+          'evet', 'evet', '', '', '', '', '', '', ''
+        ]);
+        
+        // NCBK REÇETE entries - Boy ve En çubukları için
+        [500, 215].forEach(length => {
+          const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
+          const ncbkFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * length / 4000000).toFixed(6); // kg
+          
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
+            `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
+            '1', ncbkFlmTuketimi, 'FLM Tüketimi - Yarı Otomatik', '', '', '', '', '', '', '1',
+            'evet', 'evet', '', '', '', '', '', '', ''
+          ]);
+          
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'YARICH',
+            '1', '1', 'Yarı Otomatik Nervürlü Çubuk İşlemi', '', '', '', '', '', '', '1',
+            'evet', 'evet', '', '', '', '', '', '', ''
+          ]);
+        });
+        
+        // NTEL REÇETE entries
+        const ntelStokKodu = `YM.NTEL.${String(Math.round(diameter * 100)).padStart(4, '0')}`;
+        const ntelFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * 1000 / 4000000).toFixed(6); // kg per meter
+        
+        ntelReceteSheet.addRow([
+          ntelStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
+          `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
+          '1', ntelFlmTuketimi, 'FLM Tüketimi - Tam Otomatik', '', '', '', '', '', '', '1',
+          'evet', 'evet', '', '', '', '', '', '', ''
+        ]);
+        
+        ntelReceteSheet.addRow([
+          ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
+          '1', '1', 'Tam Otomatik Nervürlü Tel Operasyonu', '', '', '', '', '', '', '1',
           'evet', 'evet', '', '', '', '', '', '', ''
         ]);
       }
@@ -852,7 +889,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     // Ürün yoksa direkt modal aç (veritabanı erişimi için)
     if (optimizedProducts.length === 0) {
       setShowModal(true);
-    } else if (hasUnoptimizedProducts()) {
+    } else if (optimizedProducts.length > 0 && hasUnoptimizedProducts()) {
       setShowOptimizationWarning(true);
     } else {
       setShowModal(true);
@@ -872,17 +909,12 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         <button
           onClick={handleNetsiIslemleriClick}
           disabled={isLoading}
-          className="px-2 py-1 bg-blue-600 text-white rounded-md flex items-center gap-1 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:bg-gray-400"
         >
-          {isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+          {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
           Netsis İşlemleri
         </button>
         
-        {optimizedProducts.length === 0 && (
-          <p className="text-xs text-gray-500 mt-1">
-            * Netsis işlemleri için önce ürün verilerinizi optimize edin.
-          </p>
-        )}
         {optimizedProducts.length > 0 && hasUnoptimizedProducts() && (
           <p className="text-xs text-yellow-600 mt-1">
             * Veritabanına kaydetmeden önce iyileştirme önerilir.
@@ -931,7 +963,11 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             <div className="space-y-4">
               <button
                 onClick={() => {
-                  if (hasUnoptimizedProducts()) {
+                  if (optimizedProducts.length === 0) {
+                    // Ürün yoksa direkt veritabanı ekranına git
+                    setShowModal(false);
+                    setShowDatabaseModal(true);
+                  } else if (hasUnoptimizedProducts()) {
                     setShowOptimizationWarning(true);
                   } else {
                     setShowDatabaseWarning(true);
@@ -948,8 +984,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               </button>
               
               <button
-                onClick={() => generateExcelFiles(optimizedProducts)}
-                disabled={isLoading || isGeneratingExcel}
+                onClick={() => {
+                  if (optimizedProducts.length === 0) {
+                    toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
+                    return;
+                  }
+                  generateExcelFiles(optimizedProducts);
+                }}
+                disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
               >
                 <FileSpreadsheet className="w-5 h-5" />
