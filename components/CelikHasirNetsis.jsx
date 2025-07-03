@@ -28,6 +28,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   const [activeDbTab, setActiveDbTab] = useState('mm'); // 'mm', 'ncbk', 'ntel'
   const [showOptimizationWarning, setShowOptimizationWarning] = useState(false);
   const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkDeleteText, setBulkDeleteText] = useState('');
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState(null);
   
   // Database verileri
   const [savedProducts, setSavedProducts] = useState({
@@ -105,8 +109,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
-    return product.cubukSayisiBoy && product.cubukSayisiEn && 
-           product.boyCap && product.enCap;
+    return product.aciklama && product.aciklama.trim().length > 0;
   };
 
   // Optimize edilmemiş ürünleri kontrol et
@@ -425,6 +428,135 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     saveAs(new Blob([buffer]), `Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
   };
 
+  // Recipe kayıtlarını veritabanına kaydet
+  const saveRecipeData = async (product, chResult, ncbkResults, ntelResult) => {
+    try {
+      // CH Recipe kayıtları
+      const chRecipes = [
+        {
+          mamul_kodu: chResult.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0,
+          olcu_br: 'AD',
+          sira_no: 1,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: ncbkResults[500]?.stok_kodu || '',
+          olcu_br_bilesen: 'AD',
+          miktar: product.cubukSayisiBoy || 0,
+          aciklama: `Boy çubuk - ${product.cubukSayisiBoy} adet`,
+          mm_id: chResult.id
+        },
+        {
+          mamul_kodu: chResult.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0,
+          olcu_br: 'AD',
+          sira_no: 2,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: ncbkResults[215]?.stok_kodu || '',
+          olcu_br_bilesen: 'AD',
+          miktar: product.cubukSayisiEn || 0,
+          aciklama: `En çubuk - ${product.cubukSayisiEn} adet`,
+          mm_id: chResult.id
+        },
+        {
+          mamul_kodu: chResult.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0,
+          olcu_br: 'AD',
+          sira_no: 3,
+          operasyon_bilesen: 'Operasyon',
+          bilesen_kodu: 'YOTOCH',
+          olcu_br_bilesen: 'AD',
+          miktar: 1, // Placeholder - zamanla formül ile değiştirilecek
+          aciklama: 'Yarı Otomatik Çelik Hasır Operasyonu',
+          uretim_suresi: 1, // Placeholder
+          mm_id: chResult.id
+        }
+      ];
+
+      // CH recipes kaydet
+      for (const recipe of chRecipes) {
+        await fetchWithAuth(API_URLS.celikHasirMmRecete, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(recipe)
+        });
+      }
+
+      // NCBK Recipe kayıtları
+      for (const [length, ncbkResult] of Object.entries(ncbkResults)) {
+        const ncbkRecipe = {
+          mamul_kodu: ncbkResult.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0,
+          olcu_br: 'AD',
+          sira_no: 1,
+          operasyon_bilesen: 'Bileşen',
+          bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
+          olcu_br_bilesen: 'KG',
+          miktar: 1, // Placeholder - formülle hesaplanacak  
+          aciklama: `FLM tüketimi - ${length}cm çubuk için`,
+          ncbk_id: ncbkResult.id
+        };
+
+        await fetchWithAuth(API_URLS.celikHasirNcbkRecete, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ncbkRecipe)
+        });
+      }
+
+      // NTEL Recipe kayıtları
+      const ntelRecipe = {
+        mamul_kodu: ntelResult.stok_kodu,
+        recete_top: 1,
+        fire_orani: 0,
+        olcu_br: 'MT',
+        sira_no: 1,
+        operasyon_bilesen: 'Bileşen',
+        bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
+        olcu_br_bilesen: 'KG',
+        miktar: 1, // Placeholder - formülle hesaplanacak
+        aciklama: 'FLM tüketimi - metre başına',
+        ntel_id: ntelResult.id
+      };
+
+      await fetchWithAuth(API_URLS.celikHasirNtelRecete, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ntelRecipe)
+      });
+
+    } catch (error) {
+      console.error('Recipe kaydetme hatası:', error);
+      throw error;
+    }
+  };
+
+  // Sequence güncelleme
+  const updateSequences = async (product) => {
+    try {
+      // CH sequence güncelle
+      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+      const kod2 = isStandard ? 'STD' : 'OZL';
+      const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
+      
+      await fetchWithAuth(API_URLS.celikHasirSequence, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_type: 'CH',
+          kod_2: kod2,
+          cap_code: capCode
+        })
+      });
+      
+    } catch (error) {
+      console.error('Sequence güncelleme hatası:', error);
+    }
+  };
+
   // Veritabanına kaydet
   const saveToDatabase = async (products) => {
     try {
@@ -466,13 +598,15 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           user_id: user.id
         };
 
-        await fetchWithAuth(API_URLS.celikHasirMm, {
+        const chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(chData)
         });
+        const chResult = await chResponse.json();
 
         // NCBK kayıtları (Boy ve En için ayrı ayrı)
+        const ncbkResults = {};
         const ncbkLengths = [500, 215];
         for (const length of ncbkLengths) {
           const cap = length === 500 ? product.boyCap : product.enCap;
@@ -487,11 +621,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             user_id: user.id
           };
 
-          await fetchWithAuth(API_URLS.celikHasirNcbk, {
+          const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(ncbkData)
           });
+          const ncbkResult = await ncbkResponse.json();
+          ncbkResults[length] = ncbkResult;
         }
 
         // NTEL kaydı
@@ -505,14 +641,21 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           user_id: user.id
         };
 
-        await fetchWithAuth(API_URLS.celikHasirNtel, {
+        const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ntelData)
         });
+        const ntelResult = await ntelResponse.json();
+
+        // Recipe kayıtları oluştur
+        await saveRecipeData(product, chResult, ncbkResults, ntelResult);
+        
+        // Sequence güncelle
+        await updateSequences(product);
       }
 
-      toast.success(`${optimizedProductsToSave.length} ürün başarıyla veritabanına kaydedildi!`);
+      toast.success(`${optimizedProductsToSave.length} ürün ve reçeteleri başarıyla veritabanına kaydedildi!`);
       fetchSavedProducts(); // Listeyi güncelle
       
     } catch (error) {
@@ -554,6 +697,39 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     }
   };
 
+  // Tümünü sil
+  const bulkDeleteAll = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Tüm MM kayıtlarını sil
+      for (const product of savedProducts.mm) {
+        await fetchWithAuth(`${API_URLS.celikHasirMm}/${product.id}`, { method: 'DELETE' });
+      }
+      
+      // Tüm NCBK kayıtlarını sil
+      for (const product of savedProducts.ncbk) {
+        await fetchWithAuth(`${API_URLS.celikHasirNcbk}/${product.id}`, { method: 'DELETE' });
+      }
+      
+      // Tüm NTEL kayıtlarını sil
+      for (const product of savedProducts.ntel) {
+        await fetchWithAuth(`${API_URLS.celikHasirNtel}/${product.id}`, { method: 'DELETE' });
+      }
+      
+      toast.success('Tüm kayıtlar başarıyla silindi');
+      setShowBulkDeleteModal(false);
+      setBulkDeleteText('');
+      fetchSavedProducts(); // Listeyi yenile
+      
+    } catch (error) {
+      console.error('Toplu silme hatası:', error);
+      toast.error('Toplu silme sırasında hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Modal aç
   const handleNetsiIslemleriClick = () => {
     if (hasUnoptimizedProducts()) {
@@ -566,7 +742,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   // Optimize edilmemiş ürünlerle devam et
   const proceedWithUnoptimized = () => {
     setShowOptimizationWarning(false);
-    setShowModal(true);
+    setShowDatabaseWarning(true);
   };
 
   return (
@@ -599,8 +775,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             </div>
             
             <p className="text-gray-600 mb-6">
-              Listede optimize edilmemiş ürünler bulunmaktadır. Optimize edilmemiş ürünler 
-              veritabanına kaydedilmeyecek ve Excel dosyalarına dahil edilmeyecektir.
+              Listede optimize edilmemiş ürünler bulunmaktadır (Açıklama alanı boş olanlar). 
+              Bu ürünler için veritabanı kaydı yapılmayacaktır. Devam etmek istiyor musunuz?
             </p>
             
             <div className="flex gap-3 justify-end">
@@ -629,7 +805,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             
             <div className="space-y-4">
               <button
-                onClick={() => setShowDatabaseWarning(true)}
+                onClick={() => {
+                  if (hasUnoptimizedProducts()) {
+                    setShowOptimizationWarning(true);
+                  } else {
+                    setShowDatabaseWarning(true);
+                  }
+                }}
                 disabled={isLoading || isGeneratingExcel}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
               >
@@ -653,7 +835,11 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               </button>
               
               <button
-                onClick={() => { setShowModal(false); setShowDatabaseModal(true); }}
+                onClick={() => { 
+                  setShowModal(false); 
+                  setShowDatabaseModal(true);
+                  fetchSavedProducts(); // Auto-refresh when opening
+                }}
                 disabled={isLoading}
                 className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
               >
@@ -708,12 +894,30 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-semibold">Çelik Hasır Veritabanı</h3>
-                <button
-                  onClick={() => setShowDatabaseModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={fetchSavedProducts}
+                    disabled={isLoading}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Yenile
+                  </button>
+                  <button
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    disabled={isLoading}
+                    className="px-3 py-1 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Tümünü Sil
+                  </button>
+                  <button
+                    onClick={() => setShowDatabaseModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
               
               {/* Tab Navigation */}
@@ -757,7 +961,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                       
                       <div className="flex gap-2 ml-4">
                         <button
-                          onClick={() => console.log('Görüntüle:', product)}
+                          onClick={() => {
+                            setViewingProduct({ ...product, type: activeDbTab });
+                            setShowViewModal(true);
+                          }}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Görüntüle"
                         >
@@ -821,6 +1028,165 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               >
                 Evet, Devam Et
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toplu Silme Onay Modalı */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+              <h3 className="text-xl font-semibold text-gray-900">Tümünü Sil Onayı</h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                <strong>Dikkat:</strong> Bu işlem tüm Çelik Hasır kayıtlarını kalıcı olarak silecektir.
+              </p>
+              <p className="text-gray-600 text-sm mb-4">
+                Bu işlemi onaylamak için aşağıya <strong>"Hepsini Sil"</strong> yazın:
+              </p>
+              <input
+                type="text"
+                value={bulkDeleteText}
+                onChange={(e) => setBulkDeleteText(e.target.value)}
+                placeholder="Hepsini Sil"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setBulkDeleteText('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={bulkDeleteAll}
+                disabled={bulkDeleteText !== 'Hepsini Sil' || isLoading}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Siliniyor...' : 'Sil'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ürün Görüntüleme Modalı */}
+      {showViewModal && viewingProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold">
+                  {viewingProduct.type === 'mm' ? 'CH Mamül' : 
+                   viewingProduct.type === 'ncbk' ? 'YM NCBK Yarı Mamül' : 
+                   'YM NTEL Yarı Mamül'} Detayları
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingProduct(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Stok Kodu</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.stok_kodu}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Stok Adı</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.stok_adi}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Grup</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.grup_kodu}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Kod-1</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.kod_1}</p>
+                  </div>
+                  {viewingProduct.kod_2 && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Kod-2</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.kod_2}</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-3">
+                  {viewingProduct.cap && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Çap (mm)</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.cap}</p>
+                    </div>
+                  )}
+                  {viewingProduct.length_cm && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Uzunluk (cm)</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.length_cm}</p>
+                    </div>
+                  )}
+                  {viewingProduct.ebat_boy && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Ebat (Boy)</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.ebat_boy}</p>
+                    </div>
+                  )}
+                  {viewingProduct.ebat_en && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Ebat (En)</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.ebat_en}</p>
+                    </div>
+                  )}
+                  {viewingProduct.goz_araligi && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Göz Aralığı</label>
+                      <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.goz_araligi}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Birim-1</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">{viewingProduct.br_1}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Oluşturulma</label>
+                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-2 rounded">
+                      {new Date(viewingProduct.created_at).toLocaleString('tr-TR')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      setViewingProduct(null);
+                    }}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Kapat
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -6178,16 +6178,14 @@ useEffect(() => {
             <button 
               onClick={exportToExcel}
               title="Alt+E"
-              className="px-4 py-2 bg-green-600 text-white rounded-md flex items-center gap-2 hover:bg-green-700 transition-colors"
+              className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center gap-2 hover:bg-green-700 transition-colors text-sm"
             >
-              <Download size={18} />
+              <Download size={16} />
               Excel&apos;e Aktar
             </button>
             
             {/* Çelik Hasır Netsis Integration - Replaces old database save and recipe buttons */}
-            <CelikHasirNetsis optimizedProducts={rows.filter(row => 
-              row.cubukSayisiBoy && row.cubukSayisiEn && row.boyCap && row.enCap
-            )} />
+            <CelikHasirNetsis optimizedProducts={rows} />
           </div>
           
           {/* Yedekleme düğmeleri - Yeni konum */}
