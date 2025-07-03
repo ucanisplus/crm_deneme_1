@@ -15,7 +15,8 @@ import {
   Trash2, 
   Download,
   Upload,
-  Loader
+  Loader,
+  RefreshCw
 } from 'lucide-react';
 
 const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
@@ -109,7 +110,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
-    return product.aciklama && product.aciklama.trim().length > 0;
+    return product.cubukSayisiBoy && product.cubukSayisiEn && 
+           product.boyCap && product.enCap;
   };
 
   // Optimize edilmemiş ürünleri kontrol et
@@ -444,7 +446,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiBoy || 0,
           aciklama: `Boy çubuk - ${product.cubukSayisiBoy} adet`,
-          mm_id: chResult.id
         },
         {
           mamul_kodu: chResult.stok_kodu,
@@ -457,7 +458,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiEn || 0,
           aciklama: `En çubuk - ${product.cubukSayisiEn} adet`,
-          mm_id: chResult.id
         },
         {
           mamul_kodu: chResult.stok_kodu,
@@ -471,62 +471,99 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           miktar: 1, // Placeholder - zamanla formül ile değiştirilecek
           aciklama: 'Yarı Otomatik Çelik Hasır Operasyonu',
           uretim_suresi: 1, // Placeholder
-          mm_id: chResult.id
         }
       ];
 
-      // CH recipes kaydet
-      for (const recipe of chRecipes) {
-        await fetchWithAuth(API_URLS.celikHasirMmRecete, {
+      // CH recipes kaydet - paralel işlem
+      await Promise.all(chRecipes.map(recipe =>
+        fetchWithAuth(API_URLS.celikHasirMmRecete, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(recipe)
-        });
-      }
+        })
+      ));
 
       // NCBK Recipe kayıtları
       for (const [length, ncbkResult] of Object.entries(ncbkResults)) {
-        const ncbkRecipe = {
-          mamul_kodu: ncbkResult.stok_kodu,
+        const ncbkRecipes = [
+          // Bileşen - FLM tüketimi
+          {
+            mamul_kodu: ncbkResult.stok_kodu,
+            recete_top: 1,
+            fire_orani: 0,
+            olcu_br: 'AD',
+            sira_no: 1,
+            operasyon_bilesen: 'Bileşen',
+            bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
+            olcu_br_bilesen: 'KG',
+            miktar: 1, // Placeholder - formülle hesaplanacak  
+            aciklama: `FLM tüketimi - ${length}cm çubuk için`,
+          },
+          // Operasyon - Yarı Otomatik İşlem
+          {
+            mamul_kodu: ncbkResult.stok_kodu,
+            recete_top: 1,
+            fire_orani: 0,
+            olcu_br: 'AD',
+            sira_no: 2,
+            operasyon_bilesen: 'Operasyon',
+            bilesen_kodu: 'YOTOCH',
+            olcu_br_bilesen: 'AD',
+            miktar: 1, // Placeholder
+            aciklama: 'Yarı Otomatik Nervürlü Çubuk Operasyonu',
+            uretim_suresi: 1, // Placeholder
+          }
+        ];
+
+        // NCBK recipes kaydet - paralel işlem
+        await Promise.all(ncbkRecipes.map(recipe =>
+          fetchWithAuth(API_URLS.celikHasirNcbkRecete, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(recipe)
+          })
+        ));
+      }
+
+      // NTEL Recipe kayıtları
+      const ntelRecipes = [
+        // Bileşen - FLM tüketimi
+        {
+          mamul_kodu: ntelResult.stok_kodu,
           recete_top: 1,
           fire_orani: 0,
-          olcu_br: 'AD',
+          olcu_br: 'MT',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
           olcu_br_bilesen: 'KG',
-          miktar: 1, // Placeholder - formülle hesaplanacak  
-          aciklama: `FLM tüketimi - ${length}cm çubuk için`,
-          ncbk_id: ncbkResult.id
-        };
+          miktar: 1, // Placeholder - formülle hesaplanacak
+          aciklama: 'FLM tüketimi - metre başına',
+        },
+        // Operasyon - Tam Otomatik İşlem
+        {
+          mamul_kodu: ntelResult.stok_kodu,
+          recete_top: 1,
+          fire_orani: 0,
+          olcu_br: 'MT',
+          sira_no: 2,
+          operasyon_bilesen: 'Operasyon',
+          bilesen_kodu: 'OTOCH',
+          olcu_br_bilesen: 'MT',
+          miktar: 1, // Placeholder
+          aciklama: 'Tam Otomatik Nervürlü Tel Operasyonu',
+          uretim_suresi: 1, // Placeholder
+        }
+      ];
 
-        await fetchWithAuth(API_URLS.celikHasirNcbkRecete, {
+      // NTEL recipes kaydet - paralel işlem
+      await Promise.all(ntelRecipes.map(recipe =>
+        fetchWithAuth(API_URLS.celikHasirNtelRecete, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ncbkRecipe)
-        });
-      }
-
-      // NTEL Recipe kayıtları
-      const ntelRecipe = {
-        mamul_kodu: ntelResult.stok_kodu,
-        recete_top: 1,
-        fire_orani: 0,
-        olcu_br: 'MT',
-        sira_no: 1,
-        operasyon_bilesen: 'Bileşen',
-        bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
-        olcu_br_bilesen: 'KG',
-        miktar: 1, // Placeholder - formülle hesaplanacak
-        aciklama: 'FLM tüketimi - metre başına',
-        ntel_id: ntelResult.id
-      };
-
-      await fetchWithAuth(API_URLS.celikHasirNtelRecete, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ntelRecipe)
-      });
+          body: JSON.stringify(recipe)
+        })
+      ));
 
     } catch (error) {
       console.error('Recipe kaydetme hatası:', error);
@@ -562,16 +599,22 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     try {
       setIsLoading(true);
       
-      // Sadece optimize edilmiş ürünleri kaydet
-      const optimizedProductsToSave = products.filter(isProductOptimized);
+      // Tüm ürünleri kaydet (optimize edilmemiş olanlar dahil)
+      const productsToSave = products;
       
-      if (optimizedProductsToSave.length === 0) {
-        toast.warning('Kaydedilecek optimize edilmiş ürün bulunamadı.');
+      if (productsToSave.length === 0) {
+        toast.warning('Kaydedilecek ürün bulunamadı.');
         return;
       }
 
+      // Optimize edilmemiş ürün sayısını kontrol et
+      const unoptimizedCount = productsToSave.filter(p => !isProductOptimized(p)).length;
+      if (unoptimizedCount > 0) {
+        toast.info(`${unoptimizedCount} adet optimize edilmemiş ürün de kaydedildi.`);
+      }
+
       // Her ürün için CH, NCBK ve NTEL kayıtları oluştur
-      for (const product of optimizedProductsToSave) {
+      for (const product of productsToSave) {
         // CH kaydı
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH'),
@@ -702,22 +745,17 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     try {
       setIsLoading(true);
       
-      // Tüm MM kayıtlarını sil
-      for (const product of savedProducts.mm) {
-        await fetchWithAuth(`${API_URLS.celikHasirMm}/${product.id}`, { method: 'DELETE' });
+      const apiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMm :
+                     activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
+                     API_URLS.celikHasirNtel;
+      
+      // Sadece aktif sekmenin kayıtlarını sil
+      for (const product of savedProducts[activeDbTab]) {
+        await fetchWithAuth(`${apiUrl}/${product.id}`, { method: 'DELETE' });
       }
       
-      // Tüm NCBK kayıtlarını sil
-      for (const product of savedProducts.ncbk) {
-        await fetchWithAuth(`${API_URLS.celikHasirNcbk}/${product.id}`, { method: 'DELETE' });
-      }
-      
-      // Tüm NTEL kayıtlarını sil
-      for (const product of savedProducts.ntel) {
-        await fetchWithAuth(`${API_URLS.celikHasirNtel}/${product.id}`, { method: 'DELETE' });
-      }
-      
-      toast.success('Tüm kayıtlar başarıyla silindi');
+      const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
+      toast.success(`Tüm ${tabName} kayıtları başarıyla silindi`);
       setShowBulkDeleteModal(false);
       setBulkDeleteText('');
       fetchSavedProducts(); // Listeyi yenile
@@ -752,7 +790,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         <button
           onClick={handleNetsiIslemleriClick}
           disabled={isLoading || optimizedProducts.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+          className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
         >
           {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
           Netsis İşlemleri
@@ -775,8 +813,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             </div>
             
             <p className="text-gray-600 mb-6">
-              Listede optimize edilmemiş ürünler bulunmaktadır (Açıklama alanı boş olanlar). 
-              Bu ürünler için veritabanı kaydı yapılmayacaktır. Devam etmek istiyor musunuz?
+              Listede optimize edilmemiş ürünler bulunmaktadır. 
+              Bu ürünler uyarı ile birlikte kaydedilecektir. Devam etmek istiyor musunuz?
             </p>
             
             <div className="flex gap-3 justify-end">
@@ -900,7 +938,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                     disabled={isLoading}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
                   >
-                    <Upload className="w-4 h-4" />
+                    <RefreshCw className="w-4 h-4" />
                     Yenile
                   </button>
                   <button
@@ -909,7 +947,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                     className="px-3 py-1 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Tümünü Sil
+                    {activeDbTab === 'mm' ? 'CH Sil' : activeDbTab === 'ncbk' ? 'NCBK Sil' : 'NTEL Sil'}
                   </button>
                   <button
                     onClick={() => setShowDatabaseModal(false)}
@@ -1044,7 +1082,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             
             <div className="mb-6">
               <p className="text-gray-700 mb-3">
-                <strong>Dikkat:</strong> Bu işlem tüm Çelik Hasır kayıtlarını kalıcı olarak silecektir.
+                <strong>Dikkat:</strong> Bu işlem tüm {activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL'} kayıtlarını kalıcı olarak silecektir.
               </p>
               <p className="text-gray-600 text-sm mb-4">
                 Bu işlemi onaylamak için aşağıya <strong>"Hepsini Sil"</strong> yazın:
