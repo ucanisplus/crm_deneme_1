@@ -273,6 +273,13 @@ const GalvanizliTelNetsis = () => {
       setMmGtData(prev => ({ ...prev, kaplama: '50' }));
     }
   }, [mmGtData.kod_2]);
+
+  // MM GT verileri değiştiğinde YM GT verilerini otomatik güncelle
+  useEffect(() => {
+    if (mmGtData.cap && mmGtData.kod_2) {
+      generateYmGtData();
+    }
+  }, [mmGtData.cap, mmGtData.kod_2, mmGtData.kaplama, mmGtData.min_mukavemet, mmGtData.max_mukavemet, mmGtData.kg, mmGtData.ic_cap, mmGtData.dis_cap, mmGtData.tolerans_plus, mmGtData.tolerans_minus]);
   
   // Component yuklendikten sonra TLC_Hizlar verisini veritabanindan yukle
   useEffect(() => {
