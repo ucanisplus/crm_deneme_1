@@ -8535,7 +8535,7 @@ const GalvanizliTelNetsis = () => {
                 lang="en-US" // Force EN-US locale with point decimal separator
                 onKeyDown={(e) => handleCommaToPoint(e, 'cap')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8 mm</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8.1 mm</p>
             </div>
 
             <div className="space-y-2">

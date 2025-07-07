@@ -449,8 +449,8 @@ const SatisGalvanizRequest = () => {
     const capValue = parseFloat(requestData.cap);
     if (isNaN(capValue)) {
       validationErrors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
-    } else if (capValue < 0.8 || capValue > 8) {
-      validationErrors.push(`Çap değeri 0.8 ile 8 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
+    } else if (capValue < 0.8 || capValue > 8.1) {
+      validationErrors.push(`Çap değeri 0.8 ile 8.1 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
     }
     
     // Validate coating (kaplama) based on type (kod_2)
@@ -468,16 +468,16 @@ const SatisGalvanizRequest = () => {
     // Validate tolerances
     const toleransPlusValue = parseFloat(requestData.tolerans_plus);
     if (isNaN(toleransPlusValue)) {
-      validationErrors.push('Tolerans+ için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
-    } else if (toleransPlusValue < 0 || toleransPlusValue > 0.10) {
-      validationErrors.push(`Tolerans+ değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${requestData.tolerans_plus}`);
+      validationErrors.push('Tolerans+ için geçerli bir sayısal değer giriniz.');
+    } else if (toleransPlusValue < 0) {
+      validationErrors.push(`Tolerans+ değeri 0 veya daha büyük olmalıdır. Girilen değer: ${requestData.tolerans_plus}`);
     }
     
     const toleransMinusValue = parseFloat(requestData.tolerans_minus);
     if (isNaN(toleransMinusValue)) {
-      validationErrors.push('Tolerans- için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
-    } else if (toleransMinusValue < 0 || toleransMinusValue > 0.10) {
-      validationErrors.push(`Tolerans- değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${requestData.tolerans_minus}`);
+      validationErrors.push('Tolerans- için geçerli bir sayısal değer giriniz.');
+    } else if (toleransMinusValue < 0) {
+      validationErrors.push(`Tolerans- değeri 0 veya daha büyük olmalıdır. Girilen değer: ${requestData.tolerans_minus}`);
     }
     
     // Validate weight (kg)
@@ -1137,7 +1137,7 @@ const SatisGalvanizRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 2.50"
                 />
-                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8 mm</p>
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8.1 mm</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama Türü</label>
@@ -1241,7 +1241,7 @@ const SatisGalvanizRequest = () => {
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.05"
                   />
-                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
+                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans- (mm)</label>
@@ -1253,7 +1253,7 @@ const SatisGalvanizRequest = () => {
                     className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Örn: 0.06"
                   />
-                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
+                  <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
                 </div>
               </div>
               <div>
