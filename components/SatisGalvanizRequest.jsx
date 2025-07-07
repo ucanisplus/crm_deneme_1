@@ -64,7 +64,7 @@ const SatisGalvanizRequest = () => {
     kaplama: '100',        // Default: 100 g/m² (NIT valid range: 100-400, PAD fixed at 50)
     min_mukavemet: '350',  // Default: 350 MPa
     max_mukavemet: '550',  // Default: 550 MPa
-    kg: '500',             // Default: 500 kg (valid range: 250-1250)
+    kg: '500',             // Default: 500 kg (valid range: 250-20000)
     ic_cap: 45,            // Default: 45 cm
     dis_cap: 75,           // Default: 75 cm
     tolerans_plus: '0.05', // Default: ±0.05 mm (valid range: 0-0.10)
@@ -484,8 +484,8 @@ const SatisGalvanizRequest = () => {
     const kgValue = parseFloat(requestData.kg);
     if (isNaN(kgValue)) {
       validationErrors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 1250 arasında).');
-    } else if (kgValue < 250 || kgValue > 1250) {
-      validationErrors.push(`Ağırlık değeri 250 ile 1250 arasında olmalıdır. Girilen değer: ${requestData.kg}`);
+    } else if (kgValue < 250 || kgValue > 20000) {
+      validationErrors.push(`Ağırlık değeri 250 ile 20000 arasında olmalıdır. Girilen değer: ${requestData.kg}`);
     }
     
     return validationErrors;
@@ -1200,7 +1200,7 @@ const SatisGalvanizRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 500"
                 />
-                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 1250 kg</p>
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 20000 kg</p>
               </div>
             </div>
             

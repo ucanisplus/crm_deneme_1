@@ -2978,7 +2978,7 @@ const GalvanizliTelNetsis = () => {
     const capValue = parseFloat(mmGtData.cap);
     if (isNaN(capValue)) {
       errors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
-    } else if (capValue < 0.8 || capValue > 8) {
+    } else if (capValue < 0.8 || capValue > 8.1) {
       errors.push(`Çap değeri 0.8 ile 8 arasında olmalıdır. Girilen değer: ${mmGtData.cap}`);
     }
     
@@ -2994,22 +2994,22 @@ const GalvanizliTelNetsis = () => {
       }
     }
     
-    // Tolerans validation: 0 ile 0.10 arasında
+    // Tolerans validation: Basic numeric validation only
     if (mmGtData.tolerans_plus) {
       const toleransPlusValue = parseFloat(mmGtData.tolerans_plus);
       if (isNaN(toleransPlusValue)) {
-        errors.push('Tolerans+ için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
-      } else if (toleransPlusValue < 0 || toleransPlusValue > 0.10) {
-        errors.push(`Tolerans+ değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${mmGtData.tolerans_plus}`);
+        errors.push('Tolerans+ için geçerli bir sayısal değer giriniz.');
+      } else if (toleransPlusValue < 0) {
+        errors.push(`Tolerans+ değeri negatif olamaz. Girilen değer: ${mmGtData.tolerans_plus}`);
       }
     }
     
     if (mmGtData.tolerans_minus) {
       const toleransMinusValue = parseFloat(mmGtData.tolerans_minus);
       if (isNaN(toleransMinusValue)) {
-        errors.push('Tolerans- için geçerli bir sayısal değer giriniz (0 ile 0.10 arasında).');
-      } else if (toleransMinusValue < 0 || toleransMinusValue > 0.10) {
-        errors.push(`Tolerans- değeri 0 ile 0.10 arasında olmalıdır. Girilen değer: ${mmGtData.tolerans_minus}`);
+        errors.push('Tolerans- için geçerli bir sayısal değer giriniz.');
+      } else if (toleransMinusValue < 0) {
+        errors.push(`Tolerans- değeri negatif olamaz. Girilen değer: ${mmGtData.tolerans_minus}`);
       }
     }
     
@@ -8663,7 +8663,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="0.00000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_plus')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
             </div>
 
             <div className="space-y-2">
@@ -8679,7 +8679,7 @@ const GalvanizliTelNetsis = () => {
                 placeholder="0.00000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_minus')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0 - 0.10 mm</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
             </div>
 
             <div className="space-y-2">
@@ -8827,7 +8827,7 @@ const GalvanizliTelNetsis = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { label: 'Stok Kodu', value: `GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap || 0) * 100).toString().padStart(4, '0')}.00` },
+                { label: 'Stok Kodu', value: `GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap || 0) * 100).toString().padStart(4, '0')}.${processSequence}` },
                 { label: 'Çap', value: `${mmGtData.cap || '0'} mm` },
                 { label: 'Kaplama Türü', value: mmGtData.kod_2 },
                 { label: 'Kaplama', value: `${mmGtData.kaplama || '0'} gr/m²` },
