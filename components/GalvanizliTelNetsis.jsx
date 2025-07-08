@@ -4225,6 +4225,8 @@ const GalvanizliTelNetsis = () => {
       grup_kodu: 'MM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
+      turu: 'M',
+      mamul_grup: `GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
       muh_detay: '26',
       depo_kodu: '36',
       br_1: 'KG',
@@ -4300,6 +4302,8 @@ const GalvanizliTelNetsis = () => {
       grup_kodu: 'YM',
       kod_1: 'GT',
       kod_2: mmGtData.kod_2,
+      turu: 'Y',
+      mamul_grup: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
       muh_detay: '83',
       depo_kodu: '35',
       br_1: 'KG',
@@ -7524,7 +7528,7 @@ const GalvanizliTelNetsis = () => {
   // Excel header fonksiyonları
   const getStokKartiHeaders = () => [
     'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'Cari/Satıcı Kodu',
-    'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
+    'Türü', 'Mamul Grup', 'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
     'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2',
     'Çevrim Değeri-2', 'Çap', 'Kaplama', 'Min Mukavemet', 'Max Mukavemet', 'KG',
     'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Çap2', 'Shrink', 'Tolerans(+)',
@@ -7547,7 +7551,7 @@ const GalvanizliTelNetsis = () => {
 
   const getYmGtHeaders = () => [
     'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'Cari/Satıcı Kodu',
-    'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
+    'Türü', 'Mamul Grup', 'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
     'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2',
     'Çevrim Değeri-2', 'Çap', 'Kaplama', 'Min Mukavemet', 'Max Mukavemet', 'KG',
     'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Çap2', 'Shrink', 'Tolerans(+)',
@@ -7613,6 +7617,8 @@ const GalvanizliTelNetsis = () => {
       'GT', // Kod-1
       mmGt.kod_2, // Kod-2
       '', // Cari/Satıcı Kodu
+      'M', // Türü
+      mmGt.stok_kodu, // Mamul Grup
       englishName, // İngilizce İsim
       '', // Satıcı İsmi
       '26', // Muh. Detay
@@ -7715,6 +7721,8 @@ const GalvanizliTelNetsis = () => {
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
       '', // Cari/Satıcı Kodu
+      'M', // Türü
+      stokKodu, // Mamul Grup
       generateEnglishNameForExcel(), // İngilizce İsim
       '', // Satıcı İsmi
       '26', // Muh. Detay
@@ -7841,6 +7849,8 @@ const GalvanizliTelNetsis = () => {
       'GT', // Kod-1
       kod2, // Kod-2
       cariAdi, // Cari/Satıcı Kodu - proper format
+      'Y', // Türü
+      ymGt.stok_kodu, // Mamul Grup
       englishName, // İngilizce İsim - proper format
       '', // Satıcı İsmi
       '83', // Muh. Detay
@@ -7931,14 +7941,17 @@ const GalvanizliTelNetsis = () => {
   const generateYmGtStokKartiData = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+    const stokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
     
     return [
-      `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Stok Kodu - sequence eşleştirme!
+      stokKodu, // Stok Kodu - sequence eşleştirme!
       generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
       'YM', // Grup Kodu
       'GT', // Kod-1
       mmGtData.kod_2, // Kod-2
       generateYmGtCariadiKodu(), // Cari/Satıcı Kodu
+      'Y', // Türü
+      stokKodu, // Mamul Grup
       generateYmGtInglizceIsim(), // İngilizce İsim
       '', // Satıcı İsmi
       '83', // Muh. Detay
