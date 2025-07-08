@@ -7029,8 +7029,20 @@ const GalvanizliTelNetsis = () => {
     
     Object.keys(ymGtByProduct).forEach(stokKodu => {
       let productSiraNo = 1; // Restart sequence for each product
+      
+      // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
+      const zincRecipe = ymGtByProduct[stokKodu].find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
+      
       ymGtByProduct[stokKodu].forEach(recipe => {
-        ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+        let finalMiktar = recipe.miktar;
+        
+        // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+        if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
+          finalMiktar = 1 - parseFloat(zincRecipe.miktar);
+          console.log(`YM.ST miktar değeri hesaplandı: 1 - ${zincRecipe.miktar} = ${finalMiktar}`);
+        }
+        
+        ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
         productSiraNo++;
       });
     });
