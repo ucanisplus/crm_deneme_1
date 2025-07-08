@@ -2486,7 +2486,7 @@ const GalvanizliTelNetsis = () => {
       
       
       newYmGtRecipe = {
-        [firstYmSt.stok_kodu]: 1, // İlk YM ST component - use verified firstYmSt
+        [firstYmSt.stok_kodu]: 1 - zincConsumption, // İlk YM ST component - Miktar = 1 - Çinko Tüketim Miktarı
         'GLV01': glvTime, // Galvanizleme operasyonu
         '150 03': zincConsumption, // Çinko Tüketim Miktarı - restored to YM GT for correct Excel format
         'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
@@ -7403,7 +7403,13 @@ const GalvanizliTelNetsis = () => {
     
     orderedYmGtEntries.forEach(([key, value]) => {
       if (value > 0) {
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, siraNo2, sequence));
+        // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+        let finalValue = value;
+        if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+          finalValue = 1 - parseFloat(zincEntry[1]);
+          console.log(`YM.ST miktar değeri hesaplandı: 1 - ${zincEntry[1]} = ${finalValue}`);
+        }
+        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence));
         siraNo2++;
       }
     });
