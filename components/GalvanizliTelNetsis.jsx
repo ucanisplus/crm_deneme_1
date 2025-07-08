@@ -5285,8 +5285,15 @@ const GalvanizliTelNetsis = () => {
           );
           
           // Excel formatına tam uygun sırada ekle - HER ZAMAN SADECE 1 GLV01 OPERASYONu olmalı
+          // Calculate correct YM.ST miktar: 1 - Çinko Tüketim Miktarı
+          let ymStMiktar = ymStEntry ? ymStEntry[1] : 1;
+          if (ymStEntry && cinkoEntry && cinkoEntry[1]) {
+            ymStMiktar = 1 - parseFloat(cinkoEntry[1]);
+            console.log(`Database save: YM.ST miktar değeri hesaplandı: 1 - ${cinkoEntry[1]} = ${ymStMiktar}`);
+          }
+          
           const orderedEntries = [
-            ymStEntry ? [mainYmSt.stok_kodu, ymStEntry[1]] : null, // Ana YM ST'yi kullan
+            ymStEntry ? [mainYmSt.stok_kodu, ymStMiktar] : null, // Ana YM ST'yi kullan - calculated value
             glv01Entry,  // Sadece 1 galvanizleme operasyonu
             cinkoEntry,  // Çinko bileşeni  
             asitEntry,   // Asit bileşeni
@@ -5994,7 +6001,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen === 'SM.HİDROLİK.ASİT') return 'Asit Tüketim Miktarı';
     if (bilesen.includes('FLM.')) return 'Filmaşin Tüketimi';
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
-    if (bilesen.includes('YM.ST.')) return 'Galvanizli Tel Tüketim Miktarı';
+    if (bilesen.includes('YM.ST.')) return 'Siyah Tel Tüketim Miktarı';
     if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
     if (bilesen.includes('SHRİNK')) return 'Naylon Tüketim Miktarı';
     if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
