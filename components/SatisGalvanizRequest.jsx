@@ -510,18 +510,17 @@ const SatisGalvanizRequest = () => {
       const plusValue = parseFloat(data.tolerans_plus) || 0;
       const minusValue = parseFloat(data.tolerans_minus) || 0;
       
-      // Apply sign logic - always put smaller absolute value first, larger second
-      const absPlus = Math.abs(plusValue);
-      const absMinus = Math.abs(minusValue);
+      // Apply signs to get the actual values
+      const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
+      const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
       
-      let toleranceText;
-      if (absPlus >= absMinus) {
-        // Plus field has larger absolute value
-        toleranceText = `${toleransMinSign}${absMinus}/${toleransMaxSign}${absPlus}`;
-      } else {
-        // Minus field has larger absolute value  
-        toleranceText = `${toleransMaxSign}${absPlus}/${toleransMinSign}${absMinus}`;
-      }
+      // Determine which value is mathematically higher/lower
+      // Higher value goes to plus column, lower value goes to minus column
+      const higherValue = Math.max(actualPlusValue, actualMinusValue);
+      const lowerValue = Math.min(actualPlusValue, actualMinusValue);
+      
+      // Format tolerance text with proper signs
+      const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
       
       const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
       

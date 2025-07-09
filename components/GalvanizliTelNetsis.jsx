@@ -6019,40 +6019,24 @@ const GalvanizliTelNetsis = () => {
     const plusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const minusValue = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // ALWAYS put smaller absolute value in minus column, larger in plus column
-    const absPlus = Math.abs(plusValue);
-    const absMinus = Math.abs(minusValue);
+    // Apply signs to get the actual values
+    const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
+    const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
     
-    // Determine which absolute value is larger
-    const largerAbs = Math.max(absPlus, absMinus);
-    const smallerAbs = Math.min(absPlus, absMinus);
-    
-    // Determine which original value corresponds to larger/smaller
-    let largerValue, smallerValue, largerSign, smallerSign;
-    
-    if (absPlus >= absMinus) {
-      // Plus field has the larger absolute value
-      largerValue = plusValue;
-      largerSign = toleransMaxSign;
-      smallerValue = minusValue;
-      smallerSign = toleransMinSign;
-    } else {
-      // Minus field has the larger absolute value
-      largerValue = minusValue;
-      largerSign = toleransMinSign;
-      smallerValue = plusValue;
-      smallerSign = toleransMaxSign;
-    }
+    // Determine which value is mathematically higher/lower
+    // Higher value goes to plus column, lower value goes to minus column
+    const higherValue = Math.max(actualPlusValue, actualMinusValue);
+    const lowerValue = Math.min(actualPlusValue, actualMinusValue);
     
     // Return with proper formatting
     return {
-      adjustedPlus: largerSign === '-' ? -largerAbs : largerAbs,
-      adjustedMinus: smallerSign === '-' ? -smallerAbs : smallerAbs,
-      plusSign: largerSign,
-      minusSign: smallerSign,
+      adjustedPlus: higherValue,
+      adjustedMinus: lowerValue,
+      plusSign: higherValue >= 0 ? '+' : '-',
+      minusSign: lowerValue >= 0 ? '+' : '-',
       // Excel için formatlanmış değerler (işaretli)
-      adjustedPlusFormatted: largerSign === '-' ? `-${largerAbs}` : largerAbs.toString(),
-      adjustedMinusFormatted: smallerSign === '-' ? `-${smallerAbs}` : smallerAbs.toString()
+      adjustedPlusFormatted: higherValue >= 0 ? higherValue.toString() : higherValue.toString(),
+      adjustedMinusFormatted: lowerValue >= 0 ? lowerValue.toString() : lowerValue.toString()
     };
   };
 
@@ -10299,8 +10283,8 @@ const GalvanizliTelNetsis = () => {
                               type="checkbox"
                               checked={
                                 selectedRequestIds.length > 0 && 
-                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length &&
-                                getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length > 0
+                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status === 'approved').length &&
+                                getFilteredAndSortedRequests().filter(req => req.status === 'approved').length > 0
                               }
                               onChange={handleSelectAllRequests}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -10354,7 +10338,7 @@ const GalvanizliTelNetsis = () => {
                                 onChange={() => handleToggleRequestSelection(request.id)}
                                 disabled={request.status !== 'approved'}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={request.status?.toString().toLowerCase().trim() === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
+                                title={request.status === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
                               />
                             </div>
                           </td>
@@ -10416,7 +10400,7 @@ const GalvanizliTelNetsis = () => {
                                   Sil
                                 </button>
                               )}
-                              {request.status?.toString().toLowerCase().trim() === 'approved' && (
+                              {request.status === 'approved' && (
                                 <button
                                   onClick={() => {
                                     if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu ürünler zaten veritabanına kaydedilmiş olabilir. Onaylanmış talepleri takip etmek istiyorsanız bu kayıtları saklamanız önerilir.')) {
