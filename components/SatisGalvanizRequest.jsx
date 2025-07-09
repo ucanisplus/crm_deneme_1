@@ -76,6 +76,10 @@ const SatisGalvanizRequest = () => {
     elongation: ''          // Elongation (Optional)
   });
   
+  // Tolerans işaret durumları
+  const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
+  const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
+  
   // Fetch existing requests on component mount
   useEffect(() => {
     fetchRequests();
@@ -1232,27 +1236,47 @@ const SatisGalvanizRequest = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans+ (mm)</label>
-                  <input
-                    type="text"
-                    name="tolerans_plus"
-                    value={requestData.tolerans_plus}
-                    onChange={handleInputChange}
-                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Örn: 0.05"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Tolerans (mm)</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={toleransMaxSign}
+                      onChange={(e) => setToleransMaxSign(e.target.value)}
+                      className="w-16 px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="+">+</option>
+                      <option value="-">-</option>
+                    </select>
+                    <input
+                      type="text"
+                      name="tolerans_plus"
+                      value={requestData.tolerans_plus}
+                      onChange={handleInputChange}
+                      className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Örn: 0.05"
+                    />
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tolerans- (mm)</label>
-                  <input
-                    type="text"
-                    name="tolerans_minus"
-                    value={requestData.tolerans_minus}
-                    onChange={handleInputChange}
-                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Örn: 0.06"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Tolerans (mm)</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={toleransMinSign}
+                      onChange={(e) => setToleransMinSign(e.target.value)}
+                      className="w-16 px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="+">+</option>
+                      <option value="-">-</option>
+                    </select>
+                    <input
+                      type="text"
+                      name="tolerans_minus"
+                      value={requestData.tolerans_minus}
+                      onChange={handleInputChange}
+                      className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Örn: 0.06"
+                    />
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
                 </div>
               </div>
