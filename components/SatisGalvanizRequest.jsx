@@ -80,6 +80,10 @@ const SatisGalvanizRequest = () => {
   const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
   const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
   
+  // Bulk selection state
+  const [selectedRequestIds, setSelectedRequestIds] = useState([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  
   // Fetch existing requests on component mount
   useEffect(() => {
     fetchRequests();
@@ -420,6 +424,71 @@ const SatisGalvanizRequest = () => {
       toast.error('Talep silinemedi: ' + error.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Handle select all requests
+  const handleSelectAllRequests = () => {
+    const currentPageRequests = getFilteredAndSortedRequests().slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
+    const allIds = currentPageRequests.map(req => req.id);
+    
+    if (selectedRequestIds.length === allIds.length) {
+      // Deselect all
+      setSelectedRequestIds([]);
+    } else {
+      // Select all on current page
+      setSelectedRequestIds(allIds);
+    }
+  };
+  
+  // Handle toggle individual request selection
+  const handleToggleRequestSelection = (requestId) => {
+    setSelectedRequestIds(prev => {
+      if (prev.includes(requestId)) {
+        return prev.filter(id => id !== requestId);
+      } else {
+        return [...prev, requestId];
+      }
+    });
+  };
+  
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedRequestIds.length === 0) {
+      toast.warning('Lütfen silmek için en az bir talep seçin');
+      return;
+    }
+    
+    const confirmMessage = `${selectedRequestIds.length} adet talebi silmek istediğinizden emin misiniz?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      setIsDeletingBulk(true);
+      
+      // Delete selected requests
+      const deletePromises = selectedRequestIds.map(async (id) => {
+        const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${id}`, {
+          method: 'DELETE'
+        });
+        return response;
+      });
+      
+      await Promise.all(deletePromises);
+      
+      toast.success(`${selectedRequestIds.length} adet talep başarıyla silindi`);
+      setSelectedRequestIds([]);
+      await fetchRequests();
+      
+    } catch (error) {
+      console.error('Toplu silme hatası:', error);
+      toast.error('Toplu silme hatası: ' + error.message);
+    } finally {
+      setIsDeletingBulk(false);
     }
   };
   
@@ -958,9 +1027,49 @@ const SatisGalvanizRequest = () => {
               
               {getFilteredAndSortedRequests().length > 0 && (
                 <>
+                  {/* Bulk Delete Button */}
+                  {selectedRequestIds.length > 0 && (
+                    <div className="mb-4 flex justify-end">
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={isDeletingBulk}
+                        className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isDeletingBulk ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                            Siliniyor...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Seçilenleri Sil ({selectedRequestIds.length})
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedRequestIds.length > 0 && 
+                              selectedRequestIds.length === getFilteredAndSortedRequests().slice(
+                                (currentPage - 1) * itemsPerPage,
+                                currentPage * itemsPerPage
+                              ).length
+                            }
+                            onChange={handleSelectAllRequests}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            title="Tüm talepleri seç/kaldır"
+                          />
+                        </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
@@ -977,6 +1086,15 @@ const SatisGalvanizRequest = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getFilteredAndSortedRequests().map((request, index) => (
                         <tr key={request.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <input
+                              type="checkbox"
+                              checked={selectedRequestIds.includes(request.id)}
+                              onChange={() => handleToggleRequestSelection(request.id)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              title="Bu talebi seç/kaldır"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.id.substring(0, 8)}...
                           </td>

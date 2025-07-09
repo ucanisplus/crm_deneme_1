@@ -225,6 +225,7 @@ const GalvanizliTelNetsis = () => {
   // Excel export icin talep secim durumu
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   // Dostça alan adları
   const friendlyNames = {
@@ -6646,6 +6647,50 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedRequestIds.length === 0) {
+      toast.warning('Lütfen silmek için en az bir talep seçin');
+      return;
+    }
+    
+    const selectedRequests = requests.filter(req => selectedRequestIds.includes(req.id));
+    const approvedCount = selectedRequests.filter(req => req.status === 'approved').length;
+    
+    let confirmMessage = `${selectedRequestIds.length} adet talebi silmek istediğinizden emin misiniz?`;
+    if (approvedCount > 0) {
+      confirmMessage += `\n\n${approvedCount} adet onaylanmış talep var. Bu ürünler zaten veritabanına kaydedilmiş olabilir.`;
+    }
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      setIsDeletingBulk(true);
+      
+      // Delete selected requests
+      const deletePromises = selectedRequestIds.map(async (id) => {
+        const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${id}`, {
+          method: 'DELETE'
+        });
+        return response;
+      });
+      
+      await Promise.all(deletePromises);
+      
+      toast.success(`${selectedRequestIds.length} adet talep başarıyla silindi`);
+      setSelectedRequestIds([]);
+      await fetchRequests();
+      
+    } catch (error) {
+      console.error('Toplu silme hatası:', error);
+      toast.error('Toplu silme hatası: ' + error.message);
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
   // Export all approved requests to Excel
   const exportAllApprovedToExcel = async () => {
     try {
@@ -10130,6 +10175,30 @@ const GalvanizliTelNetsis = () => {
                     </svg>
                     {isExportingExcel ? 'İşleniyor...' : `Seçili Onaylanmışlar Excel (${selectedRequestIds.length})`}
                   </button>
+                  
+                  {/* Bulk Delete Button */}
+                  {selectedRequestIds.length > 0 && (
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={isDeletingBulk || isLoading}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={`${selectedRequestIds.length} seçili talebi sil`}
+                    >
+                      {isDeletingBulk ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                          Siliniyor...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Seçilenleri Sil ({selectedRequestIds.length})
+                        </>
+                      )}
+                    </button>
+                  )}
                   
                   <button
                     onClick={fetchRequests}
