@@ -3034,12 +3034,12 @@ const GalvanizliTelNetsis = () => {
       }
     }
     
-    // Ağırlık validation: 250 ile 1250 arasında
+    // Ağırlık validation: 250 ile 20000 arasında
     const kgValue = parseFloat(mmGtData.kg);
     if (isNaN(kgValue)) {
-      errors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 1250 arasında).');
-    } else if (kgValue < 250 || kgValue > 1250) {
-      errors.push(`Ağırlık değeri 250 ile 1250 arasında olmalıdır. Girilen değer: ${mmGtData.kg}`);
+      errors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 20000 arasında).');
+    } else if (kgValue < 250 || kgValue > 20000) {
+      errors.push(`Ağırlık değeri 250 ile 20000 arasında olmalıdır. Girilen değer: ${mmGtData.kg}`);
     }
     
     return errors;
@@ -8797,10 +8797,10 @@ const GalvanizliTelNetsis = () => {
                 value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="250-1250"
+                placeholder="250-20000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'kg')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 1250 kg</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 20000 kg</p>
             </div>
 
             <div className="space-y-2">
