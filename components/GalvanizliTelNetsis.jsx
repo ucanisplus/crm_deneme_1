@@ -7672,6 +7672,12 @@ const GalvanizliTelNetsis = () => {
     const toleransPlus = parseFloat(mmGt.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGt.tolerans_minus) || 0;
     
+    // Get adjusted tolerance values using the same logic as the main component
+    const actualPlusValue = mmGt.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
+    const actualMinusValue = mmGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
+    const adjustedPlus = Math.max(actualPlusValue, actualMinusValue);
+    const adjustedMinus = Math.min(actualPlusValue, actualMinusValue);
+    
     // Generate stok_adi for this specific MM GT
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
@@ -7758,8 +7764,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      formatDecimalForExcel(toleransPlus), // DIA TOL (MM) + (no trailing zeros)
-      formatDecimalForExcel(toleransMinus), // DIA TOL (MM) - (no trailing zeros)
+      Math.abs(adjustedPlus).toFixed(2).replace('.', ','), // DIA TOL (MM) + (adjusted values)
+      Math.abs(adjustedMinus).toFixed(2).replace('.', ','), // DIA TOL (MM) - (adjusted values)
       mmGt.kaplama, // ZING COATING (GR/M2)
       mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -10409,6 +10415,7 @@ const GalvanizliTelNetsis = () => {
                                   }}
                                   className="text-red-600 hover:text-red-900 transition-colors"
                                   title="Onaylanmış talebi sil"
+                                  disabled={isLoading}
                                 >
                                   Sil
                                 </button>
