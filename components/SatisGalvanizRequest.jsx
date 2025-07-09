@@ -381,8 +381,17 @@ const SatisGalvanizRequest = () => {
 
   // Show delete confirmation modal
   const confirmDelete = (request) => {
-    setRequestToDelete(request);
-    setShowDeleteModal(true);
+    if (request.status === 'approved') {
+      // Special handling for approved requests with warning
+      if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu ürünler zaten veritabanına kaydedilmiş olabilir. Onaylanmış talepleri takip etmek istiyorsanız bu kayıtları saklamanız önerilir.')) {
+        setRequestToDelete(request);
+        deleteRequest();
+      }
+    } else {
+      // Regular confirmation for non-approved requests
+      setRequestToDelete(request);
+      setShowDeleteModal(true);
+    }
   };
   
   // Delete request
@@ -1027,7 +1036,7 @@ const SatisGalvanizRequest = () => {
                             </button>
                             <button
                               onClick={() => confirmDelete(request)}
-                              disabled={isLoading || request.status !== 'pending'}
+                              disabled={isLoading}
                               className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
                             >
                               Sil

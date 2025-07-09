@@ -7764,8 +7764,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      Math.abs(adjustedPlus).toFixed(2).replace('.', ','), // DIA TOL (MM) + (adjusted values)
-      Math.abs(adjustedMinus).toFixed(2).replace('.', ','), // DIA TOL (MM) - (adjusted values)
+      adjustedPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + (adjusted values with signs)
+      adjustedMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - (adjusted values with signs)
       mmGt.kaplama, // ZING COATING (GR/M2)
       mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -7870,8 +7870,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      Math.abs(adjustedPlus).toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA - absolute value only
-      Math.abs(adjustedMinus).toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA - absolute value only
+      adjustedPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA - with signs
+      adjustedMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA - with signs
       mmGtData.kaplama, // ZING COATING (GR/M2)
       mmGtData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGtData.max_mukavemet, // TENSILE ST. (MPA) MAX
