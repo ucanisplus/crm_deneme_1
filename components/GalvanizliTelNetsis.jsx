@@ -1735,7 +1735,7 @@ const GalvanizliTelNetsis = () => {
     
     const ymGt = {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`,
-      stok_adi: `YM Galvanizli Tel ${capValue.toFixed(2)} mm -${Math.abs(parseFloat(mmGtData.tolerans_minus || 0)).toFixed(2)}/+${parseFloat(mmGtData.tolerans_plus || 0).toFixed(2)} ${mmGtData.kaplama || '0'} gr/m²${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`,
+      stok_adi: generateYmGtStokAdi(sequence), // Use the function that handles signs correctly
       cap: capValue,
       kod_2: mmGtData.kod_2,
       kaplama: parseInt(mmGtData.kaplama) || 0,
@@ -6019,33 +6019,40 @@ const GalvanizliTelNetsis = () => {
     const plusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const minusValue = parseFloat(mmGtData.tolerans_minus) || 0;
     
-    // Eğer her iki işaret de aynıysa (++ veya --)
-    if (toleransMaxSign === toleransMinSign) {
-      // Büyük olan değeri plus'a, küçük olanı minus'a koy
-      const maxVal = Math.max(plusValue, minusValue);
-      const minVal = Math.min(plusValue, minusValue);
-      
-      // Değerleri işaretleriyle birlikte döndür
-      return {
-        adjustedPlus: toleransMaxSign === '-' ? -maxVal : maxVal,
-        adjustedMinus: toleransMinSign === '-' ? -minVal : minVal,
-        plusSign: toleransMaxSign,
-        minusSign: toleransMinSign,
-        // Excel için formatlanmış değerler (işaretli)
-        adjustedPlusFormatted: toleransMaxSign === '-' ? `-${maxVal}` : maxVal.toString(),
-        adjustedMinusFormatted: toleransMinSign === '-' ? `-${minVal}` : minVal.toString()
-      };
+    // ALWAYS put smaller absolute value in minus column, larger in plus column
+    const absPlus = Math.abs(plusValue);
+    const absMinus = Math.abs(minusValue);
+    
+    // Determine which absolute value is larger
+    const largerAbs = Math.max(absPlus, absMinus);
+    const smallerAbs = Math.min(absPlus, absMinus);
+    
+    // Determine which original value corresponds to larger/smaller
+    let largerValue, smallerValue, largerSign, smallerSign;
+    
+    if (absPlus >= absMinus) {
+      // Plus field has the larger absolute value
+      largerValue = plusValue;
+      largerSign = toleransMaxSign;
+      smallerValue = minusValue;
+      smallerSign = toleransMinSign;
+    } else {
+      // Minus field has the larger absolute value
+      largerValue = minusValue;
+      largerSign = toleransMinSign;
+      smallerValue = plusValue;
+      smallerSign = toleransMaxSign;
     }
     
-    // Normal durum (farklı işaretler)
+    // Return with proper formatting
     return {
-      adjustedPlus: toleransMaxSign === '-' ? -plusValue : plusValue,
-      adjustedMinus: toleransMinSign === '-' ? -minusValue : minusValue,
-      plusSign: toleransMaxSign,
-      minusSign: toleransMinSign,
+      adjustedPlus: largerSign === '-' ? -largerAbs : largerAbs,
+      adjustedMinus: smallerSign === '-' ? -smallerAbs : smallerAbs,
+      plusSign: largerSign,
+      minusSign: smallerSign,
       // Excel için formatlanmış değerler (işaretli)
-      adjustedPlusFormatted: toleransMaxSign === '-' ? `-${plusValue}` : plusValue.toString(),
-      adjustedMinusFormatted: toleransMinSign === '-' ? `-${minusValue}` : minusValue.toString()
+      adjustedPlusFormatted: largerSign === '-' ? `-${largerAbs}` : largerAbs.toString(),
+      adjustedMinusFormatted: smallerSign === '-' ? `-${smallerAbs}` : smallerAbs.toString()
     };
   };
 
@@ -10412,7 +10419,7 @@ const GalvanizliTelNetsis = () => {
                               {request.status?.toString().toLowerCase().trim() === 'approved' && (
                                 <button
                                   onClick={() => {
-                                    if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz.')) {
+                                    if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu ürünler zaten veritabanına kaydedilmiş olabilir. Onaylanmış talepleri takip etmek istiyorsanız bu kayıtları saklamanız önerilir.')) {
                                       deleteRequest(request.id);
                                     }
                                   }}

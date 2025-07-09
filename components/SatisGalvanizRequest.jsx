@@ -510,16 +510,17 @@ const SatisGalvanizRequest = () => {
       const plusValue = parseFloat(data.tolerans_plus) || 0;
       const minusValue = parseFloat(data.tolerans_minus) || 0;
       
-      // Apply sign logic similar to getAdjustedToleranceValues
+      // Apply sign logic - always put smaller absolute value first, larger second
+      const absPlus = Math.abs(plusValue);
+      const absMinus = Math.abs(minusValue);
+      
       let toleranceText;
-      if (toleransMaxSign === toleransMinSign) {
-        // Both signs are same, put larger value first with sign
-        const maxVal = Math.max(plusValue, minusValue);
-        const minVal = Math.min(plusValue, minusValue);
-        toleranceText = `${toleransMinSign}${minVal}/${toleransMaxSign}${maxVal}`;
+      if (absPlus >= absMinus) {
+        // Plus field has larger absolute value
+        toleranceText = `${toleransMinSign}${absMinus}/${toleransMaxSign}${absPlus}`;
       } else {
-        // Different signs, use as-is
-        toleranceText = `${toleransMinSign}${minusValue}/${toleransMaxSign}${plusValue}`;
+        // Minus field has larger absolute value  
+        toleranceText = `${toleransMaxSign}${absPlus}/${toleransMinSign}${absMinus}`;
       }
       
       const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
