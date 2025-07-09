@@ -1275,6 +1275,10 @@ const GalvanizliTelNetsis = () => {
         elongation: selectedRequest.elongation || ''
       });
       
+      // Set tolerance signs from request
+      setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
+      
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
       setIsRequestUsed(true);
@@ -1341,6 +1345,10 @@ const GalvanizliTelNetsis = () => {
         helix_kont: selectedRequest.helix_kont || '',
         elongation: selectedRequest.elongation || ''
       });
+      
+      // Set tolerance signs from request
+      setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
       
       setShowRequestDetailModal(false);
       setCurrentStep('summary');
@@ -6017,20 +6025,27 @@ const GalvanizliTelNetsis = () => {
       const maxVal = Math.max(plusValue, minusValue);
       const minVal = Math.min(plusValue, minusValue);
       
+      // Değerleri işaretleriyle birlikte döndür
       return {
-        adjustedPlus: maxVal,
-        adjustedMinus: minVal,
+        adjustedPlus: toleransMaxSign === '-' ? -maxVal : maxVal,
+        adjustedMinus: toleransMinSign === '-' ? -minVal : minVal,
         plusSign: toleransMaxSign,
-        minusSign: toleransMinSign
+        minusSign: toleransMinSign,
+        // Excel için formatlanmış değerler (işaretli)
+        adjustedPlusFormatted: toleransMaxSign === '-' ? `-${maxVal}` : maxVal.toString(),
+        adjustedMinusFormatted: toleransMinSign === '-' ? `-${minVal}` : minVal.toString()
       };
     }
     
     // Normal durum (farklı işaretler)
     return {
-      adjustedPlus: plusValue,
-      adjustedMinus: minusValue,
+      adjustedPlus: toleransMaxSign === '-' ? -plusValue : plusValue,
+      adjustedMinus: toleransMinSign === '-' ? -minusValue : minusValue,
       plusSign: toleransMaxSign,
-      minusSign: toleransMinSign
+      minusSign: toleransMinSign,
+      // Excel için formatlanmış değerler (işaretli)
+      adjustedPlusFormatted: toleransMaxSign === '-' ? `-${plusValue}` : plusValue.toString(),
+      adjustedMinusFormatted: toleransMinSign === '-' ? `-${minusValue}` : minusValue.toString()
     };
   };
 
@@ -7776,7 +7791,7 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     const stokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+    const { adjustedPlus, adjustedMinus, adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
     
     console.log(`generateMmGtStokKartiData called with sequence: ${sequence}`);
     console.log(`Generated MMGT stok_kodu: ${stokKodu}`);
@@ -7812,8 +7827,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      adjustedPlus.toString(), // Tolerans(+) (NOKTA format) - adjusted value
-      adjustedMinus.toString(), // Tolerans(-) (NOKTA format) - adjusted value
+      adjustedPlusFormatted, // Tolerans(+) (NOKTA format) - adjusted value with sign
+      adjustedMinusFormatted, // Tolerans(-) (NOKTA format) - adjusted value with sign
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -7858,8 +7873,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      adjustedPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA - adjusted value
-      adjustedMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA - adjusted value
+      Math.abs(adjustedPlus).toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA - absolute value only
+      Math.abs(adjustedMinus).toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA - absolute value only
       mmGtData.kaplama, // ZING COATING (GR/M2)
       mmGtData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGtData.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -8011,7 +8026,7 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     const stokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+    const { adjustedPlus, adjustedMinus, adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
     
     return [
       stokKodu, // Stok Kodu - sequence eşleştirme!
@@ -8044,8 +8059,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      adjustedPlus.toString(), // Tolerans(+) - POINT for Excel - adjusted value
-      adjustedMinus.toString(), // Tolerans(-) - POINT for Excel - adjusted value
+      adjustedPlusFormatted, // Tolerans(+) - POINT for Excel - adjusted value with sign
+      adjustedMinusFormatted, // Tolerans(-) - POINT for Excel - adjusted value with sign
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -10496,7 +10511,9 @@ const GalvanizliTelNetsis = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
-                    <p className="text-base text-gray-900">+{selectedRequest.tolerans_plus} mm / -{selectedRequest.tolerans_minus} mm</p>
+                    <p className="text-base text-gray-900">
+                      {selectedRequest.tolerans_max_sign || '+'}{selectedRequest.tolerans_plus} mm / {selectedRequest.tolerans_min_sign || '-'}{selectedRequest.tolerans_minus} mm
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Shrink</p>

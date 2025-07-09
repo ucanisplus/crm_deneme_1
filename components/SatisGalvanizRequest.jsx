@@ -506,7 +506,23 @@ const SatisGalvanizRequest = () => {
       const bagAmount = data.cast_kont && data.cast_kont.trim() !== '' 
         ? `/${data.cast_kont}` 
         : '';
-      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm -${data.tolerans_minus}/+${data.tolerans_plus} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
+      // Generate stok adi with actual tolerance signs
+      const plusValue = parseFloat(data.tolerans_plus) || 0;
+      const minusValue = parseFloat(data.tolerans_minus) || 0;
+      
+      // Apply sign logic similar to getAdjustedToleranceValues
+      let toleranceText;
+      if (toleransMaxSign === toleransMinSign) {
+        // Both signs are same, put larger value first with sign
+        const maxVal = Math.max(plusValue, minusValue);
+        const minVal = Math.min(plusValue, minusValue);
+        toleranceText = `${toleransMinSign}${minVal}/${toleransMaxSign}${maxVal}`;
+      } else {
+        // Different signs, use as-is
+        toleranceText = `${toleransMinSign}${minusValue}/${toleransMaxSign}${plusValue}`;
+      }
+      
+      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
       
       return { stokKodu, stokAdi };
     } catch (error) {
@@ -560,6 +576,8 @@ const SatisGalvanizRequest = () => {
         dis_cap: requestData.dis_cap,
         tolerans_plus: requestData.tolerans_plus,
         tolerans_minus: requestData.tolerans_minus,
+        tolerans_max_sign: toleransMaxSign,     // Save max tolerance sign
+        tolerans_min_sign: toleransMinSign,     // Save min tolerance sign
         shrink: requestData.shrink,
         unwinding: requestData.unwinding || 'Anti-Clockwise',
         cast_kont: requestData.cast_kont || null,         // Bağ miktarı
