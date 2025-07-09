@@ -1234,7 +1234,7 @@ const SatisGalvanizRequest = () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">Dış çap, iç çap ve tel çapına göre otomatik hesaplanır.</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Tolerans (mm)</label>
                   <div className="flex gap-2">
