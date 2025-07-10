@@ -2753,6 +2753,13 @@ const GalvanizliTelNetsis = () => {
     return '721720300013';
   };
 
+  const getGumrukTarifeKoduForCap = (capValue) => {
+    const cap = parseFloat(capValue) || 0;
+    if (cap >= 0.8 && cap < 1.5) return '721720300011';
+    if (cap >= 1.5 && cap < 6.0) return '721720300012';
+    return '721720300013';
+  };
+
   // Form değişikliklerini işle - her zaman nokta formatı kullan
   // Comma to point conversion handler for onKeyDown
   const handleCommaToPoint = (e, field) => {
@@ -8046,27 +8053,9 @@ const GalvanizliTelNetsis = () => {
       '', // Yapılandırma Kodu
       '', // Yap. Açıklama
       '2', // Alış Döviz Tipi
-      getGumrukTarifeKodu(), // Gümrük Tarife Kodu
+      getGumrukTarifeKoduForCap(cap), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
-      'Galvanizli Tel', // METARIAL
-      cap.toFixed(5).replace('.', ','), // DIA (MM)
-      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) +
-      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) -
-      '', // ZING COATING (GR/M2)
-      '', // TENSILE ST. (MPA) MIN
-      '', // TENSILE ST. (MPA) MAX
-      '', // WAX
-      '', // LIFTING LUGS
-      '', // UNWINDING
-      '', // CAST KONT. (CM)
-      '', // HELIX KONT. (CM)
-      '', // ELONGATION (%) MIN
-      '', // COIL DIMENSIONS (CM) ID
-      '', // COIL DIMENSIONS (CM) OD
-      '', // COIL WEIGHT (KG)
-      '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
       generateToleransAciklamaForBatch(ymGt.tolerans_plus, ymGt.tolerans_minus) // Tolerans Açıklama
     ];
   };
