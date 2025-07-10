@@ -6024,20 +6024,19 @@ const GalvanizliTelNetsis = () => {
     const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
     const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
     
-    // Determine which value is mathematically higher/lower
-    // Higher value goes to plus column, lower value goes to minus column
-    const higherValue = Math.max(actualPlusValue, actualMinusValue);
-    const lowerValue = Math.min(actualPlusValue, actualMinusValue);
+    // Use the actual semantic meaning: plus tolerance goes to plus column, minus tolerance goes to minus column
+    const adjustedPlusValue = actualPlusValue;
+    const adjustedMinusValue = actualMinusValue;
     
     // Return with proper formatting
     return {
-      adjustedPlus: higherValue,
-      adjustedMinus: lowerValue,
-      plusSign: higherValue >= 0 ? '+' : '-',
-      minusSign: lowerValue >= 0 ? '+' : '-',
+      adjustedPlus: adjustedPlusValue,
+      adjustedMinus: adjustedMinusValue,
+      plusSign: adjustedPlusValue >= 0 ? '+' : '-',
+      minusSign: adjustedMinusValue >= 0 ? '+' : '-',
       // Excel için formatlanmış değerler (işaretli)
-      adjustedPlusFormatted: higherValue >= 0 ? higherValue.toString() : higherValue.toString(),
-      adjustedMinusFormatted: lowerValue >= 0 ? lowerValue.toString() : lowerValue.toString()
+      adjustedPlusFormatted: adjustedPlusValue.toString(),
+      adjustedMinusFormatted: adjustedMinusValue.toString()
     };
   };
 
@@ -7720,8 +7719,8 @@ const GalvanizliTelNetsis = () => {
     // Get adjusted tolerance values using the same logic as the main component
     const actualPlusValue = mmGt.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
     const actualMinusValue = mmGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    const adjustedPlus = Math.max(actualPlusValue, actualMinusValue);
-    const adjustedMinus = Math.min(actualPlusValue, actualMinusValue);
+    const adjustedPlus = actualPlusValue;
+    const adjustedMinus = actualMinusValue;
     
     // Generate stok_adi for this specific MM GT
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
@@ -7947,6 +7946,12 @@ const GalvanizliTelNetsis = () => {
     // Get values from YM GT data
     const toleransPlus = parseFloat(ymGt.tolerans_plus) || 0;
     const toleransMinus = parseFloat(ymGt.tolerans_minus) || 0;
+    
+    // Apply sign handling logic similar to MM GT
+    const actualPlusValue = ymGt.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
+    const actualMinusValue = ymGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
+    const adjustedPlus = actualPlusValue;
+    const adjustedMinus = actualMinusValue;
     const kaplama = ymGt.kaplama || '0';
     const minMukavemet = ymGt.min_mukavemet || '0';
     const maxMukavemet = ymGt.max_mukavemet || '0';
@@ -7998,8 +8003,8 @@ const GalvanizliTelNetsis = () => {
       disCap, // Dış Çap
       '', // Çap2
       ymGt.shrink || '', // Shrink
-      formatDecimalForExcel(toleransPlus), // Tolerans(+)
-      formatDecimalForExcel(toleransMinus), // Tolerans(-)
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+)
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -8044,8 +8049,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(5).replace('.', ','), // DIA (MM)
-      '', // DIA TOL (MM) +
-      '', // DIA TOL (MM) -
+      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) +
+      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) -
       '', // ZING COATING (GR/M2)
       '', // TENSILE ST. (MPA) MIN
       '', // TENSILE ST. (MPA) MAX
