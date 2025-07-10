@@ -1747,6 +1747,8 @@ const GalvanizliTelNetsis = () => {
       dis_cap: mmGtData.dis_cap,
       tolerans_plus: parseFloat(mmGtData.tolerans_plus) || 0,
       tolerans_minus: parseFloat(mmGtData.tolerans_minus) || 0,
+      tolerans_max_sign: toleransMaxSign,
+      tolerans_min_sign: toleransMinSign,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding
     };
@@ -8070,17 +8072,27 @@ const GalvanizliTelNetsis = () => {
   };
 
   const generateYmGtStokKartiData = (sequence = '00') => {
-    const cap = parseFloat(mmGtData.cap);
-    const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
-    const stokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
-    const { adjustedPlus, adjustedMinus, adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
+    if (!ymGtData) return [];
+    
+    const cap = parseFloat(ymGtData.cap);
+    const stokKodu = ymGtData.stok_kodu;
+    
+    // Use YM GT tolerance data for proper calculation
+    const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(ymGtData.tolerans_minus) || 0;
+    const actualPlusValue = ymGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
+    const actualMinusValue = ymGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
+    const adjustedPlus = actualPlusValue;
+    const adjustedMinus = actualMinusValue;
+    const adjustedPlusFormatted = adjustedPlus.toString();
+    const adjustedMinusFormatted = adjustedMinus.toString();
     
     return [
       stokKodu, // Stok Kodu - sequence eşleştirme!
       generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
       'YM', // Grup Kodu
       'GT', // Kod-1
-      mmGtData.kod_2, // Kod-2
+      ymGtData.kod_2, // Kod-2
       generateYmGtCariadiKodu(), // Cari/Satıcı Kodu
       'Y', // Türü
       stokKodu, // Mamul Grup
@@ -8098,14 +8110,14 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
       cap.toFixed(5).replace('.', ','), // Çap (VIRGÜL for Excel)
-      mmGtData.kaplama, // Kaplama
-      mmGtData.min_mukavemet, // Min Mukavemet
-      mmGtData.max_mukavemet, // Max Mukavemet
-      mmGtData.kg, // KG
-      mmGtData.ic_cap, // İç Çap
-      mmGtData.dis_cap, // Dış Çap
+      ymGtData.kaplama, // Kaplama
+      ymGtData.min_mukavemet, // Min Mukavemet
+      ymGtData.max_mukavemet, // Max Mukavemet
+      ymGtData.kg, // KG
+      ymGtData.ic_cap, // İç Çap
+      ymGtData.dis_cap, // Dış Çap
       '', // Çap2
-      mmGtData.shrink, // Shrink
+      ymGtData.shrink, // Shrink
       adjustedPlusFormatted, // Tolerans(+) - POINT for Excel - adjusted value with sign
       adjustedMinusFormatted, // Tolerans(-) - POINT for Excel - adjusted value with sign
       '', // Ebat(En)
@@ -8150,7 +8162,7 @@ const GalvanizliTelNetsis = () => {
       '', // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '', // Menşei
-      getToleransAciklama() // Tolerans Açıklama
+      generateToleransAciklamaForBatch(ymGtData.tolerans_plus, ymGtData.tolerans_minus) // Tolerans Açıklama
     ];
   };
 
