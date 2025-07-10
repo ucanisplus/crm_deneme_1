@@ -138,20 +138,20 @@ const GalvanizliTelNetsis = () => {
     return value ? value.toString() : '';
   };
 
-  // Excel icin ondalik formatla - fazla sifirlari kaldir
+  // Excel icin ondalik formatla - 5 ondalik basamak ile
   const formatDecimalForExcel = (value) => {
     if (value === null || value === undefined || value === '') {
       return '';
     }
     
-    // Sayiya cevir ve gereksiz sifirlari kaldir
+    // Sayiya cevir
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(numValue)) {
       return String(value);
     }
     
-    // Gereksiz sifirlari kaldirmak icin parseFloat kullan, sonra stringe cevir ve noktalari virgul yap
-    return parseFloat(numValue.toString()).toString().replace('.', ',');
+    // 5 ondalik basamak ile formatla ve noktalari virgul yap
+    return numValue.toFixed(5).replace('.', ',');
   };
   
   // Form verileri - NOKTA kullan decimal için
@@ -7727,10 +7727,10 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
       : '';
-    const stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    const stokAdi = `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     // Generate English name
-    const englishName = `Galvanized Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    const englishName = `Galvanized Wire ${cap.toFixed(5)} mm -${Math.abs(toleransMinus).toFixed(5)}/+${toleransPlus.toFixed(5)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     return [
       mmGt.stok_kodu, // Stok Kodu - use actual stok_kodu from database
@@ -7754,7 +7754,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
+      cap.toFixed(5).replace('.', ','), // Çap (VIRGÜL for Excel)
       mmGt.kaplama, // Kaplama
       mmGt.min_mukavemet, // Min Mukavemet
       mmGt.max_mukavemet, // Max Mukavemet
@@ -7808,9 +7808,9 @@ const GalvanizliTelNetsis = () => {
       '', // Dağıtıcı Kodu
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
-      cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      adjustedPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + (adjusted values with signs)
-      adjustedMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - (adjusted values with signs)
+      cap.toFixed(5).replace('.', ','), // DIA (MM) - COMMA for Excel
+      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) + (adjusted values with signs)
+      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) - (adjusted values with signs)
       mmGt.kaplama, // ZING COATING (GR/M2)
       mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -7860,7 +7860,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
+      cap.toFixed(5).replace('.', ','), // Çap (VIRGÜL for Excel)
       mmGtData.kaplama, // Kaplama
       mmGtData.min_mukavemet, // Min Mukavemet
       mmGtData.max_mukavemet, // Max Mukavemet
@@ -7914,9 +7914,9 @@ const GalvanizliTelNetsis = () => {
       '', // Dağıtıcı Kodu
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
-      cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      adjustedPlus.toFixed(2).replace('.', ','), // DIA TOL (MM) + - COMMA - with signs
-      adjustedMinus.toFixed(2).replace('.', ','), // DIA TOL (MM) - - COMMA - with signs
+      cap.toFixed(5).replace('.', ','), // DIA (MM) - COMMA for Excel
+      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) + - COMMA - with signs
+      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) - - COMMA - with signs
       mmGtData.kaplama, // ZING COATING (GR/M2)
       mmGtData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGtData.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -7959,13 +7959,13 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = castKont && castKont.trim() !== '' ? `/${castKont}` : '';
     
     // Generate stok_adi - EXACT same format as individual export
-    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
+    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
     
     // Generate cari_adi
-    const cariAdi = `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+    const cariAdi = `Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     // Generate english name
-    const englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+    const englishName = `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     return [
       ymGt.stok_kodu, // Stok Kodu - use actual from database
@@ -7989,7 +7989,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2).replace('.', ','), // Çap
+      cap.toFixed(5).replace('.', ','), // Çap
       kaplama, // Kaplama - YM GT HAS these values from database
       minMukavemet, // Min Mukavemet
       maxMukavemet, // Max Mukavemet
@@ -8043,7 +8043,7 @@ const GalvanizliTelNetsis = () => {
       '', // Dağıtıcı Kodu
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
-      cap.toFixed(2).replace('.', ','), // DIA (MM)
+      cap.toFixed(5).replace('.', ','), // DIA (MM)
       '', // DIA TOL (MM) +
       '', // DIA TOL (MM) -
       '', // ZING COATING (GR/M2)
@@ -8092,7 +8092,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
+      cap.toFixed(5).replace('.', ','), // Çap (VIRGÜL for Excel)
       mmGtData.kaplama, // Kaplama
       mmGtData.min_mukavemet, // Min Mukavemet
       mmGtData.max_mukavemet, // Max Mukavemet
@@ -8437,10 +8437,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
     
     // Use point for database storage - NO comma replacement for database
-    return `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Excel version - uses COMMA format  
@@ -8454,10 +8454,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Database version for YM GT - uses POINT format
@@ -8471,10 +8471,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
     
     // Use point for database storage
-    return `YM Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Excel version for YM GT - uses COMMA format
@@ -8488,10 +8488,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -8499,9 +8499,9 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
-    return `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtInglizceIsim = () => {
@@ -8509,9 +8509,9 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
-    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Database version - uses POINT format
@@ -8520,10 +8520,10 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
     
     // Use points for database storage
-    return `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Excel version - uses COMMA format
@@ -8532,10 +8532,10 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Talep onaylama
