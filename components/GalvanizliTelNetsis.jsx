@@ -7771,8 +7771,8 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // Dış Çap
       '', // Çap2
       mmGt.shrink, // Shrink
-      formatDecimalForExcel(adjustedPlus), // Tolerans(+) (NOKTA format, no trailing zeros)
-      formatDecimalForExcel(adjustedMinus), // Tolerans(-) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(mmGt.tolerans_plus), // Tolerans(+) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(mmGt.tolerans_minus), // Tolerans(-) (NOKTA format, no trailing zeros)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -7817,8 +7817,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(5).replace('.', ','), // DIA (MM) - COMMA for Excel
-      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) + (adjusted values with signs)
-      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) - (adjusted values with signs)
+      formatDecimalForExcel(mmGt.tolerans_plus), // DIA TOL (MM) + (matching Turkish tolerans)
+      formatDecimalForExcel(mmGt.tolerans_minus), // DIA TOL (MM) - (matching Turkish tolerans)
       mmGt.kaplama, // ZING COATING (GR/M2)
       mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -7877,8 +7877,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      adjustedPlusFormatted, // Tolerans(+) (NOKTA format) - adjusted value with sign
-      adjustedMinusFormatted, // Tolerans(-) (NOKTA format) - adjusted value with sign
+      formatDecimalForExcel(mmGtData.tolerans_plus), // Tolerans(+) (raw database value)
+      formatDecimalForExcel(mmGtData.tolerans_minus), // Tolerans(-) (raw database value)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -7923,8 +7923,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(5).replace('.', ','), // DIA (MM) - COMMA for Excel
-      adjustedPlus.toFixed(5).replace('.', ','), // DIA TOL (MM) + - COMMA - with signs
-      adjustedMinus.toFixed(5).replace('.', ','), // DIA TOL (MM) - - COMMA - with signs
+      formatDecimalForExcel(mmGtData.tolerans_plus), // DIA TOL (MM) + (matching Turkish tolerans)
+      formatDecimalForExcel(mmGtData.tolerans_minus), // DIA TOL (MM) - (matching Turkish tolerans)
       mmGtData.kaplama, // ZING COATING (GR/M2)
       mmGtData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGtData.max_mukavemet, // TENSILE ST. (MPA) MAX
