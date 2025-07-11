@@ -94,6 +94,10 @@ const GalvanizliTelNetsis = () => {
   const [selectedDbItems, setSelectedDbItems] = useState([]); // Seçili ürün ID'leri
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Toplu silme durumu
   
+  // Veritabanı sıralama durumları
+  const [dbSortField, setDbSortField] = useState('cap'); // Sıralama alanı (cap, kod_2, kaplama, created_at)
+  const [dbSortDirection, setDbSortDirection] = useState('asc'); // Sıralama yönü (asc, desc)
+  
   // Kopya onay diyalog durumlari
   const [showDuplicateConfirmModal, setShowDuplicateConfirmModal] = useState(false);
   const [duplicateProducts, setDuplicateProducts] = useState([]);
@@ -511,7 +515,8 @@ const GalvanizliTelNetsis = () => {
   const filterDbProducts = (products, type) => {
     if (!Array.isArray(products)) return [];
     
-    return products.filter(product => {
+    // İlk olarak filtreleme yap
+    let filteredProducts = products.filter(product => {
       // Arama sorgusu filtresi
       if (dbSearchQuery) {
         const searchLower = dbSearchQuery.toLowerCase();
@@ -536,6 +541,59 @@ const GalvanizliTelNetsis = () => {
       
       return true;
     });
+    
+    // Sonra sıralama yap
+    return filteredProducts.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (dbSortField) {
+        case 'cap':
+          aValue = parseFloat(a.cap) || 0;
+          bValue = parseFloat(b.cap) || 0;
+          break;
+        case 'kod_2':
+          aValue = (a.kod_2 || '').toString();
+          bValue = (b.kod_2 || '').toString();
+          break;
+        case 'kaplama':
+          if (type === 'mmgt') {
+            aValue = parseFloat(a.kaplama) || 0;
+            bValue = parseFloat(b.kaplama) || 0;
+          } else {
+            // YM ST için filmasin
+            aValue = parseFloat(a.filmasin) || 0;
+            bValue = parseFloat(b.filmasin) || 0;
+          }
+          break;
+        case 'created_at':
+          aValue = new Date(a.created_at || 0);
+          bValue = new Date(b.created_at || 0);
+          break;
+        default:
+          aValue = parseFloat(a.cap) || 0;
+          bValue = parseFloat(b.cap) || 0;
+      }
+      
+      if (dbSortDirection === 'asc') {
+        if (typeof aValue === 'number') return aValue - bValue;
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        if (typeof aValue === 'number') return bValue - aValue;
+        return bValue < aValue ? -1 : bValue > aValue ? 1 : 0;
+      }
+    });
+  };
+
+  // Veritabanı sıralama fonksiyonu
+  const handleDbSort = (field) => {
+    if (dbSortField === field) {
+      // Aynı alan tekrar tıklanırsa yönü değiştir
+      setDbSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Farklı alan seçilirse o alanı seç ve artan olarak ayarla
+      setDbSortField(field);
+      setDbSortDirection('asc');
+    }
   };
 
   // Veritabanı seçim fonksiyonları
@@ -10869,6 +10927,34 @@ const GalvanizliTelNetsis = () => {
                     </div>
                   )}
                   
+                  {/* Sıralama */}
+                  <div className="min-w-[150px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sıralama</label>
+                    <select
+                      value={dbSortField}
+                      onChange={(e) => setDbSortField(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="cap">Çap</option>
+                      <option value="kod_2">{activeDbTab === 'mmgt' ? 'Kaplama Türü' : 'Kalite'}</option>
+                      <option value="kaplama">{activeDbTab === 'mmgt' ? 'Kaplama' : 'Filmaşin'}</option>
+                      <option value="created_at">Oluşturma Tarihi</option>
+                    </select>
+                  </div>
+                  
+                  {/* Sıralama Yönü */}
+                  <div className="min-w-[120px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yön</label>
+                    <select
+                      value={dbSortDirection}
+                      onChange={(e) => setDbSortDirection(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="asc">Artan (A-Z, 1-9)</option>
+                      <option value="desc">Azalan (Z-A, 9-1)</option>
+                    </select>
+                  </div>
+                  
                   {/* Filtreleri Temizle */}
                   <div className="min-w-[100px]">
                     <label className="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
@@ -10877,6 +10963,8 @@ const GalvanizliTelNetsis = () => {
                         setDbSearchQuery('');
                         setDbCapFilter('');
                         setDbKaplamaFilter('all');
+                        setDbSortField('cap');
+                        setDbSortDirection('asc');
                       }}
                       className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
                     >
@@ -10957,14 +11045,47 @@ const GalvanizliTelNetsis = () => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Stok Kodu
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Çap
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('cap')}
+                              title="Çapa göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Çap
+                                {dbSortField === 'cap' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Kaplama Türü
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('kod_2')}
+                              title="Kaplama türüne göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Kaplama Türü
+                                {dbSortField === 'kod_2' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Kaplama
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('kaplama')}
+                              title="Kaplamaya göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Kaplama
+                                {dbSortField === 'kaplama' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Mukavemet
@@ -11071,14 +11192,47 @@ const GalvanizliTelNetsis = () => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Stok Kodu
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Çap
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('cap')}
+                              title="Çapa göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Çap
+                                {dbSortField === 'cap' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Filmaşin
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('kaplama')}
+                              title="Filmaşine göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Filmaşin
+                                {dbSortField === 'kaplama' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Kalite
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                              onClick={() => handleDbSort('kod_2')}
+                              title="Kaliteye göre sırala"
+                            >
+                              <div className="flex items-center gap-1">
+                                Kalite
+                                {dbSortField === 'kod_2' && (
+                                  <span className="text-purple-600">
+                                    {dbSortDirection === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               İşlem
