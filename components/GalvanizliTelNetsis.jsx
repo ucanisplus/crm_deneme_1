@@ -7231,14 +7231,20 @@ const GalvanizliTelNetsis = () => {
     
     // Get stok codes from sorted product data to maintain diameter order
     const sortedMmGtStokCodes = sortedMmGtData.map(product => product.stok_kodu);
+    console.log('🔍 DEBUG: Sorted MM GT product order by cap:', sortedMmGtData.map(p => ({ stok_kodu: p.stok_kodu, cap: p.cap })));
+    console.log('🔍 DEBUG: Available MM GT recipe stok codes:', Object.keys(mmGtByProduct));
     
-    sortedMmGtStokCodes.forEach(stokKodu => {
+    sortedMmGtStokCodes.forEach((stokKodu, index) => {
+      console.log(`🔍 DEBUG: Processing MM GT product ${index + 1}: ${stokKodu}`);
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1; // Restart sequence for each product
+        console.log(`   ✅ Found ${mmGtByProduct[stokKodu].length} recipes for ${stokKodu}`);
         mmGtByProduct[stokKodu].forEach(recipe => {
           mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
           productSiraNo++;
         });
+      } else {
+        console.log(`   ❌ No recipes found for ${stokKodu}`);
       }
     });
     
