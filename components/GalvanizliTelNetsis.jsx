@@ -7246,7 +7246,10 @@ const GalvanizliTelNetsis = () => {
       mmGtByProduct[recipe.mm_gt_stok_kodu].push(recipe);
     });
     
-    Object.keys(mmGtByProduct).forEach(stokKodu => {
+    // Get unique stok codes in sorted order (preserving diameter sorting)
+    const sortedMmGtStokCodes = [...new Set(mmGtRecipes.map(recipe => recipe.mm_gt_stok_kodu))];
+    
+    sortedMmGtStokCodes.forEach(stokKodu => {
       let productSiraNo = 1; // Restart sequence for each product
       mmGtByProduct[stokKodu].forEach(recipe => {
         mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
@@ -7267,7 +7270,10 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
     });
     
-    Object.keys(ymGtByProduct).forEach(stokKodu => {
+    // Get unique stok codes in sorted order (preserving diameter sorting)
+    const sortedYmGtStokCodes = [...new Set(ymGtRecipes.map(recipe => recipe.ym_gt_stok_kodu))];
+    
+    sortedYmGtStokCodes.forEach(stokKodu => {
       let productSiraNo = 1; // Restart sequence for each product
       
       // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
@@ -7300,7 +7306,10 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
     });
     
-    Object.keys(ymStByProduct).forEach(stokKodu => {
+    // Get unique stok codes in sorted order (preserving diameter sorting)
+    const sortedYmStStokCodes = [...new Set(ymStRecipes.map(recipe => recipe.ym_st_stok_kodu))];
+    
+    sortedYmStStokCodes.forEach(stokKodu => {
       let productSiraNo = 1; // Restart sequence for each product
       ymStByProduct[stokKodu].forEach(recipe => {
         ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
