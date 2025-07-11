@@ -7087,24 +7087,7 @@ const GalvanizliTelNetsis = () => {
       return capA - capB; // Ascending: smaller diameters first
     });
     
-    // Sort recipes to match the same order as their corresponding products
-    const sortedMmGtRecipes = allMmGtRecipes.sort((a, b) => {
-      const capA = parseFloat(a.cap) || 0;
-      const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
-    });
-    
-    const sortedYmGtRecipes = allYmGtRecipes.sort((a, b) => {
-      const capA = parseFloat(a.cap) || 0;
-      const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
-    });
-    
-    const sortedYmStRecipes = allYmStRecipes.sort((a, b) => {
-      const capA = parseFloat(a.cap) || 0;
-      const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
-    });
+    // Recipe order will be determined by sorted product data in generateBatchReceteExcel
     
     console.log('✅ Products sorted by diameter successfully');
     
@@ -7164,7 +7147,7 @@ const GalvanizliTelNetsis = () => {
     console.log('✅ Stok Kartı Excel generated successfully');
     
     console.log('📄 Starting Reçete Excel generation...');
-    await generateBatchReceteExcel(sortedMmGtRecipes, sortedYmGtRecipes, sortedYmStRecipes);
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData);
     console.log('✅ Reçete Excel generated successfully');
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
@@ -7224,7 +7207,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Generate batch recipe Excel - EXACT same format as individual, just multiple rows  
-  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes) => {
+  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData) => {
     console.log('📋 Batch Reçete Excel - Input validation');
     console.log(`   MM GT recipes: ${mmGtRecipes?.length || 0} items`);
     console.log(`   YM GT recipes: ${ymGtRecipes?.length || 0} items`);
@@ -7246,15 +7229,17 @@ const GalvanizliTelNetsis = () => {
       mmGtByProduct[recipe.mm_gt_stok_kodu].push(recipe);
     });
     
-    // Get unique stok codes in sorted order (preserving diameter sorting)
-    const sortedMmGtStokCodes = [...new Set(mmGtRecipes.map(recipe => recipe.mm_gt_stok_kodu))];
+    // Get stok codes from sorted product data to maintain diameter order
+    const sortedMmGtStokCodes = sortedMmGtData.map(product => product.stok_kodu);
     
     sortedMmGtStokCodes.forEach(stokKodu => {
-      let productSiraNo = 1; // Restart sequence for each product
-      mmGtByProduct[stokKodu].forEach(recipe => {
-        mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
-        productSiraNo++;
-      });
+      if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1; // Restart sequence for each product
+        mmGtByProduct[stokKodu].forEach(recipe => {
+          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
+          productSiraNo++;
+        });
+      }
     });
     
     // YM GT REÇETE Sheet - EXACT same structure as individual
@@ -7270,27 +7255,29 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
     });
     
-    // Get unique stok codes in sorted order (preserving diameter sorting)
-    const sortedYmGtStokCodes = [...new Set(ymGtRecipes.map(recipe => recipe.ym_gt_stok_kodu))];
+    // Get stok codes from sorted product data to maintain diameter order
+    const sortedYmGtStokCodes = sortedYmGtData.map(product => product.stok_kodu);
     
     sortedYmGtStokCodes.forEach(stokKodu => {
-      let productSiraNo = 1; // Restart sequence for each product
-      
-      // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
-      const zincRecipe = ymGtByProduct[stokKodu].find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
-      
-      ymGtByProduct[stokKodu].forEach(recipe => {
-        let finalMiktar = recipe.miktar;
+      if (ymGtByProduct[stokKodu] && ymGtByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1; // Restart sequence for each product
         
-        // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
-        if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
-          finalMiktar = 1 - parseFloat(zincRecipe.miktar);
-          console.log(`YM.ST miktar değeri hesaplandı: 1 - ${zincRecipe.miktar} = ${finalMiktar}`);
-        }
+        // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
+        const zincRecipe = ymGtByProduct[stokKodu].find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
         
-        ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
-        productSiraNo++;
-      });
+        ymGtByProduct[stokKodu].forEach(recipe => {
+          let finalMiktar = recipe.miktar;
+          
+          // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+          if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
+            finalMiktar = 1 - parseFloat(zincRecipe.miktar);
+            console.log(`YM.ST miktar değeri hesaplandı: 1 - ${zincRecipe.miktar} = ${finalMiktar}`);
+          }
+          
+          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+          productSiraNo++;
+        });
+      }
     });
     
     // YM ST REÇETE Sheet - EXACT same structure as individual
@@ -7306,15 +7293,17 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
     });
     
-    // Get unique stok codes in sorted order (preserving diameter sorting)
-    const sortedYmStStokCodes = [...new Set(ymStRecipes.map(recipe => recipe.ym_st_stok_kodu))];
+    // Get stok codes from sorted product data to maintain diameter order
+    const sortedYmStStokCodes = sortedYmStData.map(product => product.stok_kodu);
     
     sortedYmStStokCodes.forEach(stokKodu => {
-      let productSiraNo = 1; // Restart sequence for each product
-      ymStByProduct[stokKodu].forEach(recipe => {
-        ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
-        productSiraNo++;
-      });
+      if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1; // Restart sequence for each product
+        ymStByProduct[stokKodu].forEach(recipe => {
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
+          productSiraNo++;
+        });
+      }
     });
     
     // Save with timestamp filename
