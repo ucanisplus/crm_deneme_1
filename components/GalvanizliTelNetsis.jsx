@@ -7098,9 +7098,9 @@ const GalvanizliTelNetsis = () => {
     console.log(`   📍 YM GT: ${sortedYmGtData.length} products`);
     console.log(`   📍 YM ST: ${sortedYmStData.length} products`);
     console.log(`📋 Recipes collected:`);
-    console.log(`   📍 MM GT recipes: ${sortedMmGtRecipes.length} recipes`);
-    console.log(`   📍 YM GT recipes: ${sortedYmGtRecipes.length} recipes`);
-    console.log(`   📍 YM ST recipes: ${sortedYmStRecipes.length} recipes`);
+    console.log(`   📍 MM GT recipes: ${allMmGtRecipes.length} recipes`);
+    console.log(`   📍 YM GT recipes: ${allYmGtRecipes.length} recipes`);
+    console.log(`   📍 YM ST recipes: ${allYmStRecipes.length} recipes`);
     
     // Detailed product information (sorted by diameter)
     if (sortedMmGtData.length > 0) {
