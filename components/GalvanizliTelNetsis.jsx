@@ -7038,20 +7038,62 @@ const GalvanizliTelNetsis = () => {
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
     
-    // Final data collection summary
-    console.log('📊 === FINAL DATA COLLECTION SUMMARY ===');
-    console.log(`📦 Products collected:`);
-    console.log(`   📍 MM GT: ${allMmGtData.length} products`);
-    console.log(`   📍 YM GT: ${allYmGtData.length} products`);
-    console.log(`   📍 YM ST: ${allYmStData.length} products`);
-    console.log(`📋 Recipes collected:`);
-    console.log(`   📍 MM GT recipes: ${allMmGtRecipes.length} recipes`);
-    console.log(`   📍 YM GT recipes: ${allYmGtRecipes.length} recipes`);
-    console.log(`   📍 YM ST recipes: ${allYmStRecipes.length} recipes`);
+    // Sort all products by diameter (cap) in ascending order (low to high)
+    console.log('🔢 Sorting products by diameter (Çap) - ascending order...');
     
-    // Detailed product information
-    if (allMmGtData.length > 0) {
-      console.log('📦 MM GT Products details:', allMmGtData.map(m => ({ 
+    const sortedMmGtData = allMmGtData.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    const sortedYmGtData = allYmGtData.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    const sortedYmStData = allYmStData.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    // Sort recipes to match the same order as their corresponding products
+    const sortedMmGtRecipes = allMmGtRecipes.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    const sortedYmGtRecipes = allYmGtRecipes.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    const sortedYmStRecipes = allYmStRecipes.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      return capA - capB; // Ascending: smaller diameters first
+    });
+    
+    console.log('✅ Products sorted by diameter successfully');
+    
+    // Final data collection summary (after sorting)
+    console.log('📊 === FINAL DATA COLLECTION SUMMARY (SORTED BY DIAMETER) ===');
+    console.log(`📦 Products collected:`);
+    console.log(`   📍 MM GT: ${sortedMmGtData.length} products`);
+    console.log(`   📍 YM GT: ${sortedYmGtData.length} products`);
+    console.log(`   📍 YM ST: ${sortedYmStData.length} products`);
+    console.log(`📋 Recipes collected:`);
+    console.log(`   📍 MM GT recipes: ${sortedMmGtRecipes.length} recipes`);
+    console.log(`   📍 YM GT recipes: ${sortedYmGtRecipes.length} recipes`);
+    console.log(`   📍 YM ST recipes: ${sortedYmStRecipes.length} recipes`);
+    
+    // Detailed product information (sorted by diameter)
+    if (sortedMmGtData.length > 0) {
+      console.log('📦 MM GT Products details (sorted by cap):', sortedMmGtData.map(m => ({ 
         stok_kodu: m.stok_kodu, 
         id: m.id, 
         request_id: m.request_id,
@@ -7059,14 +7101,15 @@ const GalvanizliTelNetsis = () => {
         kg: m.kg
       })));
     }
-    if (allYmGtData.length > 0) {
-      console.log('📦 YM GT Products details:', allYmGtData.map(y => ({ 
+    if (sortedYmGtData.length > 0) {
+      console.log('📦 YM GT Products details (sorted by cap):', sortedYmGtData.map(y => ({ 
         stok_kodu: y.stok_kodu, 
-        id: y.id 
+        id: y.id,
+        cap: y.cap
       })));
     }
-    if (allYmStData.length > 0) {
-      console.log('📦 YM ST Products details:', allYmStData.map(s => ({ 
+    if (sortedYmStData.length > 0) {
+      console.log('📦 YM ST Products details (sorted by cap):', sortedYmStData.map(s => ({ 
         stok_kodu: s.stok_kodu, 
         id: s.id,
         cap: s.cap,
@@ -7075,7 +7118,7 @@ const GalvanizliTelNetsis = () => {
     }
     
     // Critical validation
-    if (allMmGtData.length === 0) {
+    if (sortedMmGtData.length === 0) {
       console.error('💥 CRITICAL ERROR: No MM GT products found in any approved requests!');
       console.error('💡 Possible causes:');
       console.error('   1. Approved requests exist but have no saved MM GT products');
@@ -7089,11 +7132,11 @@ const GalvanizliTelNetsis = () => {
 
     // Create two separate Excel files with EXACT same format as individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
-    await generateBatchStokKartiExcel(allMmGtData, allYmGtData, allYmStData);
+    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData);
     console.log('✅ Stok Kartı Excel generated successfully');
     
     console.log('📄 Starting Reçete Excel generation...');
-    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes);
+    await generateBatchReceteExcel(sortedMmGtRecipes, sortedYmGtRecipes, sortedYmStRecipes);
     console.log('✅ Reçete Excel generated successfully');
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
