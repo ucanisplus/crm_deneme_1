@@ -87,6 +87,13 @@ const GalvanizliTelNetsis = () => {
   const [activeDbTab, setActiveDbTab] = useState('mmgt'); // 'mmgt' veya 'ymst'
   const [mainYmStIndex, setMainYmStIndex] = useState(0); // Ana YMST'nin indeksi (1:1:n iliskisi icin)
   
+  // Veritabanı filtreleme ve seçim durumları
+  const [dbSearchQuery, setDbSearchQuery] = useState(''); // Arama sorgusu
+  const [dbCapFilter, setDbCapFilter] = useState(''); // Çap filtresi
+  const [dbKaplamaFilter, setDbKaplamaFilter] = useState('all'); // Kaplama filtresi
+  const [selectedDbItems, setSelectedDbItems] = useState([]); // Seçili ürün ID'leri
+  const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Toplu silme durumu
+  
   // Kopya onay diyalog durumlari
   const [showDuplicateConfirmModal, setShowDuplicateConfirmModal] = useState(false);
   const [duplicateProducts, setDuplicateProducts] = useState([]);
@@ -497,6 +504,121 @@ const GalvanizliTelNetsis = () => {
     } catch (error) {
       console.error('Mevcut YM ST listesi getirilirken hata:', error);
       toast.error('Mevcut YM ST listesi getirilemedi');
+    }
+  };
+
+  // Veritabanı filtreleme fonksiyonları
+  const filterDbProducts = (products, type) => {
+    if (!Array.isArray(products)) return [];
+    
+    return products.filter(product => {
+      // Arama sorgusu filtresi
+      if (dbSearchQuery) {
+        const searchLower = dbSearchQuery.toLowerCase();
+        const matchesSearch = 
+          (product.stok_kodu && product.stok_kodu.toLowerCase().includes(searchLower)) ||
+          (product.cap && product.cap.toString().toLowerCase().includes(searchLower)) ||
+          (type === 'mmgt' && product.kod_2 && product.kod_2.toLowerCase().includes(searchLower)) ||
+          (type === 'ymst' && product.filmasin && product.filmasin.toLowerCase().includes(searchLower));
+        
+        if (!matchesSearch) return false;
+      }
+      
+      // Çap filtresi
+      if (dbCapFilter && product.cap) {
+        if (!product.cap.toString().includes(dbCapFilter)) return false;
+      }
+      
+      // Kaplama filtresi (sadece MM GT için)
+      if (type === 'mmgt' && dbKaplamaFilter !== 'all' && product.kod_2) {
+        if (product.kod_2 !== dbKaplamaFilter) return false;
+      }
+      
+      return true;
+    });
+  };
+
+  // Veritabanı seçim fonksiyonları
+  const handleToggleDbSelection = (itemId) => {
+    setSelectedDbItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAllDb = (items) => {
+    const itemIds = items.map(item => item.id);
+    setSelectedDbItems(prev => 
+      prev.length === itemIds.length 
+        ? []
+        : itemIds
+    );
+  };
+
+  // Seçili ürünleri temizle
+  const clearDbSelection = () => {
+    setSelectedDbItems([]);
+  };
+
+  // Toplu silme fonksiyonu
+  const handleBulkDelete = async () => {
+    if (selectedDbItems.length === 0) {
+      toast.error('Silinecek ürün seçiniz');
+      return;
+    }
+
+    if (!window.confirm(`${selectedDbItems.length} ürünü silmek istediğinizden emin misiniz?`)) {
+      return;
+    }
+
+    setIsDeletingBulkDb(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const itemId of selectedDbItems) {
+        try {
+          const deleteUrl = activeDbTab === 'mmgt' 
+            ? `${API_URLS.galMmGt}/${itemId}`
+            : `${API_URLS.galYmSt}/${itemId}`;
+          
+          const response = await fetchWithAuth(deleteUrl, {
+            method: 'DELETE'
+          });
+
+          if (response && response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          console.error(`Error deleting item ${itemId}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Başarı mesajı
+      if (successCount > 0) {
+        toast.success(`${successCount} ürün başarıyla silindi`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} ürün silinemedi`);
+      }
+
+      // Listeyi yenile ve seçimi temizle
+      if (activeDbTab === 'mmgt') {
+        fetchExistingMmGts();
+      } else {
+        fetchExistingYmSts();
+      }
+      clearDbSelection();
+
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error('Silme işlemi sırasında hata oluştu');
+    } finally {
+      setIsDeletingBulkDb(false);
     }
   };
 
@@ -10989,21 +11111,134 @@ const GalvanizliTelNetsis = () => {
                 </button>
               </div>
               
+              {/* Filtreleme ve Toplu İşlem Bölümü */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex flex-wrap items-center gap-4 mb-4">
+                  {/* Arama */}
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Arama</label>
+                    <input
+                      type="text"
+                      placeholder="Stok kodu, çap, kaplama türü..."
+                      value={dbSearchQuery}
+                      onChange={(e) => setDbSearchQuery(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  {/* Çap Filtresi */}
+                  <div className="min-w-[120px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Çap</label>
+                    <input
+                      type="text"
+                      placeholder="Çap değeri"
+                      value={dbCapFilter}
+                      onChange={(e) => setDbCapFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  {/* Kaplama Filtresi (sadece MM GT için) */}
+                  {activeDbTab === 'mmgt' && (
+                    <div className="min-w-[120px]">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama</label>
+                      <select
+                        value={dbKaplamaFilter}
+                        onChange={(e) => setDbKaplamaFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="all">Tümü</option>
+                        <option value="NIT">NIT</option>
+                        <option value="PAD">PAD</option>
+                      </select>
+                    </div>
+                  )}
+                  
+                  {/* Filtreleri Temizle */}
+                  <div className="min-w-[100px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">&nbsp;</label>
+                    <button
+                      onClick={() => {
+                        setDbSearchQuery('');
+                        setDbCapFilter('');
+                        setDbKaplamaFilter('all');
+                      }}
+                      className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                    >
+                      Temizle
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Toplu İşlemler */}
+                {selectedDbItems.length > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <span className="text-blue-700 font-medium">
+                      {selectedDbItems.length} ürün seçili
+                    </span>
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={isDeletingBulkDb}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-red-400 transition-colors flex items-center gap-2"
+                    >
+                      {isDeletingBulkDb ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Siliniyor...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Seçilileri Sil
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={clearDbSelection}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    >
+                      Seçimi Temizle
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               {/* MM GT Tab İçeriği */}
               {activeDbTab === 'mmgt' && (
                 <>
-                  {existingMmGts.length === 0 ? (
-                    <div className="text-center py-12">
-                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      <p className="text-gray-500 text-lg">Mevcut MM GT bulunamadı.</p>
-                    </div>
-                  ) : (
+                  {(() => {
+                    const filteredMmGts = filterDbProducts(existingMmGts, 'mmgt');
+                    
+                    if (filteredMmGts.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <p className="text-gray-500 text-lg">
+                              {existingMmGts.length === 0 ? 'Mevcut MM GT bulunamadı.' : 'Filtre kriterlerine uygun ürün bulunamadı.'}
+                            </p>
+                          </div>
+                        );
+                    }
+                    
+                    return (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <input
+                                type="checkbox"
+                                checked={filteredMmGts.length > 0 && filteredMmGts.every(item => selectedDbItems.includes(item.id))}
+                                onChange={() => handleSelectAllDb(filteredMmGts)}
+                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                              />
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Stok Kodu
                             </th>
@@ -11028,8 +11263,16 @@ const GalvanizliTelNetsis = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {existingMmGts.map((mmGt) => (
+                          {filteredMmGts.map((mmGt) => (
                             <tr key={mmGt.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDbItems.includes(mmGt.id)}
+                                  onChange={() => handleToggleDbSelection(mmGt.id)}
+                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                />
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {mmGt.stok_kodu || ''}
                               </td>
@@ -11073,25 +11316,43 @@ const GalvanizliTelNetsis = () => {
                         </tbody>
                       </table>
                     </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
               
               {/* YM ST Tab İçeriği */}
               {activeDbTab === 'ymst' && (
                 <>
-                  {existingYmSts.length === 0 ? (
-                    <div className="text-center py-12">
-                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      <p className="text-gray-500 text-lg">Mevcut YM ST bulunamadı.</p>
-                    </div>
-                  ) : (
+                  {(() => {
+                    const filteredYmSts = filterDbProducts(existingYmSts, 'ymst');
+                    
+                    if (filteredYmSts.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          <p className="text-gray-500 text-lg">
+                            {existingYmSts.length === 0 ? 'Mevcut YM ST bulunamadı.' : 'Filtre kriterlerine uygun ürün bulunamadı.'}
+                          </p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <input
+                                type="checkbox"
+                                checked={filteredYmSts.length > 0 && filteredYmSts.every(item => selectedDbItems.includes(item.id))}
+                                onChange={() => handleSelectAllDb(filteredYmSts)}
+                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                              />
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Stok Kodu
                             </th>
@@ -11110,8 +11371,16 @@ const GalvanizliTelNetsis = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {existingYmSts.map((ymSt) => (
+                          {filteredYmSts.map((ymSt) => (
                             <tr key={ymSt.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDbItems.includes(ymSt.id)}
+                                  onChange={() => handleToggleDbSelection(ymSt.id)}
+                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                />
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {ymSt.stok_kodu || ''}
                               </td>
@@ -11137,7 +11406,8 @@ const GalvanizliTelNetsis = () => {
                         </tbody>
                       </table>
                     </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
               
