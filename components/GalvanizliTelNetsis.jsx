@@ -7771,8 +7771,8 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // Dış Çap
       '', // Çap2
       mmGt.shrink, // Shrink
-      formatDecimalForExcel(mmGt.tolerans_plus), // Tolerans(+) (NOKTA format, no trailing zeros)
-      formatDecimalForExcel(mmGt.tolerans_minus), // Tolerans(-) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-) (NOKTA format, no trailing zeros)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
