@@ -8012,8 +8012,8 @@ const GalvanizliTelNetsis = () => {
       disCap, // Dış Çap
       '', // Çap2
       ymGt.shrink || '', // Shrink
-      formatDecimalForExcel(adjustedPlus), // Tolerans(+)
-      formatDecimalForExcel(adjustedMinus), // Tolerans(-)
+      formatDecimalForExcel(ymGt.tolerans_plus), // Tolerans(+)
+      formatDecimalForExcel(ymGt.tolerans_minus), // Tolerans(-)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -8107,8 +8107,8 @@ const GalvanizliTelNetsis = () => {
       ymGtData.dis_cap, // Dış Çap
       '', // Çap2
       ymGtData.shrink, // Shrink
-      adjustedPlusFormatted, // Tolerans(+) - POINT for Excel - adjusted value with sign
-      adjustedMinusFormatted, // Tolerans(-) - POINT for Excel - adjusted value with sign
+      formatDecimalForExcel(ymGtData.tolerans_plus), // Tolerans(+) - raw database value
+      formatDecimalForExcel(ymGtData.tolerans_minus), // Tolerans(-) - raw database value
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
