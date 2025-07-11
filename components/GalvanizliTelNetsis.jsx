@@ -2763,6 +2763,12 @@ const GalvanizliTelNetsis = () => {
   // Form değişikliklerini işle - her zaman nokta formatı kullan
   // Comma to point conversion handler for onKeyDown
   const handleCommaToPoint = (e, field) => {
+    // Prevent +/- characters from being entered in tolerance fields
+    if ((field === 'tolerans_plus' || field === 'tolerans_minus') && (e.key === '+' || e.key === '-')) {
+      e.preventDefault();
+      return;
+    }
+    
     // Allow decimal comma input but convert to point
     if (e.key === ',') {
       e.preventDefault();
@@ -6017,11 +6023,24 @@ const GalvanizliTelNetsis = () => {
 
   // Tolerans açıklama alma
   const getToleransAciklama = () => {
+    const { mathematicallySwapped } = getAdjustedToleranceValues();
+    let explanation = '';
+    
     // Standart + ve - dışında bir değer seçilmişse açıklama ekle
     if (toleransMaxSign !== '+' || toleransMinSign !== '-') {
-      return 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
+      explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
-    return '';
+    
+    // Matematik olarak düzeltilmişse açıklama ekle
+    if (mathematicallySwapped) {
+      if (explanation) {
+        explanation += ' Tolerans değerleri matematik olarak düzeltilmiştir.';
+      } else {
+        explanation = 'Tolerans değerleri matematik olarak düzeltilmiştir.';
+      }
+    }
+    
+    return explanation;
   };
 
   // Tolerans değerlerini işaretlere göre düzenle
@@ -6033,9 +6052,17 @@ const GalvanizliTelNetsis = () => {
     const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
     const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
     
-    // Use the actual semantic meaning: plus tolerance goes to plus column, minus tolerance goes to minus column
-    const adjustedPlusValue = actualPlusValue;
-    const adjustedMinusValue = actualMinusValue;
+    // Check if mathematical correction is needed
+    let adjustedPlusValue = actualPlusValue;
+    let adjustedMinusValue = actualMinusValue;
+    let mathematicallySwapped = false;
+    
+    // If plus value is smaller than minus value (mathematically incorrect), swap them
+    if (actualPlusValue < actualMinusValue) {
+      adjustedPlusValue = actualMinusValue;
+      adjustedMinusValue = actualPlusValue;
+      mathematicallySwapped = true;
+    }
     
     // Return with proper formatting
     return {
@@ -6043,6 +6070,7 @@ const GalvanizliTelNetsis = () => {
       adjustedMinus: adjustedMinusValue,
       plusSign: adjustedPlusValue >= 0 ? '+' : '-',
       minusSign: adjustedMinusValue >= 0 ? '+' : '-',
+      mathematicallySwapped: mathematicallySwapped,
       // Excel için formatlanmış değerler (işaretli)
       adjustedPlusFormatted: adjustedPlusValue.toString(),
       adjustedMinusFormatted: adjustedMinusValue.toString()
@@ -6053,16 +6081,29 @@ const GalvanizliTelNetsis = () => {
   const generateToleransAciklamaForBatch = (toleransPlus, toleransMinus) => {
     const plus = parseFloat(toleransPlus) || 0;
     const minus = parseFloat(toleransMinus) || 0;
+    let explanation = '';
+    
+    // Check if values were mathematically swapped (this should be the corrected values from database)
+    const originalPlus = plus;
+    const originalMinus = minus;
+    let mathematicallySwapped = false;
+    
+    // If we detect that database values indicate a swap occurred (plus < minus means they were corrected)
+    // This is a heuristic - in practice, database stores corrected values
     
     // Eğer her ikisi de negatif ise standart dışı
     if (plus < 0 && minus < 0) {
-      return 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
+      explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
     // Eğer plus negatif veya minus pozitif ise standart dışı
-    if (plus < 0 || minus > 0) {
-      return 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
+    else if (plus < 0 || minus > 0) {
+      explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
-    return '';
+    
+    // Note: For batch processing, we can't easily detect if mathematical correction occurred
+    // since we only have the final corrected values from database
+    
+    return explanation;
   };
 
   // Reçete açıklama alma

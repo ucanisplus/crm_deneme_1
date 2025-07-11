@@ -305,6 +305,31 @@ const SatisGalvanizRequest = () => {
     });
   };
 
+  // Comma to point conversion handler for onKeyDown
+  const handleCommaToPoint = (e, field) => {
+    // Prevent +/- characters from being entered in tolerance fields
+    if ((field === 'tolerans_plus' || field === 'tolerans_minus') && (e.key === '+' || e.key === '-')) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Convert comma to point for decimal input
+    if (e.key === ',') {
+      e.preventDefault();
+      const target = e.target;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      const value = target.value;
+      const newValue = value.substring(0, start) + '.' + value.substring(end);
+      target.value = newValue;
+      target.setSelectionRange(start + 1, start + 1);
+      
+      // Trigger change event
+      const event = new Event('input', { bubbles: true });
+      target.dispatchEvent(event);
+    }
+  };
+
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -1396,6 +1421,7 @@ const SatisGalvanizRequest = () => {
                       name="tolerans_plus"
                       value={requestData.tolerans_plus}
                       onChange={handleInputChange}
+                      onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_plus')}
                       className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Örn: 0.05"
                     />
@@ -1418,6 +1444,7 @@ const SatisGalvanizRequest = () => {
                       name="tolerans_minus"
                       value={requestData.tolerans_minus}
                       onChange={handleInputChange}
+                      onKeyDown={(e) => handleCommaToPoint(e, 'tolerans_minus')}
                       className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Örn: 0.06"
                     />
