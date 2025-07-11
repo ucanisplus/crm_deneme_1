@@ -6043,6 +6043,34 @@ const GalvanizliTelNetsis = () => {
     return explanation;
   };
 
+  // YM GT için tolerans açıklama (matematiksel düzeltme tespiti için)
+  const getYmGtToleransAciklama = (ymGtData) => {
+    if (!ymGtData) return '';
+    
+    const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(ymGtData.tolerans_minus) || 0;
+    const actualPlusValue = ymGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
+    const actualMinusValue = ymGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
+    
+    let explanation = '';
+    
+    // Standart + ve - dışında bir değer seçilmişse açıklama ekle
+    if (ymGtData.tolerans_max_sign !== '+' || ymGtData.tolerans_min_sign !== '-') {
+      explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
+    }
+    
+    // Matematik olarak düzeltilmişse açıklama ekle
+    if (actualPlusValue < actualMinusValue) {
+      if (explanation) {
+        explanation += ' Tolerans değerleri matematik olarak düzeltilmiştir.';
+      } else {
+        explanation = 'Tolerans değerleri matematik olarak düzeltilmiştir.';
+      }
+    }
+    
+    return explanation;
+  };
+
   // Tolerans değerlerini işaretlere göre düzenle
   const getAdjustedToleranceValues = () => {
     const plusValue = parseFloat(mmGtData.tolerans_plus) || 0;
@@ -7961,8 +7989,8 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // Dış Çap
       '', // Çap2
       mmGtData.shrink, // Shrink
-      formatDecimalForExcel(mmGtData.tolerans_plus), // Tolerans(+) (raw database value)
-      formatDecimalForExcel(mmGtData.tolerans_minus), // Tolerans(-) (raw database value)
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+) (adjusted value with sign)
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-) (adjusted value with sign)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -8007,8 +8035,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(5).replace('.', ','), // DIA (MM) - COMMA for Excel
-      formatDecimalForExcel(mmGtData.tolerans_plus), // DIA TOL (MM) + (matching Turkish tolerans)
-      formatDecimalForExcel(mmGtData.tolerans_minus), // DIA TOL (MM) - (matching Turkish tolerans)
+      formatDecimalForExcel(adjustedPlus), // DIA TOL (MM) + (adjusted value matching Turkish tolerans)
+      formatDecimalForExcel(adjustedMinus), // DIA TOL (MM) - (adjusted value matching Turkish tolerans)
       mmGtData.kaplama, // ZING COATING (GR/M2)
       mmGtData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGtData.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -8150,13 +8178,23 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(ymGtData.cap);
     const stokKodu = ymGtData.stok_kodu;
     
-    // Use YM GT tolerance data for proper calculation
+    // Use YM GT tolerance data for proper calculation with mathematical correction
     const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(ymGtData.tolerans_minus) || 0;
     const actualPlusValue = ymGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
     const actualMinusValue = ymGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    const adjustedPlus = actualPlusValue;
-    const adjustedMinus = actualMinusValue;
+    
+    // Apply mathematical correction if needed (same logic as getAdjustedToleranceValues)
+    let adjustedPlus = actualPlusValue;
+    let adjustedMinus = actualMinusValue;
+    
+    if (actualPlusValue < actualMinusValue) {
+      // Swap values if mathematically incorrect
+      adjustedPlus = actualMinusValue;
+      adjustedMinus = actualPlusValue;
+      console.log('YM GT: Mathematical correction applied - tolerance values swapped');
+    }
+    
     const adjustedPlusFormatted = adjustedPlus.toString();
     const adjustedMinusFormatted = adjustedMinus.toString();
     
@@ -8191,8 +8229,8 @@ const GalvanizliTelNetsis = () => {
       ymGtData.dis_cap, // Dış Çap
       '', // Çap2
       ymGtData.shrink, // Shrink
-      formatDecimalForExcel(ymGtData.tolerans_plus), // Tolerans(+) - raw database value
-      formatDecimalForExcel(ymGtData.tolerans_minus), // Tolerans(-) - raw database value
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+) - adjusted value with sign
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-) - adjusted value with sign
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -8235,7 +8273,7 @@ const GalvanizliTelNetsis = () => {
       '', // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '', // Menşei
-      generateToleransAciklamaForBatch(ymGtData.tolerans_plus, ymGtData.tolerans_minus) // Tolerans Açıklama
+      getYmGtToleransAciklama(ymGtData) // Tolerans Açıklama - YM GT specific with math correction
     ];
   };
 
