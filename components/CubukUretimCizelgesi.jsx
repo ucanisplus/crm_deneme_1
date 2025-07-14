@@ -203,8 +203,8 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       'Miktar': rod.quantity,
       'Filmaşin Çap (mm)': rod.flmDiameter,
       'Filmaşin Kalite': rod.flmQuality,
-      'Kullanılan Ürünler': rod.usedInProducts ? 
-        rod.usedInProducts.map(p => `${p.hasirTipi} (${p.uzunlukBoy}×${p.uzunlukEn}cm)${p.hasirSayisi > 1 ? ` x${p.hasirSayisi}` : ''}`).join('; ') 
+      'Kullanılacak Ürünler': rod.usedInProducts ? 
+        rod.usedInProducts.map(p => `• ${p.hasirTipi} (${p.uzunlukBoy}×${p.uzunlukEn}cm)${p.hasirSayisi > 1 ? ` x${p.hasirSayisi}` : ''}`).join('\n') 
         : ''
     }));
     
@@ -218,15 +218,44 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
     // Merge cells for the title
     ws['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
     
+    // Enable text wrapping and set row heights for proper display
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let row = 2; row <= range.e.r; row++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: 6 }); // Column G (Kullanılacak Ürünler)
+      if (ws[cellAddress]) {
+        ws[cellAddress].s = {
+          alignment: {
+            wrapText: true,
+            vertical: 'top'
+          }
+        };
+      }
+    }
+    
+    // Set row heights for better display
+    ws['!rows'] = [];
+    for (let i = 0; i <= range.e.r; i++) {
+      if (i === 0) {
+        ws['!rows'][i] = { hpt: 25 }; // Title row
+      } else if (i === 1) {
+        ws['!rows'][i] = { hpt: 20 }; // Header row
+      } else {
+        // Calculate height based on number of products
+        const dataIndex = i - 2;
+        const productCount = rods[dataIndex]?.usedInProducts?.length || 1;
+        ws['!rows'][i] = { hpt: Math.max(20, productCount * 15 + 10) }; // Dynamic height
+      }
+    }
+    
     // Adjust column widths
     const cols = [
-      { wch: 10 }, // Sıra
-      { wch: 15 }, // Çap
+      { wch: 8 },  // Sıra
+      { wch: 12 }, // Çap
       { wch: 15 }, // Uzunluk
-      { wch: 15 }, // Miktar
-      { wch: 20 }, // Filmaşin Çap
-      { wch: 20 }, // Filmaşin Kalite
-      { wch: 40 }  // Kullanılan Ürünler
+      { wch: 10 }, // Miktar
+      { wch: 18 }, // Filmaşin Çap
+      { wch: 18 }, // Filmaşin Kalite
+      { wch: 50 }  // Kullanılacak Ürünler (wider for better display)
     ];
     ws['!cols'] = cols;
     
@@ -268,7 +297,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
               <th>Miktar</th>
               <th>Filmaşin Çap (mm)</th>
               <th>Filmaşin Kalite</th>
-              <th>Kullanılan Ürünler</th>
+              <th>Kullanılacak Ürünler</th>
             </tr>
           </thead>
           <tbody>
@@ -329,7 +358,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Uzunluk (cm)</th>
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Miktar</th>
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Filmaşin (Çap / Kalite)</th>
-                      <th className="border border-gray-300 p-2 text-sm font-semibold">Kullanılan Ürünler</th>
+                      <th className="border border-gray-300 p-2 text-sm font-semibold">Kullanılacak Ürünler</th>
                     </tr>
                   </thead>
                   <tbody>
