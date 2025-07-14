@@ -680,23 +680,34 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         return;
       }
 
+      // İlk loading toast
+      toast.info('Veritabanı kontrol ediliyor...');
+      
       // Mevcut ürünleri getir ve karşılaştır
       await fetchSavedProducts();
       
-      // Mevcut stok kodlarını al
+      // Mevcut stok kodlarını al (tüm ürün türleri için)
       const existingStokKodlari = new Set([
         ...savedProducts.mm.map(p => p.stok_kodu),
         ...savedProducts.ncbk.map(p => p.stok_kodu),
         ...savedProducts.ntel.map(p => p.stok_kodu)
       ]);
       
-      // Sadece yeni ürünleri filtrele
+      // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
       const skippedProducts = [];
       
       for (const product of productsToSave) {
         const chStokKodu = generateStokKodu(product, 'CH');
-        if (existingStokKodlari.has(chStokKodu)) {
+        const ncbkStokKodu500 = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`;
+        const ncbkStokKodu215 = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`;
+        const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`;
+        
+        // Eğer herhangi bir stok kodu zaten varsa, bu ürünü atla
+        if (existingStokKodlari.has(chStokKodu) || 
+            existingStokKodlari.has(ncbkStokKodu500) || 
+            existingStokKodlari.has(ncbkStokKodu215) || 
+            existingStokKodlari.has(ntelStokKodu)) {
           skippedProducts.push(product);
         } else {
           newProducts.push(product);
@@ -705,7 +716,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       
       if (newProducts.length === 0) {
         toast.info(`Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı.`);
-        return;
+        return [];
       }
       
       toast.info(`${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor...`);
@@ -713,11 +724,17 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       // Optimize edilmemiş ürün sayısını kontrol et
       const unoptimizedCount = newProducts.filter(p => !isProductOptimized(p)).length;
       if (unoptimizedCount > 0) {
-        toast.info(`${unoptimizedCount} adet optimize edilmemiş ürün de kaydedildi.`);
+        toast.info(`${unoptimizedCount} adet optimize edilmemiş ürün de kaydediliyor.`);
       }
 
-      // Her ürün için CH, NCBK ve NTEL kayıtları oluştur
+      // İlerleme tracking
+      let processedCount = 0;
+      const totalCount = newProducts.length;
+      
+      // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (const product of newProducts) {
+        processedCount++;
+        toast.info(`Ürün kaydediliyor: ${processedCount}/${totalCount} - ${product.hasirTipi}`);
         // CH kaydı
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH'),
@@ -744,64 +761,112 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           user_id: user.id
         };
 
-        const chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(chData)
-        });
-        const chResult = await chResponse.json();
+        let chResult, ncbkResults = {}, ntelResult, chResponse;
+        
+        try {
+          // CH kaydı - Önce var mı kontrol et, yoksa oluştur
+          chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chData)
+          });
+          
+          if (chResponse.status === 409) {
+            // Bu OLMAMALI - duplicate checking başarısız olmuş
+            console.error(`BEKLENMEYEN DUPLICATE: CH ürün zaten var: ${chData.stok_kodu}`);
+            toast.error(`Duplicate hatası: ${chData.stok_kodu}`);
+            continue; // Bu ürünü atla
+          } else if (!chResponse.ok) {
+            throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
+          } else {
+            chResult = await chResponse.json();
+          }
 
-        // NCBK kayıtları (Boy ve En için ayrı ayrı)
-        const ncbkResults = {};
-        const ncbkLengths = [500, 215];
-        for (const length of ncbkLengths) {
-          const cap = length === 500 ? product.boyCap : product.enCap;
-          const ncbkData = {
-            stok_kodu: `YM.NCBK.${String(Math.round(parseFloat(cap) * 100)).padStart(4, '0')}.${length}`,
-            stok_adi: `YM Nervürlü Çubuk ${cap} mm ${length} cm`,
+          // NCBK kayıtları (Boy ve En için ayrı ayrı)
+          const ncbkLengths = [500, 215];
+          for (const length of ncbkLengths) {
+            const cap = length === 500 ? product.boyCap : product.enCap;
+            const ncbkData = {
+              stok_kodu: `YM.NCBK.${String(Math.round(parseFloat(cap) * 100)).padStart(4, '0')}.${length}`,
+              stok_adi: `YM Nervürlü Çubuk ${cap} mm ${length} cm`,
+              grup_kodu: 'YM',
+              kod_1: 'NCBK',
+              cap: parseFloat(cap),
+              ebat_boy: length,
+              length_cm: length,
+              user_id: user.id
+            };
+
+            const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(ncbkData)
+            });
+            
+            if (ncbkResponse.status === 409) {
+              // Bu OLMAMALI - duplicate checking başarısız olmuş
+              console.error(`BEKLENMEYEN DUPLICATE: NCBK ürün zaten var: ${ncbkData.stok_kodu}`);
+              toast.error(`Duplicate hatası: ${ncbkData.stok_kodu}`);
+              continue; // Bu NCBK'yi atla
+            } else if (!ncbkResponse.ok) {
+              throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
+            } else {
+              const ncbkResult = await ncbkResponse.json();
+              ncbkResults[length] = ncbkResult;
+            }
+          }
+
+          // NTEL kaydı
+          const ntelData = {
+            stok_kodu: `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`,
+            stok_adi: `YM Nervürlü Tel ${product.boyCap} mm`,
             grup_kodu: 'YM',
-            kod_1: 'NCBK',
-            cap: parseFloat(cap),
-            ebat_boy: length,
-            length_cm: length,
+            kod_1: 'NTEL',
+            br_1: 'MT',
+            cap: parseFloat(product.boyCap),
             user_id: user.id
           };
 
-          const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk, {
+          const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ncbkData)
+            body: JSON.stringify(ntelData)
           });
-          const ncbkResult = await ncbkResponse.json();
-          ncbkResults[length] = ncbkResult;
+          
+          if (ntelResponse.status === 409) {
+            // Bu OLMAMALI - duplicate checking başarısız olmuş
+            console.error(`BEKLENMEYEN DUPLICATE: NTEL ürün zaten var: ${ntelData.stok_kodu}`);
+            toast.error(`Duplicate hatası: ${ntelData.stok_kodu}`);
+            // NTEL kaydı atlandı ama devam et
+          } else if (!ntelResponse.ok) {
+            throw new Error(`NTEL kaydı başarısız: ${ntelResponse.status}`);
+          } else {
+            ntelResult = await ntelResponse.json();
+          }
+        } catch (error) {
+          console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
+          toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
+          continue; // Bu ürünü atla, diğerlerine devam et
         }
 
-        // NTEL kaydı
-        const ntelData = {
-          stok_kodu: `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`,
-          stok_adi: `YM Nervürlü Tel ${product.boyCap} mm`,
-          grup_kodu: 'YM',
-          kod_1: 'NTEL',
-          br_1: 'MT',
-          cap: parseFloat(product.boyCap),
-          user_id: user.id
-        };
-
-        const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ntelData)
-        });
-        const ntelResult = await ntelResponse.json();
-
-        // Recipe kayıtları oluştur
-        await saveRecipeData(product, chResult, ncbkResults, ntelResult);
-        
-        // Sequence güncelle
-        await updateSequences(product);
+        // Recipe kayıtları oluştur (her durumda - yeni veya mevcut ürünler için)
+        if (chResult && Object.keys(ncbkResults).length > 0) {
+          try {
+            await saveRecipeData(product, chResult, ncbkResults, ntelResult);
+            
+            // Sequence güncelle (sadece yeni ürünler için)
+            if (chResponse && chResponse.status !== 409) {
+              await updateSequences(product);
+            }
+          } catch (error) {
+            console.error(`Recipe kaydı hatası (${product.hasirTipi}):`, error);
+            // Recipe hatası durumunda warning ver ama devam et
+            toast.warning(`Recipe kaydı hatası: ${product.hasirTipi}`);
+          }
+        }
       }
 
-      toast.success(`${newProducts.length} yeni ürün ve reçeteleri başarıyla veritabanına kaydedildi!`);
+      toast.success(`${processedCount} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
       fetchSavedProducts(); // Listeyi güncelle
       
       // Sadece yeni kaydedilen ürünleri döndür
@@ -974,12 +1039,20 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   }
                 }}
                 disabled={isLoading || isGeneratingExcel}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3 relative"
               >
-                <Upload className="w-5 h-5" />
+                {isLoading ? (
+                  <Loader className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5" />
+                )}
                 <div className="text-left">
-                  <div className="font-medium">Listede kayıtlı olmayanları veritabanına ekle ve Netsis Exceli Oluştur</div>
-                  <div className="text-sm opacity-90">Yeni ürünleri kaydet ve tüm Excel dosyalarını oluştur</div>
+                  <div className="font-medium">
+                    {isLoading ? 'Veritabanı işlemi devam ediyor...' : 'Listede kayıtlı olmayanları veritabanına ekle ve Netsis Exceli Oluştur'}
+                  </div>
+                  <div className="text-sm opacity-90">
+                    {isLoading ? 'Lütfen bekleyiniz, işlem tamamlanıyor...' : 'Yeni ürünleri kaydet ve tüm Excel dosyalarını oluştur'}
+                  </div>
                 </div>
               </button>
               
@@ -1187,13 +1260,21 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                 İptal
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowDatabaseWarning(false);
-                  saveToDatabase(optimizedProducts).then((newProducts) => {
+                  setIsLoading(true);
+                  
+                  try {
+                    const newProducts = await saveToDatabase(optimizedProducts);
                     if (newProducts && newProducts.length > 0) {
-                      generateExcelFiles(newProducts);
+                      await generateExcelFiles(newProducts);
                     }
-                  });
+                  } catch (error) {
+                    console.error('Database save error:', error);
+                    toast.error('Veritabanı kaydı sırasında hata oluştu');
+                  } finally {
+                    setIsLoading(false);
+                  }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
