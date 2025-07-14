@@ -45,6 +45,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
   
+  // Database save progress
+  const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
+  const [databaseProgress, setDatabaseProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
+  
   // Sequence tracking
   const [sequences, setSequences] = useState({});
 
@@ -671,6 +675,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   const saveToDatabase = async (products) => {
     try {
       setIsLoading(true);
+      setIsSavingToDatabase(true);
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
       
       // Tüm ürünleri kaydet (optimize edilmemiş olanlar dahil)
       const productsToSave = products;
@@ -680,10 +686,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         return;
       }
 
-      // İlk loading toast
-      toast.info('Veritabanı kontrol ediliyor...');
-      
       // Mevcut ürünleri getir ve karşılaştır
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut ürünler kontrol ediliyor...', currentProduct: '' });
       await fetchSavedProducts();
       
       // Mevcut stok kodlarını al (tüm ürün türleri için)
@@ -692,6 +696,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         ...savedProducts.ncbk.map(p => p.stok_kodu),
         ...savedProducts.ntel.map(p => p.stok_kodu)
       ]);
+      
+      // Debug: Mevcut veritabanı durumu
+      console.log('Veritabanında bulunan ürünler:', {
+        mm: savedProducts.mm.length,
+        ncbk: savedProducts.ncbk.length,
+        ntel: savedProducts.ntel.length,
+        totalExisting: existingStokKodlari.size
+      });
       
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
@@ -708,33 +720,57 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             existingStokKodlari.has(ncbkStokKodu500) || 
             existingStokKodlari.has(ncbkStokKodu215) || 
             existingStokKodlari.has(ntelStokKodu)) {
+          console.log(`Ürün atlandı - zaten var: ${product.hasirTipi}`, {
+            chStokKodu,
+            existsInDb: existingStokKodlari.has(chStokKodu)
+          });
           skippedProducts.push(product);
         } else {
+          console.log(`Yeni ürün eklenecek: ${product.hasirTipi}`, {
+            chStokKodu,
+            ncbkStokKodu500,
+            ncbkStokKodu215,
+            ntelStokKodu
+          });
           newProducts.push(product);
         }
       }
       
+      console.log('Filtreleme sonuçları:', {
+        totalProducts: productsToSave.length,
+        newProducts: newProducts.length,
+        skippedProducts: skippedProducts.length
+      });
+      
       if (newProducts.length === 0) {
         toast.info(`Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı.`);
+        console.log('Hiçbir yeni ürün yok, Excel oluşturulmayacak');
+        setIsSavingToDatabase(false);
         return [];
       }
       
-      toast.info(`${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor...`);
-
       // Optimize edilmemiş ürün sayısını kontrol et
       const unoptimizedCount = newProducts.filter(p => !isProductOptimized(p)).length;
-      if (unoptimizedCount > 0) {
-        toast.info(`${unoptimizedCount} adet optimize edilmemiş ürün de kaydediliyor.`);
-      }
-
+      
       // İlerleme tracking
       let processedCount = 0;
       const totalCount = newProducts.length;
+      setDatabaseProgress({ 
+        current: 0, 
+        total: totalCount, 
+        operation: `${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor...`,
+        currentProduct: unoptimizedCount > 0 ? `(${unoptimizedCount} optimize edilmemiş)` : ''
+      });
       
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (const product of newProducts) {
         processedCount++;
-        toast.info(`Ürün kaydediliyor: ${processedCount}/${totalCount} - ${product.hasirTipi}`);
+        setDatabaseProgress({ 
+          current: processedCount, 
+          total: totalCount, 
+          operation: 'Veritabanına kaydediliyor...',
+          currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
+        });
         // CH kaydı
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH'),
@@ -867,7 +903,20 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       }
 
       toast.success(`${processedCount} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
-      fetchSavedProducts(); // Listeyi güncelle
+      setDatabaseProgress({ 
+        current: processedCount, 
+        total: totalCount, 
+        operation: 'Veritabanı kaydı tamamlandı!',
+        currentProduct: ''
+      });
+      
+      console.log('Veritabanı kaydetme tamamlandı. Excel için döndürülen ürünler:', {
+        count: newProducts.length,
+        products: newProducts.map(p => p.hasirTipi)
+      });
+      
+      // Listeyi güncelle
+      await fetchSavedProducts();
       
       // Sadece yeni kaydedilen ürünleri döndür
       return newProducts;
@@ -878,6 +927,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       return [];
     } finally {
       setIsLoading(false);
+      setIsSavingToDatabase(false);
       setShowModal(false);
     }
   };
@@ -891,6 +941,28 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     try {
       setIsLoading(true);
       
+      // Önce reçete kayıtlarını sil
+      const product = savedProducts[productType].find(p => p.id === productId);
+      if (product && product.stok_kodu) {
+        try {
+          let recipeApiUrl = '';
+          if (productType === 'mm') recipeApiUrl = `${API_URLS.celikHasirMmRecete}?mamul_kodu=${product.stok_kodu}`;
+          else if (productType === 'ncbk') recipeApiUrl = `${API_URLS.celikHasirNcbkRecete}?mamul_kodu=${product.stok_kodu}`;
+          else if (productType === 'ntel') recipeApiUrl = `${API_URLS.celikHasirNtelRecete}?mamul_kodu=${product.stok_kodu}`;
+          
+          if (recipeApiUrl) {
+            const recipeResponse = await fetchWithAuth(recipeApiUrl, { method: 'DELETE' });
+            if (!recipeResponse.ok) {
+              console.warn(`Reçete silme uyarısı: ${recipeResponse.status}`);
+            }
+          }
+        } catch (recipeError) {
+          console.warn('Reçete silme uyarısı:', recipeError);
+          // Reçete silme hatası durumunda devam et
+        }
+      }
+      
+      // Sonra ana ürün kaydını sil
       let apiUrl = '';
       if (productType === 'mm') apiUrl = `${API_URLS.celikHasirMm}/${productId}`;
       else if (productType === 'ncbk') apiUrl = `${API_URLS.celikHasirNcbk}/${productId}`;
@@ -899,7 +971,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       const response = await fetchWithAuth(apiUrl, { method: 'DELETE' });
       
       if (response?.ok) {
-        toast.success('Ürün başarıyla silindi');
+        toast.success('Ürün ve reçeteleri başarıyla silindi');
         fetchSavedProducts();
       } else {
         toast.error('Ürün silinirken hata oluştu');
@@ -921,22 +993,41 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                      activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
                      API_URLS.celikHasirNtel;
       
-      // Sadece aktif sekmenin kayıtlarını sil
+      const recipeApiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMmRecete :
+                          activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbkRecete :
+                          API_URLS.celikHasirNtelRecete;
+      
+      const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
+      
+      // İlk önce reçete kayıtlarını sil
+      toast.info(`${tabName} reçete kayıtları siliniyor...`);
+      try {
+        // Tüm reçete kayıtlarını sil (bulk delete)
+        const deleteRecipeResponse = await fetchWithAuth(recipeApiUrl, { method: 'DELETE' });
+        if (!deleteRecipeResponse.ok) {
+          console.warn(`Reçete silme uyarısı: ${deleteRecipeResponse.status}`);
+        }
+      } catch (recipeError) {
+        console.warn('Reçete silme uyarısı:', recipeError);
+        // Reçete silme hatası durumunda devam et
+      }
+      
+      // Sonra ana ürün kayıtlarını sil
+      toast.info(`${tabName} ürün kayıtları siliniyor...`);
       for (const product of savedProducts[activeDbTab]) {
         await fetchWithAuth(`${apiUrl}/${product.id}`, { method: 'DELETE' });
       }
       
-      const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
-      
       // Eğer CH (mm) siliyorsak, sequence tablosunu da temizle
       if (activeDbTab === 'mm' && savedProducts.mm.length > 0) {
+        toast.info('CH sequence kayıtları temizleniyor...');
         // OZL sequence'ı sıfırla
         await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
           method: 'DELETE' 
         }).catch(() => {}); // Hata olsa bile devam et
       }
       
-      toast.success(`Tüm ${tabName} kayıtları başarıyla silindi`);
+      toast.success(`Tüm ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
       setShowBulkDeleteModal(false);
       setBulkDeleteText('');
       fetchSavedProducts(); // Listeyi yenile
@@ -1023,7 +1114,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <h3 className="text-xl font-semibold mb-6">Çelik Hasır Netsis İşlemleri</h3>
+            <h3 className="text-xl font-semibold mb-4">Çelik Hasır Netsis İşlemleri</h3>
+            
+            {optimizedProducts.length > 0 && (
+              <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu
+              </div>
+            )}
             
             <div className="space-y-4">
               <button
@@ -1048,29 +1145,31 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                 )}
                 <div className="text-left">
                   <div className="font-medium">
-                    {isLoading ? 'Veritabanı işlemi devam ediyor...' : 'Listede kayıtlı olmayanları veritabanına ekle ve Netsis Exceli Oluştur'}
+                    {isLoading ? 'Veritabanı işlemi devam ediyor...' : 'Sadece Yeni Ürünleri Kaydet ve Excel Oluştur'}
                   </div>
                   <div className="text-sm opacity-90">
-                    {isLoading ? 'Lütfen bekleyiniz, işlem tamamlanıyor...' : 'Yeni ürünleri kaydet ve tüm Excel dosyalarını oluştur'}
+                    {isLoading ? 'Lütfen bekleyiniz, işlem tamamlanıyor...' : 'Veritabanında olmayan ürünleri ekler (Silinen ürünler dahil)'}
                   </div>
                 </div>
               </button>
               
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (optimizedProducts.length === 0) {
                     toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
                     return;
                   }
-                  generateExcelFiles(optimizedProducts);
+                  
+                  // Tüm listeden Excel oluştur (veritabanı kayıt yapmadan)
+                  await generateExcelFiles(optimizedProducts, true);
                 }}
                 disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
               >
                 <FileSpreadsheet className="w-5 h-5" />
                 <div className="text-left">
-                  <div className="font-medium">Listenin tümünün Excellerini oluştur</div>
-                  <div className="text-sm opacity-90">Sadece Excel dosyalarını oluştur (kayıt yapma)</div>
+                  <div className="font-medium">Mevcut Listenin Tümünün Excellerini Oluştur</div>
+                  <div className="text-sm opacity-90">Sadece Excel dosyalarını oluştur (veritabanı değişikliği yapmaz)</div>
                 </div>
               </button>
               
@@ -1085,10 +1184,22 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               >
                 <Database className="w-5 h-5" />
                 <div className="text-left">
-                  <div className="font-medium">Veritabanı</div>
-                  <div className="text-sm opacity-90">Kayıtlı ürünleri görüntüle ve yönet</div>
+                  <div className="font-medium">Veritabanı Yönetimi</div>
+                  <div className="text-sm opacity-90">Kayıtlı ürünleri görüntüle, sil ve yönet</div>
                 </div>
               </button>
+              
+              {/* Debugging Info */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="text-xs text-yellow-700">
+                  <strong>Not:</strong> Eğer bir ürünü silip tekrar eklemeye çalışıyorsanız:
+                  <ul className="mt-1 ml-4 list-disc">
+                    <li>"Sadece Yeni Ürünleri Kaydet" butonu silinen ürünü yeniden ekler</li>
+                    <li>"Mevcut Listenin Tümünün Excellerini Oluştur" tüm listeden Excel yapar</li>
+                    <li>Konsol'u (F12) açıp debug mesajlarını kontrol edebilirsiniz</li>
+                  </ul>
+                </div>
+              </div>
             </div>
             
             <div className="flex justify-end mt-6">
@@ -1098,6 +1209,44 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               >
                 İptal
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Veritabanı Kayıt Progress Modal */}
+      {isSavingToDatabase && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-green-600" />
+              <h3 className="text-lg font-semibold mb-2">Veritabanı İşlemi Devam Ediyor</h3>
+              <p className="text-gray-600 mb-4">{databaseProgress.operation}</p>
+              
+              {databaseProgress.currentProduct && (
+                <p className="text-sm text-gray-500 mb-4">
+                  <span className="font-medium">Mevcut Ürün:</span> {databaseProgress.currentProduct}
+                </p>
+              )}
+              
+              {databaseProgress.total > 0 && (
+                <>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(databaseProgress.current / databaseProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  
+                  <p className="text-sm text-gray-500">
+                    {databaseProgress.current} / {databaseProgress.total} ürün işlendi
+                  </p>
+                </>
+              )}
+              
+              <p className="text-xs text-gray-400 mt-4">
+                Lütfen bekleyiniz, işlem tamamlanıyor...
+              </p>
             </div>
           </div>
         </div>
@@ -1262,7 +1411,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               <button
                 onClick={async () => {
                   setShowDatabaseWarning(false);
-                  setIsLoading(true);
                   
                   try {
                     const newProducts = await saveToDatabase(optimizedProducts);
@@ -1272,8 +1420,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   } catch (error) {
                     console.error('Database save error:', error);
                     toast.error('Veritabanı kaydı sırasında hata oluştu');
-                  } finally {
-                    setIsLoading(false);
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
