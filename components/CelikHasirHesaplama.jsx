@@ -41,7 +41,7 @@ import CubukUretimCizelgesi from './CubukUretimCizelgesi';
 import CelikHasirNetsis from './CelikHasirNetsis';
 
 // Başlık metinlerinden sütunları bulma - İyileştirilmiş versiyon
-const findColumnsByHeaderText = (headers) => {
+const findColumnsByHeaderText = (headers, sheetData) => {
   const result = {
     hasirTipi: undefined,
     uzunlukBoy: undefined,
@@ -50,6 +50,33 @@ const findColumnsByHeaderText = (headers) => {
   };
   
   if (!headers || headers.length === 0) return result;
+  
+  // Multi-row header kontrolü - ilk 3 satırı kontrol et
+  const extendedHeaders = [];
+  const sampleData = sheetData && sheetData.length > 0 ? sheetData[0].data : [];
+  
+  for (let colIndex = 0; colIndex < (headers.length || 0); colIndex++) {
+    let combinedHeader = '';
+    
+    // İlk satır (headers)
+    if (headers[colIndex]) {
+      combinedHeader += String(headers[colIndex]).trim() + ' ';
+    }
+    
+    // İkinci ve üçüncü satırları da kontrol et
+    for (let rowIndex = 0; rowIndex < Math.min(3, sampleData.length); rowIndex++) {
+      const row = sampleData[rowIndex];
+      if (row && row[colIndex]) {
+        const cellValue = String(row[colIndex]).trim();
+        // Sadece metin içeren hücreleri header olarak kabul et (sayı değil)
+        if (cellValue && isNaN(parseFloat(cellValue))) {
+          combinedHeader += cellValue + ' ';
+        }
+      }
+    }
+    
+    extendedHeaders[colIndex] = combinedHeader.trim();
+  }
   
   // Genişletilmiş başlık kalıpları - tüm olası varyasyonlar için
   const headerPatterns = {
@@ -110,13 +137,66 @@ const findColumnsByHeaderText = (headers) => {
     hasirSayisi: {}
   };
   
-  // Her başlık için kategorilere göre skor hesapla
-  for (let i = 0; i < headers.length; i++) {
-    const headerText = normalizeHeader(headers[i]);
+  // Önce Hasır Tipi'ni tespit et - veri analizi ile
+  for (let i = 0; i < extendedHeaders.length; i++) {
+    const headerText = normalizeHeader(extendedHeaders[i]);
+    
+    // Bu sütunda Q/R/TR deseni var mı kontrol et
+    let hasQRTRPattern = false;
+    for (let rowIndex = 0; rowIndex < Math.min(10, sampleData.length); rowIndex++) {
+      const row = sampleData[rowIndex];
+      if (row && row[i]) {
+        const cellValue = String(row[i]).trim();
+        if (/^(Q|R|TR)\d+/i.test(cellValue)) {
+          hasQRTRPattern = true;
+          break;
+        }
+      }
+    }
+    
+    // Hem header'da uygun kelime hem de veride Q/R/TR deseni varsa en yüksek skor
+    if (hasQRTRPattern) {
+      let headerScore = 0;
+      for (const pattern of headerPatterns.hasirTipi) {
+        const normalizedPattern = normalizeHeader(pattern);
+        if (headerText.includes(normalizedPattern) || normalizedPattern.includes(headerText)) {
+          headerScore = Math.max(headerScore, 100);
+        }
+      }
+      
+      // Header uyumlu değilse de Q/R/TR deseni varsa kabul et
+      if (headerScore === 0) headerScore = 80;
+      
+      headerScores.hasirTipi[i] = headerScore;
+    }
+  }
+
+  // Her başlık için kategorilere göre skor hesapla (Hasır Tipi hariç)
+  for (let i = 0; i < extendedHeaders.length; i++) {
+    const headerText = normalizeHeader(extendedHeaders[i]);
     if (!headerText) continue;
     
-    // Her kategori için eşleşme skorunu hesapla
+    // Bu sütunda ondalık sayılar var mı kontrol et
+    let hasDecimals = false;
+    for (let rowIndex = 0; rowIndex < Math.min(10, sampleData.length); rowIndex++) {
+      const row = sampleData[rowIndex];
+      if (row && row[i]) {
+        const cellValue = String(row[i]).trim();
+        // Ondalık sayı kontrolü (. veya , içerenler)
+        if (/\d+[.,]\d+/.test(cellValue)) {
+          hasDecimals = true;
+          break;
+        }
+      }
+    }
+    
+    // Ondalık sayılar içeren sütunları atla
+    if (hasDecimals) continue;
+    
+    // Her kategori için eşleşme skorunu hesapla (hasirTipi hariç - zaten işlendi)
     for (const [category, patterns] of Object.entries(headerPatterns)) {
+      if (category === 'hasirTipi') continue; // Zaten işlendi
+      
       let bestScore = 0;
       
       // Tam eşleşme (en yüksek puan)
@@ -174,21 +254,26 @@ const findColumnsByHeaderText = (headers) => {
     }
   }
   
-  // Her kategori için en yüksek skorlu başlığı seç
-  for (const category of Object.keys(result)) {
+  // Her kategori için en yüksek skorlu başlığı seç (çakışma önleme ile)
+  const usedColumns = new Set();
+  const categories = ['hasirTipi', 'uzunlukBoy', 'uzunlukEn', 'hasirSayisi'];
+  
+  for (const category of categories) {
     let maxScore = 0;
     let bestIndex = undefined;
     
     for (const [index, score] of Object.entries(headerScores[category])) {
-      if (score > maxScore) {
+      const colIndex = parseInt(index);
+      // Daha önce kullanılmamış ve minimum skoru geçen sütunlar
+      if (score > maxScore && !usedColumns.has(colIndex) && score >= 40) {
         maxScore = score;
-        bestIndex = parseInt(index);
+        bestIndex = colIndex;
       }
     }
     
-    // Minimum skor eşiği (örneğin 40) - sadece belirli bir güvenle eşleşen başlıkları kullan
-    if (maxScore >= 40) {
+    if (bestIndex !== undefined) {
       result[category] = bestIndex;
+      usedColumns.add(bestIndex);
     }
   }
   
@@ -203,7 +288,7 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   
   // Auto-detect columns on mount
   const autoDetectColumns = () => {
-    const detected = findColumnsByHeaderText(headers);
+    const detected = findColumnsByHeaderText(headers, sheetData);
     
     // If hasirTipi not found in headers, use the pre-detected column
     if (detected.hasirTipi === undefined && sampleSheet?.hasirTipiCol !== undefined) {
@@ -224,9 +309,10 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   // Reset mapping when sheet data changes
   useEffect(() => {
     if (isOpen && sampleSheet) {
-      setMapping(autoDetectColumns());
+      const newMapping = autoDetectColumns();
+      setMapping(newMapping);
     }
-  }, [isOpen, sampleSheet]);
+  }, [isOpen, sampleSheet, headers]);
   
   const handleMappingChange = (field, columnIndex) => {
     setMapping({
@@ -340,7 +426,7 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
                   {headers.map((header, index) => (
                     <th key={index} className="py-2 px-3 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {header || `Sütun ${index + 1}`}
-                      {sampleSheet.hasirTipiCol === index && (
+                      {mapping.hasirTipi === index && (
                         <span className="ml-1 text-green-600">(Hasır Tipi)</span>
                       )}
                       {mapping.uzunlukBoy === index && (
