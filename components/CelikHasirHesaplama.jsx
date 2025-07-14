@@ -40,6 +40,160 @@ import CubukUretimCizelgesi from './CubukUretimCizelgesi';
 // Import the Çelik Hasır Netsis component
 import CelikHasirNetsis from './CelikHasirNetsis';
 
+// Başlık metinlerinden sütunları bulma - İyileştirilmiş versiyon
+const findColumnsByHeaderText = (headers) => {
+  const result = {
+    hasirTipi: undefined,
+    uzunlukBoy: undefined,
+    uzunlukEn: undefined,
+    hasirSayisi: undefined
+  };
+  
+  if (!headers || headers.length === 0) return result;
+  
+  // Genişletilmiş başlık kalıpları - tüm olası varyasyonlar için
+  const headerPatterns = {
+    hasirTipi: [
+      'HASIR TİP', 'HASIR TIP', 'HASIR CİNS', 'HASIR CINS', 'ÇELIK HASIR', 'CELIK HASIR', 
+      'TİP', 'TIP', 'CİNS', 'CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 'HASIR TÜRÜ', 
+      'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ', 'Q TIPI', 'R TIPI', 
+      'TR TIPI', 'KOD', 'TÜR', 'TUR', 'ÜRÜN'
+    ],
+    uzunlukBoy: [
+      'BOY', 'UZUNLUK BOY', 'BOY UZUNLUK', 'BOY UZUNLUĞU', 'BOY UZUNLUGU', 'HASIR BOYU', 
+      'HASIR BOY', 'UZUNLUK', 'BOY ÖLÇÜSÜ', 'BOY OLCUSU', 'BÜYÜK KENAR', 'BUYUK KENAR', 
+      'UZUN KENAR', 'B ÖLÇÜ', 'B OLCU', 'BOY CM', 'BOY(CM)', 'UZUNLUK(CM)', 'YÜKSEKLİK', 
+      'YUKSEKLIK', 'HASIR YÜKSEKLİĞİ', 'HASIR YUKSEKLIGI', 'HEIGHT', 'LENGTH', 'Y BOY', 
+      'BOYUT', 'ANA BOYUT', 'B.ÖLÇÜ', 'B.OLCU', 'BOY ÖLÇÜ', 'YÜKSEK', 'YUKSEK', 'UBOY',
+      'BYT', 'BOYUTLAR', 'BOY(MM)', 'BOY MM', 'Y', 'Y BOYUT'
+    ],
+    uzunlukEn: [
+      'EN', 'UZUNLUK EN', 'EN UZUNLUK', 'EN UZUNLUĞU', 'EN UZUNLUGU', 'HASIR ENİ', 
+      'HASIR ENI', 'HASIR EN', 'GENİŞLİK', 'GENISLIK', 'EN ÖLÇÜSÜ', 'EN OLCUSU', 
+      'KÜÇÜK KENAR', 'KUCUK KENAR', 'KISA KENAR', 'E ÖLÇÜ', 'E OLCU', 'EN CM', 
+      'EN(CM)', 'GENISLIK(CM)', 'HASIR GENİŞLİĞİ', 'HASIR GENISLIGI', 'WIDTH', 
+      'Y EN', 'X BOYUT', 'E.ÖLÇÜ', 'E.OLCU', 'EN ÖLÇÜ', 'DAR KENAR', 'GENİŞ', 
+      'GENIS', 'UEN', 'ENB', 'ENİ', 'EN(MM)', 'EN MM', 'X', 'X BOYUT'
+    ],
+    hasirSayisi: [
+      'HASIR SAYISI', 'HASIR SAYIS', 'ADET SAYISI', 'TOPLAM HASIR', 'SAYI', 
+      'MİKTAR', 'MIKTAR', 'ADET', 'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ ADEDİ', 
+      'SIPARIS ADEDI', 'SİPARİŞ', 'SIPARIS', 'TOPLAM ADET', 'HASIR ADEDİ', 'HASIR ADEDI', 
+      'HASIR ADETİ', 'HASIR ADETI', 'HASIR MİKTARI', 'HASIR MIKTARI', 'TOPLAM', 
+      'ADET TOPLAMI', 'PARÇA SAYISI', 'PARCA SAYISI', 'ÜRÜN ADEDİ', 'URUN ADEDI',
+      'SİPARİŞ MİKTARI', 'SIPARIS MIKTARI', 'İMALAT ADEDİ', 'IMALAT ADEDI', 'ADET NO', 
+      'TANE', 'QUANTITY', 'COUNT', 'PIECE', 'PIECES', 'NUMBER', 'AMOUNT', 'SİP ADET',
+      'SIP ADET', 'SİP.ADET', 'SIP.ADET', 'TOPLAM SAYI', 'ADT', 'ADET(S)', 'PCS', 'EA'
+    ]
+  };
+  
+  // Başlıkları normalize et (büyük harfe çevir, boşlukları temizle, Türkçe karakterleri standartlaştır)
+  const normalizeHeader = (text) => {
+    if (!text) return '';
+    return String(text)
+      .toUpperCase()
+      .trim()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Aksanları kaldır
+      .replace(/İ/g, 'I')
+      .replace(/Ğ/g, 'G')
+      .replace(/Ü/g, 'U')
+      .replace(/Ş/g, 'S')
+      .replace(/Ö/g, 'O')
+      .replace(/Ç/g, 'C');
+  };
+  
+  // Başlık eşleşme skorları
+  const headerScores = {
+    hasirTipi: {},
+    uzunlukBoy: {},
+    uzunlukEn: {},
+    hasirSayisi: {}
+  };
+  
+  // Her başlık için kategorilere göre skor hesapla
+  for (let i = 0; i < headers.length; i++) {
+    const headerText = normalizeHeader(headers[i]);
+    if (!headerText) continue;
+    
+    // Her kategori için eşleşme skorunu hesapla
+    for (const [category, patterns] of Object.entries(headerPatterns)) {
+      let bestScore = 0;
+      
+      // Tam eşleşme (en yüksek puan)
+      if (patterns.includes(headerText)) {
+        bestScore = 100;
+      } 
+      // Kısmi eşleşme (orta puan)
+      else {
+        for (const pattern of patterns) {
+          // Normalize edilmiş pattern
+          const normalizedPattern = normalizeHeader(pattern);
+          
+          // Tam kelime eşleşmesi (yüksek puan)
+          if (headerText === normalizedPattern) {
+            bestScore = Math.max(bestScore, 100);
+            break;
+          }
+          
+          // Kısa pattern bütünüyle içinde mi? (Örn: "BOY" başlığı "BOY UZUNLUK" içinde)
+          if (normalizedPattern.length <= 3 && headerText.includes(normalizedPattern)) {
+            // Önemli: Kısa kelimeler (BOY, EN) için sınır kontrolü yap
+            const wordBoundary = new RegExp(`\\b${normalizedPattern}\\b`);
+            if (wordBoundary.test(headerText)) {
+              bestScore = Math.max(bestScore, 90);
+            } else {
+              bestScore = Math.max(bestScore, 50);
+            }
+          }
+          // Başlık, kalıbı içeriyor mu? (orta puan)
+          else if (headerText.includes(normalizedPattern)) {
+            bestScore = Math.max(bestScore, 75);
+          }
+          
+          // Kalıp, başlığı içeriyor mu? (düşük-orta puan)
+          else if (normalizedPattern.includes(headerText) && headerText.length >= 2) {
+            bestScore = Math.max(bestScore, 60);
+          }
+          
+          // Karakter bazlı eşleşme yüzdesi (en düşük puan)
+          // Örnek: "UZUNLUK" ve "BOY UZUNLUK" - kısmi eşleşme
+          else if (headerText.length >= 2 && normalizedPattern.length >= 2) {
+            const matchCount = [...headerText].filter(char => normalizedPattern.includes(char)).length;
+            const matchPercent = matchCount / Math.max(headerText.length, normalizedPattern.length);
+            
+            if (matchPercent > 0.5) {
+              bestScore = Math.max(bestScore, Math.floor(matchPercent * 50));
+            }
+          }
+        }
+      }
+      
+      if (bestScore > 0) {
+        headerScores[category][i] = bestScore;
+      }
+    }
+  }
+  
+  // Her kategori için en yüksek skorlu başlığı seç
+  for (const category of Object.keys(result)) {
+    let maxScore = 0;
+    let bestIndex = undefined;
+    
+    for (const [index, score] of Object.entries(headerScores[category])) {
+      if (score > maxScore) {
+        maxScore = score;
+        bestIndex = parseInt(index);
+      }
+    }
+    
+    // Minimum skor eşiği (örneğin 40) - sadece belirli bir güvenle eşleşen başlıkları kullan
+    if (maxScore >= 40) {
+      result[category] = bestIndex;
+    }
+  }
+  
+  return result;
+};
 
 // Sütun eşleştirme modalı
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
@@ -274,25 +428,13 @@ const processExcelWithMapping = (sheets, mapping) => {
       const row = data[rowIndex];
       if (!row || row.length === 0) continue;
       
-      // Hasır Tipi'ni çıkar
+      // Hasır Tipi'ni sadece kullanıcının seçtiği sütundan çıkar
       let hasirTipi = '';
       if (hasirTipiCol !== -1 && hasirTipiCol < row.length) {
         hasirTipi = String(row[hasirTipiCol] || '').trim();
       }
       
-      // Sütunda bulunamazsa tüm hücrelerde ara
-      if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
-        for (const cell of row) {
-          if (!cell) continue;
-          const cellValue = String(cell).trim();
-          if (/^(Q|R|TR)\d+/i.test(cellValue)) {
-            hasirTipi = cellValue;
-            break;
-          }
-        }
-      }
-      
-      // Hasır Tipi bulunamazsa satırı atla
+      // Hasır Tipi geçersizse satırı atla (sadece kullanıcının seçtiği sütuna güven)
       if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
         continue;
       }
@@ -4136,163 +4278,6 @@ const parseExcelData = (data, fileName = '') => {
     console.error('Excel işleme hatası:', error);
     alert('Excel dosyası okuma hatası: ' + error.message);
   }
-};
-
-
-
-// Başlık metinlerinden sütunları bulma - İyileştirilmiş versiyon
-const findColumnsByHeaderText = (headers) => {
-  const result = {
-    hasirTipi: undefined,
-    uzunlukBoy: undefined,
-    uzunlukEn: undefined,
-    hasirSayisi: undefined
-  };
-  
-  if (!headers || headers.length === 0) return result;
-  
-  // Genişletilmiş başlık kalıpları - tüm olası varyasyonlar için
-  const headerPatterns = {
-    hasirTipi: [
-      'HASIR TİP', 'HASIR TIP', 'HASIR CİNS', 'HASIR CINS', 'ÇELIK HASIR', 'CELIK HASIR', 
-      'TİP', 'TIP', 'CİNS', 'CINS', 'HASIR', 'ÇELİK TİP', 'CELIK TIP', 'HASIR TÜRÜ', 
-      'HASIR TURU', 'HASIR KODU', 'Q TİPİ', 'R TİPİ', 'TR TİPİ', 'Q TIPI', 'R TIPI', 
-      'TR TIPI', 'KOD', 'TÜR', 'TUR', 'ÜRÜN'
-    ],
-    uzunlukBoy: [
-      'BOY', 'UZUNLUK BOY', 'BOY UZUNLUK', 'BOY UZUNLUĞU', 'BOY UZUNLUGU', 'HASIR BOYU', 
-      'HASIR BOY', 'UZUNLUK', 'BOY ÖLÇÜSÜ', 'BOY OLCUSU', 'BÜYÜK KENAR', 'BUYUK KENAR', 
-      'UZUN KENAR', 'B ÖLÇÜ', 'B OLCU', 'BOY CM', 'BOY(CM)', 'UZUNLUK(CM)', 'YÜKSEKLİK', 
-      'YUKSEKLIK', 'HASIR YÜKSEKLİĞİ', 'HASIR YUKSEKLIGI', 'HEIGHT', 'LENGTH', 'Y BOY', 
-      'BOYUT', 'ANA BOYUT', 'B.ÖLÇÜ', 'B.OLCU', 'BOY ÖLÇÜ', 'YÜKSEK', 'YUKSEK', 'UBOY',
-      'BYT', 'BOYUTLAR', 'BOY(MM)', 'BOY MM', 'Y', 'Y BOYUT'
-    ],
-    uzunlukEn: [
-      'EN', 'UZUNLUK EN', 'EN UZUNLUK', 'EN UZUNLUĞU', 'EN UZUNLUGU', 'HASIR ENİ', 
-      'HASIR ENI', 'HASIR EN', 'GENİŞLİK', 'GENISLIK', 'EN ÖLÇÜSÜ', 'EN OLCUSU', 
-      'KÜÇÜK KENAR', 'KUCUK KENAR', 'KISA KENAR', 'E ÖLÇÜ', 'E OLCU', 'EN CM', 
-      'EN(CM)', 'GENISLIK(CM)', 'HASIR GENİŞLİĞİ', 'HASIR GENISLIGI', 'WIDTH', 
-      'Y EN', 'X BOYUT', 'E.ÖLÇÜ', 'E.OLCU', 'EN ÖLÇÜ', 'DAR KENAR', 'GENİŞ', 
-      'GENIS', 'UEN', 'ENB', 'ENİ', 'EN(MM)', 'EN MM', 'X', 'X BOYUT'
-    ],
-    hasirSayisi: [
-      'HASIR SAYISI', 'HASIR SAYIS', 'ADET SAYISI', 'TOPLAM HASIR', 'SAYI', 
-      'MİKTAR', 'MIKTAR', 'ADET', 'ADET MİKTARI', 'ADET MIKTARI', 'SİPARİŞ ADEDİ', 
-      'SIPARIS ADEDI', 'SİPARİŞ', 'SIPARIS', 'TOPLAM ADET', 'HASIR ADEDİ', 'HASIR ADEDI', 
-      'HASIR ADETİ', 'HASIR ADETI', 'HASIR MİKTARI', 'HASIR MIKTARI', 'TOPLAM', 
-      'ADET TOPLAMI', 'PARÇA SAYISI', 'PARCA SAYISI', 'ÜRÜN ADEDİ', 'URUN ADEDI',
-      'SİPARİŞ MİKTARI', 'SIPARIS MIKTARI', 'İMALAT ADEDİ', 'IMALAT ADEDI', 'ADET NO', 
-      'TANE', 'QUANTITY', 'COUNT', 'PIECE', 'PIECES', 'NUMBER', 'AMOUNT', 'SİP ADET',
-      'SIP ADET', 'SİP.ADET', 'SIP.ADET', 'TOPLAM SAYI', 'ADT', 'ADET(S)', 'PCS', 'EA'
-    ]
-  };
-  
-  // Başlıkları normalize et (büyük harfe çevir, boşlukları temizle, Türkçe karakterleri standartlaştır)
-  const normalizeHeader = (text) => {
-    if (!text) return '';
-    return String(text)
-      .toUpperCase()
-      .trim()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Aksanları kaldır
-      .replace(/İ/g, 'I')
-      .replace(/Ğ/g, 'G')
-      .replace(/Ü/g, 'U')
-      .replace(/Ş/g, 'S')
-      .replace(/Ö/g, 'O')
-      .replace(/Ç/g, 'C');
-  };
-  
-  // Başlık eşleşme skorları
-  const headerScores = {
-    hasirTipi: {},
-    uzunlukBoy: {},
-    uzunlukEn: {},
-    hasirSayisi: {}
-  };
-  
-  // Her başlık için kategorilere göre skor hesapla
-  for (let i = 0; i < headers.length; i++) {
-    const headerText = normalizeHeader(headers[i]);
-    if (!headerText) continue;
-    
-    // Her kategori için eşleşme skorunu hesapla
-    for (const [category, patterns] of Object.entries(headerPatterns)) {
-      let bestScore = 0;
-      
-      // Tam eşleşme (en yüksek puan)
-      if (patterns.includes(headerText)) {
-        bestScore = 100;
-      } 
-      // Kısmi eşleşme (orta puan)
-      else {
-        for (const pattern of patterns) {
-          // Normalize edilmiş pattern
-          const normalizedPattern = normalizeHeader(pattern);
-          
-          // Tam kelime eşleşmesi (yüksek puan)
-          if (headerText === normalizedPattern) {
-            bestScore = Math.max(bestScore, 100);
-            break;
-          }
-          
-          // Kısa pattern bütünüyle içinde mi? (Örn: "BOY" başlığı "BOY UZUNLUK" içinde)
-          if (normalizedPattern.length <= 3 && headerText.includes(normalizedPattern)) {
-            // Önemli: Kısa kelimeler (BOY, EN) için sınır kontrolü yap
-            const wordBoundary = new RegExp(`\\b${normalizedPattern}\\b`);
-            if (wordBoundary.test(headerText)) {
-              bestScore = Math.max(bestScore, 90);
-            } else {
-              bestScore = Math.max(bestScore, 50);
-            }
-          }
-          // Başlık, kalıbı içeriyor mu? (orta puan)
-          else if (headerText.includes(normalizedPattern)) {
-            bestScore = Math.max(bestScore, 75);
-          }
-          
-          // Kalıp, başlığı içeriyor mu? (düşük-orta puan)
-          else if (normalizedPattern.includes(headerText) && headerText.length >= 2) {
-            bestScore = Math.max(bestScore, 60);
-          }
-          
-          // Karakter bazlı eşleşme yüzdesi (en düşük puan)
-          // Örnek: "UZUNLUK" ve "BOY UZUNLUK" - kısmi eşleşme
-          else if (headerText.length >= 2 && normalizedPattern.length >= 2) {
-            const matchCount = [...headerText].filter(char => normalizedPattern.includes(char)).length;
-            const matchPercent = matchCount / Math.max(headerText.length, normalizedPattern.length);
-            
-            if (matchPercent > 0.5) {
-              bestScore = Math.max(bestScore, Math.floor(matchPercent * 50));
-            }
-          }
-        }
-      }
-      
-      if (bestScore > 0) {
-        headerScores[category][i] = bestScore;
-      }
-    }
-  }
-  
-  // Her kategori için en yüksek skorlu başlığı seç
-  for (const category of Object.keys(result)) {
-    let maxScore = 0;
-    let bestIndex = undefined;
-    
-    for (const [index, score] of Object.entries(headerScores[category])) {
-      if (score > maxScore) {
-        maxScore = score;
-        bestIndex = parseInt(index);
-      }
-    }
-    
-    // Minimum skor eşiği (örneğin 40) - sadece belirli bir güvenle eşleşen başlıkları kullan
-    if (maxScore >= 40) {
-      result[category] = bestIndex;
-    }
-  }
-  
-  return result;
 };
 
 // Kolon verilerini daha kapsamlı analiz eden fonksiyon
