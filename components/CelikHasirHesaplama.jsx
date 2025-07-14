@@ -258,24 +258,30 @@ const processExcelWithMapping = (sheets, mapping) => {
         continue;
       }
       
-      // Eşleştirmeyi kullanarak diğer değerleri çıkar
+      // Eşleştirmeyi kullanarak diğer değerleri çıkar (boş olabilirler)
       let uzunlukBoy = '';
       let uzunlukEn = '';
       let hasirSayisi = '';
       
       if (boyCol !== -1 && boyCol < row.length) {
-        uzunlukBoy = String(row[boyCol] || '').trim();
-        uzunlukBoy = formatNumber(uzunlukBoy);
+        const value = String(row[boyCol] || '').trim();
+        if (value) {
+          uzunlukBoy = formatNumber(value);
+        }
       }
       
       if (enCol !== -1 && enCol < row.length) {
-        uzunlukEn = String(row[enCol] || '').trim();
-        uzunlukEn = formatNumber(uzunlukEn);
+        const value = String(row[enCol] || '').trim();
+        if (value) {
+          uzunlukEn = formatNumber(value);
+        }
       }
       
       if (hasirSayisiCol !== -1 && hasirSayisiCol < row.length) {
-        hasirSayisi = String(row[hasirSayisiCol] || '').trim();
-        hasirSayisi = formatNumber(hasirSayisi);
+        const value = String(row[hasirSayisiCol] || '').trim();
+        if (value) {
+          hasirSayisi = formatNumber(value);
+        }
       }
       
       // Hasır Sayısı bulunamazsa varsayılan 1 kullan
@@ -283,41 +289,8 @@ const processExcelWithMapping = (sheets, mapping) => {
         hasirSayisi = '1';
       }
       
-      // Boyutları doğrula (minimum 50cm kuralı)
-      const boyValue = parseFloat(uzunlukBoy);
-      const enValue = parseFloat(uzunlukEn);
-      
-      // Temel doğrulama
-      let boyFound = !isNaN(boyValue) && boyValue >= 50;
-      let enFound = !isNaN(enValue) && enValue >= 50;
-      
-      if (!boyFound && !enFound) {
-        // Diğer sütunlarda değer aramaya çalış
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-          // Zaten kontrol edilen sütunları atla
-          if (colIndex === hasirTipiCol || colIndex === boyCol || 
-              colIndex === enCol || colIndex === hasirSayisiCol) {
-            continue;
-          }
-          
-          const cellValue = parseFloat(formatNumber(String(row[colIndex] || '')));
-          
-          if (!isNaN(cellValue) && cellValue >= 50) {
-            if (!boyFound) {
-              uzunlukBoy = cellValue.toString();
-              boyFound = true;
-              break;
-            } else if (!enFound) {
-              uzunlukEn = cellValue.toString();
-              enFound = true;
-              break;
-            }
-          }
-        }
-      }
-      
-      // Geçerli satırı ekle
-      if (hasirTipi && (uzunlukBoy || uzunlukEn)) {
+      // Sadece Hasır Tipi geçerliyse satırı ekle (diğer değerler boş olabilir)
+      if (hasirTipi) {
         validRows.push({
           hasirTipi: standardizeHasirTipi(hasirTipi),
           uzunlukBoy: uzunlukBoy,
