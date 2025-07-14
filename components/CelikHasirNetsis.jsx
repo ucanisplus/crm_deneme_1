@@ -74,6 +74,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     try {
       setIsLoading(true);
       
+      console.log('Fetching saved products from database...');
+      
       // Paralel olarak tüm ürün tiplerini getir
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
         fetchWithAuth(API_URLS.celikHasirMm),
@@ -81,11 +83,22 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
 
-      setSavedProducts({
+      const newSavedProducts = {
         mm: mmResponse?.ok ? await mmResponse.json() : [],
         ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : [],
         ntel: ntelResponse?.ok ? await ntelResponse.json() : []
+      };
+      
+      console.log('Fetched products from database:', {
+        mm: newSavedProducts.mm.length,
+        ncbk: newSavedProducts.ncbk.length,
+        ntel: newSavedProducts.ntel.length,
+        mmCodes: newSavedProducts.mm.map(p => p.stok_kodu),
+        ncbkCodes: newSavedProducts.ncbk.map(p => p.stok_kodu),
+        ntelCodes: newSavedProducts.ntel.map(p => p.stok_kodu)
       });
+      
+      setSavedProducts(newSavedProducts);
     } catch (error) {
       console.error('Kayıtlı ürünler getirilemedi:', error);
       toast.error('Kayıtlı ürünler getirilemedi');
@@ -688,7 +701,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
       // Mevcut ürünleri getir ve karşılaştır
       setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut ürünler kontrol ediliyor...', currentProduct: '' });
+      
+      console.log('Refreshing database state before save...');
       await fetchSavedProducts();
+      console.log('Database state refreshed:', {
+        mm: savedProducts.mm.length,
+        ncbk: savedProducts.ncbk.length,
+        ntel: savedProducts.ntel.length
+      });
       
       // Mevcut stok kodlarını al (tüm ürün türleri için)
       const existingStokKodlari = new Set([
@@ -702,7 +722,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         mm: savedProducts.mm.length,
         ncbk: savedProducts.ncbk.length,
         ntel: savedProducts.ntel.length,
-        totalExisting: existingStokKodlari.size
+        totalExisting: existingStokKodlari.size,
+        existingCodes: Array.from(existingStokKodlari)
       });
       
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
@@ -1125,13 +1146,29 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             <div className="space-y-4">
               <button
                 onClick={() => {
+                  console.log('Save button clicked. Product check:', {
+                    totalProducts: optimizedProducts.length,
+                    hasUnoptimized: hasUnoptimizedProducts(),
+                    unoptimizedList: optimizedProducts.filter(p => !isProductOptimized(p)).map(p => ({ 
+                      hasirTipi: p.hasirTipi, 
+                      optimized: isProductOptimized(p),
+                      boyCap: p.boyCap,
+                      enCap: p.enCap,
+                      cubukSayisiBoy: p.cubukSayisiBoy,
+                      cubukSayisiEn: p.cubukSayisiEn
+                    }))
+                  });
+                  
                   if (optimizedProducts.length === 0) {
                     // Ürün yoksa direkt veritabanı ekranına git
+                    console.log('No products, opening database modal');
                     setShowModal(false);
                     setShowDatabaseModal(true);
                   } else if (hasUnoptimizedProducts()) {
+                    console.log('Unoptimized products found, showing warning');
                     setShowOptimizationWarning(true);
                   } else {
+                    console.log('All products optimized, showing database warning');
                     setShowDatabaseWarning(true);
                   }
                 }}
