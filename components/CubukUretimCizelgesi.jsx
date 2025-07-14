@@ -65,6 +65,22 @@ const SortableRow = ({ id, rod, index, onFlmChange }) => {
           </select>
         </div>
       </td>
+      <td className="border border-gray-300 p-2">
+        <div className="max-h-20 overflow-y-auto">
+          {rod.usedInProducts && rod.usedInProducts.length > 0 ? (
+            <ul className="text-xs space-y-1">
+              {rod.usedInProducts.map((product, idx) => (
+                <li key={idx} className="bg-gray-100 px-2 py-1 rounded text-gray-700">
+                  {product.hasirTipi} ({product.uzunlukBoy}×{product.uzunlukEn}cm)
+                  {product.hasirSayisi > 1 && ` x${product.hasirSayisi}`}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-gray-400 text-xs">-</span>
+          )}
+        </div>
+      </td>
     </tr>
   );
 };
@@ -89,20 +105,31 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
         // Skip empty or invalid rows
         if (!row.uzunlukBoy || !row.uzunlukEn || !row.boyCap || !row.enCap) return;
         
+        // Create product info for tracking
+        const productInfo = {
+          hasirTipi: row.hasirTipi || 'Bilinmeyen',
+          uzunlukBoy: row.uzunlukBoy,
+          uzunlukEn: row.uzunlukEn,
+          hasirSayisi: parseInt(row.hasirSayisi) || 1
+        };
+        
         // Process Boy rods
         if (row.cubukSayisiBoy > 0) {
           const key = `${row.boyCap}-${row.uzunlukBoy}`;
           if (rodMap.has(key)) {
-            rodMap.get(key).quantity += row.cubukSayisiBoy;
+            const existingRod = rodMap.get(key);
+            existingRod.quantity += row.cubukSayisiBoy * productInfo.hasirSayisi;
+            existingRod.usedInProducts.push(productInfo);
           } else {
             const suggestedFLM = flmMappings.getSuggestedFLM(row.boyCap);
             rodMap.set(key, {
               id: `boy-${key}`,
               diameter: row.boyCap,
               length: row.uzunlukBoy,
-              quantity: row.cubukSayisiBoy,
+              quantity: row.cubukSayisiBoy * productInfo.hasirSayisi,
               flmDiameter: suggestedFLM.diameter,
-              flmQuality: suggestedFLM.quality
+              flmQuality: suggestedFLM.quality,
+              usedInProducts: [productInfo]
             });
           }
         }
@@ -111,16 +138,19 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
         if (row.cubukSayisiEn > 0) {
           const key = `${row.enCap}-${row.uzunlukEn}`;
           if (rodMap.has(key)) {
-            rodMap.get(key).quantity += row.cubukSayisiEn;
+            const existingRod = rodMap.get(key);
+            existingRod.quantity += row.cubukSayisiEn * productInfo.hasirSayisi;
+            existingRod.usedInProducts.push(productInfo);
           } else {
             const suggestedFLM = flmMappings.getSuggestedFLM(row.enCap);
             rodMap.set(key, {
               id: `en-${key}`,
               diameter: row.enCap,
               length: row.uzunlukEn,
-              quantity: row.cubukSayisiEn,
+              quantity: row.cubukSayisiEn * productInfo.hasirSayisi,
               flmDiameter: suggestedFLM.diameter,
-              flmQuality: suggestedFLM.quality
+              flmQuality: suggestedFLM.quality,
+              usedInProducts: [productInfo]
             });
           }
         }
@@ -172,7 +202,10 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       'Uzunluk (cm)': rod.length,
       'Miktar': rod.quantity,
       'Filmaşin Çap (mm)': rod.flmDiameter,
-      'Filmaşin Kalite': rod.flmQuality
+      'Filmaşin Kalite': rod.flmQuality,
+      'Kullanılan Ürünler': rod.usedInProducts ? 
+        rod.usedInProducts.map(p => `${p.hasirTipi} (${p.uzunlukBoy}×${p.uzunlukEn}cm)${p.hasirSayisi > 1 ? ` x${p.hasirSayisi}` : ''}`).join('; ') 
+        : ''
     }));
     
     const ws = XLSX.utils.json_to_sheet(data, { origin: 'A2' });
@@ -183,7 +216,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
     XLSX.utils.sheet_add_aoa(ws, [[`ÇELİK HASIR ÇUBUK ÜRETİM ÇİZELGESİ - ${date}`]], { origin: 'A1' });
     
     // Merge cells for the title
-    ws['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 5, r: 0 } }];
+    ws['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
     
     // Adjust column widths
     const cols = [
@@ -192,7 +225,8 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       { wch: 15 }, // Uzunluk
       { wch: 15 }, // Miktar
       { wch: 20 }, // Filmaşin Çap
-      { wch: 20 }  // Filmaşin Kalite
+      { wch: 20 }, // Filmaşin Kalite
+      { wch: 40 }  // Kullanılan Ürünler
     ];
     ws['!cols'] = cols;
     
@@ -215,6 +249,8 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid black; padding: 8px; text-align: center; }
           th { background-color: #f0f0f0; font-weight: bold; }
+          .products-cell { text-align: left; font-size: 11px; max-width: 200px; }
+          .product-item { margin-bottom: 2px; padding: 2px; background-color: #f5f5f5; }
           @media print {
             button { display: none; }
           }
@@ -232,6 +268,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
               <th>Miktar</th>
               <th>Filmaşin Çap (mm)</th>
               <th>Filmaşin Kalite</th>
+              <th>Kullanılan Ürünler</th>
             </tr>
           </thead>
           <tbody>
@@ -243,6 +280,13 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
                 <td><strong>${rod.quantity}</strong></td>
                 <td>${rod.flmDiameter}</td>
                 <td>${rod.flmQuality}</td>
+                <td class="products-cell">
+                  ${rod.usedInProducts ? 
+                    rod.usedInProducts.map(p => 
+                      `<div class="product-item">${p.hasirTipi} (${p.uzunlukBoy}×${p.uzunlukEn}cm)${p.hasirSayisi > 1 ? ` x${p.hasirSayisi}` : ''}</div>`
+                    ).join('') 
+                    : '-'}
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -285,6 +329,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Uzunluk (cm)</th>
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Miktar</th>
                       <th className="border border-gray-300 p-2 text-sm font-semibold">Filmaşin (Çap / Kalite)</th>
+                      <th className="border border-gray-300 p-2 text-sm font-semibold">Kullanılan Ürünler</th>
                     </tr>
                   </thead>
                   <tbody>
