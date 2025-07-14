@@ -43,15 +43,36 @@ import CelikHasirNetsis from './CelikHasirNetsis';
 
 // Sütun eşleştirme modalı
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
-  const [mapping, setMapping] = useState({
-    uzunlukBoy: -1,
-    uzunlukEn: -1,
-    hasirSayisi: -1
-  });
-  
   const sampleSheet = sheetData.length > 0 ? sheetData[0] : null;
   const headers = sampleSheet?.headers || [];
   const sampleRows = sampleSheet?.data.slice(0, 7) || [];
+  
+  // Auto-detect columns on mount
+  const autoDetectColumns = () => {
+    const detected = findColumnsByHeaderText(headers);
+    
+    // If hasirTipi not found in headers, use the pre-detected column
+    if (detected.hasirTipi === undefined && sampleSheet?.hasirTipiCol !== undefined) {
+      detected.hasirTipi = sampleSheet.hasirTipiCol;
+    }
+    
+    // Convert undefined to -1 for undetected columns
+    return {
+      hasirTipi: detected.hasirTipi !== undefined ? detected.hasirTipi : -1,
+      uzunlukBoy: detected.uzunlukBoy !== undefined ? detected.uzunlukBoy : -1,
+      uzunlukEn: detected.uzunlukEn !== undefined ? detected.uzunlukEn : -1,
+      hasirSayisi: detected.hasirSayisi !== undefined ? detected.hasirSayisi : -1
+    };
+  };
+  
+  const [mapping, setMapping] = useState(() => autoDetectColumns());
+  
+  // Reset mapping when sheet data changes
+  useEffect(() => {
+    if (isOpen && sampleSheet) {
+      setMapping(autoDetectColumns());
+    }
+  }, [isOpen, sampleSheet]);
   
   const handleMappingChange = (field, columnIndex) => {
     setMapping({
@@ -61,7 +82,7 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   };
   
   const handleConfirm = () => {
-    if (mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1) {
+    if (mapping.hasirTipi === -1 || mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1) {
       alert('Lütfen tüm zorunlu sütunları seçin.');
       return;
     }
@@ -78,16 +99,34 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
         
         <div className="mb-6">
           <p className="text-sm text-gray-600 mb-2">
-            Hasır Tipi (Q/R/TR) sütunu otomatik olarak tespit edildi. Lütfen diğer sütunları seçin:
+            Sütunlar otomatik olarak tespit edilmeye çalışıldı. Lütfen kontrol edin ve gerekirse düzeltin:
           </p>
           
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Uzunluk Boy (cm)
+                Hasır Tipi (Q/R/TR) {mapping.hasirTipi !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
               </label>
               <select 
-                className="w-full border border-gray-300 rounded-md p-2"
+                className={`w-full border rounded-md p-2 ${mapping.hasirTipi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.hasirTipi}
+                onChange={(e) => handleMappingChange('hasirTipi', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Uzunluk Boy (cm) {mapping.uzunlukBoy !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.uzunlukBoy !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
                 value={mapping.uzunlukBoy}
                 onChange={(e) => handleMappingChange('uzunlukBoy', e.target.value)}
               >
@@ -102,10 +141,10 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Uzunluk En (cm)
+                Uzunluk En (cm) {mapping.uzunlukEn !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
               </label>
               <select 
-                className="w-full border border-gray-300 rounded-md p-2"
+                className={`w-full border rounded-md p-2 ${mapping.uzunlukEn !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
                 value={mapping.uzunlukEn}
                 onChange={(e) => handleMappingChange('uzunlukEn', e.target.value)}
               >
@@ -120,10 +159,10 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasır Sayısı
+                Hasır Sayısı {mapping.hasirSayisi !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
               </label>
               <select 
-                className="w-full border border-gray-300 rounded-md p-2"
+                className={`w-full border rounded-md p-2 ${mapping.hasirSayisi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
                 value={mapping.hasirSayisi}
                 onChange={(e) => handleMappingChange('hasirSayisi', e.target.value)}
               >
@@ -225,8 +264,8 @@ const processExcelWithMapping = (sheets, mapping) => {
   
   // Her sayfayı işle
   sheets.forEach(sheet => {
-    const { data, hasirTipiCol, sheetName } = sheet;
-    const { uzunlukBoy: boyCol, uzunlukEn: enCol, hasirSayisi: hasirSayisiCol } = mapping;
+    const { data, sheetName } = sheet;
+    const { hasirTipi: hasirTipiCol, uzunlukBoy: boyCol, uzunlukEn: enCol, hasirSayisi: hasirSayisiCol } = mapping;
     
     // Geçerli satırları çıkar
     const validRows = [];
