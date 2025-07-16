@@ -1215,7 +1215,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         </button>
         
         {optimizedProducts.length > 0 && (
-          <span className="text-xs text-gray-500">({optimizedProducts.length})</span>
+          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
+            {optimizedProducts.length} toplam • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş
+          </span>
         )}
       </div>
 
@@ -1262,7 +1264,52 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             <div className="space-y-4">
               <button
                 onClick={() => {
-                  const unoptimizedProducts = optimizedProducts.filter(p => !isProductOptimized(p));
+      {/* Veritabanı Uyarı Modal */}
+      {showDatabaseWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-8 h-8 text-yellow-500" />
+              <h3 className="text-lg font-semibold">Veritabanı Kaydı</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Ürünler veritabanına kaydedilecek ve Excel dosyaları oluşturulacak. Devam etmek istiyor musunuz?
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDatabaseWarning(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={async () => {
+                  setShowDatabaseWarning(false);
+                  
+                  try {
+                    const newProducts = await saveToDatabase(optimizedProducts);
+                    if (newProducts && newProducts.length > 0) {
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
+                      await generateExcelFiles(newProducts);
+                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                    } else {
+                      toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                    }
+                  } catch (error) {
+                    console.error('Database save error:', error);
+                    toast.error('Veritabanı kaydı sırasında hata oluştu');
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Evet, Devam Et
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
                   console.log('Save button clicked. Product check:', {
                     totalProducts: optimizedProducts.length,
                     hasUnoptimized: hasUnoptimizedProducts(),
