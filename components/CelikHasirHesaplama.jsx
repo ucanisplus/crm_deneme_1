@@ -2271,6 +2271,9 @@ const iyilestir = async (rowIndex) => {
       row.aciklama = newAciklama;
     }
     
+    // İyileştirme tamamlandı - bu satırı optimize edilmiş olarak işaretle
+    row.isOptimized = true;
+    
     // Satırları güncelle
     setRows(updatedRows);
     
@@ -2474,6 +2477,9 @@ const iyilestirAll = async () => {
       } else {
         row.aciklama = newAciklama;
       }
+      
+      // İyileştirme tamamlandı - bu satırı optimize edilmiş olarak işaretle
+      row.isOptimized = true;
     }
     
     // İşlemi tamamla
