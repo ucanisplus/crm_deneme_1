@@ -1170,45 +1170,34 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   return (
     <div className="p-4">
       {/* Çelik Hasır Netsis İşlemleri Container */}
-      <div className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Database className="w-5 h-5" />
+      <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-2 text-gray-700">
+          <Database className="w-4 h-4" />
           Çelik Hasır Netsis İşlemleri
+          {optimizedProducts.length > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+              {optimizedProducts.length} ürün
+            </span>
+          )}
         </h3>
         
-        {optimizedProducts.length > 0 && (
-          <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu
-          </div>
-        )}
-        
-        <div className="space-y-4">
+        <div className="flex gap-2">
           <button
             onClick={() => {
               if (optimizedProducts.length === 0) {
-                // Ürün yoksa direkt veritabanı ekranına git
                 setShowDatabaseModal(true);
               } else if (hasUnoptimizedProducts()) {
-                // Optimize edilmemiş ürünler varsa uyarı göster
                 setShowOptimizationWarning(true);
               } else {
-                // Hepsi optimize edilmişse database warning göster
                 setShowDatabaseWarning(true);
               }
             }}
             disabled={isLoading || isGeneratingExcel}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2"
+            title="Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur"
           >
-            <Database className="w-5 h-5" />
-            <div className="text-left">
-              <div className="font-medium">Listede Kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur</div>
-              <div className="text-sm text-green-100">
-                {optimizedProducts.length > 0 
-                  ? `${optimizedProducts.length} ürün mevcut` 
-                  : 'Veritabanından ürün seçimi yapılacak'
-                }
-              </div>
-            </div>
+            <Database className="w-4 h-4" />
+            Veritabanına Kaydet
           </button>
           
           <button
@@ -1217,36 +1206,25 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                 toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
                 return;
               }
-              
-              // Tüm listeden Excel oluştur (veritabanı kayıt yapmadan)
               await generateExcelFiles(optimizedProducts, true);
             }}
             disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2"
+            title="Mevcut listenin tümünün Excel dosyalarını oluştur"
           >
-            <FileSpreadsheet className="w-5 h-5" />
-            <div className="text-left">
-              <div className="font-medium">Mevcut Listenin Tümünün Excellerini Oluştur</div>
-              <div className="text-sm text-blue-100">
-                {optimizedProducts.length > 0 
-                  ? `${optimizedProducts.length} ürün için Excel dosyaları oluşturulacak` 
-                  : 'Ürün listesi boş'
-                }
-              </div>
-            </div>
+            <FileSpreadsheet className="w-4 h-4" />
+            Excel Oluştur
           </button>
           
           <button
             onClick={() => {
               setShowDatabaseModal(true);
             }}
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2"
+            title="Kayıtlı ürünleri görüntüle ve yönet"
           >
-            <Database className="w-5 h-5" />
-            <div className="text-left">
-              <div className="font-medium">Veritabanı İşlemleri</div>
-              <div className="text-sm text-gray-100">Kayıtlı ürünleri görüntüle ve yönet</div>
-            </div>
+            <Database className="w-4 h-4" />
+            Veritabanı İşlemleri
           </button>
         </div>
       </div>
