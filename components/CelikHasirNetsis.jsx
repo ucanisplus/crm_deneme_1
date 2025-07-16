@@ -1206,59 +1206,59 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   return (
     <div className="p-4">
       {/* Netsis İşlemleri */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs text-gray-600">Netsis:</span>
-        <button
-          onClick={() => {
-            if (optimizedProducts.length === 0) {
-              setShowDatabaseModal(true);
-            } else if (hasUnoptimizedProducts()) {
-              setShowOptimizationWarning(true);
-            } else {
-              setShowDatabaseWarning(true);
-            }
-          }}
-          disabled={isLoading || isGeneratingExcel}
-          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Veritabanına Kaydet: Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur. Önce yeni ürünleri kaydeder, sonra otomatik olarak Excel dosyalarını oluşturur."
-        >
-          Kaydet
-        </button>
-        
-        <button
-          onClick={async () => {
-            if (optimizedProducts.length === 0) {
-              toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
-              return;
-            }
-            await generateExcelFiles(optimizedProducts, true);
-          }}
-          disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Excel Oluştur: Mevcut listenin tümünün Excel dosyalarını oluştur. Sadece Excel dosyalarını indirir, veritabanına kaydetmez."
-        >
-          Excel
-        </button>
-        
-        <button
-          onClick={() => {
-            setShowDatabaseModal(true);
-          }}
-          className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Veritabanı İşlemleri: Kayıtlı ürünleri görüntüle, sil ve yönet. Mevcut veritabanındaki ürünleri gösterir ve tek tek silme işlemi yapabilirsiniz."
-        >
-          DB
-        </button>
-        
-        {optimizedProducts.length > 0 && (
-          <span 
-            className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded cursor-help"
-            title={`Toplam ${optimizedProducts.length} ürün var. ${optimizedProducts.filter(p => !isProductOptimized(p)).length} tanesi optimize edilmemiş. ${getProductsToSave().length} tanesi veritabanında yok ve kaydedilecek.`}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">Netsis:</span>
+          <button
+            onClick={() => {
+              if (optimizedProducts.length === 0) {
+                setShowDatabaseModal(true);
+              } else if (hasUnoptimizedProducts()) {
+                setShowOptimizationWarning(true);
+              } else {
+                setShowDatabaseWarning(true);
+              }
+            }}
+            disabled={isLoading || isGeneratingExcel}
+            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
           >
-            {optimizedProducts.length} toplam • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
-          </span>
-        )}
+            Kaydet
+          </button>
+          
+          <button
+            onClick={async () => {
+              if (optimizedProducts.length === 0) {
+                toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
+                return;
+              }
+              await generateExcelFiles(optimizedProducts, true);
+            }}
+            disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
+          >
+            Excel
+          </button>
+          
+          <button
+            onClick={() => {
+              setShowDatabaseModal(true);
+            }}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
+          >
+            DB
+          </button>
+        </div>
+        
+        <div className="text-xs text-gray-600">
+          Kaydet: Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur • Excel: Mevcut listenin excellerini oluştur • DB: Veritabanı yönetimi
+        </div>
       </div>
+      
+      {optimizedProducts.length > 0 && (
+        <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 mb-2">
+          <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
+        </div>
+      )}
 
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
