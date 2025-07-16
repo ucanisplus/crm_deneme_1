@@ -55,17 +55,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   // Sequence tracking
   const [sequences, setSequences] = useState({});
 
-  // İzin kontrolü - Çelik Hasır modülü için
-  if (!hasPermission('access:celik-hasir')) {
-    return (
-      <div className="p-4 text-center">
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-red-700">Bu modüle erişim izniniz bulunmamaktadır.</p>
-        </div>
-      </div>
-    );
-  }
-
   // Component yüklendiğinde verileri getir
   useEffect(() => {
     fetchSavedProducts();
@@ -1242,6 +1231,17 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     setShowDatabaseWarning(true);
   };
 
+  // İzin kontrolü - Çelik Hasır modülü için
+  if (!hasPermission('access:celik-hasir')) {
+    return (
+      <div className="p-4 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-700">Bu modüle erişim izniniz bulunmamaktadır.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4">
       {/* Netsis İşlemleri */}
@@ -1286,11 +1286,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           Veritabanı İşlemleri
         </button>
         
-        {optimizedProducts.length > 0 && (
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded ml-2">
-            {optimizedProducts.length} ürün • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
-          </span>
-        )}
       </div>
       
       <div className="text-xs text-gray-500 mb-2">
@@ -1333,7 +1328,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             
             {optimizedProducts.length > 0 && (
               <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu
+                <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
               </div>
             )}
             
