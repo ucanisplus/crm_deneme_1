@@ -127,8 +127,12 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
-    return product.cubukSayisiBoy && product.cubukSayisiEn && 
-           product.boyCap && product.enCap;
+    // Check if optimization has been run by checking if these fields exist
+    // Don't check for truthy values since 0 might be a valid value
+    return product.cubukSayisiBoy !== undefined && 
+           product.cubukSayisiEn !== undefined && 
+           product.boyCap !== undefined && 
+           product.enCap !== undefined;
   };
 
   // Optimize edilmemiş ürünleri kontrol et
@@ -1037,17 +1041,30 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       
       const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
       
-      // İlk önce reçete kayıtlarını sil
+      // İlk önce reçete kayıtlarını sil - her ürün için ayrı ayrı
       toast.info(`${tabName} reçete kayıtları siliniyor...`);
-      try {
-        // Tüm reçete kayıtlarını sil (bulk delete)
-        const deleteRecipeResponse = await fetchWithAuth(recipeApiUrl, { method: 'DELETE' });
-        if (!deleteRecipeResponse.ok) {
-          console.warn(`Reçete silme uyarısı: ${deleteRecipeResponse.status}`);
+      let recipeDeleteCount = 0;
+      
+      for (const product of savedProducts[activeDbTab]) {
+        if (product.stok_kodu) {
+          try {
+            // Her ürün için mamul_kodu parametresiyle reçete sil
+            const specificRecipeUrl = `${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`;
+            const deleteRecipeResponse = await fetchWithAuth(specificRecipeUrl, { method: 'DELETE' });
+            
+            if (deleteRecipeResponse.ok) {
+              recipeDeleteCount++;
+            } else if (deleteRecipeResponse.status !== 404) {
+              console.warn(`Reçete silme uyarısı (${product.stok_kodu}): ${deleteRecipeResponse.status}`);
+            }
+          } catch (recipeError) {
+            console.warn(`Reçete silme hatası (${product.stok_kodu}):`, recipeError);
+          }
         }
-      } catch (recipeError) {
-        console.warn('Reçete silme uyarısı:', recipeError);
-        // Reçete silme hatası durumunda devam et
+      }
+      
+      if (recipeDeleteCount > 0) {
+        toast.info(`${recipeDeleteCount} reçete kaydı silindi`);
       }
       
       // Sonra ana ürün kayıtlarını sil
@@ -1318,9 +1335,22 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                 </>
               )}
               
-              <p className="text-xs text-gray-400 mt-4">
+              <p className="text-xs text-gray-400 mt-4 mb-4">
                 Lütfen bekleyiniz, işlem tamamlanıyor...
               </p>
+              
+              <button
+                onClick={() => {
+                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?')) {
+                    setIsSavingToDatabase(false);
+                    setIsLoading(false);
+                    toast.warning('İşlem kullanıcı tarafından iptal edildi');
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+              >
+                İptal
+              </button>
             </div>
           </div>
         </div>
