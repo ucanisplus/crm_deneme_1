@@ -127,12 +127,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
-    // Check if optimization has been run by checking if these fields exist
-    // Don't check for truthy values since 0 might be a valid value
-    return product.cubukSayisiBoy !== undefined && 
-           product.cubukSayisiEn !== undefined && 
-           product.boyCap !== undefined && 
-           product.enCap !== undefined;
+    // Check if optimization has been run by checking if the product has the isOptimized flag
+    // This flag should be set by the iyilestir functions
+    return product.isOptimized === true;
   };
 
   // Optimize edilmemiş ürünleri kontrol et
@@ -988,14 +985,30 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       if (product && product.stok_kodu) {
         try {
           let recipeApiUrl = '';
-          if (productType === 'mm') recipeApiUrl = `${API_URLS.celikHasirMmRecete}?mamul_kodu=${product.stok_kodu}`;
-          else if (productType === 'ncbk') recipeApiUrl = `${API_URLS.celikHasirNcbkRecete}?mamul_kodu=${product.stok_kodu}`;
-          else if (productType === 'ntel') recipeApiUrl = `${API_URLS.celikHasirNtelRecete}?mamul_kodu=${product.stok_kodu}`;
+          if (productType === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
+          else if (productType === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
+          else if (productType === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
           
           if (recipeApiUrl) {
-            const recipeResponse = await fetchWithAuth(recipeApiUrl, { method: 'DELETE' });
-            if (!recipeResponse.ok) {
-              console.warn(`Reçete silme uyarısı: ${recipeResponse.status}`);
+            // Önce bu mamul_kodu ile reçete kayıtlarını getir
+            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`);
+            
+            if (getRecipeResponse.ok) {
+              const recipes = await getRecipeResponse.json();
+              
+              // Her reçete kaydını ID ile sil
+              for (const recipe of recipes) {
+                if (recipe.id) {
+                  try {
+                    const deleteRecipeResponse = await fetchWithAuth(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' });
+                    if (!deleteRecipeResponse.ok) {
+                      console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
+                    }
+                  } catch (deleteError) {
+                    console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+                  }
+                }
+              }
             }
           }
         } catch (recipeError) {
