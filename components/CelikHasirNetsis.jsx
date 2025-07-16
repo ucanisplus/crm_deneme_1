@@ -995,9 +995,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             
             if (getRecipeResponse.ok) {
               const recipes = await getRecipeResponse.json();
+              console.log(`Found ${recipes.length} recipes for mamul_kodu: ${product.stok_kodu}`);
+              
+              // Sadece bu mamul_kodu'na ait reçeteleri filtrele ve sil
+              const recipesToDelete = recipes.filter(r => r.mamul_kodu === product.stok_kodu);
+              console.log(`Filtered to ${recipesToDelete.length} recipes to delete`);
               
               // Her reçete kaydını ID ile sil
-              for (const recipe of recipes) {
+              for (const recipe of recipesToDelete) {
                 if (recipe.id) {
                   try {
                     const deleteRecipeResponse = await fetchWithAuth(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' });
