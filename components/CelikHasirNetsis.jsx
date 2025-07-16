@@ -136,7 +136,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     const newProducts = [];
     
     for (const product of optimizedProducts) {
-      // CH product exists check
+      // Only check if the main CH product exists - don't check related products
       const chExists = savedProducts.mm.some(p => 
         p.hasir_tipi === product.hasirTipi &&
         p.ebat_boy === parseFloat(product.uzunlukBoy) &&
@@ -145,19 +145,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         p.cap2 === parseFloat(product.enCap)
       );
       
-      const ncbkExists500 = savedProducts.ncbk.some(p => 
-        p.cap === parseFloat(product.boyCap) && p.length_cm === 500
-      );
-      
-      const ncbkExists215 = savedProducts.ncbk.some(p => 
-        p.cap === parseFloat(product.enCap) && p.length_cm === 215
-      );
-      
-      const ntelExists = savedProducts.ntel.some(p => 
-        p.cap === parseFloat(product.boyCap)
-      );
-      
-      if (!chExists || !ncbkExists500 || !ncbkExists215 || !ntelExists) {
+      // Only add if CH product doesn't exist
+      if (!chExists) {
         newProducts.push(product);
       }
     }
@@ -728,8 +717,8 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         return;
       }
       
-      // Tüm ürünleri kaydet (optimize edilmemiş olanlar dahil)
-      const productsToSave = products;
+      // Sadece kaydedilmesi gereken ürünleri kaydet
+      const productsToSave = getProductsToSave();
       
       if (productsToSave.length === 0) {
         toast.warning('Kaydedilecek ürün bulunamadı.');
@@ -1324,9 +1313,44 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         </div>
       )}
 
+      {/* Database Uyarı Modal */}
+      {showDatabaseWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <Database className="w-6 h-6 text-green-500" />
+              <h3 className="text-lg font-semibold">Veritabanı Kayıt Onayı</h3>
+            </div>
+            <p className="text-gray-600 mb-4">
+              {getProductsToSave().length} adet yeni ürün veritabanına kaydedilecek ve Excel dosyaları oluşturulacak. Bu işlem birkaç dakika sürebilir.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDatabaseWarning(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={async () => {
+                  setShowDatabaseWarning(false);
+                  const savedProducts = await saveToDatabase(optimizedProducts);
+                  if (savedProducts && savedProducts.length > 0) {
+                    await generateExcelFiles(savedProducts, false);
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Kaydet ve Excel Oluştur
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Veritabanı Kayıt Progress Modal */}
             
-            {optimizedProducts.length > 0 && (
+            {optimizedProducts && optimizedProducts.length > 0 && (
               <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
               </div>
