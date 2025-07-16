@@ -703,28 +703,37 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut ürünler kontrol ediliyor...', currentProduct: '' });
       
       console.log('Refreshing database state before save...');
-      await fetchSavedProducts();
-      console.log('Database state refreshed:', {
-        mm: savedProducts.mm.length,
-        ncbk: savedProducts.ncbk.length,
-        ntel: savedProducts.ntel.length
+      
+      // Force fresh database fetch
+      const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
+        fetchWithAuth(API_URLS.celikHasirMm),
+        fetchWithAuth(API_URLS.celikHasirNcbk),
+        fetchWithAuth(API_URLS.celikHasirNtel)
+      ]);
+
+      const freshSavedProducts = {
+        mm: mmResponse?.ok ? await mmResponse.json() : [],
+        ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : [],
+        ntel: ntelResponse?.ok ? await ntelResponse.json() : []
+      };
+      
+      console.log('Fresh database state:', {
+        mm: freshSavedProducts.mm.length,
+        ncbk: freshSavedProducts.ncbk.length,
+        ntel: freshSavedProducts.ntel.length,
+        mmCodes: freshSavedProducts.mm.map(p => p.stok_kodu)
       });
       
-      // Mevcut stok kodlarını al (tüm ürün türleri için)
+      setSavedProducts(freshSavedProducts);
+      
+      // Use fresh data for duplicate checking
       const existingStokKodlari = new Set([
-        ...savedProducts.mm.map(p => p.stok_kodu),
-        ...savedProducts.ncbk.map(p => p.stok_kodu),
-        ...savedProducts.ntel.map(p => p.stok_kodu)
+        ...freshSavedProducts.mm.map(p => p.stok_kodu),
+        ...freshSavedProducts.ncbk.map(p => p.stok_kodu),
+        ...freshSavedProducts.ntel.map(p => p.stok_kodu)
       ]);
       
-      // Debug: Mevcut veritabanı durumu
-      console.log('Veritabanında bulunan ürünler:', {
-        mm: savedProducts.mm.length,
-        ncbk: savedProducts.ncbk.length,
-        ntel: savedProducts.ntel.length,
-        totalExisting: existingStokKodlari.size,
-        existingCodes: Array.from(existingStokKodlari)
-      });
+      console.log('Fresh existing stock codes:', Array.from(existingStokKodlari));
       
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
@@ -993,7 +1002,15 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       
       if (response?.ok) {
         toast.success('Ürün ve reçeteleri başarıyla silindi');
-        fetchSavedProducts();
+        
+        // State'i hemen güncelle - fetch bekleme
+        setSavedProducts(prev => ({
+          ...prev,
+          [productType]: prev[productType].filter(p => p.id !== productId)
+        }));
+        
+        // Sonra fetch ile doğrula
+        await fetchSavedProducts();
       } else {
         toast.error('Ürün silinirken hata oluştu');
       }
@@ -1051,7 +1068,15 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       toast.success(`Tüm ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
       setShowBulkDeleteModal(false);
       setBulkDeleteText('');
-      fetchSavedProducts(); // Listeyi yenile
+      
+      // State'i hemen güncelle - fetch bekleme
+      setSavedProducts(prev => ({
+        ...prev,
+        [activeDbTab]: []
+      }));
+      
+      // Sonra fetch ile doğrula
+      await fetchSavedProducts();
       
     } catch (error) {
       console.error('Toplu silme hatası:', error);
@@ -1146,16 +1171,28 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             <div className="space-y-4">
               <button
                 onClick={() => {
+                  const unoptimizedProducts = optimizedProducts.filter(p => !isProductOptimized(p));
                   console.log('Save button clicked. Product check:', {
                     totalProducts: optimizedProducts.length,
                     hasUnoptimized: hasUnoptimizedProducts(),
-                    unoptimizedList: optimizedProducts.filter(p => !isProductOptimized(p)).map(p => ({ 
+                    unoptimizedCount: unoptimizedProducts.length,
+                    unoptimizedList: unoptimizedProducts.map(p => ({ 
                       hasirTipi: p.hasirTipi, 
                       optimized: isProductOptimized(p),
                       boyCap: p.boyCap,
                       enCap: p.enCap,
                       cubukSayisiBoy: p.cubukSayisiBoy,
-                      cubukSayisiEn: p.cubukSayisiEn
+                      cubukSayisiEn: p.cubukSayisiEn,
+                      missingFields: [
+                        !p.boyCap && 'boyCap',
+                        !p.enCap && 'enCap', 
+                        !p.cubukSayisiBoy && 'cubukSayisiBoy',
+                        !p.cubukSayisiEn && 'cubukSayisiEn'
+                      ].filter(Boolean)
+                    })),
+                    allProductsDebug: optimizedProducts.map(p => ({
+                      hasirTipi: p.hasirTipi,
+                      isOptimized: isProductOptimized(p)
                     }))
                   });
                   
