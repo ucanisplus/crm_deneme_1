@@ -748,27 +748,48 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       const skippedProducts = [];
       
       for (const product of productsToSave) {
-        const chStokKodu = generateStokKodu(product, 'CH');
-        const ncbkStokKodu500 = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`;
-        const ncbkStokKodu215 = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`;
-        const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`;
+        // Instead of checking by stok_kodu, check by product characteristics
+        // CH products should be identified by their physical properties, not generated codes
+        const productKey = `${product.hasirTipi}_${product.uzunlukBoy}_${product.uzunlukEn}_${product.boyCap}_${product.enCap}`;
         
-        // Eğer herhangi bir stok kodu zaten varsa, bu ürünü atla
-        if (existingStokKodlari.has(chStokKodu) || 
-            existingStokKodlari.has(ncbkStokKodu500) || 
-            existingStokKodlari.has(ncbkStokKodu215) || 
-            existingStokKodlari.has(ntelStokKodu)) {
+        // Check if a product with the same characteristics already exists
+        const chExists = freshSavedProducts.mm.some(p => 
+          p.hasir_tipi === product.hasirTipi &&
+          p.ebat_boy === parseFloat(product.uzunlukBoy) &&
+          p.ebat_en === parseFloat(product.uzunlukEn) &&
+          p.cap === parseFloat(product.boyCap) &&
+          p.cap2 === parseFloat(product.enCap)
+        );
+        
+        const ncbkExists500 = freshSavedProducts.ncbk.some(p => 
+          p.cap === parseFloat(product.boyCap) && p.length_cm === 500
+        );
+        
+        const ncbkExists215 = freshSavedProducts.ncbk.some(p => 
+          p.cap === parseFloat(product.enCap) && p.length_cm === 215
+        );
+        
+        const ntelExists = freshSavedProducts.ntel.some(p => 
+          p.cap === parseFloat(product.boyCap)
+        );
+        
+        if (chExists && ncbkExists500 && ncbkExists215 && ntelExists) {
           console.log(`Ürün atlandı - zaten var: ${product.hasirTipi}`, {
-            chStokKodu,
-            existsInDb: existingStokKodlari.has(chStokKodu)
+            productKey,
+            chExists,
+            ncbkExists500,
+            ncbkExists215,
+            ntelExists
           });
           skippedProducts.push(product);
         } else {
           console.log(`Yeni ürün eklenecek: ${product.hasirTipi}`, {
-            chStokKodu,
-            ncbkStokKodu500,
-            ncbkStokKodu215,
-            ntelStokKodu
+            productKey,
+            chExists,
+            ncbkExists500,
+            ncbkExists215,
+            ntelExists,
+            reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
           });
           newProducts.push(product);
         }
@@ -923,10 +944,11 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           continue; // Bu ürünü atla, diğerlerine devam et
         }
 
-        // Recipe kayıtları oluştur (her durumda - yeni veya mevcut ürünler için)
+        // Recipe kayıtları oluştur (sadece yeni ürünler için)
         if (chResult && Object.keys(ncbkResults).length > 0) {
           try {
             await saveRecipeData(product, chResult, ncbkResults, ntelResult);
+            console.log(`Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             
             // Sequence güncelle (sadece yeni ürünler için)
             if (chResponse && chResponse.status !== 409) {
@@ -966,7 +988,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     } finally {
       setIsLoading(false);
       setIsSavingToDatabase(false);
-      setShowModal(false);
     }
   };
 
@@ -1262,11 +1283,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         </div>
       )}
 
-      {/* Ana İşlemler Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <h3 className="text-xl font-semibold mb-4">Çelik Hasır Netsis İşlemleri</h3>
+      {/* Veritabanı Kayıt Progress Modal */}
             
             {optimizedProducts.length > 0 && (
               <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -1305,8 +1322,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   if (optimizedProducts.length === 0) {
                     // Ürün yoksa direkt veritabanı ekranına git
                     console.log('No products, opening database modal');
-                    setShowModal(false);
-                    setShowDatabaseModal(true);
+                                  setShowDatabaseModal(true);
                   } else if (hasUnoptimizedProducts()) {
                     console.log('Unoptimized products found, showing warning');
                     setShowOptimizationWarning(true);
@@ -1355,7 +1371,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               
               <button
                 onClick={() => { 
-                  setShowModal(false); 
+                  ; 
                   setShowDatabaseModal(true);
                   fetchSavedProducts(); // Auto-refresh when opening
                 }}
@@ -1384,7 +1400,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             
             <div className="flex justify-end mt-6">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => }
                 className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 İptal
@@ -1608,7 +1624,11 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   try {
                     const newProducts = await saveToDatabase(optimizedProducts);
                     if (newProducts && newProducts.length > 0) {
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
                       await generateExcelFiles(newProducts);
+                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                    } else {
+                      toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                     }
                   } catch (error) {
                     console.error('Database save error:', error);
