@@ -33,6 +33,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingProduct, setViewingProduct] = useState(null);
   
+  // Bulk delete progress tracking
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentItem: '' });
+  
   // Database verileri
   const [savedProducts, setSavedProducts] = useState({
     mm: [],
@@ -1112,6 +1116,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   const bulkDeleteAll = async () => {
     try {
       setIsLoading(true);
+      setIsBulkDeleting(true);
+      setShowBulkDeleteModal(false);
+      setBulkDeleteText('');
       
       const apiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMm :
                      activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
@@ -1122,12 +1129,28 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                           API_URLS.celikHasirNtelRecete;
       
       const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
+      const totalProducts = savedProducts[activeDbTab].length;
+      
+      setBulkDeleteProgress({ 
+        current: 0, 
+        total: totalProducts, 
+        operation: 'Reçete kayıtları siliniyor...', 
+        currentItem: '' 
+      });
       
       // İlk önce reçete kayıtlarını sil - her ürün için ayrı ayrı
-      toast.info(`${tabName} reçete kayıtları siliniyor...`);
       let recipeDeleteCount = 0;
+      let processedCount = 0;
       
       for (const product of savedProducts[activeDbTab]) {
+        processedCount++;
+        setBulkDeleteProgress({ 
+          current: processedCount, 
+          total: totalProducts, 
+          operation: 'Reçete kayıtları siliniyor...', 
+          currentItem: product.stok_kodu || `Ürün ${processedCount}` 
+        });
+        
         if (product.stok_kodu) {
           try {
             // Önce bu mamul_kodu ile reçete kayıtlarını getir
@@ -1156,28 +1179,43 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         }
       }
       
-      if (recipeDeleteCount > 0) {
-        toast.info(`${recipeDeleteCount} reçete kaydı silindi`);
-      }
-      
       // Sonra ana ürün kayıtlarını sil
-      toast.info(`${tabName} ürün kayıtları siliniyor...`);
+      processedCount = 0;
       for (const product of savedProducts[activeDbTab]) {
+        processedCount++;
+        setBulkDeleteProgress({ 
+          current: processedCount, 
+          total: totalProducts, 
+          operation: 'Ürün kayıtları siliniyor...', 
+          currentItem: product.stok_kodu || `Ürün ${processedCount}` 
+        });
+        
         await fetchWithAuth(`${apiUrl}/${product.id}`, { method: 'DELETE' });
       }
       
       // Eğer CH (mm) siliyorsak, sequence tablosunu da temizle
       if (activeDbTab === 'mm' && savedProducts.mm.length > 0) {
-        toast.info('CH sequence kayıtları temizleniyor...');
+        setBulkDeleteProgress({ 
+          current: totalProducts, 
+          total: totalProducts, 
+          operation: 'Sequence kayıtları temizleniyor...', 
+          currentItem: 'CH Sequence' 
+        });
+        
         // OZL sequence'ı sıfırla
         await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
           method: 'DELETE' 
         }).catch(() => {}); // Hata olsa bile devam et
       }
       
+      setBulkDeleteProgress({ 
+        current: totalProducts, 
+        total: totalProducts, 
+        operation: 'Tamamlandı!', 
+        currentItem: `${totalProducts} ürün silindi` 
+      });
+      
       toast.success(`Tüm ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
-      setShowBulkDeleteModal(false);
-      setBulkDeleteText('');
       
       // State'i hemen güncelle - fetch bekleme
       setSavedProducts(prev => ({
@@ -1193,6 +1231,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       toast.error('Toplu silme sırasında hata oluştu');
     } finally {
       setIsLoading(false);
+      setIsBulkDeleting(false);
     }
   };
 
@@ -1206,59 +1245,57 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   return (
     <div className="p-4">
       {/* Netsis İşlemleri */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600">Netsis:</span>
-          <button
-            onClick={() => {
-              if (optimizedProducts.length === 0) {
-                setShowDatabaseModal(true);
-              } else if (hasUnoptimizedProducts()) {
-                setShowOptimizationWarning(true);
-              } else {
-                setShowDatabaseWarning(true);
-              }
-            }}
-            disabled={isLoading || isGeneratingExcel}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          >
-            Kaydet
-          </button>
-          
-          <button
-            onClick={async () => {
-              if (optimizedProducts.length === 0) {
-                toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
-                return;
-              }
-              await generateExcelFiles(optimizedProducts, true);
-            }}
-            disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          >
-            Excel
-          </button>
-          
-          <button
-            onClick={() => {
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs text-gray-600">Netsis:</span>
+        <button
+          onClick={() => {
+            if (optimizedProducts.length === 0) {
               setShowDatabaseModal(true);
-            }}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
-          >
-            DB
-          </button>
-        </div>
+            } else if (hasUnoptimizedProducts()) {
+              setShowOptimizationWarning(true);
+            } else {
+              setShowDatabaseWarning(true);
+            }
+          }}
+          disabled={isLoading || isGeneratingExcel}
+          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
+        >
+          Kaydet ve Excel Oluştur
+        </button>
         
-        <div className="text-xs text-gray-600">
-          Kaydet: Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur • Excel: Mevcut listenin excellerini oluştur • DB: Veritabanı yönetimi
-        </div>
+        <button
+          onClick={async () => {
+            if (optimizedProducts.length === 0) {
+              toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
+              return;
+            }
+            await generateExcelFiles(optimizedProducts, true);
+          }}
+          disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
+        >
+          Sadece Excel Oluştur
+        </button>
+        
+        <button
+          onClick={() => {
+            setShowDatabaseModal(true);
+          }}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
+        >
+          Veritabanı İşlemleri
+        </button>
+        
+        {optimizedProducts.length > 0 && (
+          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded ml-2">
+            {optimizedProducts.length} ürün • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
+          </span>
+        )}
       </div>
       
-      {optimizedProducts.length > 0 && (
-        <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 mb-2">
-          <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
-        </div>
-      )}
+      <div className="text-xs text-gray-500 mb-2">
+        * Kaydet: Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur • Excel: Mevcut listenin excellerini oluştur • DB: Veritabanı yönetimi
+      </div>
 
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
@@ -1522,6 +1559,47 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               <p className="text-sm text-gray-500">
                 {excelProgress.current} / {excelProgress.total} dosya
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Progress Modal */}
+      {isBulkDeleting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-red-600" />
+              <h3 className="text-lg font-semibold mb-2">Toplu Silme İşlemi</h3>
+              <p className="text-gray-600 mb-4">{bulkDeleteProgress.operation}</p>
+              
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                <div 
+                  className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(bulkDeleteProgress.current / bulkDeleteProgress.total) * 100}%` }}
+                />
+              </div>
+              
+              <p className="text-sm text-gray-500 mb-4">
+                {bulkDeleteProgress.current} / {bulkDeleteProgress.total} ürün silindi
+              </p>
+              
+              {bulkDeleteProgress.currentItem && (
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                  <p className="text-sm font-medium text-gray-800">İşlenen Ürün:</p>
+                  <p className="text-sm text-gray-600">{bulkDeleteProgress.currentItem}</p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  setIsBulkDeleting(false);
+                  setBulkDeleteProgress({ current: 0, total: 0, operation: '', currentItem: '' });
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+              >
+                İptal Et
+              </button>
             </div>
           </div>
         </div>
