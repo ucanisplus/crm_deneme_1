@@ -695,6 +695,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       setIsSavingToDatabase(true);
       setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
       
+      // Önce optimize edilmemiş ürünleri kontrol et
+      if (products.length > 0 && hasUnoptimizedProducts()) {
+        setIsSavingToDatabase(false);
+        setIsLoading(false);
+        setShowOptimizationWarning(true);
+        return;
+      }
+      
       // Tüm ürünleri kaydet (optimize edilmemiş olanlar dahil)
       const productsToSave = products;
       
@@ -1048,17 +1056,28 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       for (const product of savedProducts[activeDbTab]) {
         if (product.stok_kodu) {
           try {
-            // Her ürün için mamul_kodu parametresiyle reçete sil
-            const specificRecipeUrl = `${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`;
-            const deleteRecipeResponse = await fetchWithAuth(specificRecipeUrl, { method: 'DELETE' });
+            // Önce bu mamul_kodu ile reçete kayıtlarını getir
+            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`);
             
-            if (deleteRecipeResponse.ok) {
-              recipeDeleteCount++;
-            } else if (deleteRecipeResponse.status !== 404) {
-              console.warn(`Reçete silme uyarısı (${product.stok_kodu}): ${deleteRecipeResponse.status}`);
+            if (getRecipeResponse.ok) {
+              const recipes = await getRecipeResponse.json();
+              
+              // Her reçete kaydını ID ile sil
+              for (const recipe of recipes) {
+                if (recipe.id) {
+                  try {
+                    const deleteRecipeResponse = await fetchWithAuth(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' });
+                    if (deleteRecipeResponse.ok) {
+                      recipeDeleteCount++;
+                    }
+                  } catch (deleteError) {
+                    console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+                  }
+                }
+              }
             }
           } catch (recipeError) {
-            console.warn(`Reçete silme hatası (${product.stok_kodu}):`, recipeError);
+            console.warn(`Reçete alma hatası (${product.stok_kodu}):`, recipeError);
           }
         }
       }
