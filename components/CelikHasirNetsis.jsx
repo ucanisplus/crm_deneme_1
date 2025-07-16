@@ -136,6 +136,42 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     return optimizedProducts.some(product => !isProductOptimized(product));
   };
 
+  // Kaydedilecek ürünleri hesapla
+  const getProductsToSave = () => {
+    if (optimizedProducts.length === 0) return [];
+    
+    const newProducts = [];
+    
+    for (const product of optimizedProducts) {
+      // CH product exists check
+      const chExists = savedProducts.mm.some(p => 
+        p.hasir_tipi === product.hasirTipi &&
+        p.ebat_boy === parseFloat(product.uzunlukBoy) &&
+        p.ebat_en === parseFloat(product.uzunlukEn) &&
+        p.cap === parseFloat(product.boyCap) &&
+        p.cap2 === parseFloat(product.enCap)
+      );
+      
+      const ncbkExists500 = savedProducts.ncbk.some(p => 
+        p.cap === parseFloat(product.boyCap) && p.length_cm === 500
+      );
+      
+      const ncbkExists215 = savedProducts.ncbk.some(p => 
+        p.cap === parseFloat(product.enCap) && p.length_cm === 215
+      );
+      
+      const ntelExists = savedProducts.ntel.some(p => 
+        p.cap === parseFloat(product.boyCap)
+      );
+      
+      if (!chExists || !ncbkExists500 || !ncbkExists215 || !ntelExists) {
+        newProducts.push(product);
+      }
+    }
+    
+    return newProducts;
+  };
+
   // Stok kodu oluştur
   const generateStokKodu = (product, productType) => {
     const diameter = parseFloat(product.boyCap || product.enCap || 0);
@@ -1184,7 +1220,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           }}
           disabled={isLoading || isGeneratingExcel}
           className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur"
+          title="Veritabanına Kaydet: Listede kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur. Önce yeni ürünleri kaydeder, sonra otomatik olarak Excel dosyalarını oluşturur."
         >
           Kaydet
         </button>
@@ -1199,7 +1235,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           }}
           disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Mevcut listenin tümünün Excel dosyalarını oluştur"
+          title="Excel Oluştur: Mevcut listenin tümünün Excel dosyalarını oluştur. Sadece Excel dosyalarını indirir, veritabanına kaydetmez."
         >
           Excel
         </button>
@@ -1209,14 +1245,17 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             setShowDatabaseModal(true);
           }}
           className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
-          title="Kayıtlı ürünleri görüntüle ve yönet"
+          title="Veritabanı İşlemleri: Kayıtlı ürünleri görüntüle, sil ve yönet. Mevcut veritabanındaki ürünleri gösterir ve tek tek silme işlemi yapabilirsiniz."
         >
           DB
         </button>
         
         {optimizedProducts.length > 0 && (
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-            {optimizedProducts.length} toplam • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş
+          <span 
+            className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded cursor-help"
+            title={`Toplam ${optimizedProducts.length} ürün var. ${optimizedProducts.filter(p => !isProductOptimized(p)).length} tanesi optimize edilmemiş. ${getProductsToSave().length} tanesi veritabanında yok ve kaydedilecek.`}
+          >
+            {optimizedProducts.length} toplam • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
           </span>
         )}
       </div>
@@ -1347,7 +1386,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   }
                 }}
                 disabled={isLoading || isGeneratingExcel}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3 relative"
+                className="hidden"
               >
                 {isLoading ? (
                   <Loader className="w-5 h-5 animate-spin" />
@@ -1375,7 +1414,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   await generateExcelFiles(optimizedProducts, true);
                 }}
                 disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+                className="hidden"
               >
                 <FileSpreadsheet className="w-5 h-5" />
                 <div className="text-left">
@@ -1391,7 +1430,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   fetchSavedProducts(); // Auto-refresh when opening
                 }}
                 disabled={isLoading}
-                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+                className="hidden"
               >
                 <Database className="w-5 h-5" />
                 <div className="text-left">
@@ -1401,7 +1440,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               </button>
               
               {/* Debugging Info */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="hidden">
                 <div className="text-xs text-yellow-700">
                   <strong>Not:</strong> Eğer bir ürünü silip tekrar eklemeye çalışıyorsanız:
                   <ul className="mt-1 ml-4 list-disc">
