@@ -1397,18 +1397,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                 </div>
               </div>
             </div>
-            
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => }
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                İptal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Veritabanı Kayıt Progress Modal */}
       {isSavingToDatabase && (
