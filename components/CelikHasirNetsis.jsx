@@ -24,7 +24,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
   
   // Ana state değişkenleri
   const [isLoading, setIsLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
   const [activeDbTab, setActiveDbTab] = useState('mm'); // 'mm', 'ncbk', 'ntel'
   const [showOptimizationWarning, setShowOptimizationWarning] = useState(false);
@@ -1140,17 +1139,6 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     }
   };
 
-  // Modal aç
-  const handleNetsiIslemleriClick = () => {
-    // Ürün yoksa direkt modal aç (veritabanı erişimi için)
-    if (optimizedProducts.length === 0) {
-      setShowModal(true);
-    } else if (optimizedProducts.length > 0 && hasUnoptimizedProducts()) {
-      setShowOptimizationWarning(true);
-    } else {
-      setShowModal(true);
-    }
-  };
 
   // Optimize edilmemiş ürünlerle devam et
   const proceedWithUnoptimized = () => {
@@ -1160,23 +1148,87 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   return (
     <div className="p-4">
-      {/* Ana Buton */}
-      <>
-        <button
-          onClick={handleNetsiIslemleriClick}
-          disabled={isLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-        >
-          {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
-          Netsis İşlemleri
-        </button>
+      {/* Çelik Hasır Netsis İşlemleri Container */}
+      <div className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Database className="w-5 h-5" />
+          Çelik Hasır Netsis İşlemleri
+        </h3>
         
-        {optimizedProducts.length > 0 && hasUnoptimizedProducts() && (
-          <p className="text-xs text-yellow-600 mt-1">
-            * Veritabanına kaydetmeden önce iyileştirme önerilir.
-          </p>
+        {optimizedProducts.length > 0 && (
+          <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün bulundu
+          </div>
         )}
-      </>
+        
+        <div className="space-y-4">
+          <button
+            onClick={() => {
+              if (optimizedProducts.length === 0) {
+                // Ürün yoksa direkt veritabanı ekranına git
+                setShowDatabaseModal(true);
+              } else if (hasUnoptimizedProducts()) {
+                // Optimize edilmemiş ürünler varsa uyarı göster
+                setShowOptimizationWarning(true);
+              } else {
+                // Hepsi optimize edilmişse database warning göster
+                setShowDatabaseWarning(true);
+              }
+            }}
+            disabled={isLoading || isGeneratingExcel}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+          >
+            <Database className="w-5 h-5" />
+            <div className="text-left">
+              <div className="font-medium">Listede Kayıtlı olmayanları veritabanına ekle ve netsis exceli oluştur</div>
+              <div className="text-sm text-green-100">
+                {optimizedProducts.length > 0 
+                  ? `${optimizedProducts.length} ürün mevcut` 
+                  : 'Veritabanından ürün seçimi yapılacak'
+                }
+              </div>
+            </div>
+          </button>
+          
+          <button
+            onClick={async () => {
+              if (optimizedProducts.length === 0) {
+                toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
+                return;
+              }
+              
+              // Tüm listeden Excel oluştur (veritabanı kayıt yapmadan)
+              await generateExcelFiles(optimizedProducts, true);
+            }}
+            disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            <div className="text-left">
+              <div className="font-medium">Mevcut Listenin Tümünün Excellerini Oluştur</div>
+              <div className="text-sm text-blue-100">
+                {optimizedProducts.length > 0 
+                  ? `${optimizedProducts.length} ürün için Excel dosyaları oluşturulacak` 
+                  : 'Ürün listesi boş'
+                }
+              </div>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setShowDatabaseModal(true);
+            }}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white p-4 rounded-lg transition-colors flex items-center gap-3"
+          >
+            <Database className="w-5 h-5" />
+            <div className="text-left">
+              <div className="font-medium">Veritabanı İşlemleri</div>
+              <div className="text-sm text-gray-100">Kayıtlı ürünleri görüntüle ve yönet</div>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
