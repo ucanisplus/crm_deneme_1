@@ -237,6 +237,9 @@ const GalvanizliTelNetsis = () => {
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  
+  // Excel generation progress tracking
+  const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
 
   // Dostça alan adları
   const friendlyNames = {
@@ -2074,35 +2077,72 @@ const GalvanizliTelNetsis = () => {
     }, 100);
   };
 
-  // Çap değerine göre filmaşin seç
-  const getFilmasinForCap = (cap) => {
-    // NEW RULE: For YM ST diameters ≤ 2mm, use 6mm filmaşin
-    if (cap <= 2.00) return '0600';  // 6.00mm for all diameters up to 2.00mm
-    
-    // Original logic for larger diameters
-    // Filmaşin diameter must be HIGHER than YMST cap for production logic
-    // FLM gets thinner during production to create YMST, then galvanized to create YMGT
-    if (cap <= 4.50) return '0600';  // 6.00mm → 2.01-4.50mm
-    if (cap <= 4.49) return '0600';  // 6.00mm → 2.00-4.49mm (1008 quality)
-    if (cap <= 6.10) return '0700';  // 7.00mm → 4.50-6.10mm
-    if (cap <= 6.90) return '0800';  // 8.00mm → 5.50-6.90mm
-    if (cap <= 7.50) return '0900';  // 9.00mm → 7.00-7.50mm
-    return '1000';  // 10.00mm for higher diameters
+  // Filmaşin mapping from Excel data (Hammadde_tuketimleri.xlsx)
+  const FILMASIN_MAPPING = {
+    4.45: [{filmasin: 5.5, quality: '1006'}, {filmasin: 5.5, quality: '1008'}, {filmasin: 6.0, quality: '1008'}],
+    4.5: [{filmasin: 5.5, quality: '1006'}, {filmasin: 5.5, quality: '1008'}, {filmasin: 6.0, quality: '1008'}],
+    4.75: [{filmasin: 6.0, quality: '1008'}, {filmasin: 6.5, quality: '1008'}, {filmasin: 6.5, quality: '1010'}],
+    4.85: [{filmasin: 6.0, quality: '1008'}, {filmasin: 6.5, quality: '1008'}, {filmasin: 6.5, quality: '1010'}],
+    5: [{filmasin: 6.0, quality: '1008'}, {filmasin: 6.5, quality: '1008'}, {filmasin: 6.5, quality: '1010'}],
+    5.5: [{filmasin: 6.5, quality: '1008'}, {filmasin: 6.5, quality: '1010'}, {filmasin: 7.0, quality: '1008'}, {filmasin: 7.0, quality: '1010'}],
+    6: [{filmasin: 7.0, quality: '1008'}, {filmasin: 7.0, quality: '1010'}, {filmasin: 7.5, quality: '1008'}],
+    6.5: [{filmasin: 7.5, quality: '1008'}, {filmasin: 8.0, quality: '1008'}, {filmasin: 8.0, quality: '1010'}],
+    7: [{filmasin: 8.0, quality: '1008'}, {filmasin: 8.0, quality: '1010'}],
+    7.5: [{filmasin: 9.0, quality: '1008'}, {filmasin: 9.0, quality: '1010'}],
+    7.8: [{filmasin: 9.0, quality: '1008'}, {filmasin: 9.0, quality: '1010'}],
+    8: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Prefer 1010 for 8mm
+    // Note: 8.5mm, 8.6mm, 9.0mm theoretically need 10mm filmaşin but we only have up to 9mm
+    // These diameters are not produced in practice (max actual diameter is ~8.09mm)
+    8.5: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
+    8.6: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
+    9: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
+    9.2: [{filmasin: 11.0, quality: '1010'}, {filmasin: 11.0, quality: '1008'}],
+    9.5: [{filmasin: 11.0, quality: '1010'}, {filmasin: 11.0, quality: '1008'}],
+    9.9: [{filmasin: 11.0, quality: '1010'}, {filmasin: 11.0, quality: '1008'}],
+    10: [{filmasin: 11.0, quality: '1010'}, {filmasin: 11.0, quality: '1008'}],
+    10.5: [{filmasin: 12.0, quality: '1010'}, {filmasin: 12.0, quality: '1008'}],
+    10.6: [{filmasin: 12.0, quality: '1010'}, {filmasin: 12.0, quality: '1008'}],
+    11: [{filmasin: 12.0, quality: '1010'}, {filmasin: 12.0, quality: '1008'}],
+    11.2: [{filmasin: 13.0, quality: '1010'}, {filmasin: 13.0, quality: '1008'}],
+    11.5: [{filmasin: 13.0, quality: '1010'}, {filmasin: 13.0, quality: '1008'}],
+    12: [{filmasin: 13.0, quality: '1010'}, {filmasin: 13.0, quality: '1008'}]
   };
 
-  // Çap değerine göre kalite seç - matches filmaşin production ranges
-  const getQualityForCap = (cap) => {
-    // NEW RULE: For YM ST diameters ≤ 2mm, use 1006 quality with 6mm filmaşin
-    if (cap <= 2.00) return '1006';  // 6.00mm 1006 for all diameters up to 2.00mm
+  // Find closest diameter in mapping and get appropriate filmaşin
+  const getFilmasinForCapFromMapping = (cap) => {
+    const availableDiameters = Object.keys(FILMASIN_MAPPING).map(d => parseFloat(d)).sort((a, b) => a - b);
     
-    // Original logic for larger diameters
-    if (cap <= 4.50) return '1006';  // 6.00mm 1006 → 2.01-4.50mm
-    if (cap <= 4.49) return '1008';  // 6.00mm 1008 → 2.00-4.49mm
-    if (cap <= 6.10) return '1008';  // 7.00mm 1008 → 4.50-6.10mm
-    if (cap <= 6.10) return '1010';  // 7.00mm 1010 → 3.50-6.10mm (alternative)
-    if (cap <= 6.90) return '1010';  // 8.00mm 1010 → 5.50-6.90mm
-    if (cap <= 7.50) return '1010';  // 9.00mm 1010 → 7.00-7.50mm
-    return '1010';  // Default for higher ranges
+    // Find exact match first
+    const exactMatch = availableDiameters.find(d => Math.abs(d - cap) < 0.01);
+    if (exactMatch) {
+      const options = FILMASIN_MAPPING[exactMatch];
+      return options[0]; // Return first (preferred) option
+    }
+    
+    // Find closest diameter that can handle this cap (find smallest diameter >= cap)
+    const suitableDiameter = availableDiameters.find(d => d >= cap);
+    if (suitableDiameter) {
+      const options = FILMASIN_MAPPING[suitableDiameter];
+      return options[0]; // Return first (preferred) option
+    }
+    
+    // Fallback to largest available if cap is larger than all mapped diameters
+    const largestDiameter = availableDiameters[availableDiameters.length - 1];
+    const options = FILMASIN_MAPPING[largestDiameter];
+    return options[0];
+  };
+
+  // Çap değerine göre filmaşin seç - Updated to use Excel data
+  const getFilmasinForCap = (cap) => {
+    const result = getFilmasinForCapFromMapping(cap);
+    const filmasinMm = result.filmasin;
+    return (filmasinMm * 100).toString().padStart(4, '0'); // Convert to XXXX format (e.g., 9.0 -> "0900")
+  };
+
+  // Çap değerine göre kalite seç - Updated to use Excel data
+  const getQualityForCap = (cap) => {
+    const result = getFilmasinForCapFromMapping(cap);
+    return result.quality;
   };
 
   // Handle YMST exists modal actions
@@ -6788,6 +6828,7 @@ const GalvanizliTelNetsis = () => {
       toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   };
 
@@ -6817,6 +6858,7 @@ const GalvanizliTelNetsis = () => {
       toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
     } finally {
       setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   };
 
@@ -6841,6 +6883,10 @@ const GalvanizliTelNetsis = () => {
       created_at: r.created_at?.substring(0, 10) || 'unknown'
     })));
     
+    // Initialize progress tracking
+    const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
+    setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
+    
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
@@ -6852,9 +6898,17 @@ const GalvanizliTelNetsis = () => {
     let totalApiCalls = 0;
     let successfulApiCalls = 0;
     let failedApiCalls = 0;
+    let processedRequests = 0;
 
     for (const request of requestsList) {
       try {
+        processedRequests++;
+        setExcelProgress({ 
+          current: processedRequests, 
+          total: totalSteps, 
+          operation: `Talep verisi işleniyor... (${processedRequests}/${requestsList.length})`,
+          currentProduct: request.stok_kodu || `ID: ${request.id}`
+        });
         
         // Check if request has stok_kodu
         if (!request.stok_kodu) {
@@ -7077,12 +7131,30 @@ const GalvanizliTelNetsis = () => {
 
     // Create two separate Excel files with EXACT same format as individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
+    setExcelProgress({ 
+      current: requestsList.length + 1, 
+      total: totalSteps, 
+      operation: 'Stok Kartı Excel oluşturuluyor...',
+      currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST`
+    });
     await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData);
     
     console.log('📄 Starting Reçete Excel generation...');
+    setExcelProgress({ 
+      current: requestsList.length + 2, 
+      total: totalSteps, 
+      operation: 'Reçete Excel oluşturuluyor...',
+      currentProduct: `${allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length} reçete`
+    });
     await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData);
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
+    setExcelProgress({ 
+      current: totalSteps, 
+      total: totalSteps, 
+      operation: 'Tamamlandı!',
+      currentProduct: 'Excel dosyaları başarıyla oluşturuldu'
+    });
   };
 
   // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
@@ -11917,6 +11989,38 @@ const GalvanizliTelNetsis = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             {successMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Excel Generation Progress Modal */}
+      {isExportingExcel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <svg className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <h3 className="text-lg font-semibold mb-2">Excel Dosyaları Oluşturuluyor</h3>
+              <p className="text-gray-600 mb-4">{excelProgress.operation}</p>
+              
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${excelProgress.total > 0 ? (excelProgress.current / excelProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+              
+              <p className="text-sm text-gray-500 mb-2">
+                {excelProgress.current} / {excelProgress.total} adım
+              </p>
+              
+              {excelProgress.currentProduct && (
+                <p className="text-xs text-gray-400 break-words">
+                  {excelProgress.currentProduct}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

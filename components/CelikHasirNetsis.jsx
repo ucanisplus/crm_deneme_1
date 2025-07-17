@@ -61,6 +61,14 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     fetchSequences();
   }, []);
 
+  // Force update when savedProducts or optimizedProducts change to ensure counts are accurate
+  useEffect(() => {
+    // This will trigger re-render when dependencies change
+    console.log('Count update triggered - optimized products:', optimizedProducts.length, 
+                'unoptimized:', optimizedProducts.filter(p => !isProductOptimized(p)).length,
+                'to save:', getProductsToSave().length);
+  }, [savedProducts, optimizedProducts]);
+
   // Veritabanından kayıtlı ürünleri getir
   const fetchSavedProducts = async () => {
     try {
@@ -996,6 +1004,10 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
       // Listeyi güncelle
       await fetchSavedProducts();
       
+      // Force re-render for count updates
+      setIsSavingToDatabase(false);
+      setIsLoading(false);
+      
       // Sadece yeni kaydedilen ürünleri döndür
       return newProducts;
       
@@ -1238,6 +1250,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         <span className="text-xs text-gray-600">Netsis:</span>
         <button
           onClick={() => {
+            // Refresh saved products state to ensure accurate counts
+            fetchSavedProducts();
+            
             if (optimizedProducts.length === 0) {
               setShowDatabaseModal(true);
             } else if (hasUnoptimizedProducts()) {
@@ -1334,9 +1349,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               <button
                 onClick={async () => {
                   setShowDatabaseWarning(false);
-                  const savedProducts = await saveToDatabase(optimizedProducts);
-                  if (savedProducts && savedProducts.length > 0) {
-                    await generateExcelFiles(savedProducts, false);
+                  const newProducts = await saveToDatabase(optimizedProducts);
+                  if (newProducts && newProducts.length > 0) {
+                    console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
+                    await generateExcelFiles(newProducts, false);
+                    toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                  } else {
+                    toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
