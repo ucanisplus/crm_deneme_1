@@ -4407,8 +4407,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string value
-      tolerans_plus: adjustedPlus, // Store adjusted value as number for calculations
-      tolerans_minus: adjustedMinus, // Store adjusted value as number for calculations
+      tolerans_plus: formatForDatabase(adjustedPlus), // Use consistent formatter with adjusted value
+      tolerans_minus: formatForDatabase(adjustedMinus), // Use consistent formatter with adjusted value
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -4483,8 +4483,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string to match Excel
-      tolerans_plus: adjustedPlus,
-      tolerans_minus: adjustedMinus,
+      tolerans_plus: formatForDatabase(adjustedPlus),
+      tolerans_minus: formatForDatabase(adjustedMinus),
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -4528,7 +4528,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20', // Match Excel format as string
-      cap: capValue, // Store as number for calculations
+      cap: formatForDatabase(ymSt.cap), // Use consistent formatter
       filmasin: parseInt(ymSt.filmasin),
       quality: ymSt.quality,
       ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value as in Excel
