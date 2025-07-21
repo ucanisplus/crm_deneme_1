@@ -165,6 +165,25 @@ const GalvanizliTelNetsis = () => {
     return numValue.toFixed(5).replace('.', ',');
   };
   
+  // Consistent database formatting function
+  const formatForDatabase = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    
+    // Convert to number first, handling both comma and dot decimals
+    const strValue = String(value);
+    const normalizedValue = strValue.replace(/,/g, '.');
+    const numValue = parseFloat(normalizedValue);
+    
+    if (isNaN(numValue)) {
+      return null;
+    }
+    
+    // Return as number, let the database handle formatting
+    return numValue;
+  };
+  
   // Form verileri - NOKTA kullan decimal için
   const [mmGtData, setMmGtData] = useState({
     cap: '2.50', // Nokta ondalik ayracini garantile 
@@ -1030,34 +1049,37 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // MM GT silme fonksiyonu - İlişkili YM GT'leri de siler
+  // MM GT silme fonksiyonu - İlişkili YM GT'leri de siler - Enhanced version
   const deleteMmGt = async (mmGt) => {
     try {
       setIsLoading(true);
       
-      
       const mmGtId = mmGt.id;
+      const mmGtStokKodu = mmGt.stok_kodu;
+      console.log(`Deleting MM GT: ${mmGtStokKodu} (ID: ${mmGtId})`);
       
-      // Once, iliski tablosundan bagli YM GT bulun
+      // Step 1: Find related YM GTs through relationship table
       try {
         const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
         if (relationResponse && relationResponse.ok) {
           const relations = await relationResponse.json();
+          console.log(`Found ${relations.length} relationships for MM GT ${mmGtId}`);
           
-          // Step 1: Delete relationship records first
+          // Delete relationship records first
           for (const relation of relations) {
             try {
               const relationDeleteResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
                 method: 'DELETE'
               });
               if (relationDeleteResponse.ok) {
+                console.log(`Deleted relationship ${relation.id}`);
               }
             } catch (relationError) {
               console.error('Error deleting relationship ' + relation.id + ':', relationError);
             }
           }
           
-          // Step 2: Delete related YM GTs after relationships are removed
+          // Delete related YM GTs after relationships are removed
           for (const relation of relations) {
             if (relation.ym_gt_id) {
               try {
@@ -1065,6 +1087,7 @@ const GalvanizliTelNetsis = () => {
                   method: 'DELETE'
                 });
                 if (ymGtDeleteResponse.ok) {
+                  console.log(`Deleted YM GT ${relation.ym_gt_id}`);
                 } else {
                   console.error('Failed to delete YM GT ' + relation.ym_gt_id + ': ' + ymGtDeleteResponse.status);
                 }
@@ -1075,10 +1098,42 @@ const GalvanizliTelNetsis = () => {
           }
         }
       } catch (relationError) {
-        console.error('Error finding related YM GTs:', relationError);
+        console.error('Error finding related YM GTs through relationships:', relationError);
       }
       
-      // Adim 3: Son olarak MM GT sil
+      // Step 2: FALLBACK - Find YM GT by matching stok_kodu pattern (for cases where relationship wasn't created properly)
+      try {
+        // Generate expected YM GT stok_kodu based on MM GT stok_kodu
+        // MM GT format: GT.NIT.0250.00 -> YM GT format: YM.GT.NIT.0250.00
+        if (mmGtStokKodu && mmGtStokKodu.startsWith('GT.')) {
+          const expectedYmGtStokKodu = mmGtStokKodu.replace(/^GT\./, 'YM.GT.');
+          console.log(`Looking for orphaned YM GT with stok_kodu: ${expectedYmGtStokKodu}`);
+          
+          const ymGtSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(expectedYmGtStokKodu)}`);
+          if (ymGtSearchResponse && ymGtSearchResponse.ok) {
+            const ymGtData = await ymGtSearchResponse.json();
+            if (Array.isArray(ymGtData) && ymGtData.length > 0) {
+              for (const orphanedYmGt of ymGtData) {
+                console.log(`Found orphaned YM GT: ${orphanedYmGt.stok_kodu} (ID: ${orphanedYmGt.id})`);
+                try {
+                  const orphanedYmGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${orphanedYmGt.id}`, {
+                    method: 'DELETE'
+                  });
+                  if (orphanedYmGtDeleteResponse.ok) {
+                    console.log(`Deleted orphaned YM GT ${orphanedYmGt.id}`);
+                  }
+                } catch (orphanedDeleteError) {
+                  console.error('Error deleting orphaned YM GT:', orphanedDeleteError);
+                }
+              }
+            }
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Error in YM GT fallback cleanup:', fallbackError);
+      }
+      
+      // Step 3: Finally delete the MM GT itself
       const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
         method: 'DELETE'
       });
@@ -1089,14 +1144,14 @@ const GalvanizliTelNetsis = () => {
       
       console.log('MM GT ' + mmGt.stok_kodu + ' deleted successfully with all related YM GTs');
       
-      // Sadece MM GT listesini yenile (bu kapsamda fonksiyon olmadigi icin YM GT yenileme gerekli degil)
+      // Refresh the MM GT list
       await fetchExistingMmGts();
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
       toast.success(`MM GT ${mmGt.stok_kodu} ve bağlantılı YM GT'ler başarıyla silindi`);
     } catch (error) {
-      console.error('MM GT silme hatası:', error);
+      console.error('MM GT deletion error:', error);
       toast.error('MM GT silme hatası: ' + error.message);
     } finally {
       setIsLoading(false);
@@ -1185,7 +1240,8 @@ const GalvanizliTelNetsis = () => {
                     method: 'DELETE'
                   });
                   if (relationDeleteResponse.ok) {
-                      }
+                    console.log(`Bulk: Deleted relationship ${relation.id}`);
+                  }
                 } catch (relationError) {
                   console.error('Error deleting relationship ' + relation.id + ':', relationError);
                 }
@@ -1194,18 +1250,46 @@ const GalvanizliTelNetsis = () => {
               // Step 2: Delete related YM GTs after relationships are removed
               for (const relation of relations) {
                 if (relation.ym_gt_id) {
-                      try {
+                  try {
                     const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
                       method: 'DELETE'
                     });
                     if (ymGtDeleteResponse.ok) {
-                        } else {
+                      console.log(`Bulk: Deleted YM GT ${relation.ym_gt_id}`);
+                    } else {
                       console.error('Failed to delete YM GT ' + relation.ym_gt_id + ': ' + ymGtDeleteResponse.status);
                     }
                   } catch (ymGtError) {
                     console.error('Error deleting YM GT ' + relation.ym_gt_id + ':', ymGtError);
                   }
                 }
+              }
+            }
+            
+            // FALLBACK: Check for orphaned YM GT by stok_kodu pattern
+            if (mmGt.stok_kodu && mmGt.stok_kodu.startsWith('GT.')) {
+              const expectedYmGtStokKodu = mmGt.stok_kodu.replace(/^GT\./, 'YM.GT.');
+              try {
+                const ymGtSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(expectedYmGtStokKodu)}`);
+                if (ymGtSearchResponse && ymGtSearchResponse.ok) {
+                  const ymGtData = await ymGtSearchResponse.json();
+                  if (Array.isArray(ymGtData) && ymGtData.length > 0) {
+                    for (const orphanedYmGt of ymGtData) {
+                      try {
+                        const orphanedDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${orphanedYmGt.id}`, {
+                          method: 'DELETE'
+                        });
+                        if (orphanedDeleteResponse.ok) {
+                          console.log(`Bulk: Deleted orphaned YM GT ${orphanedYmGt.id}`);
+                        }
+                      } catch (orphanedError) {
+                        console.error('Bulk: Error deleting orphaned YM GT:', orphanedError);
+                      }
+                    }
+                  }
+                }
+              } catch (fallbackError) {
+                console.error('Bulk: Error in YM GT fallback cleanup:', fallbackError);
               }
             }
             
@@ -7821,10 +7905,10 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
       : '';
-    const stokAdi = `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    const stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     // Generate English name
-    const englishName = `Galvanized Wire ${cap.toFixed(5)} mm -${Math.abs(toleransMinus).toFixed(5)}/+${toleransPlus.toFixed(5)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    const englishName = `Galvanized Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     return [
       mmGt.stok_kodu, // Stok Kodu - use actual stok_kodu from database
@@ -8057,13 +8141,13 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = castKont && castKont.trim() !== '' ? `/${castKont}` : '';
     
     // Generate stok_adi - EXACT same format as individual export
-    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
+    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
     
     // Generate cari_adi
-    const cariAdi = `Tel ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+    const cariAdi = `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     // Generate english name
-    const englishName = `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(5).replace('.', ',')}/+${toleransPlus.toFixed(5).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+    const englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     return [
       ymGt.stok_kodu, // Stok Kodu - use actual from database
@@ -8554,10 +8638,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Database version for YM GT - uses POINT format
@@ -8588,10 +8672,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `YM Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -8599,9 +8683,9 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
-    return `Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   const generateYmGtInglizceIsim = () => {
@@ -8609,9 +8693,9 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
-    return `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Database version - uses POINT format
@@ -8632,10 +8716,10 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanized Steel Wire ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Talep onaylama
