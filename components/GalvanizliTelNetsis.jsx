@@ -8730,10 +8730,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Database version for YM GT - uses POINT format
