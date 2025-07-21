@@ -4568,7 +4568,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: capValue, // Store as number for calculations
+      cap: formatForDatabase(capValue), // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
@@ -4644,7 +4644,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: capValue, // Store as number for calculations
+      cap: formatForDatabase(capValue), // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
