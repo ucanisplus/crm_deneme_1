@@ -8707,10 +8707,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
     // Use point for database storage - NO comma replacement for database
-    return `Galvanizli Tel ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Excel version - uses COMMA format  
@@ -8741,10 +8741,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
     // Use point for database storage
-    return `YM Galvanizli Tel ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `YM Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Excel version for YM GT - uses COMMA format
@@ -8790,10 +8790,10 @@ const GalvanizliTelNetsis = () => {
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
     // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5)}/${plusSign}${Math.abs(adjustedPlus).toFixed(5)}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
     // Use points for database storage
-    return `Galvanized Steel Wire ${cap.toFixed(5)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
   };
 
   // Excel version - uses COMMA format
