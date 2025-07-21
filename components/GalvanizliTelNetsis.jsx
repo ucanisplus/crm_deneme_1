@@ -180,8 +180,9 @@ const GalvanizliTelNetsis = () => {
       return null;
     }
     
-    // Return as number, let the database handle formatting
-    return numValue;
+    // Round to reasonable precision to avoid floating point issues and trailing zeros
+    // Use parseFloat to remove trailing zeros from the string representation
+    return parseFloat(numValue.toFixed(10));
   };
   
   // Form verileri - NOKTA kullan decimal için
