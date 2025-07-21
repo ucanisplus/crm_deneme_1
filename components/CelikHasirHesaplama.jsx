@@ -748,6 +748,7 @@ const processExcelWithMapping = (sheets, mapping) => {
   const previewTableRef = useRef(null);
   const mainTableRef = useRef(null);
   const tableHeaderRef = useRef(null);
+  const celikHasirNetsisRef = useRef(null);
   
   // Kolon genişlikleri için referans
   const resizingColumnRef = useRef(null);
@@ -2277,6 +2278,11 @@ const iyilestir = async (rowIndex) => {
     // Satırları güncelle
     setRows(updatedRows);
     
+    // Veritabanı senkronizasyonu için kayıtlı ürünleri yenile
+    if (celikHasirNetsisRef.current) {
+      celikHasirNetsisRef.current.fetchSavedProducts();
+    }
+    
     return true;
   } catch (error) {
     console.error('İyileştirme işlemi hatası:', error);
@@ -2495,6 +2501,11 @@ const iyilestirAll = async () => {
   }
   
   setBatchProcessing(false);
+  
+  // Veritabanı senkronizasyonu için kayıtlı ürünleri yenile
+  if (celikHasirNetsisRef.current) {
+    celikHasirNetsisRef.current.fetchSavedProducts();
+  }
 };
 
 // Boyutları uyumlama işlemlerini tek bir fonksiyonda topla
@@ -5443,6 +5454,11 @@ const processPreviewData = () => {
   // Ön izleme tablosunu temizle
   setPreviewData([]);
   
+  // Veritabanı senkronizasyonu için kayıtlı ürünleri yenile
+  if (celikHasirNetsisRef.current) {
+    celikHasirNetsisRef.current.fetchSavedProducts();
+  }
+  
   // Ensure all modal states are reset to allow new Excel uploads
   setSheetData([]);
   setColumnMapping(null);
@@ -6274,7 +6290,7 @@ useEffect(() => {
             </button>
             
             {/* Çelik Hasır Netsis Integration - Replaces old database save and recipe buttons */}
-            <CelikHasirNetsis optimizedProducts={rows} />
+            <CelikHasirNetsis ref={celikHasirNetsisRef} optimizedProducts={rows} />
           </div>
           
           {/* Yedekleme düğmeleri - Yeni konum */}

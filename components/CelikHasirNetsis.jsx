@@ -19,7 +19,16 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
+const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
+  // Filter out empty rows - a row is considered empty if hasirTipi, uzunlukBoy, or uzunlukEn is missing
+  const validProducts = optimizedProducts.filter(product => 
+    product.hasirTipi && 
+    product.hasirTipi.trim() !== '' &&
+    product.uzunlukBoy && 
+    product.uzunlukBoy.toString().trim() !== '' &&
+    product.uzunlukEn && 
+    product.uzunlukEn.toString().trim() !== ''
+  );
   const { user, hasPermission } = useAuth();
   
   // Ana state değişkenleri
@@ -61,13 +70,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     fetchSequences();
   }, []);
 
-  // Force update when savedProducts or optimizedProducts change to ensure counts are accurate
+  // Force update when savedProducts or validProducts change to ensure counts are accurate
   useEffect(() => {
     // This will trigger re-render when dependencies change
-    console.log('Count update triggered - optimized products:', optimizedProducts.length, 
-                'unoptimized:', optimizedProducts.filter(p => !isProductOptimized(p)).length,
+    console.log('Count update triggered - optimized products:', validProducts.length, 
+                'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length,
                 'to save:', getProductsToSave().length);
-  }, [savedProducts, optimizedProducts]);
+  }, [savedProducts, validProducts]);
 
   // Veritabanından kayıtlı ürünleri getir
   const fetchSavedProducts = async () => {
@@ -134,16 +143,16 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
   // Optimize edilmemiş ürünleri kontrol et
   const hasUnoptimizedProducts = () => {
-    return optimizedProducts.some(product => !isProductOptimized(product));
+    return validProducts.some(product => !isProductOptimized(product));
   };
 
   // Kaydedilecek ürünleri hesapla
   const getProductsToSave = () => {
-    if (optimizedProducts.length === 0) return [];
+    if (validProducts.length === 0) return [];
     
     const newProducts = [];
     
-    for (const product of optimizedProducts) {
+    for (const product of validProducts) {
       // Only check if the main CH product exists - don't check related products
       const chExists = savedProducts.mm.some(p => 
         p.hasir_tipi === product.hasirTipi &&
@@ -1232,18 +1241,20 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
     setShowDatabaseWarning(true);
   };
 
-  // İzin kontrolü - Çelik Hasır modülü için
-  if (!hasPermission('access:celik-hasir')) {
-    return (
-      <div className="p-4 text-center">
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-red-700">Bu modüle erişim izniniz bulunmamaktadır.</p>
+  // Render content function
+  const renderContent = () => {
+    // İzin kontrolü - Çelik Hasır modülü için
+    if (!hasPermission('access:celik-hasir')) {
+      return (
+        <div className="p-4 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-700">Bu modüle erişim izniniz bulunmamaktadır.</p>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  return (
+    return (
     <div className="p-4">
       {/* Netsis İşlemleri */}
       <div className="flex items-center gap-2 mb-1">
@@ -1253,7 +1264,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             // Refresh saved products state to ensure accurate counts
             fetchSavedProducts();
             
-            if (optimizedProducts.length === 0) {
+            if (validProducts.length === 0) {
               setShowDatabaseModal(true);
             } else if (hasUnoptimizedProducts()) {
               setShowOptimizationWarning(true);
@@ -1269,13 +1280,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         
         <button
           onClick={async () => {
-            if (optimizedProducts.length === 0) {
+            if (validProducts.length === 0) {
               toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
               return;
             }
-            await generateExcelFiles(optimizedProducts, true);
+            await generateExcelFiles(validProducts, true);
           }}
-          disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
+          disabled={isLoading || isGeneratingExcel || validProducts.length === 0}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
         >
           Sadece Excel Oluştur
@@ -1349,7 +1360,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               <button
                 onClick={async () => {
                   setShowDatabaseWarning(false);
-                  const newProducts = await saveToDatabase(optimizedProducts);
+                  const newProducts = await saveToDatabase(validProducts);
                   if (newProducts && newProducts.length > 0) {
                     console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
                     await generateExcelFiles(newProducts, false);
@@ -1369,9 +1380,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
 
       {/* Veritabanı Kayıt Progress Modal */}
             
-            {optimizedProducts && optimizedProducts.length > 0 && (
+            {validProducts && validProducts.length > 0 && (
               <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <strong>Mevcut Liste:</strong> {optimizedProducts.length} ürün • {optimizedProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
+                <strong>Mevcut Liste:</strong> {validProducts.length} ürün • {validProducts.filter(p => !isProductOptimized(p)).length} optimize edilmemiş • {getProductsToSave().length} kaydedilecek
               </div>
             )}
             
@@ -1388,7 +1399,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
             </div>
             
             <p className="text-gray-600 mb-6">
-              Ürünler veritabanına kaydedilecek ve Excel dosyaları oluşturulacak. Devam etmek istiyor musunuz?
+              {getProductsToSave().length > 0 ? (
+                <>
+                  <span className="font-semibold">{getProductsToSave().length} yeni ürün</span> veritabanına kaydedilecek ve Excel dosyaları oluşturulacak. Devam etmek istiyor musunuz?
+                </>
+              ) : (
+                'Tüm ürünler zaten veritabanında mevcut. Kaydedilecek yeni ürün bulunmamaktadır.'
+              )}
             </p>
             
             <div className="flex gap-3 justify-end">
@@ -1403,7 +1420,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   setShowDatabaseWarning(false);
                   
                   try {
-                    const newProducts = await saveToDatabase(optimizedProducts);
+                    const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
                       console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
                       await generateExcelFiles(newProducts);
@@ -1424,8 +1441,9 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
           </div>
         </div>
       )}
+                  const unoptimizedProducts = validProducts.filter(p => !isProductOptimized(p));
                   console.log('Save button clicked. Product check:', {
-                    totalProducts: optimizedProducts.length,
+                    totalProducts: validProducts.length,
                     hasUnoptimized: hasUnoptimizedProducts(),
                     unoptimizedCount: unoptimizedProducts.length,
                     unoptimizedList: unoptimizedProducts.map(p => ({ 
@@ -1442,13 +1460,13 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                         !p.cubukSayisiEn && 'cubukSayisiEn'
                       ].filter(Boolean)
                     })),
-                    allProductsDebug: optimizedProducts.map(p => ({
+                    allProductsDebug: validProducts.map(p => ({
                       hasirTipi: p.hasirTipi,
                       isOptimized: isProductOptimized(p)
                     }))
                   });
                   
-                  if (optimizedProducts.length === 0) {
+                  if (validProducts.length === 0) {
                     // Ürün yoksa direkt veritabanı ekranına git
                     console.log('No products, opening database modal');
                                   setShowDatabaseModal(true);
@@ -1480,15 +1498,15 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
               
               <button
                 onClick={async () => {
-                  if (optimizedProducts.length === 0) {
+                  if (validProducts.length === 0) {
                     toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
                     return;
                   }
                   
                   // Tüm listeden Excel oluştur (veritabanı kayıt yapmadan)
-                  await generateExcelFiles(optimizedProducts, true);
+                  await generateExcelFiles(validProducts, true);
                 }}
-                disabled={isLoading || isGeneratingExcel || optimizedProducts.length === 0}
+                disabled={isLoading || isGeneratingExcel || validProducts.length === 0}
                 className="hidden"
               >
                 <FileSpreadsheet className="w-5 h-5" />
@@ -1780,7 +1798,7 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
                   setShowDatabaseWarning(false);
                   
                   try {
-                    const newProducts = await saveToDatabase(optimizedProducts);
+                    const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
                       console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
                       await generateExcelFiles(newProducts);
@@ -1961,7 +1979,22 @@ const CelikHasirNetsis = ({ optimizedProducts = [] }) => {
         </div>
       )}
     </div>
-  );
+    );
+  };
 };
+
+  // Expose fetchSavedProducts to parent component
+  React.useImperativeHandle(ref, () => ({
+    fetchSavedProducts
+  }));
+
+  return (
+    <>
+      {renderContent()}
+    </>
+  );
+});
+
+CelikHasirNetsis.displayName = 'CelikHasirNetsis';
 
 export default CelikHasirNetsis;
