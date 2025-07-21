@@ -1101,36 +1101,121 @@ const GalvanizliTelNetsis = () => {
         console.error('Error finding related YM GTs through relationships:', relationError);
       }
       
-      // Step 2: FALLBACK - Find YM GT by matching stok_kodu pattern (for cases where relationship wasn't created properly)
+      // Step 2: COMPREHENSIVE FALLBACK - Multiple methods to find orphaned YMGTs
       try {
-        // Generate expected YM GT stok_kodu based on MM GT stok_kodu
-        // MM GT format: GT.NIT.0250.00 -> YM GT format: YM.GT.NIT.0250.00
+        console.log('Starting comprehensive YMGT cleanup fallback methods...');
+        
         if (mmGtStokKodu && mmGtStokKodu.startsWith('GT.')) {
+          // Method 2a: Direct stok_kodu pattern matching
           const expectedYmGtStokKodu = mmGtStokKodu.replace(/^GT\./, 'YM.GT.');
-          console.log(`Looking for orphaned YM GT with stok_kodu: ${expectedYmGtStokKodu}`);
+          console.log(`Method 2a: Looking for YM GT with exact stok_kodu: ${expectedYmGtStokKodu}`);
           
-          const ymGtSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(expectedYmGtStokKodu)}`);
-          if (ymGtSearchResponse && ymGtSearchResponse.ok) {
-            const ymGtData = await ymGtSearchResponse.json();
-            if (Array.isArray(ymGtData) && ymGtData.length > 0) {
-              for (const orphanedYmGt of ymGtData) {
-                console.log(`Found orphaned YM GT: ${orphanedYmGt.stok_kodu} (ID: ${orphanedYmGt.id})`);
+          const ymGtExactResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(expectedYmGtStokKodu)}`);
+          if (ymGtExactResponse && ymGtExactResponse.ok) {
+            const ymGtExactData = await ymGtExactResponse.json();
+            if (Array.isArray(ymGtExactData) && ymGtExactData.length > 0) {
+              for (const exactYmGt of ymGtExactData) {
+                console.log(`Method 2a: Found exact YM GT: ${exactYmGt.stok_kodu} (ID: ${exactYmGt.id})`);
                 try {
-                  const orphanedYmGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${orphanedYmGt.id}`, {
+                  const exactDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${exactYmGt.id}`, {
                     method: 'DELETE'
                   });
-                  if (orphanedYmGtDeleteResponse.ok) {
-                    console.log(`Deleted orphaned YM GT ${orphanedYmGt.id}`);
+                  if (exactDeleteResponse.ok) {
+                    console.log(`Method 2a: Successfully deleted YM GT ${exactYmGt.id}`);
+                  } else {
+                    console.error(`Method 2a: Failed to delete YM GT ${exactYmGt.id}, status: ${exactDeleteResponse.status}`);
                   }
-                } catch (orphanedDeleteError) {
-                  console.error('Error deleting orphaned YM GT:', orphanedDeleteError);
+                } catch (exactDeleteError) {
+                  console.error('Method 2a: Error deleting exact YM GT:', exactDeleteError);
+                }
+              }
+            } else {
+              console.log('Method 2a: No exact match found');
+            }
+          } else {
+            console.log('Method 2a: API call failed or returned no data');
+          }
+          
+          // Method 2b: Pattern-based search (stok_kodu LIKE)
+          // Extract base pattern from MM GT stok_kodu for broader search
+          const mmGtParts = mmGtStokKodu.split('.');
+          if (mmGtParts.length >= 4) {
+            const basePattern = `YM.GT.${mmGtParts[1]}.${mmGtParts[2]}`; // e.g., "YM.GT.NIT.0250"
+            console.log(`Method 2b: Searching for YM GTs with pattern: ${basePattern}`);
+            
+            try {
+              const ymGtPatternResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(basePattern)}`);
+              if (ymGtPatternResponse && ymGtPatternResponse.ok) {
+                const ymGtPatternData = await ymGtPatternResponse.json();
+                if (Array.isArray(ymGtPatternData) && ymGtPatternData.length > 0) {
+                  console.log(`Method 2b: Found ${ymGtPatternData.length} YM GTs matching pattern`);
+                  
+                  for (const patternYmGt of ymGtPatternData) {
+                    // Additional check: make sure the sequence matches too
+                    if (patternYmGt.stok_kodu.endsWith(`.${mmGtParts[3]}`)) {
+                      console.log(`Method 2b: Found matching sequence YM GT: ${patternYmGt.stok_kodu} (ID: ${patternYmGt.id})`);
+                      try {
+                        const patternDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${patternYmGt.id}`, {
+                          method: 'DELETE'
+                        });
+                        if (patternDeleteResponse.ok) {
+                          console.log(`Method 2b: Successfully deleted YM GT ${patternYmGt.id}`);
+                        } else {
+                          console.error(`Method 2b: Failed to delete YM GT ${patternYmGt.id}, status: ${patternDeleteResponse.status}`);
+                        }
+                      } catch (patternDeleteError) {
+                        console.error('Method 2b: Error deleting pattern YM GT:', patternDeleteError);
+                      }
+                    } else {
+                      console.log(`Method 2b: Skipping YM GT ${patternYmGt.stok_kodu} - sequence doesn't match`);
+                    }
+                  }
+                } else {
+                  console.log('Method 2b: No pattern matches found');
+                }
+              } else {
+                console.log('Method 2b: Pattern search API call failed');
+              }
+            } catch (patternError) {
+              console.error('Method 2b: Error in pattern search:', patternError);
+            }
+          }
+          
+          // Method 2c: Brute force - get all YM GTs and find matches
+          console.log('Method 2c: Performing brute force search of all YM GTs...');
+          try {
+            const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+            if (allYmGtResponse && allYmGtResponse.ok) {
+              const allYmGtData = await allYmGtResponse.json();
+              if (Array.isArray(allYmGtData) && allYmGtData.length > 0) {
+                console.log(`Method 2c: Scanning ${allYmGtData.length} YM GTs for matches...`);
+                
+                for (const ymGt of allYmGtData) {
+                  if (ymGt.stok_kodu === expectedYmGtStokKodu) {
+                    console.log(`Method 2c: Found brute force match: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
+                    try {
+                      const bruteDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${ymGt.id}`, {
+                        method: 'DELETE'
+                      });
+                      if (bruteDeleteResponse.ok) {
+                        console.log(`Method 2c: Successfully deleted YM GT ${ymGt.id}`);
+                      } else {
+                        console.error(`Method 2c: Failed to delete YM GT ${ymGt.id}, status: ${bruteDeleteResponse.status}`);
+                      }
+                    } catch (bruteDeleteError) {
+                      console.error('Method 2c: Error deleting brute force YM GT:', bruteDeleteError);
+                    }
+                    break; // Found and processed the match
+                  }
                 }
               }
             }
+          } catch (bruteError) {
+            console.error('Method 2c: Error in brute force search:', bruteError);
           }
         }
       } catch (fallbackError) {
-        console.error('Error in YM GT fallback cleanup:', fallbackError);
+        console.error('Error in comprehensive YM GT fallback cleanup:', fallbackError);
       }
       
       // Step 3: Finally delete the MM GT itself
