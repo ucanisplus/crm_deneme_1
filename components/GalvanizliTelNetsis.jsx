@@ -4569,7 +4569,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: formatForDatabase(capValue), // Store as number for calculations
+      cap: capValue, // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
@@ -4577,8 +4577,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string value
-      tolerans_plus: formatForDatabase(adjustedPlus), // Use consistent formatter with adjusted value
-      tolerans_minus: formatForDatabase(adjustedMinus), // Use consistent formatter with adjusted value
+      tolerans_plus: adjustedPlus,
+      tolerans_minus: adjustedMinus,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -4645,7 +4645,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
-      cap: formatForDatabase(capValue), // Store as number for calculations
+      cap: capValue, // Store as number for calculations
       kaplama: parseInt(mmGtData.kaplama),
       min_mukavemet: parseInt(mmGtData.min_mukavemet),
       max_mukavemet: parseInt(mmGtData.max_mukavemet),
@@ -4653,8 +4653,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string to match Excel
-      tolerans_plus: formatForDatabase(adjustedPlus),
-      tolerans_minus: formatForDatabase(adjustedMinus),
+      tolerans_plus: adjustedPlus,
+      tolerans_minus: adjustedMinus,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -4698,7 +4698,7 @@ const GalvanizliTelNetsis = () => {
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20', // Match Excel format as string
-      cap: formatForDatabase(ymSt.cap), // Use consistent formatter
+      cap: ymSt.cap,
       filmasin: parseInt(ymSt.filmasin),
       quality: ymSt.quality,
       ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value as in Excel
@@ -8724,10 +8724,10 @@ const GalvanizliTelNetsis = () => {
       : '';
     
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(5).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(5).replace('.', ',')}`;
     
     // Use comma for Excel display
-    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return `Galvanizli Tel ${cap.toFixed(5).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
   };
 
   // Database version for YM GT - uses POINT format
