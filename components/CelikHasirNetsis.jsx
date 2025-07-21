@@ -1981,7 +1981,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
     </div>
     );
   };
-};
 
   // Expose fetchSavedProducts to parent component
   React.useImperativeHandle(ref, () => ({
