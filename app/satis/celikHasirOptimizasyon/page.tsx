@@ -106,6 +106,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [selectedFilters, setSelectedFilters] = useState({
     hasirTipi: [] as string[],
     hasirKodu: [] as string[],
+    hasirTuru: [] as string[],
     boyCap: [] as number[],
     enCap: [] as number[],
   });
@@ -115,8 +116,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   }[]>([]);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
-  const [dragModePreference, setDragModePreference] = useState<'reorder' | 'merge'>('reorder');
-  const [currentDragMode, setCurrentDragMode] = useState<'merge' | 'reorder'>('reorder');
+  const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge'>('reorder');
   const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -181,6 +181,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
         return selectedFilters.hasirKodu.includes(firstChar);
       });
     }
+    if (selectedFilters.hasirTuru.length > 0) {
+      filtered = filtered.filter(p => selectedFilters.hasirTuru.includes(p.hasirTuru || ''));
+    }
     if (selectedFilters.boyCap.length > 0) {
       filtered = filtered.filter(p => selectedFilters.boyCap.includes(p.boyCap));
     }
@@ -236,6 +239,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
   };
 
+  // Helper function to create sortable header
+  const createSortHandler = (key: keyof Product) => () => {
+    setSortConfig(prev => {
+      const existing = prev.find(s => s.key === key);
+      if (existing) {
+        return prev.map(s => 
+          s.key === key 
+            ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+            : s
+        );
+      } else {
+        return [...prev, { key, direction: 'asc' }];
+      }
+    });
+  };
+
   // Get tolerance based on quantity
   const getTolerance = (hasirSayisi: number): number => {
     if (hasirSayisi < 15) return 20;
@@ -250,7 +269,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return {
       ...target,
       id: `merged_${Date.now()}`,
-      uzunlukBoy: source.uzunlukBoy + target.uzunlukBoy,
+      uzunlukBoy: Number(source.uzunlukBoy) + Number(target.uzunlukBoy),
       hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
       toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
       mergeHistory: [
@@ -266,7 +285,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return {
       ...target,
       id: `merged_${Date.now()}`,
-      uzunlukEn: source.uzunlukEn + target.uzunlukEn,
+      uzunlukEn: Number(source.uzunlukEn) + Number(target.uzunlukEn),
       hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
       toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
       mergeHistory: [
@@ -310,15 +329,29 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Modern drag and drop handlers with mode preference
-  const handleDragStart = (e: React.DragEvent, product: Product) => {
+  // Separate drag handlers for reorder vs merge
+  const handleReorderDragStart = (e: React.DragEvent, product: Product) => {
+    e.stopPropagation();
     setDraggedProduct(product);
-    setCurrentDragMode(dragModePreference);
-    e.dataTransfer.effectAllowed = dragModePreference === 'reorder' ? 'move' : 'copy';
+    setCurrentDragMode('reorder');
+    e.dataTransfer.effectAllowed = 'move';
     
-    // Add visual feedback for drag start
     setTimeout(() => {
-      const dragElement = e.currentTarget as HTMLElement;
+      const dragElement = e.currentTarget.closest('tr') as HTMLElement;
+      if (dragElement) {
+        dragElement.style.opacity = '0.4';
+      }
+    }, 0);
+  };
+  
+  const handleMergeDragStart = (e: React.DragEvent, product: Product) => {
+    e.stopPropagation();
+    setDraggedProduct(product);
+    setCurrentDragMode('merge');
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    setTimeout(() => {
+      const dragElement = e.currentTarget.closest('tr') as HTMLElement;
       if (dragElement) {
         dragElement.style.opacity = '0.4';
       }
@@ -448,6 +481,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return {
       hasirTipi: Array.from(new Set(products.map(p => p.hasirTipi))).sort(),
       hasirKodu: ['Q', 'TR', 'R'], // Fixed hasır kodu options
+      hasirTuru: Array.from(new Set(products.map(p => p.hasirTuru).filter(Boolean))).sort(),
       boyCap: Array.from(new Set(products.map(p => p.boyCap))).sort((a, b) => a - b),
       enCap: Array.from(new Set(products.map(p => p.enCap))).sort((a, b) => a - b),
     };
@@ -472,11 +506,32 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const usedIds = new Set<string>();
 
     // Check for exact matches and tolerance-based matches
-    for (const product1 of products) {
+    // Sort products to prioritize low-quantity ones (hasirSayisi < 50) for merging
+    const sortedProducts = [...products].sort((a, b) => {
+      const aLowQty = Number(a.hasirSayisi) < 50 ? 0 : 1;
+      const bLowQty = Number(b.hasirSayisi) < 50 ? 0 : 1;
+      return aLowQty - bLowQty || Number(a.hasirSayisi) - Number(b.hasirSayisi);
+    });
+    
+    for (const product1 of sortedProducts) {
       if (usedIds.has(product1.id)) continue;
+      
+      // Only merge if at least one product has low quantity (< 50)
+      const shouldConsiderMerge = Number(product1.hasirSayisi) < 50;
 
-      for (const product2 of products) {
+      for (const product2 of sortedProducts) {
         if (usedIds.has(product2.id) || product1.id === product2.id) continue;
+        
+        // Skip if both products have high quantity (>= 200) to avoid unnecessary merging
+        if (Number(product1.hasirSayisi) >= 200 && Number(product2.hasirSayisi) >= 200) continue;
+        
+        // At least one should be low quantity unless we have exact matches
+        if (!shouldConsiderMerge && Number(product2.hasirSayisi) >= 50) {
+          // Only allow exact matches for high-quantity products
+          const exactBoyMatch = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy) < 0.1;
+          const exactEnMatch = Math.abs(product1.uzunlukEn - product2.uzunlukEn) < 0.1;
+          if (!exactBoyMatch && !exactEnMatch) continue;
+        }
 
         // Must have same hasir type and caps
         if (product1.hasirTipi !== product2.hasirTipi || 
@@ -564,7 +619,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...product2,
               id: `folded_${Date.now()}`,
               hasirSayisi: product2.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: product2.toplamKg + product1.toplamKg,
+              toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
               mergeHistory: [
                 ...(product2.mergeHistory || []),
                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
@@ -584,7 +639,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...product1,
               id: `folded_${Date.now()}`,
               hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: product1.toplamKg + product2.toplamKg,
+              toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
               mergeHistory: [
                 ...(product1.mergeHistory || []),
                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
@@ -612,7 +667,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...product2,
               id: `folded_${Date.now()}`,
               hasirSayisi: product2.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: product2.toplamKg + product1.toplamKg,
+              toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
               mergeHistory: [
                 ...(product2.mergeHistory || []),
                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
@@ -631,7 +686,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...product1,
               id: `folded_${Date.now()}`,
               hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: product1.toplamKg + product2.toplamKg,
+              toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
               mergeHistory: [
                 ...(product1.mergeHistory || []),
                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
@@ -744,6 +799,76 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setShowApprovalDialog(true);
   };
 
+  // Find hasır tipi change opportunities (Q->TR, TR->R etc.)
+  const findHasirTipiChangeOpportunities = () => {
+    const opportunities: MergeOperation[] = [];
+    const usedIds = new Set<string>();
+    
+    for (const product of products) {
+      if (usedIds.has(product.id) || Number(product.hasirSayisi) >= 50) continue; // Only for low quantity
+      
+      // Look for opportunities to change Q -> TR or TR -> R for better merging
+      const currentType = product.hasirTipi.charAt(0);
+      let targetTypes: string[] = [];
+      
+      if (currentType === 'Q') targetTypes = ['T']; // Q -> TR
+      else if (currentType === 'T') targetTypes = ['R']; // TR -> R
+      
+      for (const targetType of targetTypes) {
+        for (const target of products) {
+          if (usedIds.has(target.id) || target.id === product.id) continue;
+          if (!target.hasirTipi.startsWith(targetType)) continue;
+          
+          // Check if dimensions are similar for potential type change
+          const boyDiff = Math.abs(Number(product.uzunlukBoy) - Number(target.uzunlukBoy));
+          const enDiff = Math.abs(Number(product.uzunlukEn) - Number(target.uzunlukEn));
+          const toleranceCm = tolerance / 10;
+          
+          if (boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+            const result = {
+              ...target,
+              id: `type_changed_${Date.now()}`,
+              hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
+              toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
+              mergeHistory: [
+                ...(target.mergeHistory || []),
+                `Tip değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
+              ],
+              advancedOptimizationNotes: `Hasır tipi değişikliği: ${product.hasirTipi} -> ${target.hasirTipi}`,
+              aciklama: target.aciklama || `Tip değişikliği: ${product.id} -> ${target.id}`
+            };
+            
+            opportunities.push({
+              type: 'tipi_degisiklik',
+              source: product,
+              target: target,
+              result: result,
+              explanation: `Hasır tipi değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi} (+${product.hasirSayisi} adet)`
+            });
+            
+            usedIds.add(product.id);
+            usedIds.add(target.id);
+            break;
+          }
+        }
+      }
+    }
+    
+    return opportunities;
+  };
+
+  const executeHasirTipiChanges = () => {
+    const opportunities = findHasirTipiChangeOpportunities();
+    if (opportunities.length === 0) {
+      toast('Hasır tipi değişikliği yapılabilecek ürün bulunamadı', { icon: '🔧' });
+      return;
+    }
+    
+    setPendingOperations(opportunities);
+    setCurrentOperationIndex(0);
+    setShowApprovalDialog(true);
+  };
+
   // Approve current operation
   const approveCurrentOperation = () => {
     if (currentOperationIndex >= pendingOperations.length) return;
@@ -838,33 +963,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   />
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Sürükleme:</Label>
-                  <div className="flex border rounded-md overflow-hidden bg-white">
-                    <button
-                      onClick={() => setDragModePreference('reorder')}
-                      className={`px-3 py-1 text-xs font-medium transition-all ${
-                        dragModePreference === 'reorder'
-                          ? 'bg-blue-500 text-white shadow-sm'
-                          : 'bg-white text-gray-700 hover:bg-gray-100'
-                      }`}
-                      title="Ürünleri yeniden sırala"
-                    >
-                      📋 Sıralama
-                    </button>
-                    <button
-                      onClick={() => setDragModePreference('merge')}
-                      className={`px-3 py-1 text-xs font-medium transition-all border-l ${
-                        dragModePreference === 'merge'
-                          ? 'bg-green-500 text-white shadow-sm'
-                          : 'bg-white text-gray-700 hover:bg-gray-100'
-                      }`}
-                      title="Ürünleri birleştir"
-                    >
-                      🔗 Birleştirme
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
             <div className="flex gap-3 flex-wrap">
@@ -915,6 +1013,34 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           hasirKodu: checked
                             ? [...prev.hasirKodu, value]
                             : prev.hasirKodu.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Hasır Türü ({selectedFilters.hasirTuru.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.hasirTuru.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirTuru.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirTuru: checked
+                            ? [...prev.hasirTuru, value]
+                            : prev.hasirTuru.filter(v => v !== value)
                         }));
                       }}
                     >
@@ -983,7 +1109,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], boyCap: [], enCap: [] })}
+                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [] })}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 🗑️ Filtreleri Temizle
@@ -1165,16 +1291,66 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         });
                       }}
                     >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Hasır Türü</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Boy Aralığı</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">En Aralığı</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Boy Çubuk</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">En Çubuk</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Sol Filiz</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Sağ Filiz</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Ön Filiz</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Arka Filiz</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Adet Kg</TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('hasirTuru')}
+                    >
+                      Hasır Türü <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('boyAraligi')}
+                    >
+                      Boy Aralığı <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('enAraligi')}
+                    >
+                      En Aralığı <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('cubukSayisiBoy')}
+                    >
+                      Boy Çubuk <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('cubukSayisiEn')}
+                    >
+                      En Çubuk <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('solFiliz')}
+                    >
+                      Sol Filiz <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('sagFiliz')}
+                    >
+                      Sağ Filiz <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('onFiliz')}
+                    >
+                      Ön Filiz <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('arkaFiliz')}
+                    >
+                      Arka Filiz <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
+                      onClick={createSortHandler('adetKg')}
+                    >
+                      Adet Kg <ArrowUpDown className="inline h-3 w-3" />
+                    </TableHead>
                     <TableHead className="sticky top-0 bg-white z-10 text-xs">İleri Opt. Notları</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1182,8 +1358,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, product)}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
@@ -1197,15 +1371,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           : ''
                       } ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
-                      } ${
-                        dragModePreference === 'reorder' ? 'cursor-move' : 'cursor-copy'
                       }`}
                     >
                       <TableCell>
-                        <div className="flex flex-col items-center justify-center">
-                          <GripVertical className="h-4 w-4 text-gray-400" />
-                          <div className="text-xs opacity-60 mt-0.5">
-                            {dragModePreference === 'reorder' ? '📋' : '🔗'}
+                        <div className="flex items-center gap-1">
+                          <div 
+                            draggable
+                            onDragStart={(e) => handleReorderDragStart(e, product)}
+                            className="cursor-move p-1 hover:bg-gray-200 rounded transition-colors"
+                            title="Sırala (Sürükle)"
+                          >
+                            <GripVertical className="h-4 w-4 text-gray-500" />
+                          </div>
+                          <div 
+                            draggable
+                            onDragStart={(e) => handleMergeDragStart(e, product)}
+                            className="cursor-copy p-1 hover:bg-green-100 rounded transition-colors border border-green-300"
+                            title="Birleştir (Sürükle)"
+                          >
+                            <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">+</span>
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -1290,9 +1476,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Button>
             <Button 
               variant="outline"
-              onClick={() => {
-                toast('Hasır tipi değişiklikleri henüz kullanılabilir değil', { icon: '🔧' });
-              }}
+              onClick={executeHasirTipiChanges}
               className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
               🔄 Hasır Tipi Değişikliği
