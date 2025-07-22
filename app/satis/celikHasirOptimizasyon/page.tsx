@@ -115,7 +115,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
   }[]>([]);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
-  const [dragMode, setDragMode] = useState<'merge' | 'reorder'>('merge');
+  const [dragModePreference, setDragModePreference] = useState<'reorder' | 'merge'>('reorder');
+  const [currentDragMode, setCurrentDragMode] = useState<'merge' | 'reorder'>('reorder');
   const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -279,17 +280,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Smart merge suggestion based on product analysis
   const getSuggestedMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
+    // Convert tolerance from mm to cm for comparison (tolerance slider is in mm, dimensions are in cm)
+    const toleranceCm = tolerance / 10;
+    
     // Can merge boydan if same en, boyCap, enCap, hasirTipi
+    const enDiffCm = Math.abs(source.uzunlukEn - target.uzunlukEn);
     const canMergeBoydan = 
       source.hasirTipi === target.hasirTipi &&
-      Math.abs(source.uzunlukEn - target.uzunlukEn) <= tolerance &&
+      enDiffCm <= toleranceCm &&
       source.boyCap === target.boyCap &&
       source.enCap === target.enCap;
 
     // Can merge enden if same boy, boyCap, enCap, hasirTipi
+    const boyDiffCm = Math.abs(source.uzunlukBoy - target.uzunlukBoy);
     const canMergeEnden = 
       source.hasirTipi === target.hasirTipi &&
-      Math.abs(source.uzunlukBoy - target.uzunlukBoy) <= tolerance &&
+      boyDiffCm <= toleranceCm &&
       source.boyCap === target.boyCap &&
       source.enCap === target.enCap;
 
@@ -304,41 +310,46 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Drag and drop handlers with smart reordering
+  // Modern drag and drop handlers with mode preference
   const handleDragStart = (e: React.DragEvent, product: Product) => {
     setDraggedProduct(product);
-    e.dataTransfer.effectAllowed = 'move';
-    setDragMode('reorder'); // Start with reorder mode
+    setCurrentDragMode(dragModePreference);
+    e.dataTransfer.effectAllowed = dragModePreference === 'reorder' ? 'move' : 'copy';
+    
+    // Add visual feedback for drag start
+    setTimeout(() => {
+      const dragElement = e.currentTarget as HTMLElement;
+      if (dragElement) {
+        dragElement.style.opacity = '0.4';
+      }
+    }, 0);
   };
 
   const handleDragOver = (e: React.DragEvent, product: Product) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
     setDragOverProduct(product);
     
-    // Determine insertion position based on cursor position
-    const rect = e.currentTarget.getBoundingClientRect();
-    const midpoint = rect.top + rect.height / 2;
-    const position = e.clientY < midpoint ? 'before' : 'after';
-    setDragInsertPosition({ productId: product.id, position });
+    if (!draggedProduct || draggedProduct.id === product.id) return;
     
-    // Clear existing timeout
-    if (dragHoverTimeout) {
-      clearTimeout(dragHoverTimeout);
-    }
-    
-    // Set timeout to switch to merge mode if hovering for 800ms
-    const timeout = setTimeout(() => {
-      if (draggedProduct && draggedProduct.id !== product.id) {
-        const suggestion = getSuggestedMergeOperation(draggedProduct, product);
-        if (suggestion) {
-          setDragMode('merge');
-          setDragInsertPosition(null); // Clear insert position for merge mode
-        }
+    if (dragModePreference === 'reorder') {
+      // Reorder mode: show insertion position
+      e.dataTransfer.dropEffect = 'move';
+      const rect = e.currentTarget.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const position = e.clientY < midpoint ? 'before' : 'after';
+      setDragInsertPosition({ productId: product.id, position });
+      setCurrentDragMode('reorder');
+    } else {
+      // Merge mode: check if merge is possible
+      const suggestion = getSuggestedMergeOperation(draggedProduct, product);
+      if (suggestion) {
+        e.dataTransfer.dropEffect = 'copy';
+        setCurrentDragMode('merge');
+        setDragInsertPosition(null);
+      } else {
+        e.dataTransfer.dropEffect = 'none';
       }
-    }, 800);
-    
-    setDragHoverTimeout(timeout);
+    }
   };
 
   const handleDragLeave = () => {
@@ -348,7 +359,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
     setDragOverProduct(null);
     setDragInsertPosition(null);
-    setDragMode('reorder'); // Reset to reorder mode
   };
 
   const reorderProducts = (sourceProduct: Product, targetProduct: Product, position: 'before' | 'after') => {
@@ -376,19 +386,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
     e.preventDefault();
     setDragOverProduct(null);
     
+    // Reset opacity for dragged element
+    setTimeout(() => {
+      const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
+      draggedElements.forEach((el) => {
+        (el as HTMLElement).style.opacity = '1';
+      });
+    }, 0);
+    
     if (dragHoverTimeout) {
       clearTimeout(dragHoverTimeout);
       setDragHoverTimeout(null);
     }
     
     if (draggedProduct && draggedProduct.id !== targetProduct.id) {
-      if (dragMode === 'merge') {
+      if (currentDragMode === 'merge') {
         const suggestion = getSuggestedMergeOperation(draggedProduct, targetProduct);
         if (suggestion) {
           setPendingMerge({ source: draggedProduct, target: targetProduct, operation: suggestion });
           setShowMergeDialog(true);
         } else {
-          toast.error('Bu ürünler birleştirilemez');
+          toast.error('Ürünler birleştirilemez - farklı özellikler veya tolerans aşımı');
         }
       } else if (dragInsertPosition) {
         reorderProducts(draggedProduct, targetProduct, dragInsertPosition.position);
@@ -397,7 +415,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     setDraggedProduct(null);
     setDragInsertPosition(null);
-    setDragMode('reorder');
+    setCurrentDragMode(dragModePreference);
   };
 
   const executeMerge = (operation: 'boydan' | 'enden') => {
@@ -465,34 +483,39 @@ const CelikHasirOptimizasyon: React.FC = () => {
             product1.boyCap !== product2.boyCap || 
             product1.enCap !== product2.enCap) continue;
 
+        // Convert tolerance from mm to cm for comparison (tolerance slider is in mm, dimensions are in cm)
+        const toleranceCm = tolerance / 10;
+        
         // Check boydan merge with tolerance
-        const enDiff = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
-        const canMergeBoydan = enDiff <= tolerance;
+        const enDiffCm = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
+        const canMergeBoydan = enDiffCm <= toleranceCm;
 
         // Check enden merge with tolerance  
-        const boyDiff = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
-        const canMergeEnden = boyDiff <= tolerance;
+        const boyDiffCm = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
+        const canMergeEnden = boyDiffCm <= toleranceCm;
 
         if (canMergeBoydan) {
           const merged = mergeBoydan(product1, product2);
+          const actualDiffMm = Math.round(enDiffCm * 10); // Convert back to mm for display
           opportunities.push({
             type: 'boydan',
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${enDiff}mm)`
+            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${actualDiffMm}mm)`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
           break;
         } else if (canMergeEnden) {
           const merged = mergeEnden(product1, product2);
+          const actualDiffMm = Math.round(boyDiffCm * 10); // Convert back to mm for display
           opportunities.push({
             type: 'enden',
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${boyDiff}mm)`
+            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${actualDiffMm}mm)`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
@@ -526,8 +549,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
         let result: Product;
 
         // Check boy similar (within tolerance), en multiple
-        const boyDiff = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
-        if (boyDiff <= tolerance) {
+        const toleranceCm = tolerance / 10; // Convert mm to cm
+        const boyDiffCm = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
+        if (boyDiffCm <= toleranceCm) {
           const ratio1 = product2.uzunlukEn / product1.uzunlukEn;
           const ratio2 = product1.uzunlukEn / product2.uzunlukEn;
           
@@ -545,7 +569,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product2.mergeHistory || []),
                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukEn}cm→${product2.uzunlukEn}cm (x${ratio1}) tol:${boyDiff}mm`,
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukEn}cm→${product2.uzunlukEn}cm (x${ratio1}) tol:${Math.round(boyDiffCm * 10)}mm`,
               aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
             };
             
@@ -565,7 +589,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product1.mergeHistory || []),
                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukEn}cm→${product1.uzunlukEn}cm (x${ratio2}) tol:${boyDiff}mm`,
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukEn}cm→${product1.uzunlukEn}cm (x${ratio2}) tol:${Math.round(boyDiffCm * 10)}mm`,
               aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
             };
             
@@ -651,10 +675,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
         if (product.hasirTipi !== target.hasirTipi) continue;
         
         // Check if dimensions are close enough to round up using global tolerance
-        const boyDiff = Math.abs(product.uzunlukBoy - target.uzunlukBoy);
-        const enDiff = Math.abs(product.uzunlukEn - target.uzunlukEn);
+        const toleranceCm = tolerance / 10; // Convert mm to cm
+        const boyDiffCm = Math.abs(product.uzunlukBoy - target.uzunlukBoy);
+        const enDiffCm = Math.abs(product.uzunlukEn - target.uzunlukEn);
         
-        if (boyDiff <= tolerance && enDiff <= tolerance) {
+        if (boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
           const result = {
             ...target,
             id: `rounded_${Date.now()}`,
@@ -664,7 +689,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...(target.mergeHistory || []),
               `Yukarı yuvarla: ${product.uzunlukBoy}x${product.uzunlukEn}(${product.hasirSayisi}) → ${target.uzunlukBoy}x${target.uzunlukEn}(+${product.hasirSayisi})`
             ],
-            advancedOptimizationNotes: `Üste tamamla: ${product.hasirSayisi}+${target.hasirSayisi}=${Number(product.hasirSayisi) + Number(target.hasirSayisi)} adet (tol:${Math.max(boyDiff, enDiff)}mm)`,
+            advancedOptimizationNotes: `Üste tamamla: ${product.hasirSayisi}+${target.hasirSayisi}=${Number(product.hasirSayisi) + Number(target.hasirSayisi)} adet (tol:${Math.round(Math.max(boyDiffCm, enDiffCm) * 10)}mm)`,
             aciklama: target.aciklama || `Yuvarlama birleştirme: ${product.id} → ${target.id}`
           };
           
@@ -673,7 +698,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product,
             target: target,
             result: result,
-            explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.max(boyDiff, enDiff)}mm)`
+            explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.round(Math.max(boyDiffCm, enDiffCm) * 10)}mm)`
           });
         }
       }
@@ -800,16 +825,46 @@ const CelikHasirOptimizasyon: React.FC = () => {
           <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border">
             <div className="flex items-center justify-between mb-3">
               <Label className="text-lg font-semibold">🔍 Filtreler</Label>
-              <div className="flex items-center gap-3">
-                <Label className="text-sm font-medium">Tolerans: {tolerance}mm</Label>
-                <Slider
-                  value={[tolerance]}
-                  onValueChange={(value) => setTolerance(value[0])}
-                  min={0}
-                  max={100}
-                  step={1}
-                  className="w-32"
-                />
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Tolerans: {tolerance}mm</Label>
+                  <Slider
+                    value={[tolerance]}
+                    onValueChange={(value) => setTolerance(value[0])}
+                    min={0}
+                    max={100}
+                    step={1}
+                    className="w-32"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Sürükleme:</Label>
+                  <div className="flex border rounded-md overflow-hidden bg-white">
+                    <button
+                      onClick={() => setDragModePreference('reorder')}
+                      className={`px-3 py-1 text-xs font-medium transition-all ${
+                        dragModePreference === 'reorder'
+                          ? 'bg-blue-500 text-white shadow-sm'
+                          : 'bg-white text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Ürünleri yeniden sırala"
+                    >
+                      📋 Sıralama
+                    </button>
+                    <button
+                      onClick={() => setDragModePreference('merge')}
+                      className={`px-3 py-1 text-xs font-medium transition-all border-l ${
+                        dragModePreference === 'merge'
+                          ? 'bg-green-500 text-white shadow-sm'
+                          : 'bg-white text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Ürünleri birleştir"
+                    >
+                      🔗 Birleştirme
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex gap-3 flex-wrap">
@@ -970,15 +1025,21 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Card>
           </div>
 
-          {/* Drag mode indicator */}
+          {/* Modern drag mode indicator */}
           {draggedProduct && (
-            <Alert className="mb-4 border-orange-300 bg-orange-50">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800">
-                {dragMode === 'merge' 
-                  ? `🔀 Birleştirme modu: "${draggedProduct.hasirTipi}" ürününü hedefin üzerinde bekletin` 
-                  : `📋 Sıralama modu: "${draggedProduct.hasirTipi}" ürününü istenen konuma sürükleyin`
-                }
+            <Alert className="mb-4 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className={`h-4 w-4 rounded-full ${currentDragMode === 'merge' ? 'bg-green-500' : 'bg-blue-500'}`}>
+                <span className="text-white text-xs flex items-center justify-center h-full">
+                  {currentDragMode === 'merge' ? '🔗' : '📋'}
+                </span>
+              </div>
+              <AlertDescription className="text-gray-800 flex items-center gap-2">
+                <span className="font-medium">
+                  {currentDragMode === 'merge' ? 'Birleştirme Modu' : 'Sıralama Modu'}:
+                </span>
+                <span>
+                  "{draggedProduct.hasirTipi}" ürününü {currentDragMode === 'merge' ? 'uyumlu hedef üzerine bırakın' : 'istenen konuma taşıyın'}
+                </span>
               </AlertDescription>
             </Alert>
           )}
@@ -1126,20 +1187,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
-                      className={`cursor-move hover:bg-gray-50 transition-colors relative ${
-                        dragOverProduct?.id === product.id 
-                          ? dragMode === 'merge' 
-                            ? 'bg-green-100 border-2 border-green-500' 
-                            : 'bg-blue-50'
+                      className={`transition-all duration-200 hover:bg-gray-50 relative ${
+                        draggedProduct?.id === product.id
+                          ? 'opacity-40 bg-gray-100 scale-[0.98] shadow-md'
+                          : dragOverProduct?.id === product.id 
+                          ? currentDragMode === 'merge' 
+                            ? 'bg-green-50 border-2 border-green-400 shadow-lg transform scale-[1.01]' 
+                            : 'bg-blue-50 border border-blue-300'
                           : ''
                       } ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
                       } ${
-                        draggedProduct?.id === product.id ? 'opacity-50' : ''
+                        dragModePreference === 'reorder' ? 'cursor-move' : 'cursor-copy'
                       }`}
                     >
                       <TableCell>
-                        <GripVertical className="h-4 w-4 text-gray-400" />
+                        <div className="flex flex-col items-center justify-center">
+                          <GripVertical className="h-4 w-4 text-gray-400" />
+                          <div className="text-xs opacity-60 mt-0.5">
+                            {dragModePreference === 'reorder' ? '📋' : '🔗'}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">{product.hasirTipi}</TableCell>
                       <TableCell>{product.uzunlukBoy}</TableCell>
@@ -1166,11 +1234,28 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         </div>
                       </TableCell>
                       
-                      {/* Drag insertion indicator */}
-                      {dragInsertPosition?.productId === product.id && dragMode === 'reorder' && (
-                        <div className={`absolute left-0 right-0 h-1 bg-blue-500 z-20 ${
-                          dragInsertPosition.position === 'before' ? '-top-0.5' : '-bottom-0.5'
-                        }`} />
+                      {/* Modern insertion indicators for reorder mode */}
+                      {dragInsertPosition?.productId === product.id && currentDragMode === 'reorder' && (
+                        <div className="absolute inset-0 pointer-events-none z-10">
+                          <div className={`absolute left-0 right-0 h-0.5 bg-blue-500 shadow-lg animate-pulse ${
+                            dragInsertPosition.position === 'before' ? '-top-0.5' : '-bottom-0.5'
+                          }`} />
+                          <div className={`absolute w-3 h-3 bg-blue-500 rounded-full shadow-lg -left-1.5 transform -translate-y-1/2 ${
+                            dragInsertPosition.position === 'before' ? 'top-0' : 'bottom-0'
+                          }`} />
+                          <div className={`absolute w-3 h-3 bg-blue-500 rounded-full shadow-lg -right-1.5 transform -translate-y-1/2 ${
+                            dragInsertPosition.position === 'before' ? 'top-0' : 'bottom-0'
+                          }`} />
+                        </div>
+                      )}
+                      
+                      {/* Merge indicator for merge mode */}
+                      {dragOverProduct?.id === product.id && currentDragMode === 'merge' && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg flex items-center gap-1">
+                            🔗 Birleştir
+                          </div>
+                        </div>
                       )}
                     </TableRow>
                   ))}
