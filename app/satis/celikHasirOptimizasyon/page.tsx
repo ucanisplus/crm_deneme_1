@@ -119,7 +119,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   }[]>([]);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
-  const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge'>('reorder');
+  const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge' | null>(null);
   const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -200,9 +200,24 @@ const CelikHasirOptimizasyon: React.FC = () => {
         for (const config of sortConfig) {
           const aVal = a[config.key];
           const bVal = b[config.key];
-          if (aVal !== undefined && bVal !== undefined && aVal !== bVal) {
-            const multiplier = config.direction === 'asc' ? 1 : -1;
-            return (aVal < bVal ? -1 : 1) * multiplier;
+          
+          if (aVal !== undefined && bVal !== undefined) {
+            // Handle different data types properly
+            let comparison = 0;
+            
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+              comparison = aVal.localeCompare(bVal);
+            } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+              comparison = aVal - bVal;
+            } else {
+              // Fallback to string comparison
+              comparison = String(aVal).localeCompare(String(bVal));
+            }
+            
+            if (comparison !== 0) {
+              const multiplier = config.direction === 'asc' ? 1 : -1;
+              return comparison * multiplier;
+            }
           }
         }
         return 0;
@@ -338,9 +353,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Immediate drag handlers - no delays or double-click needed
+  // Single-click drag handlers - work immediately
   const handleReorderDragStart = (e: React.DragEvent, product: Product) => {
-    e.stopPropagation();
+    console.log('Reorder drag started for:', product.id);
     setDraggedProduct(product);
     setCurrentDragMode('reorder');
     e.dataTransfer.effectAllowed = 'move';
@@ -349,23 +364,28 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Immediate visual feedback
     const dragElement = (e.currentTarget as HTMLElement).closest('tr');
     if (dragElement) {
-      dragElement.style.opacity = '0.4';
-      dragElement.style.transform = 'scale(0.98)';
+      dragElement.style.opacity = '0.5';
+      dragElement.style.transform = 'scale(0.95)';
+      dragElement.style.transition = 'all 0.1s ease';
+      dragElement.style.border = '2px dashed #3b82f6';
     }
   };
   
   const handleMergeDragStart = (e: React.DragEvent, product: Product) => {
-    e.stopPropagation();
+    console.log('Merge drag started for:', product.id);
     setDraggedProduct(product);
     setCurrentDragMode('merge');
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', product.id);
     
-    // Immediate visual feedback  
+    // Immediate visual feedback with merge-specific styling
     const dragElement = (e.currentTarget as HTMLElement).closest('tr');
     if (dragElement) {
-      dragElement.style.opacity = '0.4';
-      dragElement.style.transform = 'scale(0.98)';
+      dragElement.style.opacity = '0.5';
+      dragElement.style.transform = 'scale(0.95)';
+      dragElement.style.transition = 'all 0.1s ease';
+      dragElement.style.border = '2px dashed #16a34a';
+      dragElement.style.backgroundColor = '#dcfce7';
     }
   };
 
@@ -406,13 +426,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const handleDragEnd = () => {
-    // Clean up visual feedback immediately when drag ends
-    const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
-    draggedElements.forEach((el) => {
-      (el as HTMLElement).style.opacity = '1';
-      (el as HTMLElement).style.transform = 'scale(1)';
+    console.log('Drag ended');
+    
+    // Clean up ALL drag visual styles
+    const allRows = document.querySelectorAll('tr[style]');
+    allRows.forEach((el) => {
+      const element = el as HTMLElement;
+      element.style.opacity = '';
+      element.style.transform = '';
+      element.style.transition = '';
+      element.style.border = '';
+      element.style.backgroundColor = '';
     });
+    
+    // Reset drag state
     setDraggedProduct(null);
+    setCurrentDragMode(null);
     setDragOverProduct(null);
     setDragInsertPosition(null);
   };
@@ -772,7 +801,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Execute automatic merges
   const executeAutomaticMerges = () => {
+    console.log('executeAutomaticMerges clicked');
     const opportunities = findMergeOpportunities();
+    console.log('Found merge opportunities:', opportunities.length);
     if (opportunities.length === 0) {
       toast('Otomatik birleştirilebilecek ürün bulunamadı');
       return;
@@ -784,7 +815,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const executeFoldedImprovements = () => {
+    console.log('executeFoldedImprovements clicked');
     const opportunities = findFoldedImprovements();
+    console.log('Found folded opportunities:', opportunities.length);
     if (opportunities.length === 0) {
       toast('Katlı iyileştirme yapılabilecek ürün bulunamadı');
       return;
@@ -796,7 +829,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const executeRoundingOperations = () => {
+    console.log('executeRoundingOperations clicked');
     const opportunities = findRoundingOpportunities();
+    console.log('Found rounding opportunities:', opportunities.length);
     if (opportunities.length === 0) {
       toast('Üste tamamlanabilecek ürün bulunamadı');
       return;
@@ -1182,6 +1217,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Alert>
           )}
 
+          {/* Drag Instructions */}
+          <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-4 text-sm text-blue-800">
+              <div className="flex items-center gap-2">
+                <GripVertical className="h-4 w-4" />
+                <span><strong>Sırala:</strong> Sol ikonu tıkla ve sürükle</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">+</span>
+                </div>
+                <span><strong>Birleştir:</strong> Yeşil ikonu tıkla ve sürükle</span>
+              </div>
+            </div>
+          </div>
+
           {/* Products table */}
           <div className="border rounded-lg overflow-hidden bg-white shadow-lg">
             <div className="max-h-96 overflow-y-auto">
@@ -1388,22 +1439,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <div 
-                            draggable
+                            draggable="true"
                             onDragStart={(e) => handleReorderDragStart(e, product)}
                             onDragEnd={handleDragEnd}
-                            className="cursor-move p-1 hover:bg-gray-200 rounded transition-colors select-none"
-                            title="Sırala (Sürükle)"
+                            className="cursor-move p-2 hover:bg-gray-200 rounded transition-colors select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
+                            title="Sırala (Tek tık ile sürükle)"
                           >
-                            <GripVertical className="h-4 w-4 text-gray-500" />
+                            <GripVertical className="h-5 w-5 text-gray-600" />
                           </div>
                           <div 
-                            draggable
+                            draggable="true"
                             onDragStart={(e) => handleMergeDragStart(e, product)}
                             onDragEnd={handleDragEnd}
-                            className="cursor-copy p-1 hover:bg-green-100 rounded transition-colors border border-green-300 select-none"
-                            title="Birleştir (Sürükle)"
+                            className="cursor-copy p-2 hover:bg-green-100 rounded transition-colors border border-green-300 select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
+                            title="Birleştir (Tek tık ile sürükle)"
                           >
-                            <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
+                            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">+</span>
                             </div>
                           </div>
