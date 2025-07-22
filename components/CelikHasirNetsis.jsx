@@ -17,8 +17,7 @@ import {
   Download,
   Upload,
   Loader,
-  RefreshCw,
-  Zap
+  RefreshCw
 } from 'lucide-react';
 
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
@@ -1270,11 +1269,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     setShowDatabaseWarning(true);
   };
 
-  // İleri optimizasyona git
-  const goToAdvancedOptimization = () => {
-    const dataToPass = encodeURIComponent(JSON.stringify(validProducts));
-    router.push(`/satis/celikHasirOptimizasyon?data=${dataToPass}`);
-  };
 
   // Render content function
   const renderContent = () => {
@@ -1345,40 +1339,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-8 h-8 text-yellow-500" />
               <h3 className="text-lg font-semibold">Optimizasyon Uyarısı</h3>
             </div>
             
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 mb-6">
               Listede optimize edilmemiş ürünler bulunmaktadır. 
-              Bu ürünler uyarı ile birlikte kaydedilecektir.
+              Bu ürünler uyarı ile birlikte kaydedilecektir. Devam etmek istiyor musunuz?
             </p>
             
-            <p className="text-sm text-blue-600 mb-6">
-              <strong>İpucu:</strong> Gelişmiş optimizasyon ile ürünlerin sayısını azaltabilir ve birleştirme işlemleri yapabilirsiniz.
-            </p>
-            
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowOptimizationWarning(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg"
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 İptal
-              </button>
-              <button
-                onClick={goToAdvancedOptimization}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                İleri Optimizasyon
               </button>
               <button
                 onClick={proceedWithUnoptimized}
                 className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
               >
-                Olduğu Gibi Devam Et
+                Devam Et
               </button>
             </div>
           </div>
