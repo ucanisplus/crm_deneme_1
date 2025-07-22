@@ -706,9 +706,26 @@ const processExcelWithMapping = (sheets, mapping) => {
   };
 
   // Satırlar için durum
-  const [rows, setRows] = useState([
-    createEmptyRow(0)
-  ]);
+  const [rows, setRows] = useState(() => {
+    // Check for returning optimized data from advanced optimization
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const optimizedData = urlParams.get('optimizedData');
+      
+      if (optimizedData) {
+        try {
+          const decodedData = JSON.parse(decodeURIComponent(optimizedData));
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return decodedData;
+        } catch (error) {
+          console.error('Error parsing optimized data:', error);
+        }
+      }
+    }
+    
+    return [createEmptyRow(0)];
+  });
   
   // Genel uygulama yedekleme sistemi - Deep copy için güncellendi
   const [tableBackup, setTableBackup] = useState(null);
@@ -6293,8 +6310,18 @@ useEffect(() => {
             {/* Advanced Optimization Button */}
             <button 
               onClick={() => {
-                const dataToPass = encodeURIComponent(JSON.stringify(rows));
-                window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
+                // Check if there are unoptimized products
+                const hasUnoptimized = rows.some(row => !row.isOptimized);
+                
+                if (hasUnoptimized) {
+                  if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
+                    const dataToPass = encodeURIComponent(JSON.stringify(rows));
+                    window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
+                  }
+                } else {
+                  const dataToPass = encodeURIComponent(JSON.stringify(rows));
+                  window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
+                }
               }}
               disabled={rows.length === 0}
               className="px-2 py-1 bg-purple-600 text-white rounded-md flex items-center gap-1 hover:bg-purple-700 transition-colors text-sm disabled:bg-gray-400"
@@ -6806,6 +6833,10 @@ useEffect(() => {
 
     </div>
   );
+}
+
+function CelikHasirHesaplamaWithOptimization() {
+  return <CelikHasirHesaplama />;
 }
 
 export default CelikHasirHesaplama;

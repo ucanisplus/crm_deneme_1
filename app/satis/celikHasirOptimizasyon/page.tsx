@@ -304,7 +304,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Handle back to main list
   const handleBackToMainList = () => {
-    const updatedData = encodeURIComponent(JSON.stringify(products));
+    // Mark all products as optimized since advanced optimization may have changed values
+    const optimizedProducts = products.map(product => ({
+      ...product,
+      isOptimized: true
+    }));
+    const updatedData = encodeURIComponent(JSON.stringify(optimizedProducts));
     router.push(`/uretim/hesaplamalar/urun?optimizedData=${updatedData}`);
   };
 
