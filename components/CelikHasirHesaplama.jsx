@@ -25,7 +25,8 @@ import {
   ArrowLeft,
   ArrowUpToLine,
   ArrowDownToLine,
-  StickyNote
+  StickyNote,
+  Zap
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -6287,6 +6288,19 @@ useEffect(() => {
             >
               <Download size={16} />
               Excel&apos;e Aktar
+            </button>
+            
+            {/* Advanced Optimization Button */}
+            <button 
+              onClick={() => {
+                const dataToPass = encodeURIComponent(JSON.stringify(rows));
+                window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
+              }}
+              disabled={rows.length === 0}
+              className="px-2 py-1 bg-purple-600 text-white rounded-md flex items-center gap-1 hover:bg-purple-700 transition-colors text-sm disabled:bg-gray-400"
+            >
+              <Zap size={16} />
+              İleri Optimizasyon
             </button>
             
             {/* Çelik Hasır Netsis Integration - Replaces old database save and recipe buttons */}
