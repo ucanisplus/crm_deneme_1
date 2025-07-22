@@ -766,12 +766,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
         if (product.id === target.id || target.hasirSayisi < 20) continue;
         if (product.hasirTipi !== target.hasirTipi) continue;
         
-        // Check if dimensions are close enough to round up using global tolerance
+        // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions for "rounding up"
+        // Check if we can round UP to target dimensions (target >= source + tolerance)
         const toleranceCm = tolerance; // Tolerance is in cm, same as dimensions
-        const boyDiffCm = Math.abs(product.uzunlukBoy - target.uzunlukBoy);
-        const enDiffCm = Math.abs(product.uzunlukEn - target.uzunlukEn);
+        const boyDiffCm = target.uzunlukBoy - product.uzunlukBoy; // Positive = target is bigger
+        const enDiffCm = target.uzunlukEn - product.uzunlukEn;     // Positive = target is bigger
         
-        if (boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
+        // Both dimensions must be larger OR within tolerance (can be equal or slightly bigger)
+        if (boyDiffCm >= 0 && enDiffCm >= 0 && boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
           const result = {
             ...target,
             id: `rounded_${Date.now()}`,
@@ -781,7 +783,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...(target.mergeHistory || []),
               `Yukarı yuvarla: ${product.uzunlukBoy}x${product.uzunlukEn}(${product.hasirSayisi}) → ${target.uzunlukBoy}x${target.uzunlukEn}(+${product.hasirSayisi})`
             ],
-            advancedOptimizationNotes: `Üste tamamla: ${product.hasirSayisi}+${target.hasirSayisi}=${Number(product.hasirSayisi) + Number(target.hasirSayisi)} adet (tol:${Math.round(Math.max(boyDiffCm, enDiffCm) * 10)}mm)`,
+            advancedOptimizationNotes: `Üste tamamla: ${product.hasirSayisi}+${target.hasirSayisi}=${Number(product.hasirSayisi) + Number(target.hasirSayisi)} adet (boy:+${boyDiffCm}cm, en:+${enDiffCm}cm)`,
             aciklama: target.aciklama || `Yuvarlama birleştirme: ${product.id} → ${target.id}`
           };
           
@@ -862,12 +864,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
           if (usedIds.has(target.id) || target.id === product.id) continue;
           if (!target.hasirTipi.startsWith(targetType)) continue;
           
-          // Check if dimensions are similar for potential type change
-          const boyDiff = Math.abs(Number(product.uzunlukBoy) - Number(target.uzunlukBoy));
-          const enDiff = Math.abs(Number(product.uzunlukEn) - Number(target.uzunlukEn));
-          const toleranceCm = tolerance;
+          // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions
+          // Customer can cut excess material, but cannot produce smaller dimensions
+          const targetBoy = Number(target.uzunlukBoy);
+          const targetEn = Number(target.uzunlukEn);
+          const sourceBoy = Number(product.uzunlukBoy);
+          const sourceEn = Number(product.uzunlukEn);
           
-          if (boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+          // Target dimensions must be >= source dimensions
+          if (targetBoy >= sourceBoy && targetEn >= sourceEn) {
             const result = {
               ...target,
               id: `type_changed_${Date.now()}`,
@@ -886,7 +891,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               source: product,
               target: target,
               result: result,
-              explanation: `Hasır tipi değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi} (+${product.hasirSayisi} adet)`
+              explanation: `Hasır tipi değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn}) - Hedef büyük olduğu için kesilebilir`
             });
             
             usedIds.add(product.id);
@@ -1218,17 +1223,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
           )}
 
           {/* Drag Instructions */}
-          <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-4 text-sm text-blue-800">
-              <div className="flex items-center gap-2">
-                <GripVertical className="h-4 w-4" />
-                <span><strong>Sırala:</strong> Sol ikonu tıkla ve sürükle</span>
+          <div className="mb-2 p-3 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2 text-blue-700">
+                <GripVertical className="h-4 w-4 text-blue-600" />
+                <span><strong>REORDER:</strong> 1) Click blue grip 2) Drag row to reorder</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
+              <div className="flex items-center gap-2 text-green-700">
+                <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs font-bold">+</span>
                 </div>
-                <span><strong>Birleştir:</strong> Yeşil ikonu tıkla ve sürükle</span>
+                <span><strong>MERGE:</strong> 1) Click green plus 2) Drag row to merge target</span>
               </div>
             </div>
           </div>
@@ -1421,6 +1426,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
+                      onDragStart={(e) => {
+                        console.log(`Row drag started for ${product.id} in ${currentDragMode} mode`);
+                        if (currentDragMode === 'reorder') {
+                          handleReorderDragStart(e, product);
+                        } else if (currentDragMode === 'merge') {
+                          handleMergeDragStart(e, product);
+                        }
+                      }}
+                      onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
@@ -1438,26 +1452,60 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     >
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <div 
-                            draggable="true"
-                            onDragStart={(e) => handleReorderDragStart(e, product)}
-                            onDragEnd={handleDragEnd}
-                            className="cursor-move p-2 hover:bg-gray-200 rounded transition-colors select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
-                            title="Sırala (Tek tık ile sürükle)"
+                          <button 
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              console.log('Reorder button clicked for:', product.id);
+                              // Set mode first
+                              setCurrentDragMode('reorder');
+                              setDraggedProduct(product);
+                              // Make parent row draggable
+                              const row = (e.currentTarget as HTMLElement).closest('tr');
+                              if (row) {
+                                row.draggable = true;
+                                row.style.cursor = 'move';
+                              }
+                            }}
+                            onMouseUp={(e) => {
+                              const row = (e.currentTarget as HTMLElement).closest('tr');
+                              if (row) {
+                                row.draggable = false;
+                                row.style.cursor = '';
+                              }
+                            }}
+                            className="cursor-move p-2 hover:bg-gray-200 rounded transition-colors select-none flex items-center justify-center min-w-[32px] min-h-[32px] border-2 border-blue-300"
+                            title="REORDER MODE - Click and drag row"
                           >
-                            <GripVertical className="h-5 w-5 text-gray-600" />
-                          </div>
-                          <div 
-                            draggable="true"
-                            onDragStart={(e) => handleMergeDragStart(e, product)}
-                            onDragEnd={handleDragEnd}
-                            className="cursor-copy p-2 hover:bg-green-100 rounded transition-colors border border-green-300 select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
-                            title="Birleştir (Tek tık ile sürükle)"
+                            <GripVertical className="h-5 w-5 text-blue-600" />
+                          </button>
+                          <button 
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              console.log('Merge button clicked for:', product.id);
+                              // Set mode first  
+                              setCurrentDragMode('merge');
+                              setDraggedProduct(product);
+                              // Make parent row draggable
+                              const row = (e.currentTarget as HTMLElement).closest('tr');
+                              if (row) {
+                                row.draggable = true;
+                                row.style.cursor = 'copy';
+                              }
+                            }}
+                            onMouseUp={(e) => {
+                              const row = (e.currentTarget as HTMLElement).closest('tr');
+                              if (row) {
+                                row.draggable = false;
+                                row.style.cursor = '';
+                              }
+                            }}
+                            className="cursor-copy p-2 hover:bg-green-100 rounded transition-colors border-2 border-green-300 select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
+                            title="MERGE MODE - Click and drag row"
                           >
                             <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">+</span>
                             </div>
-                          </div>
+                          </button>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{product.hasirTipi}</TableCell>
