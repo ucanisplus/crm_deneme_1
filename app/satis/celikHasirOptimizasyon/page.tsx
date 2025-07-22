@@ -296,9 +296,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Filter unique values
   const uniqueValues = useMemo(() => {
     return {
-      hasirTipi: [...new Set(products.map(p => p.hasirTipi))].sort(),
-      boyCap: [...new Set(products.map(p => p.boyCap))].sort((a, b) => a - b),
-      enCap: [...new Set(products.map(p => p.enCap))].sort((a, b) => a - b),
+      hasirTipi: Array.from(new Set(products.map(p => p.hasirTipi))).sort(),
+      boyCap: Array.from(new Set(products.map(p => p.boyCap))).sort((a, b) => a - b),
+      enCap: Array.from(new Set(products.map(p => p.enCap))).sort((a, b) => a - b),
     };
   }, [products]);
 
