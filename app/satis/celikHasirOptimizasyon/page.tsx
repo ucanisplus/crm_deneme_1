@@ -52,7 +52,10 @@ import {
   Check,
   X,
   GripVertical,
-  ChevronDown
+  ChevronDown,
+  Settings,
+  Layers,
+  RefreshCw
 } from 'lucide-react';
 
 interface Product {
@@ -771,7 +774,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeAutomaticMerges = () => {
     const opportunities = findMergeOpportunities();
     if (opportunities.length === 0) {
-      toast('Otomatik birleştirilebilecek ürün bulunamadı', { icon: '📋' });
+      toast('Otomatik birleştirilebilecek ürün bulunamadı');
       return;
     }
     
@@ -783,7 +786,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeFoldedImprovements = () => {
     const opportunities = findFoldedImprovements();
     if (opportunities.length === 0) {
-      toast('Katlı iyileştirme yapılabilecek ürün bulunamadı', { icon: '📋' });
+      toast('Katlı iyileştirme yapılabilecek ürün bulunamadı');
       return;
     }
     
@@ -795,7 +798,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeRoundingOperations = () => {
     const opportunities = findRoundingOpportunities();
     if (opportunities.length === 0) {
-      toast('Üste tamamlanabilecek ürün bulunamadı', { icon: '📋' });
+      toast('Üste tamamlanabilecek ürün bulunamadı');
       return;
     }
     
@@ -865,7 +868,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeHasirTipiChanges = () => {
     const opportunities = findHasirTipiChangeOpportunities();
     if (opportunities.length === 0) {
-      toast('Hasır tipi değişikliği yapılabilecek ürün bulunamadı', { icon: '🔧' });
+      toast('Hasır tipi değişikliği yapılabilecek ürün bulunamadı');
       return;
     }
     
@@ -902,7 +905,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       setShowApprovalDialog(false);
       setPendingOperations([]);
       setCurrentOperationIndex(0);
-      toast('İşlemler tamamlandı', { icon: '✅' });
+      toast('İşlemler tamamlandı');
     }
   };
 
@@ -1139,7 +1142,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi < 20).length}
                 </div>
-                <p className="text-sm font-medium opacity-90">Düşük Miktar (< 20)</p>
+                <p className="text-sm font-medium opacity-90">Düşük Miktar (&lt; 20)</p>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-l-4 border-blue-400">
