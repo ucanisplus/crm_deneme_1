@@ -121,6 +121,25 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
+    // First try to load from sessionStorage
+    const sessionData = sessionStorage.getItem('celikHasirOptimizasyonData');
+    if (sessionData) {
+      try {
+        const parsedData = JSON.parse(sessionData);
+        setProducts(parsedData);
+        setFilteredProducts(parsedData);
+        // Initialize history
+        setHistory([{ products: parsedData, timestamp: Date.now() }]);
+        setHistoryIndex(0);
+        // Clear the data from sessionStorage after loading
+        sessionStorage.removeItem('celikHasirOptimizasyonData');
+        return;
+      } catch (error) {
+        console.error('Error loading data from sessionStorage:', error);
+      }
+    }
+
+    // Fallback to URL parameters for backward compatibility
     const dataParam = searchParams?.get('data');
     if (dataParam) {
       try {
@@ -309,8 +328,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
       ...product,
       isOptimized: true
     }));
-    const updatedData = encodeURIComponent(JSON.stringify(optimizedProducts));
-    router.push(`/uretim/hesaplamalar/urun?optimizedData=${updatedData}`);
+    
+    // Store data in sessionStorage instead of URL
+    sessionStorage.setItem('celikHasirOptimizedData', JSON.stringify(optimizedProducts));
+    router.push('/uretim/hesaplamalar/urun');
   };
 
   // Automatic merge operations

@@ -709,6 +709,20 @@ const processExcelWithMapping = (sheets, mapping) => {
   const [rows, setRows] = useState(() => {
     // Check for returning optimized data from advanced optimization
     if (typeof window !== 'undefined') {
+      // First check sessionStorage
+      const sessionData = sessionStorage.getItem('celikHasirOptimizedData');
+      if (sessionData) {
+        try {
+          const parsedData = JSON.parse(sessionData);
+          // Clear the data from sessionStorage after loading
+          sessionStorage.removeItem('celikHasirOptimizedData');
+          return parsedData;
+        } catch (error) {
+          console.error('Error loading data from sessionStorage:', error);
+        }
+      }
+
+      // Fallback to URL parameters for backward compatibility
       const urlParams = new URLSearchParams(window.location.search);
       const optimizedData = urlParams.get('optimizedData');
       
@@ -6307,29 +6321,6 @@ useEffect(() => {
               Excel&apos;e Aktar
             </button>
             
-            {/* Advanced Optimization Button */}
-            <button 
-              onClick={() => {
-                // Check if there are unoptimized products
-                const hasUnoptimized = rows.some(row => !row.isOptimized);
-                
-                if (hasUnoptimized) {
-                  if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
-                    const dataToPass = encodeURIComponent(JSON.stringify(rows));
-                    window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
-                  }
-                } else {
-                  const dataToPass = encodeURIComponent(JSON.stringify(rows));
-                  window.location.href = `/satis/celikHasirOptimizasyon?data=${dataToPass}`;
-                }
-              }}
-              disabled={rows.length === 0}
-              className="px-2 py-1 bg-purple-600 text-white rounded-md flex items-center gap-1 hover:bg-purple-700 transition-colors text-sm disabled:bg-gray-400"
-            >
-              <Zap size={16} />
-              İleri Optimizasyon
-            </button>
-            
             {/* Çelik Hasır Netsis Integration - Replaces old database save and recipe buttons */}
             <CelikHasirNetsis ref={celikHasirNetsisRef} optimizedProducts={rows} />
           </div>
@@ -6733,6 +6724,31 @@ useEffect(() => {
             
             {/* Sağ taraftaki butonlar */}
             <div className="sm:w-2/3 flex flex-wrap gap-3 justify-end">
+              {/* Advanced Optimization Button */}
+              <button 
+                onClick={() => {
+                  // Check if there are unoptimized products
+                  const hasUnoptimized = rows.some(row => !row.isOptimized);
+                  
+                  if (hasUnoptimized) {
+                    if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
+                      // Store data in sessionStorage instead of URL
+                      sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
+                      window.location.href = '/satis/celikHasirOptimizasyon';
+                    }
+                  } else {
+                    // Store data in sessionStorage instead of URL
+                    sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
+                    window.location.href = '/satis/celikHasirOptimizasyon';
+                  }
+                }}
+                disabled={rows.length === 0}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md flex items-center gap-2 hover:bg-purple-700 transition-colors disabled:bg-gray-400"
+              >
+                <Zap size={18} />
+                İleri Optimizasyon
+              </button>
+
               <button
                 onClick={iyilestirAll}
                 title="Alt+I"
