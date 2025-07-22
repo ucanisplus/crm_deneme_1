@@ -282,14 +282,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Can merge boydan if same en, boyCap, enCap, hasirTipi
     const canMergeBoydan = 
       source.hasirTipi === target.hasirTipi &&
-      source.uzunlukEn === target.uzunlukEn &&
+      Math.abs(source.uzunlukEn - target.uzunlukEn) <= tolerance &&
       source.boyCap === target.boyCap &&
       source.enCap === target.enCap;
 
     // Can merge enden if same boy, boyCap, enCap, hasirTipi
     const canMergeEnden = 
       source.hasirTipi === target.hasirTipi &&
-      source.uzunlukBoy === target.uzunlukBoy &&
+      Math.abs(source.uzunlukBoy - target.uzunlukBoy) <= tolerance &&
       source.boyCap === target.boyCap &&
       source.enCap === target.enCap;
 
@@ -448,30 +448,30 @@ const CelikHasirOptimizasyon: React.FC = () => {
     router.push('/uretim/hesaplamalar/urun');
   };
 
-  // Automatic merge operations
+  // Automatic merge operations with tolerance
   const findMergeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
     const usedIds = new Set<string>();
 
-    // Check for exact matches first
+    // Check for exact matches and tolerance-based matches
     for (const product1 of products) {
       if (usedIds.has(product1.id)) continue;
 
       for (const product2 of products) {
         if (usedIds.has(product2.id) || product1.id === product2.id) continue;
 
-        // Check if they can be merged
-        const canMergeBoydan = 
-          product1.hasirTipi === product2.hasirTipi &&
-          product1.uzunlukEn === product2.uzunlukEn &&
-          product1.boyCap === product2.boyCap &&
-          product1.enCap === product2.enCap;
+        // Must have same hasir type and caps
+        if (product1.hasirTipi !== product2.hasirTipi || 
+            product1.boyCap !== product2.boyCap || 
+            product1.enCap !== product2.enCap) continue;
 
-        const canMergeEnden = 
-          product1.hasirTipi === product2.hasirTipi &&
-          product1.uzunlukBoy === product2.uzunlukBoy &&
-          product1.boyCap === product2.boyCap &&
-          product1.enCap === product2.enCap;
+        // Check boydan merge with tolerance
+        const enDiff = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
+        const canMergeBoydan = enDiff <= tolerance;
+
+        // Check enden merge with tolerance  
+        const boyDiff = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
+        const canMergeEnden = boyDiff <= tolerance;
 
         if (canMergeBoydan) {
           const merged = mergeBoydan(product1, product2);
@@ -480,7 +480,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet`
+            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${enDiff}mm)`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
@@ -492,7 +492,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet`
+            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${boyDiff}mm)`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
@@ -504,7 +504,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return opportunities;
   };
 
-  // Find folded improvements (multiplication opportunities)
+  // Find folded improvements (multiplication opportunities) with tolerance
   const findFoldedImprovements = () => {
     const opportunities: MergeOperation[] = [];
     const usedIds = new Set<string>();
@@ -515,16 +515,19 @@ const CelikHasirOptimizasyon: React.FC = () => {
       for (const product2 of products) {
         if (usedIds.has(product2.id) || product1.id === product2.id) continue;
 
-        // Check if same type
-        if (product1.hasirTipi !== product2.hasirTipi) continue;
+        // Must have same type and caps  
+        if (product1.hasirTipi !== product2.hasirTipi || 
+            product1.boyCap !== product2.boyCap || 
+            product1.enCap !== product2.enCap) continue;
 
         // Check for multiplication opportunities
         let canFold = false;
         let explanation = '';
         let result: Product;
 
-        // Check boy same, en multiple
-        if (product1.uzunlukBoy === product2.uzunlukBoy) {
+        // Check boy similar (within tolerance), en multiple
+        const boyDiff = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
+        if (boyDiff <= tolerance) {
           const ratio1 = product2.uzunlukEn / product1.uzunlukEn;
           const ratio2 = product1.uzunlukEn / product2.uzunlukEn;
           
@@ -542,7 +545,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product2.mergeHistory || []),
                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              aciklama: `Katlı birleştirme: ${product1.id} → ${product2.id}`
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukEn}cm→${product2.uzunlukEn}cm (x${ratio1}) tol:${boyDiff}mm`,
+              aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
             };
             
             explanation = `Katlı iyileştirme: ${product1.uzunlukEn}cm'yi ${ratio1} katla ${product2.uzunlukEn}cm yap`;
@@ -561,7 +565,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product1.mergeHistory || []),
                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              aciklama: `Katlı birleştirme: ${product2.id} → ${product1.id}`
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukEn}cm→${product1.uzunlukEn}cm (x${ratio2}) tol:${boyDiff}mm`,
+              aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
             };
             
             explanation = `Katlı iyileştirme: ${product2.uzunlukEn}cm'yi ${ratio2} katla ${product1.uzunlukEn}cm yap`;
@@ -569,8 +574,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
           }
         }
 
-        // Check en same, boy multiple
-        if (!canFold && product1.uzunlukEn === product2.uzunlukEn) {
+        // Check en similar (within tolerance), boy multiple
+        const enDiff = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
+        if (!canFold && enDiff <= tolerance) {
           const ratio1 = product2.uzunlukBoy / product1.uzunlukBoy;
           const ratio2 = product1.uzunlukBoy / product2.uzunlukBoy;
           
@@ -587,7 +593,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product2.mergeHistory || []),
                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              aciklama: `Katlı birleştirme: ${product1.id} → ${product2.id}`
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukBoy}cm→${product2.uzunlukBoy}cm (x${ratio1}) tol:${enDiff}mm`,
+              aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
             };
             
             explanation = `Katlı iyileştirme: ${product1.uzunlukBoy}cm'yi ${ratio1} katla ${product2.uzunlukBoy}cm yap`;
@@ -605,7 +612,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 ...(product1.mergeHistory || []),
                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
               ],
-              aciklama: `Katlı birleştirme: ${product2.id} → ${product1.id}`
+              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukBoy}cm→${product1.uzunlukBoy}cm (x${ratio2}) tol:${enDiff}mm`,
+              aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
             };
             
             explanation = `Katlı iyileştirme: ${product2.uzunlukBoy}cm'yi ${ratio2} katla ${product1.uzunlukBoy}cm yap`;
@@ -631,24 +639,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return opportunities;
   };
 
-  // Find rounding opportunities
+  // Find rounding opportunities using global tolerance
   const findRoundingOpportunities = () => {
     const opportunities: MergeOperation[] = [];
     
     for (const product of products) {
       if (product.hasirSayisi >= 20) continue; // Only for low quantity products
       
-      const toleranceValue = getTolerance(product.hasirSayisi);
-      
       for (const target of products) {
         if (product.id === target.id || target.hasirSayisi < 20) continue;
         if (product.hasirTipi !== target.hasirTipi) continue;
         
-        // Check if dimensions are close enough to round up
+        // Check if dimensions are close enough to round up using global tolerance
         const boyDiff = Math.abs(product.uzunlukBoy - target.uzunlukBoy);
         const enDiff = Math.abs(product.uzunlukEn - target.uzunlukEn);
         
-        if (boyDiff <= toleranceValue && enDiff <= toleranceValue) {
+        if (boyDiff <= tolerance && enDiff <= tolerance) {
           const result = {
             ...target,
             id: `rounded_${Date.now()}`,
@@ -658,7 +664,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               ...(target.mergeHistory || []),
               `Yukarı yuvarla: ${product.uzunlukBoy}x${product.uzunlukEn}(${product.hasirSayisi}) → ${target.uzunlukBoy}x${target.uzunlukEn}(+${product.hasirSayisi})`
             ],
-            aciklama: `Yuvarlama birleştirme: ${product.id} → ${target.id}`
+            advancedOptimizationNotes: `Üste tamamla: ${product.hasirSayisi}+${target.hasirSayisi}=${Number(product.hasirSayisi) + Number(target.hasirSayisi)} adet (tol:${Math.max(boyDiff, enDiff)}mm)`,
+            aciklama: target.aciklama || `Yuvarlama birleştirme: ${product.id} → ${target.id}`
           };
           
           opportunities.push({
@@ -789,9 +796,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
         </CardHeader>
         
         <CardContent className="space-y-6 p-6">
-          {/* Filters */}
+          {/* Filters and Tolerance */}
           <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border">
-            <Label className="text-lg font-semibold mb-3 block">🔍 Filtreler</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-lg font-semibold">🔍 Filtreler</Label>
+              <div className="flex items-center gap-3">
+                <Label className="text-sm font-medium">Tolerans: {tolerance}mm</Label>
+                <Slider
+                  value={[tolerance]}
+                  onValueChange={(value) => setTolerance(value[0])}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-32"
+                />
+              </div>
+            </div>
             <div className="flex gap-3 flex-wrap">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1192,27 +1212,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
             >
               🔄 Hasır Tipi Değişikliği
             </Button>
-          </div>
-
-          {/* Tolerance slider for rounding operations */}
-          <div className="mt-4 p-6 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-            <Label className="text-lg font-semibold">Yuvarlama Toleransı: {tolerance}mm</Label>
-            <Slider
-              value={[tolerance]}
-              onValueChange={(value) => setTolerance(value[0])}
-              min={0}
-              max={100}
-              step={1}
-              className="mt-3"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground mt-2">
-              <span>0mm (Kesin eşleşme)</span>
-              <span>50mm (Orta)</span>
-              <span>100mm (Esnek)</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-2 bg-white p-2 rounded border-l-4 border-blue-500">
-              💡 Üste tamamlama işlemlerinde kullanılacak tolerans değeri. Düşük değerler daha kesin eşleşme gerektirir.
-            </p>
           </div>
         </CardContent>
       </Card>
