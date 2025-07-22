@@ -265,42 +265,48 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Merge functions
-  const mergeBoydan = (source: Product, target: Product): Product => {
+  // OPTIMIZATION: Eliminate SMALLER product by producing it as BIGGER similar product  
+  const optimizeBoydan = (smallerProduct: Product, biggerProduct: Product): Product => {
+    const totalQuantity = Number(smallerProduct.hasirSayisi) + Number(biggerProduct.hasirSayisi);
+    const totalWeight = Number(smallerProduct.toplamKg) + Number(biggerProduct.toplamKg);
+    
     return {
-      ...target,
-      id: `merged_${Date.now()}`,
-      uzunlukBoy: Number(source.uzunlukBoy) + Number(target.uzunlukBoy),
-      hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
-      toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
+      ...biggerProduct, // KEEP BIGGER PRODUCT'S DIMENSIONS!
+      id: `optimized_${Date.now()}`,
+      hasirSayisi: totalQuantity,
+      toplamKg: totalWeight,
       mergeHistory: [
-        ...(target.mergeHistory || []),
-        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet↑`
+        ...(biggerProduct.mergeHistory || []),
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
       ],
-      advancedOptimizationNotes: `Boydan birleştirildi: ${source.hasirSayisi}+${target.hasirSayisi}=${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`,
-      aciklama: target.aciklama || `Boydan birleştirildi: ${source.id} + ${target.id}`
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
+      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} total)`
     };
   };
 
-  const mergeEnden = (source: Product, target: Product): Product => {
+  // OPTIMIZATION: Eliminate SMALLER product by producing it as BIGGER similar product
+  const optimizeEnden = (smallerProduct: Product, biggerProduct: Product): Product => {
+    const totalQuantity = Number(smallerProduct.hasirSayisi) + Number(biggerProduct.hasirSayisi);
+    const totalWeight = Number(smallerProduct.toplamKg) + Number(biggerProduct.toplamKg);
+    
     return {
-      ...target,
-      id: `merged_${Date.now()}`,
-      uzunlukEn: Number(source.uzunlukEn) + Number(target.uzunlukEn),
-      hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
-      toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
+      ...biggerProduct, // KEEP BIGGER PRODUCT'S DIMENSIONS!
+      id: `optimized_${Date.now()}`,
+      hasirSayisi: totalQuantity,
+      toplamKg: totalWeight,
       mergeHistory: [
-        ...(target.mergeHistory || []),
-        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet→`
+        ...(biggerProduct.mergeHistory || []),
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
       ],
-      advancedOptimizationNotes: `Enden birleştirildi: ${source.hasirSayisi}+${target.hasirSayisi}=${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`,
-      aciklama: target.aciklama || `Enden birleştirildi: ${source.id} + ${target.id}`
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
+      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} total)`
     };
   };
 
   // Smart merge suggestion based on product analysis
   const getSuggestedMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
-    // Convert tolerance from mm to cm for comparison (tolerance slider is in mm, dimensions are in cm)
-    const toleranceCm = tolerance / 10;
+    // Tolerance and dimensions are both in cm
+    const toleranceCm = tolerance;
     
     // Can merge boydan if same en, boyCap, enCap, hasirTipi
     const enDiffCm = Math.abs(source.uzunlukEn - target.uzunlukEn);
@@ -329,19 +335,20 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Separate drag handlers for reorder vs merge
+  // Immediate drag handlers - no delays or double-click needed
   const handleReorderDragStart = (e: React.DragEvent, product: Product) => {
     e.stopPropagation();
     setDraggedProduct(product);
     setCurrentDragMode('reorder');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', product.id);
     
-    setTimeout(() => {
-      const dragElement = e.currentTarget.closest('tr') as HTMLElement;
-      if (dragElement) {
-        dragElement.style.opacity = '0.4';
-      }
-    }, 0);
+    // Immediate visual feedback
+    const dragElement = (e.currentTarget as HTMLElement).closest('tr');
+    if (dragElement) {
+      dragElement.style.opacity = '0.4';
+      dragElement.style.transform = 'scale(0.98)';
+    }
   };
   
   const handleMergeDragStart = (e: React.DragEvent, product: Product) => {
@@ -349,13 +356,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setDraggedProduct(product);
     setCurrentDragMode('merge');
     e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', product.id);
     
-    setTimeout(() => {
-      const dragElement = e.currentTarget.closest('tr') as HTMLElement;
-      if (dragElement) {
-        dragElement.style.opacity = '0.4';
-      }
-    }, 0);
+    // Immediate visual feedback  
+    const dragElement = (e.currentTarget as HTMLElement).closest('tr');
+    if (dragElement) {
+      dragElement.style.opacity = '0.4';
+      dragElement.style.transform = 'scale(0.98)';
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, product: Product) => {
@@ -394,6 +402,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setDragInsertPosition(null);
   };
 
+  const handleDragEnd = () => {
+    // Clean up visual feedback immediately when drag ends
+    const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
+    draggedElements.forEach((el) => {
+      (el as HTMLElement).style.opacity = '1';
+      (el as HTMLElement).style.transform = 'scale(1)';
+    });
+    setDraggedProduct(null);
+    setDragOverProduct(null);
+    setDragInsertPosition(null);
+  };
+
   const reorderProducts = (sourceProduct: Product, targetProduct: Product, position: 'before' | 'after') => {
     const newProducts = [...products];
     const sourceIndex = newProducts.findIndex(p => p.id === sourceProduct.id);
@@ -419,13 +439,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     e.preventDefault();
     setDragOverProduct(null);
     
-    // Reset opacity for dragged element
-    setTimeout(() => {
-      const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
-      draggedElements.forEach((el) => {
-        (el as HTMLElement).style.opacity = '1';
-      });
-    }, 0);
+    // Reset opacity and transform immediately
+    const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
+    draggedElements.forEach((el) => {
+      (el as HTMLElement).style.opacity = '1';
+      (el as HTMLElement).style.transform = 'scale(1)';
+    });
     
     if (dragHoverTimeout) {
       clearTimeout(dragHoverTimeout);
@@ -459,11 +478,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
     let explanation: string;
 
     if (operation === 'boydan') {
-      mergedProduct = mergeBoydan(source, target);
-      explanation = `Boydan birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`;
+      mergedProduct = optimizeBoydan(source, target);
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} eliminated → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} total)`;
     } else {
-      mergedProduct = mergeEnden(source, target);
-      explanation = `Enden birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`;
+      mergedProduct = optimizeEnden(source, target);
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} eliminated → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} total)`;
     }
 
     const newProducts = products
@@ -500,80 +519,66 @@ const CelikHasirOptimizasyon: React.FC = () => {
     router.push('/uretim/hesaplamalar/urun');
   };
 
-  // Automatic merge operations with tolerance
+  // OPTIMIZATION: Find opportunities to eliminate low-quantity products
   const findMergeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
     const usedIds = new Set<string>();
 
-    // Check for exact matches and tolerance-based matches
-    // Sort products to prioritize low-quantity ones (hasirSayisi < 50) for merging
-    const sortedProducts = [...products].sort((a, b) => {
-      const aLowQty = Number(a.hasirSayisi) < 50 ? 0 : 1;
-      const bLowQty = Number(b.hasirSayisi) < 50 ? 0 : 1;
-      return aLowQty - bLowQty || Number(a.hasirSayisi) - Number(b.hasirSayisi);
-    });
+    // STEP 1: Find all LOW QUANTITY products that need optimization (< 20 adet)
+    const lowQuantityProducts = products.filter(p => Number(p.hasirSayisi) < 20 && !usedIds.has(p.id));
     
-    for (const product1 of sortedProducts) {
-      if (usedIds.has(product1.id)) continue;
+    for (const sourceProduct of lowQuantityProducts) {
+      if (usedIds.has(sourceProduct.id)) continue;
       
-      // Only merge if at least one product has low quantity (< 50)
-      const shouldConsiderMerge = Number(product1.hasirSayisi) < 50;
-
-      for (const product2 of sortedProducts) {
-        if (usedIds.has(product2.id) || product1.id === product2.id) continue;
+      // STEP 2: Find a SIMILAR but BIGGER product to absorb this one
+      const candidates = products.filter(p => 
+        p.id !== sourceProduct.id && 
+        !usedIds.has(p.id) &&
+        Number(p.hasirSayisi) >= Number(sourceProduct.hasirSayisi) && // Target should have more quantity
+        p.hasirTipi === sourceProduct.hasirTipi && // Same mesh type
+        p.boyCap === sourceProduct.boyCap && // Same boy diameter 
+        p.enCap === sourceProduct.enCap // Same en diameter
+      );
+      
+      if (candidates.length === 0) continue;
+      
+      // Tolerance is in mm, dimensions are in cm, so convert tolerance to cm
+      const toleranceCm = tolerance;
+      
+      // STEP 3: Find the best match within tolerance
+      for (const targetProduct of candidates) {
+        const boyDiffCm = Math.abs(Number(sourceProduct.uzunlukBoy) - Number(targetProduct.uzunlukBoy));
+        const enDiffCm = Math.abs(Number(sourceProduct.uzunlukEn) - Number(targetProduct.uzunlukEn));
         
-        // Skip if both products have high quantity (>= 200) to avoid unnecessary merging
-        if (Number(product1.hasirSayisi) >= 200 && Number(product2.hasirSayisi) >= 200) continue;
+        // Check which dimension is closer for optimization choice
+        const canOptimizeBoydan = enDiffCm <= toleranceCm; // Same EN, different BOY
+        const canOptimizeEnden = boyDiffCm <= toleranceCm;  // Same BOY, different EN
         
-        // At least one should be low quantity unless we have exact matches
-        if (!shouldConsiderMerge && Number(product2.hasirSayisi) >= 50) {
-          // Only allow exact matches for high-quantity products
-          const exactBoyMatch = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy) < 0.1;
-          const exactEnMatch = Math.abs(product1.uzunlukEn - product2.uzunlukEn) < 0.1;
-          if (!exactBoyMatch && !exactEnMatch) continue;
-        }
-
-        // Must have same hasir type and caps
-        if (product1.hasirTipi !== product2.hasirTipi || 
-            product1.boyCap !== product2.boyCap || 
-            product1.enCap !== product2.enCap) continue;
-
-        // Convert tolerance from mm to cm for comparison (tolerance slider is in mm, dimensions are in cm)
-        const toleranceCm = tolerance / 10;
-        
-        // Check boydan merge with tolerance
-        const enDiffCm = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
-        const canMergeBoydan = enDiffCm <= toleranceCm;
-
-        // Check enden merge with tolerance  
-        const boyDiffCm = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
-        const canMergeEnden = boyDiffCm <= toleranceCm;
-
-        if (canMergeBoydan) {
-          const merged = mergeBoydan(product1, product2);
-          const actualDiffMm = Math.round(enDiffCm * 10); // Convert back to mm for display
+        if (canOptimizeBoydan) {
+          const optimized = optimizeBoydan(sourceProduct, targetProduct);
+          const actualDiffCm = enDiffCm;
           opportunities.push({
             type: 'boydan',
-            source: product1,
-            target: product2,
-            result: merged,
-            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${actualDiffMm}mm)`
+            source: sourceProduct,
+            target: targetProduct,
+            result: optimized,
+            explanation: `OPTIMIZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} eliminated → produced as ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
           });
-          usedIds.add(product1.id);
-          usedIds.add(product2.id);
+          usedIds.add(sourceProduct.id);
+          usedIds.add(targetProduct.id);
           break;
-        } else if (canMergeEnden) {
-          const merged = mergeEnden(product1, product2);
-          const actualDiffMm = Math.round(boyDiffCm * 10); // Convert back to mm for display
+        } else if (canOptimizeEnden) {
+          const optimized = optimizeEnden(sourceProduct, targetProduct);
+          const actualDiffCm = boyDiffCm;
           opportunities.push({
             type: 'enden',
-            source: product1,
-            target: product2,
-            result: merged,
-            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet (tolerans: ${actualDiffMm}mm)`
+            source: sourceProduct,
+            target: targetProduct,
+            result: optimized,
+            explanation: `OPTIMIZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} eliminated → produced as ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
           });
-          usedIds.add(product1.id);
-          usedIds.add(product2.id);
+          usedIds.add(sourceProduct.id);
+          usedIds.add(targetProduct.id);
           break;
         }
       }
@@ -604,7 +609,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         let result: Product;
 
         // Check boy similar (within tolerance), en multiple
-        const toleranceCm = tolerance / 10; // Convert mm to cm
+        const toleranceCm = tolerance; // Tolerance is in cm, same as dimensions
         const boyDiffCm = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
         if (boyDiffCm <= toleranceCm) {
           const ratio1 = product2.uzunlukEn / product1.uzunlukEn;
@@ -730,7 +735,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         if (product.hasirTipi !== target.hasirTipi) continue;
         
         // Check if dimensions are close enough to round up using global tolerance
-        const toleranceCm = tolerance / 10; // Convert mm to cm
+        const toleranceCm = tolerance; // Tolerance is in cm, same as dimensions
         const boyDiffCm = Math.abs(product.uzunlukBoy - target.uzunlukBoy);
         const enDiffCm = Math.abs(product.uzunlukEn - target.uzunlukEn);
         
@@ -753,7 +758,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product,
             target: target,
             result: result,
-            explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.round(Math.max(boyDiffCm, enDiffCm) * 10)}mm)`
+            explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.max(boyDiffCm, enDiffCm).toFixed(1)}cm)`
           });
         }
       }
@@ -822,7 +827,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           // Check if dimensions are similar for potential type change
           const boyDiff = Math.abs(Number(product.uzunlukBoy) - Number(target.uzunlukBoy));
           const enDiff = Math.abs(Number(product.uzunlukEn) - Number(target.uzunlukEn));
-          const toleranceCm = tolerance / 10;
+          const toleranceCm = tolerance;
           
           if (boyDiff <= toleranceCm && enDiff <= toleranceCm) {
             const result = {
@@ -906,7 +911,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-3xl font-bold">🔧 İleri Optimizasyon</CardTitle>
+            <CardTitle className="text-3xl font-bold">İleri Optimizasyon</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -949,10 +954,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {/* Filters and Tolerance */}
           <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border">
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-lg font-semibold">🔍 Filtreler</Label>
+              <Label className="text-lg font-semibold flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filtreler
+              </Label>
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Tolerans: {tolerance}mm</Label>
+                  <Label className="text-sm font-medium">Tolerans: {tolerance}cm</Label>
                   <Slider
                     value={[tolerance]}
                     onValueChange={(value) => setTolerance(value[0])}
@@ -1112,41 +1120,42 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [] })}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
-                🗑️ Filtreleri Temizle
+                <X className="h-4 w-4 mr-1" />
+                Filtreleri Temizle
               </Button>
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <Card className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-l-4 border-slate-400">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">{products.length}</div>
-                <p className="text-xs opacity-90">Toplam Ürün</p>
+                <p className="text-sm font-medium opacity-90">Toplam Ürün</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+            <Card className="bg-gradient-to-r from-amber-600 to-orange-700 text-white border-l-4 border-amber-400">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi < 20).length}
                 </div>
-                <p className="text-xs opacity-90">20'den Az</p>
+                <p className="text-sm font-medium opacity-90">Düşük Miktar (< 20)</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
+            <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-l-4 border-blue-400">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length}
                 </div>
-                <p className="text-xs opacity-90">20-50 Arası</p>
+                <p className="text-sm font-medium opacity-90">Orta Miktar (20-50)</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <Card className="bg-gradient-to-r from-emerald-600 to-green-700 text-white border-l-4 border-emerald-400">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi >= 50).length}
                 </div>
-                <p className="text-xs opacity-90">50'den Fazla</p>
+                <p className="text-sm font-medium opacity-90">Yüksek Miktar (50+)</p>
               </CardContent>
             </Card>
           </div>
@@ -1156,7 +1165,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Alert className="mb-4 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className={`h-4 w-4 rounded-full ${currentDragMode === 'merge' ? 'bg-green-500' : 'bg-blue-500'}`}>
                 <span className="text-white text-xs flex items-center justify-center h-full">
-                  {currentDragMode === 'merge' ? '🔗' : '📋'}
+                  {currentDragMode === 'merge' ? '⚬' : '≡'}
                 </span>
               </div>
               <AlertDescription className="text-gray-800 flex items-center gap-2">
@@ -1378,7 +1387,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           <div 
                             draggable
                             onDragStart={(e) => handleReorderDragStart(e, product)}
-                            className="cursor-move p-1 hover:bg-gray-200 rounded transition-colors"
+                            onDragEnd={handleDragEnd}
+                            className="cursor-move p-1 hover:bg-gray-200 rounded transition-colors select-none"
                             title="Sırala (Sürükle)"
                           >
                             <GripVertical className="h-4 w-4 text-gray-500" />
@@ -1386,7 +1396,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           <div 
                             draggable
                             onDragStart={(e) => handleMergeDragStart(e, product)}
-                            className="cursor-copy p-1 hover:bg-green-100 rounded transition-colors border border-green-300"
+                            onDragEnd={handleDragEnd}
+                            className="cursor-copy p-1 hover:bg-green-100 rounded transition-colors border border-green-300 select-none"
                             title="Birleştir (Sürükle)"
                           >
                             <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
@@ -1439,7 +1450,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       {dragOverProduct?.id === product.id && currentDragMode === 'merge' && (
                         <div className="absolute top-2 right-2 z-10">
                           <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg flex items-center gap-1">
-                            🔗 Birleştir
+                            Birleştir
                           </div>
                         </div>
                       )}
@@ -1457,15 +1468,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
               onClick={executeAutomaticMerges}
               className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              <Merge className="h-4 w-4 mr-1" />
-              🤖 Otomatik Tüm Birleştirmeleri Uygula
+              <Settings className="w-4 h-4 mr-2" />
+              Otomatik Tüm Birleştirmeleri Uygula
             </Button>
             <Button 
               variant="outline"
               onClick={executeFoldedImprovements}
               className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              📐 Katlı İyileştirmeler
+              <Layers className="w-4 h-4 mr-2" />
+              Katlı İyileştirmeler
             </Button>
             <Button 
               variant="outline"
@@ -1479,7 +1491,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               onClick={executeHasirTipiChanges}
               className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              🔄 Hasır Tipi Değişikliği
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Hasır Tipi Değişikliği
             </Button>
           </div>
         </CardContent>
@@ -1489,7 +1502,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">🔀 Birleştirme İşlemi</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Birleştirme İşlemi</DialogTitle>
             <DialogDescription>
               İki ürünü nasıl birleştirmek istiyorsunuz?
             </DialogDescription>
@@ -1500,7 +1513,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <Alert className="mb-4 border-green-300 bg-green-50">
                   <AlertTriangle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    ✅ Önerilen işlem: <strong>{pendingMerge.operation === 'boydan' ? 'Boydan Ekle' : 'Enden Ekle'}</strong>
+                    Önerilen işlem: <strong>{pendingMerge.operation === 'boydan' ? 'Boydan Ekle' : 'Enden Ekle'}</strong>
                     {pendingMerge.operation === 'boydan' && ' (Aynı en boyutu tespit edildi)'}
                     {pendingMerge.operation === 'enden' && ' (Aynı boy uzunluğu tespit edildi)'}
                   </AlertDescription>
@@ -1508,7 +1521,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 rounded border border-blue-200">
-                  <p className="font-semibold text-blue-800">📦 Kaynak Ürün:</p>
+                  <p className="font-semibold text-blue-800">Kaynak Ürün:</p>
                   <div className="text-sm text-blue-700 space-y-1">
                     <p><strong>Tip:</strong> {pendingMerge.source.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingMerge.source.uzunlukBoy}x{pendingMerge.source.uzunlukEn} cm</p>
@@ -1517,7 +1530,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   </div>
                 </div>
                 <div className="p-4 bg-green-50 rounded border border-green-200">
-                  <p className="font-semibold text-green-800">🎯 Hedef Ürün:</p>
+                  <p className="font-semibold text-green-800">Hedef Ürün:</p>
                   <div className="text-sm text-green-700 space-y-1">
                     <p><strong>Tip:</strong> {pendingMerge.target.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingMerge.target.uzunlukBoy}x{pendingMerge.target.uzunlukEn} cm</p>
@@ -1538,7 +1551,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   ➡️ Enden Ekle
                 </Button>
                 <Button onClick={() => executeMerge('boydan')} className="bg-green-600 hover:bg-green-700">
-                  ✅ Boydan Ekle (Önerilen)
+                  Boydan Ekle (Önerilen)
                 </Button>
               </>
             ) : pendingMerge?.operation === 'enden' ? (
@@ -1547,7 +1560,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   ⬆️ Boydan Ekle
                 </Button>
                 <Button onClick={() => executeMerge('enden')} className="bg-green-600 hover:bg-green-700">
-                  ✅ Enden Ekle (Önerilen)
+                  Enden Ekle (Önerilen)
                 </Button>
               </>
             ) : (
@@ -1568,7 +1581,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">⚡ İşlem Onayı</DialogTitle>
+            <DialogTitle className="text-xl font-bold">İşlem Onayı</DialogTitle>
             <DialogDescription>
               {pendingOperations.length > 0 && 
                 `İşlem ${currentOperationIndex + 1} / ${pendingOperations.length}`}
@@ -1578,13 +1591,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-                <p className="font-semibold text-blue-800 mb-2">🎯 Önerilen İşlem:</p>
+                <p className="font-semibold text-blue-800 mb-2">Önerilen İşlem:</p>
                 <p className="text-blue-700">{pendingOperations[currentOperationIndex].explanation}</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded">
-                  <p className="font-semibold mb-2">📦 Kaynak Ürün:</p>
+                  <p className="font-semibold mb-2">Kaynak Ürün:</p>
                   <div className="text-sm space-y-1">
                     <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].source.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].source.uzunlukBoy}x{pendingOperations[currentOperationIndex].source.uzunlukEn} cm</p>
@@ -1594,7 +1607,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 </div>
                 
                 <div className="p-4 bg-gray-50 rounded">
-                  <p className="font-semibold mb-2">🎯 Hedef Ürün:</p>
+                  <p className="font-semibold mb-2">Hedef Ürün:</p>
                   <div className="text-sm space-y-1">
                     <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].target.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].target.uzunlukBoy}x{pendingOperations[currentOperationIndex].target.uzunlukEn} cm</p>
@@ -1605,7 +1618,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               </div>
               
               <div className="p-4 bg-green-50 border border-green-200 rounded">
-                <p className="font-semibold text-green-800 mb-2">✨ Sonuç:</p>
+                <p className="font-semibold text-green-800 mb-2">Sonuç:</p>
                 <div className="text-sm space-y-1 text-green-700">
                   <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
                   <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
@@ -1642,7 +1655,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <Check className="w-4 h-4 mr-1" />
-                ✅ Onayla
+                Onayla
               </Button>
             </div>
           </DialogFooter>
