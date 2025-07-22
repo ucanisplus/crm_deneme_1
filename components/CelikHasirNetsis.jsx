@@ -1,6 +1,7 @@
 // Çelik Hasır Netsis Integration Component
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { API_URLS, fetchWithAuth } from '@/api-config';
 import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
@@ -16,12 +17,39 @@ import {
   Download,
   Upload,
   Loader,
-  RefreshCw
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 
-const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
+const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
+  // Check for optimized data from advanced optimization screen
+  const [products, setProducts] = useState(optimizedProducts);
+  
+  useEffect(() => {
+    // Check if we're returning from advanced optimization
+    const urlParams = new URLSearchParams(window.location.search);
+    const optimizedData = urlParams.get('optimizedData');
+    
+    if (optimizedData) {
+      try {
+        const decodedData = JSON.parse(decodeURIComponent(optimizedData));
+        setProducts(decodedData);
+        // Update parent component if callback provided
+        if (onProductsUpdate) {
+          onProductsUpdate(decodedData);
+        }
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (error) {
+        console.error('Error parsing optimized data:', error);
+      }
+    } else {
+      setProducts(optimizedProducts);
+    }
+  }, [optimizedProducts, onProductsUpdate]);
+
   // Filter out empty rows - a row is considered empty if hasirTipi, uzunlukBoy, or uzunlukEn is missing
-  const validProducts = optimizedProducts.filter(product => 
+  const validProducts = products.filter(product => 
     product.hasirTipi && 
     product.hasirTipi.trim() !== '' &&
     product.uzunlukBoy && 
@@ -30,6 +58,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
     product.uzunlukEn.toString().trim() !== ''
   );
   const { user, hasPermission } = useAuth();
+  const router = useRouter();
   
   // Ana state değişkenleri
   const [isLoading, setIsLoading] = useState(false);
@@ -1241,6 +1270,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
     setShowDatabaseWarning(true);
   };
 
+  // İleri optimizasyona git
+  const goToAdvancedOptimization = () => {
+    const dataToPass = encodeURIComponent(JSON.stringify(validProducts));
+    router.push(`/satis/celikHasirOptimizasyon?data=${dataToPass}`);
+  };
+
   // Render content function
   const renderContent = () => {
     // İzin kontrolü - Çelik Hasır modülü için
@@ -1310,29 +1345,40 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [] }, ref) => {
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-8 h-8 text-yellow-500" />
               <h3 className="text-lg font-semibold">Optimizasyon Uyarısı</h3>
             </div>
             
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-4">
               Listede optimize edilmemiş ürünler bulunmaktadır. 
-              Bu ürünler uyarı ile birlikte kaydedilecektir. Devam etmek istiyor musunuz?
+              Bu ürünler uyarı ile birlikte kaydedilecektir.
             </p>
             
-            <div className="flex gap-3 justify-end">
+            <p className="text-sm text-blue-600 mb-6">
+              <strong>İpucu:</strong> Gelişmiş optimizasyon ile ürünlerin sayısını azaltabilir ve birleştirme işlemleri yapabilirsiniz.
+            </p>
+            
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setShowOptimizationWarning(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg"
               >
                 İptal
+              </button>
+              <button
+                onClick={goToAdvancedOptimization}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                İleri Optimizasyon
               </button>
               <button
                 onClick={proceedWithUnoptimized}
                 className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
               >
-                Devam Et
+                Olduğu Gibi Devam Et
               </button>
             </div>
           </div>
