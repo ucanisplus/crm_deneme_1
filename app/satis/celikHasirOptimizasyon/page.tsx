@@ -87,7 +87,7 @@ interface HistoryState {
 }
 
 interface MergeOperation {
-  type: 'boydan' | 'enden' | 'katli' | 'tamamla';
+  type: 'boydan' | 'enden' | 'katli' | 'tamamla' | 'tipi_degisiklik';
   source: Product;
   target: Product;
   result: Product;
@@ -364,7 +364,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     if (!draggedProduct || draggedProduct.id === product.id) return;
     
-    if (dragModePreference === 'reorder') {
+    if (currentDragMode === 'reorder') {
       // Reorder mode: show insertion position
       e.dataTransfer.dropEffect = 'move';
       const rect = e.currentTarget.getBoundingClientRect();
@@ -448,7 +448,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     setDraggedProduct(null);
     setDragInsertPosition(null);
-    setCurrentDragMode(dragModePreference);
+    setCurrentDragMode('reorder'); // Reset to reorder mode
   };
 
   const executeMerge = (operation: 'boydan' | 'enden') => {
