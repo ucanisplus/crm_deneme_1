@@ -121,7 +121,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
-    const dataParam = searchParams.get('data');
+    const dataParam = searchParams?.get('data');
     if (dataParam) {
       try {
         const decodedData = JSON.parse(decodeURIComponent(dataParam));
