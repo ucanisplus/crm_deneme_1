@@ -73,6 +73,9 @@ interface Product {
   uretilemez: boolean;
   aciklama: string;
   mergeHistory?: string[];
+  filizUzunluk?: number;
+  filizSayisi?: number;
+  filizAdet?: number;
 }
 
 interface HistoryState {
@@ -99,6 +102,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [selectedFilters, setSelectedFilters] = useState({
     hasirTipi: [] as string[],
+    hasirKodu: [] as string[],
     boyCap: [] as number[],
     enCap: [] as number[],
   });
@@ -108,6 +112,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
   }[]>([]);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
+  const [dragMode, setDragMode] = useState<'merge' | 'reorder'>('merge');
+  const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pendingMerge, setPendingMerge] = useState<{
     source: Product;
@@ -163,6 +169,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Apply filters
     if (selectedFilters.hasirTipi.length > 0) {
       filtered = filtered.filter(p => selectedFilters.hasirTipi.includes(p.hasirTipi));
+    }
+    if (selectedFilters.hasirKodu.length > 0) {
+      filtered = filtered.filter(p => {
+        const firstChar = p.hasirTipi.charAt(0).toUpperCase();
+        return selectedFilters.hasirKodu.includes(firstChar);
+      });
     }
     if (selectedFilters.boyCap.length > 0) {
       filtered = filtered.filter(p => selectedFilters.boyCap.includes(p.boyCap));
@@ -234,11 +246,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
       ...target,
       id: `merged_${Date.now()}`,
       uzunlukBoy: source.uzunlukBoy + target.uzunlukBoy,
-      hasirSayisi: source.hasirSayisi + target.hasirSayisi,
-      toplamKg: source.toplamKg + target.toplamKg,
+      hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
+      toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
       mergeHistory: [
         ...(target.mergeHistory || []),
-        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${source.hasirSayisi + target.hasirSayisi}adet↑`
+        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet↑`
       ],
       aciklama: `Boydan birleştirildi: ${source.id} + ${target.id}`
     };
@@ -249,42 +261,125 @@ const CelikHasirOptimizasyon: React.FC = () => {
       ...target,
       id: `merged_${Date.now()}`,
       uzunlukEn: source.uzunlukEn + target.uzunlukEn,
-      hasirSayisi: source.hasirSayisi + target.hasirSayisi,
-      toplamKg: source.toplamKg + target.toplamKg,
+      hasirSayisi: Number(source.hasirSayisi) + Number(target.hasirSayisi),
+      toplamKg: Number(source.toplamKg) + Number(target.toplamKg),
       mergeHistory: [
         ...(target.mergeHistory || []),
-        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${source.hasirSayisi + target.hasirSayisi}adet→`
+        `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet→`
       ],
       aciklama: `Enden birleştirildi: ${source.id} + ${target.id}`
     };
   };
 
-  // Drag and drop handlers
+  // Smart merge suggestion based on product analysis
+  const getSuggestedMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
+    // Can merge boydan if same en, boyCap, enCap, hasirTipi
+    const canMergeBoydan = 
+      source.hasirTipi === target.hasirTipi &&
+      source.uzunlukEn === target.uzunlukEn &&
+      source.boyCap === target.boyCap &&
+      source.enCap === target.enCap;
+
+    // Can merge enden if same boy, boyCap, enCap, hasirTipi
+    const canMergeEnden = 
+      source.hasirTipi === target.hasirTipi &&
+      source.uzunlukBoy === target.uzunlukBoy &&
+      source.boyCap === target.boyCap &&
+      source.enCap === target.enCap;
+
+    if (canMergeBoydan && canMergeEnden) {
+      // If both possible, suggest the one that results in more standard dimensions
+      return 'boydan'; // Default to boydan
+    } else if (canMergeBoydan) {
+      return 'boydan';
+    } else if (canMergeEnden) {
+      return 'enden';
+    }
+    return null;
+  };
+
+  // Drag and drop handlers with smart reordering
   const handleDragStart = (e: React.DragEvent, product: Product) => {
     setDraggedProduct(product);
     e.dataTransfer.effectAllowed = 'move';
+    setDragMode('reorder'); // Start with reorder mode
   };
 
   const handleDragOver = (e: React.DragEvent, product: Product) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverProduct(product);
+    
+    // Clear existing timeout
+    if (dragHoverTimeout) {
+      clearTimeout(dragHoverTimeout);
+    }
+    
+    // Set timeout to switch to merge mode if hovering for 800ms
+    const timeout = setTimeout(() => {
+      if (draggedProduct && draggedProduct.id !== product.id) {
+        const suggestion = getSuggestedMergeOperation(draggedProduct, product);
+        if (suggestion) {
+          setDragMode('merge');
+        }
+      }
+    }, 800);
+    
+    setDragHoverTimeout(timeout);
   };
 
   const handleDragLeave = () => {
+    if (dragHoverTimeout) {
+      clearTimeout(dragHoverTimeout);
+      setDragHoverTimeout(null);
+    }
     setDragOverProduct(null);
+    setDragMode('reorder'); // Reset to reorder mode
+  };
+
+  const reorderProducts = (sourceProduct: Product, targetProduct: Product) => {
+    const sourceIndex = filteredProducts.findIndex(p => p.id === sourceProduct.id);
+    const targetIndex = filteredProducts.findIndex(p => p.id === targetProduct.id);
+    
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    
+    const newProducts = [...products];
+    const sourceProductIndex = newProducts.findIndex(p => p.id === sourceProduct.id);
+    const targetProductIndex = newProducts.findIndex(p => p.id === targetProduct.id);
+    
+    // Remove source product and insert at target position
+    const [removed] = newProducts.splice(sourceProductIndex, 1);
+    newProducts.splice(targetProductIndex, 0, removed);
+    
+    addToHistory(newProducts);
+    toast.success('Ürün sıralaması güncellendi');
   };
 
   const handleDrop = (e: React.DragEvent, targetProduct: Product) => {
     e.preventDefault();
     setDragOverProduct(null);
     
+    if (dragHoverTimeout) {
+      clearTimeout(dragHoverTimeout);
+      setDragHoverTimeout(null);
+    }
+    
     if (draggedProduct && draggedProduct.id !== targetProduct.id) {
-      setPendingMerge({ source: draggedProduct, target: targetProduct });
-      setShowMergeDialog(true);
+      if (dragMode === 'merge') {
+        const suggestion = getSuggestedMergeOperation(draggedProduct, targetProduct);
+        if (suggestion) {
+          setPendingMerge({ source: draggedProduct, target: targetProduct, operation: suggestion });
+          setShowMergeDialog(true);
+        } else {
+          toast.error('Bu ürünler birleştirilemez');
+        }
+      } else {
+        reorderProducts(draggedProduct, targetProduct);
+      }
     }
     
     setDraggedProduct(null);
+    setDragMode('reorder');
   };
 
   const executeMerge = (operation: 'boydan' | 'enden') => {
@@ -296,10 +391,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
     if (operation === 'boydan') {
       mergedProduct = mergeBoydan(source, target);
-      explanation = `Boydan birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${mergedProduct.hasirSayisi} adet`;
+      explanation = `Boydan birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`;
     } else {
       mergedProduct = mergeEnden(source, target);
-      explanation = `Enden birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${mergedProduct.hasirSayisi} adet`;
+      explanation = `Enden birleştirme: ${source.hasirSayisi} + ${target.hasirSayisi} = ${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`;
     }
 
     const newProducts = products
@@ -316,6 +411,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const uniqueValues = useMemo(() => {
     return {
       hasirTipi: Array.from(new Set(products.map(p => p.hasirTipi))).sort(),
+      hasirKodu: ['Q', 'TR', 'R'], // Fixed hasır kodu options
       boyCap: Array.from(new Set(products.map(p => p.boyCap))).sort((a, b) => a - b),
       enCap: Array.from(new Set(products.map(p => p.enCap))).sort((a, b) => a - b),
     };
@@ -366,7 +462,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${merged.hasirSayisi} adet`
+            explanation: `Boydan birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
@@ -378,7 +474,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: product1,
             target: product2,
             result: merged,
-            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${merged.hasirSayisi} adet`
+            explanation: `Enden birleştirme: ${product1.hasirSayisi} + ${product2.hasirSayisi} = ${Number(product1.hasirSayisi) + Number(product2.hasirSayisi)} adet`
           });
           usedIds.add(product1.id);
           usedIds.add(product2.id);
@@ -538,8 +634,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
           const result = {
             ...target,
             id: `rounded_${Date.now()}`,
-            hasirSayisi: product.hasirSayisi + target.hasirSayisi,
-            toplamKg: product.toplamKg + target.toplamKg,
+            hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
+            toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
             mergeHistory: [
               ...(target.mergeHistory || []),
               `Yukarı yuvarla: ${product.uzunlukBoy}x${product.uzunlukEn}(${product.hasirSayisi}) → ${target.uzunlukBoy}x${target.uzunlukEn}(+${product.hasirSayisi})`
@@ -631,17 +727,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-full">
-      <Card>
-        <CardHeader>
+    <div className="container mx-auto p-4 max-w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-2xl font-bold">İleri Optimizasyon</CardTitle>
+            <CardTitle className="text-3xl font-bold">🔧 İleri Optimizasyon</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={undo}
                 disabled={historyIndex <= 0}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               >
                 <Undo2 className="h-4 w-4 mr-1" />
                 Geri Al
@@ -651,6 +748,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 size="sm"
                 onClick={redo}
                 disabled={historyIndex >= history.length - 1}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               >
                 <Redo2 className="h-4 w-4 mr-1" />
                 İleri Al
@@ -660,299 +758,421 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 size="sm"
                 onClick={resetToInitial}
                 disabled={historyIndex === 0}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Başlangıca Dön
               </Button>
-              <Button onClick={handleBackToMainList}>
+              <Button onClick={handleBackToMainList} className="bg-white text-blue-600 hover:bg-gray-100">
                 Ana Listeye Dön
               </Button>
             </div>
           </div>
         </CardHeader>
         
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6 p-6">
           {/* Filters */}
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label>Filtreler</Label>
-              <div className="flex gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="h-4 w-4 mr-1" />
-                      Hasır Tipi
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {uniqueValues.hasirTipi.map(value => (
-                      <DropdownMenuCheckboxItem
-                        key={value}
-                        checked={selectedFilters.hasirTipi.includes(value)}
-                        onCheckedChange={(checked) => {
-                          setSelectedFilters(prev => ({
-                            ...prev,
-                            hasirTipi: checked
-                              ? [...prev.hasirTipi, value]
-                              : prev.hasirTipi.filter(v => v !== value)
-                          }));
-                        }}
-                      >
-                        {value}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border">
+            <Label className="text-lg font-semibold mb-3 block">🔍 Filtreler</Label>
+            <div className="flex gap-3 flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Hasır Tipi ({selectedFilters.hasirTipi.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.hasirTipi.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirTipi.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirTipi: checked
+                            ? [...prev.hasirTipi, value]
+                            : prev.hasirTipi.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="h-4 w-4 mr-1" />
-                      Boy Çap
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {uniqueValues.boyCap.map(value => (
-                      <DropdownMenuCheckboxItem
-                        key={value}
-                        checked={selectedFilters.boyCap.includes(value)}
-                        onCheckedChange={(checked) => {
-                          setSelectedFilters(prev => ({
-                            ...prev,
-                            boyCap: checked
-                              ? [...prev.boyCap, value]
-                              : prev.boyCap.filter(v => v !== value)
-                          }));
-                        }}
-                      >
-                        {value} mm
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Hasır Kodu ({selectedFilters.hasirKodu.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.hasirKodu.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirKodu.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirKodu: checked
+                            ? [...prev.hasirKodu, value]
+                            : prev.hasirKodu.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Filter className="h-4 w-4 mr-1" />
-                      En Çap
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {uniqueValues.enCap.map(value => (
-                      <DropdownMenuCheckboxItem
-                        key={value}
-                        checked={selectedFilters.enCap.includes(value)}
-                        onCheckedChange={(checked) => {
-                          setSelectedFilters(prev => ({
-                            ...prev,
-                            enCap: checked
-                              ? [...prev.enCap, value]
-                              : prev.enCap.filter(v => v !== value)
-                          }));
-                        }}
-                      >
-                        {value} mm
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Boy Çap ({selectedFilters.boyCap.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.boyCap.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.boyCap.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          boyCap: checked
+                            ? [...prev.boyCap, value]
+                            : prev.boyCap.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value} mm
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedFilters({ hasirTipi: [], boyCap: [], enCap: [] })}
-                >
-                  Filtreleri Temizle
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    En Çap ({selectedFilters.enCap.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.enCap.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.enCap.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          enCap: checked
+                            ? [...prev.enCap, value]
+                            : prev.enCap.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value} mm
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], boyCap: [], enCap: [] })}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                🗑️ Filtreleri Temizle
+              </Button>
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
-            <Card>
+            <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">{products.length}</div>
-                <p className="text-xs text-muted-foreground">Toplam Ürün</p>
+                <p className="text-xs opacity-90">Toplam Ürün</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi < 20).length}
                 </div>
-                <p className="text-xs text-muted-foreground">20'den Az</p>
+                <p className="text-xs opacity-90">20'den Az</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length}
                 </div>
-                <p className="text-xs text-muted-foreground">20-50 Arası</p>
+                <p className="text-xs opacity-90">20-50 Arası</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold">
                   {products.filter(p => p.hasirSayisi >= 50).length}
                 </div>
-                <p className="text-xs text-muted-foreground">50'den Fazla</p>
+                <p className="text-xs opacity-90">50'den Fazla</p>
               </CardContent>
             </Card>
           </div>
 
+          {/* Drag mode indicator */}
+          {draggedProduct && (
+            <Alert className="mb-4 border-orange-300 bg-orange-50">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                {dragMode === 'merge' 
+                  ? `🔀 Birleştirme modu: "${draggedProduct.hasirTipi}" ürününü hedefin üzerinde bekletin` 
+                  : `📋 Sıralama modu: "${draggedProduct.hasirTipi}" ürününü istenen konuma sürükleyin`
+                }
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Products table */}
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead>Hasır Tipi</TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-gray-100"
-                    onClick={() => {
-                      setSortConfig(prev => {
-                        const existing = prev.find(s => s.key === 'uzunlukBoy');
-                        if (existing) {
-                          return prev.map(s => 
-                            s.key === 'uzunlukBoy' 
-                              ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                              : s
-                          );
-                        }
-                        return [...prev, { key: 'uzunlukBoy', direction: 'asc' }];
-                      });
-                    }}
-                  >
-                    Boy (cm) <ArrowUpDown className="inline h-4 w-4" />
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-gray-100"
-                    onClick={() => {
-                      setSortConfig(prev => {
-                        const existing = prev.find(s => s.key === 'uzunlukEn');
-                        if (existing) {
-                          return prev.map(s => 
-                            s.key === 'uzunlukEn' 
-                              ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                              : s
-                          );
-                        }
-                        return [...prev, { key: 'uzunlukEn', direction: 'asc' }];
-                      });
-                    }}
-                  >
-                    En (cm) <ArrowUpDown className="inline h-4 w-4" />
-                  </TableHead>
-                  <TableHead>Boy Çap (mm)</TableHead>
-                  <TableHead>En Çap (mm)</TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-gray-100"
-                    onClick={() => {
-                      setSortConfig(prev => {
-                        const existing = prev.find(s => s.key === 'hasirSayisi');
-                        if (existing) {
-                          return prev.map(s => 
-                            s.key === 'hasirSayisi' 
-                              ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                              : s
-                          );
-                        }
-                        return [...prev, { key: 'hasirSayisi', direction: 'asc' }];
-                      });
-                    }}
-                  >
-                    Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
-                  </TableHead>
-                  <TableHead>Toplam Kg</TableHead>
-                  <TableHead>Açıklama</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map(product => (
-                  <TableRow
-                    key={product.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, product)}
-                    onDragOver={(e) => handleDragOver(e, product)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, product)}
-                    className={`cursor-move hover:bg-gray-50 ${
-                      dragOverProduct?.id === product.id ? 'bg-blue-50' : ''
-                    } ${
-                      product.hasirSayisi < 20 ? 'bg-red-50' : ''
-                    }`}
-                  >
-                    <TableCell>
-                      <GripVertical className="h-4 w-4 text-gray-400" />
-                    </TableCell>
-                    <TableCell>{product.hasirTipi}</TableCell>
-                    <TableCell>{product.uzunlukBoy}</TableCell>
-                    <TableCell>{product.uzunlukEn}</TableCell>
-                    <TableCell>{product.boyCap}</TableCell>
-                    <TableCell>{product.enCap}</TableCell>
-                    <TableCell className={product.hasirSayisi < 20 ? 'font-bold text-red-600' : ''}>
-                      {product.hasirSayisi}
-                    </TableCell>
-                    <TableCell>{product.toplamKg.toFixed(2)}</TableCell>
-                    <TableCell className="text-xs">
-                      {product.mergeHistory?.join(' | ')}
-                    </TableCell>
+          <div className="border rounded-lg overflow-hidden bg-white shadow-lg">
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-gray-100 to-gray-200">
+                    <TableHead className="w-8 sticky top-0 bg-white z-10"></TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'hasirTipi');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'hasirTipi' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'hasirTipi', direction: 'asc' }];
+                        });
+                      }}
+                    >Hasır Tipi <ArrowUpDown className="inline h-4 w-4" /></TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'uzunlukBoy');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'uzunlukBoy' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'uzunlukBoy', direction: 'asc' }];
+                        });
+                      }}
+                    >
+                      Boy (cm) <ArrowUpDown className="inline h-4 w-4" />
+                    </TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'uzunlukEn');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'uzunlukEn' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'uzunlukEn', direction: 'asc' }];
+                        });
+                      }}
+                    >
+                      En (cm) <ArrowUpDown className="inline h-4 w-4" />
+                    </TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'boyCap');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'boyCap' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'boyCap', direction: 'asc' }];
+                        });
+                      }}
+                    >Boy Çap (mm) <ArrowUpDown className="inline h-4 w-4" /></TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'enCap');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'enCap' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'enCap', direction: 'asc' }];
+                        });
+                      }}
+                    >En Çap (mm) <ArrowUpDown className="inline h-4 w-4" /></TableHead>
+                    <TableHead 
+                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'hasirSayisi');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'hasirSayisi' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'hasirSayisi', direction: 'asc' }];
+                        });
+                      }}
+                    >
+                      Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
+                    </TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          const existing = prev.find(s => s.key === 'toplamKg');
+                          if (existing) {
+                            return prev.map(s => 
+                              s.key === 'toplamKg' 
+                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
+                                : s
+                            );
+                          }
+                          return [...prev, { key: 'toplamKg', direction: 'asc' }];
+                        });
+                      }}
+                    >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10">Filiz Uzunluk (cm)</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10">Filiz Sayısı</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10">Filiz Adet</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10">Açıklama</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map(product => (
+                    <TableRow
+                      key={product.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, product)}
+                      onDragOver={(e) => handleDragOver(e, product)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, product)}
+                      className={`cursor-move hover:bg-gray-50 transition-colors ${
+                        dragOverProduct?.id === product.id 
+                          ? dragMode === 'merge' 
+                            ? 'bg-green-100 border-l-4 border-green-500' 
+                            : 'bg-blue-100 border-l-4 border-blue-500'
+                          : ''
+                      } ${
+                        product.hasirSayisi < 20 ? 'bg-red-50' : ''
+                      } ${
+                        draggedProduct?.id === product.id ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <TableCell>
+                        <GripVertical className="h-4 w-4 text-gray-400" />
+                      </TableCell>
+                      <TableCell className="font-medium">{product.hasirTipi}</TableCell>
+                      <TableCell>{product.uzunlukBoy}</TableCell>
+                      <TableCell>{product.uzunlukEn}</TableCell>
+                      <TableCell>{product.boyCap}</TableCell>
+                      <TableCell>{product.enCap}</TableCell>
+                      <TableCell className={product.hasirSayisi < 20 ? 'font-bold text-red-600' : 'font-semibold'}>
+                        {product.hasirSayisi}
+                      </TableCell>
+                      <TableCell className="font-medium">{product.toplamKg.toFixed(2)}</TableCell>
+                      <TableCell>{product.filizUzunluk || '-'}</TableCell>
+                      <TableCell>{product.filizSayisi || '-'}</TableCell>
+                      <TableCell>{product.filizAdet || '-'}</TableCell>
+                      <TableCell className="text-xs max-w-xs">
+                        <div className="truncate" title={product.mergeHistory?.join(' | ')}>
+                          {product.mergeHistory?.join(' | ') || product.aciklama}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Automatic operations */}
-          <div className="flex gap-4 justify-center mt-4">
+          <div className="flex gap-4 justify-center mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
             <Button 
               variant="outline"
               onClick={executeAutomaticMerges}
+              className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
               <Merge className="h-4 w-4 mr-1" />
-              Otomatik Tüm Birleştirmeleri Uygula
+              🤖 Otomatik Tüm Birleştirmeleri Uygula
             </Button>
             <Button 
               variant="outline"
               onClick={executeFoldedImprovements}
+              className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              Katlı İyileştirmeler
+              📐 Katlı İyileştirmeler
             </Button>
             <Button 
               variant="outline"
               onClick={executeRoundingOperations}
+              className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              En Yakın Üste Tamamla
+              ⬆️ En Yakın Üste Tamamla
             </Button>
             <Button 
               variant="outline"
               onClick={() => {
                 toast('Hasır tipi değişiklikleri henüz kullanılabilir değil', { icon: '🔧' });
               }}
+              className="bg-white shadow-md hover:shadow-lg transition-shadow"
             >
-              Hasır Tipi Değişikliği
+              🔄 Hasır Tipi Değişikliği
             </Button>
           </div>
 
           {/* Tolerance slider for rounding operations */}
-          <div className="mt-4 p-4 border rounded-lg">
-            <Label>Yuvarlama Toleransı: {tolerance}mm</Label>
+          <div className="mt-4 p-6 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+            <Label className="text-lg font-semibold">Yuvarlama Toleransı: {tolerance}mm</Label>
             <Slider
               value={[tolerance]}
               onValueChange={(value) => setTolerance(value[0])}
-              min={5}
-              max={30}
+              min={0}
+              max={100}
               step={1}
-              className="mt-2"
+              className="mt-3"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Üste tamamlama işlemlerinde kullanılacak tolerans değeri
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <span>0mm (Kesin eşleşme)</span>
+              <span>50mm (Orta)</span>
+              <span>100mm (Esnek)</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2 bg-white p-2 rounded border-l-4 border-blue-500">
+              💡 Üste tamamlama işlemlerinde kullanılacak tolerans değeri. Düşük değerler daha kesin eşleşme gerektirir.
             </p>
           </div>
         </CardContent>
@@ -960,43 +1180,79 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
       {/* Merge dialog */}
       <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Birleştirme İşlemi</DialogTitle>
+            <DialogTitle className="text-xl font-bold">🔀 Birleştirme İşlemi</DialogTitle>
             <DialogDescription>
               İki ürünü nasıl birleştirmek istiyorsunuz?
             </DialogDescription>
           </DialogHeader>
           {pendingMerge && (
             <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded">
-                <p className="font-semibold">Kaynak Ürün:</p>
-                <p className="text-sm">
-                  {pendingMerge.source.hasirTipi} - 
-                  {pendingMerge.source.uzunlukBoy}x{pendingMerge.source.uzunlukEn} - 
-                  {pendingMerge.source.hasirSayisi} adet
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded">
-                <p className="font-semibold">Hedef Ürün:</p>
-                <p className="text-sm">
-                  {pendingMerge.target.hasirTipi} - 
-                  {pendingMerge.target.uzunlukBoy}x{pendingMerge.target.uzunlukEn} - 
-                  {pendingMerge.target.hasirSayisi} adet
-                </p>
+              {pendingMerge.operation && (
+                <Alert className="mb-4 border-green-300 bg-green-50">
+                  <AlertTriangle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    ✅ Önerilen işlem: <strong>{pendingMerge.operation === 'boydan' ? 'Boydan Ekle' : 'Enden Ekle'}</strong>
+                    {pendingMerge.operation === 'boydan' && ' (Aynı en boyutu tespit edildi)'}
+                    {pendingMerge.operation === 'enden' && ' (Aynı boy uzunluğu tespit edildi)'}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded border border-blue-200">
+                  <p className="font-semibold text-blue-800">📦 Kaynak Ürün:</p>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <p><strong>Tip:</strong> {pendingMerge.source.hasirTipi}</p>
+                    <p><strong>Boyut:</strong> {pendingMerge.source.uzunlukBoy}x{pendingMerge.source.uzunlukEn} cm</p>
+                    <p><strong>Çap:</strong> {pendingMerge.source.boyCap}x{pendingMerge.source.enCap} mm</p>
+                    <p><strong>Adet:</strong> {pendingMerge.source.hasirSayisi}</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 rounded border border-green-200">
+                  <p className="font-semibold text-green-800">🎯 Hedef Ürün:</p>
+                  <div className="text-sm text-green-700 space-y-1">
+                    <p><strong>Tip:</strong> {pendingMerge.target.hasirTipi}</p>
+                    <p><strong>Boyut:</strong> {pendingMerge.target.uzunlukBoy}x{pendingMerge.target.uzunlukEn} cm</p>
+                    <p><strong>Çap:</strong> {pendingMerge.target.boyCap}x{pendingMerge.target.enCap} mm</p>
+                    <p><strong>Adet:</strong> {pendingMerge.target.hasirSayisi}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMergeDialog(false)}>
-              İptal
+              ❌ İptal
             </Button>
-            <Button onClick={() => executeMerge('boydan')}>
-              Boydan Ekle
-            </Button>
-            <Button onClick={() => executeMerge('enden')}>
-              Enden Ekle
-            </Button>
+            {pendingMerge?.operation === 'boydan' ? (
+              <>
+                <Button variant="outline" onClick={() => executeMerge('enden')}>
+                  ➡️ Enden Ekle
+                </Button>
+                <Button onClick={() => executeMerge('boydan')} className="bg-green-600 hover:bg-green-700">
+                  ✅ Boydan Ekle (Önerilen)
+                </Button>
+              </>
+            ) : pendingMerge?.operation === 'enden' ? (
+              <>
+                <Button variant="outline" onClick={() => executeMerge('boydan')}>
+                  ⬆️ Boydan Ekle
+                </Button>
+                <Button onClick={() => executeMerge('enden')} className="bg-green-600 hover:bg-green-700">
+                  ✅ Enden Ekle (Önerilen)
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={() => executeMerge('boydan')}>
+                  ⬆️ Boydan Ekle
+                </Button>
+                <Button onClick={() => executeMerge('enden')}>
+                  ➡️ Enden Ekle
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1005,7 +1261,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>İşlem Onayı</DialogTitle>
+            <DialogTitle className="text-xl font-bold">⚡ İşlem Onayı</DialogTitle>
             <DialogDescription>
               {pendingOperations.length > 0 && 
                 `İşlem ${currentOperationIndex + 1} / ${pendingOperations.length}`}
@@ -1015,13 +1271,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
             <div className="space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded">
-                <p className="font-semibold text-blue-800 mb-2">Önerilen İşlem:</p>
+                <p className="font-semibold text-blue-800 mb-2">🎯 Önerilen İşlem:</p>
                 <p className="text-blue-700">{pendingOperations[currentOperationIndex].explanation}</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded">
-                  <p className="font-semibold mb-2">Kaynak Ürün:</p>
+                  <p className="font-semibold mb-2">📦 Kaynak Ürün:</p>
                   <div className="text-sm space-y-1">
                     <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].source.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].source.uzunlukBoy}x{pendingOperations[currentOperationIndex].source.uzunlukEn} cm</p>
@@ -1031,7 +1287,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 </div>
                 
                 <div className="p-4 bg-gray-50 rounded">
-                  <p className="font-semibold mb-2">Hedef Ürün:</p>
+                  <p className="font-semibold mb-2">🎯 Hedef Ürün:</p>
                   <div className="text-sm space-y-1">
                     <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].target.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].target.uzunlukBoy}x{pendingOperations[currentOperationIndex].target.uzunlukEn} cm</p>
@@ -1042,7 +1298,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               </div>
               
               <div className="p-4 bg-green-50 border border-green-200 rounded">
-                <p className="font-semibold text-green-800 mb-2">Sonuç:</p>
+                <p className="font-semibold text-green-800 mb-2">✨ Sonuç:</p>
                 <div className="text-sm space-y-1 text-green-700">
                   <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
                   <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
@@ -1064,7 +1320,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 }}
                 className="flex-1"
               >
-                Tümünü İptal Et
+                🚫 Tümünü İptal Et
               </Button>
               <Button 
                 variant="outline" 
@@ -1072,14 +1328,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 className="flex-1"
               >
                 <X className="w-4 h-4 mr-1" />
-                Bu İşlemi Atla
+                ⏭️ Bu İşlemi Atla
               </Button>
               <Button 
                 onClick={approveCurrentOperation}
-                className="flex-1"
+                className="flex-1 bg-green-600 hover:bg-green-700"
               >
                 <Check className="w-4 h-4 mr-1" />
-                Onayla
+                ✅ Onayla
               </Button>
             </div>
           </DialogFooter>
