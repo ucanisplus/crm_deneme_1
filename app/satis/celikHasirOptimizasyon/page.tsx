@@ -539,7 +539,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeAutomaticMerges = () => {
     const opportunities = findMergeOpportunities();
     if (opportunities.length === 0) {
-      toast.info('Otomatik birleştirilebilecek ürün bulunamadı');
+      toast('Otomatik birleştirilebilecek ürün bulunamadı', { icon: '📋' });
       return;
     }
     
@@ -551,7 +551,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeFoldedImprovements = () => {
     const opportunities = findFoldedImprovements();
     if (opportunities.length === 0) {
-      toast.info('Katlı iyileştirme yapılabilecek ürün bulunamadı');
+      toast('Katlı iyileştirme yapılabilecek ürün bulunamadı', { icon: '📋' });
       return;
     }
     
@@ -563,7 +563,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const executeRoundingOperations = () => {
     const opportunities = findRoundingOpportunities();
     if (opportunities.length === 0) {
-      toast.info('Üste tamamlanabilecek ürün bulunamadı');
+      toast('Üste tamamlanabilecek ürün bulunamadı', { icon: '📋' });
       return;
     }
     
@@ -600,7 +600,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       setShowApprovalDialog(false);
       setPendingOperations([]);
       setCurrentOperationIndex(0);
-      toast.info('İşlemler tamamlandı');
+      toast('İşlemler tamamlandı', { icon: '✅' });
     }
   };
 
@@ -907,7 +907,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button 
               variant="outline"
               onClick={() => {
-                toast.info('Hasır tipi değişiklikleri henüz kullanılabilir değil');
+                toast('Hasır tipi değişiklikleri henüz kullanılabilir değil', { icon: '🔧' });
               }}
             >
               Hasır Tipi Değişikliği
