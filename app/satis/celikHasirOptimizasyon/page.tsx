@@ -58,6 +58,7 @@ import {
 interface Product {
   id: string;
   hasirTipi: string;
+  hasirTuru: string;
   uzunlukBoy: number;
   uzunlukEn: number;
   hasirSayisi: number;
@@ -67,15 +68,17 @@ interface Product {
   enAraligi: number;
   cubukSayisiBoy: number;
   cubukSayisiEn: number;
+  solFiliz: number;
+  sagFiliz: number;
+  onFiliz: number;
+  arkaFiliz: number;
   adetKg: number;
   toplamKg: number;
   isOptimized: boolean;
   uretilemez: boolean;
   aciklama: string;
   mergeHistory?: string[];
-  filizUzunluk?: number;
-  filizSayisi?: number;
-  filizAdet?: number;
+  advancedOptimizationNotes?: string; // Separate field for advanced optimization notes
 }
 
 interface HistoryState {
@@ -114,6 +117,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
   const [dragMode, setDragMode] = useState<'merge' | 'reorder'>('merge');
   const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pendingMerge, setPendingMerge] = useState<{
     source: Product;
@@ -252,7 +256,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
         ...(target.mergeHistory || []),
         `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet↑`
       ],
-      aciklama: `Boydan birleştirildi: ${source.id} + ${target.id}`
+      advancedOptimizationNotes: `Boydan birleştirildi: ${source.hasirSayisi}+${target.hasirSayisi}=${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`,
+      aciklama: target.aciklama || `Boydan birleştirildi: ${source.id} + ${target.id}`
     };
   };
 
@@ -267,7 +272,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
         ...(target.mergeHistory || []),
         `${source.hasirSayisi}adet(${source.uzunlukBoy}x${source.uzunlukEn}) + ${target.hasirSayisi}adet → ${Number(source.hasirSayisi) + Number(target.hasirSayisi)}adet→`
       ],
-      aciklama: `Enden birleştirildi: ${source.id} + ${target.id}`
+      advancedOptimizationNotes: `Enden birleştirildi: ${source.hasirSayisi}+${target.hasirSayisi}=${Number(source.hasirSayisi) + Number(target.hasirSayisi)} adet`,
+      aciklama: target.aciklama || `Enden birleştirildi: ${source.id} + ${target.id}`
     };
   };
 
@@ -310,6 +316,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     e.dataTransfer.dropEffect = 'move';
     setDragOverProduct(product);
     
+    // Determine insertion position based on cursor position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const position = e.clientY < midpoint ? 'before' : 'after';
+    setDragInsertPosition({ productId: product.id, position });
+    
     // Clear existing timeout
     if (dragHoverTimeout) {
       clearTimeout(dragHoverTimeout);
@@ -321,6 +333,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const suggestion = getSuggestedMergeOperation(draggedProduct, product);
         if (suggestion) {
           setDragMode('merge');
+          setDragInsertPosition(null); // Clear insert position for merge mode
         }
       }
     }, 800);
@@ -334,22 +347,26 @@ const CelikHasirOptimizasyon: React.FC = () => {
       setDragHoverTimeout(null);
     }
     setDragOverProduct(null);
+    setDragInsertPosition(null);
     setDragMode('reorder'); // Reset to reorder mode
   };
 
-  const reorderProducts = (sourceProduct: Product, targetProduct: Product) => {
-    const sourceIndex = filteredProducts.findIndex(p => p.id === sourceProduct.id);
-    const targetIndex = filteredProducts.findIndex(p => p.id === targetProduct.id);
+  const reorderProducts = (sourceProduct: Product, targetProduct: Product, position: 'before' | 'after') => {
+    const newProducts = [...products];
+    const sourceIndex = newProducts.findIndex(p => p.id === sourceProduct.id);
+    const targetIndex = newProducts.findIndex(p => p.id === targetProduct.id);
     
     if (sourceIndex === -1 || targetIndex === -1) return;
     
-    const newProducts = [...products];
-    const sourceProductIndex = newProducts.findIndex(p => p.id === sourceProduct.id);
-    const targetProductIndex = newProducts.findIndex(p => p.id === targetProduct.id);
+    // Remove source product
+    const [removed] = newProducts.splice(sourceIndex, 1);
     
-    // Remove source product and insert at target position
-    const [removed] = newProducts.splice(sourceProductIndex, 1);
-    newProducts.splice(targetProductIndex, 0, removed);
+    // Calculate new insertion index (account for removed item)
+    const adjustedTargetIndex = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+    const insertIndex = position === 'before' ? adjustedTargetIndex : adjustedTargetIndex + 1;
+    
+    // Insert at new position
+    newProducts.splice(insertIndex, 0, removed);
     
     addToHistory(newProducts);
     toast.success('Ürün sıralaması güncellendi');
@@ -373,12 +390,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
         } else {
           toast.error('Bu ürünler birleştirilemez');
         }
-      } else {
-        reorderProducts(draggedProduct, targetProduct);
+      } else if (dragInsertPosition) {
+        reorderProducts(draggedProduct, targetProduct, dragInsertPosition.position);
       }
     }
     
     setDraggedProduct(null);
+    setDragInsertPosition(null);
     setDragMode('reorder');
   };
 
@@ -1066,10 +1084,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         });
                       }}
                     >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10">Filiz Uzunluk (cm)</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10">Filiz Sayısı</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10">Filiz Adet</TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10">Açıklama</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Hasır Türü</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Boy Aralığı</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">En Aralığı</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Boy Çubuk</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">En Çubuk</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Sol Filiz</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Sağ Filiz</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Ön Filiz</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Arka Filiz</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">Adet Kg</TableHead>
+                    <TableHead className="sticky top-0 bg-white z-10 text-xs">İleri Opt. Notları</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1081,11 +1106,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
-                      className={`cursor-move hover:bg-gray-50 transition-colors ${
+                      className={`cursor-move hover:bg-gray-50 transition-colors relative ${
                         dragOverProduct?.id === product.id 
                           ? dragMode === 'merge' 
-                            ? 'bg-green-100 border-l-4 border-green-500' 
-                            : 'bg-blue-100 border-l-4 border-blue-500'
+                            ? 'bg-green-100 border-2 border-green-500' 
+                            : 'bg-blue-50'
                           : ''
                       } ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
@@ -1105,14 +1130,28 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         {product.hasirSayisi}
                       </TableCell>
                       <TableCell className="font-medium">{product.toplamKg.toFixed(2)}</TableCell>
-                      <TableCell>{product.filizUzunluk || '-'}</TableCell>
-                      <TableCell>{product.filizSayisi || '-'}</TableCell>
-                      <TableCell>{product.filizAdet || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.hasirTuru || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.boyAraligi || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.enAraligi || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.cubukSayisiBoy || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.cubukSayisiEn || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.solFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.sagFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.onFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.arkaFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs">{product.adetKg?.toFixed(3) || '-'}</TableCell>
                       <TableCell className="text-xs max-w-xs">
-                        <div className="truncate" title={product.mergeHistory?.join(' | ')}>
-                          {product.mergeHistory?.join(' | ') || product.aciklama}
+                        <div className="truncate" title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}>
+                          {product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '-'}
                         </div>
                       </TableCell>
+                      
+                      {/* Drag insertion indicator */}
+                      {dragInsertPosition?.productId === product.id && dragMode === 'reorder' && (
+                        <div className={`absolute left-0 right-0 h-1 bg-blue-500 z-20 ${
+                          dragInsertPosition.position === 'before' ? '-top-0.5' : '-bottom-0.5'
+                        }`} />
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
