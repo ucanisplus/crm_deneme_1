@@ -158,7 +158,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         for (const config of sortConfig) {
           const aVal = a[config.key];
           const bVal = b[config.key];
-          if (aVal !== bVal) {
+          if (aVal !== undefined && bVal !== undefined && aVal !== bVal) {
             const multiplier = config.direction === 'asc' ? 1 : -1;
             return (aVal < bVal ? -1 : 1) * multiplier;
           }
