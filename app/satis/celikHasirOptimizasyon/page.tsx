@@ -116,6 +116,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     hasirTuru: [] as string[],
     boyCap: [] as number[],
     enCap: [] as number[],
+    quantityFilter: 'all' as 'all' | 'low' | 'medium' | 'high',
   });
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Product;
@@ -195,6 +196,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (selectedFilters.enCap.length > 0) {
       filtered = filtered.filter(p => selectedFilters.enCap.includes(p.enCap));
     }
+    
+    // Apply quantity filter
+    if (selectedFilters.quantityFilter === 'low') {
+      filtered = filtered.filter(p => p.hasirSayisi < 20);
+    } else if (selectedFilters.quantityFilter === 'medium') {
+      filtered = filtered.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50);
+    } else if (selectedFilters.quantityFilter === 'high') {
+      filtered = filtered.filter(p => p.hasirSayisi >= 50);
+    }
 
     // Apply sorting - single column
     if (sortConfig) {
@@ -206,13 +216,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
           // Handle different data types properly
           let comparison = 0;
           
-          if (typeof aVal === 'string' && typeof bVal === 'string') {
-            comparison = aVal.localeCompare(bVal);
-          } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-            comparison = aVal - bVal;
+          // Convert to numbers for numeric columns
+          if (['uzunlukBoy', 'uzunlukEn', 'boyCap', 'enCap', 'hasirSayisi', 'toplamKg', 'adetKg'].includes(sortConfig.key)) {
+            const aNum = Number(aVal);
+            const bNum = Number(bVal);
+            comparison = aNum - bNum;
+          } else if (typeof aVal === 'string' && typeof bVal === 'string') {
+            comparison = aVal.localeCompare(bVal, 'tr');
           } else {
             // Fallback to string comparison
-            comparison = String(aVal).localeCompare(String(bVal));
+            comparison = String(aVal).localeCompare(String(bVal), 'tr');
           }
           
           const multiplier = sortConfig.direction === 'asc' ? 1 : -1;
@@ -351,10 +364,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Special merge function for drag & drop - NO LIMITS
   const getDragDropMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
+    console.log('🔍 Checking merge compatibility:', {
+      source: { id: source.id, hasirTipi: source.hasirTipi, boy: source.uzunlukBoy, en: source.uzunlukEn, boyCap: source.boyCap, enCap: source.enCap },
+      target: { id: target.id, hasirTipi: target.hasirTipi, boy: target.uzunlukBoy, en: target.uzunlukEn, boyCap: target.boyCap, enCap: target.enCap }
+    });
+    
     // Basic compatibility check - only require same type and diameter
     if (source.hasirTipi !== target.hasirTipi || 
         source.boyCap !== target.boyCap || 
         source.enCap !== target.enCap) {
+      console.log('❌ Incompatible: different type/diameter');
       return null;
     }
     
@@ -363,14 +382,19 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const targetBoy = Number(target.uzunlukBoy);
     const targetEn = Number(target.uzunlukEn);
     
-    // Check if target is bigger in at least one dimension
+    console.log('📏 Dimensions:', { sourceBoy, sourceEn, targetBoy, targetEn });
+    
+    // Check if target is bigger in BOTH dimensions (manufacturing constraint)
     if (targetBoy >= sourceBoy && targetEn >= sourceEn) {
       // Choose merge direction based on which dimension has bigger difference
       const boyDiff = targetBoy - sourceBoy;
       const enDiff = targetEn - sourceEn;
-      return boyDiff >= enDiff ? 'boydan' : 'enden';
+      const mergeType = boyDiff >= enDiff ? 'boydan' : 'enden';
+      console.log('✅ Merge possible:', mergeType, 'boyDiff:', boyDiff, 'enDiff:', enDiff);
+      return mergeType;
     }
     
+    console.log('❌ Target not bigger in both dimensions');
     return null;
   };
 
@@ -1037,9 +1061,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   return (
     <div className="container mx-auto p-4 max-w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-4">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-3xl font-bold">İleri Optimizasyon</CardTitle>
+            <CardTitle className="text-2xl font-bold">İleri Optimizasyon</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1126,16 +1150,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
         
         <CardContent className="space-y-6 p-6">
           {/* Filters and Tolerance */}
-          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border">
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-lg font-semibold flex items-center gap-2">
-                <Filter className="h-5 w-5" />
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg border">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Filter className="h-4 w-4" />
                 Filtreler
               </Label>
-              <div className="flex items-center gap-6">
-              </div>
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex gap-2 flex-wrap">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-sm">
@@ -1279,7 +1301,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [] })}
+                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [], quantityFilter: 'all' })}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <X className="h-4 w-4 mr-1" />
@@ -1288,38 +1310,53 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-l-4 border-slate-400">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{products.length}</div>
-                <p className="text-sm font-medium opacity-90">Toplam Ürün</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-r from-amber-600 to-orange-700 text-white border-l-4 border-amber-400">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {products.filter(p => p.hasirSayisi < 20).length}
-                </div>
-                <p className="text-sm font-medium opacity-90">Düşük Miktar (&lt; 20)</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-l-4 border-blue-400">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {products.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length}
-                </div>
-                <p className="text-sm font-medium opacity-90">Orta Miktar (20-50)</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-r from-emerald-600 to-green-700 text-white border-l-4 border-emerald-400">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
-                  {products.filter(p => p.hasirSayisi >= 50).length}
-                </div>
-                <p className="text-sm font-medium opacity-90">Yüksek Miktar (50+)</p>
-              </CardContent>
-            </Card>
+          {/* Quantity Filter Buttons */}
+          <div className="flex gap-2 items-center">
+            <span className="text-sm font-medium text-gray-700 mr-2">Miktar Filtresi:</span>
+            <Button
+              variant={selectedFilters.quantityFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'all' }))}
+              className="text-xs px-3 py-1 h-7"
+            >
+              Tümü ({products.length})
+            </Button>
+            <Button
+              variant={selectedFilters.quantityFilter === 'low' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'low' }))}
+              className={`text-xs px-3 py-1 h-7 ${
+                selectedFilters.quantityFilter === 'low' 
+                  ? 'bg-amber-600 text-white border-amber-600' 
+                  : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+              }`}
+            >
+              Düşük ({products.filter(p => p.hasirSayisi < 20).length})
+            </Button>
+            <Button
+              variant={selectedFilters.quantityFilter === 'medium' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'medium' }))}
+              className={`text-xs px-3 py-1 h-7 ${
+                selectedFilters.quantityFilter === 'medium' 
+                  ? 'bg-blue-600 text-white border-blue-600' 
+                  : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              Orta ({products.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length})
+            </Button>
+            <Button
+              variant={selectedFilters.quantityFilter === 'high' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'high' }))}
+              className={`text-xs px-3 py-1 h-7 ${
+                selectedFilters.quantityFilter === 'high' 
+                  ? 'bg-green-600 text-white border-green-600' 
+                  : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+              }`}
+            >
+              Yüksek ({products.filter(p => p.hasirSayisi >= 50).length})
+            </Button>
           </div>
 
 
@@ -1434,7 +1471,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       )}
                     </th>
                     <th 
-                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'hasirSayisi' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
                       onClick={() => {
                         setSortConfig(prev => {
                           if (prev?.key === 'hasirSayisi') {
@@ -1444,9 +1483,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         });
                       }}
                     >
-                      Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
+                      Hasır Sayısı {sortConfig?.key === 'hasirSayisi' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
                     </th>
-                    <th className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                    <th 
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'toplamKg' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
                       onClick={() => {
                         setSortConfig(prev => {
                           if (prev?.key === 'toplamKg') {
@@ -1455,7 +1501,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           return { key: 'toplamKg', direction: 'asc' };
                         });
                       }}
-                    >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></th>
+                    >
+                      Toplam Kg {sortConfig?.key === 'toplamKg' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
+                    </th>
                     <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
@@ -1595,36 +1647,45 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       key={product.id}
                       draggable={true}
                       onDragStart={(e) => {
+                        console.log('🚀 DRAG START:', product.id, product.hasirTipi);
                         e.dataTransfer.setData('text/plain', product.id);
                         setDraggedProductId(product.id);
                         e.currentTarget.classList.add('opacity-50');
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
+                        console.log('🎯 DRAG OVER:', product.id);
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
+                        console.log('🎯 DROP EVENT on:', product.id);
                         const sourceId = e.dataTransfer.getData('text/plain');
                         const targetId = product.id;
+                        console.log('🔄 Attempting merge:', sourceId, '→', targetId);
                         
                         if (sourceId !== targetId) {
                           const sourceProduct = products.find(p => p.id === sourceId);
                           const targetProduct = products.find(p => p.id === targetId);
+                          console.log('Found products:', sourceProduct?.hasirTipi, targetProduct?.hasirTipi);
                           
                           if (sourceProduct && targetProduct) {
                             const mergeType = getDragDropMergeOperation(sourceProduct, targetProduct);
+                            console.log('Merge type:', mergeType);
                             if (mergeType) {
                               const merged = mergeType === 'boydan' 
                                 ? optimizeBoydan(sourceProduct, targetProduct)
                                 : optimizeEnden(sourceProduct, targetProduct);
                               
-                              setProducts(prev => [
-                                ...prev.filter(p => p.id !== sourceId && p.id !== targetId),
+                              const newProducts = [
+                                ...products.filter(p => p.id !== sourceId && p.id !== targetId),
                                 merged
-                              ]);
+                              ];
+                              setProducts(newProducts);
+                              addToHistory(newProducts);
                               
                               toast.success(`Birleştirme başarılı: ${sourceProduct.hasirTipi} → ${targetProduct.hasirTipi}`);
                             } else {
+                              console.log('❌ Merge failed - incompatible products');
                               toast.error('Bu ürünler birleştirilemez - farklı tip veya hedef daha küçük');
                             }
                           }
@@ -1637,7 +1698,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`hover:bg-gray-50 cursor-move ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
                       } ${
-                        product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
+                        (product.mergeHistory && product.mergeHistory.length > 0) || 
+                        (product.advancedOptimizationNotes && product.advancedOptimizationNotes.includes('OPT')) 
+                        ? 'bg-green-100 border-l-4 border-green-500' : ''
                       } ${
                         draggedProductId === product.id ? 'opacity-50' : ''
                       }`}
