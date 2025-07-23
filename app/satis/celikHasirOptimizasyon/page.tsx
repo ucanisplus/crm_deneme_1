@@ -583,15 +583,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const boyDiffCm = Math.abs(Number(sourceProduct.uzunlukBoy) - Number(targetProduct.uzunlukBoy));
         const enDiffCm = Math.abs(Number(sourceProduct.uzunlukEn) - Number(targetProduct.uzunlukEn));
         
-        // Check which dimension is closer for optimization choice  
-        // For boydan merge: EN must be same/similar (within tolerance), BOY can be different
-        const canOptimizeBoydan = enDiffCm <= toleranceCm; 
-        // For enden merge: BOY must be same/similar (within tolerance), EN can be different  
-        const canOptimizeEnden = boyDiffCm <= toleranceCm;
+        // CRITICAL: For manufacturing constraints, source product dimensions must be SMALLER OR EQUAL to target
+        // The source product will be "eliminated" and produced as the target size
+        // So target must be >= source in all dimensions
+        const targetBoy = Number(targetProduct.uzunlukBoy);
+        const targetEn = Number(targetProduct.uzunlukEn);
+        const sourceBoy = Number(sourceProduct.uzunlukBoy);
+        const sourceEn = Number(sourceProduct.uzunlukEn);
+        
+        // For boydan merge: EN must be SAME/SIMILAR, target BOY must be >= source BOY (within tolerance)
+        const canOptimizeBoydan = Math.abs(targetEn - sourceEn) <= toleranceCm && 
+                                  targetBoy >= sourceBoy && 
+                                  (targetBoy - sourceBoy) <= toleranceCm;
+        
+        // For enden merge: BOY must be SAME/SIMILAR, target EN must be >= source EN (within tolerance)
+        const canOptimizeEnden = Math.abs(targetBoy - sourceBoy) <= toleranceCm && 
+                                 targetEn >= sourceEn && 
+                                 (targetEn - sourceEn) <= toleranceCm;
         
         if (canOptimizeBoydan) {
           const optimized = optimizeBoydan(sourceProduct, targetProduct);
-          const actualDiffCm = boyDiffCm; // Show BOY difference for boydan merge
+          const actualDiffCm = targetBoy - sourceBoy; // Show BOY difference for boydan merge (how much larger target is)
           opportunities.push({
             type: 'boydan',
             source: sourceProduct,
@@ -606,7 +618,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           break;
         } else if (canOptimizeEnden) {
           const optimized = optimizeEnden(sourceProduct, targetProduct);
-          const actualDiffCm = enDiffCm; // Show EN difference for enden merge
+          const actualDiffCm = targetEn - sourceEn; // Show EN difference for enden merge (how much larger target is)
           opportunities.push({
             type: 'enden',
             source: sourceProduct,
@@ -1811,7 +1823,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {/* Automatic operations */}
           <div className="flex gap-4 items-center justify-center mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
             <div className="flex items-center gap-2 mr-4">
-              <Label className="text-sm font-medium">Tolerans: {tolerance}cm</Label>
+              <Label className="text-sm font-medium">Max + Tolerans: {tolerance}cm</Label>
               <Slider
                 value={[tolerance]}
                 onValueChange={(value) => setTolerance(value[0])}
