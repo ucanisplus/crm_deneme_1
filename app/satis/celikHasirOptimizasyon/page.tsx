@@ -121,11 +121,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     key: keyof Product;
     direction: 'asc' | 'desc';
   } | null>(null);
-  const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
-  const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
-  // Drag is ONLY for merge - no reorder mode needed
-  const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
+  // Simple drag state - just source and target
+  const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pendingMerge, setPendingMerge] = useState<{
     source: Product;
@@ -352,147 +349,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Single-click drag handlers - work immediately
-  const handleReorderDragStart = (e: React.DragEvent, product: Product) => {
-    console.log('Reorder drag started for:', product.id);
-    setDraggedProduct(product);
-    // Don't override the mode - it's already set by radio buttons
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', product.id);
-    
-    // Immediate visual feedback
-    const dragElement = e.currentTarget as HTMLElement;
-    if (dragElement) {
-      dragElement.style.opacity = '0.5';
-      dragElement.style.transform = 'scale(0.95)';
-      dragElement.style.transition = 'all 0.1s ease';
-      dragElement.style.border = '2px dashed #3b82f6';
-    }
-  };
-  
-  const handleMergeDragStart = (e: React.DragEvent, product: Product) => {
-    console.log('Merge drag started for:', product.id);
-    setDraggedProduct(product);
-    // Don't override the mode - it's already set by radio buttons
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('text/plain', product.id);
-    
-    // Immediate visual feedback with merge-specific styling
-    const dragElement = e.currentTarget as HTMLElement;
-    if (dragElement) {
-      dragElement.style.opacity = '0.5';
-      dragElement.style.transform = 'scale(0.95)';
-      dragElement.style.transition = 'all 0.1s ease';
-      dragElement.style.border = '2px dashed #16a34a';
-      dragElement.style.backgroundColor = '#dcfce7';
-    }
-  };
+  // Removed old drag handlers - now using simple inline handlers
 
-  const handleDragOver = (e: React.DragEvent, product: Product) => {
-    console.log('✅ handleDragOver called for product:', product.id, 'draggedProduct:', draggedProduct?.id);
-    setDragOverProduct(product);
-    
-    if (!draggedProduct || draggedProduct.id === product.id) {
-      console.log('⚠️ No dragged product or same product, skipping');
-      return;
-    }
-    
-    // Only merge mode - check if merge is possible
-    const suggestion = getSuggestedMergeOperation(draggedProduct, product);
-    if (suggestion) {
-      console.log('✅ Merge possible:', suggestion);
-      e.dataTransfer.dropEffect = 'copy';
-    } else {
-      console.log('❌ Merge not possible');
-      e.dataTransfer.dropEffect = 'none';
-    }
-  };
-
-  const handleDragLeave = () => {
-    if (dragHoverTimeout) {
-      clearTimeout(dragHoverTimeout);
-      setDragHoverTimeout(null);
-    }
-    setDragOverProduct(null);
-    setDragInsertPosition(null);
-  };
-
-  const handleDragEnd = () => {
-    console.log('Drag ended');
-    
-    // Clean up ALL drag visual styles
-    const allRows = document.querySelectorAll('tr[style]');
-    allRows.forEach((el) => {
-      const element = el as HTMLElement;
-      element.style.opacity = '';
-      element.style.transform = '';
-      element.style.transition = '';
-      element.style.border = '';
-      element.style.backgroundColor = '';
-    });
-    
-    // Reset drag state
-    setDraggedProduct(null);
-    // Keep current drag mode - don't reset it
-    setDragOverProduct(null);
-    setDragInsertPosition(null);
-  };
-
-  const reorderProducts = (sourceProduct: Product, targetProduct: Product, position: 'before' | 'after') => {
-    const newProducts = [...products];
-    const sourceIndex = newProducts.findIndex(p => p.id === sourceProduct.id);
-    const targetIndex = newProducts.findIndex(p => p.id === targetProduct.id);
-    
-    if (sourceIndex === -1 || targetIndex === -1) return;
-    
-    // Remove source product
-    const [removed] = newProducts.splice(sourceIndex, 1);
-    
-    // Calculate new insertion index (account for removed item)
-    const adjustedTargetIndex = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
-    const insertIndex = position === 'before' ? adjustedTargetIndex : adjustedTargetIndex + 1;
-    
-    // Insert at new position
-    newProducts.splice(insertIndex, 0, removed);
-    
-    addToHistory(newProducts);
-    toast.success('Ürün sıralaması güncellendi');
-  };
-
-  const handleDrop = (e: React.DragEvent, targetProduct: Product) => {
-    e.preventDefault();
-    console.log('handleDrop called for MERGE:', { 
-      draggedProduct: draggedProduct?.id, 
-      targetProduct: targetProduct.id
-    });
-    setDragOverProduct(null);
-    
-    // Reset opacity and transform immediately
-    const draggedElements = document.querySelectorAll('[style*="opacity: 0.4"]');
-    draggedElements.forEach((el) => {
-      (el as HTMLElement).style.opacity = '1';
-      (el as HTMLElement).style.transform = 'scale(1)';
-    });
-    
-    if (dragHoverTimeout) {
-      clearTimeout(dragHoverTimeout);
-      setDragHoverTimeout(null);
-    }
-    
-    if (draggedProduct && draggedProduct.id !== targetProduct.id) {
-      // Only merge mode
-      const suggestion = getSuggestedMergeOperation(draggedProduct, targetProduct);
-      if (suggestion) {
-        setPendingMerge({ source: draggedProduct, target: targetProduct, operation: suggestion });
-        setShowMergeDialog(true);
-      } else {
-        toast.error('Ürünler birleştirilemez - farklı özellikler veya tolerans aşımı');
-      }
-    }
-    
-    setDraggedProduct(null);
-    setDragInsertPosition(null);
-  };
+  // Removed old drag functions - using simple inline handlers now
 
   const executeMerge = (operation: 'boydan' | 'enden') => {
     if (!pendingMerge) return;
@@ -1421,20 +1280,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Card>
           </div>
 
-          {/* Modern drag mode indicator */}
-          {draggedProduct && (
-            <Alert className="mb-4 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
-              <div className="h-4 w-4 rounded-full bg-green-500">
-                <span className="text-white text-xs flex items-center justify-center h-full">+</span>
-              </div>
-              <AlertDescription className="text-gray-800 flex items-center gap-2">
-                <span className="font-medium">Birleştirme:</span>
-                <span>
-                  "{draggedProduct.hasirTipi}" ürününü uyumlu hedef üzerine bırakın
-                </span>
-              </AlertDescription>
-            </Alert>
-          )}
 
           {/* Drag Instructions */}
           <div className="mb-2 p-2 bg-green-100 rounded-lg flex items-center gap-4">
@@ -1447,15 +1292,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <div className="max-h-96 overflow-y-auto relative">
               <table 
                 className="w-full border-collapse"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  console.log('🔥 Native table dragOver - allowing drop');
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  console.log('🔥 Native table drop - preventing default');
-                }}
-                style={{ userSelect: 'none' }}
               >
                 <thead>
                   <tr className="bg-gradient-to-r from-gray-100 to-gray-200 border-b">
@@ -1717,129 +1553,66 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       key={product.id}
                       draggable={true}
                       onDragStart={(e) => {
-                        console.log(`🔥 DRAG START: ${product.id} (${product.hasirTipi}) for MERGE`);
-                        e.stopPropagation();
-                        
-                        // Set data transfer properties
-                        e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', product.id);
-                        e.dataTransfer.setData('application/json', JSON.stringify(product));
-                        
-                        // Set drag image
-                        const dragImg = document.createElement('div');
-                        dragImg.textContent = `🔀 ${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn})`;
-                        dragImg.style.position = 'absolute';
-                        dragImg.style.top = '-1000px';
-                        dragImg.style.backgroundColor = '#22c55e';
-                        dragImg.style.color = 'white';
-                        dragImg.style.padding = '8px 12px';
-                        dragImg.style.borderRadius = '6px';
-                        dragImg.style.fontWeight = 'bold';
-                        dragImg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
-                        document.body.appendChild(dragImg);
-                        e.dataTransfer.setDragImage(dragImg, 0, 0);
-                        setTimeout(() => document.body.removeChild(dragImg), 0);
-
-                        setDraggedProduct(product);
-                        e.currentTarget.style.opacity = '0.5';
-                        e.currentTarget.style.backgroundColor = '#fef3c7';
+                        setDraggedProductId(product.id);
+                        e.currentTarget.classList.add('opacity-50');
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
-                        e.stopPropagation();
-                        
-                        if (draggedProduct && draggedProduct.id !== product.id) {
-                          // Check if merge is possible
-                          const canMerge = getSuggestedMergeOperation(draggedProduct, product);
-                          if (canMerge) {
-                            e.dataTransfer.dropEffect = 'copy';
-                            setDragOverProduct(product);
-                            console.log(`✅ DRAG OVER: ${product.id} - MERGE POSSIBLE`);
-                          } else {
-                            e.dataTransfer.dropEffect = 'none';
-                            console.log(`❌ DRAG OVER: ${product.id} - MERGE NOT POSSIBLE`);
-                          }
-                        } else {
-                          e.dataTransfer.dropEffect = 'none';
-                        }
-                      }}
-                      onDragEnter={(e) => {
-                        e.preventDefault();
-                        if (draggedProduct && draggedProduct.id !== product.id) {
-                          setDragOverProduct(product);
-                        }
-                      }}
-                      onDragLeave={(e) => {
-                        // Only clear if we're actually leaving this element
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        if (e.clientX < rect.left || e.clientX > rect.right || 
-                            e.clientY < rect.top || e.clientY > rect.bottom) {
-                          setDragOverProduct(null);
-                        }
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
-                        e.stopPropagation();
+                        const sourceId = e.dataTransfer.getData('text/plain');
+                        const targetId = product.id;
                         
-                        const draggedId = e.dataTransfer.getData('text/plain');
-                        const draggedProd = products.find(p => p.id === draggedId);
-                        
-                        if (draggedProd && draggedProd.id !== product.id) {
-                          console.log(`✅ DROP: ${draggedProd.id} onto ${product.id} for MERGE`);
+                        if (sourceId !== targetId) {
+                          const sourceProduct = products.find(p => p.id === sourceId);
+                          const targetProduct = products.find(p => p.id === targetId);
                           
-                          const suggestion = getSuggestedMergeOperation(draggedProd, product);
-                          if (suggestion) {
-                            let mergedProduct: Product;
-                            if (suggestion === 'boydan') {
-                              mergedProduct = optimizeBoydan(draggedProd, product);
+                          if (sourceProduct && targetProduct) {
+                            const mergeType = getSuggestedMergeOperation(sourceProduct, targetProduct);
+                            if (mergeType) {
+                              const merged = mergeType === 'boydan' 
+                                ? optimizeBoydan(sourceProduct, targetProduct)
+                                : optimizeEnden(sourceProduct, targetProduct);
+                              
+                              setProducts(prev => [
+                                ...prev.filter(p => p.id !== sourceId && p.id !== targetId),
+                                merged
+                              ]);
+                              
+                              toast.success(`Birleştirme başarılı: ${sourceProduct.hasirTipi} → ${targetProduct.hasirTipi}`);
                             } else {
-                              mergedProduct = optimizeEnden(draggedProd, product);
+                              toast.error('Bu ürünler birleştirilemez');
                             }
-                            
-                            const newProducts = products.filter(p => p.id !== draggedProd.id && p.id !== product.id);
-                            newProducts.push(mergedProduct);
-                            setProducts(newProducts);
-                            toast.success(`${draggedProd.hasirTipi} ve ${product.hasirTipi} birleştirildi (${suggestion})`);
-                          } else {
-                            toast.error('Bu ürünler birleştirilemez');
                           }
                         }
-                        
-                        setDragOverProduct(null);
                       }}
                       onDragEnd={(e) => {
-                        console.log('✅ DRAG END');
-                        e.currentTarget.style.opacity = '';
-                        e.currentTarget.style.backgroundColor = '';
-                        setDraggedProduct(null);
-                        setDragOverProduct(null);
+                        e.currentTarget.classList.remove('opacity-50');
+                        setDraggedProductId(null);
                       }}
-                      className={`transition-all duration-200 hover:bg-gray-50 relative cursor-grab active:cursor-grabbing ${
-                        draggedProduct?.id === product.id
-                          ? 'opacity-50 bg-yellow-100 border-2 border-yellow-400'
-                          : dragOverProduct?.id === product.id 
-                          ? 'bg-green-100 border-2 border-green-400' 
-                          : ''
-                      } ${
+                      className={`hover:bg-gray-50 cursor-move ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
                       } ${
                         product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
+                      } ${
+                        draggedProductId === product.id ? 'opacity-50' : ''
                       }`}
-                      style={{ userSelect: 'none' }}
                     >
-                      <td className="text-center pointer-events-none px-2 py-3 border-b border-gray-200">
+                      <td className="text-center  px-2 py-3 border-b border-gray-200">
                         <div className="inline-flex items-center justify-center p-1">
                           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                             <span className="text-white text-sm font-bold">+</span>
                           </div>
                         </div>
                       </td>
-                      <td className="font-medium pointer-events-none px-4 py-3 border-b border-gray-200">{product.hasirTipi}</td>
-                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.uzunlukBoy}</td>
-                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.uzunlukEn}</td>
-                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.boyCap}</td>
-                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.enCap}</td>
-                      <td className="font-semibold relative pointer-events-none">
+                      <td className="font-medium  px-4 py-3 border-b border-gray-200">{product.hasirTipi}</td>
+                      <td className=" px-4 py-3 border-b border-gray-200">{product.uzunlukBoy}</td>
+                      <td className=" px-4 py-3 border-b border-gray-200">{product.uzunlukEn}</td>
+                      <td className=" px-4 py-3 border-b border-gray-200">{product.boyCap}</td>
+                      <td className=" px-4 py-3 border-b border-gray-200">{product.enCap}</td>
+                      <td className="font-semibold relative ">
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full border"
@@ -1859,33 +1632,24 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="font-medium pointer-events-none">{product.toplamKg.toFixed(2)}</td>
-                      <td className="text-xs pointer-events-none">{product.hasirTuru || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.boyAraligi || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.enAraligi || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.cubukSayisiBoy || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.cubukSayisiEn || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.solFiliz?.toFixed(2) || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.sagFiliz?.toFixed(2) || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.onFiliz?.toFixed(2) || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.arkaFiliz?.toFixed(2) || '-'}</td>
-                      <td className="text-xs pointer-events-none">{product.adetKg?.toFixed(3) || '-'}</td>
-                      <td className="text-xs max-w-xs pointer-events-none">
+                      <td className="font-medium ">{product.toplamKg.toFixed(2)}</td>
+                      <td className="text-xs ">{product.hasirTuru || '-'}</td>
+                      <td className="text-xs ">{product.boyAraligi || '-'}</td>
+                      <td className="text-xs ">{product.enAraligi || '-'}</td>
+                      <td className="text-xs ">{product.cubukSayisiBoy || '-'}</td>
+                      <td className="text-xs ">{product.cubukSayisiEn || '-'}</td>
+                      <td className="text-xs ">{product.solFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs ">{product.sagFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs ">{product.onFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs ">{product.arkaFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs ">{product.adetKg?.toFixed(3) || '-'}</td>
+                      <td className="text-xs max-w-xs ">
                         <div className="truncate" title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}>
                           {product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '-'}
                         </div>
                       </td>
                       
                       
-                      {/* Merge indicator */}
-                      {dragOverProduct?.id === product.id && (
-                        <div className="absolute top-2 right-2 z-10">
-                          <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg flex items-center gap-1">
-                            Birleştir
-                            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                          </div>
-                        </div>
-                      )}
                     </tr>
                   ))}
                 </tbody>
