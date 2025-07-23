@@ -6460,9 +6460,13 @@ useEffect(() => {
                   Açıklama
                   <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize" onMouseDown={(e) => handleResizeMouseDown(e, 19)}></div>
                 </th>
-                <th data-index="20" className="border border-gray-300 p-1 py-2 text-sm font-semibold relative" style={{ width: '110px' }}>
-                  İşlemler
+                <th data-index="20" className="border border-gray-300 p-1 py-2 text-sm font-semibold relative" style={{ width: '150px' }}>
+                  İleri Optimizasyon
                   <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize" onMouseDown={(e) => handleResizeMouseDown(e, 20)}></div>
+                </th>
+                <th data-index="21" className="border border-gray-300 p-1 py-2 text-sm font-semibold relative" style={{ width: '110px' }}>
+                  İşlemler
+                  <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize" onMouseDown={(e) => handleResizeMouseDown(e, 21)}></div>
                 </th>
               </tr>
             </thead>
@@ -6474,7 +6478,6 @@ useEffect(() => {
                  return (
                     <tr key={row.id} className={
                       row.uretilemez ? 'bg-red-50' : 
-                      row.isMerged ? 'bg-green-50 border-l-4 border-green-500' : 
                       (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')
                     }>
                       <td className="border border-gray-300 p-1 text-center relative">
@@ -6692,6 +6695,19 @@ useEffect(() => {
                         onChange={(e) => handleCellChange(rowIndex, 'aciklama', e.target.value)}
                         rows={2}
                       />
+                    </td>
+                    
+                    <td className="border border-gray-300 p-1">
+                      <div className="flex items-center gap-2">
+                        {row.isMerged && (
+                          <div className="w-4 h-4 bg-green-500 rounded-full flex-shrink-0" title="Birleştirilmiş" />
+                        )}
+                        {(row.advancedOptimizationNotes || (row.mergeHistory && row.mergeHistory.length > 0)) && (
+                          <div className="text-xs text-gray-700 overflow-hidden">
+                            {row.advancedOptimizationNotes || row.mergeHistory?.join(' | ')}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     
                     <td className="border border-gray-300 p-1">

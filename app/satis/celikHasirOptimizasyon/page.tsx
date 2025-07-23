@@ -405,10 +405,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     // Check where we came from to return to correct page
     const referrer = sessionStorage.getItem('celikHasirReferrer');
+    console.log('Returning to main list, referrer:', referrer);
+    
     if (referrer === 'maliyet') {
       router.push('/uretim/hesaplamalar/maliyet');
-    } else {
+    } else if (referrer === 'urun') {
       router.push('/uretim/hesaplamalar/urun');
+    } else {
+      // Default fallback - go back to the main CelikHasir component
+      window.history.back();
     }
   };
 
@@ -468,7 +473,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
         
         if (canOptimizeBoydan) {
           const optimized = optimizeBoydan(sourceProduct, targetProduct);
-          const actualDiffCm = targetBoy - sourceBoy; // Show BOY difference for boydan merge (how much larger target is)
+          const boyDiff = targetBoy - sourceBoy;
+          const enDiff = targetEn - sourceEn;
+          const actualDiffCm = Math.max(boyDiff, enDiff); // Show the maximum difference
           opportunities.push({
             type: 'boydan',
             source: sourceProduct,
@@ -483,7 +490,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
           break;
         } else if (canOptimizeEnden) {
           const optimized = optimizeEnden(sourceProduct, targetProduct);
-          const actualDiffCm = targetEn - sourceEn; // Show EN difference for enden merge (how much larger target is)
+          const boyDiff = targetBoy - sourceBoy;
+          const enDiff = targetEn - sourceEn;
+          const actualDiffCm = Math.max(boyDiff, enDiff); // Show the maximum difference
           opportunities.push({
             type: 'enden',
             source: sourceProduct,
@@ -1925,6 +1934,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
           
           <DialogFooter>
             <div className="flex gap-2 w-full">
+              {currentOperationIndex > 0 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentOperationIndex(prev => prev - 1)}
+                  className="flex-1"
+                >
+                  ⬅️ Önceki
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 onClick={() => {
