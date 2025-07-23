@@ -264,17 +264,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Helper function to create sortable header - single active column
-  const createSortHandler = (key: keyof Product) => () => {
-    setSortConfig(prev => {
-      if (prev && prev.key === key) {
-        // Same column clicked - toggle direction
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-      } else {
-        // New column clicked - set as active with asc
-        return { key, direction: 'asc' };
-      }
-    });
-  };
 
   // Get tolerance based on quantity
   const getTolerance = (hasirSayisi: number): number => {
@@ -393,27 +382,30 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('handleDragOver called for product:', product.id);
+    console.log('✅ handleDragOver called for product:', product.id, 'draggedProduct:', draggedProduct?.id);
     setDragOverProduct(product);
     
-    if (!draggedProduct || draggedProduct.id === product.id) return;
+    if (!draggedProduct || draggedProduct.id === product.id) {
+      console.log('⚠️ No dragged product or same product, skipping');
+      return;
+    }
     
     if (currentDragMode === 'reorder') {
-      // Reorder mode: show insertion position
+      console.log('📝 Reorder mode - setting insertion position');
       e.dataTransfer.dropEffect = 'move';
       const rect = e.currentTarget.getBoundingClientRect();
       const midpoint = rect.top + rect.height / 2;
       const position = e.clientY < midpoint ? 'before' : 'after';
       setDragInsertPosition({ productId: product.id, position });
     } else {
-      // Merge mode: check if merge is possible
+      console.log('🔄 Merge mode - checking merge possibility');
       const suggestion = getSuggestedMergeOperation(draggedProduct, product);
       if (suggestion) {
+        console.log('✅ Merge possible:', suggestion);
         e.dataTransfer.dropEffect = 'copy';
         setDragInsertPosition(null);
       } else {
+        console.log('❌ Merge not possible');
         e.dataTransfer.dropEffect = 'none';
       }
     }
@@ -1431,7 +1423,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'hasirTipi' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
-                      onClick={createSortHandler('hasirTipi')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'hasirTipi') {
+                            return { key: 'hasirTipi', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'hasirTipi', direction: 'asc' };
+                        });
+                      }}
                     >
                       Hasır Tipi {sortConfig?.key === 'hasirTipi' ? (
                         sortConfig.direction === 'asc' ? '↑' : '↓'
@@ -1443,7 +1442,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'uzunlukBoy' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
-                      onClick={createSortHandler('uzunlukBoy')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'uzunlukBoy') {
+                            return { key: 'uzunlukBoy', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'uzunlukBoy', direction: 'asc' };
+                        });
+                      }}
                     >
                       Boy (cm) {sortConfig?.key === 'uzunlukBoy' ? (
                         sortConfig.direction === 'asc' ? '↑' : '↓'
@@ -1455,7 +1461,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'uzunlukEn' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
-                      onClick={createSortHandler('uzunlukEn')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'uzunlukEn') {
+                            return { key: 'uzunlukEn', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'uzunlukEn', direction: 'asc' };
+                        });
+                      }}
                     >
                       En (cm) {sortConfig?.key === 'uzunlukEn' ? (
                         sortConfig.direction === 'asc' ? '↑' : '↓'
@@ -1467,7 +1480,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'boyCap' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
-                      onClick={createSortHandler('boyCap')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'boyCap') {
+                            return { key: 'boyCap', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'boyCap', direction: 'asc' };
+                        });
+                      }}
                     >
                       Boy Çap (mm) {sortConfig?.key === 'boyCap' ? (
                         sortConfig.direction === 'asc' ? '↑' : '↓'
@@ -1479,7 +1499,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'enCap' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
-                      onClick={createSortHandler('enCap')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'enCap') {
+                            return { key: 'enCap', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'enCap', direction: 'asc' };
+                        });
+                      }}
                     >
                       En Çap (mm) {sortConfig?.key === 'enCap' ? (
                         sortConfig.direction === 'asc' ? '↑' : '↓'
@@ -1512,61 +1539,131 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('hasirTuru')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'hasirTuru') {
+                            return { key: 'hasirTuru', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'hasirTuru', direction: 'asc' };
+                        });
+                      }}
                     >
                       Hasır Türü <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('boyAraligi')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'boyAraligi') {
+                            return { key: 'boyAraligi', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'boyAraligi', direction: 'asc' };
+                        });
+                      }}
                     >
                       Boy Aralığı <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('enAraligi')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'enAraligi') {
+                            return { key: 'enAraligi', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'enAraligi', direction: 'asc' };
+                        });
+                      }}
                     >
                       En Aralığı <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('cubukSayisiBoy')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'cubukSayisiBoy') {
+                            return { key: 'cubukSayisiBoy', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'cubukSayisiBoy', direction: 'asc' };
+                        });
+                      }}
                     >
                       Boy Çubuk <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('cubukSayisiEn')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'cubukSayisiEn') {
+                            return { key: 'cubukSayisiEn', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'cubukSayisiEn', direction: 'asc' };
+                        });
+                      }}
                     >
                       En Çubuk <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('solFiliz')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'solFiliz') {
+                            return { key: 'solFiliz', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'solFiliz', direction: 'asc' };
+                        });
+                      }}
                     >
                       Sol Filiz <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('sagFiliz')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'sagFiliz') {
+                            return { key: 'sagFiliz', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'sagFiliz', direction: 'asc' };
+                        });
+                      }}
                     >
                       Sağ Filiz <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('onFiliz')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'onFiliz') {
+                            return { key: 'onFiliz', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'onFiliz', direction: 'asc' };
+                        });
+                      }}
                     >
                       Ön Filiz <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('arkaFiliz')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'arkaFiliz') {
+                            return { key: 'arkaFiliz', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'arkaFiliz', direction: 'asc' };
+                        });
+                      }}
                     >
                       Arka Filiz <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler('adetKg')}
+                      onClick={() => {
+                        setSortConfig(prev => {
+                          if (prev?.key === 'adetKg') {
+                            return { key: 'adetKg', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+                          }
+                          return { key: 'adetKg', direction: 'asc' };
+                        });
+                      }}
                     >
                       Adet Kg <ArrowUpDown className="inline h-3 w-3" />
                     </TableHead>
@@ -1584,14 +1681,28 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         e.dataTransfer.setData('text/plain', product.id);
                         setDraggedProduct(product);
                       }}
-                      onDragOver={(e) => handleDragOver(e, product)}
-                      onDragLeave={handleDragLeave}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('ROW dragOver for product:', product.id);
+                        handleDragOver(e, product);
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        console.log('ROW dragEnter for product:', product.id);
+                      }}
+                      onDragLeave={(e) => {
+                        console.log('ROW dragLeave for product:', product.id);
+                        handleDragLeave();
+                      }}
                       onDrop={(e) => {
-                        console.log('onDrop triggered for product:', product.id);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('ROW onDrop triggered for product:', product.id);
                         handleDrop(e, product);
                       }}
                       onDragEnd={(e) => {
-                        console.log('Drag ended');
+                        console.log('ROW Drag ended for product:', product.id);
                         handleDragEnd();
                       }}
                       className={`transition-all duration-200 hover:bg-gray-50 relative ${
