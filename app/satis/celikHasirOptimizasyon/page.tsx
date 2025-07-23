@@ -1464,11 +1464,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
+                      draggable="true"
+                      onDragStart={(e) => {
+                        console.log(`Starting drag for ${product.id} in ${currentDragMode} mode`);
+                        e.dataTransfer.effectAllowed = currentDragMode === 'reorder' ? 'move' : 'copy';
+                        e.dataTransfer.setData('text/plain', product.id);
+                        setDraggedProduct(product);
+                      }}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => {
                         console.log('onDrop triggered for product:', product.id);
                         handleDrop(e, product);
+                      }}
+                      onDragEnd={(e) => {
+                        console.log('Drag ended');
+                        handleDragEnd();
                       }}
                       className={`transition-all duration-200 hover:bg-gray-50 relative ${
                         currentDragMode === 'reorder' ? 'cursor-move' : 'cursor-copy'
@@ -1487,30 +1498,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }`}
                     >
                       <TableCell>
-                        <div 
-                          draggable="true"
-                          onDragStart={(e) => {
-                            console.log(`Starting drag for ${product.id} in ${currentDragMode} mode`);
-                            e.dataTransfer.effectAllowed = currentDragMode === 'reorder' ? 'move' : 'copy';
-                            e.dataTransfer.setData('text/plain', product.id);
-                            setDraggedProduct(product);
-                            
-                            // Get parent row for visual feedback
-                            const row = (e.currentTarget as HTMLElement).closest('tr');
-                            if (row) {
-                              row.style.opacity = '0.5';
-                            }
-                          }}
-                          onDragEnd={(e) => {
-                            console.log('Drag ended');
-                            handleDragEnd();
-                          }}
-                          className={`inline-flex items-center justify-center p-2 rounded ${
-                            currentDragMode === 'reorder' 
-                              ? 'cursor-move hover:bg-blue-100' 
-                              : 'cursor-copy hover:bg-green-100'
-                          }`}
-                        >
+                        <div className={`inline-flex items-center justify-center p-2 rounded ${
+                          currentDragMode === 'reorder' 
+                            ? 'cursor-move hover:bg-blue-100' 
+                            : 'cursor-copy hover:bg-green-100'
+                        }`}>
                           {currentDragMode === 'reorder' ? (
                             <GripVertical className="h-5 w-5 text-blue-600 pointer-events-none" />
                           ) : (
