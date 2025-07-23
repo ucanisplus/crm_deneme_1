@@ -1683,57 +1683,107 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map(product => (
+                  {filteredProducts.map((product, index) => (
                     <TableRow
                       key={product.id}
                       draggable={true}
                       onDragStart={(e) => {
-                        console.log(`✅ Starting drag for ${product.id} in ${currentDragMode} mode`);
-                        e.dataTransfer.effectAllowed = currentDragMode === 'reorder' ? 'move' : 'copy';
+                        console.log(`✅ DRAG START: ${product.id} in ${currentDragMode} mode`);
+                        e.dataTransfer.effectAllowed = 'copyMove';
                         e.dataTransfer.setData('text/plain', product.id);
-                        e.dataTransfer.setDragImage(e.currentTarget, 0, 0);
                         setDraggedProduct(product);
+                        // Add visual feedback immediately
+                        e.currentTarget.style.opacity = '0.5';
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        e.dataTransfer.dropEffect = currentDragMode === 'reorder' ? 'move' : 'copy';
-                        console.log('ROW dragOver for product:', product.id);
-                        handleDragOver(e, product);
+                        
+                        // Only allow drop if we have a dragged product and it's not the same
+                        if (draggedProduct && draggedProduct.id !== product.id) {
+                          e.dataTransfer.dropEffect = currentDragMode === 'reorder' ? 'move' : 'copy';
+                          setDragOverProduct(product);
+                          console.log(`✅ DRAG OVER: ${product.id} (valid drop target)`);
+                        } else {
+                          e.dataTransfer.dropEffect = 'none';
+                        }
                       }}
                       onDragEnter={(e) => {
                         e.preventDefault();
-                        console.log('ROW dragEnter for product:', product.id);
+                        if (draggedProduct && draggedProduct.id !== product.id) {
+                          setDragOverProduct(product);
+                        }
                       }}
                       onDragLeave={(e) => {
-                        console.log('ROW dragLeave for product:', product.id);
-                        handleDragLeave();
+                        // Only clear if we're actually leaving this element
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        if (e.clientX < rect.left || e.clientX > rect.right || 
+                            e.clientY < rect.top || e.clientY > rect.bottom) {
+                          setDragOverProduct(null);
+                        }
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('ROW onDrop triggered for product:', product.id);
-                        handleDrop(e, product);
+                        
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        const draggedProd = products.find(p => p.id === draggedId);
+                        
+                        if (draggedProd && draggedProd.id !== product.id) {
+                          console.log(`✅ DROP: ${draggedProd.id} onto ${product.id} in ${currentDragMode} mode`);
+                          
+                          if (currentDragMode === 'reorder') {
+                            // Simple reorder: move dragged product to target position
+                            const newProducts = [...products];
+                            const draggedIndex = newProducts.findIndex(p => p.id === draggedProd.id);
+                            const targetIndex = newProducts.findIndex(p => p.id === product.id);
+                            
+                            if (draggedIndex !== -1 && targetIndex !== -1) {
+                              // Remove from old position
+                              const [removed] = newProducts.splice(draggedIndex, 1);
+                              // Insert at new position
+                              newProducts.splice(targetIndex, 0, removed);
+                              setProducts(newProducts);
+                              toast.success(`${draggedProd.hasirTipi} ürünü yeniden sıralandı`);
+                            }
+                          } else {
+                            // Merge mode: attempt to merge
+                            const suggestion = getSuggestedMergeOperation(draggedProd, product);
+                            if (suggestion) {
+                              let mergedProduct: Product;
+                              if (suggestion === 'boydan') {
+                                mergedProduct = optimizeBoydan(draggedProd, product);
+                              } else {
+                                mergedProduct = optimizeEnden(draggedProd, product);
+                              }
+                              
+                              const newProducts = products.filter(p => p.id !== draggedProd.id && p.id !== product.id);
+                              newProducts.push(mergedProduct);
+                              setProducts(newProducts);
+                              toast.success(`${draggedProd.hasirTipi} ve ${product.hasirTipi} birleştirildi (${suggestion})`);
+                            } else {
+                              toast.error('Bu ürünler birleştirilemez');
+                            }
+                          }
+                        }
+                        
+                        setDragOverProduct(null);
                       }}
                       onDragEnd={(e) => {
-                        console.log('ROW Drag ended for product:', product.id);
-                        handleDragEnd();
+                        console.log('✅ DRAG END');
+                        e.currentTarget.style.opacity = '';
+                        setDraggedProduct(null);
+                        setDragOverProduct(null);
                       }}
-                      style={{
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        MozUserSelect: 'none',
-                        msUserSelect: 'none'
-                      }}
-                      className={`transition-all duration-200 hover:bg-gray-50 relative select-none ${
+                      className={`transition-all duration-200 hover:bg-gray-50 relative ${
                         currentDragMode === 'reorder' ? 'cursor-move' : 'cursor-copy'
                       } ${
                         draggedProduct?.id === product.id
-                          ? 'opacity-40 bg-gray-100 scale-[0.98] shadow-md'
+                          ? 'opacity-50 bg-blue-100 border-2 border-blue-400'
                           : dragOverProduct?.id === product.id 
                           ? currentDragMode === 'merge' 
-                            ? 'bg-green-50 border-2 border-green-400 shadow-lg transform scale-[1.01]' 
-                            : 'bg-blue-50 border border-blue-300'
+                            ? 'bg-green-100 border-2 border-green-400' 
+                            : 'bg-blue-100 border-2 border-blue-400'
                           : ''
                       } ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
@@ -1741,20 +1791,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
                       }`}
                     >
-                      <TableCell 
-                        style={{ userSelect: 'none', pointerEvents: 'none' }}
-                        className="pointer-events-none"
-                      >
-                        <div className={`inline-flex items-center justify-center p-2 rounded pointer-events-none ${
-                          currentDragMode === 'reorder' 
-                            ? 'cursor-move hover:bg-blue-100' 
-                            : 'cursor-copy hover:bg-green-100'
-                        }`}>
+                      <TableCell className="text-center">
+                        <div className="inline-flex items-center justify-center p-1">
                           {currentDragMode === 'reorder' ? (
-                            <GripVertical className="h-5 w-5 text-blue-600 pointer-events-none" />
+                            <GripVertical className="h-4 w-4 text-gray-400" />
                           ) : (
-                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center pointer-events-none">
-                              <span className="text-white text-xs font-bold pointer-events-none">+</span>
+                            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">+</span>
                             </div>
                           )}
                         </div>
