@@ -6774,6 +6774,8 @@ useEffect(() => {
                       } else {
                         sessionStorage.setItem('celikHasirReferrer', 'urun');
                       }
+                      // Store return path
+                      sessionStorage.setItem('celikHasirReturnPath', currentPath);
                       window.location.href = '/satis/celikHasirOptimizasyon';
                     }
                   } else {
@@ -6786,6 +6788,8 @@ useEffect(() => {
                     } else {
                       sessionStorage.setItem('celikHasirReferrer', 'urun');
                     }
+                    // Store return path
+                    sessionStorage.setItem('celikHasirReturnPath', currentPath);
                     window.location.href = '/satis/celikHasirOptimizasyon';
                   }
                 }}

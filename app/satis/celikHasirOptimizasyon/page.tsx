@@ -279,9 +279,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
       toplamKg: totalWeight,
       mergeHistory: [
         ...(biggerProduct.mergeHistory || []),
-        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
       ],
-      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
       aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
@@ -298,9 +298,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
       toplamKg: totalWeight,
       mergeHistory: [
         ...(biggerProduct.mergeHistory || []),
-        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
       ],
-      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
       aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
@@ -349,6 +349,31 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
+  // Special merge function for drag & drop - NO LIMITS
+  const getDragDropMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
+    // Basic compatibility check - only require same type and diameter
+    if (source.hasirTipi !== target.hasirTipi || 
+        source.boyCap !== target.boyCap || 
+        source.enCap !== target.enCap) {
+      return null;
+    }
+    
+    const sourceBoy = Number(source.uzunlukBoy);
+    const sourceEn = Number(source.uzunlukEn);
+    const targetBoy = Number(target.uzunlukBoy);
+    const targetEn = Number(target.uzunlukEn);
+    
+    // Check if target is bigger in at least one dimension
+    if (targetBoy >= sourceBoy && targetEn >= sourceEn) {
+      // Choose merge direction based on which dimension has bigger difference
+      const boyDiff = targetBoy - sourceBoy;
+      const enDiff = targetEn - sourceEn;
+      return boyDiff >= enDiff ? 'boydan' : 'enden';
+    }
+    
+    return null;
+  };
+
   // Removed old drag handlers - now using simple inline handlers
 
   // Removed old drag functions - using simple inline handlers now
@@ -362,10 +387,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
     if (operation === 'boydan') {
       mergedProduct = optimizeBoydan(source, target);
-      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} eliminated → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} total)`;
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silindi → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
     } else {
       mergedProduct = optimizeEnden(source, target);
-      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} eliminated → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} total)`;
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silindi → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
     }
 
     const newProducts = products
@@ -403,7 +428,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Store data in sessionStorage instead of URL
     sessionStorage.setItem('celikHasirOptimizedData', JSON.stringify(optimizedProducts));
     
-    // Check where we came from to return to correct page
+    // Check return path first
+    const returnPath = sessionStorage.getItem('celikHasirReturnPath');
+    if (returnPath) {
+      console.log('Returning to stored path:', returnPath);
+      window.location.href = returnPath;
+      return;
+    }
+    
+    // Fallback to referrer logic
     const referrer = sessionStorage.getItem('celikHasirReferrer');
     console.log('Returning to main list, referrer:', referrer);
     
@@ -1579,7 +1612,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           const targetProduct = products.find(p => p.id === targetId);
                           
                           if (sourceProduct && targetProduct) {
-                            const mergeType = getSuggestedMergeOperation(sourceProduct, targetProduct);
+                            const mergeType = getDragDropMergeOperation(sourceProduct, targetProduct);
                             if (mergeType) {
                               const merged = mergeType === 'boydan' 
                                 ? optimizeBoydan(sourceProduct, targetProduct)
@@ -1592,7 +1625,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                               
                               toast.success(`Birleştirme başarılı: ${sourceProduct.hasirTipi} → ${targetProduct.hasirTipi}`);
                             } else {
-                              toast.error('Bu ürünler birleştirilemez');
+                              toast.error('Bu ürünler birleştirilemez - farklı tip veya hedef daha küçük');
                             }
                           }
                         }
