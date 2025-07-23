@@ -1686,16 +1686,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
-                      draggable="true"
+                      draggable={true}
                       onDragStart={(e) => {
-                        console.log(`Starting drag for ${product.id} in ${currentDragMode} mode`);
+                        console.log(`✅ Starting drag for ${product.id} in ${currentDragMode} mode`);
                         e.dataTransfer.effectAllowed = currentDragMode === 'reorder' ? 'move' : 'copy';
                         e.dataTransfer.setData('text/plain', product.id);
+                        e.dataTransfer.setDragImage(e.currentTarget, 0, 0);
                         setDraggedProduct(product);
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        e.dataTransfer.dropEffect = currentDragMode === 'reorder' ? 'move' : 'copy';
                         console.log('ROW dragOver for product:', product.id);
                         handleDragOver(e, product);
                       }}
@@ -1717,7 +1719,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         console.log('ROW Drag ended for product:', product.id);
                         handleDragEnd();
                       }}
-                      className={`transition-all duration-200 hover:bg-gray-50 relative ${
+                      style={{
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        MozUserSelect: 'none',
+                        msUserSelect: 'none'
+                      }}
+                      className={`transition-all duration-200 hover:bg-gray-50 relative select-none ${
                         currentDragMode === 'reorder' ? 'cursor-move' : 'cursor-copy'
                       } ${
                         draggedProduct?.id === product.id
@@ -1733,8 +1741,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
                       }`}
                     >
-                      <TableCell>
-                        <div className={`inline-flex items-center justify-center p-2 rounded ${
+                      <TableCell 
+                        style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        className="pointer-events-none"
+                      >
+                        <div className={`inline-flex items-center justify-center p-2 rounded pointer-events-none ${
                           currentDragMode === 'reorder' 
                             ? 'cursor-move hover:bg-blue-100' 
                             : 'cursor-copy hover:bg-green-100'
@@ -1743,7 +1754,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                             <GripVertical className="h-5 w-5 text-blue-600 pointer-events-none" />
                           ) : (
                             <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center pointer-events-none">
-                              <span className="text-white text-xs font-bold">+</span>
+                              <span className="text-white text-xs font-bold pointer-events-none">+</span>
                             </div>
                           )}
                         </div>
