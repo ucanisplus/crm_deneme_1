@@ -395,13 +395,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
       const midpoint = rect.top + rect.height / 2;
       const position = e.clientY < midpoint ? 'before' : 'after';
       setDragInsertPosition({ productId: product.id, position });
-      setCurrentDragMode('reorder');
     } else {
       // Merge mode: check if merge is possible
       const suggestion = getSuggestedMergeOperation(draggedProduct, product);
       if (suggestion) {
         e.dataTransfer.dropEffect = 'copy';
-        setCurrentDragMode('merge');
         setDragInsertPosition(null);
       } else {
         e.dataTransfer.dropEffect = 'none';
@@ -497,7 +495,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     setDraggedProduct(null);
     setDragInsertPosition(null);
-    setCurrentDragMode('reorder'); // Reset to reorder mode
   };
 
   const executeMerge = (operation: 'boydan' | 'enden') => {
@@ -1617,6 +1614,42 @@ const CelikHasirOptimizasyon: React.FC = () => {
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Hasır Tipi Değişikliği
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                // Create test data with all required Product properties
+                const testData: Product[] = [
+                  { 
+                    id: '1', hasirTipi: 'Q275/275', uzunlukBoy: 250, uzunlukEn: 175, hasirSayisi: 15, 
+                    toplamKg: 100, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
+                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 10, cubukSayisiEn: 8,
+                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 6.67,
+                    isOptimized: false, uretilemez: false, aciklama: 'Test product 1'
+                  },
+                  { 
+                    id: '2', hasirTipi: 'Q275/275', uzunlukBoy: 260, uzunlukEn: 185, hasirSayisi: 25, 
+                    toplamKg: 150, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
+                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 11, cubukSayisiEn: 9,
+                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 6.0,
+                    isOptimized: false, uretilemez: false, aciklama: 'Test product 2'
+                  },
+                  { 
+                    id: '3', hasirTipi: 'TR275/275', uzunlukBoy: 250, uzunlukEn: 175, hasirSayisi: 10, 
+                    toplamKg: 80, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
+                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 10, cubukSayisiEn: 8,
+                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 8.0,
+                    isOptimized: false, uretilemez: false, aciklama: 'Test product 3'
+                  }
+                ];
+                setProducts(testData);
+                setFilteredProducts(testData);
+                addToHistory(testData);
+                toast.success('Test verisi yüklendi');
+              }}
+              className="bg-yellow-100 shadow-md hover:shadow-lg transition-shadow"
+            >
+              🧪 Test Verisi Yükle
             </Button>
           </div>
         </CardContent>
