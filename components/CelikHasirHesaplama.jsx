@@ -782,8 +782,8 @@ const processExcelWithMapping = (sheets, mapping) => {
       // Already handled in the button click, but ensure it's set
       sessionStorage.setItem('celikHasirReferrer', 'maliyet');
     } else if (currentPath.includes('/urun')) {
-      // Clear referrer for ürün page
-      sessionStorage.removeItem('celikHasirReferrer');
+      // Set referrer for ürün page
+      sessionStorage.setItem('celikHasirReferrer', 'urun');
     }
   }, []);
 
@@ -6472,7 +6472,11 @@ useEffect(() => {
                 const isBasicFieldsFilled = isRowFilled(row);
                 
                  return (
-                    <tr key={row.id} className={row.uretilemez ? 'bg-red-50' : (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+                    <tr key={row.id} className={
+                      row.uretilemez ? 'bg-red-50' : 
+                      row.isMerged ? 'bg-green-50 border-l-4 border-green-500' : 
+                      (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')
+                    }>
                       <td className="border border-gray-300 p-1 text-center relative">
                         {rowIndex + 1}
                         {/* Sayfa göstergesi - Eğer sheetName varsa göster */}
@@ -6747,15 +6751,25 @@ useEffect(() => {
                     if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
                       // Store data in sessionStorage instead of URL
                       sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
-                      // Set referrer to indicate this came from maliyet page
-                      sessionStorage.setItem('celikHasirReferrer', 'maliyet');
+                      // Set referrer based on current page
+                      const currentPath = window.location.pathname;
+                      if (currentPath.includes('/maliyet')) {
+                        sessionStorage.setItem('celikHasirReferrer', 'maliyet');
+                      } else {
+                        sessionStorage.setItem('celikHasirReferrer', 'urun');
+                      }
                       window.location.href = '/satis/celikHasirOptimizasyon';
                     }
                   } else {
                     // Store data in sessionStorage instead of URL
                     sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
-                    // Set referrer to indicate this came from maliyet page
-                    sessionStorage.setItem('celikHasirReferrer', 'maliyet');
+                    // Set referrer based on current page
+                    const currentPath = window.location.pathname;
+                    if (currentPath.includes('/maliyet')) {
+                      sessionStorage.setItem('celikHasirReferrer', 'maliyet');
+                    } else {
+                      sessionStorage.setItem('celikHasirReferrer', 'urun');
+                    }
                     window.location.href = '/satis/celikHasirOptimizasyon';
                   }
                 }}

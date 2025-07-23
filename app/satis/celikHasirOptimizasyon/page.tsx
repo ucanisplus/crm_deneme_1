@@ -9,14 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+// Using native HTML table elements instead of shadcn/ui components
 import {
   Select,
   SelectContent,
@@ -292,7 +285,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
       ],
       advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
-      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} total)`
+      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
 
@@ -311,7 +304,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) eliminated → produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`
       ],
       advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} eliminated, produced as ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn}`,
-      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} total)`
+      aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
 
@@ -694,7 +687,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 `KATLI İYİLEŞTİRME: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) EXACT ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`
               ],
               advancedOptimizationNotes: `Katlı iyileştirme EXACT: ${match.multiple} - ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
-              aciklama: `${targetProduct.aciklama || ''} | KATLI: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple})`
+              aciklama: `${targetProduct.aciklama || ''} | KATLI: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x)`
             };
 
             opportunities.push({
@@ -756,7 +749,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 `KATLI + TOLERANS: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tol: ${Math.max(boyDiff, enDiff)}cm)`
               ],
               advancedOptimizationNotes: `Katlı + Tolerans: ${match.multiple} - tol: ${Math.max(boyDiff, enDiff)}cm`,
-              aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}, ${Math.max(boyDiff, enDiff)}cm)`
+              aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x, ${Math.max(boyDiff, enDiff)}cm)`
             };
 
             opportunities.push({
@@ -1063,10 +1056,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
                 mergeHistory: [
                   ...(target.mergeHistory || []),
-                  `Tip değişikliği (cross-group): ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
+                  `Tip değişikliği (gruplar arası): ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
                 ],
-                advancedOptimizationNotes: `Hasır tipi değişikliği (cross-group): ${product.hasirTipi} -> ${target.hasirTipi}`,
-                aciklama: target.aciklama || `Cross-group tip değişikliği: ${product.id} -> ${target.id}`
+                advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${product.hasirTipi} -> ${target.hasirTipi}`,
+                aciklama: target.aciklama || `Gruplar arası tip değişikliği: ${product.id} -> ${target.id}`
               };
               
               opportunities.push({
@@ -1452,22 +1445,23 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
             <div className="max-h-96 overflow-y-auto relative">
-              <Table 
+              <table 
+                className="w-full border-collapse"
                 onDragOver={(e) => {
                   e.preventDefault();
-                  console.log('✅ Table dragOver - allowing drop');
+                  console.log('🔥 Native table dragOver - allowing drop');
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
-                  console.log('✅ Table drop - preventing default');
+                  console.log('🔥 Native table drop - preventing default');
                 }}
                 style={{ userSelect: 'none' }}
               >
-                <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-gray-100 to-gray-200">
-                    <TableHead className="w-8 sticky top-0 bg-white z-10"></TableHead>
-                    <TableHead 
-                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                <thead>
+                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 border-b">
+                    <th className="w-8 sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900"></th>
+                    <th 
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 px-4 py-3 text-left font-medium text-gray-900 ${
                         sortConfig?.key === 'hasirTipi' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                       onClick={() => {
@@ -1484,8 +1478,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       ) : (
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'uzunlukBoy' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
@@ -1503,8 +1497,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       ) : (
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'uzunlukEn' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
@@ -1522,8 +1516,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       ) : (
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'boyCap' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
@@ -1541,8 +1535,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       ) : (
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
                         sortConfig?.key === 'enCap' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
@@ -1560,8 +1554,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       ) : (
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1573,8 +1567,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
-                    </TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
+                    </th>
+                    <th className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
                           if (prev?.key === 'toplamKg') {
@@ -1583,8 +1577,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           return { key: 'toplamKg', direction: 'asc' };
                         });
                       }}
-                    >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
-                    <TableHead 
+                    >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1596,8 +1590,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Hasır Türü <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1609,8 +1603,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Boy Aralığı <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1622,8 +1616,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       En Aralığı <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1635,8 +1629,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Boy Çubuk <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1648,8 +1642,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       En Çubuk <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1661,8 +1655,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Sol Filiz <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1674,8 +1668,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Sağ Filiz <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1687,8 +1681,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Ön Filiz <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1700,8 +1694,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Arka Filiz <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead 
+                    </th>
+                    <th 
                       className="sticky top-0 bg-white z-10 text-xs cursor-pointer hover:bg-gray-100"
                       onClick={() => {
                         setSortConfig(prev => {
@@ -1713,13 +1707,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }}
                     >
                       Adet Kg <ArrowUpDown className="inline h-3 w-3" />
-                    </TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 text-xs">İleri Opt. Notları</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                    </th>
+                    <th className="sticky top-0 bg-white z-10 text-xs">İleri Opt. Notları</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filteredProducts.map((product, index) => (
-                    <TableRow
+                    <tr
                       key={product.id}
                       draggable={true}
                       onDragStart={(e) => {
@@ -1833,19 +1827,19 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }`}
                       style={{ userSelect: 'none' }}
                     >
-                      <TableCell className="text-center pointer-events-none">
+                      <td className="text-center pointer-events-none px-2 py-3 border-b border-gray-200">
                         <div className="inline-flex items-center justify-center p-1">
                           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                             <span className="text-white text-sm font-bold">+</span>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium pointer-events-none">{product.hasirTipi}</TableCell>
-                      <TableCell className="pointer-events-none">{product.uzunlukBoy}</TableCell>
-                      <TableCell className="pointer-events-none">{product.uzunlukEn}</TableCell>
-                      <TableCell className="pointer-events-none">{product.boyCap}</TableCell>
-                      <TableCell className="pointer-events-none">{product.enCap}</TableCell>
-                      <TableCell className="font-semibold relative pointer-events-none">
+                      </td>
+                      <td className="font-medium pointer-events-none px-4 py-3 border-b border-gray-200">{product.hasirTipi}</td>
+                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.uzunlukBoy}</td>
+                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.uzunlukEn}</td>
+                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.boyCap}</td>
+                      <td className="pointer-events-none px-4 py-3 border-b border-gray-200">{product.enCap}</td>
+                      <td className="font-semibold relative pointer-events-none">
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full border"
@@ -1864,23 +1858,23 @@ const CelikHasirOptimizasyon: React.FC = () => {
                             {product.hasirSayisi}
                           </span>
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium pointer-events-none">{product.toplamKg.toFixed(2)}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.hasirTuru || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.boyAraligi || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.enAraligi || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.cubukSayisiBoy || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.cubukSayisiEn || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.solFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.sagFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.onFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.arkaFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs pointer-events-none">{product.adetKg?.toFixed(3) || '-'}</TableCell>
-                      <TableCell className="text-xs max-w-xs pointer-events-none">
+                      </td>
+                      <td className="font-medium pointer-events-none">{product.toplamKg.toFixed(2)}</td>
+                      <td className="text-xs pointer-events-none">{product.hasirTuru || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.boyAraligi || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.enAraligi || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.cubukSayisiBoy || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.cubukSayisiEn || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.solFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.sagFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.onFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.arkaFiliz?.toFixed(2) || '-'}</td>
+                      <td className="text-xs pointer-events-none">{product.adetKg?.toFixed(3) || '-'}</td>
+                      <td className="text-xs max-w-xs pointer-events-none">
                         <div className="truncate" title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}>
                           {product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '-'}
                         </div>
-                      </TableCell>
+                      </td>
                       
                       
                       {/* Merge indicator */}
@@ -1892,10 +1886,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           </div>
                         </div>
                       )}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           </div>
 
