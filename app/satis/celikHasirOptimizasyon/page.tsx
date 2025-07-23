@@ -384,6 +384,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   const handleDragOver = (e: React.DragEvent, product: Product) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('handleDragOver called for product:', product.id);
     setDragOverProduct(product);
     
     if (!draggedProduct || draggedProduct.id === product.id) return;
@@ -551,17 +553,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const opportunities: MergeOperation[] = [];
     const usedIds = new Set<string>();
 
-    // STEP 1: Find all LOW QUANTITY products that need optimization (< 20 adet)
-    const lowQuantityProducts = products.filter(p => Number(p.hasirSayisi) < 20 && !usedIds.has(p.id));
+    // STEP 1: Find all products that can be optimized (no quantity restriction)
+    const candidateProducts = products.filter(p => !usedIds.has(p.id));
     
-    for (const sourceProduct of lowQuantityProducts) {
+    for (const sourceProduct of candidateProducts) {
       if (usedIds.has(sourceProduct.id)) continue;
       
-      // STEP 2: Find a SIMILAR but BIGGER product to absorb this one
+      // STEP 2: Find a SIMILAR product to merge with (no quantity restriction)
       const candidates = products.filter(p => 
         p.id !== sourceProduct.id && 
         !usedIds.has(p.id) &&
-        Number(p.hasirSayisi) >= Number(sourceProduct.hasirSayisi) && // Target should have more quantity
         p.hasirTipi === sourceProduct.hasirTipi && // Same mesh type
         p.boyCap === sourceProduct.boyCap && // Same boy diameter 
         p.enCap === sourceProduct.enCap // Same en diameter
@@ -620,7 +621,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const usedIds = new Set<string>();
 
     // PHASE 1: Look for EXACT multiples first (2x, 3x) - no tolerance
-    for (const sourceProduct of products.filter(p => p.hasirSayisi < 20)) {
+    for (const sourceProduct of products) {
       if (usedIds.has(sourceProduct.id)) continue;
 
       for (const targetProduct of products) {
@@ -674,7 +675,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
 
     // PHASE 2: If no exact matches found, apply tolerance to multiples
-    for (const sourceProduct of products.filter(p => p.hasirSayisi < 20 && !usedIds.has(p.id))) {
+    for (const sourceProduct of products.filter(p => !usedIds.has(p.id))) {
       if (usedIds.has(sourceProduct.id)) continue;
 
       for (const targetProduct of products) {
@@ -912,7 +913,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const usedIds = new Set<string>();
     
     for (const product of products) {
-      if (usedIds.has(product.id) || Number(product.hasirSayisi) >= 50) continue; // Only for low quantity
+      if (usedIds.has(product.id)) continue; // No quantity restriction
       
       // Look for opportunities to change Q -> TR or TR -> R for better merging
       const currentType = product.hasirTipi.charAt(0);
@@ -1465,7 +1466,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       key={product.id}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, product)}
+                      onDrop={(e) => {
+                        console.log('onDrop triggered for product:', product.id);
+                        handleDrop(e, product);
+                      }}
                       className={`transition-all duration-200 hover:bg-gray-50 relative ${
                         currentDragMode === 'reorder' ? 'cursor-move' : 'cursor-copy'
                       } ${
@@ -1521,8 +1525,25 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       <TableCell>{product.uzunlukEn}</TableCell>
                       <TableCell>{product.boyCap}</TableCell>
                       <TableCell>{product.enCap}</TableCell>
-                      <TableCell className={product.hasirSayisi < 20 ? 'font-bold text-red-600' : 'font-semibold'}>
-                        {product.hasirSayisi}
+                      <TableCell className="font-semibold relative">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full border"
+                            style={{
+                              backgroundColor: (() => {
+                                const quantity = Number(product.hasirSayisi);
+                                if (quantity >= 100) return '#22c55e'; // Green for 100+
+                                const ratio = Math.min(quantity / 100, 1);
+                                const red = Math.round(255 * (1 - ratio));
+                                const green = Math.round(255 * ratio);
+                                return `rgb(${red}, ${green}, 0)`;
+                              })()
+                            }}
+                          />
+                          <span className={Number(product.hasirSayisi) < 20 ? 'text-red-600 font-bold' : ''}>
+                            {product.hasirSayisi}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">{product.toplamKg.toFixed(2)}</TableCell>
                       <TableCell className="text-xs">{product.hasirTuru || '-'}</TableCell>
