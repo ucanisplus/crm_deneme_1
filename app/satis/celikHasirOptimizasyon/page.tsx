@@ -1222,21 +1222,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Alert>
           )}
 
-          {/* Drag Instructions */}
-          <div className="mb-2 p-3 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2 text-blue-700">
-                <GripVertical className="h-4 w-4 text-blue-600" />
-                <span><strong>REORDER:</strong> 1) Click blue grip 2) Drag row to reorder</span>
-              </div>
-              <div className="flex items-center gap-2 text-green-700">
-                <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">+</span>
-                </div>
-                <span><strong>MERGE:</strong> 1) Click green plus 2) Drag row to merge target</span>
-              </div>
-            </div>
-          </div>
 
           {/* Products table */}
           <div className="border rounded-lg overflow-hidden bg-white shadow-lg">
@@ -1426,15 +1411,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
-                      onDragStart={(e) => {
-                        console.log(`Row drag started for ${product.id} in ${currentDragMode} mode`);
-                        if (currentDragMode === 'reorder') {
-                          handleReorderDragStart(e, product);
-                        } else if (currentDragMode === 'merge') {
-                          handleMergeDragStart(e, product);
-                        }
-                      }}
-                      onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
@@ -1451,61 +1427,35 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       }`}
                     >
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              console.log('Reorder button clicked for:', product.id);
-                              // Set mode first
-                              setCurrentDragMode('reorder');
-                              setDraggedProduct(product);
-                              // Make parent row draggable
-                              const row = (e.currentTarget as HTMLElement).closest('tr');
-                              if (row) {
-                                row.draggable = true;
-                                row.style.cursor = 'move';
-                              }
+                        <div className="flex items-center gap-2">
+                          <div 
+                            draggable
+                            onDragStart={(e) => {
+                              console.log('Reorder drag start:', product.id);
+                              e.stopPropagation();
+                              handleReorderDragStart(e, product);
                             }}
-                            onMouseUp={(e) => {
-                              const row = (e.currentTarget as HTMLElement).closest('tr');
-                              if (row) {
-                                row.draggable = false;
-                                row.style.cursor = '';
-                              }
-                            }}
-                            className="cursor-move p-2 hover:bg-gray-200 rounded transition-colors select-none flex items-center justify-center min-w-[32px] min-h-[32px] border-2 border-blue-300"
-                            title="REORDER MODE - Click and drag row"
+                            onDragEnd={handleDragEnd}
+                            className="cursor-move p-1 hover:bg-gray-200 rounded"
+                            title="Sırala"
                           >
-                            <GripVertical className="h-5 w-5 text-blue-600" />
-                          </button>
-                          <button 
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              console.log('Merge button clicked for:', product.id);
-                              // Set mode first  
-                              setCurrentDragMode('merge');
-                              setDraggedProduct(product);
-                              // Make parent row draggable
-                              const row = (e.currentTarget as HTMLElement).closest('tr');
-                              if (row) {
-                                row.draggable = true;
-                                row.style.cursor = 'copy';
-                              }
+                            <GripVertical className="h-5 w-5 text-gray-600" />
+                          </div>
+                          <div 
+                            draggable
+                            onDragStart={(e) => {
+                              console.log('Merge drag start:', product.id);
+                              e.stopPropagation();
+                              handleMergeDragStart(e, product);
                             }}
-                            onMouseUp={(e) => {
-                              const row = (e.currentTarget as HTMLElement).closest('tr');
-                              if (row) {
-                                row.draggable = false;
-                                row.style.cursor = '';
-                              }
-                            }}
-                            className="cursor-copy p-2 hover:bg-green-100 rounded transition-colors border-2 border-green-300 select-none flex items-center justify-center min-w-[32px] min-h-[32px]"
-                            title="MERGE MODE - Click and drag row"
+                            onDragEnd={handleDragEnd}
+                            className="cursor-copy p-1 hover:bg-green-100 rounded border border-green-300"
+                            title="Birleştir"
                           >
                             <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">+</span>
                             </div>
-                          </button>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{product.hasirTipi}</TableCell>
