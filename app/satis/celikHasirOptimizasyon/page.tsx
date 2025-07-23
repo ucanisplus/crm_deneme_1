@@ -584,26 +584,26 @@ const CelikHasirOptimizasyon: React.FC = () => {
         
         if (canOptimizeBoydan) {
           const optimized = optimizeBoydan(sourceProduct, targetProduct);
-          const actualDiffCm = enDiffCm;
+          const actualDiffCm = boyDiffCm; // Show BOY difference for boydan merge
           opportunities.push({
             type: 'boydan',
             source: sourceProduct,
             target: targetProduct,
             result: optimized,
-            explanation: `OPTIMIZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} eliminated → produced as ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
+            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silindi → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
           });
           usedIds.add(sourceProduct.id);
           usedIds.add(targetProduct.id);
           break;
         } else if (canOptimizeEnden) {
           const optimized = optimizeEnden(sourceProduct, targetProduct);
-          const actualDiffCm = boyDiffCm;
+          const actualDiffCm = enDiffCm; // Show EN difference for enden merge
           opportunities.push({
             type: 'enden',
             source: sourceProduct,
             target: targetProduct,
             result: optimized,
-            explanation: `OPTIMIZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} eliminated → produced as ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
+            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silindi → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`
           });
           usedIds.add(sourceProduct.id);
           usedIds.add(targetProduct.id);
@@ -1368,7 +1368,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
             <div className="max-h-96 overflow-y-auto relative">
-              <Table>
+              <Table 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  console.log('Table dragOver - allowing drop');
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  console.log('Table drop - preventing default');
+                }}
+              >
                 <TableHeader>
                   <TableRow className="bg-gradient-to-r from-gray-100 to-gray-200">
                     <TableHead className="w-8 sticky top-0 bg-white z-10"></TableHead>
