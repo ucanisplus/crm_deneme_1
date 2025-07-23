@@ -774,6 +774,19 @@ const processExcelWithMapping = (sheets, mapping) => {
   // Sticky header için durum - Geliştirildi
   const [stickyHeaderOffset, setStickyHeaderOffset] = useState(0);
 
+  // Set referrer based on current page context
+  useEffect(() => {
+    // Check current URL to determine if we're on maliyet or ürün page
+    const currentPath = window.location.pathname;
+    if (currentPath.includes('/maliyet')) {
+      // Already handled in the button click, but ensure it's set
+      sessionStorage.setItem('celikHasirReferrer', 'maliyet');
+    } else if (currentPath.includes('/urun')) {
+      // Clear referrer for ürün page
+      sessionStorage.removeItem('celikHasirReferrer');
+    }
+  }, []);
+
   // Referanslar
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
@@ -6734,11 +6747,15 @@ useEffect(() => {
                     if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
                       // Store data in sessionStorage instead of URL
                       sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
+                      // Set referrer to indicate this came from maliyet page
+                      sessionStorage.setItem('celikHasirReferrer', 'maliyet');
                       window.location.href = '/satis/celikHasirOptimizasyon';
                     }
                   } else {
                     // Store data in sessionStorage instead of URL
                     sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
+                    // Set referrer to indicate this came from maliyet page
+                    sessionStorage.setItem('celikHasirReferrer', 'maliyet');
                     window.location.href = '/satis/celikHasirOptimizasyon';
                   }
                 }}

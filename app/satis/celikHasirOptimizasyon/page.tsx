@@ -41,6 +41,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import { 
   Undo2, 
   Redo2, 
@@ -55,7 +56,8 @@ import {
   ChevronDown,
   Settings,
   Layers,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface Product {
@@ -315,33 +317,45 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Smart merge suggestion based on product analysis
   const getSuggestedMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
-    // Tolerance and dimensions are both in cm
-    const toleranceCm = tolerance;
+    // CRITICAL: Source product will be ELIMINATED and produced as target size
+    // Therefore, target dimensions MUST be >= source dimensions (can cut down, not up)
     
-    // Can merge boydan if same en, boyCap, enCap, hasirTipi
-    const enDiffCm = Math.abs(source.uzunlukEn - target.uzunlukEn);
-    const canMergeBoydan = 
-      source.hasirTipi === target.hasirTipi &&
-      enDiffCm <= toleranceCm &&
-      source.boyCap === target.boyCap &&
-      source.enCap === target.enCap;
-
-    // Can merge enden if same boy, boyCap, enCap, hasirTipi
-    const boyDiffCm = Math.abs(source.uzunlukBoy - target.uzunlukBoy);
-    const canMergeEnden = 
-      source.hasirTipi === target.hasirTipi &&
-      boyDiffCm <= toleranceCm &&
-      source.boyCap === target.boyCap &&
-      source.enCap === target.enCap;
-
+    const toleranceCm = tolerance;
+    const sourceBoy = Number(source.uzunlukBoy);
+    const sourceEn = Number(source.uzunlukEn);
+    const targetBoy = Number(target.uzunlukBoy);
+    const targetEn = Number(target.uzunlukEn);
+    
+    // Basic compatibility check
+    if (source.hasirTipi !== target.hasirTipi || 
+        source.boyCap !== target.boyCap || 
+        source.enCap !== target.enCap) {
+      return null;
+    }
+    
+    // For boydan merge: EN must be same/similar, target BOY must be >= source BOY
+    const enDiffCm = Math.abs(targetEn - sourceEn);
+    const canMergeBoydan = enDiffCm <= toleranceCm && 
+                          targetBoy >= sourceBoy && 
+                          (targetBoy - sourceBoy) <= toleranceCm;
+    
+    // For enden merge: BOY must be same/similar, target EN must be >= source EN  
+    const boyDiffCm = Math.abs(targetBoy - sourceBoy);
+    const canMergeEnden = boyDiffCm <= toleranceCm && 
+                         targetEn >= sourceEn && 
+                         (targetEn - sourceEn) <= toleranceCm;
+    
     if (canMergeBoydan && canMergeEnden) {
-      // If both possible, suggest the one that results in more standard dimensions
-      return 'boydan'; // Default to boydan
+      // Both possible - choose the one with smaller tolerance usage
+      const boyTolerance = targetBoy - sourceBoy;
+      const enTolerance = targetEn - sourceEn;
+      return boyTolerance <= enTolerance ? 'boydan' : 'enden';
     } else if (canMergeBoydan) {
       return 'boydan';
     } else if (canMergeEnden) {
       return 'enden';
     }
+    
     return null;
   };
 
@@ -523,17 +537,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
     };
   }, [products]);
 
-  // Handle back to main list
+  // Handle back to main list - determine correct return page
   const handleBackToMainList = () => {
-    // Mark all products as optimized since advanced optimization may have changed values
+    // Mark all products as optimized and identify merged products
     const optimizedProducts = products.map(product => ({
       ...product,
-      isOptimized: true
+      isOptimized: true,
+      // Mark products that have merge history as merged for green background
+      isMerged: !!(product.mergeHistory && product.mergeHistory.length > 0) || 
+                !!(product.advancedOptimizationNotes && product.advancedOptimizationNotes.includes('birleştir'))
     }));
     
     // Store data in sessionStorage instead of URL
     sessionStorage.setItem('celikHasirOptimizedData', JSON.stringify(optimizedProducts));
-    router.push('/uretim/hesaplamalar/urun');
+    
+    // Check where we came from to return to correct page
+    const referrer = sessionStorage.getItem('celikHasirReferrer');
+    if (referrer === 'maliyet') {
+      router.push('/uretim/hesaplamalar/maliyet');
+    } else {
+      router.push('/uretim/hesaplamalar/urun');
+    }
   };
 
   // OPTIMIZATION: Find opportunities to eliminate low-quantity products
@@ -1149,6 +1173,52 @@ const CelikHasirOptimizasyon: React.FC = () => {
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Başlangıca Dön
+              </Button>
+              <Button 
+                onClick={() => {
+                  // Export current optimized products to Excel
+                  const exportData = filteredProducts.map(product => ({
+                    'Hasır Tipi': product.hasirTipi,
+                    'Boy (cm)': product.uzunlukBoy,
+                    'En (cm)': product.uzunlukEn,
+                    'Boy Çap (mm)': product.boyCap,
+                    'En Çap (mm)': product.enCap,
+                    'Hasır Sayısı': product.hasirSayisi,
+                    'Toplam Kg': product.toplamKg.toFixed(2),
+                    'Hasır Türü': product.hasirTuru || '',
+                    'Boy Aralığı': product.boyAraligi || '',
+                    'En Aralığı': product.enAraligi || '',
+                    'Boy Çubuk': product.cubukSayisiBoy || '',
+                    'En Çubuk': product.cubukSayisiEn || '',
+                    'Sol Filiz': product.solFiliz?.toFixed(2) || '',
+                    'Sağ Filiz': product.sagFiliz?.toFixed(2) || '',
+                    'Ön Filiz': product.onFiliz?.toFixed(2) || '',
+                    'Arka Filiz': product.arkaFiliz?.toFixed(2) || '',
+                    'Adet Kg': product.adetKg?.toFixed(2) || '',
+                    'İleri Opt. Notları': product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '',
+                    'Açıklama': product.aciklama || ''
+                  }));
+                  
+                  // Create workbook and worksheet
+                  const ws = XLSX.utils.json_to_sheet(exportData);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'İleri Optimizasyon');
+                  
+                  // Auto-fit columns
+                  const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                    wch: Math.max(key.length, 15)
+                  }));
+                  ws['!cols'] = colWidths;
+                  
+                  // Export file
+                  const fileName = `celik_hasir_ileri_optimizasyon_${new Date().toISOString().split('T')[0]}.xlsx`;
+                  XLSX.writeFile(wb, fileName);
+                  toast.success('Excel dosyası başarıyla indirildi!');
+                }}
+                className="bg-green-600 text-white hover:bg-green-700"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Excel'e Aktar
               </Button>
               <Button onClick={handleBackToMainList} className="bg-white text-blue-600 hover:bg-gray-100">
                 Ana Listeye Dön
