@@ -601,15 +601,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const sourceBoy = Number(sourceProduct.uzunlukBoy);
         const sourceEn = Number(sourceProduct.uzunlukEn);
         
-        // For boydan merge: EN must be SAME/SIMILAR, target BOY must be >= source BOY (within tolerance)
-        const canOptimizeBoydan = Math.abs(targetEn - sourceEn) <= toleranceCm && 
-                                  targetBoy >= sourceBoy && 
-                                  (targetBoy - sourceBoy) <= toleranceCm;
+        // CRITICAL: For manufacturing, target MUST be >= source in ALL dimensions
+        // For boydan merge: target BOY >= source BOY, target EN >= source EN (both dimensions must be larger or equal)
+        const canOptimizeBoydan = targetBoy >= sourceBoy && 
+                                  targetEn >= sourceEn &&
+                                  (targetBoy - sourceBoy) <= toleranceCm &&
+                                  (targetEn - sourceEn) <= toleranceCm;
         
-        // For enden merge: BOY must be SAME/SIMILAR, target EN must be >= source EN (within tolerance)
-        const canOptimizeEnden = Math.abs(targetBoy - sourceBoy) <= toleranceCm && 
-                                 targetEn >= sourceEn && 
-                                 (targetEn - sourceEn) <= toleranceCm;
+        // For enden merge: target EN >= source EN, target BOY >= source BOY (both dimensions must be larger or equal)  
+        const canOptimizeEnden = targetEn >= sourceEn && 
+                                 targetBoy >= sourceBoy &&
+                                 (targetEn - sourceEn) <= toleranceCm &&
+                                 (targetBoy - sourceBoy) <= toleranceCm;
         
         if (canOptimizeBoydan) {
           const optimized = optimizeBoydan(sourceProduct, targetProduct);
@@ -1452,12 +1455,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <Table 
                 onDragOver={(e) => {
                   e.preventDefault();
-                  console.log('Table dragOver - allowing drop');
+                  console.log('✅ Table dragOver - allowing drop');
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
-                  console.log('Table drop - preventing default');
+                  console.log('✅ Table drop - preventing default');
                 }}
+                style={{ userSelect: 'none' }}
               >
                 <TableHeader>
                   <TableRow className="bg-gradient-to-r from-gray-100 to-gray-200">
@@ -1719,9 +1723,29 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       key={product.id}
                       draggable={true}
                       onDragStart={(e) => {
-                        console.log(`✅ DRAG START: ${product.id} for MERGE`);
-                        e.dataTransfer.effectAllowed = 'copy';
+                        console.log(`🔥 DRAG START: ${product.id} (${product.hasirTipi}) for MERGE`);
+                        e.stopPropagation();
+                        
+                        // Set data transfer properties
+                        e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', product.id);
+                        e.dataTransfer.setData('application/json', JSON.stringify(product));
+                        
+                        // Set drag image
+                        const dragImg = document.createElement('div');
+                        dragImg.textContent = `🔀 ${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn})`;
+                        dragImg.style.position = 'absolute';
+                        dragImg.style.top = '-1000px';
+                        dragImg.style.backgroundColor = '#22c55e';
+                        dragImg.style.color = 'white';
+                        dragImg.style.padding = '8px 12px';
+                        dragImg.style.borderRadius = '6px';
+                        dragImg.style.fontWeight = 'bold';
+                        dragImg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                        document.body.appendChild(dragImg);
+                        e.dataTransfer.setDragImage(dragImg, 0, 0);
+                        setTimeout(() => document.body.removeChild(dragImg), 0);
+
                         setDraggedProduct(product);
                         e.currentTarget.style.opacity = '0.5';
                         e.currentTarget.style.backgroundColor = '#fef3c7';
@@ -1796,7 +1820,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         setDraggedProduct(null);
                         setDragOverProduct(null);
                       }}
-                      className={`transition-all duration-200 hover:bg-gray-50 relative cursor-copy ${
+                      className={`transition-all duration-200 hover:bg-gray-50 relative cursor-grab active:cursor-grabbing ${
                         draggedProduct?.id === product.id
                           ? 'opacity-50 bg-yellow-100 border-2 border-yellow-400'
                           : dragOverProduct?.id === product.id 
@@ -1807,20 +1831,21 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       } ${
                         product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
                       }`}
+                      style={{ userSelect: 'none' }}
                     >
-                      <TableCell className="text-center">
+                      <TableCell className="text-center pointer-events-none">
                         <div className="inline-flex items-center justify-center p-1">
                           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                             <span className="text-white text-sm font-bold">+</span>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{product.hasirTipi}</TableCell>
-                      <TableCell>{product.uzunlukBoy}</TableCell>
-                      <TableCell>{product.uzunlukEn}</TableCell>
-                      <TableCell>{product.boyCap}</TableCell>
-                      <TableCell>{product.enCap}</TableCell>
-                      <TableCell className="font-semibold relative">
+                      <TableCell className="font-medium pointer-events-none">{product.hasirTipi}</TableCell>
+                      <TableCell className="pointer-events-none">{product.uzunlukBoy}</TableCell>
+                      <TableCell className="pointer-events-none">{product.uzunlukEn}</TableCell>
+                      <TableCell className="pointer-events-none">{product.boyCap}</TableCell>
+                      <TableCell className="pointer-events-none">{product.enCap}</TableCell>
+                      <TableCell className="font-semibold relative pointer-events-none">
                         <div className="flex items-center gap-2">
                           <div 
                             className="w-3 h-3 rounded-full border"
@@ -1840,18 +1865,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{product.toplamKg.toFixed(2)}</TableCell>
-                      <TableCell className="text-xs">{product.hasirTuru || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.boyAraligi || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.enAraligi || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.cubukSayisiBoy || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.cubukSayisiEn || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.solFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.sagFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.onFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.arkaFiliz?.toFixed(2) || '-'}</TableCell>
-                      <TableCell className="text-xs">{product.adetKg?.toFixed(3) || '-'}</TableCell>
-                      <TableCell className="text-xs max-w-xs">
+                      <TableCell className="font-medium pointer-events-none">{product.toplamKg.toFixed(2)}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.hasirTuru || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.boyAraligi || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.enAraligi || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.cubukSayisiBoy || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.cubukSayisiEn || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.solFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.sagFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.onFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.arkaFiliz?.toFixed(2) || '-'}</TableCell>
+                      <TableCell className="text-xs pointer-events-none">{product.adetKg?.toFixed(3) || '-'}</TableCell>
+                      <TableCell className="text-xs max-w-xs pointer-events-none">
                         <div className="truncate" title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}>
                           {product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '-'}
                         </div>
