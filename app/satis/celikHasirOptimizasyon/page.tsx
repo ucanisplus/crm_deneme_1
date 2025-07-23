@@ -1349,51 +1349,38 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         <ArrowUpDown className="inline h-4 w-4" />
                       )}
                     </TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler(
-                        setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'enCap');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'enCap' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
-                          }
-                          return [...prev, { key: 'enCap', direction: 'asc' }];
-                        });
-                      }}
-                    >En Çap (mm) <ArrowUpDown className="inline h-4 w-4" /></TableHead>
+                    <TableHead 
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'enCap' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      onClick={createSortHandler('enCap')}
+                    >
+                      En Çap (mm) {sortConfig?.key === 'enCap' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
+                    </TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler(
+                      onClick={() => {
                         setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'hasirSayisi');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'hasirSayisi' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
+                          if (prev?.key === 'hasirSayisi') {
+                            return { key: 'hasirSayisi', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
                           }
-                          return [...prev, { key: 'hasirSayisi', direction: 'asc' }];
+                          return { key: 'hasirSayisi', direction: 'asc' };
                         });
                       }}
                     >
                       Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
                     </TableHead>
                     <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={createSortHandler(
+                      onClick={() => {
                         setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'toplamKg');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'toplamKg' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
+                          if (prev?.key === 'toplamKg') {
+                            return { key: 'toplamKg', direction: prev.direction === 'asc' ? 'desc' : 'asc' };
                           }
-                          return [...prev, { key: 'toplamKg', direction: 'asc' }];
+                          return { key: 'toplamKg', direction: 'asc' };
                         });
                       }}
                     >Toplam Kg <ArrowUpDown className="inline h-4 w-4" /></TableHead>
