@@ -90,7 +90,7 @@ interface HistoryState {
 }
 
 interface MergeOperation {
-  type: 'boydan' | 'enden' | 'katli' | 'katli_exact' | 'katli_tolerance' | 'tamamla' | 'tipi_degisiklik';
+  type: 'boydan' | 'enden' | 'katli' | 'katli_exact' | 'katli_tolerance' | 'tamamla' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross';
   source: Product;
   target: Product;
   result: Product;
@@ -695,10 +695,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
         ];
 
         for (const match of toleranceMatches) {
-          const boyDiff = Math.abs(targetProduct.uzunlukBoy - match.targetBoy);
-          const enDiff = Math.abs(targetProduct.uzunlukEn - match.targetEn);
+          // FIXED: Target must be >= multiple size (can cut down), within tolerance
+          const boyDiff = targetProduct.uzunlukBoy - match.targetBoy; // Positive = target is bigger
+          const enDiff = targetProduct.uzunlukEn - match.targetEn;     // Positive = target is bigger
           
-          if (boyDiff <= tolerance && enDiff <= tolerance) {
+          // Target must be bigger than multiple in BOTH dimensions, within tolerance
+          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= tolerance && enDiff <= tolerance) {
             const result = {
               ...targetProduct,
               id: `folded_tolerance_${Date.now()}`,
@@ -818,13 +820,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
 //   // Find rounding opportunities using global tolerance
   const findRoundingOpportunities = () => {
     const opportunities: MergeOperation[] = [];
+    const usedIds = new Set<string>();
     
     for (const product of products) {
-      if (product.hasirSayisi >= 20) continue; // Only for low quantity products
+      if (usedIds.has(product.id)) continue;
       
       for (const target of products) {
-        if (product.id === target.id || target.hasirSayisi < 20) continue;
-        if (product.hasirTipi !== target.hasirTipi) continue;
+        if (product.id === target.id || usedIds.has(target.id)) continue;
+        if (product.hasirTipi !== target.hasirTipi || 
+            product.boyCap !== target.boyCap || 
+            product.enCap !== target.enCap) continue;
         
         // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions for "rounding up"
         // Check if we can round UP to target dimensions (target >= source + tolerance)
@@ -854,6 +859,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
             result: result,
             explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.max(boyDiffCm, enDiffCm).toFixed(1)}cm)`
           });
+          
+          usedIds.add(product.id);
+          usedIds.add(target.id);
+          break; // Found match for this product, move to next
         }
       }
     }
@@ -915,35 +924,33 @@ const CelikHasirOptimizasyon: React.FC = () => {
     for (const product of products) {
       if (usedIds.has(product.id)) continue; // No quantity restriction
       
-      // Look for opportunities to change Q -> TR or TR -> R for better merging
+      // PHASE 1: Try within same group first (Q to Q, R to R, TR to TR)
       const currentType = product.hasirTipi.charAt(0);
-      let targetTypes: string[] = [];
+      const sameGroupTargets = products.filter(target => 
+        !usedIds.has(target.id) && 
+        target.id !== product.id &&
+        target.hasirTipi.charAt(0) === currentType
+      );
       
-      if (currentType === 'Q') targetTypes = ['T']; // Q -> TR
-      else if (currentType === 'T') targetTypes = ['R']; // TR -> R
+      let found = false;
       
-      for (const targetType of targetTypes) {
-        for (const target of products) {
-          if (usedIds.has(target.id) || target.id === product.id) continue;
-          if (!target.hasirTipi.startsWith(targetType)) continue;
-          
-          // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions (within tolerance)
-          // Customer can cut excess material, but cannot produce smaller dimensions
-          const targetBoy = Number(target.uzunlukBoy);
-          const targetEn = Number(target.uzunlukEn);
-          const sourceBoy = Number(product.uzunlukBoy);
-          const sourceEn = Number(product.uzunlukEn);
-          const toleranceCm = tolerance;
-          
-          // Target dimensions must be >= source dimensions AND within tolerance limit
-          const boyDiff = targetBoy - sourceBoy; // Positive = target is bigger
-          const enDiff = targetEn - sourceEn;   // Positive = target is bigger
-          
-          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
-            const result = {
-              ...target,
-              id: `type_changed_${Date.now()}`,
-              hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
+      // Try same group first
+      for (const target of sameGroupTargets) {
+        const targetBoy = Number(target.uzunlukBoy);
+        const targetEn = Number(target.uzunlukEn);
+        const sourceBoy = Number(product.uzunlukBoy);
+        const sourceEn = Number(product.uzunlukEn);
+        const toleranceCm = tolerance;
+        
+        // Target dimensions must be >= source dimensions AND within tolerance limit
+        const boyDiff = targetBoy - sourceBoy; // Positive = target is bigger
+        const enDiff = targetEn - sourceEn;   // Positive = target is bigger
+        
+        if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+          const result = {
+            ...target,
+            id: `type_changed_same_${Date.now()}`,
+            hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
               toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
               mergeHistory: [
                 ...(target.mergeHistory || []),
@@ -953,18 +960,69 @@ const CelikHasirOptimizasyon: React.FC = () => {
               aciklama: target.aciklama || `Tip değişikliği: ${product.id} -> ${target.id}`
             };
             
-            opportunities.push({
-              type: 'tipi_degisiklik',
-              source: product,
-              target: target,
-              result: result,
-              explanation: `Hasır tipi değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn}) - Hedef büyük olduğu için kesilebilir`
-            });
+          opportunities.push({
+            type: 'tipi_degisiklik_same',
+            source: product,
+            target: target,
+            result: result,
+            explanation: `Hasır tipi değişikliği (same group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn}) - Aynı grup içinde`
+          });
+          
+          usedIds.add(product.id);
+          usedIds.add(target.id);
+          found = true;
+          break;
+        }
+      }
+      
+      // PHASE 2: If no same-group match found, try cross-group (Q->TR->R)
+      if (!found) {
+        let targetTypes: string[] = [];
+        if (currentType === 'Q') targetTypes = ['T']; // Q -> TR
+        else if (currentType === 'T') targetTypes = ['R']; // TR -> R
+        
+        for (const targetType of targetTypes) {
+          for (const target of products) {
+            if (usedIds.has(target.id) || target.id === product.id) continue;
+            if (!target.hasirTipi.startsWith(targetType)) continue;
             
-            usedIds.add(product.id);
-            usedIds.add(target.id);
-            break;
+            const targetBoy = Number(target.uzunlukBoy);
+            const targetEn = Number(target.uzunlukEn);
+            const sourceBoy = Number(product.uzunlukBoy);
+            const sourceEn = Number(product.uzunlukEn);
+            const toleranceCm = tolerance;
+            
+            const boyDiff = targetBoy - sourceBoy;
+            const enDiff = targetEn - sourceEn;
+            
+            if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+              const result = {
+                ...target,
+                id: `type_changed_cross_${Date.now()}`,
+                hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
+                toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
+                mergeHistory: [
+                  ...(target.mergeHistory || []),
+                  `Tip değişikliği (cross-group): ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
+                ],
+                advancedOptimizationNotes: `Hasır tipi değişikliği (cross-group): ${product.hasirTipi} -> ${target.hasirTipi}`,
+                aciklama: target.aciklama || `Cross-group tip değişikliği: ${product.id} -> ${target.id}`
+              };
+              
+              opportunities.push({
+                type: 'tipi_degisiklik_cross',
+                source: product,
+                target: target,
+                result: result,
+                explanation: `Hasır tipi değişikliği (cross-group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`
+              });
+              
+              usedIds.add(product.id);
+              usedIds.add(target.id);
+              break;
+            }
           }
+          if (usedIds.has(product.id)) break; // Found cross-group match
         }
       }
     }
@@ -1079,6 +1137,34 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-sm">
                     <Filter className="h-4 w-4 mr-1" />
+                    Hasır Tipi ({selectedFilters.hasirTipi.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>  
+                <DropdownMenuContent>
+                  {uniqueValues.hasirTipi.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirTipi.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirTipi: checked
+                            ? [...prev.hasirTipi, value]
+                            : prev.hasirTipi.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
                     Hasır Kodu ({selectedFilters.hasirKodu.length})
                     <ChevronDown className="h-4 w-4 ml-1" />
                   </Button>
@@ -1094,34 +1180,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           hasirKodu: checked
                             ? [...prev.hasirKodu, value]
                             : prev.hasirKodu.filter(v => v !== value)
-                        }));
-                      }}
-                    >
-                      {value}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="shadow-sm">
-                    <Filter className="h-4 w-4 mr-1" />
-                    Hasır Tipi ({selectedFilters.hasirTipi.length})
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {uniqueValues.hasirTipi.map(value => (
-                    <DropdownMenuCheckboxItem
-                      key={value}
-                      checked={selectedFilters.hasirTipi.includes(value)}
-                      onCheckedChange={(checked) => {
-                        setSelectedFilters(prev => ({
-                          ...prev,
-                          hasirTipi: checked
-                            ? [...prev.hasirTipi, value]
-                            : prev.hasirTipi.filter(v => v !== value)
                         }));
                       }}
                     >
