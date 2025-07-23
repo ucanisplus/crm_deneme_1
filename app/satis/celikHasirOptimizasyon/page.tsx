@@ -119,7 +119,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   }[]>([]);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
-  const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge' | null>(null);
+  const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge'>('reorder');
   const [dragHoverTimeout, setDragHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [dragInsertPosition, setDragInsertPosition] = useState<{ productId: string; position: 'before' | 'after' } | null>(null);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -441,7 +441,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     // Reset drag state
     setDraggedProduct(null);
-    setCurrentDragMode(null);
+    // Keep current drag mode - don't reset it
     setDragOverProduct(null);
     setDragInsertPosition(null);
   };
@@ -1222,6 +1222,32 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Alert>
           )}
 
+          {/* Drag Mode Selector */}
+          <div className="mb-2 p-2 bg-gray-100 rounded-lg flex items-center gap-4">
+            <span className="font-medium">Sürükleme:</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="dragMode" 
+                value="reorder"
+                checked={currentDragMode === 'reorder'}
+                onChange={() => setCurrentDragMode('reorder')}
+                className="text-blue-600"
+              />
+              <span>Sırala</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="dragMode" 
+                value="merge"
+                checked={currentDragMode === 'merge'}
+                onChange={() => setCurrentDragMode('merge')}
+                className="text-green-600"
+              />
+              <span>Birleştir</span>
+            </label>
+          </div>
 
           {/* Products table */}
           <div className="border rounded-lg overflow-hidden bg-white shadow-lg">
@@ -1411,10 +1437,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
+                      draggable="true"
+                      onDragStart={(e) => {
+                        console.log(`Dragging ${product.id} in ${currentDragMode} mode`);
+                        if (currentDragMode === 'reorder') {
+                          handleReorderDragStart(e, product);
+                        } else {
+                          handleMergeDragStart(e, product);
+                        }
+                      }}
+                      onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
                       className={`transition-all duration-200 hover:bg-gray-50 relative ${
+                        currentDragMode === 'reorder' ? 'cursor-move' : 'cursor-copy'
+                      } ${
                         draggedProduct?.id === product.id
                           ? 'opacity-40 bg-gray-100 scale-[0.98] shadow-md'
                           : dragOverProduct?.id === product.id 
@@ -1428,34 +1466,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     >
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div 
-                            draggable
-                            onDragStart={(e) => {
-                              console.log('Reorder drag start:', product.id);
-                              e.stopPropagation();
-                              handleReorderDragStart(e, product);
-                            }}
-                            onDragEnd={handleDragEnd}
-                            className="cursor-move p-1 hover:bg-gray-200 rounded"
-                            title="Sırala"
-                          >
-                            <GripVertical className="h-5 w-5 text-gray-600" />
-                          </div>
-                          <div 
-                            draggable
-                            onDragStart={(e) => {
-                              console.log('Merge drag start:', product.id);
-                              e.stopPropagation();
-                              handleMergeDragStart(e, product);
-                            }}
-                            onDragEnd={handleDragEnd}
-                            className="cursor-copy p-1 hover:bg-green-100 rounded border border-green-300"
-                            title="Birleştir"
-                          >
-                            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                          {currentDragMode === 'reorder' ? (
+                            <GripVertical className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">+</span>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{product.hasirTipi}</TableCell>
