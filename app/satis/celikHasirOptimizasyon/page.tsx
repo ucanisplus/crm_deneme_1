@@ -462,6 +462,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent, targetProduct: Product) => {
     e.preventDefault();
+    console.log('handleDrop called:', { 
+      draggedProduct: draggedProduct?.id, 
+      targetProduct: targetProduct.id, 
+      currentDragMode 
+    });
     setDragOverProduct(null);
     
     // Reset opacity and transform immediately
@@ -860,11 +865,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Execute automatic merges
   const executeAutomaticMerges = () => {
-    console.log('executeAutomaticMerges clicked');
+    console.log('executeAutomaticMerges clicked - tolerance:', tolerance);
+    console.log('Products count:', products.length);
     const opportunities = findMergeOpportunities();
-    console.log('Found merge opportunities:', opportunities.length);
+    console.log('Found merge opportunities:', opportunities.length, opportunities);
     if (opportunities.length === 0) {
-      toast('Otomatik birleştirilebilecek ürün bulunamadı');
+      toast.error('Otomatik birleştirilebilecek ürün bulunamadı (tolerance: ' + tolerance + 'cm)');
       return;
     }
     
@@ -874,11 +880,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const executeFoldedImprovements = () => {
-    console.log('executeFoldedImprovements clicked');
+    console.log('executeFoldedImprovements clicked - tolerance:', tolerance);
+    console.log('Products count:', products.length);
     const opportunities = findFoldedImprovements();
-    console.log('Found folded opportunities:', opportunities.length);
+    console.log('Found folded opportunities:', opportunities.length, opportunities);
     if (opportunities.length === 0) {
-      toast('Katlı iyileştirme yapılabilecek ürün bulunamadı');
+      toast.error('Katlı iyileştirme yapılabilecek ürün bulunamadı (tolerance: ' + tolerance + 'cm)');
       return;
     }
     
@@ -888,11 +895,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const executeRoundingOperations = () => {
-    console.log('executeRoundingOperations clicked');
+    console.log('executeRoundingOperations clicked - tolerance:', tolerance);
+    console.log('Products count:', products.length);
     const opportunities = findRoundingOpportunities();
-    console.log('Found rounding opportunities:', opportunities.length);
+    console.log('Found rounding opportunities:', opportunities.length, opportunities);
     if (opportunities.length === 0) {
-      toast('Üste tamamlanabilecek ürün bulunamadı');
+      toast.error('Üste tamamlanabilecek ürün bulunamadı (tolerance: ' + tolerance + 'cm)');
       return;
     }
     
@@ -921,15 +929,19 @@ const CelikHasirOptimizasyon: React.FC = () => {
           if (usedIds.has(target.id) || target.id === product.id) continue;
           if (!target.hasirTipi.startsWith(targetType)) continue;
           
-          // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions
+          // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions (within tolerance)
           // Customer can cut excess material, but cannot produce smaller dimensions
           const targetBoy = Number(target.uzunlukBoy);
           const targetEn = Number(target.uzunlukEn);
           const sourceBoy = Number(product.uzunlukBoy);
           const sourceEn = Number(product.uzunlukEn);
+          const toleranceCm = tolerance;
           
-          // Target dimensions must be >= source dimensions
-          if (targetBoy >= sourceBoy && targetEn >= sourceEn) {
+          // Target dimensions must be >= source dimensions AND within tolerance limit
+          const boyDiff = targetBoy - sourceBoy; // Positive = target is bigger
+          const enDiff = targetEn - sourceEn;   // Positive = target is bigger
+          
+          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
             const result = {
               ...target,
               id: `type_changed_${Date.now()}`,
@@ -963,9 +975,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const executeHasirTipiChanges = () => {
+    console.log('executeHasirTipiChanges clicked - tolerance:', tolerance);
+    console.log('Products count:', products.length);
     const opportunities = findHasirTipiChangeOpportunities();
+    console.log('Found hasir tipi opportunities:', opportunities.length, opportunities);
     if (opportunities.length === 0) {
-      toast('Hasır tipi değişikliği yapılabilecek ürün bulunamadı');
+      toast.error('Hasır tipi değişikliği yapılabilecek ürün bulunamadı (tolerance: ' + tolerance + 'cm)');
       return;
     }
     
