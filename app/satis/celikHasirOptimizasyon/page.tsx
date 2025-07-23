@@ -90,7 +90,7 @@ interface HistoryState {
 }
 
 interface MergeOperation {
-  type: 'boydan' | 'enden' | 'katli' | 'tamamla' | 'tipi_degisiklik';
+  type: 'boydan' | 'enden' | 'katli' | 'katli_exact' | 'katli_tolerance' | 'tamamla' | 'tipi_degisiklik';
   source: Product;
   target: Product;
   result: Product;
@@ -116,7 +116,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Product;
     direction: 'asc' | 'desc';
-  }[]>([]);
+  } | null>(null);
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [dragOverProduct, setDragOverProduct] = useState<Product | null>(null);
   const [currentDragMode, setCurrentDragMode] = useState<'reorder' | 'merge'>('reorder');
@@ -194,31 +194,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
       filtered = filtered.filter(p => selectedFilters.enCap.includes(p.enCap));
     }
 
-    // Apply sorting
-    if (sortConfig.length > 0) {
+    // Apply sorting - single column
+    if (sortConfig) {
       filtered.sort((a, b) => {
-        for (const config of sortConfig) {
-          const aVal = a[config.key];
-          const bVal = b[config.key];
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        
+        if (aVal !== undefined && bVal !== undefined) {
+          // Handle different data types properly
+          let comparison = 0;
           
-          if (aVal !== undefined && bVal !== undefined) {
-            // Handle different data types properly
-            let comparison = 0;
-            
-            if (typeof aVal === 'string' && typeof bVal === 'string') {
-              comparison = aVal.localeCompare(bVal);
-            } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-              comparison = aVal - bVal;
-            } else {
-              // Fallback to string comparison
-              comparison = String(aVal).localeCompare(String(bVal));
-            }
-            
-            if (comparison !== 0) {
-              const multiplier = config.direction === 'asc' ? 1 : -1;
-              return comparison * multiplier;
-            }
+          if (typeof aVal === 'string' && typeof bVal === 'string') {
+            comparison = aVal.localeCompare(bVal);
+          } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+            comparison = aVal - bVal;
+          } else {
+            // Fallback to string comparison
+            comparison = String(aVal).localeCompare(String(bVal));
           }
+          
+          const multiplier = sortConfig.direction === 'asc' ? 1 : -1;
+          return comparison * multiplier;
         }
         return 0;
       });
@@ -257,18 +253,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
   };
 
-  // Helper function to create sortable header
+  // Helper function to create sortable header - single active column
   const createSortHandler = (key: keyof Product) => () => {
     setSortConfig(prev => {
-      const existing = prev.find(s => s.key === key);
-      if (existing) {
-        return prev.map(s => 
-          s.key === key 
-            ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-            : s
-        );
+      if (prev && prev.key === key) {
+        // Same column clicked - toggle direction
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
       } else {
-        return [...prev, { key, direction: 'asc' }];
+        // New column clicked - set as active with asc
+        return { key, direction: 'asc' };
       }
     });
   };
@@ -357,12 +350,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const handleReorderDragStart = (e: React.DragEvent, product: Product) => {
     console.log('Reorder drag started for:', product.id);
     setDraggedProduct(product);
-    setCurrentDragMode('reorder');
+    // Don't override the mode - it's already set by radio buttons
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', product.id);
     
     // Immediate visual feedback
-    const dragElement = (e.currentTarget as HTMLElement).closest('tr');
+    const dragElement = e.currentTarget as HTMLElement;
     if (dragElement) {
       dragElement.style.opacity = '0.5';
       dragElement.style.transform = 'scale(0.95)';
@@ -374,12 +367,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const handleMergeDragStart = (e: React.DragEvent, product: Product) => {
     console.log('Merge drag started for:', product.id);
     setDraggedProduct(product);
-    setCurrentDragMode('merge');
+    // Don't override the mode - it's already set by radio buttons
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', product.id);
     
     // Immediate visual feedback with merge-specific styling
-    const dragElement = (e.currentTarget as HTMLElement).closest('tr');
+    const dragElement = e.currentTarget as HTMLElement;
     if (dragElement) {
       dragElement.style.opacity = '0.5';
       dragElement.style.transform = 'scale(0.95)';
@@ -619,136 +612,117 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return opportunities;
   };
 
-  // Find folded improvements (multiplication opportunities) with tolerance
+  // Find folded improvements - FIRST exact multiples, THEN with tolerance
   const findFoldedImprovements = () => {
     const opportunities: MergeOperation[] = [];
     const usedIds = new Set<string>();
 
-    for (const product1 of products) {
-      if (usedIds.has(product1.id)) continue;
+    // PHASE 1: Look for EXACT multiples first (2x, 3x) - no tolerance
+    for (const sourceProduct of products.filter(p => p.hasirSayisi < 20)) {
+      if (usedIds.has(sourceProduct.id)) continue;
 
-      for (const product2 of products) {
-        if (usedIds.has(product2.id) || product1.id === product2.id) continue;
+      for (const targetProduct of products) {
+        if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
+        if (sourceProduct.hasirTipi !== targetProduct.hasirTipi || 
+            sourceProduct.boyCap !== targetProduct.boyCap || 
+            sourceProduct.enCap !== targetProduct.enCap) continue;
 
-        // Must have same type and caps  
-        if (product1.hasirTipi !== product2.hasirTipi || 
-            product1.boyCap !== product2.boyCap || 
-            product1.enCap !== product2.enCap) continue;
+        // Check for EXACT dimensional multiples (2x, 3x)
+        const exactMatches = [
+          // 2x possibilities
+          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn, multiple: '2x boy' },
+          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x en' },
+          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x boyxen' },
+          // 3x possibilities  
+          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn, multiple: '3x boy' },
+          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x en' },
+          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x boyxen' }
+        ];
 
-        // Check for multiplication opportunities
-        let canFold = false;
-        let explanation = '';
-        let result: Product;
-
-        // Check boy similar (within tolerance), en multiple
-        const toleranceCm = tolerance; // Tolerance is in cm, same as dimensions
-        const boyDiffCm = Math.abs(product1.uzunlukBoy - product2.uzunlukBoy);
-        if (boyDiffCm <= toleranceCm) {
-          const ratio1 = product2.uzunlukEn / product1.uzunlukEn;
-          const ratio2 = product1.uzunlukEn / product2.uzunlukEn;
-          
-          if (Number.isInteger(ratio1) && ratio1 >= 2) {
-            // product2's en is multiple of product1's en
-            const newCount = Math.floor(product1.hasirSayisi / ratio1);
-            const remainder = product1.hasirSayisi % ratio1;
-            
-            result = {
-              ...product2,
-              id: `folded_${Date.now()}`,
-              hasirSayisi: product2.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
+        for (const match of exactMatches) {
+          if (targetProduct.uzunlukBoy === match.targetBoy && targetProduct.uzunlukEn === match.targetEn) {
+            const result = {
+              ...targetProduct,
+              id: `folded_exact_${Date.now()}`,
+              hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+              toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
               mergeHistory: [
-                ...(product2.mergeHistory || []),
-                `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
+                ...(targetProduct.mergeHistory || []),
+                `KATLI İYİLEŞTİRME: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) EXACT ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`
               ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukEn}cm→${product2.uzunlukEn}cm (x${ratio1}) tol:${Math.round(boyDiffCm * 10)}mm`,
-              aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
+              advancedOptimizationNotes: `Katlı iyileştirme EXACT: ${match.multiple} - ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
+              aciklama: `${targetProduct.aciklama || ''} | KATLI: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple})`
             };
-            
-            explanation = `Katlı iyileştirme: ${product1.uzunlukEn}cm'yi ${ratio1} katla ${product2.uzunlukEn}cm yap`;
-            canFold = true;
-          } else if (Number.isInteger(ratio2) && ratio2 >= 2) {
-            // product1's en is multiple of product2's en
-            const newCount = Math.floor(product2.hasirSayisi / ratio2);
-            const remainder = product2.hasirSayisi % ratio2;
-            
-            result = {
-              ...product1,
-              id: `folded_${Date.now()}`,
-              hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
-              mergeHistory: [
-                ...(product1.mergeHistory || []),
-                `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
-              ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukEn}cm→${product1.uzunlukEn}cm (x${ratio2}) tol:${Math.round(boyDiffCm * 10)}mm`,
-              aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
-            };
-            
-            explanation = `Katlı iyileştirme: ${product2.uzunlukEn}cm'yi ${ratio2} katla ${product1.uzunlukEn}cm yap`;
-            canFold = true;
+
+            opportunities.push({
+              type: 'katli_exact',
+              source: sourceProduct,
+              target: targetProduct,
+              result: result,
+              explanation: `Katlı iyileştirme EXACT: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`
+            });
+
+            usedIds.add(sourceProduct.id);
+            usedIds.add(targetProduct.id);
+            break;
           }
         }
+        if (usedIds.has(sourceProduct.id)) break; // Found exact match, move to next source
+      }
+    }
 
-        // Check en similar (within tolerance), boy multiple
-        const enDiff = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
-        if (!canFold && enDiff <= tolerance) {
-          const ratio1 = product2.uzunlukBoy / product1.uzunlukBoy;
-          const ratio2 = product1.uzunlukBoy / product2.uzunlukBoy;
+    // PHASE 2: If no exact matches found, apply tolerance to multiples
+    for (const sourceProduct of products.filter(p => p.hasirSayisi < 20 && !usedIds.has(p.id))) {
+      if (usedIds.has(sourceProduct.id)) continue;
+
+      for (const targetProduct of products) {
+        if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
+        if (sourceProduct.hasirTipi !== targetProduct.hasirTipi || 
+            sourceProduct.boyCap !== targetProduct.boyCap || 
+            sourceProduct.enCap !== targetProduct.enCap) continue;
+
+        // Check tolerance-based multiples
+        const toleranceMatches = [
+          // 2x with tolerance
+          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn, multiple: '2x boy + tol' },
+          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x en + tol' },
+          // 3x with tolerance
+          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn, multiple: '3x boy + tol' },
+          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x en + tol' }
+        ];
+
+        for (const match of toleranceMatches) {
+          const boyDiff = Math.abs(targetProduct.uzunlukBoy - match.targetBoy);
+          const enDiff = Math.abs(targetProduct.uzunlukEn - match.targetEn);
           
-          if (Number.isInteger(ratio1) && ratio1 >= 2) {
-            const newCount = Math.floor(product1.hasirSayisi / ratio1);
-            const remainder = product1.hasirSayisi % ratio1;
-            
-            result = {
-              ...product2,
-              id: `folded_${Date.now()}`,
-              hasirSayisi: product2.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
+          if (boyDiff <= tolerance && enDiff <= tolerance) {
+            const result = {
+              ...targetProduct,
+              id: `folded_tolerance_${Date.now()}`,
+              hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+              toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
               mergeHistory: [
-                ...(product2.mergeHistory || []),
-                `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
+                ...(targetProduct.mergeHistory || []),
+                `KATLI + TOLERANS: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tol: ${Math.max(boyDiff, enDiff)}cm)`
               ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukBoy}cm→${product2.uzunlukBoy}cm (x${ratio1}) tol:${enDiff}mm`,
-              aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
+              advancedOptimizationNotes: `Katlı + Tolerans: ${match.multiple} - tol: ${Math.max(boyDiff, enDiff)}cm`,
+              aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}, ${Math.max(boyDiff, enDiff)}cm)`
             };
-            
-            explanation = `Katlı iyileştirme: ${product1.uzunlukBoy}cm'yi ${ratio1} katla ${product2.uzunlukBoy}cm yap`;
-            canFold = true;
-          } else if (Number.isInteger(ratio2) && ratio2 >= 2) {
-            const newCount = Math.floor(product2.hasirSayisi / ratio2);
-            const remainder = product2.hasirSayisi % ratio2;
-            
-            result = {
-              ...product1,
-              id: `folded_${Date.now()}`,
-              hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
-              toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
-              mergeHistory: [
-                ...(product1.mergeHistory || []),
-                `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
-              ],
-              advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukBoy}cm→${product1.uzunlukBoy}cm (x${ratio2}) tol:${enDiff}mm`,
-              aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
-            };
-            
-            explanation = `Katlı iyileştirme: ${product2.uzunlukBoy}cm'yi ${ratio2} katla ${product1.uzunlukBoy}cm yap`;
-            canFold = true;
+
+            opportunities.push({
+              type: 'katli_tolerance',
+              source: sourceProduct,
+              target: targetProduct,
+              result: result,
+              explanation: `Katlı + Tolerans: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tolerans: ${Math.max(boyDiff, enDiff)}cm)`
+            });
+
+            usedIds.add(sourceProduct.id);
+            usedIds.add(targetProduct.id);
+            break;
           }
         }
-
-        if (canFold) {
-          opportunities.push({
-            type: 'katli',
-            source: product1,
-            target: product2,
-            result: result!,
-            explanation
-          });
-          usedIds.add(product1.id);
-          usedIds.add(product2.id);
-          break;
-        }
+        if (usedIds.has(sourceProduct.id)) break; // Found tolerance match, move to next source
       }
     }
 
@@ -756,6 +730,89 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Find rounding opportunities using global tolerance
+//   const findRoundingOpportunities = () => {
+//               id: `folded_${Date.now()}`,
+//               hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
+//               toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+//               mergeHistory: [
+//                 ...(product1.mergeHistory || []),
+//                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
+//               ],
+//               advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukEn}cm→${product1.uzunlukEn}cm (x${ratio2}) tol:${Math.round(boyDiffCm * 10)}mm`,
+//               aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
+//             };
+//             
+//             explanation = `Katlı iyileştirme: ${product2.uzunlukEn}cm'yi ${ratio2} katla ${product1.uzunlukEn}cm yap`;
+//             canFold = true;
+//           }
+//         }
+// 
+//         // Check en similar (within tolerance), boy multiple
+//         const enDiff = Math.abs(product1.uzunlukEn - product2.uzunlukEn);
+//         if (!canFold && enDiff <= tolerance) {
+//           const ratio1 = product2.uzunlukBoy / product1.uzunlukBoy;
+//           const ratio2 = product1.uzunlukBoy / product2.uzunlukBoy;
+//           
+//           if (Number.isInteger(ratio1) && ratio1 >= 2) {
+//             const newCount = Math.floor(product1.hasirSayisi / ratio1);
+//             const remainder = product1.hasirSayisi % ratio1;
+//             
+//             result = {
+//               ...product2,
+//               id: `folded_${Date.now()}`,
+//               hasirSayisi: product2.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
+//               toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
+//               mergeHistory: [
+//                 ...(product2.mergeHistory || []),
+//                 `Katlı: ${product1.hasirSayisi}adet(${product1.uzunlukBoy}x${product1.uzunlukEn}) ÷${ratio1} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
+//               ],
+//               advancedOptimizationNotes: `Katlı iyileştirme: ${product1.uzunlukBoy}cm→${product2.uzunlukBoy}cm (x${ratio1}) tol:${enDiff}mm`,
+//               aciklama: product2.aciklama || `Katlı birleştirme: ${product1.id} → ${product2.id}`
+//             };
+//             
+//             explanation = `Katlı iyileştirme: ${product1.uzunlukBoy}cm'yi ${ratio1} katla ${product2.uzunlukBoy}cm yap`;
+//             canFold = true;
+//           } else if (Number.isInteger(ratio2) && ratio2 >= 2) {
+//             const newCount = Math.floor(product2.hasirSayisi / ratio2);
+//             const remainder = product2.hasirSayisi % ratio2;
+//             
+//             result = {
+//               ...product1,
+//               id: `folded_${Date.now()}`,
+//               hasirSayisi: product1.hasirSayisi + newCount + (remainder > 0 ? 1 : 0),
+//               toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+//               mergeHistory: [
+//                 ...(product1.mergeHistory || []),
+//                 `Katlı: ${product2.hasirSayisi}adet(${product2.uzunlukBoy}x${product2.uzunlukEn}) ÷${ratio2} + ${remainder > 0 ? '1' : '0'}→ ${newCount + (remainder > 0 ? 1 : 0)}`
+//               ],
+//               advancedOptimizationNotes: `Katlı iyileştirme: ${product2.uzunlukBoy}cm→${product1.uzunlukBoy}cm (x${ratio2}) tol:${enDiff}mm`,
+//               aciklama: product1.aciklama || `Katlı birleştirme: ${product2.id} → ${product1.id}`
+//             };
+//             
+//             explanation = `Katlı iyileştirme: ${product2.uzunlukBoy}cm'yi ${ratio2} katla ${product1.uzunlukBoy}cm yap`;
+//             canFold = true;
+//           }
+//         }
+// 
+//         if (canFold) {
+//           opportunities.push({
+//             type: 'katli',
+//             source: product1,
+//             target: product2,
+//             result: result!,
+//             explanation
+//           });
+//           usedIds.add(product1.id);
+//           usedIds.add(product2.id);
+//           break;
+//         }
+//       }
+//     }
+// 
+//     return opportunities;
+//   };
+// 
+//   // Find rounding opportunities using global tolerance
   const findRoundingOpportunities = () => {
     const opportunities: MergeOperation[] = [];
     
@@ -1002,49 +1059,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 Filtreler
               </Label>
               <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">Tolerans: {tolerance}cm</Label>
-                  <Slider
-                    value={[tolerance]}
-                    onValueChange={(value) => setTolerance(value[0])}
-                    min={0}
-                    max={100}
-                    step={1}
-                    className="w-32"
-                  />
-                </div>
-                
               </div>
             </div>
             <div className="flex gap-3 flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="shadow-sm">
-                    <Filter className="h-4 w-4 mr-1" />
-                    Hasır Tipi ({selectedFilters.hasirTipi.length})
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {uniqueValues.hasirTipi.map(value => (
-                    <DropdownMenuCheckboxItem
-                      key={value}
-                      checked={selectedFilters.hasirTipi.includes(value)}
-                      onCheckedChange={(checked) => {
-                        setSelectedFilters(prev => ({
-                          ...prev,
-                          hasirTipi: checked
-                            ? [...prev.hasirTipi, value]
-                            : prev.hasirTipi.filter(v => v !== value)
-                        }));
-                      }}
-                    >
-                      {value}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-sm">
@@ -1064,6 +1081,34 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           hasirKodu: checked
                             ? [...prev.hasirKodu, value]
                             : prev.hasirKodu.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Hasır Tipi ({selectedFilters.hasirTipi.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {uniqueValues.hasirTipi.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirTipi.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirTipi: checked
+                            ? [...prev.hasirTipi, value]
+                            : prev.hasirTipi.filter(v => v !== value)
                         }));
                       }}
                     >
@@ -1250,80 +1295,62 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
 
           {/* Products table */}
-          <div className="border rounded-lg overflow-hidden bg-white shadow-lg">
-            <div className="max-h-96 overflow-y-auto">
+          <div className="border rounded-lg bg-white shadow-lg">
+            <div className="max-h-96 overflow-y-auto relative">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gradient-to-r from-gray-100 to-gray-200">
                     <TableHead className="w-8 sticky top-0 bg-white z-10"></TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
-                        setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'hasirTipi');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'hasirTipi' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
-                          }
-                          return [...prev, { key: 'hasirTipi', direction: 'asc' }];
-                        });
-                      }}
-                    >Hasır Tipi <ArrowUpDown className="inline h-4 w-4" /></TableHead>
                     <TableHead 
-                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
-                        setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'uzunlukBoy');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'uzunlukBoy' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
-                          }
-                          return [...prev, { key: 'uzunlukBoy', direction: 'asc' }];
-                        });
-                      }}
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'hasirTipi' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      onClick={createSortHandler('hasirTipi')}
                     >
-                      Boy (cm) <ArrowUpDown className="inline h-4 w-4" />
+                      Hasır Tipi {sortConfig?.key === 'hasirTipi' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
                     </TableHead>
                     <TableHead 
-                      className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
-                        setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'uzunlukEn');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'uzunlukEn' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
-                          }
-                          return [...prev, { key: 'uzunlukEn', direction: 'asc' }];
-                        });
-                      }}
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'uzunlukBoy' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      onClick={createSortHandler('uzunlukBoy')}
                     >
-                      En (cm) <ArrowUpDown className="inline h-4 w-4" />
+                      Boy (cm) {sortConfig?.key === 'uzunlukBoy' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
+                    </TableHead>
+                    <TableHead 
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'uzunlukEn' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      onClick={createSortHandler('uzunlukEn')}
+                    >
+                      En (cm) {sortConfig?.key === 'uzunlukEn' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
+                    </TableHead>
+                    <TableHead 
+                      className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 ${
+                        sortConfig?.key === 'boyCap' ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      onClick={createSortHandler('boyCap')}
+                    >
+                      Boy Çap (mm) {sortConfig?.key === 'boyCap' ? (
+                        sortConfig.direction === 'asc' ? '↑' : '↓'
+                      ) : (
+                        <ArrowUpDown className="inline h-4 w-4" />
+                      )}
                     </TableHead>
                     <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
-                        setSortConfig(prev => {
-                          const existing = prev.find(s => s.key === 'boyCap');
-                          if (existing) {
-                            return prev.map(s => 
-                              s.key === 'boyCap' 
-                                ? { ...s, direction: s.direction === 'asc' ? 'desc' : 'asc' }
-                                : s
-                            );
-                          }
-                          return [...prev, { key: 'boyCap', direction: 'asc' }];
-                        });
-                      }}
-                    >Boy Çap (mm) <ArrowUpDown className="inline h-4 w-4" /></TableHead>
-                    <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
+                      onClick={createSortHandler(
                         setSortConfig(prev => {
                           const existing = prev.find(s => s.key === 'enCap');
                           if (existing) {
@@ -1339,7 +1366,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     >En Çap (mm) <ArrowUpDown className="inline h-4 w-4" /></TableHead>
                     <TableHead 
                       className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
+                      onClick={createSortHandler(
                         setSortConfig(prev => {
                           const existing = prev.find(s => s.key === 'hasirSayisi');
                           if (existing) {
@@ -1356,7 +1383,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       Hasır Sayısı <ArrowUpDown className="inline h-4 w-4" />
                     </TableHead>
                     <TableHead className="sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100"
-                      onClick={() => {
+                      onClick={createSortHandler(
                         setSortConfig(prev => {
                           const existing = prev.find(s => s.key === 'toplamKg');
                           if (existing) {
@@ -1437,16 +1464,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   {filteredProducts.map(product => (
                     <TableRow
                       key={product.id}
-                      draggable="true"
-                      onDragStart={(e) => {
-                        console.log(`Dragging ${product.id} in ${currentDragMode} mode`);
-                        if (currentDragMode === 'reorder') {
-                          handleReorderDragStart(e, product);
-                        } else {
-                          handleMergeDragStart(e, product);
-                        }
-                      }}
-                      onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, product)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, product)}
@@ -1462,14 +1479,39 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           : ''
                       } ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
+                      } ${
+                        product.mergeHistory && product.mergeHistory.length > 0 ? 'bg-green-50' : ''
                       }`}
                     >
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div 
+                          draggable="true"
+                          onDragStart={(e) => {
+                            console.log(`Starting drag for ${product.id} in ${currentDragMode} mode`);
+                            e.dataTransfer.effectAllowed = currentDragMode === 'reorder' ? 'move' : 'copy';
+                            e.dataTransfer.setData('text/plain', product.id);
+                            setDraggedProduct(product);
+                            
+                            // Get parent row for visual feedback
+                            const row = (e.currentTarget as HTMLElement).closest('tr');
+                            if (row) {
+                              row.style.opacity = '0.5';
+                            }
+                          }}
+                          onDragEnd={(e) => {
+                            console.log('Drag ended');
+                            handleDragEnd();
+                          }}
+                          className={`inline-flex items-center justify-center p-2 rounded ${
+                            currentDragMode === 'reorder' 
+                              ? 'cursor-move hover:bg-blue-100' 
+                              : 'cursor-copy hover:bg-green-100'
+                          }`}
+                        >
                           {currentDragMode === 'reorder' ? (
-                            <GripVertical className="h-5 w-5 text-blue-600" />
+                            <GripVertical className="h-5 w-5 text-blue-600 pointer-events-none" />
                           ) : (
-                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center pointer-events-none">
                               <span className="text-white text-xs font-bold">+</span>
                             </div>
                           )}
@@ -1531,7 +1573,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
 
           {/* Automatic operations */}
-          <div className="flex gap-4 justify-center mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
+          <div className="flex gap-4 items-center justify-center mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
+            <div className="flex items-center gap-2 mr-4">
+              <Label className="text-sm font-medium">Tolerans: {tolerance}cm</Label>
+              <Slider
+                value={[tolerance]}
+                onValueChange={(value) => setTolerance(value[0])}
+                min={0}
+                max={100}
+                step={1}
+                className="w-32"
+              />
+            </div>
             <Button 
               variant="outline"
               onClick={executeAutomaticMerges}
