@@ -138,6 +138,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     operation?: 'boydan' | 'enden';
   } | null>(null);
   const [tolerance, setTolerance] = useState(10);
+  const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Only eliminate products with ≤ this quantity
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
@@ -568,6 +569,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     for (const sourceProduct of candidateProducts) {
       if (usedIds.has(sourceProduct.id)) continue;
       
+      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
+      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
+      
       // STEP 2: Find a SIMILAR product to merge with (no quantity restriction)
       const candidates = products.filter(p => 
         p.id !== sourceProduct.id && 
@@ -587,9 +591,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const boyDiffCm = Math.abs(Number(sourceProduct.uzunlukBoy) - Number(targetProduct.uzunlukBoy));
         const enDiffCm = Math.abs(Number(sourceProduct.uzunlukEn) - Number(targetProduct.uzunlukEn));
         
-        // Check which dimension is closer for optimization choice
-        const canOptimizeBoydan = enDiffCm <= toleranceCm; // Same EN, different BOY
-        const canOptimizeEnden = boyDiffCm <= toleranceCm;  // Same BOY, different EN
+        // Check which dimension is closer for optimization choice  
+        // For boydan merge: EN must be same/similar (within tolerance), BOY can be different
+        const canOptimizeBoydan = enDiffCm <= toleranceCm; 
+        // For enden merge: BOY must be same/similar (within tolerance), EN can be different  
+        const canOptimizeEnden = boyDiffCm <= toleranceCm;
         
         if (canOptimizeBoydan) {
           const optimized = optimizeBoydan(sourceProduct, targetProduct);
@@ -637,6 +643,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // PHASE 1: Look for EXACT multiples first (2x, 3x) - no tolerance
     for (const sourceProduct of products) {
       if (usedIds.has(sourceProduct.id)) continue;
+      
+      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
+      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
 
       for (const targetProduct of products) {
         if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
@@ -693,6 +702,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // PHASE 2: If no exact matches found, apply tolerance to multiples
     for (const sourceProduct of products.filter(p => !usedIds.has(p.id))) {
       if (usedIds.has(sourceProduct.id)) continue;
+      
+      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
+      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
 
       for (const targetProduct of products) {
         if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
@@ -845,6 +857,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     for (const product of products) {
       if (usedIds.has(product.id)) continue;
       
+      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
+      if (Number(product.hasirSayisi) > maxHasirSayisi) continue;
+      
       for (const target of products) {
         if (product.id === target.id || usedIds.has(target.id)) continue;
         if (product.hasirTipi !== target.hasirTipi || 
@@ -945,7 +960,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const usedIds = new Set<string>();
     
     for (const product of products) {
-      if (usedIds.has(product.id)) continue; // No quantity restriction
+      if (usedIds.has(product.id)) continue;
+      
+      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
+      if (Number(product.hasirSayisi) > maxHasirSayisi) continue; // No quantity restriction
       
       // PHASE 1: Try within same group first (Q to Q, R to R, TR to TR)
       const currentType = product.hasirTipi.charAt(0);
@@ -1688,6 +1706,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 onValueChange={(value) => setTolerance(value[0])}
                 min={0}
                 max={100}
+                step={1}
+                className="w-32"
+              />
+            </div>
+            <div className="flex items-center gap-2 mr-4">
+              <Label className="text-sm font-medium">Max Hasır Sayısı: {maxHasirSayisi}</Label>
+              <Slider
+                value={[maxHasirSayisi]}
+                onValueChange={(value) => setMaxHasirSayisi(value[0])}
+                min={1}
+                max={200}
                 step={1}
                 className="w-32"
               />
