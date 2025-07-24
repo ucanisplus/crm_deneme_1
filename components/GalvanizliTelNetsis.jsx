@@ -8604,7 +8604,7 @@ const GalvanizliTelNetsis = () => {
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
-      '0.0004', // Fire Oranı (%) - NOKTA for decimals as requested
+      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
@@ -8638,7 +8638,7 @@ const GalvanizliTelNetsis = () => {
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
-      '0', // Fire Oranı (%)
+      '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
@@ -8707,7 +8707,7 @@ const GalvanizliTelNetsis = () => {
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
-      '', // Fire Oranı (%)
+      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
@@ -8743,7 +8743,7 @@ const GalvanizliTelNetsis = () => {
     return [
       ymGtStokKodu, // Mamul Kodu - YM GT stok kodu from parameter
       '1', // Reçete Top.
-      '', // Fire Oranı (%)
+      '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
       '', // Oto.Reç.
       getOlcuBr(fixedBilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
