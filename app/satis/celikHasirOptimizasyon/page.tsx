@@ -129,11 +129,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     source: Product;
     target: Product;
     operation?: 'boydan' | 'enden';
+    options?: Array<{type: 'boydan' | 'enden', source: Product, target: Product, explanation: string, tolerance: number}>;
   } | null>(null);
   const [tolerance, setTolerance] = useState(10);
   const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Only eliminate products with ≤ this quantity
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
+  const [pendingOperations, setPendingOperations] = useState<(MergeOperation & {approved?: boolean})[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
 
   // Load initial data
@@ -362,40 +363,74 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return null;
   };
 
-  // Special merge function for drag & drop - NO LIMITS
-  const getDragDropMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
-    console.log('🔍 Checking merge compatibility:', {
-      source: { id: source.id, hasirTipi: source.hasirTipi, boy: source.uzunlukBoy, en: source.uzunlukEn, boyCap: source.boyCap, enCap: source.enCap },
-      target: { id: target.id, hasirTipi: target.hasirTipi, boy: target.uzunlukBoy, en: target.uzunlukEn, boyCap: target.boyCap, enCap: target.enCap }
-    });
+  // Get all possible merge options between two products
+  const getAllMergeOptions = (product1: Product, product2: Product) => {
+    const options: Array<{type: 'boydan' | 'enden', source: Product, target: Product, explanation: string, tolerance: number}> = [];
     
-    // Basic compatibility check - only require same type and diameter
-    if (source.hasirTipi !== target.hasirTipi || 
-        source.boyCap !== target.boyCap || 
-        source.enCap !== target.enCap) {
-      console.log('❌ Incompatible: different type/diameter');
-      return null;
+    // Basic compatibility check - must have same type and diameter
+    if (product1.hasirTipi !== product2.hasirTipi || 
+        product1.boyCap !== product2.boyCap || 
+        product1.enCap !== product2.enCap) {
+      return options;
     }
     
-    const sourceBoy = Number(source.uzunlukBoy);
-    const sourceEn = Number(source.uzunlukEn);
-    const targetBoy = Number(target.uzunlukBoy);
-    const targetEn = Number(target.uzunlukEn);
+    const boy1 = Number(product1.uzunlukBoy);
+    const en1 = Number(product1.uzunlukEn);
+    const boy2 = Number(product2.uzunlukBoy);
+    const en2 = Number(product2.uzunlukEn);
     
-    console.log('📏 Dimensions:', { sourceBoy, sourceEn, targetBoy, targetEn });
-    
-    // Check if target is bigger in BOTH dimensions (manufacturing constraint)
-    if (targetBoy >= sourceBoy && targetEn >= sourceEn) {
-      // Choose merge direction based on which dimension has bigger difference
-      const boyDiff = targetBoy - sourceBoy;
-      const enDiff = targetEn - sourceEn;
-      const mergeType = boyDiff >= enDiff ? 'boydan' : 'enden';
-      console.log('✅ Merge possible:', mergeType, 'boyDiff:', boyDiff, 'enDiff:', enDiff);
-      return mergeType;
+    // Check product1 → product2 (product1 into product2)
+    if (boy2 >= boy1 && en2 >= en1) {
+      const boyDiff = boy2 - boy1;
+      const enDiff = en2 - en1;
+      const tolerance = Math.max(boyDiff, enDiff);
+      
+      if (boyDiff >= enDiff) {
+        options.push({
+          type: 'boydan',
+          source: product1,
+          target: product2,
+          explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (boydan ${tolerance}cm tolerans)`,
+          tolerance
+        });
+      } else {
+        options.push({
+          type: 'enden',
+          source: product1,
+          target: product2,
+          explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (enden ${tolerance}cm tolerans)`,
+          tolerance
+        });
+      }
     }
     
-    console.log('❌ Target not bigger in both dimensions');
-    return null;
+    // Check product2 → product1 (product2 into product1)
+    if (boy1 >= boy2 && en1 >= en2) {
+      const boyDiff = boy1 - boy2;
+      const enDiff = en1 - en2;
+      const tolerance = Math.max(boyDiff, enDiff);
+      
+      if (boyDiff >= enDiff) {
+        options.push({
+          type: 'boydan',
+          source: product2,
+          target: product1,
+          explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (boydan ${tolerance}cm tolerans)`,
+          tolerance
+        });
+      } else {
+        options.push({
+          type: 'enden',
+          source: product2,
+          target: product1,
+          explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (enden ${tolerance}cm tolerans)`,
+          tolerance
+        });
+      }
+    }
+    
+    // Sort by tolerance (best options first)
+    return options.sort((a, b) => a.tolerance - b.tolerance);
   };
 
   // Removed old drag handlers - now using simple inline handlers
@@ -1037,13 +1072,51 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     addToHistory(newProducts);
     
+    // Mark this operation as approved
+    const updatedOperations = [...pendingOperations];
+    updatedOperations[currentOperationIndex] = { ...operation, approved: true };
+    setPendingOperations(updatedOperations);
+    
+    // Check for new merge opportunities with the updated products
+    const refreshOpportunities = () => {
+      // Find new opportunities based on current operation type
+      let newOpportunities: MergeOperation[] = [];
+      
+      if (operation.type.includes('tamamla')) {
+        newOpportunities = findMergeOpportunities();
+      } else if (operation.type.includes('katli')) {
+        newOpportunities = findFoldedImprovements();
+      }
+      
+      // Filter out already approved operations and operations involving non-existent products
+      const validNewOps = newOpportunities.filter(newOp => 
+        !updatedOperations.some(existingOp => 
+          existingOp.approved && 
+          existingOp.source.id === newOp.source.id && 
+          existingOp.target.id === newOp.target.id
+        ) &&
+        newProducts.find(p => p.id === newOp.source.id) &&
+        newProducts.find(p => p.id === newOp.target.id)
+      );
+      
+      if (validNewOps.length > 0) {
+        // Add new opportunities to the end of the list
+        const finalOperations = [...updatedOperations, ...validNewOps];
+        setPendingOperations(finalOperations);
+      }
+    };
+    
+    // Refresh opportunities after state update
+    setTimeout(refreshOpportunities, 100);
+    
     if (currentOperationIndex < pendingOperations.length - 1) {
       setCurrentOperationIndex(prev => prev + 1);
     } else {
       setShowApprovalDialog(false);
       setPendingOperations([]);
       setCurrentOperationIndex(0);
-      toast.success(`${pendingOperations.length} işlem tamamlandı`);
+      const approvedCount = updatedOperations.filter(op => op.approved).length;
+      toast.success(`${approvedCount} işlem tamamlandı`);
     }
   };
 
@@ -1059,7 +1132,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="mx-auto p-4 w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-4">
           <div className="flex justify-between items-center">
@@ -1368,13 +1441,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-96 overflow-y-auto relative">
+            <div className="max-h-[600px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
                 <thead>
                   <tr className="bg-gradient-to-r from-gray-100 to-gray-200 border-b">
                     <th className="w-8 sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900"></th>
+                    <th className="sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900 w-16">Kodu</th>
                     <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 px-4 py-3 text-left font-medium text-gray-900 ${
                         sortConfig?.key === 'hasirTipi' ? 'bg-blue-50 text-blue-700' : ''
@@ -1669,24 +1743,21 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           console.log('Found products:', sourceProduct?.hasirTipi, targetProduct?.hasirTipi);
                           
                           if (sourceProduct && targetProduct) {
-                            const mergeType = getDragDropMergeOperation(sourceProduct, targetProduct);
-                            console.log('Merge type:', mergeType);
-                            if (mergeType) {
-                              const merged = mergeType === 'boydan' 
-                                ? optimizeBoydan(sourceProduct, targetProduct)
-                                : optimizeEnden(sourceProduct, targetProduct);
-                              
-                              const newProducts = [
-                                ...products.filter(p => p.id !== sourceId && p.id !== targetId),
-                                merged
-                              ];
-                              setProducts(newProducts);
-                              addToHistory(newProducts);
-                              
-                              toast.success(`Birleştirme başarılı: ${sourceProduct.hasirTipi} → ${targetProduct.hasirTipi}`);
+                            const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct);
+                            console.log('Merge options found:', mergeOptions.length);
+                            
+                            if (mergeOptions.length > 0) {
+                              // Set up merge dialog with all options
+                              setPendingMerge({
+                                source: sourceProduct,
+                                target: targetProduct,
+                                operation: undefined,
+                                options: mergeOptions
+                              });
+                              setShowMergeDialog(true);
                             } else {
-                              console.log('❌ Merge failed - incompatible products');
-                              toast.error('Bu ürünler birleştirilemez - farklı tip veya hedef daha küçük');
+                              console.log('❌ No merge options available');
+                              toast.error(`Bu ürünler birleştirilemez: ${sourceProduct.hasirTipi} ↔ ${targetProduct.hasirTipi}`);
                             }
                           }
                         }
@@ -1711,6 +1782,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
                             <span className="text-white text-sm font-bold">+</span>
                           </div>
                         </div>
+                      </td>
+                      <td className="text-center px-2 py-3 border-b border-gray-200 font-bold text-sm">
+                        {product.hasirTipi.charAt(0).toUpperCase()}
                       </td>
                       <td className="font-medium  px-4 py-3 border-b border-gray-200">{product.hasirTipi}</td>
                       <td className=" px-4 py-3 border-b border-gray-200">{product.uzunlukBoy}</td>
@@ -1868,70 +1942,71 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </DialogHeader>
           {pendingMerge && (
             <div className="space-y-4">
-              {pendingMerge.operation && (
-                <Alert className="mb-4 border-green-300 bg-green-50">
-                  <AlertTriangle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    Önerilen işlem: <strong>{pendingMerge.operation === 'boydan' ? 'Boydan Ekle' : 'Enden Ekle'}</strong>
-                    {pendingMerge.operation === 'boydan' && ' (Aynı en boyutu tespit edildi)'}
-                    {pendingMerge.operation === 'enden' && ' (Aynı boy uzunluğu tespit edildi)'}
-                  </AlertDescription>
-                </Alert>
+              {pendingMerge.options && pendingMerge.options.length > 0 ? (
+                <div>
+                  <h4 className="font-semibold mb-3">Mevcut Birleştirme Seçenekleri:</h4>
+                  <div className="space-y-2">
+                    {pendingMerge.options.map((option, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 rounded border cursor-pointer hover:bg-gray-50 ${
+                          index === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                        }`}
+                        onClick={() => {
+                          setPendingMerge({
+                            ...pendingMerge,
+                            source: option.source,
+                            target: option.target,
+                            operation: option.type
+                          });
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className={`font-medium ${ index === 0 ? 'text-green-800' : 'text-gray-800'}`}>
+                              {option.explanation}
+                              {index === 0 && <span className="text-green-600 ml-2">(Önerilen)</span>}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const merged = option.type === 'boydan' 
+                                ? optimizeBoydan(option.source, option.target)
+                                : optimizeEnden(option.source, option.target);
+                              
+                              const newProducts = [
+                                ...products.filter(p => p.id !== option.source.id && p.id !== option.target.id),
+                                merged
+                              ];
+                              setProducts(newProducts);
+                              addToHistory(newProducts);
+                              setShowMergeDialog(false);
+                              setPendingMerge(null);
+                              
+                              toast.success(`Birleştirme başarılı: ${option.explanation}`);
+                            }}
+                            className={`${index === 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                          >
+                            Uygula
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  Bu ürünler için birleştirme seçeneği bulunamadı.
+                </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 rounded border border-blue-200">
-                  <p className="font-semibold text-blue-800">Kaynak Ürün:</p>
-                  <div className="text-sm text-blue-700 space-y-1">
-                    <p><strong>Tip:</strong> {pendingMerge.source.hasirTipi}</p>
-                    <p><strong>Boyut:</strong> {pendingMerge.source.uzunlukBoy}x{pendingMerge.source.uzunlukEn} cm</p>
-                    <p><strong>Çap:</strong> {pendingMerge.source.boyCap}x{pendingMerge.source.enCap} mm</p>
-                    <p><strong>Adet:</strong> {pendingMerge.source.hasirSayisi}</p>
-                  </div>
-                </div>
-                <div className="p-4 bg-green-50 rounded border border-green-200">
-                  <p className="font-semibold text-green-800">Hedef Ürün:</p>
-                  <div className="text-sm text-green-700 space-y-1">
-                    <p><strong>Tip:</strong> {pendingMerge.target.hasirTipi}</p>
-                    <p><strong>Boyut:</strong> {pendingMerge.target.uzunlukBoy}x{pendingMerge.target.uzunlukEn} cm</p>
-                    <p><strong>Çap:</strong> {pendingMerge.target.boyCap}x{pendingMerge.target.enCap} mm</p>
-                    <p><strong>Adet:</strong> {pendingMerge.target.hasirSayisi}</p>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMergeDialog(false)}>
               ❌ İptal
             </Button>
-            {pendingMerge?.operation === 'boydan' ? (
-              <>
-                <Button variant="outline" onClick={() => executeMerge('enden')}>
-                  ➡️ Enden Ekle
-                </Button>
-                <Button onClick={() => executeMerge('boydan')} className="bg-green-600 hover:bg-green-700">
-                  Boydan Ekle (Önerilen)
-                </Button>
-              </>
-            ) : pendingMerge?.operation === 'enden' ? (
-              <>
-                <Button variant="outline" onClick={() => executeMerge('boydan')}>
-                  ⬆️ Boydan Ekle
-                </Button>
-                <Button onClick={() => executeMerge('enden')} className="bg-green-600 hover:bg-green-700">
-                  Enden Ekle (Önerilen)
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button onClick={() => executeMerge('boydan')}>
-                  ⬆️ Boydan Ekle
-                </Button>
-                <Button onClick={() => executeMerge('enden')}>
-                  ➡️ Enden Ekle
-                </Button>
-              </>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1949,9 +2024,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
           
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+              {pendingOperations[currentOperationIndex]?.approved && (
+                <Alert className="border-green-300 bg-green-50">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    Bu işlem zaten onaylanmış. "Önceki" ile onaylanmamış işlemlere dönebilirsiniz.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className={`p-4 border rounded ${
+                pendingOperations[currentOperationIndex]?.approved 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-blue-50 border-blue-200'
+              }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="font-semibold text-blue-800">Önerilen İşlem:</p>
+                  <p className={`font-semibold ${
+                    pendingOperations[currentOperationIndex]?.approved 
+                      ? 'text-green-800' 
+                      : 'text-blue-800'
+                  }`}>
+                    {pendingOperations[currentOperationIndex]?.approved ? 'Onaylanmış İşlem:' : 'Önerilen İşlem:'}
+                  </p>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">İşlem Güvenliği:</span>
                     <div 
@@ -2033,7 +2126,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
               {currentOperationIndex > 0 && (
                 <Button 
                   variant="outline" 
-                  onClick={() => setCurrentOperationIndex(prev => prev - 1)}
+                  onClick={() => {
+                    // Go back to previous unapproved operation
+                    let prevIndex = currentOperationIndex - 1;
+                    while (prevIndex >= 0 && pendingOperations[prevIndex]?.approved) {
+                      prevIndex--;
+                    }
+                    if (prevIndex >= 0) {
+                      setCurrentOperationIndex(prevIndex);
+                    }
+                  }}
                   className="flex-1"
                 >
                   ⬅️ Önceki
@@ -2041,29 +2143,24 @@ const CelikHasirOptimizasyon: React.FC = () => {
               )}
               <Button 
                 variant="outline" 
-                onClick={() => {
-                  setShowApprovalDialog(false);
-                  setPendingOperations([]);
-                  setCurrentOperationIndex(0);
-                }}
-                className="flex-1"
-              >
-                🚫 Tümünü İptal Et
-              </Button>
-              <Button 
-                variant="outline" 
                 onClick={rejectCurrentOperation}
+                disabled={pendingOperations[currentOperationIndex]?.approved}
                 className="flex-1"
               >
                 <X className="w-4 h-4 mr-1" />
-                ⏭️ Bu İşlemi Atla
+                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : '⏭️ Bu İşlemi Atla'}
               </Button>
               <Button 
                 onClick={approveCurrentOperation}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={pendingOperations[currentOperationIndex]?.approved}
+                className={`flex-1 ${
+                  pendingOperations[currentOperationIndex]?.approved 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
                 <Check className="w-4 h-4 mr-1" />
-                Onayla
+                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 'Onayla'}
               </Button>
             </div>
           </DialogFooter>
