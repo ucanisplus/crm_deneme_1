@@ -1636,10 +1636,29 @@ const SatisGalvanizRequest = () => {
                         name="paket-secenegi"
                         checked={paketlemeSecenekleri.paletli}
                         onChange={(e) => {
-                          if (e.target.checked) {
+                          if (e.target.checked && !paketlemeSecenekleri.paletli) {
+                            // Select Paletli, unselect Sepetli
                             setPaketlemeSecenekleri({
                               ...paketlemeSecenekleri,
                               paletli: true,
+                              sepetli: false
+                            });
+                          } else if (e.target.checked && paketlemeSecenekleri.paletli) {
+                            // Clicking on already selected Paletli - uncheck it
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: false,
+                              sepetli: false
+                            });
+                          }
+                        }}
+                        onClick={(e) => {
+                          if (paketlemeSecenekleri.paletli) {
+                            // If already selected, uncheck it
+                            e.preventDefault();
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: false,
                               sepetli: false
                             });
                           }
@@ -1658,30 +1677,26 @@ const SatisGalvanizRequest = () => {
                         name="paket-secenegi"
                         checked={paketlemeSecenekleri.sepetli}
                         onChange={(e) => {
-                          if (e.target.checked) {
+                          if (e.target.checked && !paketlemeSecenekleri.sepetli) {
+                            // Select Sepetli, unselect Paletli
                             setPaketlemeSecenekleri({
                               ...paketlemeSecenekleri,
                               paletli: false,
                               sepetli: true
                             });
+                          } else if (e.target.checked && paketlemeSecenekleri.sepetli) {
+                            // Clicking on already selected Sepetli - uncheck it
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: false,
+                              sepetli: false
+                            });
                           }
                         }}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                      />
-                      <label htmlFor="sepetli" className="ml-2 text-sm text-gray-900">
-                        Sepetli
-                      </label>
-                    </div>
-                    
-                    {/* Hiçbiri seçeneği */}
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        id="hicbiri"
-                        name="paket-secenegi"
-                        checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.sepetli}
-                        onChange={(e) => {
-                          if (e.target.checked) {
+                        onClick={(e) => {
+                          if (paketlemeSecenekleri.sepetli) {
+                            // If already selected, uncheck it
+                            e.preventDefault();
                             setPaketlemeSecenekleri({
                               ...paketlemeSecenekleri,
                               paletli: false,
@@ -1691,8 +1706,8 @@ const SatisGalvanizRequest = () => {
                         }}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                       />
-                      <label htmlFor="hicbiri" className="ml-2 text-sm text-gray-900">
-                        Hiçbiri
+                      <label htmlFor="sepetli" className="ml-2 text-sm text-gray-900">
+                        Sepetli
                       </label>
                     </div>
                   </div>
@@ -2024,7 +2039,7 @@ const SatisGalvanizRequest = () => {
       {/* Product Search Modal */}
       {showProductSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
