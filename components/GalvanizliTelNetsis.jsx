@@ -3142,16 +3142,16 @@ const GalvanizliTelNetsis = () => {
   // Gümrük Tarife Kodu belirle
   const getGumrukTarifeKodu = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    if (cap >= 0.8 && cap < 1.5) return '721720300011';
-    if (cap >= 1.5 && cap < 6.0) return '721720300012';
-    return '721720300013';
+    if (cap <= 1.5) return '721720300011';  // up to 1.5mm including 1.5
+    if (cap > 1.5 && cap <= 6.0) return '721720300012';  // between 1.5 to 6 including 6
+    return '721720300013';  // above 6
   };
 
   const getGumrukTarifeKoduForCap = (capValue) => {
     const cap = parseFloat(capValue) || 0;
-    if (cap >= 0.8 && cap < 1.5) return '721720300011';
-    if (cap >= 1.5 && cap < 6.0) return '721720300012';
-    return '721720300013';
+    if (cap <= 1.5) return '721720300011';  // up to 1.5mm including 1.5
+    if (cap > 1.5 && cap <= 6.0) return '721720300012';  // between 1.5 to 6 including 6
+    return '721720300013';  // above 6
   };
 
   // Form değişikliklerini işle - her zaman nokta formatı kullan
@@ -4163,71 +4163,52 @@ const GalvanizliTelNetsis = () => {
       // Also store sequence in sessionStorage for debugging
       sessionStorage.setItem('lastProcessSequence', sequence);
       
-      // Save YM GT - Check for existing YMGT with same core wire specs first
+      // Save YM GT - Try to create first, handle conflict gracefully
       const coreYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`; // Always use 00 for YMGT as it's based on core specs
       
-      console.log('Checking for existing YM GT with core specs:', coreYmGtStokKodu);
-      const existingYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(coreYmGtStokKodu)}`);
+      console.log('Attempting to create/reuse YM GT with core specs:', coreYmGtStokKodu);
       
-      if (existingYmGtResponse && existingYmGtResponse.ok) {
-        const existingYmGtData = await existingYmGtResponse.json();
-        if (Array.isArray(existingYmGtData) && existingYmGtData.length > 0) {
-          // Found existing YMGT - reuse it
-          const existingYmGt = existingYmGtData[0];
+      try {
+        // Try to create new YMGT first
+        const ymGtData = generateYmGtDatabaseData('00'); // YMGT always uses 00 sequence
+        const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ymGtData)
+        });
+        
+        if (ymGtResponse && ymGtResponse.ok) {
+          const ymGtResult = await ymGtResponse.json();
+          ymGtId = ymGtResult.id;
+          console.log('YM GT created with ID:', ymGtId);
+        } else if (ymGtResponse?.status === 409) {
+          // Conflict - YMGT already exists, find and reuse it
+          console.log('YM GT already exists (409 conflict), finding existing one');
           
-          // Check if core specs match (tolerances, kaplama, mukavemet)
-          const coreMatch = (
-            parseFloat(existingYmGt.kaplama) === parseInt(mmGtData.kaplama) &&
-            parseFloat(existingYmGt.min_mukavemet) === parseInt(mmGtData.min_mukavemet) &&
-            parseFloat(existingYmGt.max_mukavemet) === parseInt(mmGtData.max_mukavemet) &&
-            parseFloat(existingYmGt.tolerans_plus) === parseFloat(mmGtData.tolerans_plus) &&
-            parseFloat(existingYmGt.tolerans_minus) === parseFloat(mmGtData.tolerans_minus)
-          );
-          
-          if (coreMatch) {
-            ymGtId = existingYmGt.id;
-            console.log('Reusing existing YM GT with ID:', ymGtId, 'and stok_kodu:', existingYmGt.stok_kodu);
-          } else {
-            console.log('Core specs do not match, creating new YM GT');
-            // Core specs different, create new with incremented sequence
-            const ymGtData = generateYmGtDatabaseData('00'); // YMGT always uses 00 sequence
-            const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(ymGtData)
-            });
+          // Fetch all YMGTs and find the matching one
+          const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+          if (allYmGtResponse && allYmGtResponse.ok) {
+            const allYmGtData = await allYmGtResponse.json();
+            const matchingYmGt = allYmGtData.find(ymgt => ymgt.stok_kodu === coreYmGtStokKodu);
             
-            if (ymGtResponse && ymGtResponse.ok) {
-              const ymGtResult = await ymGtResponse.json();
-              ymGtId = ymGtResult.id;
-              console.log('YM GT created with ID:', ymGtId);
+            if (matchingYmGt) {
+              ymGtId = matchingYmGt.id;
+              console.log('Found and reusing existing YM GT with ID:', ymGtId, 'and stok_kodu:', matchingYmGt.stok_kodu);
             } else {
-              console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
-              throw new Error('YM GT kaydedilemedi');
+              console.error('Could not find existing YM GT with stok_kodu:', coreYmGtStokKodu);
+              throw new Error('Mevcut YM GT bulunamadı');
             }
+          } else {
+            console.error('Failed to fetch all YM GTs for conflict resolution');
+            throw new Error('YM GT listesi alınamadı');
           }
         } else {
-          // No existing YMGT found, create new
-          console.log('No existing YM GT found, creating new');
-          const ymGtData = generateYmGtDatabaseData('00'); // YMGT always uses 00 sequence
-          const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ymGtData)
-          });
-          
-          if (ymGtResponse && ymGtResponse.ok) {
-            const ymGtResult = await ymGtResponse.json();
-            ymGtId = ymGtResult.id;
-            console.log('YM GT created with ID:', ymGtId);
-          } else {
-            console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
-            throw new Error('YM GT kaydedilemedi');
-          }
+          console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
+          throw new Error('YM GT kaydedilemedi');
         }
-      } else {
-        console.error('Failed to check existing YM GT:', existingYmGtResponse?.status);
-        throw new Error('Mevcut YM GT kontrolü başarısız');
+      } catch (error) {
+        console.error('Error in YM GT creation/reuse process:', error);
+        throw error;
       }
       
       // Save MM GT - Always create new, never update
@@ -8212,7 +8193,7 @@ const GalvanizliTelNetsis = () => {
       '', // Yapılandırma Kodu
       '', // Yap. Açıklama
       '2', // Alış Döviz Tipi
-      getGumrukTarifeKodu(), // Gümrük Tarife Kodu
+      getGumrukTarifeKoduForCap(cap), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
@@ -8343,12 +8324,23 @@ const GalvanizliTelNetsis = () => {
 
   // Batch version that takes YM GT data as parameter
   const generateYmGtStokKartiDataForBatch = (ymGt) => {
-    // Extract cap and kod_2 from stok_kodu to recreate display values
+    // Use cap directly from ymGt object if available, otherwise parse from stok_kodu
+    let cap;
+    if (ymGt.cap) {
+      cap = parseFloat(ymGt.cap);
+    } else {
+      // Extract cap from stok_kodu as fallback
+      const stokParts = ymGt.stok_kodu.split('.');
+      const capCode = stokParts[3]; // cap code like 0250
+      cap = parseInt(capCode) / 100; // Convert back to decimal (0250 -> 2.50)
+    }
+    
+    // Extract other values from stok_kodu for display
     const stokParts = ymGt.stok_kodu.split('.');
     const kod2 = stokParts[2]; // GT kod_2
-    const capCode = stokParts[3]; // cap code like 0250
-    const cap = parseInt(capCode) / 100; // Convert back to decimal (0250 -> 2.50)
     const sequence = stokParts[4] || '00'; // sequence
+    
+    console.log('Batch YM GT - stok_kodu:', ymGt.stok_kodu, 'calculated cap:', cap, 'gumruk tarife kodu:', getGumrukTarifeKoduForCap(cap));
     
     // Get values from YM GT data
     const toleransPlus = parseFloat(ymGt.tolerans_plus) || 0;
