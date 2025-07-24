@@ -4164,7 +4164,6 @@ const GalvanizliTelNetsis = () => {
       sessionStorage.setItem('lastProcessSequence', sequence);
       
       // Save YM GT - Check for existing YMGT with same core wire specs first
-      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const coreYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`; // Always use 00 for YMGT as it's based on core specs
       
       console.log('Checking for existing YM GT with core specs:', coreYmGtStokKodu);
@@ -8968,7 +8967,20 @@ const GalvanizliTelNetsis = () => {
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
-    return `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Base cari/satıcı kodu
+    let carriKodu = `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      carriKodu += '-' + suffixes.join('-');
+    }
+    
+    return carriKodu;
   };
 
   const generateYmGtInglizceIsim = () => {
