@@ -80,6 +80,13 @@ const SatisGalvanizRequest = () => {
   const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
   const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
   
+  // Paketleme seçenekleri için state
+  const [paketlemeSecenekleri, setPaketlemeSecenekleri] = useState({
+    shrink: true, // Default olarak seçili
+    paletli: false,
+    sepetli: false
+  });
+  
   // Bulk selection state
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
@@ -145,11 +152,23 @@ const SatisGalvanizRequest = () => {
   // Check for duplicate product when submitting
   const checkForDuplicateProduct = async () => {
     try {
-      // Generate stok_adi for the current request to compare (including bag amount if present)
+      // Generate stok_adi for the current request to compare (including bag amount and packaging options)
       const bagAmount = requestData.cast_kont && requestData.cast_kont.trim() !== '' 
         ? `/${requestData.cast_kont}` 
         : '';
-      const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm -${requestData.tolerans_minus}/+${requestData.tolerans_plus} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg`;
+      
+      // Paketleme eklerini oluştur
+      let paketlemeEkleri = '';
+      if (paketlemeSecenekleri.shrink) {
+        paketlemeEkleri += '-Shrink';
+      }
+      if (paketlemeSecenekleri.paletli) {
+        paketlemeEkleri += '-Plt';
+      } else if (paketlemeSecenekleri.sepetli) {
+        paketlemeEkleri += '-Spt';
+      }
+      
+      const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm -${requestData.tolerans_minus}/+${requestData.tolerans_plus} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
       
       // Check 1: Find matching products in existing MM GT database by stok_adi
       const matchingProduct = existingProducts.find(product => {
@@ -598,12 +617,135 @@ const SatisGalvanizRequest = () => {
     return validationErrors;
   };
   
+  // Get the next sequence number for packaging variants
+  // Products with same core specs but different packaging should get incremented sequence
+  const getNextSequenceForPackagingVariant = async (data) => {
+    try {
+      // Core specs that define the product (excluding packaging)
+      const coreSpecs = {
+        cap: parseFloat(data.cap),
+        kod_2: data.kod_2,
+        kaplama: data.kaplama,
+        min_mukavemet: data.min_mukavemet,
+        max_mukavemet: data.max_mukavemet,
+        kg: data.kg,
+        ic_cap: data.ic_cap,
+        dis_cap: data.dis_cap,
+        tolerans_plus: data.tolerans_plus,
+        tolerans_minus: data.tolerans_minus,
+        cast_kont: data.cast_kont || ''
+      };
+      
+      // Check both MM GT database and existing requests for products with same core specs
+      const capFormatted = Math.round(parseFloat(data.cap) * 100).toString().padStart(4, '0');
+      const basePattern = `GT.${data.kod_2}.${capFormatted}`;
+      
+      let maxSequence = -1;
+      
+      // Check existing MM GT products
+      try {
+        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}`);
+        if (mmGtResponse && mmGtResponse.ok) {
+          const mmGtProducts = await mmGtResponse.json();
+          
+          mmGtProducts.forEach(product => {
+            // Check if this product has the same core specs
+            if (product.stok_kodu && product.stok_kodu.startsWith(basePattern)) {
+              const productCoreSpecs = {
+                cap: parseFloat(product.cap),
+                kod_2: product.kod_2,
+                kaplama: product.kaplama,
+                min_mukavemet: product.min_mukavemet,
+                max_mukavemet: product.max_mukavemet,
+                kg: product.kg,
+                ic_cap: product.ic_cap,
+                dis_cap: product.dis_cap,
+                tolerans_plus: product.tolerans_plus,
+                tolerans_minus: product.tolerans_minus,
+                cast_kont: product.cast_kont || ''
+              };
+              
+              // Compare core specs (excluding packaging)
+              const coreSpecsMatch = Object.keys(coreSpecs).every(key => 
+                String(coreSpecs[key]) === String(productCoreSpecs[key])
+              );
+              
+              if (coreSpecsMatch) {
+                const sequencePart = product.stok_kodu.split('.').pop();
+                const sequenceNum = parseInt(sequencePart);
+                if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                  maxSequence = sequenceNum;
+                }
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error checking MM GT products:', error);
+      }
+      
+      // Check existing sales requests
+      try {
+        const requestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
+        if (requestsResponse && requestsResponse.ok) {
+          const existingRequests = await requestsResponse.json();
+          
+          existingRequests.forEach(request => {
+            // Skip completed or rejected requests
+            if (request.status === 'completed' || request.status === 'rejected') {
+              return;
+            }
+            
+            if (request.stok_kodu && request.stok_kodu.startsWith(basePattern)) {
+              const requestCoreSpecs = {
+                cap: parseFloat(request.cap),
+                kod_2: request.kod_2,
+                kaplama: request.kaplama,
+                min_mukavemet: request.min_mukavemet,
+                max_mukavemet: request.max_mukavemet,
+                kg: request.kg,
+                ic_cap: request.ic_cap,
+                dis_cap: request.dis_cap,
+                tolerans_plus: request.tolerans_plus,
+                tolerans_minus: request.tolerans_minus,
+                cast_kont: request.cast_kont || ''
+              };
+              
+              // Compare core specs
+              const coreSpecsMatch = Object.keys(coreSpecs).every(key => 
+                String(coreSpecs[key]) === String(requestCoreSpecs[key])
+              );
+              
+              if (coreSpecsMatch) {
+                const sequencePart = request.stok_kodu.split('.').pop();
+                const sequenceNum = parseInt(sequencePart);
+                if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                  maxSequence = sequenceNum;
+                }
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error checking existing requests:', error);
+      }
+      
+      // Return next sequence number
+      return maxSequence + 1;
+      
+    } catch (error) {
+      console.error('Error determining sequence for packaging variant:', error);
+      return 0; // Default to 00 if error occurs
+    }
+  };
+  
   // Generate stok kodu and stok adi for the request
   const generateStokKoduAndAdi = async (data) => {
     try {
-      // For sales requests, always use sequence "00" - the actual sequence will be determined during approval
+      // Determine the correct sequence based on existing products with same core specs but different packaging
+      const sequence = await getNextSequenceForPackagingVariant(data);
       const capFormatted = Math.round(parseFloat(data.cap) * 100).toString().padStart(4, '0');
-      const stokKodu = `GT.${data.kod_2}.${capFormatted}.00`;
+      const stokKodu = `GT.${data.kod_2}.${capFormatted}.${sequence.toString().padStart(2, '0')}`;
       
       // Generate stok adi with optional bag amount
       const bagAmount = data.cast_kont && data.cast_kont.trim() !== '' 
@@ -625,7 +767,18 @@ const SatisGalvanizRequest = () => {
       // Format tolerance text with proper signs
       const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
       
-      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg`;
+      // Paketleme eklerini oluştur
+      let paketlemeEkleri = '';
+      if (paketlemeSecenekleri.shrink) {
+        paketlemeEkleri += '-Shrink';
+      }
+      if (paketlemeSecenekleri.paletli) {
+        paketlemeEkleri += '-Plt';
+      } else if (paketlemeSecenekleri.sepetli) {
+        paketlemeEkleri += '-Spt';
+      }
+      
+      const stokAdi = `Galvanizli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.kaplama} gr/m² ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg${paketlemeEkleri}`;
       
       return { stokKodu, stokAdi };
     } catch (error) {
@@ -1452,17 +1605,98 @@ const SatisGalvanizRequest = () => {
                   <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Shrink</label>
-                <select
-                  name="shrink"
-                  value={requestData.shrink}
-                  onChange={handleInputChange}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="evet">Evet</option>
-                  <option value="hayir">Hayır</option>
-                </select>
+              
+              {/* Paketleme Seçenekleri */}
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Paketleme Seçenekleri</label>
+                <div className="space-y-3">
+                  {/* Shrink - Checkbox */}
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="shrink"
+                      checked={paketlemeSecenekleri.shrink}
+                      onChange={(e) => setPaketlemeSecenekleri({
+                        ...paketlemeSecenekleri,
+                        shrink: e.target.checked
+                      })}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="shrink" className="ml-2 text-sm text-gray-900">
+                      Shrink (Varsayılan Seçili)
+                    </label>
+                  </div>
+                  
+                  {/* Paletli ve Sepetli - Radio buttons */}
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="paletli"
+                        name="paket-secenegi"
+                        checked={paketlemeSecenekleri.paletli}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: true,
+                              sepetli: false
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="paletli" className="ml-2 text-sm text-gray-900">
+                        Paletli
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="sepetli"
+                        name="paket-secenegi"
+                        checked={paketlemeSecenekleri.sepetli}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: false,
+                              sepetli: true
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="sepetli" className="ml-2 text-sm text-gray-900">
+                        Sepetli
+                      </label>
+                    </div>
+                    
+                    {/* Hiçbiri seçeneği */}
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="hicbiri"
+                        name="paket-secenegi"
+                        checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.sepetli}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPaketlemeSecenekleri({
+                              ...paketlemeSecenekleri,
+                              paletli: false,
+                              sepetli: false
+                            });
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="hicbiri" className="ml-2 text-sm text-gray-900">
+                        Hiçbiri
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unwinding</label>
@@ -1669,8 +1903,19 @@ const SatisGalvanizRequest = () => {
                     <p className="text-base text-gray-900">+{selectedRequest.tolerans_plus} mm / -{selectedRequest.tolerans_minus} mm</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Shrink</p>
-                    <p className="text-base text-gray-900">{selectedRequest.shrink || '-'}</p>
+                    <p className="text-sm font-medium text-gray-500">Paketleme Seçenekleri</p>
+                    <div className="text-base text-gray-900">
+                      {(() => {
+                        const packaging = [];
+                        // Extract packaging info from stok_adi if available
+                        if (selectedRequest.stok_adi) {
+                          if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
+                          if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
+                          if (selectedRequest.stok_adi.includes('-Spt')) packaging.push('Sepetli');
+                        }
+                        return packaging.length > 0 ? packaging.join(', ') : '-';
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Unwinding</p>
@@ -2031,9 +2276,28 @@ const SatisGalvanizRequest = () => {
                   </div>
                 </div>
                 
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Paketleme Seçenekleri</p>
+                  <div className="text-base text-gray-900">
+                    {(() => {
+                      const packaging = [];
+                      // Extract packaging info from stok_adi
+                      if (selectedProduct.stok_adi) {
+                        if (selectedProduct.stok_adi.includes('-Shrink')) packaging.push('Shrink');
+                        if (selectedProduct.stok_adi.includes('-Plt')) packaging.push('Paletli');
+                        if (selectedProduct.stok_adi.includes('-Spt')) packaging.push('Sepetli');
+                      }
+                      // Fallback to shrink field if no packaging suffixes found
+                      if (packaging.length === 0 && selectedProduct.shrink) {
+                        packaging.push(selectedProduct.shrink === 'evet' || selectedProduct.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok');
+                      }
+                      return packaging.length > 0 ? packaging.join(', ') : '-';
+                    })()}
+                  </div>
+                </div>
                 {selectedProduct.shrink && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Shrink</p>
+                  <div style={{display: 'none'}}>
+                    <p className="text-sm font-medium text-gray-500">Shrink (Legacy)</p>
                     <p className="text-base text-gray-900">{selectedProduct.shrink}</p>
                   </div>
                 )}

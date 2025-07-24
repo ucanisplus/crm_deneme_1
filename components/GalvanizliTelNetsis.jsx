@@ -221,6 +221,13 @@ const GalvanizliTelNetsis = () => {
     elongation: ''
   });
   
+  // Paketleme seçenekleri için state
+  const [paketlemeSecenekleri, setPaketlemeSecenekleri] = useState({
+    shrink: true, // Default olarak seçili
+    paletli: false,
+    sepetli: false
+  });
+  
   // Tolerans işaret durumları
   const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
   const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
@@ -7996,6 +8003,21 @@ const GalvanizliTelNetsis = () => {
     'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ'
   ];
 
+  // Helper function to extract packaging options from stok_adi
+  const extractPackagingFromStokAdi = (stokAdi) => {
+    if (!stokAdi) return { shrink: false, paletli: false, sepetli: false };
+    
+    const parts = stokAdi.split(' kg');
+    if (parts.length < 2) return { shrink: false, paletli: false, sepetli: false };
+    
+    const suffixPart = parts[1]; // Everything after "kg"
+    return {
+      shrink: suffixPart.includes('-Shrink'),
+      paletli: suffixPart.includes('-Plt'),
+      sepetli: suffixPart.includes('-Spt')
+    };
+  };
+
   // Excel veri oluşturma fonksiyonları - doğru formatlar ve COMMA usage
   // Batch version that takes MM GT data as parameter
   const generateMmGtStokKartiDataForBatch = (mmGt) => {
@@ -8009,14 +8031,31 @@ const GalvanizliTelNetsis = () => {
     const adjustedPlus = actualPlusValue;
     const adjustedMinus = actualMinusValue;
     
+    // Check if stok_adi already has packaging suffixes
+    const existingPackaging = extractPackagingFromStokAdi(mmGt.stok_adi);
+    
     // Generate stok_adi for this specific MM GT
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
       : '';
-    const stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
-    // Generate English name
-    const englishName = `Galvanized Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    // Add packaging suffixes if they exist in the original data
+    const suffixes = [];
+    if (existingPackaging.shrink) suffixes.push('Shrink');
+    if (existingPackaging.paletli) suffixes.push('Plt');
+    if (existingPackaging.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      stokAdi += '-' + suffixes.join('-');
+    }
+    
+    // Generate English name with same suffixes
+    let englishName = `Galvanized Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    
+    if (suffixes.length > 0) {
+      englishName += '-' + suffixes.join('-');
+    }
     
     return [
       mmGt.stok_kodu, // Stok Kodu - use actual stok_kodu from database
@@ -8731,8 +8770,21 @@ const GalvanizliTelNetsis = () => {
     // Use actual tolerance signs from state with adjusted values
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
+    // Base stok adı
+    let stokAdi = `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      stokAdi += '-' + suffixes.join('-');
+    }
+    
     // Use point for database storage - NO comma replacement for database
-    return `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return stokAdi;
   };
 
   // Excel version - uses COMMA format  
@@ -8748,8 +8800,21 @@ const GalvanizliTelNetsis = () => {
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
+    // Base stok adı
+    let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      stokAdi += '-' + suffixes.join('-');
+    }
+    
     // Use comma for Excel display
-    return `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return stokAdi;
   };
 
   // Database version for YM GT - uses POINT format
@@ -8765,8 +8830,21 @@ const GalvanizliTelNetsis = () => {
     // Use actual tolerance signs from state with adjusted values
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
+    // Base stok adı
+    let stokAdi = `YM Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      stokAdi += '-' + suffixes.join('-');
+    }
+    
     // Use point for database storage
-    return `YM Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return stokAdi;
   };
 
   // Excel version for YM GT - uses COMMA format
@@ -8782,8 +8860,21 @@ const GalvanizliTelNetsis = () => {
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
+    // Base stok adı
+    let stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      stokAdi += '-' + suffixes.join('-');
+    }
+    
     // Use comma for Excel display
-    return `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    return stokAdi;
   };
 
   const generateYmGtCariadiKodu = () => {
@@ -8800,10 +8891,28 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
-    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    // Base ingilizce isim
+    let ingilizceIsim = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      ingilizceIsim += '-' + suffixes.join('-');
+    }
+    
+    return ingilizceIsim;
   };
 
   // Database version - uses POINT format
@@ -8811,11 +8920,29 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
     // Use actual tolerance signs from state with adjusted values
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
     
+    // Base english name
+    let englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      englishName += '-' + suffixes.join('-');
+    }
+    
     // Use points for database storage
-    return `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return englishName;
   };
 
   // Excel version - uses COMMA format
@@ -8823,11 +8950,29 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
     
+    // Determine if we need to append the bag amount (cast_kont) value
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
+      ? `/${mmGtData.cast_kont}` 
+      : '';
+    
     // Use actual tolerance signs from state with adjusted values and comma format for Excel
     const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
     
+    // Base english name
+    let englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+    
+    // Paketleme suffixes ekle
+    const suffixes = [];
+    if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
+    if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
+    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    
+    if (suffixes.length > 0) {
+      englishName += '-' + suffixes.join('-');
+    }
+    
     // Use comma for Excel display
-    return `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
+    return englishName;
   };
 
   // Talep onaylama
@@ -9176,18 +9321,83 @@ const GalvanizliTelNetsis = () => {
               <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: Pozitif değerler</p>
             </div>
 
+            {/* Paketleme Seçenekleri */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Shrink
+                Paketleme Seçenekleri
               </label>
-              <select
-                value={mmGtData.shrink}
-                onChange={(e) => handleInputChange('shrink', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-              >
-                <option value="evet">Evet</option>
-                <option value="hayır">Hayır</option>
-              </select>
+              <div className="border border-gray-300 rounded-lg p-4 space-y-3">
+                {/* Shrink - Checkbox olarak */}
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={paketlemeSecenekleri.shrink}
+                    onChange={(e) => {
+                      setPaketlemeSecenekleri(prev => ({
+                        ...prev,
+                        shrink: e.target.checked
+                      }));
+                      handleInputChange('shrink', e.target.checked ? 'evet' : 'hayır');
+                    }}
+                    className="w-4 h-4 text-red-600 focus:ring-red-500 rounded"
+                  />
+                  <span className="text-sm">Shrink</span>
+                </label>
+                
+                {/* Paletli ve Sepetli - Radio buttons (mutually exclusive) */}
+                <div className="pl-6 space-y-2">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="paletSepet"
+                      checked={paketlemeSecenekleri.paletli}
+                      onChange={() => {
+                        setPaketlemeSecenekleri(prev => ({
+                          ...prev,
+                          paletli: true,
+                          sepetli: false
+                        }));
+                      }}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm">Paletli</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="paletSepet"
+                      checked={paketlemeSecenekleri.sepetli}
+                      onChange={() => {
+                        setPaketlemeSecenekleri(prev => ({
+                          ...prev,
+                          paletli: false,
+                          sepetli: true
+                        }));
+                      }}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm">Sepetli</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="paletSepet"
+                      checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.sepetli}
+                      onChange={() => {
+                        setPaketlemeSecenekleri(prev => ({
+                          ...prev,
+                          paletli: false,
+                          sepetli: false
+                        }));
+                      }}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm">Hiçbiri</span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
