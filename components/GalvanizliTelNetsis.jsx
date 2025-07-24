@@ -11120,17 +11120,29 @@ const GalvanizliTelNetsis = () => {
                     <div className="text-base text-gray-900">
                       {(() => {
                         const packaging = [];
+                        console.log('Debug - selectedRequest.stok_adi:', selectedRequest.stok_adi);
+                        console.log('Debug - selectedRequest.shrink:', selectedRequest.shrink);
+                        
                         // Extract packaging info from stok_adi if available (new format)
                         if (selectedRequest.stok_adi) {
                           if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
                           if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
                           if (selectedRequest.stok_adi.includes('-Spt')) packaging.push('Sepetli');
                         }
+                        
                         // Fallback to legacy shrink field if no packaging suffixes found
                         if (packaging.length === 0 && selectedRequest.shrink) {
-                          packaging.push(selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok');
+                          const shrinkText = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok';
+                          packaging.push(shrinkText);
                         }
-                        return packaging.length > 0 ? packaging.join(', ') : '-';
+                        
+                        // If still no packaging info, show default
+                        if (packaging.length === 0) {
+                          packaging.push('Belirtilmemiş');
+                        }
+                        
+                        console.log('Debug - final packaging:', packaging);
+                        return packaging.join(', ');
                       })()}
                     </div>
                   </div>
