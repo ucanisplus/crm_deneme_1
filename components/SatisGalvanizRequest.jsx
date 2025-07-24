@@ -257,8 +257,8 @@ const SatisGalvanizRequest = () => {
       normalizedValue = normalizeInputValue(value);
     }
     
-    // Special case: When coating type changes to PAD, set kaplama value to 50
-    if (name === 'kod_2' && value === 'PAD') {
+    // Special case: When coating type changes to PAD, set kaplama value to 50 if it's default NIT value
+    if (name === 'kod_2' && value === 'PAD' && requestData.kaplama === '100') {
       toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
       setRequestData({
         ...requestData,
@@ -584,8 +584,8 @@ const SatisGalvanizRequest = () => {
     if (isNaN(kaplamaValue)) {
       validationErrors.push('Kaplama için geçerli bir sayısal değer giriniz.');
     } else {
-      if (requestData.kod_2 === 'PAD' && kaplamaValue !== 50) {
-        validationErrors.push(`PAD kaplama türü için kaplama değeri 50 olmalıdır. Girilen değer: ${requestData.kaplama}`);
+      if (requestData.kod_2 === 'PAD' && (kaplamaValue < 50 || kaplamaValue > 80)) {
+        validationErrors.push(`PAD kaplama türü için kaplama değeri 50 ile 80 arasında olmalıdır. Girilen değer: ${requestData.kaplama}`);
       } else if (requestData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
         validationErrors.push(`NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır. Girilen değer: ${requestData.kaplama}`);
       }
@@ -1485,12 +1485,11 @@ const SatisGalvanizRequest = () => {
                   name="kaplama"
                   value={requestData.kaplama}
                   onChange={handleInputChange}
-                  className={`block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${requestData.kod_2 === 'PAD' ? 'bg-gray-100' : ''}`}
-                  placeholder={requestData.kod_2 === 'PAD' ? '50' : 'Örn: 100'}
-                  readOnly={requestData.kod_2 === 'PAD'}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={requestData.kod_2 === 'PAD' ? '50-80' : 'Örn: 100'}
                 />
                 {requestData.kod_2 === 'PAD' ? (
-                  <p className="text-xs text-gray-500 mt-1">PAD kaplama için sabit değer: 50 g/m²</p>
+                  <p className="text-xs text-gray-500 mt-1">PAD kaplama için izin verilen aralık: 50 - 80 g/m²</p>
                 ) : (
                   <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 100 - 400 g/m²</p>
                 )}

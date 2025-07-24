@@ -332,7 +332,8 @@ const GalvanizliTelNetsis = () => {
   
   // Kod-2 değişikliğinde kaplama değerini güncelle
   useEffect(() => {
-    if (mmGtData.kod_2 === 'PAD') {
+    if (mmGtData.kod_2 === 'PAD' && mmGtData.kaplama === '100') {
+      // Only auto-set if it's the default NIT value (100)
       setMmGtData(prev => ({ ...prev, kaplama: '50' }));
     }
   }, [mmGtData.kod_2]);
@@ -1628,7 +1629,7 @@ const GalvanizliTelNetsis = () => {
       
       // Set tolerance signs from request
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
-      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');\n      \n      // Parse packaging options from stok_adi\n      if (selectedRequest.stok_adi) {\n        const packaging = {\n          shrink: selectedRequest.stok_adi.includes('-Shrink'),\n          paletli: selectedRequest.stok_adi.includes('-Plt'),\n          sepetli: selectedRequest.stok_adi.includes('-Spt')\n        };\n        \n        // If no packaging suffixes found, fallback to legacy shrink field\n        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {\n          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';\n        }\n        \n        setPaketlemeSecenekleri(packaging);\n      }
       
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
@@ -1699,7 +1700,7 @@ const GalvanizliTelNetsis = () => {
       
       // Set tolerance signs from request
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
-      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');\n      \n      // Parse packaging options from stok_adi\n      if (selectedRequest.stok_adi) {\n        const packaging = {\n          shrink: selectedRequest.stok_adi.includes('-Shrink'),\n          paletli: selectedRequest.stok_adi.includes('-Plt'),\n          sepetli: selectedRequest.stok_adi.includes('-Spt')\n        };\n        \n        // If no packaging suffixes found, fallback to legacy shrink field\n        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {\n          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';\n        }\n        \n        setPaketlemeSecenekleri(packaging);\n      }
       
       setShowRequestDetailModal(false);
       setCurrentStep('summary');
@@ -3381,8 +3382,8 @@ const GalvanizliTelNetsis = () => {
     if (isNaN(kaplamaValue)) {
       errors.push('Kaplama için geçerli bir sayısal değer giriniz.');
     } else {
-      if (mmGtData.kod_2 === 'PAD' && kaplamaValue !== 50) {
-        errors.push(`PAD kaplama türü için kaplama değeri 50 olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
+      if (mmGtData.kod_2 === 'PAD' && (kaplamaValue < 50 || kaplamaValue > 80)) {
+        errors.push(`PAD kaplama türü için kaplama değeri 50 ile 80 arasında olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
       } else if (mmGtData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
         errors.push(`NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
       }
@@ -9181,12 +9182,11 @@ const GalvanizliTelNetsis = () => {
                 value={normalizeDecimalDisplay(mmGtData.kaplama)}
                 onChange={(e) => handleInputChange('kaplama', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                disabled={mmGtData.kod_2 === 'PAD'}
-                placeholder="50-400"
+                placeholder={mmGtData.kod_2 === 'PAD' ? '50-80' : '100-400'}
                 onKeyDown={(e) => handleCommaToPoint(e, 'kaplama')}
               />
               {mmGtData.kod_2 === 'PAD' ? (
-                <p className="text-xs text-gray-500 mt-1">PAD kaplama için sabit değer: 50 g/m²</p>
+                <p className="text-xs text-gray-500 mt-1">PAD kaplama için izin verilen aralık: 50 - 80 g/m²</p>
               ) : (
                 <p className="text-xs text-gray-500 mt-1">NIT kaplama için izin verilen aralık: 100 - 400 g/m²</p>
               )}
@@ -11084,8 +11084,23 @@ const GalvanizliTelNetsis = () => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Shrink</p>
-                    <p className="text-base text-gray-900">{selectedRequest.shrink || '-'}</p>
+                    <p className="text-sm font-medium text-gray-500">Paketleme Seçenekleri</p>
+                    <div className="text-base text-gray-900">
+                      {(() => {
+                        const packaging = [];
+                        // Extract packaging info from stok_adi if available (new format)
+                        if (selectedRequest.stok_adi) {
+                          if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
+                          if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
+                          if (selectedRequest.stok_adi.includes('-Spt')) packaging.push('Sepetli');
+                        }
+                        // Fallback to legacy shrink field if no packaging suffixes found
+                        if (packaging.length === 0 && selectedRequest.shrink) {
+                          packaging.push(selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok');
+                        }
+                        return packaging.length > 0 ? packaging.join(', ') : '-';
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Unwinding</p>
