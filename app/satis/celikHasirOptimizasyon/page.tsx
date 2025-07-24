@@ -535,10 +535,27 @@ const CelikHasirOptimizasyon: React.FC = () => {
       }
     }
     
-    // Remove duplicates with the same explanation
-    const uniqueOptions = options.filter((option, index, arr) => 
-      arr.findIndex(other => other.explanation === option.explanation) === index
-    );
+    // Remove duplicates - prioritize direct merges over rounding operations
+    const uniqueOptions = options.filter((option, index, arr) => {
+      // Find if there's another option with same source, target, and tolerance
+      const duplicate = arr.find((other, otherIndex) => 
+        otherIndex !== index &&
+        other.source.id === option.source.id &&
+        other.target.id === option.target.id &&
+        Math.abs(other.tolerance - option.tolerance) < 0.1 // Same tolerance (within 0.1cm)
+      );
+      
+      if (duplicate) {
+        // If duplicate exists, prefer direct merge (boydan/enden) over tamamla
+        if ((option.type === 'boydan' || option.type === 'enden') && duplicate.type === 'tamamla') {
+          return true; // Keep the direct merge
+        } else if (option.type === 'tamamla' && (duplicate.type === 'boydan' || duplicate.type === 'enden')) {
+          return false; // Remove the tamamla option
+        }
+      }
+      
+      return true; // Keep if no duplicate or no preference
+    });
     
     // Sort by priority first, then by safety/tolerance
     return uniqueOptions.sort((a, b) => {
@@ -1561,7 +1578,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-[550px] overflow-y-auto overflow-x-auto relative">
+            <div className="max-h-[575px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
