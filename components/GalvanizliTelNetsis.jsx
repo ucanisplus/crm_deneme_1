@@ -4163,52 +4163,25 @@ const GalvanizliTelNetsis = () => {
       // Also store sequence in sessionStorage for debugging
       sessionStorage.setItem('lastProcessSequence', sequence);
       
-      // Save YM GT - Try to create first, handle conflict gracefully
-      const coreYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.00`; // Always use 00 for YMGT as it's based on core specs
+      // Save YM GT - Use same sequence as MM GT (this was working before packaging update)
+      const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
-      console.log('Attempting to create/reuse YM GT with core specs:', coreYmGtStokKodu);
+      console.log('Creating YM GT with same sequence as MM GT:', ymGtStokKodu);
       
-      try {
-        // Try to create new YMGT first
-        const ymGtData = generateYmGtDatabaseData('00'); // YMGT always uses 00 sequence
-        const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ymGtData)
-        });
-        
-        if (ymGtResponse && ymGtResponse.ok) {
-          const ymGtResult = await ymGtResponse.json();
-          ymGtId = ymGtResult.id;
-          console.log('YM GT created with ID:', ymGtId);
-        } else if (ymGtResponse?.status === 409) {
-          // Conflict - YMGT already exists, find and reuse it
-          console.log('YM GT already exists (409 conflict), finding existing one');
-          
-          // Fetch all YMGTs and find the matching one
-          const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
-          if (allYmGtResponse && allYmGtResponse.ok) {
-            const allYmGtData = await allYmGtResponse.json();
-            const matchingYmGt = allYmGtData.find(ymgt => ymgt.stok_kodu === coreYmGtStokKodu);
-            
-            if (matchingYmGt) {
-              ymGtId = matchingYmGt.id;
-              console.log('Found and reusing existing YM GT with ID:', ymGtId, 'and stok_kodu:', matchingYmGt.stok_kodu);
-            } else {
-              console.error('Could not find existing YM GT with stok_kodu:', coreYmGtStokKodu);
-              throw new Error('Mevcut YM GT bulunamadı');
-            }
-          } else {
-            console.error('Failed to fetch all YM GTs for conflict resolution');
-            throw new Error('YM GT listesi alınamadı');
-          }
-        } else {
-          console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
-          throw new Error('YM GT kaydedilemedi');
-        }
-      } catch (error) {
-        console.error('Error in YM GT creation/reuse process:', error);
-        throw error;
+      const ymGtData = generateYmGtDatabaseData(sequence); // Use same sequence as MMGT
+      const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ymGtData)
+      });
+      
+      if (ymGtResponse && ymGtResponse.ok) {
+        const ymGtResult = await ymGtResponse.json();
+        ymGtId = ymGtResult.id;
+        console.log('YM GT created with ID:', ymGtId, 'and stok_kodu:', ymGtStokKodu);
+      } else {
+        console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
+        throw new Error('YM GT kaydedilemedi');
       }
       
       // Save MM GT - Always create new, never update
@@ -4710,8 +4683,8 @@ const GalvanizliTelNetsis = () => {
 
   // Veritabanı için YM GT verisi oluştur - Excel formatına tam uyumlu
   const generateYmGtDatabaseData = (sequence = '00') => {
-    // YMGT always uses sequence '00' as it represents core wire specs, not packaging variants
-    const validSequence = '00';
+    // YMGT should use the same sequence as MMGT for consistency
+    const validSequence = sequence;
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     const capForExcel = capValue.toFixed(2);
