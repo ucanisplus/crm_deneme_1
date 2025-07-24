@@ -1019,7 +1019,7 @@ const SatisGalvanizRequest = () => {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
+    <div className="bg-white rounded-lg shadow-md p-6 max-w-7xl mx-auto">
       {/* Header with toggle button */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -1627,7 +1627,7 @@ const SatisGalvanizRequest = () => {
                     </label>
                   </div>
                   
-                  {/* Paletli ve Sepetli - Radio buttons */}
+                  {/* Paletli ve Sepetli - Radio buttons with click-to-uncheck */}
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <input
@@ -1635,37 +1635,27 @@ const SatisGalvanizRequest = () => {
                         id="paletli"
                         name="paket-secenegi"
                         checked={paketlemeSecenekleri.paletli}
-                        onChange={(e) => {
-                          if (e.target.checked && !paketlemeSecenekleri.paletli) {
-                            // Select Paletli, unselect Sepetli
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: true,
-                              sepetli: false
-                            });
-                          } else if (e.target.checked && paketlemeSecenekleri.paletli) {
-                            // Clicking on already selected Paletli - uncheck it
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: false,
-                              sepetli: false
-                            });
-                          }
-                        }}
-                        onClick={(e) => {
-                          if (paketlemeSecenekleri.paletli) {
-                            // If already selected, uncheck it
-                            e.preventDefault();
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: false,
-                              sepetli: false
-                            });
-                          }
+                        onChange={() => {}} // Empty onChange to prevent default radio behavior
+                        onClick={() => {
+                          setPaketlemeSecenekleri(prev => ({
+                            ...prev,
+                            paletli: !prev.paletli, // Toggle paletli
+                            sepetli: prev.paletli ? prev.sepetli : false // If we're selecting paletli, unselect sepetli
+                          }));
                         }}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                       />
-                      <label htmlFor="paletli" className="ml-2 text-sm text-gray-900">
+                      <label 
+                        htmlFor="paletli" 
+                        className="ml-2 text-sm text-gray-900 cursor-pointer"
+                        onClick={() => {
+                          setPaketlemeSecenekleri(prev => ({
+                            ...prev,
+                            paletli: !prev.paletli,
+                            sepetli: prev.paletli ? prev.sepetli : false
+                          }));
+                        }}
+                      >
                         Paletli
                       </label>
                     </div>
@@ -1676,37 +1666,27 @@ const SatisGalvanizRequest = () => {
                         id="sepetli"
                         name="paket-secenegi"
                         checked={paketlemeSecenekleri.sepetli}
-                        onChange={(e) => {
-                          if (e.target.checked && !paketlemeSecenekleri.sepetli) {
-                            // Select Sepetli, unselect Paletli
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: false,
-                              sepetli: true
-                            });
-                          } else if (e.target.checked && paketlemeSecenekleri.sepetli) {
-                            // Clicking on already selected Sepetli - uncheck it
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: false,
-                              sepetli: false
-                            });
-                          }
-                        }}
-                        onClick={(e) => {
-                          if (paketlemeSecenekleri.sepetli) {
-                            // If already selected, uncheck it
-                            e.preventDefault();
-                            setPaketlemeSecenekleri({
-                              ...paketlemeSecenekleri,
-                              paletli: false,
-                              sepetli: false
-                            });
-                          }
+                        onChange={() => {}} // Empty onChange to prevent default radio behavior
+                        onClick={() => {
+                          setPaketlemeSecenekleri(prev => ({
+                            ...prev,
+                            sepetli: !prev.sepetli, // Toggle sepetli
+                            paletli: prev.sepetli ? prev.paletli : false // If we're selecting sepetli, unselect paletli
+                          }));
                         }}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                       />
-                      <label htmlFor="sepetli" className="ml-2 text-sm text-gray-900">
+                      <label 
+                        htmlFor="sepetli" 
+                        className="ml-2 text-sm text-gray-900 cursor-pointer"
+                        onClick={() => {
+                          setPaketlemeSecenekleri(prev => ({
+                            ...prev,
+                            sepetli: !prev.sepetli,
+                            paletli: prev.sepetli ? prev.paletli : false
+                          }));
+                        }}
+                      >
                         Sepetli
                       </label>
                     </div>
