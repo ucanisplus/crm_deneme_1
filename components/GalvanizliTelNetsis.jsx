@@ -1629,7 +1629,23 @@ const GalvanizliTelNetsis = () => {
       
       // Set tolerance signs from request
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
-      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');\n      \n      // Parse packaging options from stok_adi\n      if (selectedRequest.stok_adi) {\n        const packaging = {\n          shrink: selectedRequest.stok_adi.includes('-Shrink'),\n          paletli: selectedRequest.stok_adi.includes('-Plt'),\n          sepetli: selectedRequest.stok_adi.includes('-Spt')\n        };\n        \n        // If no packaging suffixes found, fallback to legacy shrink field\n        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {\n          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';\n        }\n        \n        setPaketlemeSecenekleri(packaging);\n      }
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
+      
+      // Parse packaging options from stok_adi
+      if (selectedRequest.stok_adi) {
+        const packaging = {
+          shrink: selectedRequest.stok_adi.includes('-Shrink'),
+          paletli: selectedRequest.stok_adi.includes('-Plt'),
+          sepetli: selectedRequest.stok_adi.includes('-Spt')
+        };
+        
+        // If no packaging suffixes found, fallback to legacy shrink field
+        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
+          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
+        }
+        
+        setPaketlemeSecenekleri(packaging);
+      }
       
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
@@ -1700,7 +1716,23 @@ const GalvanizliTelNetsis = () => {
       
       // Set tolerance signs from request
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
-      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');\n      \n      // Parse packaging options from stok_adi\n      if (selectedRequest.stok_adi) {\n        const packaging = {\n          shrink: selectedRequest.stok_adi.includes('-Shrink'),\n          paletli: selectedRequest.stok_adi.includes('-Plt'),\n          sepetli: selectedRequest.stok_adi.includes('-Spt')\n        };\n        \n        // If no packaging suffixes found, fallback to legacy shrink field\n        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {\n          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';\n        }\n        \n        setPaketlemeSecenekleri(packaging);\n      }
+      setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
+      
+      // Parse packaging options from stok_adi
+      if (selectedRequest.stok_adi) {
+        const packaging = {
+          shrink: selectedRequest.stok_adi.includes('-Shrink'),
+          paletli: selectedRequest.stok_adi.includes('-Plt'),
+          sepetli: selectedRequest.stok_adi.includes('-Spt')
+        };
+        
+        // If no packaging suffixes found, fallback to legacy shrink field
+        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
+          packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
+        }
+        
+        setPaketlemeSecenekleri(packaging);
+      }
       
       setShowRequestDetailModal(false);
       setCurrentStep('summary');
