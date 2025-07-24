@@ -144,10 +144,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (sessionData) {
       try {
         const parsedData = JSON.parse(sessionData);
-        setProducts(parsedData);
-        setFilteredProducts(parsedData);
+        // Ensure all products have IDs
+        const dataWithIds = parsedData.map((product: any, index: number) => ({
+          ...product,
+          id: product.id || `product_${index}_${Date.now()}`
+        }));
+        setProducts(dataWithIds);
+        setFilteredProducts(dataWithIds);
         // Initialize history
-        setHistory([{ products: parsedData, timestamp: Date.now() }]);
+        setHistory([{ products: dataWithIds, timestamp: Date.now() }]);
         setHistoryIndex(0);
         // Clear the data from sessionStorage after loading
         sessionStorage.removeItem('celikHasirOptimizasyonData');
@@ -162,10 +167,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (dataParam) {
       try {
         const decodedData = JSON.parse(decodeURIComponent(dataParam));
-        setProducts(decodedData);
-        setFilteredProducts(decodedData);
+        // Ensure all products have IDs
+        const dataWithIds = decodedData.map((product: any, index: number) => ({
+          ...product,
+          id: product.id || `product_${index}_${Date.now()}`
+        }));
+        setProducts(dataWithIds);
+        setFilteredProducts(dataWithIds);
         // Initialize history
-        setHistory([{ products: decodedData, timestamp: Date.now() }]);
+        setHistory([{ products: dataWithIds, timestamp: Date.now() }]);
         setHistoryIndex(0);
       } catch (error) {
         console.error('Error loading data:', error);
@@ -491,8 +501,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const returnPath = sessionStorage.getItem('celikHasirReturnPath');
     if (returnPath) {
       console.log('Returning to stored path:', returnPath);
-      // Use router.push for client-side navigation
-      router.push(returnPath);
+      // Force a full page reload to ensure the component re-initializes
+      window.location.href = returnPath;
       return;
     }
     
@@ -501,9 +511,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
     console.log('Returning to main list, referrer:', referrer);
     
     if (referrer === 'maliyet') {
-      router.push('/uretim/hesaplamalar/maliyet');
+      window.location.href = '/uretim/hesaplamalar/maliyet';
     } else if (referrer === 'urun') {
-      router.push('/uretim/hesaplamalar/urun');
+      window.location.href = '/uretim/hesaplamalar/urun';
     } else {
       // Default fallback - go back to the main CelikHasir component
       window.history.back();
@@ -1137,7 +1147,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-2">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-2xl font-bold">İleri Optimizasyon</CardTitle>
+            <CardTitle className="text-xl font-bold">İleri Optimizasyon</CardTitle>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -1386,7 +1396,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Quantity Filter Buttons */}
           <div className="flex gap-2 items-center">
-            <span className="text-sm font-medium text-gray-700 mr-2">Miktar Filtresi:</span>
+            <span className="text-xs font-medium text-gray-700">Miktar:</span>
             <Button
               variant={selectedFilters.quantityFilter === 'all' ? 'default' : 'outline'}
               size="sm"
@@ -1435,14 +1445,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
 
           {/* Drag Instructions */}
-          <div className="mb-2 p-2 bg-green-100 rounded-lg flex items-center gap-4">
+          <div className="mb-1 p-1 bg-green-100 rounded-lg flex items-center gap-2 text-sm">
             <span className="font-medium text-green-800">Sürükle & Bırak:</span>
             <span className="text-green-700">Ürünleri birleştirmek için bir ürünü diğerinin üzerine sürükleyin</span>
           </div>
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-[600px] overflow-y-auto overflow-x-auto relative">
+            <div className="max-h-[350px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
@@ -1739,9 +1749,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         console.log('🔄 Attempting merge:', sourceId, '→', targetId);
                         
                         if (sourceId !== targetId) {
+                          console.log('Looking for products with IDs:', sourceId, targetId);
+                          console.log('Available products:', filteredProducts.map(p => ({id: p.id, hasirTipi: p.hasirTipi})));
                           const sourceProduct = filteredProducts.find(p => p.id === sourceId);
                           const targetProduct = filteredProducts.find(p => p.id === targetId);
-                          console.log('Found products:', sourceProduct?.hasirTipi, targetProduct?.hasirTipi);
+                          console.log('Found products:', sourceProduct, targetProduct);
                           
                           if (sourceProduct && targetProduct) {
                             const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct);
@@ -1838,28 +1850,28 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
 
           {/* Automatic operations */}
-          <div className="mt-2 p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
-            <div className="flex items-center gap-4 mb-2">
+          <div className="mt-1 p-1 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
               <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium whitespace-nowrap">Max Tolerans: {tolerance}cm</Label>
+                <Label className="text-xs font-medium whitespace-nowrap">Tolerans: {tolerance}cm</Label>
                 <Slider
                   value={[tolerance]}
                   onValueChange={(value) => setTolerance(value[0])}
                   min={0}
                   max={100}
                   step={1}
-                  className="w-32"
+                  className="w-24"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium whitespace-nowrap">Max Hasır: {maxHasirSayisi}</Label>
+                <Label className="text-xs font-medium whitespace-nowrap">Hasır: {maxHasirSayisi}</Label>
                 <Slider
                   value={[maxHasirSayisi]}
                   onValueChange={(value) => setMaxHasirSayisi(value[0])}
                   min={1}
                   max={200}
                   step={1}
-                  className="w-32"
+                  className="w-24"
                 />
               </div>
             </div>
