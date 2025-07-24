@@ -129,7 +129,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
     source: Product;
     target: Product;
     operation?: 'boydan' | 'enden';
-    options?: Array<{type: 'boydan' | 'enden', source: Product, target: Product, explanation: string, tolerance: number}>;
+    options?: Array<{
+      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tamamla';
+      source: Product;
+      target: Product;
+      explanation: string;
+      tolerance: number;
+      safetyLevel: 'safe' | 'caution' | 'risky';
+      priority: number;
+    }>;
   } | null>(null);
   const [tolerance, setTolerance] = useState(10);
   const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Only eliminate products with ≤ this quantity
@@ -375,72 +383,167 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Get all possible merge options between two products
   const getAllMergeOptions = (product1: Product, product2: Product) => {
-    const options: Array<{type: 'boydan' | 'enden', source: Product, target: Product, explanation: string, tolerance: number}> = [];
-    
-    // Basic compatibility check - must have same type and diameter
-    if (product1.hasirTipi !== product2.hasirTipi || 
-        product1.boyCap !== product2.boyCap || 
-        product1.enCap !== product2.enCap) {
-      return options;
-    }
+    const options: Array<{
+      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tamamla';
+      source: Product;
+      target: Product;
+      explanation: string;
+      tolerance: number;
+      safetyLevel: 'safe' | 'caution' | 'risky';
+      priority: number;
+    }> = [];
     
     const boy1 = Number(product1.uzunlukBoy);
     const en1 = Number(product1.uzunlukEn);
     const boy2 = Number(product2.uzunlukBoy);
     const en2 = Number(product2.uzunlukEn);
     
-    // Check product1 → product2 (product1 into product2)
-    if (boy2 >= boy1 && en2 >= en1) {
-      const boyDiff = boy2 - boy1;
-      const enDiff = en2 - en1;
-      const tolerance = Math.max(boyDiff, enDiff);
+    // OPTION 1: Direct merge (same type, same diameter)
+    if (product1.hasirTipi === product2.hasirTipi && 
+        product1.boyCap === product2.boyCap && 
+        product1.enCap === product2.enCap) {
       
-      if (boyDiff >= enDiff) {
+      // Check product1 → product2 (product1 into product2)
+      if (boy2 >= boy1 && en2 >= en1) {
+        const boyDiff = boy2 - boy1;
+        const enDiff = en2 - en1;
+        const tolerance = Math.max(boyDiff, enDiff);
+        
+        if (boyDiff >= enDiff) {
+          options.push({
+            type: 'boydan',
+            source: product1,
+            target: product2,
+            explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (boydan ${tolerance}cm)`,
+            tolerance,
+            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            priority: 1
+          });
+        } else {
+          options.push({
+            type: 'enden',
+            source: product1,
+            target: product2,
+            explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (enden ${tolerance}cm)`,
+            tolerance,
+            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            priority: 1
+          });
+        }
+      }
+      
+      // Check product2 → product1 (product2 into product1)
+      if (boy1 >= boy2 && en1 >= en2) {
+        const boyDiff = boy1 - boy2;
+        const enDiff = en1 - en2;
+        const tolerance = Math.max(boyDiff, enDiff);
+        
+        if (boyDiff >= enDiff) {
+          options.push({
+            type: 'boydan',
+            source: product2,
+            target: product1,
+            explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (boydan ${tolerance}cm)`,
+            tolerance,
+            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            priority: 1
+          });
+        } else {
+          options.push({
+            type: 'enden',
+            source: product2,
+            target: product1,
+            explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (enden ${tolerance}cm)`,
+            tolerance,
+            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            priority: 1
+          });
+        }
+      }
+    }
+    
+    // OPTION 2: Hasır Tipi Değişikliği (if different types but same diameter)
+    if (product1.hasirTipi !== product2.hasirTipi && 
+        product1.boyCap === product2.boyCap && 
+        product1.enCap === product2.enCap) {
+      
+      // Check if dimensions are compatible for type change
+      const canChange1to2 = boy2 >= boy1 && en2 >= en1;
+      const canChange2to1 = boy1 >= boy2 && en1 >= en2;
+      
+      if (canChange1to2) {
+        const tolerance = Math.max(boy2 - boy1, en2 - en1);
         options.push({
-          type: 'boydan',
+          type: 'tipi_degisiklik',
           source: product1,
           target: product2,
-          explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (boydan ${tolerance}cm tolerans)`,
-          tolerance
+          explanation: `Tip değişikliği: ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
+          tolerance,
+          safetyLevel: tolerance <= 20 ? 'caution' : 'risky',
+          priority: 2
         });
-      } else {
+      }
+      
+      if (canChange2to1) {
+        const tolerance = Math.max(boy1 - boy2, en1 - en2);
         options.push({
-          type: 'enden',
-          source: product1,
-          target: product2,
-          explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (enden ${tolerance}cm tolerans)`,
-          tolerance
+          type: 'tipi_degisiklik',
+          source: product2,
+          target: product1,
+          explanation: `Tip değişikliği: ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
+          tolerance,
+          safetyLevel: tolerance <= 20 ? 'caution' : 'risky',
+          priority: 2
         });
       }
     }
     
-    // Check product2 → product1 (product2 into product1)
-    if (boy1 >= boy2 && en1 >= en2) {
-      const boyDiff = boy1 - boy2;
-      const enDiff = en1 - en2;
-      const tolerance = Math.max(boyDiff, enDiff);
+    // OPTION 3: Üste Tamamlama (Rounding up) - even for different types if diameter matches
+    if (product1.boyCap === product2.boyCap && product1.enCap === product2.enCap) {
+      // Check if we can round up product1 to product2 dimensions
+      const boyDiff1to2 = boy2 - boy1;
+      const enDiff1to2 = en2 - en1;
       
-      if (boyDiff >= enDiff) {
+      if (boyDiff1to2 >= 0 && enDiff1to2 >= 0 && (boyDiff1to2 > 0 || enDiff1to2 > 0)) {
+        const tolerance = Math.max(boyDiff1to2, enDiff1to2);
         options.push({
-          type: 'boydan',
-          source: product2,
-          target: product1,
-          explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (boydan ${tolerance}cm tolerans)`,
-          tolerance
+          type: 'tamamla',
+          source: product1,
+          target: product2,
+          explanation: `Üste tamamla: ${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (+${tolerance}cm)`,
+          tolerance,
+          safetyLevel: tolerance <= 15 ? 'safe' : tolerance <= 30 ? 'caution' : 'risky',
+          priority: 3
         });
-      } else {
+      }
+      
+      // Check if we can round up product2 to product1 dimensions
+      const boyDiff2to1 = boy1 - boy2;
+      const enDiff2to1 = en1 - en2;
+      
+      if (boyDiff2to1 >= 0 && enDiff2to1 >= 0 && (boyDiff2to1 > 0 || enDiff2to1 > 0)) {
+        const tolerance = Math.max(boyDiff2to1, enDiff2to1);
         options.push({
-          type: 'enden',
+          type: 'tamamla',
           source: product2,
           target: product1,
-          explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (enden ${tolerance}cm tolerans)`,
-          tolerance
+          explanation: `Üste tamamla: ${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (+${tolerance}cm)`,
+          tolerance,
+          safetyLevel: tolerance <= 15 ? 'safe' : tolerance <= 30 ? 'caution' : 'risky',
+          priority: 3
         });
       }
     }
     
-    // Sort by tolerance (best options first)
-    return options.sort((a, b) => a.tolerance - b.tolerance);
+    // Sort by priority first, then by safety/tolerance
+    return options.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.safetyLevel !== b.safetyLevel) {
+        const safetyOrder = { safe: 0, caution: 1, risky: 2 };
+        return safetyOrder[a.safetyLevel] - safetyOrder[b.safetyLevel];
+      }
+      return a.tolerance - b.tolerance;
+    });
   };
 
   // Removed old drag handlers - now using simple inline handlers
@@ -499,10 +602,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     // Check return path first
     const returnPath = sessionStorage.getItem('celikHasirReturnPath');
+    console.log('Return path from storage:', returnPath);
+    
     if (returnPath) {
-      console.log('Returning to stored path:', returnPath);
-      // Force a full page reload to ensure the component re-initializes
-      window.location.href = returnPath;
+      // Force navigation back
+      window.location.replace(returnPath);
       return;
     }
     
@@ -511,12 +615,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     console.log('Returning to main list, referrer:', referrer);
     
     if (referrer === 'maliyet') {
-      window.location.href = '/uretim/hesaplamalar/maliyet';
+      window.location.replace('/uretim/hesaplamalar/maliyet');
     } else if (referrer === 'urun') {
-      window.location.href = '/uretim/hesaplamalar/urun';
+      window.location.replace('/uretim/hesaplamalar/urun');
     } else {
-      // Default fallback - go back to the main CelikHasir component
-      window.history.back();
+      // Default fallback - go back two steps to reach the component
+      window.history.go(-2);
     }
   };
 
@@ -1452,7 +1556,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+            <div className="max-h-[600px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
@@ -1954,50 +2058,160 @@ const CelikHasirOptimizasyon: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Merge dialog */}
+      {/* Enhanced Merge Dialog */}
       <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Birleştirme İşlemi</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Birleştirme İşlemi Seçenekleri</DialogTitle>
             <DialogDescription>
-              İki ürünü nasıl birleştirmek istiyorsunuz?
+              Sürükleyip bıraktığınız ürünler için tüm birleştirme seçenekleri gösteriliyor.
             </DialogDescription>
           </DialogHeader>
           {pendingMerge && (
             <div className="space-y-4">
               {pendingMerge.options && pendingMerge.options.length > 0 ? (
                 <div>
-                  <h4 className="font-semibold mb-3">Mevcut Birleştirme Seçenekleri:</h4>
-                  <div className="space-y-2">
+                  {/* Product Details Summary */}
+                  <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                      <p className="font-semibold mb-2 text-blue-800">Kaynak Ürün:</p>
+                      <div className="text-sm space-y-1">
+                        <p><strong>Tip:</strong> {pendingMerge.source.hasirTipi}</p>
+                        <p><strong>Boyut:</strong> {pendingMerge.source.uzunlukBoy}x{pendingMerge.source.uzunlukEn} cm</p>
+                        <p><strong>Adet:</strong> {pendingMerge.source.hasirSayisi}</p>
+                        <p><strong>Ağırlık:</strong> {pendingMerge.source.toplamKg}kg</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded">
+                      <p className="font-semibold mb-2 text-green-800">Hedef Ürün:</p>
+                      <div className="text-sm space-y-1">
+                        <p><strong>Tip:</strong> {pendingMerge.target.hasirTipi}</p>
+                        <p><strong>Boyut:</strong> {pendingMerge.target.uzunlukBoy}x{pendingMerge.target.uzunlukEn} cm</p>
+                        <p><strong>Adet:</strong> {pendingMerge.target.hasirSayisi}</p>
+                        <p><strong>Ağırlık:</strong> {pendingMerge.target.toplamKg}kg</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Merge Options */}
+                  <h4 className="font-semibold mb-4 text-lg">Mevcut Birleştirme Seçenekleri:</h4>
+                  <div className="space-y-3">
                     {pendingMerge.options.map((option, index) => (
                       <div 
                         key={index}
-                        className={`p-3 rounded border cursor-pointer hover:bg-gray-50 ${
-                          index === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                        className={`p-4 border rounded-lg transition-all hover:shadow-md ${
+                          index === 0 ? 'border-green-300 bg-green-50' : 
+                          option.safetyLevel === 'safe' ? 'border-blue-300 bg-blue-50' :
+                          option.safetyLevel === 'caution' ? 'border-yellow-300 bg-yellow-50' :
+                          'border-red-300 bg-red-50'
                         }`}
-                        onClick={() => {
-                          setPendingMerge({
-                            ...pendingMerge,
-                            source: option.source,
-                            target: option.target,
-                            operation: option.type
-                          });
-                        }}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className={`font-medium ${ index === 0 ? 'text-green-800' : 'text-gray-800'}`}>
+                            {/* Option Header */}
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                index === 0 ? 'bg-green-600 text-white' :
+                                option.safetyLevel === 'safe' ? 'bg-blue-600 text-white' :
+                                option.safetyLevel === 'caution' ? 'bg-yellow-500 text-black' :
+                                'bg-red-500 text-white'
+                              }`}>
+                                {index === 0 ? '🌟 ÖNERİLEN' :
+                                 option.type === 'boydan' ? '📏 BOYDAN' :
+                                 option.type === 'enden' ? '📐 ENDEN' :
+                                 option.type === 'tipi_degisiklik' ? '🔄 TİP DEĞİŞİKLİĞİ' :
+                                 '⬆️ ÜSTE TAMAMLA'}
+                              </div>
+                              
+                              <div className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                option.safetyLevel === 'safe' ? 'bg-green-500 text-white' :
+                                option.safetyLevel === 'caution' ? 'bg-yellow-500 text-black' :
+                                'bg-red-500 text-white'
+                              }`}>
+                                {option.safetyLevel === 'safe' ? '✓ GÜVENLİ' :
+                                 option.safetyLevel === 'caution' ? '⚠ DİKKAT' :
+                                 '⚠ RİSKLİ'}
+                              </div>
+                              
+                              <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                                {option.tolerance.toFixed(1)}cm tolerans
+                              </span>
+                              
+                              <span className="text-xs bg-purple-200 px-2 py-1 rounded">
+                                Öncelik: {option.priority}
+                              </span>
+                            </div>
+                            
+                            {/* Explanation */}
+                            <p className={`font-medium mb-2 ${
+                              index === 0 ? 'text-green-800' : 
+                              option.safetyLevel === 'safe' ? 'text-blue-800' :
+                              option.safetyLevel === 'caution' ? 'text-yellow-800' :
+                              'text-red-800'
+                            }`}>
                               {option.explanation}
-                              {index === 0 && <span className="text-green-600 ml-2">(Önerilen)</span>}
                             </p>
+                            
+                            {/* Additional Information */}
+                            <div className="text-xs text-gray-600 space-y-1">
+                              <p><strong>İşlem Türü:</strong> {
+                                option.type === 'boydan' ? 'Boy yönünden kesim ve birleştirme' :
+                                option.type === 'enden' ? 'En yönünden kesim ve birleştirme' :
+                                option.type === 'tipi_degisiklik' ? 'Hasır tipi değiştirerek birleştirme' :
+                                'Boyutları yukarı yuvarlayarak birleştirme'
+                              }</p>
+                              {option.tolerance > 0 && (
+                                <p><strong>Tolerans Kullanımı:</strong> {option.tolerance.toFixed(1)}cm kesim/yuvarlama gerekli</p>
+                              )}
+                              {option.safetyLevel === 'risky' && (
+                                <p className="text-red-600"><strong>⚠ Uyarı:</strong> Yüksek tolerans - müşteri onayı önerilir</p>
+                              )}
+                            </div>
                           </div>
+                          
+                          {/* Action Button */}
                           <Button
-                            size="sm"
+                            size="lg"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const merged = option.type === 'boydan' 
-                                ? optimizeBoydan(option.source, option.target)
-                                : optimizeEnden(option.source, option.target);
+                              
+                              let merged: Product;
+                              let successMessage: string;
+                              
+                              if (option.type === 'boydan') {
+                                merged = optimizeBoydan(option.source, option.target);
+                                successMessage = `Boydan birleştirme başarılı`;
+                              } else if (option.type === 'enden') {
+                                merged = optimizeEnden(option.source, option.target);
+                                successMessage = `Enden birleştirme başarılı`;
+                              } else if (option.type === 'tipi_degisiklik') {
+                                // Create merged product for type change
+                                merged = {
+                                  ...option.target,
+                                  id: `merged_tipi_${Date.now()}`,
+                                  hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
+                                  toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
+                                  mergeHistory: [
+                                    ...(option.target.mergeHistory || []),
+                                    `Tip değişikliği: ${option.source.hasirSayisi}adet ${option.source.hasirTipi} → ${option.target.hasirTipi}`
+                                  ],
+                                  aciklama: `${option.target.aciklama || ''} | TİP DEĞ: ${option.source.hasirTipi} → ${option.target.hasirTipi}`
+                                };
+                                successMessage = `Tip değişikliği birleştirmesi başarılı`;
+                              } else { // tamamla
+                                merged = {
+                                  ...option.target,
+                                  id: `merged_tamamla_${Date.now()}`,
+                                  hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
+                                  toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
+                                  mergeHistory: [
+                                    ...(option.target.mergeHistory || []),
+                                    `Üste tamamla: ${option.source.hasirSayisi}adet ${option.source.uzunlukBoy}x${option.source.uzunlukEn} → ${option.target.uzunlukBoy}x${option.target.uzunlukEn}`
+                                  ],
+                                  aciklama: `${option.target.aciklama || ''} | TAMAMLA: +${option.tolerance.toFixed(1)}cm`
+                                };
+                                successMessage = `Üste tamamlama birleştirmesi başarılı`;
+                              }
                               
                               const newProducts = [
                                 ...products.filter(p => p.id !== option.source.id && p.id !== option.target.id),
@@ -2008,25 +2222,44 @@ const CelikHasirOptimizasyon: React.FC = () => {
                               setShowMergeDialog(false);
                               setPendingMerge(null);
                               
-                              toast.success(`Birleştirme başarılı: ${option.explanation}`);
+                              toast.success(`${successMessage}: ${option.explanation}`);
                             }}
-                            className={`${index === 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                            className={`ml-4 ${
+                              index === 0 ? 'bg-green-600 hover:bg-green-700' :
+                              option.safetyLevel === 'safe' ? 'bg-blue-600 hover:bg-blue-700' :
+                              option.safetyLevel === 'caution' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                              'bg-red-600 hover:bg-red-700'
+                            } text-white min-w-[100px]`}
                           >
-                            Uygula
+                            {index === 0 ? '🌟 Uygula' : '✓ Uygula'}
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Summary Footer */}
+                  <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <strong>Toplam {pendingMerge.options.length} seçenek bulundu.</strong> 
+                      Güvenli işlemler öncelikle gösterilmektedir. 
+                      Riskli işlemler için müşteri onayı almanız önerilir.
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-4">
-                  Bu ürünler için birleştirme seçeneği bulunamadı.
+                <div className="text-center text-gray-500 py-8">
+                  <div className="text-4xl mb-4">🔍</div>
+                  <p className="text-lg font-medium">Bu ürünler için birleştirme seçeneği bulunamadı</p>
+                  <p className="text-sm mt-2">Farklı hasır tipleri, uyumsuz boyutlar veya tolerans dışı ürünler olabilir.</p>
                 </div>
               )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex justify-between">
+            <div className="text-xs text-gray-500">
+              💡 İpucu: En güvenli seçenek otomatik olarak önerilir
+            </div>
             <Button variant="outline" onClick={() => setShowMergeDialog(false)}>
               ❌ İptal
             </Button>
