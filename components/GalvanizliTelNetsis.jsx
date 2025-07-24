@@ -3860,7 +3860,12 @@ const GalvanizliTelNetsis = () => {
         });
         
         // Always increment from the highest sequence found, or start with 0 if none exist
-        return maxSequence + 1;
+        const nextSeq = maxSequence + 1;
+        console.log('🔍 checkForExistingProducts result:');
+        console.log('Found existingProducts.length:', existingProducts.length);
+        console.log('maxSequence found:', maxSequence);
+        console.log('returning nextSequence:', nextSeq);
+        return nextSeq;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
@@ -4159,6 +4164,10 @@ const GalvanizliTelNetsis = () => {
   // Proceed with actual save (called either directly or after confirmation)
   const proceedWithSave = async (allYmSts, nextSequence) => {
     try {
+      console.log('🔍 PROCEEDING WITH SAVE:');
+      console.log('nextSequence parameter received:', nextSequence);
+      console.log('typeof nextSequence:', typeof nextSequence);
+      
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       const mmGtIds = [];
       const ymStIds = [];
@@ -4166,6 +4175,8 @@ const GalvanizliTelNetsis = () => {
       
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const sequence = nextSequence.toString().padStart(2, '0');
+      
+      console.log('Calculated sequence:', sequence);
       
       // IMPORTANT: Set the processSequence state so Excel generation uses correct sequence
       setProcessSequence(sequence);
