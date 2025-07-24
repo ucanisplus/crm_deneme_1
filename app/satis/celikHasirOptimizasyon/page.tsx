@@ -491,7 +491,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const returnPath = sessionStorage.getItem('celikHasirReturnPath');
     if (returnPath) {
       console.log('Returning to stored path:', returnPath);
-      window.location.href = returnPath;
+      // Use router.push for client-side navigation
+      router.push(returnPath);
       return;
     }
     
@@ -1132,9 +1133,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto p-4 w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="mx-auto p-2 w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-4">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-2">
           <div className="flex justify-between items-center">
             <CardTitle className="text-2xl font-bold">İleri Optimizasyon</CardTitle>
             <div className="flex gap-2">
@@ -1221,9 +1222,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
         </CardHeader>
         
-        <CardContent className="space-y-6 p-6">
+        <CardContent className="space-y-3 p-3">
           {/* Filters and Tolerance */}
-          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-3 rounded-lg border">
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-2 rounded-lg border">
             <div className="flex items-center justify-between mb-2">
               <Label className="text-base font-semibold flex items-center gap-2">
                 <Filter className="h-4 w-4" />
@@ -1231,34 +1232,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
               </Label>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="shadow-sm">
-                    <Filter className="h-4 w-4 mr-1" />
-                    Hasır Tipi ({selectedFilters.hasirTipi.length})
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>  
-                <DropdownMenuContent>
-                  {uniqueValues.hasirTipi.map(value => (
-                    <DropdownMenuCheckboxItem
-                      key={value}
-                      checked={selectedFilters.hasirTipi.includes(value)}
-                      onCheckedChange={(checked) => {
-                        setSelectedFilters(prev => ({
-                          ...prev,
-                          hasirTipi: checked
-                            ? [...prev.hasirTipi, value]
-                            : prev.hasirTipi.filter(v => v !== value)
-                        }));
-                      }}
-                    >
-                      {value}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="shadow-sm">
@@ -1278,6 +1251,34 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           hasirKodu: checked
                             ? [...prev.hasirKodu, value]
                             : prev.hasirKodu.filter(v => v !== value)
+                        }));
+                      }}
+                    >
+                      {value}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="shadow-sm">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Hasır Tipi ({selectedFilters.hasirTipi.length})
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>  
+                <DropdownMenuContent>
+                  {uniqueValues.hasirTipi.map(value => (
+                    <DropdownMenuCheckboxItem
+                      key={value}
+                      checked={selectedFilters.hasirTipi.includes(value)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFilters(prev => ({
+                          ...prev,
+                          hasirTipi: checked
+                            ? [...prev.hasirTipi, value]
+                            : prev.hasirTipi.filter(v => v !== value)
                         }));
                       }}
                     >
@@ -1738,8 +1739,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         console.log('🔄 Attempting merge:', sourceId, '→', targetId);
                         
                         if (sourceId !== targetId) {
-                          const sourceProduct = products.find(p => p.id === sourceId);
-                          const targetProduct = products.find(p => p.id === targetId);
+                          const sourceProduct = filteredProducts.find(p => p.id === sourceId);
+                          const targetProduct = filteredProducts.find(p => p.id === targetId);
                           console.log('Found products:', sourceProduct?.hasirTipi, targetProduct?.hasirTipi);
                           
                           if (sourceProduct && targetProduct) {
@@ -1837,33 +1838,37 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
 
           {/* Automatic operations */}
-          <div className="flex gap-4 items-center justify-center mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
-            <div className="flex items-center gap-2 mr-4">
-              <Label className="text-sm font-medium">Max + Tolerans: {tolerance}cm</Label>
-              <Slider
-                value={[tolerance]}
-                onValueChange={(value) => setTolerance(value[0])}
-                min={0}
-                max={100}
-                step={1}
-                className="w-32"
-              />
+          <div className="mt-2 p-2 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Max Tolerans: {tolerance}cm</Label>
+                <Slider
+                  value={[tolerance]}
+                  onValueChange={(value) => setTolerance(value[0])}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-32"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium whitespace-nowrap">Max Hasır: {maxHasirSayisi}</Label>
+                <Slider
+                  value={[maxHasirSayisi]}
+                  onValueChange={(value) => setMaxHasirSayisi(value[0])}
+                  min={1}
+                  max={200}
+                  step={1}
+                  className="w-32"
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2 mr-4">
-              <Label className="text-sm font-medium">Max Hasır Sayısı: {maxHasirSayisi}</Label>
-              <Slider
-                value={[maxHasirSayisi]}
-                onValueChange={(value) => setMaxHasirSayisi(value[0])}
-                min={1}
-                max={200}
-                step={1}
-                className="w-32"
-              />
-            </div>
+            <div className="flex gap-2 flex-wrap justify-center">
             <Button 
               variant="outline"
               onClick={executeAutomaticMerges}
-              className="bg-white shadow-md hover:shadow-lg transition-shadow"
+              size="sm"
+              className="bg-white text-sm"
             >
               <Settings className="w-4 h-4 mr-2" />
               Otomatik Tüm Birleştirmeleri Uygula
@@ -1871,7 +1876,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button 
               variant="outline"
               onClick={executeFoldedImprovements}
-              className="bg-white shadow-md hover:shadow-lg transition-shadow"
+              size="sm"
+              className="bg-white text-sm"
             >
               <Layers className="w-4 h-4 mr-2" />
               Katlı İyileştirmeler
@@ -1879,14 +1885,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button 
               variant="outline"
               onClick={executeRoundingOperations}
-              className="bg-white shadow-md hover:shadow-lg transition-shadow"
+              size="sm"
+              className="bg-white text-sm"
             >
               ⬆️ En Yakın Üste Tamamla
             </Button>
             <Button 
               variant="outline"
               onClick={executeHasirTipiChanges}
-              className="bg-white shadow-md hover:shadow-lg transition-shadow"
+              size="sm"
+              className="bg-white text-sm"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Hasır Tipi Değişikliği
@@ -1923,10 +1931,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 addToHistory(testData);
                 toast.success('Test verisi yüklendi');
               }}
-              className="bg-yellow-100 shadow-md hover:shadow-lg transition-shadow"
+              size="sm"
+              className="bg-yellow-100 text-sm"
             >
               🧪 Test Verisi Yükle
             </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
