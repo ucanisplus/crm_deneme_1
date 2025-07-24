@@ -4166,9 +4166,13 @@ const GalvanizliTelNetsis = () => {
       // Save YM GT - Use same sequence as MM GT (this was working before packaging update)
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
-      console.log('Creating YM GT with same sequence as MM GT:', ymGtStokKodu);
+      console.log('🔍 DEBUGGING YMGT:');
+      console.log('MMGT sequence being used:', sequence);
+      console.log('Expected YMGT stok_kodu:', ymGtStokKodu);
+      console.log('Calling generateYmGtDatabaseData with sequence:', sequence);
       
       const ymGtData = generateYmGtDatabaseData(sequence); // Use same sequence as MMGT
+      console.log('Generated YMGT data stok_kodu:', ymGtData.stok_kodu);
       const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
