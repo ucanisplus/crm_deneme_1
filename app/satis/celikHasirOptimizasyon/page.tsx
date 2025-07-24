@@ -535,8 +535,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
       }
     }
     
+    // Remove duplicates with the same explanation
+    const uniqueOptions = options.filter((option, index, arr) => 
+      arr.findIndex(other => other.explanation === option.explanation) === index
+    );
+    
     // Sort by priority first, then by safety/tolerance
-    return options.sort((a, b) => {
+    return uniqueOptions.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.safetyLevel !== b.safetyLevel) {
         const safetyOrder = { safe: 0, caution: 1, risky: 2 };
@@ -1556,7 +1561,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-[600px] overflow-y-auto overflow-x-auto relative">
+            <div className="max-h-[550px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
@@ -2016,43 +2021,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Hasır Tipi Değişikliği
             </Button>
-            <Button 
-              variant="outline"
-              onClick={() => {
-                // Create test data with all required Product properties
-                const testData: Product[] = [
-                  { 
-                    id: '1', hasirTipi: 'Q275/275', uzunlukBoy: 250, uzunlukEn: 175, hasirSayisi: 15, 
-                    toplamKg: 100, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
-                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 10, cubukSayisiEn: 8,
-                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 6.67,
-                    isOptimized: false, uretilemez: false, aciklama: 'Test product 1'
-                  },
-                  { 
-                    id: '2', hasirTipi: 'Q275/275', uzunlukBoy: 260, uzunlukEn: 185, hasirSayisi: 25, 
-                    toplamKg: 150, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
-                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 11, cubukSayisiEn: 9,
-                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 6.0,
-                    isOptimized: false, uretilemez: false, aciklama: 'Test product 2'
-                  },
-                  { 
-                    id: '3', hasirTipi: 'TR275/275', uzunlukBoy: 250, uzunlukEn: 175, hasirSayisi: 10, 
-                    toplamKg: 80, boyCap: 275, enCap: 275, hasirTuru: 'Normal', mergeHistory: [],
-                    boyAraligi: 200, enAraligi: 200, cubukSayisiBoy: 10, cubukSayisiEn: 8,
-                    solFiliz: 75, sagFiliz: 75, onFiliz: 75, arkaFiliz: 75, adetKg: 8.0,
-                    isOptimized: false, uretilemez: false, aciklama: 'Test product 3'
-                  }
-                ];
-                setProducts(testData);
-                setFilteredProducts(testData);
-                addToHistory(testData);
-                toast.success('Test verisi yüklendi');
-              }}
-              size="sm"
-              className="bg-yellow-100 text-sm"
-            >
-              🧪 Test Verisi Yükle
-            </Button>
             </div>
           </div>
         </CardContent>
@@ -2094,84 +2062,35 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   </div>
 
                   {/* Merge Options */}
-                  <h4 className="font-semibold mb-4 text-lg">Mevcut Birleştirme Seçenekleri:</h4>
-                  <div className="space-y-3">
+                  <h4 className="font-semibold mb-3">Mevcut Birleştirme Seçenekleri:</h4>
+                  <div className="space-y-2">
                     {pendingMerge.options.map((option, index) => (
                       <div 
                         key={index}
-                        className={`p-4 border rounded-lg transition-all hover:shadow-md ${
-                          index === 0 ? 'border-green-300 bg-green-50' : 
-                          option.safetyLevel === 'safe' ? 'border-blue-300 bg-blue-50' :
-                          option.safetyLevel === 'caution' ? 'border-yellow-300 bg-yellow-50' :
-                          'border-red-300 bg-red-50'
+                        className={`p-3 rounded border cursor-pointer hover:bg-gray-50 ${
+                          index === 0 ? 'border-green-300 bg-green-50' : 'border-gray-200'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            {/* Option Header */}
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                index === 0 ? 'bg-green-600 text-white' :
-                                option.safetyLevel === 'safe' ? 'bg-blue-600 text-white' :
-                                option.safetyLevel === 'caution' ? 'bg-yellow-500 text-black' :
-                                'bg-red-500 text-white'
-                              }`}>
-                                {index === 0 ? '🌟 ÖNERİLEN' :
-                                 option.type === 'boydan' ? '📏 BOYDAN' :
-                                 option.type === 'enden' ? '📐 ENDEN' :
-                                 option.type === 'tipi_degisiklik' ? '🔄 TİP DEĞİŞİKLİĞİ' :
-                                 '⬆️ ÜSTE TAMAMLA'}
-                              </div>
-                              
-                              <div className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                option.safetyLevel === 'safe' ? 'bg-green-500 text-white' :
-                                option.safetyLevel === 'caution' ? 'bg-yellow-500 text-black' :
-                                'bg-red-500 text-white'
-                              }`}>
-                                {option.safetyLevel === 'safe' ? '✓ GÜVENLİ' :
-                                 option.safetyLevel === 'caution' ? '⚠ DİKKAT' :
-                                 '⚠ RİSKLİ'}
-                              </div>
-                              
-                              <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                                {option.tolerance.toFixed(1)}cm tolerans
-                              </span>
-                              
-                              <span className="text-xs bg-purple-200 px-2 py-1 rounded">
-                                Öncelik: {option.priority}
-                              </span>
-                            </div>
-                            
-                            {/* Explanation */}
-                            <p className={`font-medium mb-2 ${
-                              index === 0 ? 'text-green-800' : 
-                              option.safetyLevel === 'safe' ? 'text-blue-800' :
-                              option.safetyLevel === 'caution' ? 'text-yellow-800' :
-                              'text-red-800'
-                            }`}>
+                            <p className={`font-medium ${ index === 0 ? 'text-green-800' : 'text-gray-800'}`}>
                               {option.explanation}
+                              {index === 0 && <span className="text-green-600 ml-2">(Önerilen)</span>}
                             </p>
-                            
-                            {/* Additional Information */}
-                            <div className="text-xs text-gray-600 space-y-1">
-                              <p><strong>İşlem Türü:</strong> {
-                                option.type === 'boydan' ? 'Boy yönünden kesim ve birleştirme' :
-                                option.type === 'enden' ? 'En yönünden kesim ve birleştirme' :
-                                option.type === 'tipi_degisiklik' ? 'Hasır tipi değiştirerek birleştirme' :
-                                'Boyutları yukarı yuvarlayarak birleştirme'
-                              }</p>
-                              {option.tolerance > 0 && (
-                                <p><strong>Tolerans Kullanımı:</strong> {option.tolerance.toFixed(1)}cm kesim/yuvarlama gerekli</p>
-                              )}
-                              {option.safetyLevel === 'risky' && (
-                                <p className="text-red-600"><strong>⚠ Uyarı:</strong> Yüksek tolerans - müşteri onayı önerilir</p>
-                              )}
+                            <div className="text-xs text-gray-600 mt-1">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                option.safetyLevel === 'safe' ? 'bg-green-100 text-green-800' :
+                                option.safetyLevel === 'caution' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {option.safetyLevel === 'safe' ? 'Güvenli' :
+                                 option.safetyLevel === 'caution' ? 'Dikkat' :
+                                 'Riskli'} - {option.tolerance.toFixed(1)}cm tolerans
+                              </span>
                             </div>
                           </div>
-                          
-                          {/* Action Button */}
                           <Button
-                            size="lg"
+                            size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               
@@ -2224,44 +2143,25 @@ const CelikHasirOptimizasyon: React.FC = () => {
                               
                               toast.success(`${successMessage}: ${option.explanation}`);
                             }}
-                            className={`ml-4 ${
-                              index === 0 ? 'bg-green-600 hover:bg-green-700' :
-                              option.safetyLevel === 'safe' ? 'bg-blue-600 hover:bg-blue-700' :
-                              option.safetyLevel === 'caution' ? 'bg-yellow-600 hover:bg-yellow-700' :
-                              'bg-red-600 hover:bg-red-700'
-                            } text-white min-w-[100px]`}
+                            className={`${index === 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
                           >
-                            {index === 0 ? '🌟 Uygula' : '✓ Uygula'}
+                            Uygula
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  
-                  {/* Summary Footer */}
-                  <div className="mt-6 p-4 bg-gray-100 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <strong>Toplam {pendingMerge.options.length} seçenek bulundu.</strong> 
-                      Güvenli işlemler öncelikle gösterilmektedir. 
-                      Riskli işlemler için müşteri onayı almanız önerilir.
-                    </p>
-                  </div>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-8">
-                  <div className="text-4xl mb-4">🔍</div>
-                  <p className="text-lg font-medium">Bu ürünler için birleştirme seçeneği bulunamadı</p>
-                  <p className="text-sm mt-2">Farklı hasır tipleri, uyumsuz boyutlar veya tolerans dışı ürünler olabilir.</p>
+                <div className="text-center text-gray-500 py-4">
+                  Bu ürünler için birleştirme seçeneği bulunamadı.
                 </div>
               )}
             </div>
           )}
-          <DialogFooter className="flex justify-between">
-            <div className="text-xs text-gray-500">
-              💡 İpucu: En güvenli seçenek otomatik olarak önerilir
-            </div>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setShowMergeDialog(false)}>
-              ❌ İptal
+              İptal
             </Button>
           </DialogFooter>
         </DialogContent>
