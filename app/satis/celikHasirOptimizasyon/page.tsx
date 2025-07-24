@@ -144,10 +144,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (sessionData) {
       try {
         const parsedData = JSON.parse(sessionData);
-        // Ensure all products have IDs
+        // Ensure all products have string IDs
         const dataWithIds = parsedData.map((product: any, index: number) => ({
           ...product,
-          id: product.id || `product_${index}_${Date.now()}`
+          id: String(product.id || `product_${index}_${Date.now()}`)
         }));
         setProducts(dataWithIds);
         setFilteredProducts(dataWithIds);
@@ -167,10 +167,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (dataParam) {
       try {
         const decodedData = JSON.parse(decodeURIComponent(dataParam));
-        // Ensure all products have IDs
+        // Ensure all products have string IDs
         const dataWithIds = decodedData.map((product: any, index: number) => ({
           ...product,
-          id: product.id || `product_${index}_${Date.now()}`
+          id: String(product.id || `product_${index}_${Date.now()}`)
         }));
         setProducts(dataWithIds);
         setFilteredProducts(dataWithIds);
@@ -1452,7 +1452,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Products table */}
           <div className="border rounded-lg bg-white shadow-lg">
-            <div className="max-h-[350px] overflow-y-auto overflow-x-auto relative">
+            <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
               <table 
                 className="w-full border-collapse"
               >
@@ -1733,8 +1733,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       draggable={true}
                       onDragStart={(e) => {
                         console.log('🚀 DRAG START:', product.id, product.hasirTipi);
-                        e.dataTransfer.setData('text/plain', product.id);
-                        setDraggedProductId(product.id);
+                        e.dataTransfer.setData('text/plain', String(product.id));
+                        setDraggedProductId(String(product.id));
                         e.currentTarget.classList.add('opacity-50');
                       }}
                       onDragOver={(e) => {
@@ -1745,14 +1745,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         e.preventDefault();
                         console.log('🎯 DROP EVENT on:', product.id);
                         const sourceId = e.dataTransfer.getData('text/plain');
-                        const targetId = product.id;
+                        const targetId = String(product.id);
                         console.log('🔄 Attempting merge:', sourceId, '→', targetId);
                         
                         if (sourceId !== targetId) {
                           console.log('Looking for products with IDs:', sourceId, targetId);
-                          console.log('Available products:', filteredProducts.map(p => ({id: p.id, hasirTipi: p.hasirTipi})));
-                          const sourceProduct = filteredProducts.find(p => p.id === sourceId);
-                          const targetProduct = filteredProducts.find(p => p.id === targetId);
+                          console.log('Available product IDs:', filteredProducts.map(p => p.id));
+                          console.log('First few products:', filteredProducts.slice(0, 5));
+                          const sourceProduct = filteredProducts.find(p => String(p.id) === sourceId);
+                          const targetProduct = filteredProducts.find(p => String(p.id) === targetId);
                           console.log('Found products:', sourceProduct, targetProduct);
                           
                           if (sourceProduct && targetProduct) {
