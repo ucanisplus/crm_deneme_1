@@ -3859,8 +3859,8 @@ const GalvanizliTelNetsis = () => {
           }
         });
         
-        // If no existing products, start with 0, otherwise increment
-        return existingProducts.length === 0 ? 0 : maxSequence + 1;
+        // Always increment from the highest sequence found, or start with 0 if none exist
+        return maxSequence + 1;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
@@ -4132,9 +4132,19 @@ const GalvanizliTelNetsis = () => {
           // Proceed with save as new product
           return await proceedWithSave(allYmSts, nextSequence);
         } else {
-          // No existing products, create with sequence 00
-          setProcessSequence('00');
-          return await proceedWithSave(allYmSts, 0);
+          // No existing products with same base code, but still need to check for proper sequence
+          // This should never happen now since checkForExistingProducts handles this
+          const nextSequence = await checkForExistingProducts(
+            mmGtData.cap,
+            mmGtData.kod_2, 
+            mmGtData.kaplama,
+            mmGtData.min_mukavemet,
+            mmGtData.max_mukavemet,
+            mmGtData.kg
+          );
+          const sequence = nextSequence.toString().padStart(2, '0');
+          setProcessSequence(sequence);
+          return await proceedWithSave(allYmSts, nextSequence);
         }
       }
       
