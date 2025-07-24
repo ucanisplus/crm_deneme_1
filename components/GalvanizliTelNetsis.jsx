@@ -3820,12 +3820,29 @@ const GalvanizliTelNetsis = () => {
   const checkForExistingProducts = async (cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg) => {
     try {
       const capFormatted = Math.round(parseFloat(cap) * 100).toString().padStart(4, '0');
-      const baseCode = `GT.${kod_2}.${capFormatted}`;
+      const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
+      const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
       
-      // Aynı core değerlere sahip ürünleri ara
-      const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
-      if (response && response.ok) {
-        const existingProducts = await response.json();
+      // Search both MMGT and YMGT to find the highest sequence
+      const [mmGtResponse, ymGtResponse] = await Promise.all([
+        fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
+        fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`)
+      ]);
+      
+      const allProducts = [];
+      
+      if (mmGtResponse && mmGtResponse.ok) {
+        const mmGtProducts = await mmGtResponse.json();
+        allProducts.push(...mmGtProducts);
+      }
+      
+      if (ymGtResponse && ymGtResponse.ok) {
+        const ymGtProducts = await ymGtResponse.json();
+        allProducts.push(...ymGtProducts);
+      }
+      
+      if (allProducts.length > 0) {
+        const existingProducts = allProducts;
         
         // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
         // Use the same generateStokAdi function to ensure consistent formatting
@@ -3862,7 +3879,7 @@ const GalvanizliTelNetsis = () => {
         // Always increment from the highest sequence found, or start with 0 if none exist
         const nextSeq = maxSequence + 1;
         console.log('🔍 checkForExistingProducts result:');
-        console.log('Found existingProducts.length:', existingProducts.length);
+        console.log('Found total products (MMGT + YMGT):', existingProducts.length);
         console.log('maxSequence found:', maxSequence);
         console.log('returning nextSequence:', nextSeq);
         return nextSeq;
