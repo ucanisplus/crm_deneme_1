@@ -97,6 +97,24 @@ const GalvanizliTelNetsis = () => {
   
   // Veritabanı sıralama durumları
   const [dbSortField, setDbSortField] = useState('cap'); // Sıralama alanı (cap, kod_2, kaplama, created_at)
+  
+  // Task Queue System için state'ler
+  const [taskQueue, setTaskQueue] = useState([]); // {id, name, status: 'pending'|'processing'|'completed'|'failed', timestamp}
+  const [showTaskQueuePopup, setShowTaskQueuePopup] = useState(false);
+  const taskQueueRef = useRef([]);
+  const processingTaskRef = useRef(false);
+  
+  // Session tracking for approvals
+  const sessionStartTime = useRef(new Date());
+  const [sessionApprovals, setSessionApprovals] = useState([]);
+  
+  // Bulk Excel Export için state'ler
+  const [showBulkExcelMenu, setShowBulkExcelMenu] = useState(false);
+  const [bulkExcelDateRange, setBulkExcelDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  });
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [dbSortDirection, setDbSortDirection] = useState('asc'); // Sıralama yönü (asc, desc)
   
   // Kopya onay diyalog durumlari
@@ -330,6 +348,77 @@ const GalvanizliTelNetsis = () => {
     }
   }, [mmGtData.cap, mmGtData.ic_cap]);
   
+  // Task Queue Functions
+  const addToTaskQueue = (taskName, saveFunction, taskId = null) => {
+    const newTask = {
+      id: taskId || Date.now().toString(),
+      name: taskName,
+      status: 'pending',
+      timestamp: new Date(),
+      saveFunction: saveFunction
+    };
+    setTaskQueue(prev => [...prev, newTask]);
+    taskQueueRef.current = [...taskQueueRef.current, newTask];
+    return newTask.id;
+  };
+
+  const updateTaskStatus = (taskId, status) => {
+    setTaskQueue(prev => prev.map(task => 
+      task.id === taskId ? { ...task, status } : task
+    ));
+    taskQueueRef.current = taskQueueRef.current.map(task => 
+      task.id === taskId ? { ...task, status } : task
+    );
+  };
+
+  const processTaskQueue = async () => {
+    if (processingTaskRef.current) return;
+    
+    const pendingTasks = taskQueueRef.current.filter(t => t.status === 'pending');
+    if (pendingTasks.length === 0) return;
+    
+    processingTaskRef.current = true;
+    const currentTask = pendingTasks[0];
+    
+    try {
+      updateTaskStatus(currentTask.id, 'processing');
+      
+      // Execute the actual save operation with the task's context
+      if (currentTask.saveFunction) {
+        const saveResult = await currentTask.saveFunction();
+        if (saveResult) {
+          updateTaskStatus(currentTask.id, 'completed');
+          toast.success(`${currentTask.name} başarıyla tamamlandı!`);
+        } else {
+          updateTaskStatus(currentTask.id, 'failed');
+          toast.error(`${currentTask.name} başarısız oldu!`);
+        }
+      }
+    } catch (error) {
+      updateTaskStatus(currentTask.id, 'failed');
+      toast.error(`${currentTask.name} hatası: ${error.message}`);
+    } finally {
+      processingTaskRef.current = false;
+      // Process next task if any
+      setTimeout(() => processTaskQueue(), 500);
+    }
+  };
+
+  // Browser close prevention
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const hasPendingTasks = taskQueue.some(t => t.status === 'pending' || t.status === 'processing');
+      if (hasPendingTasks) {
+        e.preventDefault();
+        e.returnValue = 'Devam eden işlemler var. Sayfayı kapatmak istediğinizden emin misiniz?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [taskQueue]);
+
   // Kod-2 değişikliğinde kaplama değerini güncelle
   useEffect(() => {
     if (mmGtData.kod_2 === 'PAD' && mmGtData.kaplama === '100') {
@@ -7109,6 +7198,112 @@ const GalvanizliTelNetsis = () => {
       setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   };
+  
+  // Download Today's Approved Excel
+  const downloadTodaysApprovedExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const todaysApprovedRequests = requests.filter(req => {
+        if (!req || !req.status) return false;
+        
+        const status = req.status.toString().toLowerCase().trim();
+        const approvedAt = new Date(req.approved_at || req.updated_at);
+        approvedAt.setHours(0, 0, 0, 0);
+        
+        return status === 'approved' && approvedAt.getTime() === today.getTime();
+      });
+      
+      if (todaysApprovedRequests.length === 0) {
+        toast.warning('Bugün onaylanmış talep bulunamadı.');
+        return;
+      }
+      
+      await generateBatchExcelFromRequests(todaysApprovedRequests);
+      toast.success(`Bugün onaylanan ${todaysApprovedRequests.length} talep için Excel dosyaları oluşturuldu!`);
+    } catch (error) {
+      console.error('Today\'s Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+    }
+  };
+  
+  // Download Session Approved Excel
+  const downloadSessionApprovedExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      
+      if (sessionApprovals.length === 0) {
+        toast.warning('Bu oturumda onaylanmış talep bulunamadı.');
+        return;
+      }
+      
+      const sessionApprovedRequests = requests.filter(req => 
+        sessionApprovals.includes(req.id)
+      );
+      
+      if (sessionApprovedRequests.length === 0) {
+        toast.warning('Oturum talepleri bulunamadı.');
+        return;
+      }
+      
+      await generateBatchExcelFromRequests(sessionApprovedRequests);
+      toast.success(`Bu oturumda onaylanan ${sessionApprovedRequests.length} talep için Excel dosyaları oluşturuldu!`);
+    } catch (error) {
+      console.error('Session Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+    }
+  };
+  
+  // Download Date Range Approved Excel
+  const downloadDateRangeApprovedExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      
+      if (!bulkExcelDateRange.startDate || !bulkExcelDateRange.endDate) {
+        toast.warning('Lütfen tarih aralığı seçin.');
+        return;
+      }
+      
+      const startDate = new Date(bulkExcelDateRange.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(bulkExcelDateRange.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      
+      const dateRangeApprovedRequests = requests.filter(req => {
+        if (!req || !req.status) return false;
+        
+        const status = req.status.toString().toLowerCase().trim();
+        const approvedAt = new Date(req.approved_at || req.updated_at);
+        
+        return status === 'approved' && 
+               approvedAt >= startDate && 
+               approvedAt <= endDate;
+      });
+      
+      if (dateRangeApprovedRequests.length === 0) {
+        toast.warning('Seçilen tarih aralığında onaylanmış talep bulunamadı.');
+        return;
+      }
+      
+      await generateBatchExcelFromRequests(dateRangeApprovedRequests);
+      toast.success(`Seçilen tarih aralığında ${dateRangeApprovedRequests.length} talep için Excel dosyaları oluşturuldu!`);
+    } catch (error) {
+      console.error('Date range Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+      setShowDateRangePicker(false);
+    }
+  };
 
   // Export selected approved requests to Excel
   const exportSelectedToExcel = async () => {
@@ -9117,6 +9312,9 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (response && response.ok) {
+        // Add to session approvals
+        setSessionApprovals(prev => [...prev, selectedRequest.id]);
+        
         toast.success('Talep başarıyla onaylandı');
         fetchRequests();
         setSelectedRequest(null);
@@ -9243,6 +9441,22 @@ const GalvanizliTelNetsis = () => {
               </span>
             )}
           </button>
+          
+          {/* Task Queue Indicator */}
+          {taskQueue.length > 0 && (
+            <button
+              onClick={() => setShowTaskQueuePopup(true)}
+              className="relative bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors shadow-lg flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              İşlemler
+              <span className="bg-amber-800 px-2 py-0.5 rounded-full text-xs">
+                {taskQueue.filter(t => t.status === 'pending').length} bekliyor
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -10459,45 +10673,32 @@ const GalvanizliTelNetsis = () => {
               {((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && (
                 <button
                   onClick={async () => {
-                    try {
-                      setIsLoading(true);
-                      console.log("Sadece Kaydet - saving to database only");
-                      
-                      // Save to database without generating Excel
-                      const saveResult = await checkForDuplicatesAndConfirm();
-                      if (saveResult) {
-                        toast.success("Veriler başarıyla veritabanına kaydedildi!");
-                        console.log("Database save completed successfully");
-                      } else {
-                        console.log("Save operation was cancelled or failed");
-                      }
-                    } catch (error) {
-                      console.error("Error during save operation:", error);
-                      setError(`Kaydetme hatası: ${error.message}`);
-                      toast.error(`Kaydetme hatası: ${error.message}`);
-                    } finally {
-                      setIsLoading(false);
-                    }
+                    console.log("Sadece Kaydet - adding to queue");
+                    
+                    // Get product name for task display
+                    const productName = `${mmGtData.kod_2} ${mmGtData.cap}mm`;
+                    const taskName = `${productName} Kaydetme`;
+                    
+                    // Add to queue with save function
+                    addToTaskQueue(taskName, async () => {
+                      return await checkForDuplicatesAndConfirm();
+                    });
+                    
+                    // Start processing queue
+                    processTaskQueue();
+                    
+                    // Show queue popup
+                    setShowTaskQueuePopup(true);
+                    
+                    toast.info(`${productName} kaydetme işlemi sıraya eklendi`);
                   }}
-                  disabled={isLoading || isLoadingRecipes}
+                  disabled={isLoadingRecipes}
                   className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
                 >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Kaydediliyor...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Sadece Kaydet
-                    </>
-                  )}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Sadece Kaydet
                 </button>
               )}
             </div>
@@ -10770,17 +10971,71 @@ const GalvanizliTelNetsis = () => {
                 </h2>
                 <div className="flex gap-3">
                   {/* Excel Disari Aktarma Butonlari */}
-                  <button
-                    onClick={exportAllApprovedToExcel}
-                    disabled={isExportingExcel || requests.filter(req => req.status?.toString().toLowerCase().trim() === 'approved').length === 0}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Tüm onaylanmış talepleri Excel'e aktar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {isExportingExcel ? 'İşleniyor...' : 'Tüm Onaylanmışlar Excel'}
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowBulkExcelMenu(!showBulkExcelMenu)}
+                      disabled={isExportingExcel}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                      title="Toplu Excel oluşturma seçenekleri"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {isExportingExcel ? 'İşleniyor...' : 'Toplu Excel Oluştur'}
+                      <svg className={`w-4 h-4 transition-transform ${showBulkExcelMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showBulkExcelMenu && (
+                      <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                        <button
+                          onClick={() => {
+                            setShowBulkExcelMenu(false);
+                            exportAllApprovedToExcel();
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
+                        >
+                          <div className="font-medium">Tüm Onaylanmışları İndir</div>
+                          <div className="text-sm text-gray-500">Veritabanındaki tüm onaylı talepler</div>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setShowBulkExcelMenu(false);
+                            downloadTodaysApprovedExcel();
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
+                        >
+                          <div className="font-medium">Bugün Onaylananları İndir</div>
+                          <div className="text-sm text-gray-500">Sadece bugün onaylanan talepler</div>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setShowBulkExcelMenu(false);
+                            downloadSessionApprovedExcel();
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
+                        >
+                          <div className="font-medium">Bu Oturumda Onaylananları İndir</div>
+                          <div className="text-sm text-gray-500">{sessionApprovals.length} talep</div>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setShowBulkExcelMenu(false);
+                            setShowDateRangePicker(true);
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50"
+                        >
+                          <div className="font-medium">Tarih Aralığına Göre İndir</div>
+                          <div className="text-sm text-gray-500">Özel tarih aralığı seçin</div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   
                   <button
                     onClick={exportSelectedToExcel}
@@ -12563,6 +12818,154 @@ const GalvanizliTelNetsis = () => {
                   {excelProgress.currentProduct}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Task Queue Popup */}
+      {showTaskQueuePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowTaskQueuePopup(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-96 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">İşlem Sırası</h3>
+              <button
+                onClick={() => setShowTaskQueuePopup(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {taskQueue.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Bekleyen işlem yok</p>
+            ) : (
+              <div className="space-y-2">
+                {taskQueue.map((task) => (
+                  <div
+                    key={task.id}
+                    className={`p-3 rounded-lg border ${
+                      task.status === 'completed' ? 'bg-green-50 border-green-200' :
+                      task.status === 'processing' ? 'bg-blue-50 border-blue-200' :
+                      task.status === 'failed' ? 'bg-red-50 border-red-200' :
+                      'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{task.name}</span>
+                      <div className="flex items-center gap-2">
+                        {task.status === 'pending' && (
+                          <span className="text-xs text-gray-500">Bekliyor</span>
+                        )}
+                        {task.status === 'processing' && (
+                          <div className="flex items-center gap-1">
+                            <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="text-xs text-blue-600">İşleniyor</span>
+                          </div>
+                        )}
+                        {task.status === 'completed' && (
+                          <div className="flex items-center gap-1">
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-xs text-green-600">Tamamlandı</span>
+                          </div>
+                        )}
+                        {task.status === 'failed' && (
+                          <div className="flex items-center gap-1">
+                            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <span className="text-xs text-red-600">Başarısız</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(task.timestamp).toLocaleTimeString('tr-TR')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Toplam:</span>
+                <span className="font-medium">{taskQueue.length} işlem</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-gray-600">Tamamlanan:</span>
+                <span className="font-medium text-green-600">
+                  {taskQueue.filter(t => t.status === 'completed').length} işlem
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Date Range Picker Modal */}
+      {showDateRangePicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDateRangePicker(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Tarih Aralığı Seçin</h3>
+              <button
+                onClick={() => setShowDateRangePicker(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Başlangıç Tarihi
+                </label>
+                <input
+                  type="date"
+                  value={bulkExcelDateRange.startDate}
+                  onChange={(e) => setBulkExcelDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bitiş Tarihi
+                </label>
+                <input
+                  type="date"
+                  value={bulkExcelDateRange.endDate}
+                  onChange={(e) => setBulkExcelDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowDateRangePicker(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={downloadDateRangeApprovedExcel}
+                  disabled={!bulkExcelDateRange.startDate || !bulkExcelDateRange.endDate}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Excel Oluştur
+                </button>
+              </div>
             </div>
           </div>
         </div>
