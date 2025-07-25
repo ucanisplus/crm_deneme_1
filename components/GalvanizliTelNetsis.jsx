@@ -7310,9 +7310,24 @@ const GalvanizliTelNetsis = () => {
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
               const mmGtRecipes = await mmGtRecipeResponse.json();
               mmGtRecipes.forEach(r => {
-                const key = `${mmGt.stok_kodu}-${r.bilesen_kodu}`;
+                // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
+                let updatedBilesenKodu = r.bilesen_kodu;
+                if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
+                  // MM GT stok kodundan sequence'i al
+                  const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
+                  // YM.GT bileşen kodundaki sequence'i değiştir
+                  const bilesenParts = r.bilesen_kodu.split('.');
+                  if (bilesenParts.length >= 5) {
+                    // Örnek: YM.GT.PAD.0150.00 -> YM.GT.PAD.0150.02
+                    bilesenParts[bilesenParts.length - 1] = mmGtSequence;
+                    updatedBilesenKodu = bilesenParts.join('.');
+                  }
+                }
+                
+                const key = `${mmGt.stok_kodu}-${updatedBilesenKodu}`;
                 mmGtRecipeMap.set(key, {
                   ...r,
+                  bilesen_kodu: updatedBilesenKodu, // Güncellenmiş bileşen kodunu kullan
                   mm_gt_stok_kodu: mmGt.stok_kodu,
                   sequence: mmGt.stok_kodu?.split('.').pop() || '00'
                 });
