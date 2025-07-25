@@ -1019,7 +1019,7 @@ const SatisGalvanizRequest = () => {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 max-w-full mx-auto">
+    <div className="bg-white rounded-lg shadow-md p-4 max-w-full mx-auto">
       {/* Header with toggle button */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
