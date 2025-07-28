@@ -407,11 +407,15 @@ const GalvanizliTelNetsis = () => {
   // Browser close prevention
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      const hasPendingTasks = taskQueue.some(t => t.status === 'pending' || t.status === 'processing');
-      if (hasPendingTasks) {
+      const pendingCount = taskQueue.filter(t => t.status === 'pending').length;
+      const processingCount = taskQueue.filter(t => t.status === 'processing').length;
+      const totalActive = pendingCount + processingCount;
+      
+      if (totalActive > 0) {
         e.preventDefault();
-        e.returnValue = 'Devam eden işlemler var. Sayfayı kapatmak istediğinizden emin misiniz?';
-        return e.returnValue;
+        const message = `${processingCount} işlem devam ediyor ve ${pendingCount} işlem bekliyor. Sayfayı kapatırsanız bu işlemler iptal olacak. Devam etmek istiyor musunuz?`;
+        e.returnValue = message;
+        return message;
       }
     };
 
@@ -7081,14 +7085,17 @@ const GalvanizliTelNetsis = () => {
 
   // Request selection handlers
   const handleSelectAllRequests = () => {
-    const approvedRequests = getFilteredAndSortedRequests().filter(req => req.status?.toString().toLowerCase().trim() === 'approved');
-    const allIds = approvedRequests.map(req => req.id);
+    const selectableRequests = getFilteredAndSortedRequests().filter(req => {
+      const status = req.status?.toString().toLowerCase().trim();
+      return status === 'approved' || status === 'rejected' || status === 'pending';
+    });
+    const allIds = selectableRequests.map(req => req.id);
     
     if (selectedRequestIds.length === allIds.length) {
       // Deselect all
       setSelectedRequestIds([]);
     } else {
-      // Select all approved
+      // Select all selectable requests
       setSelectedRequestIds(allIds);
     }
   };
@@ -7112,10 +7119,19 @@ const GalvanizliTelNetsis = () => {
     
     const selectedRequests = requests.filter(req => selectedRequestIds.includes(req.id));
     const approvedCount = selectedRequests.filter(req => req.status === 'approved').length;
+    const rejectedCount = selectedRequests.filter(req => req.status === 'rejected').length;
+    const pendingCount = selectedRequests.filter(req => req.status === 'pending').length;
     
-    let confirmMessage = `${selectedRequestIds.length} adet talebi silmek istediğinizden emin misiniz?`;
+    let confirmMessage = `${selectedRequestIds.length} adet talebi silmek istediğinizden emin misiniz?\n\n`;
+    
+    if (pendingCount > 0) {
+      confirmMessage += `• ${pendingCount} adet bekleyen talep\n`;
+    }
+    if (rejectedCount > 0) {
+      confirmMessage += `• ${rejectedCount} adet reddedilmiş talep\n`;
+    }
     if (approvedCount > 0) {
-      confirmMessage += `\n\n${approvedCount} adet onaylanmış talep var. Bu ürünler zaten veritabanına kaydedilmiş olabilir.`;
+      confirmMessage += `• ${approvedCount} adet onaylanmış talep (Bu ürünler zaten veritabanına kaydedilmiş olabilir)\n`;
     }
     
     if (!window.confirm(confirmMessage)) {
@@ -9442,21 +9458,6 @@ const GalvanizliTelNetsis = () => {
             )}
           </button>
           
-          {/* Task Queue Indicator */}
-          {taskQueue.length > 0 && (
-            <button
-              onClick={() => setShowTaskQueuePopup(true)}
-              className="relative bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors shadow-lg flex items-center gap-2"
-            >
-              <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              İşlemler
-              <span className="bg-amber-800 px-2 py-0.5 rounded-full text-xs">
-                {taskQueue.filter(t => t.status === 'pending').length} bekliyor
-              </span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -10672,25 +10673,54 @@ const GalvanizliTelNetsis = () => {
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && (
                 <button
-                  onClick={async () => {
+                  onClick={(e) => {
                     console.log("Sadece Kaydet - adding to queue");
                     
                     // Get product name for task display
                     const productName = `${mmGtData.kod_2} ${mmGtData.cap}mm`;
-                    const taskName = `${productName} Kaydetme`;
+                    const taskName = `${productName}`;
+                    const taskId = Date.now().toString();
+                    
+                    // Create animation element
+                    const buttonRect = e.currentTarget.getBoundingClientRect();
+                    const animElement = document.createElement('div');
+                    animElement.className = 'fixed z-50 bg-green-600 text-white px-3 py-1 rounded-lg text-sm pointer-events-none transition-all duration-700 shadow-lg';
+                    animElement.innerHTML = `
+                      <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        ${taskName}
+                      </div>
+                    `;
+                    animElement.style.left = `${buttonRect.left}px`;
+                    animElement.style.top = `${buttonRect.top}px`;
+                    document.body.appendChild(animElement);
+                    
+                    // Calculate target position (bottom bar)
+                    const targetY = window.innerHeight - 60;
+                    const targetX = 100 + (taskQueue.length * 150);
+                    
+                    // Animate to bottom bar
+                    requestAnimationFrame(() => {
+                      animElement.style.transform = `translate(${targetX - buttonRect.left}px, ${targetY - buttonRect.top}px) scale(0.9)`;
+                      animElement.style.opacity = '0.3';
+                    });
+                    
+                    // Remove animation element
+                    setTimeout(() => {
+                      if (animElement.parentNode) {
+                        document.body.removeChild(animElement);
+                      }
+                    }, 700);
                     
                     // Add to queue with save function
                     addToTaskQueue(taskName, async () => {
                       return await checkForDuplicatesAndConfirm();
-                    });
+                    }, taskId);
                     
                     // Start processing queue
                     processTaskQueue();
-                    
-                    // Show queue popup
-                    setShowTaskQueuePopup(true);
-                    
-                    toast.info(`${productName} kaydetme işlemi sıraya eklendi`);
                   }}
                   disabled={isLoadingRecipes}
                   className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
@@ -11041,12 +11071,12 @@ const GalvanizliTelNetsis = () => {
                     onClick={exportSelectedToExcel}
                     disabled={isExportingExcel || selectedRequestIds.length === 0}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={`${selectedRequestIds.length} seçili onaylanmış talebi Excel'e aktar`}
+                    title={`${selectedRequestIds.filter(id => requests.find(r => r.id === id)?.status === 'approved').length} seçili onaylanmış talebi Excel'e aktar`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    {isExportingExcel ? 'İşleniyor...' : `Seçili Onaylanmışlar Excel (${selectedRequestIds.length})`}
+                    {isExportingExcel ? 'İşleniyor...' : `Seçili Onaylanmışlar Excel (${selectedRequestIds.filter(id => requests.find(r => r.id === id)?.status === 'approved').length})`}
                   </button>
                   
                   {/* Bulk Delete Button */}
@@ -11231,12 +11261,16 @@ const GalvanizliTelNetsis = () => {
                               type="checkbox"
                               checked={
                                 selectedRequestIds.length > 0 && 
-                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => req.status === 'approved').length &&
-                                getFilteredAndSortedRequests().filter(req => req.status === 'approved').length > 0
+                                selectedRequestIds.length === getFilteredAndSortedRequests().filter(req => 
+                                  req.status === 'approved' || req.status === 'rejected' || req.status === 'pending'
+                                ).length &&
+                                getFilteredAndSortedRequests().filter(req => 
+                                  req.status === 'approved' || req.status === 'rejected' || req.status === 'pending'
+                                ).length > 0
                               }
                               onChange={handleSelectAllRequests}
                               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              title="Tüm onaylanmış talepleri seç/kaldır"
+                              title="Tüm talepleri seç/kaldır"
                             />
                           </div>
                         </th>
@@ -11284,9 +11318,13 @@ const GalvanizliTelNetsis = () => {
                                 type="checkbox"
                                 checked={selectedRequestIds.includes(request.id)}
                                 onChange={() => handleToggleRequestSelection(request.id)}
-                                disabled={request.status !== 'approved'}
+                                disabled={request.status !== 'approved' && request.status !== 'rejected' && request.status !== 'pending'}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={request.status === 'approved' ? 'Bu talebi seç/kaldır' : 'Sadece onaylanmış talepler seçilebilir'}
+                                title={
+                                  request.status === 'approved' || request.status === 'rejected' || request.status === 'pending' 
+                                    ? 'Bu talebi seç/kaldır' 
+                                    : 'Bu talep seçilemez'
+                                }
                               />
                             </div>
                           </td>
@@ -11357,6 +11395,20 @@ const GalvanizliTelNetsis = () => {
                                   }}
                                   className="text-red-600 hover:text-red-900 transition-colors"
                                   title="Onaylanmış talebi sil"
+                                  disabled={isLoading || isLoadingRecipes}
+                                >
+                                  Sil
+                                </button>
+                              )}
+                              {request.status === 'rejected' && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Bu reddedilmiş talebi silmek istediğinizden emin misiniz?')) {
+                                      deleteRequest(request.id);
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-900 transition-colors"
+                                  title="Reddedilmiş talebi sil"
                                   disabled={isLoading || isLoadingRecipes}
                                 >
                                   Sil
@@ -12823,88 +12875,88 @@ const GalvanizliTelNetsis = () => {
         </div>
       )}
       
-      {/* Task Queue Popup */}
-      {showTaskQueuePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowTaskQueuePopup(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-96 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">İşlem Sırası</h3>
+      {/* Task Queue Bottom Bar - Calibre Style */}
+      {taskQueue.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white z-40 shadow-2xl">
+          <div className="px-4 py-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <h4 className="text-sm font-medium">İşlemler</h4>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="bg-blue-600 px-2 py-0.5 rounded">
+                    {taskQueue.filter(t => t.status === 'processing').length} işleniyor
+                  </span>
+                  <span className="bg-gray-600 px-2 py-0.5 rounded">
+                    {taskQueue.filter(t => t.status === 'pending').length} bekliyor
+                  </span>
+                  <span className="bg-green-600 px-2 py-0.5 rounded">
+                    {taskQueue.filter(t => t.status === 'completed').length} tamamlandı
+                  </span>
+                </div>
+              </div>
               <button
-                onClick={() => setShowTaskQueuePopup(false)}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setShowTaskQueuePopup(!showTaskQueuePopup)}
+                className="text-gray-400 hover:text-white transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg className={`w-5 h-5 transition-transform ${showTaskQueuePopup ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                 </svg>
               </button>
             </div>
             
-            {taskQueue.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">Bekleyen işlem yok</p>
-            ) : (
-              <div className="space-y-2">
+            {/* Task Items */}
+            <div className={`overflow-hidden transition-all duration-300 ${showTaskQueuePopup ? 'max-h-48' : 'max-h-0'}`}>
+              <div className="flex gap-2 overflow-x-auto pb-2 pt-2">
                 {taskQueue.map((task) => (
                   <div
                     key={task.id}
-                    className={`p-3 rounded-lg border ${
-                      task.status === 'completed' ? 'bg-green-50 border-green-200' :
-                      task.status === 'processing' ? 'bg-blue-50 border-blue-200' :
-                      task.status === 'failed' ? 'bg-red-50 border-red-200' :
-                      'bg-gray-50 border-gray-200'
+                    className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm flex items-center gap-2 min-w-[140px] ${
+                      task.status === 'completed' ? 'bg-green-600' :
+                      task.status === 'processing' ? 'bg-blue-600' :
+                      task.status === 'failed' ? 'bg-red-600' :
+                      'bg-gray-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{task.name}</span>
-                      <div className="flex items-center gap-2">
-                        {task.status === 'pending' && (
-                          <span className="text-xs text-gray-500">Bekliyor</span>
-                        )}
-                        {task.status === 'processing' && (
-                          <div className="flex items-center gap-1">
-                            <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="text-xs text-blue-600">İşleniyor</span>
-                          </div>
-                        )}
-                        {task.status === 'completed' && (
-                          <div className="flex items-center gap-1">
-                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-xs text-green-600">Tamamlandı</span>
-                          </div>
-                        )}
-                        {task.status === 'failed' && (
-                          <div className="flex items-center gap-1">
-                            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            <span className="text-xs text-red-600">Başarısız</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {new Date(task.timestamp).toLocaleTimeString('tr-TR')}
-                    </div>
+                    {task.status === 'processing' && (
+                      <svg className="animate-spin h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    )}
+                    {task.status === 'completed' && (
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {task.status === 'failed' && (
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    {task.status === 'pending' && (
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    <span className="truncate">{task.name}</span>
                   </div>
                 ))}
               </div>
-            )}
-            
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Toplam:</span>
-                <span className="font-medium">{taskQueue.length} işlem</span>
-              </div>
-              <div className="flex justify-between text-sm mt-1">
-                <span className="text-gray-600">Tamamlanan:</span>
-                <span className="font-medium text-green-600">
-                  {taskQueue.filter(t => t.status === 'completed').length} işlem
-                </span>
-              </div>
+              
+              {/* Clear completed button */}
+              {taskQueue.some(t => t.status === 'completed') && (
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setTaskQueue(prev => prev.filter(t => t.status !== 'completed'));
+                      taskQueueRef.current = taskQueueRef.current.filter(t => t.status !== 'completed');
+                    }}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Tamamlananları Temizle
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
