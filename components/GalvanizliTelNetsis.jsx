@@ -7253,6 +7253,9 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsExportingExcel(true);
       
+      console.log('Session approvals:', sessionApprovals);
+      console.log('All requests:', requests.map(r => ({ id: r.id, status: r.status })));
+      
       if (sessionApprovals.length === 0) {
         toast.warning('Bu oturumda onaylanmış talep bulunamadı.');
         return;
@@ -7261,6 +7264,8 @@ const GalvanizliTelNetsis = () => {
       const sessionApprovedRequests = requests.filter(req => 
         sessionApprovals.includes(req.id)
       );
+      
+      console.log('Filtered session requests:', sessionApprovedRequests);
       
       if (sessionApprovedRequests.length === 0) {
         toast.warning('Oturum talepleri bulunamadı.');
@@ -9328,8 +9333,15 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (response && response.ok) {
-        // Add to session approvals
-        setSessionApprovals(prev => [...prev, selectedRequest.id]);
+        // Add to session approvals - avoid duplicates
+        setSessionApprovals(prev => {
+          if (!prev.includes(selectedRequest.id)) {
+            console.log('Adding to session approvals:', selectedRequest.id, 'Current total:', prev.length + 1);
+            return [...prev, selectedRequest.id];
+          }
+          console.log('Request already in session approvals:', selectedRequest.id);
+          return prev;
+        });
         
         toast.success('Talep başarıyla onaylandı');
         fetchRequests();
@@ -10671,7 +10683,16 @@ const GalvanizliTelNetsis = () => {
               </button>
               
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
-              {((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && (
+              {(() => {
+                const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest);
+                console.log('Sadece Kaydet button visibility:', {
+                  shouldShow,
+                  isViewingExistingProduct,
+                  savedToDatabase,
+                  isEditingRequest
+                });
+                return shouldShow;
+              })() && (
                 <button
                   onClick={(e) => {
                     console.log("Sadece Kaydet - adding to queue");
@@ -11044,6 +11065,7 @@ const GalvanizliTelNetsis = () => {
                         
                         <button
                           onClick={() => {
+                            console.log('Session approvals before download:', sessionApprovals);
                             setShowBulkExcelMenu(false);
                             downloadSessionApprovedExcel();
                           }}
