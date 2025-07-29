@@ -93,6 +93,8 @@ interface MergeOperation {
   toleranceUsed: number; // Actual tolerance used for this operation
   safetyLevel: 'safe' | 'caution' | 'risky'; // Safety indicator
   safetyLevelNumber: number; // 0-10 numeric safety level for sorting
+  approved?: boolean; // Whether this operation has been approved
+  skipped?: boolean; // Whether this operation has been skipped
   smartData?: {
     involvedProducts: Product[];
     traditionalAlternative: {
@@ -241,7 +243,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [tolerance, setTolerance] = useState(10);
   const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Only eliminate products with ≤ this quantity
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [pendingOperations, setPendingOperations] = useState<(MergeOperation & {approved?: boolean})[]>([]);
+  const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
   const [sortMode, setSortMode] = useState<'safety' | 'quantity'>('safety');
 
@@ -1621,7 +1623,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Sort pending operations based on selected mode
-  const sortPendingOperations = (operations: (MergeOperation & {approved?: boolean})[], mode: 'safety' | 'quantity') => {
+  const sortPendingOperations = (operations: MergeOperation[], mode: 'safety' | 'quantity') => {
     return [...operations].sort((a, b) => {
       if (mode === 'safety') {
         // Sort by safety level (safest first: 0 → 10)
@@ -1660,7 +1662,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Remove conflicting operations when an operation is approved
-  const removeConflictingOperations = (approvedOperation: MergeOperation, operations: (MergeOperation & {approved?: boolean})[]) => {
+  const removeConflictingOperations = (approvedOperation: MergeOperation, operations: MergeOperation[]) => {
     const sourceIds = new Set<string>();
     const targetIds = new Set<string>();
     
