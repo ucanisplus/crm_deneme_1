@@ -2627,14 +2627,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <div className="bg-white p-3 rounded border">
                       <h5 className="font-medium text-sm mb-2 text-gray-700">Geleneksel Birleştirme</h5>
                       <div className="text-xs space-y-1">
-                        <p><strong>Adım Sayısı:</strong> {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.steps}</p>
+                        <p><strong>Adım Sayısı:</strong> {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.steps}</p>
                         <p><strong>Toplam Tolerans:</strong> 
                           <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-800 rounded">
-                            {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.totalTolerance.toFixed(1)}cm
+                            {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.totalTolerance.toFixed(1)}cm
                           </span>
                         </p>
                         <div className="mt-2 text-gray-600">
-                          {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.path?.map((step, idx) => (
+                          {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.path?.map((step, idx) => (
                             <div key={idx} className="flex items-center gap-1">
                               <span className="text-gray-400">{idx + 1}.</span>
                               <span>{step}</span>
@@ -2651,13 +2651,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         <p><strong>Adım Sayısı:</strong> 1 (Tek işlem)</p>
                         <p><strong>Toplam Tolerans:</strong> 
                           <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-800 rounded">
-                            {pendingOperations[currentOperationIndex].smartData.smartOption.totalTolerance.toFixed(1)}cm
+                            {pendingOperations[currentOperationIndex].smartData?.smartOption.totalTolerance.toFixed(1)}cm
                           </span>
                         </p>
-                        <p><strong>Yeni Boyut:</strong> {pendingOperations[currentOperationIndex].smartData.smartOption.finalDimensions}</p>
+                        <p><strong>Yeni Boyut:</strong> {pendingOperations[currentOperationIndex].smartData?.smartOption.finalDimensions}</p>
                         <p className="text-green-600 font-medium mt-2">
-                          ✓ {(pendingOperations[currentOperationIndex].smartData.traditionalAlternative.totalTolerance - 
-                             pendingOperations[currentOperationIndex].smartData.smartOption.totalTolerance).toFixed(1)}cm tolerans tasarrufu
+                          ✓ {((pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.totalTolerance || 0) - 
+                             (pendingOperations[currentOperationIndex].smartData?.smartOption.totalTolerance || 0)).toFixed(1)}cm tolerans tasarrufu
                         </p>
                       </div>
                     </div>
@@ -2674,7 +2674,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   <div className="p-4 bg-red-50 border border-red-200 rounded">
                     <p className="font-semibold mb-2 text-red-800">Birleştirilecek Ürünler: <span className="text-xs">(SİLİNECEKLER)</span></p>
                     <div className="grid grid-cols-2 gap-2">
-                      {pendingOperations[currentOperationIndex].smartData.involvedProducts.map((product, idx) => (
+                      {pendingOperations[currentOperationIndex].smartData?.involvedProducts.map((product, idx) => (
                         <div key={idx} className="bg-white p-2 rounded text-sm">
                           <p className="font-medium">{product.hasirTipi}</p>
                           <p>{product.uzunlukBoy}x{product.uzunlukEn} cm</p>
