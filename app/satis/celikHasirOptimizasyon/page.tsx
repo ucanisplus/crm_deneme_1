@@ -1692,19 +1692,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
     if (currentOperationIndex >= pendingOperations.length) return;
     
     const operation = pendingOperations[currentOperationIndex];
-    const newProducts = products
-      .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
-      .concat(operation.result);
-    
-    // Update products state immediately
-    setProducts(newProducts);
-    addToHistory(newProducts);
     
     // Remove conflicting operations from remaining suggestions
     const filteredOperations = removeConflictingOperations(operation, pendingOperations);
     setPendingOperations(filteredOperations);
     
-    // Mark this operation as approved
+    // Mark this operation as approved (but don't apply yet)
     const updatedOperations = [...pendingOperations];
     updatedOperations[currentOperationIndex] = { ...operation, approved: true };
     setPendingOperations(updatedOperations);
@@ -1727,8 +1720,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
           existingOp.source.id === newOp.source.id && 
           existingOp.target.id === newOp.target.id
         ) &&
-        newProducts.find(p => p.id === newOp.source.id) &&
-        newProducts.find(p => p.id === newOp.target.id)
+        products.find(p => p.id === newOp.source.id) &&
+        products.find(p => p.id === newOp.target.id)
       );
       
       if (validNewOps.length > 0) {
@@ -1745,10 +1738,36 @@ const CelikHasirOptimizasyon: React.FC = () => {
       setCurrentOperationIndex(prev => prev + 1);
     } else {
       setShowApprovalDialog(false);
+      
+      // Apply all approved operations in sequence
+      const approvedOperations = updatedOperations.filter(op => op.approved);
+      
+      if (approvedOperations.length > 0) {
+        // Apply all approved operations sequentially
+        let currentProducts = [...products];
+        
+        for (const operation of approvedOperations) {
+          // Check if source and target products still exist
+          const sourceExists = currentProducts.find(p => p.id === operation.source.id);
+          const targetExists = currentProducts.find(p => p.id === operation.target.id);
+          
+          if (sourceExists && targetExists) {
+            // Remove source and target, add result
+            currentProducts = currentProducts
+              .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+              .concat(operation.result);
+          }
+        }
+        
+        // Update products state with final result
+        setProducts(currentProducts);
+        addToHistory(currentProducts);
+        
+        toast.success(`${approvedOperations.length} işlem tamamlandı`);
+      }
+      
       setPendingOperations([]);
       setCurrentOperationIndex(0);
-      const approvedCount = updatedOperations.filter(op => op.approved).length;
-      toast.success(`${approvedCount} işlem tamamlandı`);
     }
   };
 
@@ -1775,9 +1794,30 @@ const CelikHasirOptimizasyon: React.FC = () => {
       const remainingOps = updatedOperations.filter(op => !op.approved && !op.skipped);
       if (remainingOps.length === 0) {
         setShowApprovalDialog(false);
-        // Only apply approved operations
+        // Apply all approved operations in sequence
         const approvedOperations = updatedOperations.filter(op => op.approved);
+        
         if (approvedOperations.length > 0) {
+          // Apply all approved operations sequentially
+          let currentProducts = [...products];
+          
+          for (const operation of approvedOperations) {
+            // Check if source and target products still exist
+            const sourceExists = currentProducts.find(p => p.id === operation.source.id);
+            const targetExists = currentProducts.find(p => p.id === operation.target.id);
+            
+            if (sourceExists && targetExists) {
+              // Remove source and target, add result
+              currentProducts = currentProducts
+                .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+                .concat(operation.result);
+            }
+          }
+          
+          // Update products state with final result
+          setProducts(currentProducts);
+          addToHistory(currentProducts);
+          
           toast(`${approvedOperations.length} işlem onaylandı ve uygulandı`);
         } else {
           toast('Hiçbir işlem onaylanmadı');
@@ -1878,7 +1918,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 Excel'e Aktar
               </Button>
               <Button onClick={handleApplyToMainList} className="bg-blue-600 text-white hover:bg-blue-700">
-                Apply to Main List
+                Ana Listeye Uygula
               </Button>
             </div>
           </div>
