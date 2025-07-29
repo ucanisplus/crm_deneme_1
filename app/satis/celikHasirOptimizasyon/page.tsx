@@ -2696,6 +2696,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   </div>
                 </div>
               ) : (
+                <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-red-50 border border-red-200 rounded">
                   <p className="font-semibold mb-2 text-red-800">Kaynak Ürün: <span className="text-xs">(SİLİNECEK)</span></p>
@@ -2734,6 +2735,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
                 </div>
               </div>
+                </>
               )}
             </div>
           )}
