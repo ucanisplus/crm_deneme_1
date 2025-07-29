@@ -1402,6 +1402,84 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return { steps, totalTolerance, feasible: true, path };
   };
 
+  // Generate smart alternative for any operation
+  const generateSmartAlternativeForOperation = (operation: MergeOperation) => {
+    // Find other products that could be included in a smart merge
+    const involvedProductIds = new Set([operation.source.id, operation.target.id]);
+    
+    // Look for additional products of same type/diameter that could be merged
+    const sameTypeProducts = products.filter(p => 
+      !involvedProductIds.has(p.id) &&
+      p.hasirTipi === operation.source.hasirTipi &&
+      p.boyCap === operation.source.boyCap &&
+      p.enCap === operation.source.enCap &&
+      Number(p.hasirSayisi) <= maxHasirSayisi
+    );
+    
+    // Try combinations with the current operation products
+    const baseProducts = [operation.source, operation.target];
+    
+    // Test different combinations (2-4 products)
+    for (let additionalCount = 0; additionalCount <= Math.min(2, sameTypeProducts.length); additionalCount++) {
+      if (additionalCount === 0) {
+        // Just the original two products
+        const testProducts = baseProducts;
+        const smartAlternative = testSmartMergeForProducts(testProducts);
+        if (smartAlternative) return smartAlternative;
+      } else {
+        // Add 1-2 additional products
+        const combinations = generateCombinations(sameTypeProducts, additionalCount);
+        for (const additionalProducts of combinations) {
+          const testProducts = [...baseProducts, ...additionalProducts];
+          const smartAlternative = testSmartMergeForProducts(testProducts);
+          if (smartAlternative) return smartAlternative;
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Test if products can be smart merged
+  const testSmartMergeForProducts = (products: Product[]) => {
+    if (products.length < 2) return null;
+    
+    // Calculate optimal dimensions
+    const maxBoy = Math.max(...products.map(p => Number(p.uzunlukBoy)));
+    const maxEn = Math.max(...products.map(p => Number(p.uzunlukEn)));
+    
+    // Check smart merge constraints
+    const boyTolerances = products.map(p => maxBoy - Number(p.uzunlukBoy));
+    const enTolerances = products.map(p => maxEn - Number(p.uzunlukEn));
+    const maxBoyTolerance = Math.max(...boyTolerances);
+    const maxEnTolerance = Math.max(...enTolerances);
+    
+    // Must be within 20cm per dimension
+    if (maxBoyTolerance > 20 || maxEnTolerance > 20) return null;
+    
+    // Calculate traditional path
+    const traditionalPath = calculateTraditionalPath(products);
+    if (!traditionalPath.feasible) return null;
+    
+    const smartTotalTolerance = maxBoyTolerance + maxEnTolerance;
+    
+    // Smart must save at least 20cm total tolerance
+    if (traditionalPath.totalTolerance - smartTotalTolerance < 20) return null;
+    
+    return {
+      involvedProducts: products,
+      traditionalAlternative: traditionalPath,
+      smartOption: {
+        type: 'smart',
+        steps: 1,
+        finalDimensions: `${maxBoy}x${maxEn}`,
+        toleranceBoy: maxBoyTolerance,
+        toleranceEn: maxEnTolerance,
+        totalTolerance: smartTotalTolerance
+      }
+    };
+  };
+
   const executeSmartMultiProductMerges = () => {
     console.log('🚀 executeSmartMultiProductMerges clicked - tolerance:', tolerance);
     const opportunities = findSmartMultiProductMerges();
@@ -2615,8 +2693,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <p className="text-blue-700">{pendingOperations[currentOperationIndex].explanation}</p>
               </div>
               
-              {/* Show comparison for smart operations */}
-              {pendingOperations[currentOperationIndex].type === 'smart_multi' && pendingOperations[currentOperationIndex].smartData && (
+              {/* Show comparison for smart operations OR generate smart alternative */}
+              {(() => {
+                const currentOp = pendingOperations[currentOperationIndex];
+                const existingSmartData = currentOp.type === 'smart_multi' ? currentOp.smartData : null;
+                const generatedSmartData = existingSmartData ? null : generateSmartAlternativeForOperation(currentOp);
+                const smartData = existingSmartData || generatedSmartData;
+                
+                return smartData && (
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <Layers className="w-4 h-4" />
@@ -2627,14 +2711,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <div className="bg-white p-3 rounded border">
                       <h5 className="font-medium text-sm mb-2 text-gray-700">Geleneksel Birleştirme</h5>
                       <div className="text-xs space-y-1">
-                        <p><strong>Adım Sayısı:</strong> {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.steps}</p>
+                        <p><strong>Adım Sayısı:</strong> {smartData.traditionalAlternative.steps}</p>
                         <p><strong>Toplam Tolerans:</strong> 
                           <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-800 rounded">
-                            {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.totalTolerance.toFixed(1)}cm
+                            {smartData.traditionalAlternative.totalTolerance.toFixed(1)}cm
                           </span>
                         </p>
                         <div className="mt-2 text-gray-600">
-                          {pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.path?.map((step, idx) => (
+                          {smartData.traditionalAlternative.path?.map((step, idx) => (
                             <div key={idx} className="flex items-center gap-1">
                               <span className="text-gray-400">{idx + 1}.</span>
                               <span>{step}</span>
@@ -2651,13 +2735,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         <p><strong>Adım Sayısı:</strong> 1 (Tek işlem)</p>
                         <p><strong>Toplam Tolerans:</strong> 
                           <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-800 rounded">
-                            {pendingOperations[currentOperationIndex].smartData?.smartOption.totalTolerance.toFixed(1)}cm
+                            {smartData.smartOption.totalTolerance.toFixed(1)}cm
                           </span>
                         </p>
-                        <p><strong>Yeni Boyut:</strong> {pendingOperations[currentOperationIndex].smartData?.smartOption.finalDimensions}</p>
+                        <p><strong>Yeni Boyut:</strong> {smartData.smartOption.finalDimensions}</p>
                         <p className="text-green-600 font-medium mt-2">
-                          ✓ {((pendingOperations[currentOperationIndex].smartData?.traditionalAlternative.totalTolerance || 0) - 
-                             (pendingOperations[currentOperationIndex].smartData?.smartOption.totalTolerance || 0)).toFixed(1)}cm tolerans tasarrufu
+                          ✓ {(smartData.traditionalAlternative.totalTolerance - smartData.smartOption.totalTolerance).toFixed(1)}cm tolerans tasarrufu
                         </p>
                       </div>
                     </div>
@@ -2666,15 +2749,22 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <strong>Not:</strong> Akıllı birleştirme yeni bir ürün boyutu oluşturur ancak daha az tolerans kullanır.
                   </div>
                 </div>
-              )}
+                );
+              })()}
               
               {/* For smart multi, show all involved products */}
-              {pendingOperations[currentOperationIndex].type === 'smart_multi' && pendingOperations[currentOperationIndex].smartData ? (
+              {(() => {
+                const currentOp = pendingOperations[currentOperationIndex];
+                const existingSmartData = currentOp.type === 'smart_multi' ? currentOp.smartData : null;
+                const generatedSmartData = existingSmartData ? null : generateSmartAlternativeForOperation(currentOp);
+                const smartData = existingSmartData || generatedSmartData;
+                
+                return smartData ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 border border-red-200 rounded">
                     <p className="font-semibold mb-2 text-red-800">Birleştirilecek Ürünler: <span className="text-xs">(SİLİNECEKLER)</span></p>
                     <div className="grid grid-cols-2 gap-2">
-                      {pendingOperations[currentOperationIndex].smartData?.involvedProducts.map((product, idx) => (
+                      {smartData.involvedProducts.map((product, idx) => (
                         <div key={idx} className="bg-white p-2 rounded text-sm">
                           <p className="font-medium">{product.hasirTipi}</p>
                           <p>{product.uzunlukBoy}x{product.uzunlukEn} cm</p>
@@ -2695,54 +2785,55 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ) : (
+                ) : (
                 <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-red-50 border border-red-200 rounded">
-                  <p className="font-semibold mb-2 text-red-800">Kaynak Ürün: <span className="text-xs">(SİLİNECEK)</span></p>
-                  <div className="text-sm space-y-1">
-                    <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].source.hasirTipi}</p>
-                    <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].source.uzunlukBoy}x{pendingOperations[currentOperationIndex].source.uzunlukEn} cm</p>
-                    <p><strong>Adet:</strong> 
-                      <span className={`ml-1 px-2 py-1 rounded font-bold ${getQuantityColor(Number(pendingOperations[currentOperationIndex].source.hasirSayisi))}`}>
-                        {pendingOperations[currentOperationIndex].source.hasirSayisi}
-                      </span>
-                      <span className="text-xs text-gray-600 ml-2">
-                        ({getQuantityLabel(Number(pendingOperations[currentOperationIndex].source.hasirSayisi)).toUpperCase()} MİKTAR)
-                      </span>
-                    </p>
-                    <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].source.toplamKg?.toFixed(2)}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-red-50 border border-red-200 rounded">
+                      <p className="font-semibold mb-2 text-red-800">Kaynak Ürün: <span className="text-xs">(SİLİNECEK)</span></p>
+                      <div className="text-sm space-y-1">
+                        <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].source.hasirTipi}</p>
+                        <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].source.uzunlukBoy}x{pendingOperations[currentOperationIndex].source.uzunlukEn} cm</p>
+                        <p><strong>Adet:</strong> 
+                          <span className={`ml-1 px-2 py-1 rounded font-bold ${getQuantityColor(Number(pendingOperations[currentOperationIndex].source.hasirSayisi))}`}>
+                            {pendingOperations[currentOperationIndex].source.hasirSayisi}
+                          </span>
+                          <span className="text-xs text-gray-600 ml-2">
+                            ({getQuantityLabel(Number(pendingOperations[currentOperationIndex].source.hasirSayisi)).toUpperCase()} MİKTAR)
+                          </span>
+                        </p>
+                        <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].source.toplamKg?.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 rounded">
+                      <p className="font-semibold mb-2">Hedef Ürün:</p>
+                      <div className="text-sm space-y-1">
+                        <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].target.hasirTipi}</p>
+                        <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].target.uzunlukBoy}x{pendingOperations[currentOperationIndex].target.uzunlukEn} cm</p>
+                        <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].target.hasirSayisi}</p>
+                        <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].target.toplamKg?.toFixed(2)}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="p-4 bg-gray-50 rounded">
-                  <p className="font-semibold mb-2">Hedef Ürün:</p>
-                  <div className="text-sm space-y-1">
-                    <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].target.hasirTipi}</p>
-                    <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].target.uzunlukBoy}x{pendingOperations[currentOperationIndex].target.uzunlukEn} cm</p>
-                    <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].target.hasirSayisi}</p>
-                    <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].target.toplamKg?.toFixed(2)}</p>
+                  
+                  <div className="p-4 bg-green-50 border border-green-200 rounded">
+                    <p className="font-semibold text-green-800 mb-2">Sonuç:</p>
+                    <div className="text-sm space-y-1 text-green-700">
+                      <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
+                      <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
+                      <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].result.hasirSayisi}</p>
+                      <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="p-4 bg-green-50 border border-green-200 rounded">
-                <p className="font-semibold text-green-800 mb-2">Sonuç:</p>
-                <div className="text-sm space-y-1 text-green-700">
-                  <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
-                  <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
-                  <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].result.hasirSayisi}</p>
-                  <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
-                </div>
-              </div>
                 </>
-              )}
+                );
+              })()}
             </div>
           )}
           
           <DialogFooter>
             <div className="flex gap-2 w-full">
-              {currentOperationIndex > 0 && (
+              {pendingOperations.length > 1 && (
                 <Button 
                   variant="outline" 
                   onClick={() => {
