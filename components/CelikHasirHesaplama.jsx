@@ -52,19 +52,29 @@ const findColumnsByHeaderText = (headers, sheetData) => {
   
   if (!headers || headers.length === 0) return result;
   
-  // Multi-row header kontrolü - ilk 3 satırı kontrol et
+  // Gelişmiş multi-row header kontrolü - birleştirilmiş hücreleri destekler
   const extendedHeaders = [];
   const sampleData = sheetData && sheetData.length > 0 ? sheetData[0].data : [];
+  
+  // Önce birleştirilmiş hücreleri tespit et (aynı değere sahip ardışık sütunlar)
+  const mergedRanges = findMergedRanges(headers);
   
   for (let colIndex = 0; colIndex < (headers.length || 0); colIndex++) {
     let combinedHeader = '';
     
-    // İlk satır (headers)
-    if (headers[colIndex]) {
+    // Birleştirilmiş hücre kontrolü
+    const mergedRange = mergedRanges.find(range => 
+      colIndex >= range.start && colIndex <= range.end
+    );
+    
+    // İlk satır (headers) - birleştirilmiş hücre varsa onu kullan
+    if (mergedRange) {
+      combinedHeader += String(mergedRange.value).trim() + ' ';
+    } else if (headers[colIndex]) {
       combinedHeader += String(headers[colIndex]).trim() + ' ';
     }
     
-    // İkinci ve üçüncü satırları da kontrol et
+    // İkinci ve üçüncü satırları da kontrol et (alt başlıklar için)
     for (let rowIndex = 0; rowIndex < Math.min(3, sampleData.length); rowIndex++) {
       const row = sampleData[rowIndex];
       if (row && row[colIndex]) {
@@ -76,7 +86,51 @@ const findColumnsByHeaderText = (headers, sheetData) => {
       }
     }
     
-    extendedHeaders[colIndex] = combinedHeader.trim();
+    extendedHeaders[colIndex] = combinedHeader.trim().toLowerCase();
+  }
+  
+  // Birleştirilmiş hücre aralıklarını bulma fonksiyonu
+  function findMergedRanges(headers) {
+    const ranges = [];
+    let i = 0;
+    
+    while (i < headers.length) {
+      const currentValue = headers[i];
+      if (!currentValue || String(currentValue).trim() === '') {
+        i++;
+        continue;
+      }
+      
+      // Bu değerin kaç sütun devam ettiğini bul
+      let endIndex = i;
+      const value = String(currentValue).trim();
+      
+      // Sonraki sütunları kontrol et - boş olan sütunlar birleştirilmiş hücrenin parçası olabilir
+      for (let j = i + 1; j < headers.length; j++) {
+        const nextValue = String(headers[j] || '').trim();
+        
+        // Boş hücre veya aynı değer ise birleştirme devam ediyor
+        if (nextValue === '' || nextValue === value) {
+          endIndex = j;
+        } else {
+          // Farklı bir değer bulundu, birleştirme sona erdi
+          break;
+        }
+      }
+      
+      // Eğer birden fazla sütunu kapsıyorsa birleştirilmiş hücre olarak kaydet
+      if (endIndex > i) {
+        ranges.push({
+          start: i,
+          end: endIndex,
+          value: value
+        });
+      }
+      
+      i = endIndex + 1;
+    }
+    
+    return ranges;
   }
   
   // Genişletilmiş başlık kalıpları - tüm olası varyasyonlar için
@@ -93,7 +147,9 @@ const findColumnsByHeaderText = (headers, sheetData) => {
       'UZUN KENAR', 'B ÖLÇÜ', 'B OLCU', 'BOY CM', 'BOY(CM)', 'UZUNLUK(CM)', 'YÜKSEKLİK', 
       'YUKSEKLIK', 'HASIR YÜKSEKLİĞİ', 'HASIR YUKSEKLIGI', 'HEIGHT', 'LENGTH', 'Y BOY', 
       'BOYUT', 'ANA BOYUT', 'B.ÖLÇÜ', 'B.OLCU', 'BOY ÖLÇÜ', 'YÜKSEK', 'YUKSEK', 'UBOY',
-      'BYT', 'BOYUTLAR', 'BOY(MM)', 'BOY MM', 'Y', 'Y BOYUT'
+      'BYT', 'BOYUTLAR', 'BOY(MM)', 'BOY MM', 'Y', 'Y BOYUT',
+      // Birleştirilmiş başlık kalıpları
+      'UZUNLUK BOY CM', 'UZUNLUK BOY(CM)', 'UZUNLUK BOY MM', 'UZUNLUK BOY(MM)'
     ],
     uzunlukEn: [
       'EN', 'UZUNLUK EN', 'EN UZUNLUK', 'EN UZUNLUĞU', 'EN UZUNLUGU', 'HASIR ENİ', 
@@ -101,7 +157,9 @@ const findColumnsByHeaderText = (headers, sheetData) => {
       'KÜÇÜK KENAR', 'KUCUK KENAR', 'KISA KENAR', 'E ÖLÇÜ', 'E OLCU', 'EN CM', 
       'EN(CM)', 'GENISLIK(CM)', 'HASIR GENİŞLİĞİ', 'HASIR GENISLIGI', 'WIDTH', 
       'Y EN', 'X BOYUT', 'E.ÖLÇÜ', 'E.OLCU', 'EN ÖLÇÜ', 'DAR KENAR', 'GENİŞ', 
-      'GENIS', 'UEN', 'ENB', 'ENİ', 'EN(MM)', 'EN MM', 'X', 'X BOYUT'
+      'GENIS', 'UEN', 'ENB', 'ENİ', 'EN(MM)', 'EN MM', 'X', 'X BOYUT',
+      // Birleştirilmiş başlık kalıpları
+      'UZUNLUK EN CM', 'UZUNLUK EN(CM)', 'UZUNLUK EN MM', 'UZUNLUK EN(MM)'
     ],
     hasirSayisi: [
       'HASIR SAYISI', 'HASIR SAYIS', 'ADET SAYISI', 'TOPLAM HASIR', 'SAYI', 
@@ -4380,10 +4438,10 @@ const parseExcelData = (data, fileName = '') => {
       
       if (jsonData.length === 0) continue;
       
-      // Başlıkları tespit et
-      const hasHeaders = guessIfHasHeaders(jsonData);
-      const headerRow = hasHeaders ? jsonData[0] : [];
-      const dataStartRow = hasHeaders ? 1 : 0;
+      // Başlıkları tespit et (çoklu satır ve birleştirilmiş başlıkları destekler)
+      const headerInfo = detectHeaders(jsonData);
+      const headerRow = headerInfo.combinedHeaders;
+      const dataStartRow = headerInfo.dataStartRow;
       
       // Hasır Tipi sütununu bul (Q, R, TR deseni)
       let hasirTipiCol = -1;
@@ -4409,7 +4467,7 @@ const parseExcelData = (data, fileName = '') => {
         headers: headerRow,
         data: jsonData.slice(dataStartRow),
         hasirTipiCol,
-        hasHeaders
+        hasHeaders: headerInfo.hasHeaders
       });
     }
     
@@ -4988,10 +5046,10 @@ const parseCsvData = (data) => {
         
         const sheetsData = [];
         
-        // Başlıkları tespit et
-        const hasHeaders = guessIfHasHeaders(jsonData);
-        const headerRow = hasHeaders ? jsonData[0] : [];
-        const dataStartRow = hasHeaders ? 1 : 0;
+        // Başlıkları tespit et (çoklu satır ve birleştirilmiş başlıkları destekler)
+        const headerInfo = detectHeaders(jsonData);
+        const headerRow = headerInfo.combinedHeaders;
+        const dataStartRow = headerInfo.dataStartRow;
         
         // Hasır Tipi sütununu bul (Q, R, TR deseni)
         let hasirTipiCol = -1;
@@ -5017,7 +5075,7 @@ const parseCsvData = (data) => {
           headers: headerRow,
           data: jsonData.slice(dataStartRow),
           hasirTipiCol,
-          hasHeaders
+          hasHeaders: headerInfo.hasHeaders
         });
         
         // Hemen işlemek yerine, eşleştirme modalını göster
@@ -5338,6 +5396,144 @@ const parseCsvData = (data) => {
     }
   };
   
+
+// Gelişmiş başlık tespiti - Birleştirilmiş ve çoklu satır başlıkları destekler
+const detectHeaders = (data) => {
+  if (data.length < 2) {
+    return { combinedHeaders: [], dataStartRow: 0, hasHeaders: false };
+  }
+  
+  // İlk 5 satırı kontrol et (çok satırlı başlık olabilir)
+  for (let headerStartRow = 0; headerStartRow < Math.min(3, data.length - 1); headerStartRow++) {
+    // 1-3 satırlık başlık kombinasyonlarını dene
+    for (let headerRowCount = 1; headerRowCount <= Math.min(3, data.length - headerStartRow - 1); headerRowCount++) {
+      const headerRows = [];
+      for (let i = 0; i < headerRowCount; i++) {
+        headerRows.push(data[headerStartRow + i] || []);
+      }
+      
+      const dataStartRow = headerStartRow + headerRowCount;
+      const dataRow = data[dataStartRow];
+      
+      if (!dataRow) continue;
+      
+      // Başlık satırlarını birleştir
+      const combinedHeaders = combineHeaderRows(headerRows);
+      
+      // Bu kombinasyonun başlık olup olmadığını kontrol et
+      if (isValidHeaderCombination(combinedHeaders, dataRow)) {
+        return {
+          combinedHeaders,
+          dataStartRow,
+          hasHeaders: true,
+          headerRowCount,
+          headerStartRow
+        };
+      }
+    }
+  }
+  
+  // Başlık bulunamadı
+  return { combinedHeaders: [], dataStartRow: 0, hasHeaders: false };
+};
+
+// Birden fazla başlık satırını birleştir (birleştirilmiş hücreler için)
+const combineHeaderRows = (headerRows) => {
+  if (headerRows.length === 0) return [];
+  if (headerRows.length === 1) return headerRows[0] || [];
+  
+  const maxCols = Math.max(...headerRows.map(row => (row || []).length));
+  const combinedHeaders = [];
+  
+  for (let col = 0; col < maxCols; col++) {
+    const headerParts = [];
+    
+    for (let row = 0; row < headerRows.length; row++) {
+      const cell = headerRows[row] && headerRows[row][col] 
+        ? String(headerRows[row][col]).trim() 
+        : '';
+      
+      if (cell && cell !== '') {
+        headerParts.push(cell);
+      }
+    }
+    
+    // Benzersiz parçaları birleştir
+    const uniqueParts = [...new Set(headerParts)];
+    let combinedHeader = uniqueParts.join(' ').trim();
+    
+    // Özel durumlar için temizleme
+    combinedHeader = combinedHeader
+      .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
+      .toLowerCase();
+    
+    // Yaygın birleştirme desenlerini tanı
+    if (combinedHeader.includes('uzunluk') && combinedHeader.includes('boy')) {
+      combinedHeader = 'uzunluk boy';
+    } else if (combinedHeader.includes('uzunluk') && combinedHeader.includes('en')) {
+      combinedHeader = 'uzunluk en';
+    } else if (combinedHeader.includes('hasır') && combinedHeader.includes('sayı')) {
+      combinedHeader = 'hasır sayısı';
+    } else if (combinedHeader.includes('hasır') && combinedHeader.includes('adet')) {
+      combinedHeader = 'hasır sayısı';
+    }
+    
+    combinedHeaders.push(combinedHeader);
+  }
+  
+  return combinedHeaders;
+};
+
+// Birleştirilmiş başlıkların geçerli olup olmadığını kontrol et
+const isValidHeaderCombination = (headers, dataRow) => {
+  if (!headers || !dataRow) return false;
+  
+  let headerScore = 0;
+  let dataScore = 0;
+  
+  // Başlık skorunu hesapla
+  const targetKeywords = [
+    // Boy ile ilgili
+    'boy', 'uzunluk boy', 'boy uzunluk', 'hasır boy', 'uzunluk',
+    // En ile ilgili  
+    'en', 'uzunluk en', 'en uzunluk', 'hasır en', 'genişlik',
+    // Hasır tipi ile ilgili
+    'hasır tip', 'tip', 'cins', 'tür', 'çelik hasır',
+    // Hasır sayısı ile ilgili
+    'hasır sayı', 'hasır sayısı', 'adet', 'miktar', 'sayı'
+  ];
+  
+  for (let i = 0; i < headers.length; i++) {
+    const header = String(headers[i] || '').toLowerCase().trim();
+    if (header && isNaN(parseFloat(header))) {
+      headerScore++;
+      
+      // Anahtar kelime eşleşmesi bonus
+      if (targetKeywords.some(keyword => header.includes(keyword))) {
+        headerScore += 3;
+      }
+    }
+  }
+  
+  // Veri skorunu hesapla
+  for (let i = 0; i < dataRow.length; i++) {
+    const value = String(dataRow[i] || '').trim();
+    
+    // Hasır tipi deseni bonus
+    if (/^(Q|R|TR)\d+/i.test(value)) {
+      dataScore += 5;
+    }
+    
+    // Sayısal değer bonus
+    const numValue = parseFloat(value.replace(',', '.'));
+    if (!isNaN(numValue) && numValue > 0) {
+      dataScore += 1;
+    }
+  }
+  
+  // En az 2 anahtar kelime eşleşmesi ve veri bulunmalı
+  return headerScore >= 5 && dataScore >= 3;
+};
 
 // Veride başlık satırı olup olmadığını tahmin et - Geliştirilmiş versiyon
 const guessIfHasHeaders = (data) => {

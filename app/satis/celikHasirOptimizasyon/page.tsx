@@ -154,6 +154,51 @@ const getQuantityLabel = (quantity: number) => {
   return 'Çok Yüksek';
 };
 
+// Check if a product is deleted (exists in history but not in current products)
+const isProductDeleted = (productId: string, products: Product[], history: HistoryState[]) => {
+  if (history.length <= 1) return false;
+  
+  // Check if product exists in current state
+  const existsInCurrent = products.some(p => p.id === productId);
+  if (existsInCurrent) return false;
+  
+  // Check if product existed in any previous history state
+  for (let i = 0; i < history.length - 1; i++) {
+    const existedBefore = history[i].products.some(p => p.id === productId);
+    if (existedBefore) return true;
+  }
+  
+  return false;
+};
+
+// Get all deleted products from history
+const getDeletedProducts = (products: Product[], history: HistoryState[]) => {
+  if (history.length <= 1) return [];
+  
+  const allHistoricalProducts = new Map();
+  
+  // Collect all products from all history states
+  history.forEach(state => {
+    state.products.forEach(product => {
+      if (!allHistoricalProducts.has(product.id)) {
+        allHistoricalProducts.set(product.id, product);
+      }
+    });
+  });
+  
+  // Find products that exist in history but not in current state
+  const currentProductIds = new Set(products.map(p => p.id));
+  const deletedProducts: (Product & { isDeleted: boolean })[] = [];
+  
+  allHistoricalProducts.forEach((product, id) => {
+    if (!currentProductIds.has(id)) {
+      deletedProducts.push({ ...product, isDeleted: true });
+    }
+  });
+  
+  return deletedProducts;
+};
+
 const CelikHasirOptimizasyon: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -170,6 +215,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     boyCap: [] as number[],
     enCap: [] as number[],
     quantityFilter: 'all' as 'all' | 'low' | 'medium' | 'high',
+    showDeleted: false,
   });
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Product;
@@ -249,6 +295,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Update filtered products when filters or sort change
   useEffect(() => {
     let filtered = [...products];
+    
+    // Include deleted products if showDeleted filter is enabled
+    if (selectedFilters.showDeleted) {
+      const deletedProducts = getDeletedProducts(products, history);
+      filtered = [...products, ...deletedProducts];
+    }
 
     // Apply filters
     if (selectedFilters.hasirTipi.length > 0) {
@@ -309,7 +361,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
 
     setFilteredProducts(filtered);
-  }, [products, selectedFilters, sortConfig]);
+  }, [products, selectedFilters, sortConfig, history]);
 
   // History management
   const addToHistory = (newProducts: Product[]) => {
@@ -1698,13 +1750,44 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   const rejectCurrentOperation = () => {
-    if (currentOperationIndex < pendingOperations.length - 1) {
-      setCurrentOperationIndex(prev => prev + 1);
+    // Mark current operation as skipped
+    const updatedOperations = [...pendingOperations];
+    updatedOperations[currentOperationIndex] = { 
+      ...updatedOperations[currentOperationIndex], 
+      skipped: true 
+    };
+    setPendingOperations(updatedOperations);
+    
+    // Move to next unapproved/unskipped operation
+    let nextIndex = currentOperationIndex + 1;
+    while (nextIndex < pendingOperations.length && 
+           (updatedOperations[nextIndex]?.approved || updatedOperations[nextIndex]?.skipped)) {
+      nextIndex++;
+    }
+    
+    if (nextIndex < pendingOperations.length) {
+      setCurrentOperationIndex(nextIndex);
     } else {
-      setShowApprovalDialog(false);
-      setPendingOperations([]);
-      setCurrentOperationIndex(0);
-      toast('İşlemler tamamlandı');
+      // Check if there are any remaining unapproved/unskipped operations
+      const remainingOps = updatedOperations.filter(op => !op.approved && !op.skipped);
+      if (remainingOps.length === 0) {
+        setShowApprovalDialog(false);
+        // Only apply approved operations
+        const approvedOperations = updatedOperations.filter(op => op.approved);
+        if (approvedOperations.length > 0) {
+          toast(`${approvedOperations.length} işlem onaylandı ve uygulandı`);
+        } else {
+          toast('Hiçbir işlem onaylanmadı');
+        }
+        setPendingOperations([]);
+        setCurrentOperationIndex(0);
+      } else {
+        // Find first unapproved/unskipped operation
+        const firstRemainingIndex = updatedOperations.findIndex(op => !op.approved && !op.skipped);
+        if (firstRemainingIndex !== -1) {
+          setCurrentOperationIndex(firstRemainingIndex);
+        }
+      }
     }
   };
 
@@ -1767,7 +1850,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     'Arka Filiz': product.arkaFiliz?.toFixed(2) || '',
                     'Adet Kg': product.adetKg?.toFixed(2) || '',
                     'İleri Opt. Notları': product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '',
-                    'Açıklama': product.aciklama || ''
+                    'Açıklama': product.aciklama || '',
+                    'Durum': (product as any).isDeleted ? 'SİLİNDİ' : 'AKTİF'
                   }));
                   
                   // Create workbook and worksheet
@@ -1775,8 +1859,30 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   const wb = XLSX.utils.book_new();
                   XLSX.utils.book_append_sheet(wb, ws, 'İleri Optimizasyon');
                   
+                  // Apply formatting for deleted products
+                  const headers = Object.keys(exportData[0] || {});
+                  filteredProducts.forEach((product, rowIndex) => {
+                    if ((product as any).isDeleted) {
+                      headers.forEach((header, colIndex) => {
+                        const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex });
+                        if (!ws[cellRef]) return;
+                        
+                        // Apply strikethrough formatting
+                        ws[cellRef].s = {
+                          font: { 
+                            strike: true,
+                            color: { rgb: "FF666666" }
+                          },
+                          fill: {
+                            fgColor: { rgb: "FFFFCCCC" }
+                          }
+                        };
+                      });
+                    }
+                  });
+                  
                   // Auto-fit columns
-                  const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                  const colWidths = headers.map(key => ({
                     wch: Math.max(key.length, 15)
                   }));
                   ws['!cols'] = colWidths;
@@ -1951,7 +2057,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [], quantityFilter: 'all' })}
+                onClick={() => {
+                  if (showApprovalDialog) {
+                    toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                  }
+                  setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [], quantityFilter: 'all', showDeleted: false });
+                }}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <X className="h-4 w-4 mr-1" />
@@ -1966,7 +2077,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button
               variant={selectedFilters.quantityFilter === 'all' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'all' }))}
+              onClick={() => {
+                if (showApprovalDialog) {
+                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                }
+                setSelectedFilters(prev => ({ ...prev, quantityFilter: 'all' }));
+              }}
               className="text-xs px-3 py-1 h-7"
             >
               Tümü ({products.length})
@@ -1974,7 +2090,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button
               variant={selectedFilters.quantityFilter === 'low' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'low' }))}
+              onClick={() => {
+                if (showApprovalDialog) {
+                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                }
+                setSelectedFilters(prev => ({ ...prev, quantityFilter: 'low' }));
+              }}
               className={`text-xs px-3 py-1 h-7 ${
                 selectedFilters.quantityFilter === 'low' 
                   ? 'bg-amber-600 text-white border-amber-600' 
@@ -1986,7 +2107,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button
               variant={selectedFilters.quantityFilter === 'medium' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'medium' }))}
+              onClick={() => {
+                if (showApprovalDialog) {
+                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                }
+                setSelectedFilters(prev => ({ ...prev, quantityFilter: 'medium' }));
+              }}
               className={`text-xs px-3 py-1 h-7 ${
                 selectedFilters.quantityFilter === 'medium' 
                   ? 'bg-blue-600 text-white border-blue-600' 
@@ -1998,7 +2124,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
             <Button
               variant={selectedFilters.quantityFilter === 'high' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedFilters(prev => ({ ...prev, quantityFilter: 'high' }))}
+              onClick={() => {
+                if (showApprovalDialog) {
+                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                }
+                setSelectedFilters(prev => ({ ...prev, quantityFilter: 'high' }));
+              }}
               className={`text-xs px-3 py-1 h-7 ${
                 selectedFilters.quantityFilter === 'high' 
                   ? 'bg-green-600 text-white border-green-600' 
@@ -2009,6 +2140,26 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </Button>
           </div>
 
+          {/* Show Deleted Products Toggle */}
+          <div className="flex gap-2 items-center">
+            <Button
+              variant={selectedFilters.showDeleted ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                if (showApprovalDialog) {
+                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
+                }
+                setSelectedFilters(prev => ({ ...prev, showDeleted: !prev.showDeleted }));
+              }}
+              className={`text-xs px-3 py-1 h-7 ${
+                selectedFilters.showDeleted 
+                  ? 'bg-red-600 text-white border-red-600' 
+                  : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              {selectedFilters.showDeleted ? '👁️ Silinenleri Gizle' : '👁️ Silinenleri Göster'} ({getDeletedProducts(products, history).length})
+            </Button>
+          </div>
 
           {/* Drag Instructions */}
           <div className="mb-1 p-1 bg-green-100 rounded-lg flex items-center gap-2 text-sm">
@@ -2354,7 +2505,13 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         ? 'bg-green-100 border-l-4 border-green-500' : ''
                       } ${
                         draggedProductId === product.id ? 'opacity-50' : ''
+                      } ${
+                        (product as any).isDeleted ? 'bg-red-100 opacity-75 relative' : ''
                       }`}
+                      style={(product as any).isDeleted ? {
+                        textDecoration: 'line-through',
+                        background: 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 10px, #fef2f2 10px, #fef2f2 20px)'
+                      } : {}}
                     >
                       <td className="text-center  px-2 py-3 border-b border-gray-200">
                         <div className="inline-flex items-center justify-center p-1">
@@ -2837,13 +2994,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <Button 
                   variant="outline" 
                   onClick={() => {
-                    // Go back to previous unapproved operation
-                    let prevIndex = currentOperationIndex - 1;
-                    while (prevIndex >= 0 && pendingOperations[prevIndex]?.approved) {
-                      prevIndex--;
-                    }
-                    if (prevIndex >= 0) {
-                      setCurrentOperationIndex(prevIndex);
+                    // Go back to previous operation (approved or not)
+                    if (currentOperationIndex > 0) {
+                      setCurrentOperationIndex(currentOperationIndex - 1);
                     }
                   }}
                   className="flex-1"
@@ -2854,11 +3007,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
               <Button 
                 variant="outline" 
                 onClick={rejectCurrentOperation}
-                disabled={pendingOperations[currentOperationIndex]?.approved}
+                disabled={pendingOperations[currentOperationIndex]?.approved || pendingOperations[currentOperationIndex]?.skipped}
                 className="flex-1"
               >
                 <X className="w-4 h-4 mr-1" />
-                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : '⏭️ Bu İşlemi Atla'}
+                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 
+                 pendingOperations[currentOperationIndex]?.skipped ? 'Atlandı' : '⏭️ Bu İşlemi Atla'}
               </Button>
               <Button 
                 onClick={approveCurrentOperation}
