@@ -217,7 +217,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
     boyCap: [] as number[],
     enCap: [] as number[],
     quantityFilter: 'all' as 'all' | 'low' | 'medium' | 'high',
-    showDeleted: false,
   });
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Product;
@@ -297,12 +296,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Update filtered products when filters or sort change
   useEffect(() => {
     let filtered = [...products];
-    
-    // Include deleted products if showDeleted filter is enabled
-    if (selectedFilters.showDeleted) {
-      const deletedProducts = getDeletedProducts(products, history);
-      filtered = [...products, ...deletedProducts];
-    }
 
     // Apply filters
     if (selectedFilters.hasirTipi.length > 0) {
@@ -363,7 +356,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
 
     setFilteredProducts(filtered);
-  }, [products, selectedFilters, sortConfig, history]);
+  }, [products, selectedFilters, sortConfig]);
 
   // History management
   const addToHistory = (newProducts: Product[]) => {
@@ -716,41 +709,47 @@ const CelikHasirOptimizasyon: React.FC = () => {
     };
   }, [products]);
 
-  // Handle back to main list - determine correct return page
-  const handleBackToMainList = () => {
-    // Mark all products as optimized and identify merged products
-    const optimizedProducts = products.map(product => ({
-      ...product,
-      isOptimized: true,
-      // Mark products that have merge history as merged for green background
-      isMerged: !!(product.mergeHistory && product.mergeHistory.length > 0) || 
-                !!(product.advancedOptimizationNotes && product.advancedOptimizationNotes.includes('birleştir'))
-    }));
+  // Handle applying optimizations to main list
+  const handleApplyToMainList = () => {
+    const confirmApply = window.confirm(
+      'Bu optimizasyonları ana listeye uygulamak istediğinizden emin misiniz? Bu işlem geri alınamaz.'
+    );
     
-    // Store data in sessionStorage instead of URL
-    sessionStorage.setItem('celikHasirOptimizedData', JSON.stringify(optimizedProducts));
-    
-    // Check return path first
-    const returnPath = sessionStorage.getItem('celikHasirReturnPath');
-    console.log('Return path from storage:', returnPath);
-    
-    if (returnPath) {
-      // Force navigation back
-      window.location.replace(returnPath);
-      return;
-    }
-    
-    // Fallback to referrer logic
-    const referrer = sessionStorage.getItem('celikHasirReferrer');
-    console.log('Returning to main list, referrer:', referrer);
-    
-    if (referrer === 'maliyet') {
-      window.location.replace('/uretim/hesaplamalar/maliyet');
-    } else if (referrer === 'urun') {
-      window.location.replace('/uretim/hesaplamalar/urun');
-    } else {
-      // Default fallback - go back two steps to reach the component
-      window.history.go(-2);
+    if (confirmApply) {
+      // Mark all products as optimized and identify merged products
+      const optimizedProducts = products.map(product => ({
+        ...product,
+        isOptimized: true,
+        // Mark products that have merge history as merged for green background
+        isMerged: !!(product.mergeHistory && product.mergeHistory.length > 0) || 
+                  !!(product.advancedOptimizationNotes && product.advancedOptimizationNotes.includes('birleştir'))
+      }));
+      
+      // Store data in sessionStorage instead of URL
+      sessionStorage.setItem('celikHasirOptimizedData', JSON.stringify(optimizedProducts));
+      
+      // Check return path first
+      const returnPath = sessionStorage.getItem('celikHasirReturnPath');
+      console.log('Return path from storage:', returnPath);
+      
+      if (returnPath) {
+        // Force navigation back
+        window.location.replace(returnPath);
+        return;
+      }
+      
+      // Fallback to referrer logic
+      const referrer = sessionStorage.getItem('celikHasirReferrer');
+      console.log('Returning to main list, referrer:', referrer);
+      
+      if (referrer === 'maliyet') {
+        window.location.replace('/uretim/hesaplamalar/maliyet');
+      } else if (referrer === 'urun') {
+        window.location.replace('/uretim/hesaplamalar/urun');
+      } else {
+        // Default fallback - go back two steps to reach the component
+        window.history.go(-2);
+      }
     }
   };
 
@@ -1851,9 +1850,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     'Ön Filiz': product.onFiliz?.toFixed(2) || '',
                     'Arka Filiz': product.arkaFiliz?.toFixed(2) || '',
                     'Adet Kg': product.adetKg?.toFixed(2) || '',
-                    'İleri Opt. Notları': product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '',
-                    'Açıklama': product.aciklama || '',
-                    'Durum': (product as any).isDeleted ? 'SİLİNDİ' : 'AKTİF'
+                    'İleri Opt. Notları': product.advancedOptimizationNotes || '',
+                    'Açıklama': product.aciklama || ''
                   }));
                   
                   // Create workbook and worksheet
@@ -1861,30 +1859,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   const wb = XLSX.utils.book_new();
                   XLSX.utils.book_append_sheet(wb, ws, 'İleri Optimizasyon');
                   
-                  // Apply formatting for deleted products
-                  const headers = Object.keys(exportData[0] || {});
-                  filteredProducts.forEach((product, rowIndex) => {
-                    if ((product as any).isDeleted) {
-                      headers.forEach((header, colIndex) => {
-                        const cellRef = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex });
-                        if (!ws[cellRef]) return;
-                        
-                        // Apply strikethrough formatting
-                        ws[cellRef].s = {
-                          font: { 
-                            strike: true,
-                            color: { rgb: "FF666666" }
-                          },
-                          fill: {
-                            fgColor: { rgb: "FFFFCCCC" }
-                          }
-                        };
-                      });
-                    }
-                  });
-                  
                   // Auto-fit columns
-                  const colWidths = headers.map(key => ({
+                  const colWidths = Object.keys(exportData[0] || {}).map(key => ({
                     wch: Math.max(key.length, 15)
                   }));
                   ws['!cols'] = colWidths;
@@ -1899,8 +1875,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 <FileSpreadsheet className="h-4 w-4 mr-1" />
                 Excel'e Aktar
               </Button>
-              <Button onClick={handleBackToMainList} className="bg-white text-blue-600 hover:bg-gray-100">
-                Ana Listeye Dön
+              <Button onClick={handleApplyToMainList} className="bg-blue-600 text-white hover:bg-blue-700">
+                Apply to Main List
               </Button>
             </div>
           </div>
@@ -2063,7 +2039,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   if (showApprovalDialog) {
                     toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
                   }
-                  setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [], quantityFilter: 'all', showDeleted: false });
+                  setSelectedFilters({ hasirTipi: [], hasirKodu: [], hasirTuru: [], boyCap: [], enCap: [], quantityFilter: 'all' });
                 }}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
@@ -2139,27 +2115,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
               }`}
             >
               Yüksek ({products.filter(p => p.hasirSayisi >= 50).length})
-            </Button>
-          </div>
-
-          {/* Show Deleted Products Toggle */}
-          <div className="flex gap-2 items-center">
-            <Button
-              variant={selectedFilters.showDeleted ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (showApprovalDialog) {
-                  toast('⚠️ Onay işlemi sırasında filtre değişikliği önerilmez');
-                }
-                setSelectedFilters(prev => ({ ...prev, showDeleted: !prev.showDeleted }));
-              }}
-              className={`text-xs px-3 py-1 h-7 ${
-                selectedFilters.showDeleted 
-                  ? 'bg-red-600 text-white border-red-600' 
-                  : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-              }`}
-            >
-              {selectedFilters.showDeleted ? '👁️ Silinenleri Gizle' : '👁️ Silinenleri Göster'} ({getDeletedProducts(products, history).length})
             </Button>
           </div>
 
@@ -2502,18 +2457,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       className={`hover:bg-gray-50 cursor-move ${
                         product.hasirSayisi < 20 ? 'bg-red-50' : ''
                       } ${
-                        (product.mergeHistory && product.mergeHistory.length > 0) || 
-                        (product.advancedOptimizationNotes && product.advancedOptimizationNotes.includes('OPT')) 
-                        ? 'bg-green-100 border-l-4 border-green-500' : ''
+                        (product.advancedOptimizationNotes && product.advancedOptimizationNotes.trim() !== '') 
+                        ? 'bg-blue-100 border-l-4 border-blue-500' : ''
                       } ${
                         draggedProductId === product.id ? 'opacity-50' : ''
-                      } ${
-                        (product as any).isDeleted ? 'bg-red-100 opacity-75 relative' : ''
                       }`}
-                      style={(product as any).isDeleted ? {
-                        textDecoration: 'line-through',
-                        background: 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 10px, #fef2f2 10px, #fef2f2 20px)'
-                      } : {}}
                     >
                       <td className="text-center  px-2 py-3 border-b border-gray-200">
                         <div className="inline-flex items-center justify-center p-1">
