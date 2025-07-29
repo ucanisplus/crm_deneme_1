@@ -1696,6 +1696,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
       .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
       .concat(operation.result);
     
+    // Update products state immediately
+    setProducts(newProducts);
     addToHistory(newProducts);
     
     // Remove conflicting operations from remaining suggestions
