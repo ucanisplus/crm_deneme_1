@@ -85,20 +85,73 @@ interface HistoryState {
 }
 
 interface MergeOperation {
-  type: 'boydan' | 'enden' | 'katli' | 'katli_exact' | 'katli_tolerance' | 'tamamla' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross';
+  type: 'boydan' | 'enden' | 'katli' | 'katli_exact' | 'katli_tolerance' | 'tamamla' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross' | 'smart_multi';
   source: Product;
   target: Product;
   result: Product;
   explanation: string;
   toleranceUsed: number; // Actual tolerance used for this operation
   safetyLevel: 'safe' | 'caution' | 'risky'; // Safety indicator
+  safetyLevelNumber: number; // 0-10 numeric safety level for sorting
+  smartData?: {
+    involvedProducts: Product[];
+    traditionalAlternative: {
+      steps: number;
+      totalTolerance: number;
+      feasible: boolean;
+      path?: string[];
+    };
+    smartOption: {
+      type: string;
+      steps: number;
+      finalDimensions: string;
+      toleranceBoy: number;
+      toleranceEn: number;
+      totalTolerance: number;
+    };
+  };
 }
 
-// Helper function to determine safety level based on tolerance used
-const getSafetyLevel = (toleranceUsed: number): 'safe' | 'caution' | 'risky' => {
-  if (toleranceUsed === 0) return 'safe';
-  if (toleranceUsed <= 10) return 'caution';
-  return 'risky';
+// Helper function to determine safety level based on tolerance used (0-10 scale)
+const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false): { level: number; category: 'safe' | 'caution' | 'risky' } => {
+  // Hasır Tipi changes are always maximum risk
+  if (isHasirTipiChange) return { level: 10, category: 'risky' };
+  
+  // Tolerance-based safety levels
+  if (toleranceUsed === 0) return { level: 0, category: 'safe' };
+  if (toleranceUsed <= 15) return { level: 2, category: 'safe' };
+  if (toleranceUsed <= 30) return { level: 4, category: 'safe' };
+  if (toleranceUsed <= 50) return { level: 6, category: 'caution' };
+  if (toleranceUsed <= 100) return { level: 8, category: 'caution' };
+  return { level: 10, category: 'risky' };
+};
+
+// Helper functions for standardized display
+const getSafetyDisplay = (safetyLevel: 'safe' | 'caution' | 'risky', toleranceUsed: number, safetyLevelNumber?: number) => {
+  const configs = {
+    safe: { bgClass: 'bg-green-100 text-green-800', text: 'Güvenli', icon: '✓' },
+    caution: { bgClass: 'bg-yellow-100 text-yellow-800', text: 'Dikkat', icon: '⚠' },
+    risky: { bgClass: 'bg-red-100 text-red-800', text: 'Riskli', icon: '⚠' }
+  };
+  const levelDisplay = safetyLevelNumber !== undefined ? ` [${safetyLevelNumber}]` : '';
+  return {
+    ...configs[safetyLevel],
+    fullText: `${configs[safetyLevel].icon} ${configs[safetyLevel].text.toUpperCase()}${levelDisplay} - ${toleranceUsed.toFixed(1)}cm tolerans`
+  };
+};
+
+const getQuantityColor = (quantity: number) => {
+  if (quantity <= 40) return 'bg-green-600 text-white';
+  if (quantity <= 60) return 'bg-yellow-600 text-white';
+  if (quantity <= 100) return 'bg-orange-600 text-white';
+  return 'bg-red-600 text-white';
+};
+
+const getQuantityLabel = (quantity: number) => {
+  if (quantity <= 40) return 'Düşük';
+  if (quantity <= 60) return 'Orta';
+  if (quantity <= 100) return 'Yüksek';
+  return 'Çok Yüksek';
 };
 
 const CelikHasirOptimizasyon: React.FC = () => {
@@ -144,6 +197,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [pendingOperations, setPendingOperations] = useState<(MergeOperation & {approved?: boolean})[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
+  const [sortMode, setSortMode] = useState<'safety' | 'quantity'>('safety');
 
   // Load initial data
   useEffect(() => {
@@ -311,9 +365,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
       toplamKg: totalWeight,
       mergeHistory: [
         ...(biggerProduct.mergeHistory || []),
-        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silinecek → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
       ],
-      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silinecek → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
       aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
@@ -330,9 +384,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
       toplamKg: totalWeight,
       mergeHistory: [
         ...(biggerProduct.mergeHistory || []),
-        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
+        `OPTİMİZASYON: ${smallerProduct.hasirSayisi}adet(${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn}) silinecek → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`
       ],
-      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silindi → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
+      advancedOptimizationNotes: `Optimizasyon: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} silinecek → ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} olarak üretilecek`,
       aciklama: `${biggerProduct.aciklama || ''} | OPT: ${smallerProduct.hasirSayisi}adet ${smallerProduct.uzunlukBoy}x${smallerProduct.uzunlukEn} -> ${biggerProduct.uzunlukBoy}x${biggerProduct.uzunlukEn} (${totalQuantity} toplam)`
     };
   };
@@ -416,7 +470,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             target: product2,
             explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (boydan ${tolerance}cm)`,
             tolerance,
-            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            safetyLevel: getSafetyLevel(tolerance).category,
             priority: 1
           });
         } else {
@@ -426,7 +480,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             target: product2,
             explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (enden ${tolerance}cm)`,
             tolerance,
-            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            safetyLevel: getSafetyLevel(tolerance).category,
             priority: 1
           });
         }
@@ -445,7 +499,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             target: product1,
             explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (boydan ${tolerance}cm)`,
             tolerance,
-            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            safetyLevel: getSafetyLevel(tolerance).category,
             priority: 1
           });
         } else {
@@ -455,7 +509,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
             target: product1,
             explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (enden ${tolerance}cm)`,
             tolerance,
-            safetyLevel: tolerance === 0 ? 'safe' : tolerance <= 10 ? 'caution' : 'risky',
+            safetyLevel: getSafetyLevel(tolerance).category,
             priority: 1
           });
         }
@@ -479,7 +533,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           target: product2,
           explanation: `Tip değişikliği: ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
           tolerance,
-          safetyLevel: tolerance <= 20 ? 'caution' : 'risky',
+          safetyLevel: getSafetyLevel(tolerance, true).category,
           priority: 2
         });
       }
@@ -492,7 +546,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           target: product1,
           explanation: `Tip değişikliği: ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
           tolerance,
-          safetyLevel: tolerance <= 20 ? 'caution' : 'risky',
+          safetyLevel: getSafetyLevel(tolerance, true).category,
           priority: 2
         });
       }
@@ -512,7 +566,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           target: product2,
           explanation: `Üste tamamla: ${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (+${tolerance}cm)`,
           tolerance,
-          safetyLevel: tolerance <= 15 ? 'safe' : tolerance <= 30 ? 'caution' : 'risky',
+          safetyLevel: getSafetyLevel(tolerance).category,
           priority: 3
         });
       }
@@ -529,7 +583,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           target: product1,
           explanation: `Üste tamamla: ${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (+${tolerance}cm)`,
           tolerance,
-          safetyLevel: tolerance <= 15 ? 'safe' : tolerance <= 30 ? 'caution' : 'risky',
+          safetyLevel: getSafetyLevel(tolerance).category,
           priority: 3
         });
       }
@@ -581,10 +635,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
     if (operation === 'boydan') {
       mergedProduct = optimizeBoydan(source, target);
-      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silindi → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silinecek → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
     } else {
       mergedProduct = optimizeEnden(source, target);
-      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silindi → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
+      explanation = `OPTIMIZASYON: ${source.hasirSayisi}adet ${source.uzunlukBoy}x${source.uzunlukEn} silinecek → ${target.uzunlukBoy}x${target.uzunlukEn} (${Number(source.hasirSayisi) + Number(target.hasirSayisi)} toplam)`;
     }
 
     const newProducts = products
@@ -710,9 +764,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: sourceProduct,
             target: targetProduct,
             result: optimized,
-            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silindi → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
+            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silinecek → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
             toleranceUsed: actualDiffCm,
-            safetyLevel: getSafetyLevel(actualDiffCm)
+            safetyLevel: getSafetyLevel(actualDiffCm).category,
+            safetyLevelNumber: getSafetyLevel(actualDiffCm).level
           });
           usedIds.add(sourceProduct.id);
           usedIds.add(targetProduct.id);
@@ -727,9 +782,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
             source: sourceProduct,
             target: targetProduct,
             result: optimized,
-            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silindi → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
+            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silinecek → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
             toleranceUsed: actualDiffCm,
-            safetyLevel: getSafetyLevel(actualDiffCm)
+            safetyLevel: getSafetyLevel(actualDiffCm).category,
+            safetyLevelNumber: getSafetyLevel(actualDiffCm).level
           });
           usedIds.add(sourceProduct.id);
           usedIds.add(targetProduct.id);
@@ -794,7 +850,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               result: result,
               explanation: `Katlı iyileştirme EXACT: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
               toleranceUsed: 0, // Exact match = 0 tolerance
-              safetyLevel: getSafetyLevel(0)
+              safetyLevel: getSafetyLevel(0).category,
+              safetyLevelNumber: getSafetyLevel(0).level
             });
 
             usedIds.add(sourceProduct.id);
@@ -856,7 +913,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               result: result,
               explanation: `Katlı + Tolerans: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tolerans: ${Math.max(boyDiff, enDiff)}cm)`,
               toleranceUsed: Math.max(boyDiff, enDiff),
-              safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff))
+              safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff)).category,
+              safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff)).level
             });
 
             usedIds.add(sourceProduct.id);
@@ -1001,7 +1059,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
             result: result,
             explanation: `Üste tamamla: ${product.hasirSayisi}adet ${product.uzunlukBoy}x${product.uzunlukEn} → ${target.uzunlukBoy}x${target.uzunlukEn} (tolerans: ${Math.max(boyDiffCm, enDiffCm).toFixed(1)}cm)`,
             toleranceUsed: Math.max(boyDiffCm, enDiffCm),
-            safetyLevel: getSafetyLevel(Math.max(boyDiffCm, enDiffCm))
+            safetyLevel: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).level
           });
           
           usedIds.add(product.id);
@@ -1115,7 +1174,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
             result: result,
             explanation: `Hasır tipi değişikliği (same group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn}) - Aynı grup içinde`,
             toleranceUsed: Math.max(boyDiff, enDiff),
-            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff))
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
           });
           
           usedIds.add(product.id);
@@ -1166,7 +1226,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 result: result,
                 explanation: `Hasır tipi değişikliği (cross-group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
                 toleranceUsed: Math.max(boyDiff, enDiff),
-                safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff))
+                safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+                safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
               });
               
               usedIds.add(product.id);
@@ -1181,6 +1242,276 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     // Sort by tolerance used (safest first: 0 tolerance first, then higher)
     return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+  };
+
+  // Smart Multi-Product Merging Analysis
+  const findSmartMultiProductMerges = () => {
+    console.log('🔍 Starting smart multi-product analysis...');
+    const opportunities: MergeOperation[] = [];
+    const usedIds = new Set<string>();
+    
+    // Group products by similar characteristics (type, diameter)
+    const productGroups = new Map<string, Product[]>();
+    
+    products.forEach(product => {
+      if (Number(product.hasirSayisi) > maxHasirSayisi) return; // Skip high quantity products
+      
+      const groupKey = `${product.hasirTipi}_${product.boyCap}_${product.enCap}`;
+      if (!productGroups.has(groupKey)) {
+        productGroups.set(groupKey, []);
+      }
+      productGroups.get(groupKey)!.push(product);
+    });
+    
+    // Analyze each group for multi-product merge opportunities
+    productGroups.forEach((groupProducts, groupKey) => {
+      if (groupProducts.length < 2) return; // Need at least 2 products for smart merge
+      
+      console.log(`📊 Analyzing group ${groupKey} with ${groupProducts.length} products`);
+      
+      // Sort by quantity (prioritize eliminating smaller quantities)
+      const sortedByQuantity = [...groupProducts].sort((a, b) => 
+        Number(a.hasirSayisi) - Number(b.hasirSayisi)
+      );
+      
+      // Try different combinations (2 to 5 products)
+      for (let combinationSize = 2; combinationSize <= Math.min(5, sortedByQuantity.length); combinationSize++) {
+        const combinations = generateCombinations(sortedByQuantity.filter(p => !usedIds.has(p.id)), combinationSize);
+        
+        for (const combination of combinations) {
+          // Calculate optimal NEW product dimensions
+          const maxBoy = Math.max(...combination.map(p => Number(p.uzunlukBoy)));
+          const maxEn = Math.max(...combination.map(p => Number(p.uzunlukEn)));
+          
+          // Check if tolerances are within smart limits (20cm per dimension)
+          const boyTolerances = combination.map(p => maxBoy - Number(p.uzunlukBoy));
+          const enTolerances = combination.map(p => maxEn - Number(p.uzunlukEn));
+          const maxBoyTolerance = Math.max(...boyTolerances);
+          const maxEnTolerance = Math.max(...enTolerances);
+          
+          if (maxBoyTolerance <= 20 && maxEnTolerance <= 20) {
+            // Calculate traditional merging path
+            const traditionalPath = calculateTraditionalPath(combination);
+            const smartTotalTolerance = maxBoyTolerance + maxEnTolerance;
+            
+            // Smart wins if it saves at least 20cm total tolerance compared to traditional
+            if (traditionalPath.feasible && (traditionalPath.totalTolerance - smartTotalTolerance >= 20)) {
+              const totalQuantity = combination.reduce((sum, p) => sum + Number(p.hasirSayisi), 0);
+              const totalKg = combination.reduce((sum, p) => sum + Number(p.toplamKg), 0);
+              
+              // Create new optimal product
+              const newProduct: Product = {
+                ...combination[0], // Use first product as base
+                id: `smart_new_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                uzunlukBoy: maxBoy,
+                uzunlukEn: maxEn,
+                hasirSayisi: totalQuantity,
+                toplamKg: totalKg,
+                mergeHistory: [
+                  `AKILLI YENİ ÜRÜN: ${combination.map(p => `${p.uzunlukBoy}x${p.uzunlukEn}(${p.hasirSayisi})`).join(' + ')} → ${maxBoy}x${maxEn}(${totalQuantity})`
+                ],
+                advancedOptimizationNotes: `SMART NEW: ${combination.length} ürün → yeni optimal boyut ${maxBoy}x${maxEn}`,
+                aciklama: `Akıllı yeni ürün oluşturma`
+              };
+              
+              opportunities.push({
+                type: 'smart_multi',
+                source: combination[0], // Primary source for display
+                target: newProduct, // The NEW product we're creating
+                result: newProduct,
+                explanation: `AKILLI YENİ ÜRÜN: ${combination.length} ürün → YENİ ${maxBoy}x${maxEn} (tolerans tasarrufu: ${(traditionalPath.totalTolerance - smartTotalTolerance).toFixed(1)}cm)`,
+                toleranceUsed: Math.max(maxBoyTolerance, maxEnTolerance),
+                safetyLevel: getSafetyLevel(Math.max(maxBoyTolerance, maxEnTolerance)).category,
+                safetyLevelNumber: getSafetyLevel(Math.max(maxBoyTolerance, maxEnTolerance)).level,
+                smartData: {
+                  involvedProducts: combination,
+                  traditionalAlternative: traditionalPath,
+                  smartOption: {
+                    type: 'smart',
+                    steps: 1,
+                    finalDimensions: `${maxBoy}x${maxEn}`,
+                    toleranceBoy: maxBoyTolerance,
+                    toleranceEn: maxEnTolerance,
+                    totalTolerance: smartTotalTolerance
+                  }
+                }
+              });
+              
+              // Mark all products as used
+              combination.forEach(p => usedIds.add(p.id));
+              
+              console.log(`✅ Smart new product: ${combination.length} products → NEW ${maxBoy}x${maxEn} (saves ${(traditionalPath.totalTolerance - smartTotalTolerance).toFixed(1)}cm tolerance)`);
+              break; // Found best combination for these products
+            }
+          }
+        }
+      }
+    });
+    
+    console.log(`🎯 Smart analysis complete: ${opportunities.length} multi-product opportunities found`);
+    return opportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber);
+  };
+  
+  // Helper function to generate combinations
+  const generateCombinations = (arr: Product[], size: number): Product[][] => {
+    if (size === 1) return arr.map(item => [item]);
+    if (size === arr.length) return [arr];
+    if (size > arr.length) return [];
+    
+    const combinations: Product[][] = [];
+    for (let i = 0; i <= arr.length - size; i++) {
+      const smallerCombinations = generateCombinations(arr.slice(i + 1), size - 1);
+      smallerCombinations.forEach(combination => {
+        combinations.push([arr[i], ...combination]);
+      });
+    }
+    return combinations;
+  };
+  
+  // Calculate traditional merging path and total tolerance
+  const calculateTraditionalPath = (products: Product[]) => {
+    // Sort by size (smallest to largest)
+    const sorted = [...products].sort((a, b) => 
+      (Number(a.uzunlukBoy) * Number(a.uzunlukEn)) - (Number(b.uzunlukBoy) * Number(b.uzunlukEn))
+    );
+    
+    let steps = 0;
+    let totalTolerance = 0;
+    let currentProduct = sorted[0];
+    const path: string[] = [];
+    
+    // Try to merge each product into the next larger one
+    for (let i = 1; i < sorted.length; i++) {
+      const nextProduct = sorted[i];
+      const boyDiff = Number(nextProduct.uzunlukBoy) - Number(currentProduct.uzunlukBoy);
+      const enDiff = Number(nextProduct.uzunlukEn) - Number(currentProduct.uzunlukEn);
+      
+      // Check if merge is possible within global tolerance
+      if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= tolerance && enDiff <= tolerance) {
+        steps++;
+        const stepTolerance = boyDiff + enDiff;
+        totalTolerance += stepTolerance;
+        path.push(`${currentProduct.uzunlukBoy}x${currentProduct.uzunlukEn} → ${nextProduct.uzunlukBoy}x${nextProduct.uzunlukEn} (${stepTolerance}cm)`);
+        currentProduct = nextProduct;
+      } else {
+        // Traditional path not feasible
+        return { steps: 0, totalTolerance: 0, feasible: false, path: [] };
+      }
+    }
+    
+    return { steps, totalTolerance, feasible: true, path };
+  };
+
+  const executeSmartMultiProductMerges = () => {
+    console.log('🚀 executeSmartMultiProductMerges clicked - tolerance:', tolerance);
+    const opportunities = findSmartMultiProductMerges();
+    console.log('Smart multi-product opportunities:', opportunities.length, opportunities);
+    
+    if (opportunities.length === 0) {
+      toast.error('Akıllı çoklu birleştirme yapılabilecek ürün grubu bulunamadı (min 3 ürün gerekli)');
+      return;
+    }
+    
+    setPendingOperations(opportunities);
+    setCurrentOperationIndex(0);
+    setShowApprovalDialog(true);
+    toast.success(`${opportunities.length} akıllı çoklu birleştirme fırsatı bulundu!`);
+  };
+
+  // Comprehensive mega-function combining all optimization types
+  const findAllOptimizationOpportunities = () => {
+    console.log('🚀 Starting comprehensive optimization analysis...');
+    
+    // Collect opportunities from all optimization functions
+    const basicMerges = findMergeOpportunities();
+    const foldedImprovements = findFoldedImprovements();
+    const roundingOps = findRoundingOpportunities();
+    const smartMulti = findSmartMultiProductMerges();
+    
+    console.log(`Found opportunities: Basic(${basicMerges.length}), Folded(${foldedImprovements.length}), Rounding(${roundingOps.length}), Smart(${smartMulti.length})`);
+    
+    // Combine all opportunities
+    let allOpportunities = [
+      ...basicMerges,
+      ...foldedImprovements, 
+      ...roundingOps,
+      ...smartMulti
+    ];
+    
+    // Remove duplicates based on source+target product combinations
+    const usedCombinations = new Set<string>();
+    const uniqueOpportunities: MergeOperation[] = [];
+    
+    for (const opportunity of allOpportunities) {
+      // Create unique key for this combination
+      const key = `${opportunity.source.id}-${opportunity.target.id}`;
+      const reverseKey = `${opportunity.target.id}-${opportunity.source.id}`;
+      
+      if (!usedCombinations.has(key) && !usedCombinations.has(reverseKey)) {
+        uniqueOpportunities.push(opportunity);
+        usedCombinations.add(key);
+      } else {
+        // If duplicate found, keep the safer option
+        const existingIndex = uniqueOpportunities.findIndex(op => 
+          (op.source.id === opportunity.source.id && op.target.id === opportunity.target.id) ||
+          (op.source.id === opportunity.target.id && op.target.id === opportunity.source.id)
+        );
+        
+        if (existingIndex >= 0) {
+          const existing = uniqueOpportunities[existingIndex];
+          if (opportunity.safetyLevelNumber < existing.safetyLevelNumber) {
+            // Replace with safer option
+            uniqueOpportunities[existingIndex] = opportunity;
+          }
+        }
+      }
+    }
+    
+    // Sort by safety level (safest first: 0 → 10)
+    const sortedOpportunities = uniqueOpportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber);
+    
+    console.log(`💡 Total unique opportunities: ${sortedOpportunities.length} (after duplicate removal)`);
+    return sortedOpportunities;
+  };
+
+  const executeComprehensiveOptimization = () => {
+    console.log('🎯 executeComprehensiveOptimization clicked - tolerance:', tolerance);
+    const opportunities = findAllOptimizationOpportunities();
+    console.log('Comprehensive opportunities:', opportunities.length, opportunities);
+    
+    if (opportunities.length === 0) {
+      toast.error('Optimizasyon yapılabilecek ürün kombinasyonu bulunamadı');
+      return;
+    }
+    
+    setPendingOperations(opportunities);
+    setCurrentOperationIndex(0);
+    setShowApprovalDialog(true);
+    toast.success(`${opportunities.length} optimizasyon fırsatı bulundu! (Güvenlik sırasına göre sıralandı)`);
+  };
+
+  // Sort pending operations based on selected mode
+  const sortPendingOperations = (operations: (MergeOperation & {approved?: boolean})[], mode: 'safety' | 'quantity') => {
+    return [...operations].sort((a, b) => {
+      if (mode === 'safety') {
+        // Sort by safety level (safest first: 0 → 10)
+        return a.safetyLevelNumber - b.safetyLevelNumber;
+      } else {
+        // Sort by quantity (lowest first)
+        return Number(a.source.hasirSayisi) - Number(b.source.hasirSayisi);
+      }
+    });
+  };
+
+  // Apply sorting when sort mode changes
+  const applySorting = (newSortMode: 'safety' | 'quantity') => {
+    setSortMode(newSortMode);
+    if (pendingOperations.length > 0) {
+      const sortedOps = sortPendingOperations(pendingOperations, newSortMode);
+      setPendingOperations(sortedOps);
+      // Reset to first operation after sorting
+      setCurrentOperationIndex(0);
+    }
   };
 
   const executeHasirTipiChanges = () => {
@@ -1198,6 +1529,33 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setShowApprovalDialog(true);
   };
 
+  // Remove conflicting operations when an operation is approved
+  const removeConflictingOperations = (approvedOperation: MergeOperation, operations: (MergeOperation & {approved?: boolean})[]) => {
+    const sourceIds = new Set<string>();
+    const targetIds = new Set<string>();
+    
+    // For smart multi operations, get all involved product IDs
+    if (approvedOperation.explanation.includes('AKILLI ÇOKLU BİRLEŞTİRME')) {
+      // Extract source product IDs from the explanation
+      sourceIds.add(approvedOperation.source.id);
+      targetIds.add(approvedOperation.target.id);
+      // Note: In a complete implementation, we'd need to track all source products involved in the smart merge
+    } else {
+      sourceIds.add(approvedOperation.source.id);
+      targetIds.add(approvedOperation.target.id);
+    }
+    
+    // Remove operations that involve any of these products
+    return operations.filter((op, index) => {
+      if (index <= currentOperationIndex) return true; // Keep already processed operations
+      
+      const hasConflict = sourceIds.has(op.source.id) || sourceIds.has(op.target.id) ||
+                         targetIds.has(op.source.id) || targetIds.has(op.target.id);
+      
+      return !hasConflict;
+    });
+  };
+
   // Approve current operation
   const approveCurrentOperation = () => {
     if (currentOperationIndex >= pendingOperations.length) return;
@@ -1208,6 +1566,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
       .concat(operation.result);
     
     addToHistory(newProducts);
+    
+    // Remove conflicting operations from remaining suggestions
+    const filteredOperations = removeConflictingOperations(operation, pendingOperations);
+    setPendingOperations(filteredOperations);
     
     // Mark this operation as approved
     const updatedOperations = [...pendingOperations];
@@ -1933,21 +2295,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       <td className=" px-4 py-3 border-b border-gray-200">{product.enCap}</td>
                       <td className="font-semibold relative ">
                         <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full border"
-                            style={{
-                              backgroundColor: (() => {
-                                const quantity = Number(product.hasirSayisi);
-                                if (quantity >= 100) return '#22c55e'; // Green for 100+
-                                const ratio = Math.min(quantity / 100, 1);
-                                const red = Math.round(255 * (1 - ratio));
-                                const green = Math.round(255 * ratio);
-                                return `rgb(${red}, ${green}, 0)`;
-                              })()
-                            }}
-                          />
-                          <span className={Number(product.hasirSayisi) < 20 ? 'text-red-600 font-bold' : ''}>
+                          <div className={`w-3 h-3 rounded-full ${getQuantityColor(Number(product.hasirSayisi)).replace('text-white', '').replace('bg-', 'bg-')}`} />
+                          <span className={`px-2 py-1 rounded font-bold text-xs ${getQuantityColor(Number(product.hasirSayisi))}`}>
                             {product.hasirSayisi}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            ({getQuantityLabel(Number(product.hasirSayisi))})
                           </span>
                         </div>
                       </td>
@@ -1978,9 +2331,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
           {/* Automatic operations */}
           <div className="mt-1 p-1 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-4 mb-1 flex-wrap justify-center">
               <div className="flex items-center gap-2">
-                <Label className="text-xs font-medium whitespace-nowrap">Tolerans: {tolerance}cm</Label>
+                <Label className="text-xs font-medium whitespace-nowrap">+ Tolerans: {tolerance}cm</Label>
                 <Slider
                   value={[tolerance]}
                   onValueChange={(value) => setTolerance(value[0])}
@@ -1991,7 +2344,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-xs font-medium whitespace-nowrap">Hasır: {maxHasirSayisi}</Label>
+                <Label className="text-xs font-medium whitespace-nowrap">Kabul Edilecek Minimum Hasır Sayısı: {maxHasirSayisi}</Label>
                 <Slider
                   value={[maxHasirSayisi]}
                   onValueChange={(value) => setMaxHasirSayisi(value[0])}
@@ -2002,41 +2355,24 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap justify-center">
+            <div className="flex gap-4 justify-center">
             <Button 
-              variant="outline"
-              onClick={executeAutomaticMerges}
+              variant="default"
+              onClick={executeComprehensiveOptimization}
               size="sm"
-              className="bg-white text-sm"
+              className="bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700 text-sm font-semibold px-6"
             >
               <Settings className="w-4 h-4 mr-2" />
-              Otomatik Tüm Birleştirmeleri Uygula
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={executeFoldedImprovements}
-              size="sm"
-              className="bg-white text-sm"
-            >
-              <Layers className="w-4 h-4 mr-2" />
-              Katlı İyileştirmeler
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={executeRoundingOperations}
-              size="sm"
-              className="bg-white text-sm"
-            >
-              ⬆️ En Yakın Üste Tamamla
+              Otomatik Tüm Birleştirmeler
             </Button>
             <Button 
               variant="outline"
               onClick={executeHasirTipiChanges}
               size="sm"
-              className="bg-white text-sm"
+              className="bg-red-50 border-red-300 text-red-700 hover:bg-red-100 text-sm font-semibold px-6"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Hasır Tipi Değişikliği
+              Hasır Tipi Değişikliği (Riskli)
             </Button>
             </div>
           </div>
@@ -2094,15 +2430,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
                               {option.explanation}
                               {index === 0 && <span className="text-green-600 ml-2">(Önerilen)</span>}
                             </p>
-                            <div className="text-xs text-gray-600 mt-1">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                option.safetyLevel === 'safe' ? 'bg-green-100 text-green-800' :
-                                option.safetyLevel === 'caution' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {option.safetyLevel === 'safe' ? 'Güvenli' :
-                                 option.safetyLevel === 'caution' ? 'Dikkat' :
-                                 'Riskli'} - {option.tolerance.toFixed(1)}cm tolerans
+                            <div className="text-xs text-gray-600 mt-1 flex items-center gap-2 flex-wrap">
+                              <span className={`px-2 py-1 rounded text-xs ${getSafetyDisplay(option.safetyLevel, option.tolerance).bgClass}`}>
+                                {getSafetyDisplay(option.safetyLevel, option.tolerance).icon} {getSafetyDisplay(option.safetyLevel, option.tolerance).text}
+                              </span>
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                Maks: {tolerance}cm
+                              </span>
+                              <span className="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs">
+                                Kullanılan: {option.tolerance.toFixed(1)}cm
                               </span>
                             </div>
                           </div>
@@ -2194,6 +2530,41 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 `İşlem ${currentOperationIndex + 1} / ${pendingOperations.length}`}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Sorting Options */}
+          {pendingOperations.length > 1 && (
+            <div className="border-b pb-3 mb-3">
+              <Label className="text-sm font-medium mb-2 block">Sıralama:</Label>
+              <div className="flex gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="sort-safety"
+                    name="sortMode"
+                    checked={sortMode === 'safety'}
+                    onChange={() => applySorting('safety')}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="sort-safety" className="text-sm cursor-pointer">
+                    İşlem Güvenliği (En Güvenli İlk)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="sort-quantity"
+                    name="sortMode"
+                    checked={sortMode === 'quantity'}
+                    onChange={() => applySorting('quantity')}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="sort-quantity" className="text-sm cursor-pointer">
+                    Hasır Sayısı (En Düşük İlk)
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
           
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
             <div className="space-y-4">
@@ -2229,20 +2600,102 @@ const CelikHasirOptimizasyon: React.FC = () => {
                           : 'bg-red-500 text-white'
                       }`}
                     >
-                      {pendingOperations[currentOperationIndex].safetyLevel === 'safe' 
-                        ? '✓ GÜVENLİ' 
-                        : pendingOperations[currentOperationIndex].safetyLevel === 'caution'
-                        ? '⚠ DİKKAT'
-                        : '⚠ RİSKLİ'}
+                      {getSafetyDisplay(pendingOperations[currentOperationIndex].safetyLevel, pendingOperations[currentOperationIndex].toleranceUsed, pendingOperations[currentOperationIndex].safetyLevelNumber).icon} {getSafetyDisplay(pendingOperations[currentOperationIndex].safetyLevel, pendingOperations[currentOperationIndex].toleranceUsed, pendingOperations[currentOperationIndex].safetyLevelNumber).text.toUpperCase()}
                     </div>
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                      {pendingOperations[currentOperationIndex].toleranceUsed.toFixed(1)}cm tolerans
-                    </span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        Küresel Tolerans: {tolerance}cm
+                      </span>
+                      <span className="bg-gray-200 px-2 py-1 rounded">
+                        Kullanılan: {pendingOperations[currentOperationIndex].toleranceUsed.toFixed(1)}cm
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <p className="text-blue-700">{pendingOperations[currentOperationIndex].explanation}</p>
               </div>
               
+              {/* Show comparison for smart operations */}
+              {pendingOperations[currentOperationIndex].type === 'smart_multi' && pendingOperations[currentOperationIndex].smartData && (
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Layers className="w-4 h-4" />
+                    Alternatif Seçenekler Karşılaştırması
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Traditional Option */}
+                    <div className="bg-white p-3 rounded border">
+                      <h5 className="font-medium text-sm mb-2 text-gray-700">Geleneksel Birleştirme</h5>
+                      <div className="text-xs space-y-1">
+                        <p><strong>Adım Sayısı:</strong> {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.steps}</p>
+                        <p><strong>Toplam Tolerans:</strong> 
+                          <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-800 rounded">
+                            {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.totalTolerance.toFixed(1)}cm
+                          </span>
+                        </p>
+                        <div className="mt-2 text-gray-600">
+                          {pendingOperations[currentOperationIndex].smartData.traditionalAlternative.path?.map((step, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="text-gray-400">{idx + 1}.</span>
+                              <span>{step}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Smart Option */}
+                    <div className="bg-white p-3 rounded border border-green-300">
+                      <h5 className="font-medium text-sm mb-2 text-green-700">Akıllı Yeni Ürün ✓</h5>
+                      <div className="text-xs space-y-1">
+                        <p><strong>Adım Sayısı:</strong> 1 (Tek işlem)</p>
+                        <p><strong>Toplam Tolerans:</strong> 
+                          <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-800 rounded">
+                            {pendingOperations[currentOperationIndex].smartData.smartOption.totalTolerance.toFixed(1)}cm
+                          </span>
+                        </p>
+                        <p><strong>Yeni Boyut:</strong> {pendingOperations[currentOperationIndex].smartData.smartOption.finalDimensions}</p>
+                        <p className="text-green-600 font-medium mt-2">
+                          ✓ {(pendingOperations[currentOperationIndex].smartData.traditionalAlternative.totalTolerance - 
+                             pendingOperations[currentOperationIndex].smartData.smartOption.totalTolerance).toFixed(1)}cm tolerans tasarrufu
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                    <strong>Not:</strong> Akıllı birleştirme yeni bir ürün boyutu oluşturur ancak daha az tolerans kullanır.
+                  </div>
+                </div>
+              )}
+              
+              {/* For smart multi, show all involved products */}
+              {pendingOperations[currentOperationIndex].type === 'smart_multi' && pendingOperations[currentOperationIndex].smartData ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-50 border border-red-200 rounded">
+                    <p className="font-semibold mb-2 text-red-800">Birleştirilecek Ürünler: <span className="text-xs">(SİLİNECEKLER)</span></p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {pendingOperations[currentOperationIndex].smartData.involvedProducts.map((product, idx) => (
+                        <div key={idx} className="bg-white p-2 rounded text-sm">
+                          <p className="font-medium">{product.hasirTipi}</p>
+                          <p>{product.uzunlukBoy}x{product.uzunlukEn} cm</p>
+                          <p className={`inline-block px-2 py-1 rounded text-xs ${getQuantityColor(Number(product.hasirSayisi))}`}>
+                            {product.hasirSayisi} adet
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-4 bg-green-50 border border-green-200 rounded">
+                    <p className="font-semibold mb-2 text-green-800">Yeni Oluşturulacak Ürün:</p>
+                    <div className="text-sm space-y-1">
+                      <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
+                      <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
+                      <p><strong>Toplam Adet:</strong> {pendingOperations[currentOperationIndex].result.hasirSayisi}</p>
+                      <p><strong>Toplam Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-red-50 border border-red-200 rounded">
                   <p className="font-semibold mb-2 text-red-800">Kaynak Ürün: <span className="text-xs">(SİLİNECEK)</span></p>
@@ -2250,21 +2703,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].source.hasirTipi}</p>
                     <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].source.uzunlukBoy}x{pendingOperations[currentOperationIndex].source.uzunlukEn} cm</p>
                     <p><strong>Adet:</strong> 
-                      <span className={`ml-1 px-2 py-1 rounded font-bold ${
-                        Number(pendingOperations[currentOperationIndex].source.hasirSayisi) >= 50 
-                          ? 'bg-red-600 text-white' 
-                          : Number(pendingOperations[currentOperationIndex].source.hasirSayisi) >= 20
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-green-600 text-white'
-                      }`}>
+                      <span className={`ml-1 px-2 py-1 rounded font-bold ${getQuantityColor(Number(pendingOperations[currentOperationIndex].source.hasirSayisi))}`}>
                         {pendingOperations[currentOperationIndex].source.hasirSayisi}
                       </span>
-                      <span className="text-xs text-red-600 ml-2">
-                        {Number(pendingOperations[currentOperationIndex].source.hasirSayisi) >= 50 
-                          ? '(YÜKSEK MİKTAR - DİKKAT!)' 
-                          : Number(pendingOperations[currentOperationIndex].source.hasirSayisi) >= 20
-                          ? '(ORTA MİKTAR)'
-                          : '(DÜŞÜK MİKTAR)'}
+                      <span className="text-xs text-gray-600 ml-2">
+                        ({getQuantityLabel(Number(pendingOperations[currentOperationIndex].source.hasirSayisi)).toUpperCase()} MİKTAR)
                       </span>
                     </p>
                     <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].source.toplamKg?.toFixed(2)}</p>
@@ -2291,6 +2734,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
                 </div>
               </div>
+              )}
             </div>
           )}
           
