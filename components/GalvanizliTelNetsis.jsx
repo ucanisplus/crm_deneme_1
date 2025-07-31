@@ -4510,24 +4510,45 @@ const GalvanizliTelNetsis = () => {
       
       // No exact match - need to create new product
       if (allProducts.length > 0) {
-        // Find the highest sequence number
-        let maxSequence = -1;
-        allProducts.forEach(product => {
-          const sequencePart = product.stok_kodu.split('.').pop();
-          const sequenceNum = parseInt(sequencePart);
-          console.log('🔍 Product sequence check:', product.stok_kodu, '→ sequence:', sequenceNum);
-          if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-            maxSequence = sequenceNum;
-          }
+        // Check if any products have the exact same characteristics but different stok_adi
+        const sameSpecProducts = allProducts.filter(product => {
+          // Compare key characteristics that should make products identical
+          return product.cap === parseFloat(mmGtData.cap) &&
+                 product.kod_2 === mmGtData.kod_2 &&
+                 product.kaplama === parseInt(mmGtData.kaplama) &&
+                 product.min_mukavemet === parseInt(mmGtData.min_mukavemet) &&
+                 product.max_mukavemet === parseInt(mmGtData.max_mukavemet) &&
+                 product.kg === parseInt(mmGtData.kg);
         });
         
-        const nextSeq = maxSequence + 1;
-        console.log('🔍 NEW PRODUCT NEEDED:');
-        console.log('Found total products (MMGT + YMGT):', allProducts.length);
-        console.log('maxSequence found:', maxSequence);
-        console.log('returning nextSequence:', nextSeq);
+        console.log('🔍 Same specification products found:', sameSpecProducts.length);
+        sameSpecProducts.forEach(p => console.log('🔍 Same spec product:', p.stok_kodu, '-', p.stok_adi));
         
-        return nextSeq;
+        if (sameSpecProducts.length > 0) {
+          // Find the highest sequence number among products with same specs
+          let maxSequence = -1;
+          sameSpecProducts.forEach(product => {
+            const sequencePart = product.stok_kodu.split('.').pop();
+            const sequenceNum = parseInt(sequencePart);
+            console.log('🔍 Same spec sequence check:', product.stok_kodu, '→ sequence:', sequenceNum);
+            if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+              maxSequence = sequenceNum;
+            }
+          });
+          
+          const nextSeq = maxSequence + 1;
+          console.log('🔍 NEW VARIANT NEEDED (same specs, different stok_adi):');
+          console.log('Found same spec products:', sameSpecProducts.length);
+          console.log('maxSequence found:', maxSequence);
+          console.log('returning nextSequence:', nextSeq);
+          
+          return nextSeq;
+        } else {
+          // Products exist but with different specifications - start with 0
+          console.log('🔍 DIFFERENT SPEC PRODUCTS EXIST - Starting new sequence at 0');
+          console.log('Existing products have different specifications, starting fresh sequence');
+          return 0;
+        }
       } else {
         // No products at all - start with 0
         console.log('🔍 NO EXISTING PRODUCTS - Starting with sequence 0');
