@@ -120,9 +120,6 @@ const SatisGalvanizRequest = () => {
       
       const requestsData = await response.json();
       setRequests(requestsData || []);
-      
-      // Check for deleted products and mark requests as "Silinmiş"
-      await checkForDeletedProducts(requestsData || []);
     } catch (error) {
       console.error('Talep listesi alınamadı:', error);
       toast.error('Talepler alınamadı: ' + error.message);
@@ -632,6 +629,38 @@ const SatisGalvanizRequest = () => {
       toast.error('Toplu silme hatası: ' + error.message);
     } finally {
       setIsDeletingBulk(false);
+    }
+  };
+
+  // Permanently delete "Silinmiş" request from database
+  const permanentlyDeleteRequest = async (request) => {
+    if (request.status !== 'silinmis') {
+      toast.error('Sadece "Silinmiş" durumundaki talepler kalıcı olarak silinebilir');
+      return;
+    }
+
+    if (!window.confirm(`Bu "Silinmiş" talebi kalıcı olarak veritabanından silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${request.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response || !response.ok) {
+        throw new Error('Talep kalıcı olarak silinemedi');
+      }
+      
+      toast.success('Silinmiş talep kalıcı olarak veritabanından silindi');
+      fetchRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Talep kalıcı olarak silinirken hata:', error);
+      toast.error('Talep kalıcı olarak silinemedi: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -1435,16 +1464,29 @@ const SatisGalvanizRequest = () => {
                             >
                               Detay
                             </button>
-                            <button
-                              onClick={() => confirmDelete(request)}
-                              disabled={isLoading}
-                              className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed p-1"
-                              title="Sil"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
+                            {request.status === 'silinmis' ? (
+                              <button
+                                onClick={() => permanentlyDeleteRequest(request)}
+                                disabled={isLoading}
+                                className="text-red-700 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed p-1"
+                                title="Kalıcı Sil (Veritabanından Sil)"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12-9v18a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h14a2 2 0 012 2z" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => confirmDelete(request)}
+                                disabled={isLoading}
+                                className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed p-1"
+                                title="Sil"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

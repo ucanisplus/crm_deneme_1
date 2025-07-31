@@ -624,9 +624,6 @@ const GalvanizliTelNetsis = () => {
         const data = await response.json();
         const requestsData = Array.isArray(data) ? data : [];
         setRequests(requestsData);
-        
-        // Check for deleted products and mark requests as "Silinmiş"
-        await checkForDeletedProducts(requestsData);
       }
     } catch (error) {
       console.error('Talepler getirilirken hata:', error);
@@ -730,6 +727,38 @@ const GalvanizliTelNetsis = () => {
     if (!product) return '';
     
     return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
+  };
+
+  // Permanently delete "Silinmiş" request from database
+  const permanentlyDeleteRequest = async (request) => {
+    if (request.status !== 'silinmis') {
+      toast.error('Sadece "Silinmiş" durumundaki talepler kalıcı olarak silinebilir');
+      return;
+    }
+
+    if (!window.confirm(`Bu "Silinmiş" talebi kalıcı olarak veritabanından silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${request.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response && response.ok) {
+        toast.success('Silinmiş talep kalıcı olarak veritabanından silindi');
+        fetchRequests(); // Refresh the list
+      } else {
+        toast.error('Talep kalıcı olarak silinemedi');
+      }
+    } catch (error) {
+      console.error('Talep kalıcı olarak silinirken hata:', error);
+      toast.error('Talep kalıcı olarak silinemedi: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Mevcut MM GT'leri getir
@@ -11839,6 +11868,16 @@ const GalvanizliTelNetsis = () => {
                                   disabled={isLoading || isLoadingRecipes}
                                 >
                                   Sil
+                                </button>
+                              )}
+                              {request.status === 'silinmis' && (
+                                <button
+                                  onClick={() => permanentlyDeleteRequest(request)}
+                                  className="text-red-700 hover:text-red-900 transition-colors"
+                                  title="Kalıcı Sil (Veritabanından Sil)"
+                                  disabled={isLoading || isLoadingRecipes}
+                                >
+                                  Kalıcı Sil
                                 </button>
                               )}
                             </div>
