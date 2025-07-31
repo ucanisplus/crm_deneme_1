@@ -2003,7 +2003,7 @@ const SatisGalvanizRequest = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Stok Kodu</p>
                     <p className="text-base text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">
-                      {selectedRequest.final_stok_adi || selectedRequest.stok_kodu || selectedRequest.stok_adi || '-'}
+                      {selectedRequest.stok_kodu || '-'}
                     </p>
                   </div>
                   {selectedRequest.stok_adi && (
