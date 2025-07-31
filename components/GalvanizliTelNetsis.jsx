@@ -1704,8 +1704,8 @@ const GalvanizliTelNetsis = () => {
         body: JSON.stringify({
           status: 'in_progress',  // Duzenlenirken isleme alindi olarak isaretle
           edit_notes: editReason,
-          edited_by: user?.username || user?.id || 'system',
-          edited_at: new Date().toISOString()
+          processed_by: user?.username || user?.id || 'system',
+          processed_at: new Date().toISOString()
         })
       });
       
@@ -5099,9 +5099,7 @@ const GalvanizliTelNetsis = () => {
         status: 'approved',
         processed_by: user?.username || user?.id || 'system',
         processed_at: new Date().toISOString(),
-        stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
-        approved_by: isApproval ? (user?.username || user?.id || 'system') : undefined,
-        approved_at: isApproval ? new Date().toISOString() : undefined
+        stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
       };
       
       console.log(`📤 Sending update request with data:`, updateRequestData);
@@ -5133,6 +5131,7 @@ const GalvanizliTelNetsis = () => {
       setIsEditingRequest(false);
       setIsInApprovalProcess(false); // Reset approval process flag to prevent double modals
       setPendingApprovalAction(null);
+      setIsRequestUsed(false); // Clear the used flag to remove status message
       
       // Now also generate Excel files as the final step
       console.log('Excel dosyalarını oluşturma işlemi başlatılıyor...');
@@ -10924,9 +10923,7 @@ const GalvanizliTelNetsis = () => {
                           status: 'approved',
                           processed_by: user?.username || user?.id || 'system',
                           processed_at: new Date().toISOString(),
-                          stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
-                          approved_by: isApproval ? (user?.username || user?.id || 'system') : undefined,
-                          approved_at: isApproval ? new Date().toISOString() : undefined
+                          stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
                         };
                         
                         try {
@@ -10949,6 +10946,7 @@ const GalvanizliTelNetsis = () => {
                             // Reset states
                             setIsEditingRequest(false);
                             setPendingApprovalAction(null);
+                            setIsRequestUsed(false); // Clear the used flag to remove status message
                           } else {
                             console.error('Failed to update request status');
                             toast.error('Talep onaylanamadı');
