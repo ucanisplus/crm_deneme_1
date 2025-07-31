@@ -4447,18 +4447,12 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // İnkremental ürün oluşturma kontrolü - Tamamen yeni ürün için 0'dan başla
+  // İnkremental ürün oluşturma kontrolü - Değişen mantık: Sadece stok_kodu veya stok_adı etkileyen değerler değişirse
   const checkForExistingProducts = async (cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg) => {
     try {
       const capFormatted = Math.round(parseFloat(cap) * 100).toString().padStart(4, '0');
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
       const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
-      
-      console.log('🔍 Checking for existing products with base codes:', mmGtBaseCode, ymGtBaseCode);
-      
-      // Generate stok_adi first for comparison
-      const stokAdi = generateStokAdi();
-      console.log('🔍 Generated stok_adi for comparison:', stokAdi);
       
       // Search both MMGT and YMGT to find the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
@@ -4470,95 +4464,61 @@ const GalvanizliTelNetsis = () => {
       
       if (mmGtResponse && mmGtResponse.ok) {
         const mmGtProducts = await mmGtResponse.json();
-        console.log('🔍 MM GT API Response:', mmGtProducts);
-        console.log('🔍 Found MM GT products:', mmGtProducts.length);
-        if (mmGtProducts.length > 0) {
-          mmGtProducts.forEach(p => console.log('🔍 MM GT Product:', p.stok_kodu, '-', p.stok_adi));
-        }
         allProducts.push(...mmGtProducts);
       }
       
       if (ymGtResponse && ymGtResponse.ok) {
         const ymGtProducts = await ymGtResponse.json();
-        console.log('🔍 YM GT API Response:', ymGtProducts);
-        console.log('🔍 Found YM GT products:', ymGtProducts.length);
-        if (ymGtProducts.length > 0) {
-          ymGtProducts.forEach(p => console.log('🔍 YM GT Product:', p.stok_kodu, '-', p.stok_adi));
-        }
         allProducts.push(...ymGtProducts);
       }
       
-      console.log('🔍 Total existing products found:', allProducts.length);
-      
-      // First check if there's an exact match regardless of whether products exist
-      const exactMatch = allProducts.find(product => {
-        const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
-        const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
-        
-        console.log('🔍 Comparing product:', normalizedProductAdi);
-        console.log('🔍    with generated:', normalizedStokAdi);
-        console.log('🔍    Match result:', normalizedProductAdi === normalizedStokAdi);
-        return normalizedProductAdi === normalizedStokAdi;
-      });
-      
-      if (exactMatch) {
-        const sequencePart = exactMatch.stok_kodu.split('.').pop();
-        const sequenceNum = parseInt(sequencePart);
-        console.log('🔍 EXACT MATCH FOUND! Using existing sequence:', sequenceNum);
-        return sequenceNum;
-      }
-      
-      // No exact match - need to create new product
       if (allProducts.length > 0) {
-        // Check if any products have the exact same characteristics but different stok_adi
-        const sameSpecProducts = allProducts.filter(product => {
-          // Compare key characteristics that should make products identical
-          return product.cap === parseFloat(mmGtData.cap) &&
-                 product.kod_2 === mmGtData.kod_2 &&
-                 product.kaplama === parseInt(mmGtData.kaplama) &&
-                 product.min_mukavemet === parseInt(mmGtData.min_mukavemet) &&
-                 product.max_mukavemet === parseInt(mmGtData.max_mukavemet) &&
-                 product.kg === parseInt(mmGtData.kg);
+        const existingProducts = allProducts;
+        
+        // Tamamen aynı ürün var mı kontrol et (stok_kodu və stok_adi etkileyen tüm değerler)
+        // Use the same generateStokAdi function to ensure consistent formatting
+        const stokAdi = generateStokAdi();
+        
+        // Tamamen eşleşen bir ürün var mı?
+        const exactMatch = existingProducts.find(product => {
+          // Stok adı ile karşılaştırma için normalizasyon (boşluklar ve case-sensitive olmayan karşılaştırma)
+          const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
+          const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
+          
+          // Stok kodu base'i ve stok adı eşleşiyorsa
+          return normalizedProductAdi === normalizedStokAdi;
         });
         
-        console.log('🔍 Same specification products found:', sameSpecProducts.length);
-        sameSpecProducts.forEach(p => console.log('🔍 Same spec product:', p.stok_kodu, '-', p.stok_adi));
-        
-        if (sameSpecProducts.length > 0) {
-          // Find the highest sequence number among products with same specs
-          let maxSequence = -1;
-          sameSpecProducts.forEach(product => {
-            const sequencePart = product.stok_kodu.split('.').pop();
-            const sequenceNum = parseInt(sequencePart);
-            console.log('🔍 Same spec sequence check:', product.stok_kodu, '→ sequence:', sequenceNum);
-            if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-              maxSequence = sequenceNum;
-            }
-          });
-          
-          const nextSeq = maxSequence + 1;
-          console.log('🔍 NEW VARIANT NEEDED (same specs, different stok_adi):');
-          console.log('Found same spec products:', sameSpecProducts.length);
-          console.log('maxSequence found:', maxSequence);
-          console.log('returning nextSequence:', nextSeq);
-          
-          return nextSeq;
-        } else {
-          // Products exist but with different specifications - start with 0
-          console.log('🔍 DIFFERENT SPEC PRODUCTS EXIST - Starting new sequence at 0');
-          console.log('Existing products have different specifications, starting fresh sequence');
-          return 0;
+        if (exactMatch) {
+          // Use the new duplicate confirmation system instead of window.confirm
+          // This will be handled by checkForDuplicatesAndConfirm function
+          const sequencePart = exactMatch.stok_kodu.split('.').pop();
+          const sequenceNum = parseInt(sequencePart);
+          return sequenceNum; // Use existing sequence for now, duplicate dialog will handle the confirmation
         }
-      } else {
-        // No products at all - start with 0
-        console.log('🔍 NO EXISTING PRODUCTS - Starting with sequence 0');
-        return 0;
+        
+        // Eğer tamamen eşleşen yoksa veya kullanıcı güncellemeyi reddettiyse, yeni bir ürün oluştur
+        let maxSequence = -1;
+        existingProducts.forEach(product => {
+          const sequencePart = product.stok_kodu.split('.').pop();
+          const sequenceNum = parseInt(sequencePart);
+          if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+            maxSequence = sequenceNum;
+          }
+        });
+        
+        // Always increment from the highest sequence found, or start with 0 if none exist
+        const nextSeq = maxSequence + 1;
+        console.log('🔍 checkForExistingProducts result:');
+        console.log('Found total products (MMGT + YMGT):', existingProducts.length);
+        console.log('maxSequence found:', maxSequence);
+        console.log('returning nextSequence:', nextSeq);
+        return nextSeq;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
     }
-    console.log('🔍 ERROR FALLBACK - returning 0');
-    return 0;
+    return 0; // Hata durumunda veya ürün yoksa 0'dan başla
   };
 
   // Session'daki ürünleri güncelle - Yeni 1:1:n ilişki modeli ile
