@@ -46,6 +46,7 @@ const GalvanizliTelNetsis = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [showApproveConfirmModal, setShowApproveConfirmModal] = useState(false);
+  const [pendingApprovalAction, setPendingApprovalAction] = useState(null); // 'approve' or 'edit'
   
   // Filtreleme ve siralama durumu
   const [statusFilter, setStatusFilter] = useState('all');
@@ -290,6 +291,13 @@ const GalvanizliTelNetsis = () => {
   // Not duzenleme modali icin state
   const [showEditNotesModal, setShowEditNotesModal] = useState(false);
   const [editNotes, setEditNotes] = useState('');
+  
+  // Edit confirmation modal state
+  const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
+  const [originalProductData, setOriginalProductData] = useState(null);
+  const [changedFields, setChangedFields] = useState([]);
+  const [editReason, setEditReason] = useState('');
+  const [showEditReasonModal, setShowEditReasonModal] = useState(false);
   
   // TLC_Hizlar onbellek - veriyi veritabanindan cekelim
   const [tlcHizlarCache, setTlcHizlarCache] = useState({});
@@ -1671,15 +1679,23 @@ const GalvanizliTelNetsis = () => {
     return filteredRequests;
   };
   
-  // Talebi duzenleme - Not acilir penceresi olmadan dogrudan duzenleme
+  // Talebi duzenleme - Edit reason modal aç
   const handleEditRequest = async () => {
+    setShowEditReasonModal(true);
+  };
+  
+  // Continue with edit after reason is provided
+  const handleEditReasonConfirm = async () => {
+    if (!editReason.trim()) {
+      toast.error('Lütfen düzenleme nedenini girin');
+      return;
+    }
+    
     try {
       setIsLoading(true);
+      setShowEditReasonModal(false);
       
-      // NOT: Burada sifirlamaya gerek yok - handleSelectRequest'te zaten sifirlandi
-      // resetApplicationState(); // REMOVED - already done when request was selected
-      
-      // Duzenleme notlari sormadan talep durumunu dogrudan guncelle
+      // Update request with edit reason
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -1687,8 +1703,9 @@ const GalvanizliTelNetsis = () => {
         },
         body: JSON.stringify({
           status: 'in_progress',  // Duzenlenirken isleme alindi olarak isaretle
-          processed_by: user?.username || user?.id || 'system',
-          processed_at: new Date().toISOString()
+          edit_notes: editReason,
+          edited_by: user?.username || user?.id || 'system',
+          edited_at: new Date().toISOString()
         })
       });
       
@@ -1743,6 +1760,10 @@ const GalvanizliTelNetsis = () => {
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
       setIsRequestUsed(true);
+      setPendingApprovalAction('edit');
+      
+      // Clear edit reason  
+      setEditReason('');
       
       // Modali temizle ve giris ekranina git
       setShowRequestDetailModal(false);
@@ -1761,31 +1782,12 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // DURUMU BURADA SIFIRLA - onay sureci icin mevcut verilere ihtiyacimiz var
-      // resetApplicationState(); // REMOVED - this was breaking the approval flow
+      // Don't change status immediately - just prepare for approval
+      // The status will be changed after successful database save
       
-      // Talep durumunu onaylandi olarak guncelle
-      const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status: 'approved',
-          processed_by: user?.username || user?.id || 'system',
-          processed_at: new Date().toISOString()
-          // Do not include updated_at as it doesn't exist in the database yet
-        })
-      });
-      
-      if (!response || !response.ok) {
-        throw new Error('Talep durumu güncellenemedi');
-      }
-      
-      toast.success('Talep başarıyla onaylandı');
-      
-      // Talebi kullanilmis olarak ayarla ve duzenleme YAPILMIYOR olarak isaretle (artik onaylandi)
+      // Set the request as used and mark for approval
       setIsRequestUsed(true);
+      setPendingApprovalAction('approve');
       setIsEditingRequest(false);
       
       // Virgul degil nokta saglamak icin tum sayisal degerler icin normallestirilmis ondalik gosterim kullan
@@ -1832,8 +1834,10 @@ const GalvanizliTelNetsis = () => {
       generateYmGtData();
       findSuitableYmSts();
       
+      toast.info('Talep onay için hazırlandı. Lütfen ürünü kaydedin.');
+      
     } catch (error) {
-      console.error('Talep onaylama hatası:', error);
+      console.error('Talep onaylama hazırlığı hatası:', error);
       toast.error('Talep onaylanamadı: ' + error.message);
     } finally {
       setIsLoading(false);
@@ -1896,6 +1900,13 @@ const GalvanizliTelNetsis = () => {
       setIsLoading(true);
       setSelectedExistingMmGt(mmGt);
       setIsViewingExistingProduct(true); // Mark as viewing existing product
+      
+      // Store original product data for change detection
+      setOriginalProductData({
+        mmGt: { ...mmGt },
+        ymGts: [],
+        ymSts: []
+      });
       
       // Extract sequence from existing product's stok_kodu
       const existingSequence = mmGt.stok_kodu ? mmGt.stok_kodu.split('.').pop() : '00';
@@ -2183,6 +2194,69 @@ const GalvanizliTelNetsis = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Detect changes between original and current data
+  const detectChanges = () => {
+    if (!originalProductData || !originalProductData.mmGt) return [];
+    
+    const changes = [];
+    const original = originalProductData.mmGt;
+    
+    // Check each field for changes
+    const fieldsToCheck = [
+      { key: 'cap', label: 'Çap' },
+      { key: 'kod_2', label: 'Kod' },
+      { key: 'kaplama', label: 'Kaplama' },
+      { key: 'min_mukavemet', label: 'Min Mukavemet' },
+      { key: 'max_mukavemet', label: 'Max Mukavemet' },
+      { key: 'kg', label: 'Ağırlık (kg)' },
+      { key: 'ic_cap', label: 'İç Çap' },
+      { key: 'dis_cap', label: 'Dış Çap' },
+      { key: 'tolerans_plus', label: 'Tolerans (+)' },
+      { key: 'tolerans_minus', label: 'Tolerans (-)' },
+      { key: 'shrink', label: 'Shrink' },
+      { key: 'unwinding', label: 'Unwinding' },
+      { key: 'cast_kont', label: 'Bağ Miktarı' },
+      { key: 'helix_kont', label: 'Helix Kontrol' },
+      { key: 'elongation', label: 'Elongation' }
+    ];
+    
+    fieldsToCheck.forEach(field => {
+      const originalValue = original[field.key];
+      const currentValue = mmGtData[field.key];
+      
+      // Normalize values for comparison
+      const normalizedOriginal = originalValue ? String(originalValue).trim() : '';
+      const normalizedCurrent = currentValue ? String(currentValue).trim() : '';
+      
+      if (normalizedOriginal !== normalizedCurrent) {
+        changes.push({
+          field: field.label,
+          oldValue: normalizedOriginal || 'Boş',
+          newValue: normalizedCurrent || 'Boş'
+        });
+      }
+    });
+    
+    // Check packaging options
+    const originalPackaging = {
+      shrink: original.stok_adi?.includes('-Shrink') || original.shrink === 'evet',
+      paletli: original.stok_adi?.includes('-Plt'),
+      sepetli: original.stok_adi?.includes('-Spt')
+    };
+    
+    if (originalPackaging.shrink !== paketlemeSecenekleri.shrink ||
+        originalPackaging.paletli !== paketlemeSecenekleri.paletli ||
+        originalPackaging.sepetli !== paketlemeSecenekleri.sepetli) {
+      changes.push({
+        field: 'Paketleme Seçenekleri',
+        oldValue: `Shrink: ${originalPackaging.shrink ? 'Evet' : 'Hayır'}, Paletli: ${originalPackaging.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${originalPackaging.sepetli ? 'Evet' : 'Hayır'}`,
+        newValue: `Shrink: ${paketlemeSecenekleri.shrink ? 'Evet' : 'Hayır'}, Paletli: ${paketlemeSecenekleri.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${paketlemeSecenekleri.sepetli ? 'Evet' : 'Hayır'}`
+      });
+    }
+    
+    return changes;
   };
 
   // YM GT verilerini otomatik oluştur
@@ -5011,11 +5085,17 @@ const GalvanizliTelNetsis = () => {
       console.log('Updating request ' + selectedRequest.id + ' with new stok_kodu: ' + actualStokKodu + ' (sequence: ' + processSequence + ')');
       console.log('Original request stok_kodu: ' + selectedRequest.stok_kodu);
       
+      // Check what action was pending
+      const isApproval = pendingApprovalAction === 'approve';
+      const isEdit = pendingApprovalAction === 'edit';
+      
       const updateRequestData = {
         status: 'approved',
         processed_by: user?.username || user?.id || 'system',
         processed_at: new Date().toISOString(),
-        stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
+        stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
+        approved_by: isApproval ? (user?.username || user?.id || 'system') : undefined,
+        approved_at: isApproval ? new Date().toISOString() : undefined
       };
       
       console.log(`📤 Sending update request with data:`, updateRequestData);
@@ -5036,12 +5116,17 @@ const GalvanizliTelNetsis = () => {
       
       const updateResult = await updateResponse.json();
       
-      // Only show approval success if we successfully updated the request
-      toast.success('Talep başarıyla onaylandı');
+      // Show appropriate success message
+      if (isApproval) {
+        toast.success('Talep başarıyla onaylandı');
+      } else if (isEdit) {
+        toast.success('Talep başarıyla düzenlendi ve onaylandı');
+      }
       
-      // Reset editing state since it's now approved
+      // Reset states
       setIsEditingRequest(false);
       setIsInApprovalProcess(false); // Reset approval process flag to prevent double modals
+      setPendingApprovalAction(null);
       
       // Now also generate Excel files as the final step
       console.log('Excel dosyalarını oluşturma işlemi başlatılıyor...');
@@ -7819,6 +7904,53 @@ const GalvanizliTelNetsis = () => {
     const fileName = `Toplu_Receteler_${new Date().toISOString().slice(0, 10)}.xlsx`;
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
     
+  };
+
+  // Handle edit confirmation
+  const handleEditConfirm = async () => {
+    try {
+      setIsLoading(true);
+      setShowEditConfirmModal(false);
+      
+      // Update the product in the database
+      if (originalProductData && originalProductData.mmGt && originalProductData.mmGt.id) {
+        const updateData = {
+          ...mmGtData,
+          tolerans_max_sign: toleransMaxSign,
+          tolerans_min_sign: toleransMinSign,
+          // Generate the updated stok_adi based on current paketleme options
+          stok_adi: generateMmGtStokAdi(),
+          // Preserve the original stok_kodu - should not be changed during edit
+          stok_kodu: originalProductData.mmGt.stok_kodu
+        };
+        
+        // Update MM GT
+        const updateResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${originalProductData.mmGt.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(normalizeDecimalValues(updateData))
+        });
+        
+        if (!updateResponse || !updateResponse.ok) {
+          throw new Error('Ürün güncellenemedi');
+        }
+        
+        toast.success('Ürün başarıyla güncellendi');
+      }
+      
+      // Generate Excel files
+      toast.info('Excel dosyaları oluşturuluyor...');
+      await generateExcelFiles();
+      toast.success('Excel dosyaları başarıyla oluşturuldu!');
+      
+    } catch (error) {
+      console.error('Ürün güncelleme hatası:', error);
+      toast.error('Ürün güncellenemedi: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Excel dosyalarını oluştur
@@ -10617,11 +10749,20 @@ const GalvanizliTelNetsis = () => {
                     setIsLoading(true);
                     
                     if (isViewingExistingProduct) {
-                      // Only generate Excel files when viewing existing product
-                      console.log("Viewing existing product - only generating Excel files");
-                      toast.info("Excel dosyaları oluşturuluyor...");
-                      await generateExcelFiles();
-                      toast.success("Excel dosyaları başarıyla oluşturuldu!");
+                      // Check for changes when editing existing product
+                      const changes = detectChanges();
+                      if (changes.length > 0) {
+                        // Show edit confirmation modal with changes
+                        setChangedFields(changes);
+                        setShowEditConfirmModal(true);
+                        setIsLoading(false);
+                        return;
+                      } else {
+                        // No changes detected
+                        toast.warning("Hiçbir değişiklik yapılmadı. Excel dosyaları oluşturuluyor...");
+                        await generateExcelFiles();
+                        toast.success("Excel dosyaları başarıyla oluşturuldu!");
+                      }
                     } else {
                       // Normal flow for new products
                       
@@ -10677,7 +10818,7 @@ const GalvanizliTelNetsis = () => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                     </svg>
-                    {isViewingExistingProduct ? 'Excel Oluştur' : 'Veritabanına Kaydet ve Excel Oluştur'}
+                    {isViewingExistingProduct ? 'Değişiklikleri Kaydet ve Excel Oluştur' : 'Veritabanına Kaydet ve Excel Oluştur'}
                   </>
                 )}
               </button>
@@ -11576,6 +11717,29 @@ const GalvanizliTelNetsis = () => {
                 </div>
               </div>
               
+              {/* Rejection reason and edit notes */}
+              {(selectedRequest.rejection_reason || selectedRequest.edit_notes) && (
+                <div className="pt-4 border-t border-gray-200">
+                  {selectedRequest.rejection_reason && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Reddedilme Sebebi</p>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-red-900 whitespace-pre-line">{selectedRequest.rejection_reason}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedRequest.edit_notes && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Düzenleme Notları</p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-blue-900 whitespace-pre-line">{selectedRequest.edit_notes}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setShowRequestDetailModal(false)}
@@ -11585,44 +11749,97 @@ const GalvanizliTelNetsis = () => {
                 </button>
                 
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleEditRequest}
-                    className="px-4 py-2 text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 flex items-center"
-                  >
-                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Düzenle
-                  </button>
-                  
-                  <button
-                    onClick={handleDetailApproveRequest}
-                    disabled={isLoading || isLoadingRecipes}
-                    className="px-4 py-2 text-green-700 bg-green-100 rounded-md hover:bg-green-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                    Onayla
-                  </button>
-                  
-                  <button
-                    onClick={handleOpenRejectModal}
-                    disabled={isLoading || isLoadingRecipes}
-                    className="px-4 py-2 text-red-700 bg-red-100 rounded-md hover:bg-red-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Reddet
-                  </button>
+                  {/* Show different buttons based on request status */}
+                  {selectedRequest.status === 'pending' ? (
+                    // Pending status - show all three buttons
+                    <>
+                      <button
+                        onClick={handleEditRequest}
+                        className="px-4 py-2 text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 flex items-center"
+                      >
+                        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Düzenle
+                      </button>
+                      
+                      <button
+                        onClick={handleDetailApproveRequest}
+                        disabled={isLoading || isLoadingRecipes}
+                        className="px-4 py-2 text-green-700 bg-green-100 rounded-md hover:bg-green-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isLoading ? (
+                          <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        Onayla
+                      </button>
+                      
+                      <button
+                        onClick={handleOpenRejectModal}
+                        disabled={isLoading || isLoadingRecipes}
+                        className="px-4 py-2 text-red-700 bg-red-100 rounded-md hover:bg-red-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Reddet
+                      </button>
+                    </>
+                  ) : selectedRequest.status?.toString().toLowerCase().trim() === 'approved' ? (
+                    // Approved status - show edit saved product button
+                    <button
+                      onClick={async () => {
+                        // Find the saved product by stok_kodu
+                        if (selectedRequest.stok_kodu) {
+                          try {
+                            setIsLoading(true);
+                            // Fetch the saved product
+                            const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${selectedRequest.stok_kodu}`);
+                            if (response && response.ok) {
+                              const products = await response.json();
+                              if (products && products.length > 0) {
+                                // Close the request detail modal
+                                setShowRequestDetailModal(false);
+                                // Load the product for editing
+                                handleSelectExistingMmGt(products[0]);
+                              } else {
+                                toast.error('Kaydedilmiş ürün bulunamadı');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error loading saved product:', error);
+                            toast.error('Ürün yüklenirken hata oluştu');
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="px-4 py-2 text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      )}
+                      Kaydedilmiş Ürünü Düzenle
+                    </button>
+                  ) : (
+                    // Rejected or other status - no action buttons
+                    null
+                  )}
                 </div>
               </div>
             </div>
@@ -11689,6 +11906,163 @@ const GalvanizliTelNetsis = () => {
                     </svg>
                   )}
                   Talebi Reddet
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Düzenleme Nedeni Modalı */}
+      {showEditReasonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Düzenleme Nedeni
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowEditReasonModal(false);
+                    setEditReason('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <label htmlFor="editReason" className="block text-sm font-medium text-gray-700 mb-1">
+                  Düzenleme Nedeni
+                </label>
+                <textarea
+                  id="editReason"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  rows={4}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Talebi neden düzenlediğinizi açıklayın..."
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditReasonModal(false);
+                    setEditReason('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleEditReasonConfirm}
+                  disabled={isLoading || !editReason.trim()}
+                  className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isLoading ? (
+                    <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  Düzenle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Ürün Düzenleme Onay Modalı */}
+      {showEditConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Değişiklik Onayı
+                </h2>
+                <button
+                  onClick={() => setShowEditConfirmModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-700 mb-4">
+                  Aşağıdaki alanlar değiştirildi ve veritabanında güncellenecek:
+                </p>
+                
+                {changedFields.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 px-2 font-medium text-gray-700">Alan</th>
+                          <th className="text-left py-2 px-2 font-medium text-gray-700">Eski Değer</th>
+                          <th className="text-left py-2 px-2 font-medium text-gray-700">Yeni Değer</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {changedFields.map((change, index) => (
+                          <tr key={index} className="border-b border-gray-100">
+                            <td className="py-2 px-2 text-gray-600">{change.field}</td>
+                            <td className="py-2 px-2 text-red-600">{change.oldValue}</td>
+                            <td className="py-2 px-2 text-green-600">{change.newValue}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                
+                <p className="mt-4 text-gray-700">
+                  Bu değişiklikleri onaylıyor ve Excel oluşturmak istiyor musunuz?
+                </p>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowEditConfirmModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleEditConfirm}
+                  disabled={isLoading}
+                  className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isLoading ? (
+                    <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  Değişiklikleri Kaydet ve Excel Oluştur
                 </button>
               </div>
             </div>
