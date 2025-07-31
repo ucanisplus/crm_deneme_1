@@ -4481,7 +4481,13 @@ const GalvanizliTelNetsis = () => {
       console.log('🔍 checkForExistingProducts search:');
       console.log('Looking for base codes:', mmGtBaseCode, ymGtBaseCode);
       console.log('Found total products from API:', allProducts.length);
+      if (allProducts.length > 0) {
+        console.log('All products found:', allProducts.map(p => ({ stok_kodu: p.stok_kodu, stok_adi: p.stok_adi })));
+      }
       console.log('Filtered products with exact base code:', filteredProducts.length);
+      if (filteredProducts.length > 0) {
+        console.log('Filtered products:', filteredProducts.map(p => ({ stok_kodu: p.stok_kodu, stok_adi: p.stok_adi })));
+      }
       
       if (filteredProducts.length > 0) {
         const existingProducts = filteredProducts;
@@ -13988,14 +13994,26 @@ const GalvanizliTelNetsis = () => {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => setShowTaskQueuePopup(!showTaskQueuePopup)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setTaskQueue([]);
+                    taskQueueRef.current = [];
+                    toast.success('Tüm işlemler temizlendi');
+                  }}
+                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-900/20 rounded transition-colors"
+                >
+                  Temizle
+                </button>
+                <button
+                  onClick={() => setShowTaskQueuePopup(!showTaskQueuePopup)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
                 <svg className={`w-5 h-5 transition-transform ${showTaskQueuePopup ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                 </svg>
               </button>
+              </div>
             </div>
             
             {/* Task Items */}
