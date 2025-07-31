@@ -11461,7 +11461,7 @@ const GalvanizliTelNetsis = () => {
                         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
                         const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
                         const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
-                        let nextSequence = 1;
+                        let nextSequence = 0; // FIXED: Start from 0, not 1
                         
                         if (response && response.ok) {
                           const existingProducts = await response.json();
@@ -11473,7 +11473,11 @@ const GalvanizliTelNetsis = () => {
                               })
                               .filter(seq => !isNaN(seq));
                             
-                            nextSequence = Math.max(...sequences, 0) + 1;
+                            if (sequences.length > 0) {
+                              nextSequence = Math.max(...sequences) + 1;
+                            } else {
+                              nextSequence = 0; // If no valid sequences found, start from 0
+                            }
                           }
                         }
                         
@@ -12202,11 +12206,17 @@ const GalvanizliTelNetsis = () => {
                               {request.status === 'pending' && (
                                 <button
                                   onClick={() => {
+                                    // If request is in queue, remove it from queue first
+                                    if (isRequestInQueue(request.id)) {
+                                      setTaskQueue(prev => prev.filter(t => !t.name.includes(request.id)));
+                                      taskQueueRef.current = taskQueueRef.current.filter(t => !t.name.includes(request.id));
+                                    }
                                     if (window.confirm('Bu talebi silmek istediğinizden emin misiniz?')) {
                                       deleteRequest(request.id);
                                     }
                                   }}
                                   className="text-red-600 hover:text-red-900 transition-colors"
+                                  title={isRequestInQueue(request.id) ? 'İşlem kuyruğundan çıkarılacak ve silinecek' : 'Talebi sil'}
                                 >
                                   Sil
                                 </button>
@@ -13998,37 +14008,6 @@ const GalvanizliTelNetsis = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    setTaskQueue([]);
-                    taskQueueRef.current = [];
-                    
-                    // Reset all requests status to "waiting"
-                    try {
-                      const response = await fetchWithAuth(API_URLS.galSalRequests);
-                      if (response && response.ok) {
-                        const allRequests = await response.json();
-                        for (const request of allRequests) {
-                          if (request.status !== 'waiting' && request.status !== 'approved') {
-                            await fetchWithAuth(`${API_URLS.galSalRequests}/${request.id}`, {
-                              method: 'PUT',
-                              body: JSON.stringify({ ...request, status: 'waiting' })
-                            });
-                          }
-                        }
-                      }
-                    } catch (error) {
-                      console.error('Reset status error:', error);
-                    }
-                    
-                    toast.success('Tüm işlemler ve talep durumları sıfırlandı');
-                    // Refresh the page data
-                    window.location.reload();
-                  }}
-                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-900/20 rounded transition-colors"
-                >
-                  Temizle & Reset
-                </button>
                 <button
                   onClick={() => setShowTaskQueuePopup(!showTaskQueuePopup)}
                   className="text-gray-400 hover:text-white transition-colors"
