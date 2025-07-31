@@ -142,6 +142,9 @@ const GalvanizliTelNetsis = () => {
     ymGtId: null,
     ymStIds: []
   });
+
+  // Session-level sequence tracker to prevent duplicate sequences
+  const [sessionSequenceTracker, setSessionSequenceTracker] = useState(new Map());
   
   // Ondalik sayilar icin nokta kullanan fonksiyon
   const normalizeDecimalDisplay = (value) => {
@@ -4455,6 +4458,18 @@ const GalvanizliTelNetsis = () => {
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
       const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
       
+      // Check session tracker first to prevent duplicate sequences in same session
+      const baseCodeKey = `${kod_2}.${capFormatted}`;
+      if (sessionSequenceTracker.has(baseCodeKey)) {
+        const lastUsedSequence = sessionSequenceTracker.get(baseCodeKey);
+        const nextSequence = lastUsedSequence + 1;
+        console.log('🔍 Using session tracker - last used sequence:', lastUsedSequence, 'next:', nextSequence);
+        
+        // Update session tracker
+        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, nextSequence)));
+        return nextSequence;
+      }
+      
       // Search both MMGT and YMGT to find the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
         fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
@@ -4514,7 +4529,15 @@ const GalvanizliTelNetsis = () => {
         console.log('Found total products (MMGT + YMGT):', existingProducts.length);
         console.log('maxSequence found:', maxSequence);
         console.log('returning nextSequence:', nextSeq);
+        
+        // Update session tracker with the determined sequence
+        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, nextSeq)));
+        
         return nextSeq;
+      } else {
+        // No existing products, start with 0 and track it
+        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, 0)));
+        return 0;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
@@ -7987,6 +8010,23 @@ const GalvanizliTelNetsis = () => {
         return;
       }
       
+      // Debug: Log all stok_kodu values from selected requests
+      console.log('🔍 DEBUG: Selected requests stok_kodu values:');
+      selectedRequests.forEach((req, index) => {
+        console.log(`Request ${index + 1} (ID: ${req.id}): stok_kodu = "${req.stok_kodu}"`);
+      });
+      
+      // Check for duplicate stok_kodu values
+      const stokKodular = selectedRequests.map(req => req.stok_kodu).filter(Boolean);
+      const uniqueStokKodular = [...new Set(stokKodular)];
+      
+      if (stokKodular.length !== uniqueStokKodular.length) {
+        console.warn('⚠️ DUPLICATE STOK_KODU DETECTED!');
+        console.warn('Total requests:', selectedRequests.length);
+        console.warn('Unique stok_kodu values:', uniqueStokKodular.length);
+        console.warn('Duplicate stok_kodular:', stokKodular.filter((item, index) => stokKodular.indexOf(item) !== index));
+      }
+      
       await generateBatchExcelFromRequests(selectedRequests);
       toast.success(`${selectedRequests.length} seçili onaylanmış talep için Excel dosyaları oluşturuldu`);
     } catch (error) {
@@ -8046,6 +8086,8 @@ const GalvanizliTelNetsis = () => {
           currentProduct: request.stok_kodu || `ID: ${request.id}`
         });
         
+        console.log(`🔄 [${request.id}] Processing request with stok_kodu: "${request.stok_kodu}"`);
+        
         // Check if request has stok_kodu
         if (!request.stok_kodu) {
           console.warn(`⚠️ [${request.id}] Request has no stok_kodu - skipping (old request without stok_kodu)`);
@@ -8053,6 +8095,7 @@ const GalvanizliTelNetsis = () => {
         }
         
         // Find MM GT by stok_kodu
+        console.log(`🔍 [${request.id}] Searching for MM GT with stok_kodu: "${request.stok_kodu}"`);
         
         totalApiCalls++;
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
@@ -8061,21 +8104,23 @@ const GalvanizliTelNetsis = () => {
           const mmGtProducts = await mmGtResponse.json();
           successfulApiCalls++;
           
+          console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
+          
           // The API returns an array even for single stok_kodu query
           const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
           
           if (mmGtArray.length > 0) {
-            console.log(`📦 [${request.id}] MM GT product:`, { 
-              stok_kodu: mmGtArray[0].stok_kodu, 
-              id: mmGtArray[0].id, 
-              cap: mmGtArray[0].cap,
-              kg: mmGtArray[0].kg
-            });
+            console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
+              stok_kodu: p.stok_kodu, 
+              id: p.id, 
+              cap: p.cap,
+              kg: p.kg
+            })));
           }
           
           if (mmGtArray.length === 0) {
-            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: ${request.stok_kodu}`);
-            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu`);
+            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
+            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
             continue;
           }
           
