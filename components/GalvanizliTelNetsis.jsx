@@ -141,9 +141,6 @@ const GalvanizliTelNetsis = () => {
     ymGtId: null,
     ymStIds: []
   });
-
-  // Session-level sequence tracker to prevent duplicate sequences
-  const [sessionSequenceTracker, setSessionSequenceTracker] = useState(new Map());
   
   // Ondalik sayilar icin nokta kullanan fonksiyon
   const normalizeDecimalDisplay = (value) => {
@@ -4457,18 +4454,6 @@ const GalvanizliTelNetsis = () => {
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
       const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
       
-      // Check session tracker first to prevent duplicate sequences in same session
-      const baseCodeKey = `${kod_2}.${capFormatted}`;
-      if (sessionSequenceTracker.has(baseCodeKey)) {
-        const lastUsedSequence = sessionSequenceTracker.get(baseCodeKey);
-        const nextSequence = lastUsedSequence + 1;
-        console.log('🔍 Using session tracker - last used sequence:', lastUsedSequence, 'next:', nextSequence);
-        
-        // Update session tracker
-        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, nextSequence)));
-        return nextSequence;
-      }
-      
       // Search both MMGT and YMGT to find the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
         fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
@@ -4509,6 +4494,7 @@ const GalvanizliTelNetsis = () => {
           // This will be handled by checkForDuplicatesAndConfirm function
           const sequencePart = exactMatch.stok_kodu.split('.').pop();
           const sequenceNum = parseInt(sequencePart);
+          console.log('🔍 Found exact match, using existing sequence:', sequenceNum);
           return sequenceNum; // Use existing sequence for now, duplicate dialog will handle the confirmation
         }
         
@@ -4522,20 +4508,17 @@ const GalvanizliTelNetsis = () => {
           }
         });
         
-        // Always increment from the highest sequence found, or start with 0 if none exist
+        // Only increment if we need a NEW product (no exact match found)
         const nextSeq = maxSequence + 1;
         console.log('🔍 checkForExistingProducts result:');
         console.log('Found total products (MMGT + YMGT):', existingProducts.length);
         console.log('maxSequence found:', maxSequence);
         console.log('returning nextSequence:', nextSeq);
         
-        // Update session tracker with the determined sequence
-        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, nextSeq)));
-        
         return nextSeq;
       } else {
-        // No existing products, start with 0 and track it
-        setSessionSequenceTracker(prev => new Map(prev.set(baseCodeKey, 0)));
+        // No existing products, start with 0
+        console.log('🔍 No existing products found, starting with sequence 0');
         return 0;
       }
     } catch (error) {
@@ -4881,7 +4864,7 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const sequence = nextSequence.toString().padStart(2, '0');
       
-      console.log('Calculated sequence:', sequence);
+      console.log('🔢 SEQUENCE DEBUG: nextSequence =', nextSequence, 'formatted sequence =', sequence);
       
       // IMPORTANT: Set the processSequence state so Excel generation uses correct sequence
       setProcessSequence(sequence);
