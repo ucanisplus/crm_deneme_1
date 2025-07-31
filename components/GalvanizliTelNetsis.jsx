@@ -1657,7 +1657,7 @@ const GalvanizliTelNetsis = () => {
       if (bValue === null) return -1;
       
       // Tarih alanlarini isle
-      if (sortField === 'created_at' || sortField === 'processed_at') {
+      if (sortField === 'created_at' || sortField === 'processed_at' || sortField === 'updated_at') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
       }
@@ -11335,6 +11335,7 @@ const GalvanizliTelNetsis = () => {
                       className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="created_at">Oluşturma Tarihi</option>
+                      <option value="updated_at">Onaylanma Tarihi</option>
                       <option value="status">Durum</option>
                       <option value="cap">Çap</option>
                       <option value="kod_2">Kaplama Türü</option>
