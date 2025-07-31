@@ -922,24 +922,129 @@ const GalvanizliTelNetsis = () => {
     let errorCount = 0;
 
     try {
-      for (const itemId of selectedDbItems) {
-        try {
-          const deleteUrl = activeDbTab === 'mmgt' 
-            ? `${API_URLS.galMmGt}/${itemId}`
-            : `${API_URLS.galYmSt}/${itemId}`;
-          
-          const response = await fetchWithAuth(deleteUrl, {
-            method: 'DELETE'
-          });
+      console.log('Bulk delete starting for tab:', activeDbTab, 'Items:', selectedDbItems);
+      
+      if (activeDbTab === 'mmgt') {
+        // For MM GT, we need cascade deletion including YM GT
+        for (const itemId of selectedDbItems) {
+          try {
+            console.log('Deleting MM GT with cascade:', itemId);
+            
+            // Get MM GT data before deletion
+            const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${itemId}`);
+            let mmGt = null;
+            if (mmGtResponse && mmGtResponse.ok) {
+              mmGt = await mmGtResponse.json();
+            }
+            
+            // Step 1: Find and delete related YM GTs through relationship table
+            try {
+              const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${itemId}`);
+              if (relationResponse && relationResponse.ok) {
+                const relations = await relationResponse.json();
+                console.log(`Found ${relations.length} relationships for MM GT ${itemId}`);
+                
+                // Delete related YM GTs first
+                for (const relation of relations) {
+                  if (relation.ym_gt_id) {
+                    try {
+                      const ymGtDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${relation.ym_gt_id}`, {
+                        method: 'DELETE'
+                      });
+                      if (ymGtDeleteResponse.ok) {
+                        console.log(`Bulk: Deleted YM GT ${relation.ym_gt_id}`);
+                      } else {
+                        console.error('Bulk: Failed to delete YM GT ' + relation.ym_gt_id + ': ' + ymGtDeleteResponse.status);
+                      }
+                    } catch (ymGtError) {
+                      console.error('Bulk: Error deleting YM GT ' + relation.ym_gt_id + ':', ymGtError);
+                    }
+                  }
+                }
+                
+                // Delete relationship records
+                for (const relation of relations) {
+                  try {
+                    await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
+                      method: 'DELETE'
+                    });
+                  } catch (relationError) {
+                    console.error('Bulk: Error deleting relationship ' + relation.id + ':', relationError);
+                  }
+                }
+              }
+            } catch (relationError) {
+              console.error('Bulk: Error finding related YM GTs through relationships:', relationError);
+            }
+            
+            // Step 2: Fallback - find orphaned YM GTs by stok_kodu pattern
+            if (mmGt && mmGt.stok_kodu && mmGt.stok_kodu.startsWith('GT.')) {
+              const expectedYmGtStokKodu = mmGt.stok_kodu.replace(/^GT\./, 'YM.GT.');
+              try {
+                const ymGtSearchResponse = await fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu=${encodeURIComponent(expectedYmGtStokKodu)}`);
+                if (ymGtSearchResponse && ymGtSearchResponse.ok) {
+                  const ymGtData = await ymGtSearchResponse.json();
+                  if (Array.isArray(ymGtData) && ymGtData.length > 0) {
+                    for (const orphanedYmGt of ymGtData) {
+                      try {
+                        const orphanedDeleteResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${orphanedYmGt.id}`, {
+                          method: 'DELETE'
+                        });
+                        if (orphanedDeleteResponse.ok) {
+                          console.log(`Bulk: Deleted orphaned YM GT ${orphanedYmGt.id}`);
+                        }
+                      } catch (orphanedError) {
+                        console.error('Bulk: Error deleting orphaned YM GT:', orphanedError);
+                      }
+                    }
+                  }
+                }
+              } catch (fallbackError) {
+                console.error('Bulk: Error in YM GT fallback cleanup:', fallbackError);
+              }
+            }
+            
+            // Step 3: Delete the MM GT itself
+            const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${itemId}`, {
+              method: 'DELETE'
+            });
 
-          if (response && response.ok) {
-            successCount++;
-          } else {
+            if (deleteResponse && deleteResponse.ok) {
+              successCount++;
+              console.log('Bulk: Successfully deleted MM GT:', itemId);
+            } else {
+              errorCount++;
+              console.error('Bulk: Failed to delete MM GT:', itemId, 'Status:', deleteResponse?.status);
+            }
+            
+          } catch (error) {
+            console.error('Bulk: Error deleting MM GT ' + itemId + ':', error);
             errorCount++;
           }
-        } catch (error) {
-          console.error('Error deleting item ' + itemId + ':', error);
-          errorCount++;
+        }
+      } else {
+        // For YM ST, simple deletion (no cascade needed)
+        for (const itemId of selectedDbItems) {
+          try {
+            const deleteUrl = `${API_URLS.galYmSt}/${itemId}`;
+            
+            console.log('Deleting YM ST:', itemId, 'URL:', deleteUrl);
+            
+            const response = await fetchWithAuth(deleteUrl, {
+              method: 'DELETE'
+            });
+
+            if (response && response.ok) {
+              successCount++;
+              console.log('Successfully deleted YM ST:', itemId);
+            } else {
+              errorCount++;
+              console.error('Failed to delete YM ST:', itemId, 'Status:', response?.status);
+            }
+          } catch (error) {
+            console.error('Error deleting YM ST ' + itemId + ':', error);
+            errorCount++;
+          }
         }
       }
 
