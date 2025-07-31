@@ -4449,6 +4449,7 @@ const GalvanizliTelNetsis = () => {
 
   // İnkremental ürün oluşturma kontrolü - Değişen mantık: Sadece stok_kodu veya stok_adı etkileyen değerler değişirse
   const checkForExistingProducts = async (cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg) => {
+    console.log('🚨 checkForExistingProducts CALLED with params:', { cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg });
     try {
       const capFormatted = Math.round(parseFloat(cap) * 100).toString().padStart(4, '0');
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
@@ -4531,12 +4532,14 @@ const GalvanizliTelNetsis = () => {
         console.log('Found existing products with same base code:', existingProducts.length);
         console.log('maxSequence found:', maxSequence);
         console.log('returning nextSequence:', nextSeq);
+        console.log('🚨 ABOUT TO RETURN:', nextSeq);
         return nextSeq;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
     }
     console.log('🔍 checkForExistingProducts: No existing products found, returning 0');
+    console.log('🚨 ABOUT TO RETURN: 0');
     return 0; // Hata durumunda veya ürün yoksa 0'dan başla
   };
 
@@ -13996,14 +13999,35 @@ const GalvanizliTelNetsis = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setTaskQueue([]);
                     taskQueueRef.current = [];
-                    toast.success('Tüm işlemler temizlendi');
+                    
+                    // Reset all requests status to "waiting"
+                    try {
+                      const response = await fetchWithAuth(API_URLS.galSalRequests);
+                      if (response && response.ok) {
+                        const allRequests = await response.json();
+                        for (const request of allRequests) {
+                          if (request.status !== 'waiting' && request.status !== 'approved') {
+                            await fetchWithAuth(`${API_URLS.galSalRequests}/${request.id}`, {
+                              method: 'PUT',
+                              body: JSON.stringify({ ...request, status: 'waiting' })
+                            });
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Reset status error:', error);
+                    }
+                    
+                    toast.success('Tüm işlemler ve talep durumları sıfırlandı');
+                    // Refresh the page data
+                    window.location.reload();
                   }}
                   className="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-900/20 rounded transition-colors"
                 >
-                  Temizle
+                  Temizle & Reset
                 </button>
                 <button
                   onClick={() => setShowTaskQueuePopup(!showTaskQueuePopup)}
