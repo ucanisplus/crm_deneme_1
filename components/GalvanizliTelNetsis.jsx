@@ -4447,12 +4447,18 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // İnkremental ürün oluşturma kontrolü - Değişen mantık: Sadece stok_kodu veya stok_adı etkileyen değerler değişirse
+  // İnkremental ürün oluşturma kontrolü - Tamamen yeni ürün için 0'dan başla
   const checkForExistingProducts = async (cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg) => {
     try {
       const capFormatted = Math.round(parseFloat(cap) * 100).toString().padStart(4, '0');
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
       const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
+      
+      console.log('🔍 Checking for existing products with base codes:', mmGtBaseCode, ymGtBaseCode);
+      
+      // Generate stok_adi first for comparison
+      const stokAdi = generateStokAdi();
+      console.log('🔍 Generated stok_adi for comparison:', stokAdi);
       
       // Search both MMGT and YMGT to find the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
@@ -4464,67 +4470,74 @@ const GalvanizliTelNetsis = () => {
       
       if (mmGtResponse && mmGtResponse.ok) {
         const mmGtProducts = await mmGtResponse.json();
+        console.log('🔍 MM GT API Response:', mmGtProducts);
+        console.log('🔍 Found MM GT products:', mmGtProducts.length);
+        if (mmGtProducts.length > 0) {
+          mmGtProducts.forEach(p => console.log('🔍 MM GT Product:', p.stok_kodu, '-', p.stok_adi));
+        }
         allProducts.push(...mmGtProducts);
       }
       
       if (ymGtResponse && ymGtResponse.ok) {
         const ymGtProducts = await ymGtResponse.json();
+        console.log('🔍 YM GT API Response:', ymGtProducts);
+        console.log('🔍 Found YM GT products:', ymGtProducts.length);
+        if (ymGtProducts.length > 0) {
+          ymGtProducts.forEach(p => console.log('🔍 YM GT Product:', p.stok_kodu, '-', p.stok_adi));
+        }
         allProducts.push(...ymGtProducts);
       }
       
+      console.log('🔍 Total existing products found:', allProducts.length);
+      
+      // First check if there's an exact match regardless of whether products exist
+      const exactMatch = allProducts.find(product => {
+        const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
+        const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
+        
+        console.log('🔍 Comparing product:', normalizedProductAdi);
+        console.log('🔍    with generated:', normalizedStokAdi);
+        console.log('🔍    Match result:', normalizedProductAdi === normalizedStokAdi);
+        return normalizedProductAdi === normalizedStokAdi;
+      });
+      
+      if (exactMatch) {
+        const sequencePart = exactMatch.stok_kodu.split('.').pop();
+        const sequenceNum = parseInt(sequencePart);
+        console.log('🔍 EXACT MATCH FOUND! Using existing sequence:', sequenceNum);
+        return sequenceNum;
+      }
+      
+      // No exact match - need to create new product
       if (allProducts.length > 0) {
-        const existingProducts = allProducts;
-        
-        // Tamamen aynı ürün var mı kontrol et (stok_kodu ve stok_adi etkileyen tüm değerler)
-        // Use the same generateStokAdi function to ensure consistent formatting
-        const stokAdi = generateStokAdi();
-        
-        // Tamamen eşleşen bir ürün var mı?
-        const exactMatch = existingProducts.find(product => {
-          // Stok adı ile karşılaştırma için normalizasyon (boşluklar ve case-sensitive olmayan karşılaştırma)
-          const normalizedProductAdi = product.stok_adi.replace(/\s+/g, ' ').trim().toLowerCase();
-          const normalizedStokAdi = stokAdi.replace(/\s+/g, ' ').trim().toLowerCase();
-          
-          // Stok kodu base'i ve stok adı eşleşiyorsa
-          return normalizedProductAdi === normalizedStokAdi;
-        });
-        
-        if (exactMatch) {
-          // Use the new duplicate confirmation system instead of window.confirm
-          // This will be handled by checkForDuplicatesAndConfirm function
-          const sequencePart = exactMatch.stok_kodu.split('.').pop();
-          const sequenceNum = parseInt(sequencePart);
-          console.log('🔍 Found exact match, using existing sequence:', sequenceNum);
-          return sequenceNum; // Use existing sequence for now, duplicate dialog will handle the confirmation
-        }
-        
-        // Eğer tamamen eşleşen yoksa veya kullanıcı güncellemeyi reddettiyse, yeni bir ürün oluştur
+        // Find the highest sequence number
         let maxSequence = -1;
-        existingProducts.forEach(product => {
+        allProducts.forEach(product => {
           const sequencePart = product.stok_kodu.split('.').pop();
           const sequenceNum = parseInt(sequencePart);
+          console.log('🔍 Product sequence check:', product.stok_kodu, '→ sequence:', sequenceNum);
           if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
             maxSequence = sequenceNum;
           }
         });
         
-        // Only increment if we need a NEW product (no exact match found)
         const nextSeq = maxSequence + 1;
-        console.log('🔍 checkForExistingProducts result:');
-        console.log('Found total products (MMGT + YMGT):', existingProducts.length);
+        console.log('🔍 NEW PRODUCT NEEDED:');
+        console.log('Found total products (MMGT + YMGT):', allProducts.length);
         console.log('maxSequence found:', maxSequence);
         console.log('returning nextSequence:', nextSeq);
         
         return nextSeq;
       } else {
-        // No existing products, start with 0
-        console.log('🔍 No existing products found, starting with sequence 0');
+        // No products at all - start with 0
+        console.log('🔍 NO EXISTING PRODUCTS - Starting with sequence 0');
         return 0;
       }
     } catch (error) {
       console.error('Mevcut ürün kontrolü hatası:', error);
     }
-    return 0; // Hata durumunda veya ürün yoksa 0'dan başla
+    console.log('🔍 ERROR FALLBACK - returning 0');
+    return 0;
   };
 
   // Session'daki ürünleri güncelle - Yeni 1:1:n ilişki modeli ile
@@ -8001,6 +8014,7 @@ const GalvanizliTelNetsis = () => {
         console.warn('Duplicate stok_kodular:', stokKodular.filter((item, index) => stokKodular.indexOf(item) !== index));
       }
       
+      console.log('🚀 Starting Excel generation for', selectedRequests.length, 'requests');
       await generateBatchExcelFromRequests(selectedRequests);
       toast.success(`${selectedRequests.length} seçili onaylanmış talep için Excel dosyaları oluşturuldu`);
     } catch (error) {
