@@ -5750,18 +5750,10 @@ const GalvanizliTelNetsis = () => {
       ymStIds: ymStIds || []
     });
     
-    // Check if we're editing a request - proceed directly with queue
-    if (isEditingRequest && selectedRequest) {
-      console.log('Editing request, proceeding directly with queue...');
-      
-      // Skip modal, proceed directly with approval and queue
-      approveRequestAndContinue();
-      return;
-    } else {
-      // If not editing a request, proceed with normal save
-      console.log('Not editing a request, proceeding with normal save');
-      await continueSaveToDatabase(mmGtIds, ymGtId, ymStIds);
-    }
+    // Always proceed with normal save
+    // Request approval will be handled by the calling context (either approveRequestAndContinue or Sadece Kaydet button)
+    console.log('Proceeding with database save only...');
+    await continueSaveToDatabase(mmGtIds, ymGtId, ymStIds);
   };
   
   // The actual database save logic that was in the original saveRecipesToDatabase function
