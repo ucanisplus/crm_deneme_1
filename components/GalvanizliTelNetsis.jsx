@@ -2263,34 +2263,6 @@ const GalvanizliTelNetsis = () => {
   // Alias for compatibility with existing code
   const generateMmGtStokAdi = generateStokAdi;
 
-  // Handle edit confirmation modal
-  const handleEditConfirm = async () => {
-    try {
-      setIsLoading(true);
-      setShowEditConfirmModal(false);
-      
-      // Proceed with saving
-      const saveResult = await checkForDuplicatesAndConfirm();
-      
-      // If there's a queue resolve function waiting, call it
-      if (window.editConfirmResolve) {
-        window.editConfirmResolve(saveResult);
-        window.editConfirmResolve = null;
-      }
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error in handleEditConfirm:', error);
-      setIsLoading(false);
-      
-      // If there's a queue resolve function waiting, call it with error
-      if (window.editConfirmResolve) {
-        window.editConfirmResolve(false);
-        window.editConfirmResolve = null;
-      }
-    }
-  };
-
   // Detect changes between original and current data
   const detectChanges = () => {
     if (!originalProductData || !originalProductData.mmGt) return [];
@@ -8065,44 +8037,25 @@ const GalvanizliTelNetsis = () => {
       setIsLoading(true);
       setShowEditConfirmModal(false);
       
-      // Update the product in the database
-      if (originalProductData && originalProductData.mmGt && originalProductData.mmGt.id) {
-        const updateData = {
-          ...mmGtData,
-          tolerans_max_sign: toleransMaxSign,
-          tolerans_min_sign: toleransMinSign,
-          // Generate the updated stok_adi based on current paketleme options
-          stok_adi: generateMmGtStokAdi(),
-          // Preserve the original stok_kodu - should not be changed during edit
-          stok_kodu: originalProductData.mmGt.stok_kodu
-        };
-        
-        // Update MM GT
-        const updateResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${originalProductData.mmGt.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(normalizeDecimalValues(updateData))
-        });
-        
-        if (!updateResponse || !updateResponse.ok) {
-          throw new Error('Ürün güncellenemedi');
-        }
-        
-        toast.success('Ürün başarıyla güncellendi');
+      // Proceed with saving using the existing checkForDuplicatesAndConfirm function
+      const saveResult = await checkForDuplicatesAndConfirm();
+      
+      // If there's a queue resolve function waiting, call it
+      if (window.editConfirmResolve) {
+        window.editConfirmResolve(saveResult);
+        window.editConfirmResolve = null;
       }
       
-      // Generate Excel files
-      toast.info('Excel dosyaları oluşturuluyor...');
-      await generateExcelFiles();
-      toast.success('Excel dosyaları başarıyla oluşturuldu!');
-      
-    } catch (error) {
-      console.error('Ürün güncelleme hatası:', error);
-      toast.error('Ürün güncellenemedi: ' + error.message);
-    } finally {
       setIsLoading(false);
+    } catch (error) {
+      console.error('Error in handleEditConfirm:', error);
+      setIsLoading(false);
+      
+      // If there's a queue resolve function waiting, call it with error
+      if (window.editConfirmResolve) {
+        window.editConfirmResolve(false);
+        window.editConfirmResolve = null;
+      }
     }
   };
 
