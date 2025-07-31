@@ -125,6 +125,7 @@ const GalvanizliTelNetsis = () => {
   
   // Veritabanindan mevcut urun goruntuleme takibi
   const [isViewingExistingProduct, setIsViewingExistingProduct] = useState(false);
+  const [isEditingExistingProduct, setIsEditingExistingProduct] = useState(false);
   
   // Urun cakisma uyari modali
   const [showProductConflictModal, setShowProductConflictModal] = useState(false);
@@ -624,6 +625,14 @@ const GalvanizliTelNetsis = () => {
         const data = await response.json();
         const requestsData = Array.isArray(data) ? data : [];
         setRequests(requestsData);
+        
+        // Update selectedRequest if it's currently open to refresh the modal with latest data
+        if (selectedRequest && showRequestDetailModal) {
+          const updatedRequest = requestsData.find(req => req.id === selectedRequest.id);
+          if (updatedRequest) {
+            setSelectedRequest(updatedRequest);
+          }
+        }
       }
     } catch (error) {
       console.error('Talepler getirilirken hata:', error);
@@ -940,6 +949,92 @@ const GalvanizliTelNetsis = () => {
       }
       if (errorCount > 0) {
         toast.error(`${errorCount} ürün silinemedi`);
+      }
+
+      // Mark related requests as "silinmiş" for deleted MM GT products
+      if (activeDbTab === 'mmgt' && successCount > 0) {
+        try {
+          // Get all requests to check for related ones
+          const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
+          if (allRequestsResponse && allRequestsResponse.ok) {
+            const allRequests = await allRequestsResponse.json();
+            const requestsToUpdate = [];
+            
+            // Get current MM GT products to see which ones are missing (deleted)
+            const currentProductsResponse = await fetchWithAuth(API_URLS.galMmGt);
+            let currentProducts = [];
+            if (currentProductsResponse && currentProductsResponse.ok) {
+              currentProducts = await currentProductsResponse.json();
+            }
+            
+            // Find requests that no longer have matching products
+            for (const request of allRequests) {
+              if (request.status === 'silinmis') continue; // Skip already marked
+              
+              let hasMatchingProduct = false;
+              
+              // Check if any current product matches this request
+              for (const product of currentProducts) {
+                // Strategy 1: Match by final_stok_adi
+                if (request.final_stok_adi === product.stok_adi) {
+                  hasMatchingProduct = true;
+                  break;
+                }
+                
+                // Strategy 2: Match by stok_kodu
+                if (request.stok_kodu === product.stok_kodu) {
+                  hasMatchingProduct = true;
+                  break;
+                }
+                
+                // Strategy 3: Match by specifications
+                const specsMatch = (
+                  Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
+                  product.kod_2 === request.kod_2 &&
+                  Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+                  Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
+                  Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
+                  Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
+                  Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
+                  Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
+                );
+                
+                if (specsMatch) {
+                  hasMatchingProduct = true;
+                  break;
+                }
+              }
+              
+              // If no matching product found, mark request as silinmiş
+              if (!hasMatchingProduct) {
+                requestsToUpdate.push(request.id);
+              }
+            }
+            
+            // Update related requests to "silinmiş" status
+            if (requestsToUpdate.length > 0) {
+              console.log(`Bulk delete: Marking ${requestsToUpdate.length} related requests as silinmiş`);
+              
+              for (const requestId of requestsToUpdate) {
+                try {
+                  await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'silinmis' })
+                  });
+                } catch (updateError) {
+                  console.error(`Failed to update request ${requestId} status:`, updateError);
+                }
+              }
+              
+              // Refresh requests to show updated statuses
+              await fetchRequests();
+            }
+          }
+        } catch (error) {
+          console.error('Error updating related request statuses in bulk delete:', error);
+          // Continue without failing the deletion
+        }
       }
 
       // Listeyi yenile ve seçimi temizle
@@ -1487,8 +1582,79 @@ const GalvanizliTelNetsis = () => {
       
       console.log('MM GT ' + mmGt.stok_kodu + ' deleted successfully with all related YM GTs');
       
+      // Step 4: Find and mark related requests as "silinmiş"
+      try {
+        const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
+        if (allRequestsResponse && allRequestsResponse.ok) {
+          const allRequests = await allRequestsResponse.json();
+          const requestsToUpdate = [];
+          
+          // Find requests that match the deleted product
+          for (const request of allRequests) {
+            if (request.status === 'silinmis') continue; // Skip already marked
+            
+            let isRelatedToDeletedProduct = false;
+            
+            // Strategy 1: Match by final_stok_adi
+            if (request.final_stok_adi === mmGt.stok_adi) {
+              isRelatedToDeletedProduct = true;
+            }
+            
+            // Strategy 2: Match by stok_kodu
+            if (!isRelatedToDeletedProduct && request.stok_kodu === mmGtStokKodu) {
+              isRelatedToDeletedProduct = true;
+            }
+            
+            // Strategy 3: Match by product specifications
+            if (!isRelatedToDeletedProduct) {
+              const specsMatch = (
+                Math.abs(parseFloat(mmGt.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
+                mmGt.kod_2 === request.kod_2 &&
+                Math.abs(parseFloat(mmGt.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+                Math.abs(parseFloat(mmGt.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
+                Math.abs(parseFloat(mmGt.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
+                Math.abs(parseFloat(mmGt.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
+                Math.abs(parseFloat(mmGt.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
+                Math.abs(parseFloat(mmGt.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
+              );
+              
+              if (specsMatch) {
+                isRelatedToDeletedProduct = true;
+              }
+            }
+            
+            if (isRelatedToDeletedProduct) {
+              requestsToUpdate.push(request.id);
+            }
+          }
+          
+          // Update related requests to "silinmiş" status
+          if (requestsToUpdate.length > 0) {
+            console.log(`Marking ${requestsToUpdate.length} related requests as silinmiş`);
+            
+            for (const requestId of requestsToUpdate) {
+              try {
+                await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'silinmis' })
+                });
+              } catch (updateError) {
+                console.error(`Failed to update request ${requestId} status:`, updateError);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error updating related request statuses:', error);
+        // Continue without failing the deletion
+      }
+      
       // Refresh the MM GT list
       await fetchExistingMmGts();
+      
+      // Refresh requests to show updated statuses
+      await fetchRequests();
       
       setShowDeleteConfirm(false);
       setItemToDelete(null);
@@ -3683,6 +3849,7 @@ const GalvanizliTelNetsis = () => {
     setProcessSequence('00');
     setIsInApprovalProcess(false);
     setIsViewingExistingProduct(false);
+    setIsEditingExistingProduct(false);
     
   };
 
@@ -10946,6 +11113,7 @@ const GalvanizliTelNetsis = () => {
                   setAutoGeneratedYmSts([]);
                   setIsLoading(false);
                   setIsViewingExistingProduct(false); // Reset viewing flag
+                  setIsEditingExistingProduct(false); // Reset editing flag
                   setProcessSequence('00'); // Reset sequence when starting fresh
                   console.log('Back to input - resetting processSequence to 00');
                   // Also clear sessionStorage
@@ -11061,7 +11229,7 @@ const GalvanizliTelNetsis = () => {
               
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {(() => {
-                const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest);
+                const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest || isEditingExistingProduct);
                 console.log('Sadece Kaydet button visibility:', {
                   shouldShow,
                   isViewingExistingProduct,
@@ -11116,8 +11284,45 @@ const GalvanizliTelNetsis = () => {
                     addToTaskQueue(taskName, async () => {
                       let saveResult;
                       
-                      // For "Sadece Kaydet" button, skip confirmation dialog and save directly
-                      saveResult = await checkForDuplicatesAndConfirm();
+                      // For "Sadece Kaydet" button, save directly using queue system
+                      try {
+                        const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+                        
+                        if (allYmSts.length === 0) {
+                          toast.error('En az bir YM ST seçmelisiniz veya oluşturmalısınız');
+                          return false;
+                        }
+                        
+                        // Get next sequence for this product
+                        const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+                        const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
+                        const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+                        let nextSequence = 1;
+                        
+                        if (response && response.ok) {
+                          const existingProducts = await response.json();
+                          if (existingProducts.length > 0) {
+                            const sequences = existingProducts
+                              .map(p => {
+                                const match = p.stok_kodu.match(/\.(\d+)$/);
+                                return match ? parseInt(match[1]) : 0;
+                              })
+                              .filter(seq => !isNaN(seq));
+                            
+                            nextSequence = Math.max(...sequences, 0) + 1;
+                          }
+                        }
+                        
+                        const sequence = nextSequence.toString().padStart(2, '0');
+                        setProcessSequence(sequence);
+                        
+                        // Save directly without duplicate checking (queue system handles conflicts)
+                        saveResult = await proceedWithSave(allYmSts, nextSequence);
+                      } catch (error) {
+                        console.error('Queue save error:', error);
+                        toast.error('Kayıt hatası: ' + error.message);
+                        saveResult = false;
+                      }
                       
                       // If we have a pending approval action and save was successful, approve the request
                       if (saveResult && pendingApprovalAction && selectedRequest) {
@@ -11929,6 +12134,12 @@ const GalvanizliTelNetsis = () => {
                     <p className="text-base text-gray-900">{selectedRequest.id}</p>
                   </div>
                   <div>
+                    <p className="text-sm font-medium text-gray-500">Stok Kodu</p>
+                    <p className="text-base text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">
+                      {selectedRequest.final_stok_adi || selectedRequest.stok_kodu || selectedRequest.stok_adi || '-'}
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-sm font-medium text-gray-500">Durum</p>
                     <p className="px-2 py-1 text-xs inline-flex items-center font-medium rounded-full border bg-yellow-100 text-yellow-800 border-yellow-200">
                       {selectedRequest.status === 'pending' ? 'Beklemede' : 
@@ -12202,6 +12413,8 @@ const GalvanizliTelNetsis = () => {
                           if (foundProduct) {
                             // Close the request detail modal
                             setShowRequestDetailModal(false);
+                            // Set editing existing product flag
+                            setIsEditingExistingProduct(true);
                             // Load the product for editing
                             handleSelectExistingMmGt(foundProduct);
                           } else {

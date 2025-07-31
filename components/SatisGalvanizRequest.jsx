@@ -120,6 +120,14 @@ const SatisGalvanizRequest = () => {
       
       const requestsData = await response.json();
       setRequests(requestsData || []);
+      
+      // Update selectedRequest if it's currently open to refresh the modal with latest data
+      if (selectedRequest && showDetailsModal) {
+        const updatedRequest = requestsData.find(req => req.id === selectedRequest.id);
+        if (updatedRequest) {
+          setSelectedRequest(updatedRequest);
+        }
+      }
     } catch (error) {
       console.error('Talep listesi alınamadı:', error);
       toast.error('Talepler alınamadı: ' + error.message);
@@ -1994,7 +2002,9 @@ const SatisGalvanizRequest = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Stok Kodu</p>
-                    <p className="text-base text-gray-900 font-mono">{selectedRequest.stok_kodu || '-'}</p>
+                    <p className="text-base text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">
+                      {selectedRequest.final_stok_adi || selectedRequest.stok_kodu || selectedRequest.stok_adi || '-'}
+                    </p>
                   </div>
                   {selectedRequest.stok_adi && (
                     <div className="col-span-2">
