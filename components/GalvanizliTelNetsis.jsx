@@ -1757,6 +1757,14 @@ const GalvanizliTelNetsis = () => {
         setPaketlemeSecenekleri(packaging);
       }
       
+      // Trigger YM GT generation for the loaded data
+      generateYmGtData();
+      
+      // Populate suitable YM STs if needed
+      if (suitableYmSts.length === 0) {
+        await findSuitableYmSts();
+      }
+      
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
       setIsRequestUsed(true);
@@ -9979,7 +9987,9 @@ const GalvanizliTelNetsis = () => {
                     <span className="text-yellow-700 font-medium">
                       {isEditingRequest 
                         ? "Düzenlenen talep için kaydet/export işlemi sonrası talep onaylanacaktır" 
-                        : "Kullanılan talep var - Talep onaylandı olarak işaretlenmiştir"}
+                        : pendingApprovalAction === 'approve' 
+                          ? "Onay için hazırlandı - Kaydet/export işlemi sonrası talep onaylanacaktır"
+                          : "Kullanılan talep var - Talep onaylandı olarak işaretlenmiştir"}
                     </span>
                   </div>
                 )}
