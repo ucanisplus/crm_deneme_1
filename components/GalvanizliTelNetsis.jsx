@@ -2235,33 +2235,8 @@ const GalvanizliTelNetsis = () => {
     ).join('; ');
   };
 
-  // Generate stok_adi (product name) based on current mmGtData
-  const generateStokAdi = () => {
-    const { adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
-    
-    // Build packaging suffix based on selected options
-    let packagingSuffix = '';
-    const packagingOptions = [];
-    
-    if (mmGtData.shrink === 'evet' || mmGtData.shrink === 'Yes') {
-      packagingOptions.push('Shrink');
-    }
-    if (mmGtData.palet === 'evet' || mmGtData.palet === 'Yes') {
-      packagingOptions.push('Plt');
-    }
-    if (mmGtData.sepet === 'evet' || mmGtData.sepet === 'Yes') {
-      packagingOptions.push('Spt');
-    }
-    
-    if (packagingOptions.length > 0) {
-      packagingSuffix = '-' + packagingOptions.join('-');
-    }
-    
-    return `Galvanizli Tel ${mmGtData.cap} mm ${adjustedMinusFormatted}/${adjustedPlusFormatted} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg${packagingSuffix}`;
-  };
-
-  // Alias for compatibility with existing code
-  const generateMmGtStokAdi = generateStokAdi;
+  // Alias for compatibility with existing code (references the existing generateStokAdi function defined later)
+  const generateMmGtStokAdi = () => generateStokAdi();
 
   // Detect changes between original and current data
   const detectChanges = () => {
