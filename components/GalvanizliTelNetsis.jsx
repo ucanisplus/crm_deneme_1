@@ -8152,6 +8152,7 @@ const GalvanizliTelNetsis = () => {
                             });
                           }
                         } else {
+                          console.warn(`YM ST ${relation.ym_st_id} not found, skipping`);
                         }
                       }
                     }
