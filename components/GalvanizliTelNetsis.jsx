@@ -1705,7 +1705,17 @@ const GalvanizliTelNetsis = () => {
           status: 'in_progress',  // Duzenlenirken isleme alindi olarak isaretle
           edit_notes: editReason,
           processed_by: user?.username || user?.id || 'system',
-          processed_at: new Date().toISOString()
+          processed_at: new Date().toISOString(),
+          // Store original product data when editing starts
+          original_stok_adi: selectedRequest.stok_adi || '',
+          original_product_key: JSON.stringify({
+            stok_adi: selectedRequest.stok_adi || '',
+            cap: selectedRequest.cap || '',
+            kalinlik: selectedRequest.kalinlik || '',
+            kod_2: selectedRequest.kod_2 || '',
+            kalite: selectedRequest.kalite || '',
+            kaplama: selectedRequest.kaplama || ''
+          })
         })
       });
       
@@ -1765,9 +1775,9 @@ const GalvanizliTelNetsis = () => {
       // Clear edit reason  
       setEditReason('');
       
-      // Modali temizle ve özet ekranına git
+      // Modali temizle ve girdi ekranına git (kullanıcı key values'ları editleyebilsin)
       setShowRequestDetailModal(false);
-      setCurrentStep('summary');
+      setCurrentStep('input');
       
       // Trigger YM GT generation for the loaded data
       generateYmGtData();
@@ -2200,6 +2210,29 @@ const GalvanizliTelNetsis = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to generate product key for tracking
+  const generateProductKey = (data) => {
+    return JSON.stringify({
+      stok_adi: data.stok_adi || '',
+      cap: data.cap || '',
+      kalinlik: data.kalinlik || '',
+      kod_2: data.kod_2 || '',
+      kalite: data.kalite || '',
+      kaplama: data.kaplama || '',
+      tensile_min: data.tensile_min || '',
+      tensile_max: data.tensile_max || ''
+    });
+  };
+
+  // Helper function to generate change summary for display
+  const generateChangeSummary = (changes) => {
+    if (changes.length === 0) return 'Değişiklik yok';
+    
+    return changes.map(change => 
+      `${change.field}: "${change.oldValue}" → "${change.newValue}"`
+    ).join('; ');
   };
 
   // Detect changes between original and current data
@@ -5095,11 +5128,34 @@ const GalvanizliTelNetsis = () => {
       const isApproval = pendingApprovalAction === 'approve';
       const isEdit = pendingApprovalAction === 'edit';
       
+      // Prepare tracking data for the request update
+      const currentProductKey = generateProductKey({
+        stok_adi: generateMmGtStokAdi(),
+        cap: mmGtData.cap,
+        kalinlik: mmGtData.kalinlik,
+        kod_2: mmGtData.kod_2,
+        kalite: mmGtData.kalite,
+        kaplama: mmGtData.kaplama,
+        tensile_min: mmGtData.tensile_min,
+        tensile_max: mmGtData.tensile_max
+      });
+      
+      const changes = detectChanges();
+      const changedFieldNames = changes.map(c => c.field);
+      const changeSummary = generateChangeSummary(changes);
+      
       const updateRequestData = {
         status: 'approved',
         processed_by: user?.username || user?.id || 'system',
         processed_at: new Date().toISOString(),
-        stok_kodu: actualStokKodu // Update with the actual stok_kodu used in database
+        stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
+        // Add tracking fields
+        original_stok_adi: originalProductData?.mmGt?.stok_adi || selectedRequest.stok_adi || '',
+        final_stok_adi: generateMmGtStokAdi(),
+        original_product_key: originalProductData ? generateProductKey(originalProductData.mmGt) : '',
+        final_product_key: currentProductKey,
+        changed_fields: JSON.stringify(changedFieldNames),
+        change_summary: changeSummary
       };
       
       console.log(`📤 Sending update request with data:`, updateRequestData);
@@ -11819,6 +11875,32 @@ const GalvanizliTelNetsis = () => {
                   )}
                 </div>
               )}
+
+              {/* Change tracking information - show if there are any changes recorded */}
+              {(selectedRequest.change_summary || selectedRequest.changed_fields || selectedRequest.original_stok_adi !== selectedRequest.final_stok_adi) && (
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-500 mb-2">Üretim Ekibi Tarafından Yapılan Değişiklikler</p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      {selectedRequest.change_summary && selectedRequest.change_summary !== 'Değişiklik yok' ? (
+                        <p className="text-green-900 mb-2">{selectedRequest.change_summary}</p>
+                      ) : null}
+                      
+                      {selectedRequest.original_stok_adi && selectedRequest.final_stok_adi && 
+                       selectedRequest.original_stok_adi !== selectedRequest.final_stok_adi && (
+                        <div className="space-y-1 text-sm">
+                          <p className="text-green-700"><strong>Orijinal Ürün:</strong> {selectedRequest.original_stok_adi}</p>
+                          <p className="text-green-700"><strong>Son Ürün:</strong> {selectedRequest.final_stok_adi}</p>
+                        </div>
+                      )}
+                      
+                      {!selectedRequest.change_summary && !selectedRequest.original_stok_adi && (
+                        <p className="text-green-900">Bu talep üretim ekibi tarafından düzenlenmiştir.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                 <button
@@ -11876,29 +11958,93 @@ const GalvanizliTelNetsis = () => {
                     // Approved status - show edit saved product button
                     <button
                       onClick={async () => {
-                        // Find the saved product by stok_kodu
-                        if (selectedRequest.stok_kodu) {
-                          try {
-                            setIsLoading(true);
-                            // Fetch the saved product
+                        // Find the saved product using multiple methods with priority order
+                        let foundProduct = null;
+                        
+                        try {
+                          setIsLoading(true);
+                          
+                          // Method 1: Try with stok_kodu (most reliable)
+                          if (selectedRequest.stok_kodu && !foundProduct) {
+                            console.log('Trying to find product by stok_kodu:', selectedRequest.stok_kodu);
                             const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${selectedRequest.stok_kodu}`);
                             if (response && response.ok) {
                               const products = await response.json();
                               if (products && products.length > 0) {
-                                // Close the request detail modal
-                                setShowRequestDetailModal(false);
-                                // Load the product for editing
-                                handleSelectExistingMmGt(products[0]);
-                              } else {
-                                toast.error('Kaydedilmiş ürün bulunamadı');
+                                foundProduct = products[0];
+                                console.log('Found product by stok_kodu');
                               }
                             }
-                          } catch (error) {
-                            console.error('Error loading saved product:', error);
-                            toast.error('Ürün yüklenirken hata oluştu');
-                          } finally {
-                            setIsLoading(false);
                           }
+                          
+                          // Method 2: Try with final_stok_adi if available (for edited products)
+                          if (!foundProduct && selectedRequest.final_stok_adi) {
+                            console.log('Trying to find product by final_stok_adi:', selectedRequest.final_stok_adi);
+                            const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_adi=${encodeURIComponent(selectedRequest.final_stok_adi)}`);
+                            if (response && response.ok) {
+                              const products = await response.json();
+                              if (products && products.length > 0) {
+                                foundProduct = products[0];
+                                console.log('Found product by final_stok_adi');
+                              }
+                            }
+                          }
+                          
+                          // Method 3: Try with original stok_adi as fallback
+                          if (!foundProduct && selectedRequest.stok_adi) {
+                            console.log('Trying to find product by stok_adi:', selectedRequest.stok_adi);
+                            const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_adi=${encodeURIComponent(selectedRequest.stok_adi)}`);
+                            if (response && response.ok) {
+                              const products = await response.json();
+                              if (products && products.length > 0) {
+                                foundProduct = products[0];
+                                console.log('Found product by original stok_adi');
+                              }
+                            }
+                          }
+                          
+                          // Method 4: Use final_product_key to match based on product characteristics
+                          if (!foundProduct && selectedRequest.final_product_key) {
+                            console.log('Trying to find product by product key characteristics');
+                            try {
+                              const productKey = JSON.parse(selectedRequest.final_product_key);
+                              // Build query parameters from product key
+                              const queryParams = new URLSearchParams();
+                              if (productKey.cap) queryParams.append('cap', productKey.cap);
+                              if (productKey.kod_2) queryParams.append('kod_2', productKey.kod_2);
+                              if (productKey.kalinlik) queryParams.append('kalinlik', productKey.kalinlik);
+                              
+                              const response = await fetchWithAuth(`${API_URLS.galMmGt}?${queryParams.toString()}`);
+                              if (response && response.ok) {
+                                const products = await response.json();
+                                if (products && products.length > 0) {
+                                  // Find the best match based on more characteristics
+                                  foundProduct = products.find(p => 
+                                    p.cap === productKey.cap && 
+                                    p.kod_2 === productKey.kod_2 &&
+                                    p.kalinlik === productKey.kalinlik
+                                  ) || products[0];
+                                  console.log('Found product by product key characteristics');
+                                }
+                              }
+                            } catch (keyError) {
+                              console.warn('Error parsing final_product_key:', keyError);
+                            }
+                          }
+                          
+                          if (foundProduct) {
+                            // Close the request detail modal
+                            setShowRequestDetailModal(false);
+                            // Load the product for editing
+                            handleSelectExistingMmGt(foundProduct);
+                          } else {
+                            toast.error('Kaydedilmiş ürün bulunamadı. Ürün silinmiş olabilir veya farklı parametrelerle kaydedilmiş olabilir.');
+                          }
+                        } catch (error) {
+                          console.error('Error loading saved product:', error);
+                          toast.error('Ürün yüklenirken hata oluştu');
+                        } finally {
+                          setIsLoading(false);
                         }
                       }}
                       disabled={isLoading}
