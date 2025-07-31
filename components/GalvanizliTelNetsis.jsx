@@ -8025,29 +8025,58 @@ const GalvanizliTelNetsis = () => {
         totalApiCalls++;
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
+        // If exact match fails, try searching with base code pattern
+        if (!mmGtResponse || !mmGtResponse.ok || (await mmGtResponse.clone().json()).length === 0) {
+          console.log(`🔍 [${request.id}] Exact match failed, trying pattern search...`);
+          const basePattern = request.stok_kodu.substring(0, request.stok_kodu.lastIndexOf('.'));
+          console.log(`🔍 [${request.id}] Searching with base pattern: "${basePattern}"`);
+          const patternResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(basePattern)}`);
+          if (patternResponse && patternResponse.ok) {
+            const patternResults = await patternResponse.json();
+            console.log(`🔍 [${request.id}] Pattern search found ${patternResults.length} products:`, patternResults.map(p => p.stok_kodu));
+          }
+        }
+        
+        let mmGtProducts = [];
         if (mmGtResponse && mmGtResponse.ok) {
-          const mmGtProducts = await mmGtResponse.json();
+          mmGtProducts = await mmGtResponse.json();
           successfulApiCalls++;
-          
+        }
+        
+        // If no exact match found, try pattern search results
+        if (mmGtProducts.length === 0) {
+          console.log(`🔍 [${request.id}] No exact match, trying pattern search for fallback...`);
+          const basePattern = request.stok_kodu.substring(0, request.stok_kodu.lastIndexOf('.'));
+          const patternResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(basePattern)}`);
+          if (patternResponse && patternResponse.ok) {
+            const patternResults = await patternResponse.json();
+            if (patternResults.length > 0) {
+              console.log(`🔍 [${request.id}] Using pattern results as fallback:`, patternResults.map(p => p.stok_kodu));
+              mmGtProducts = patternResults;
+              successfulApiCalls++;
+            }
+          }
+        }
+        
+        if (mmGtProducts.length > 0) {
           console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
           
           // The API returns an array even for single stok_kodu query
           const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
           
-          if (mmGtArray.length > 0) {
-            console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
-              stok_kodu: p.stok_kodu, 
-              id: p.id, 
-              cap: p.cap,
-              kg: p.kg
-            })));
-          }
-          
-          if (mmGtArray.length === 0) {
-            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
-            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
-            continue;
-          }
+          console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
+            stok_kodu: p.stok_kodu, 
+            id: p.id, 
+            cap: p.cap,
+            kg: p.kg
+          })));
+        } else {
+          console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
+          console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
+          continue;
+        }
+        
+        const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
           
           // Process only the specific MM GT for this request
           for (const mmGt of mmGtArray) {
@@ -8492,10 +8521,28 @@ const GalvanizliTelNetsis = () => {
       // Debug: Check sessionStorage for sequence consistency
       const storedSequence = sessionStorage.getItem('lastProcessSequence');
       
-      // If processSequence is reset to 00 but we have the correct sequence in sessionStorage, use it
-      const sequenceToUse = (processSequence === '00' && storedSequence && storedSequence !== '00') 
-        ? storedSequence 
-        : processSequence;
+      // Extract sequence from selected request's stok_kodu if available
+      let requestSequence = '00';
+      if (selectedRequest && selectedRequest.stok_kodu) {
+        const match = selectedRequest.stok_kodu.match(/\.(\d+)$/);
+        if (match) {
+          requestSequence = match[1];
+          console.log(`🔍 Extracted sequence from request stok_kodu: ${requestSequence}`);
+        }
+      }
+      
+      // Priority: requestSequence > storedSequence > processSequence
+      const sequenceToUse = requestSequence !== '00' ? requestSequence
+        : (processSequence === '00' && storedSequence && storedSequence !== '00') 
+          ? storedSequence 
+          : processSequence;
+        
+      console.log(`🔍 Sequence selection debug:`, {
+        requestSequence,
+        storedSequence,
+        processSequence,
+        sequenceToUse
+      });
         
       if (storedSequence && storedSequence !== processSequence) {
         // Update processSequence to match the stored value
