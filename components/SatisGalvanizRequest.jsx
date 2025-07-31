@@ -120,12 +120,111 @@ const SatisGalvanizRequest = () => {
       
       const requestsData = await response.json();
       setRequests(requestsData || []);
+      
+      // Check for deleted products and mark requests as "Silinmiş"
+      await checkForDeletedProducts(requestsData || []);
     } catch (error) {
       console.error('Talep listesi alınamadı:', error);
       toast.error('Talepler alınamadı: ' + error.message);
     } finally {
       setIsLoadingRequests(false);
     }
+  };
+
+  // Check if products associated with requests still exist
+  const checkForDeletedProducts = async (requestsData) => {
+    try {
+      // Get all MM GT products to check against
+      const response = await fetchWithAuth(API_URLS.galMmGt);
+      if (!response || !response.ok) {
+        console.warn('Could not fetch products to check for deleted items');
+        return;
+      }
+      
+      const allProducts = await response.json();
+      const requestsToUpdate = [];
+      
+      // Check each request to see if its associated product still exists
+      for (const request of requestsData) {
+        // Skip requests that are already marked as "Silinmiş"
+        if (request.status === 'silinmis') {
+          continue;
+        }
+        
+        // Find matching product using different matching strategies
+        let productExists = false;
+        
+        // Strategy 1: Try to match by final_product_key if available
+        if (request.final_product_key) {
+          productExists = allProducts.some(product => {
+            const productKey = generateProductKeyFromProduct(product);
+            return productKey === request.final_product_key;
+          });
+        }
+        
+        // Strategy 2: Try to match by original stok_kodu
+        if (!productExists && request.stok_kodu) {
+          productExists = allProducts.some(product => product.stok_kodu === request.stok_kodu);
+        }
+        
+        // Strategy 3: Try to match by final_stok_adi if available  
+        if (!productExists && request.final_stok_adi) {
+          productExists = allProducts.some(product => product.stok_adi === request.final_stok_adi);
+        }
+        
+        // Strategy 4: Match by product specifications (fallback)
+        if (!productExists) {
+          productExists = allProducts.some(product => {
+            return (
+              Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
+              product.kod_2 === request.kod_2 &&
+              Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+              Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
+              Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
+              Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
+              Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
+              Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
+            );
+          });
+        }
+        
+        // If product doesn't exist, mark request as "Silinmiş"
+        if (!productExists) {
+          requestsToUpdate.push(request.id);
+        }
+      }
+      
+      // Update requests that have deleted products
+      if (requestsToUpdate.length > 0) {
+        console.log(`Found ${requestsToUpdate.length} requests with deleted products, updating status...`);
+        
+        for (const requestId of requestsToUpdate) {
+          try {
+            await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'silinmis' })
+            });
+          } catch (error) {
+            console.error(`Failed to update request ${requestId} status:`, error);
+          }
+        }
+        
+        // Refresh requests to show updated statuses
+        setTimeout(() => {
+          fetchRequests();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error checking for deleted products:', error);
+    }
+  };
+
+  // Generate product key from product data for comparison
+  const generateProductKeyFromProduct = (product) => {
+    if (!product) return '';
+    
+    return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
   
   // Fetch existing products from MM GT database
@@ -950,6 +1049,8 @@ const SatisGalvanizRequest = () => {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'completed':
         return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'silinmis':
+        return 'bg-gray-100 text-gray-700 border-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -968,6 +1069,8 @@ const SatisGalvanizRequest = () => {
         return 'İşleniyor';
       case 'completed':
         return 'Tamamlandı';
+      case 'silinmis':
+        return 'Silinmiş';
       default:
         return status;
     }
@@ -1098,6 +1201,7 @@ const SatisGalvanizRequest = () => {
                 <option value="rejected">Reddedildi</option>
                 <option value="in_progress">İşleniyor</option>
                 <option value="completed">Tamamlandı</option>
+                <option value="silinmis">Silinmiş</option>
               </select>
             </div>
             
@@ -1310,6 +1414,7 @@ const SatisGalvanizRequest = () => {
                                 <option value="rejected">Reddedildi</option>
                                 <option value="in_progress">İşleniyor</option>
                                 <option value="completed">Tamamlandı</option>
+                                <option value="silinmis">Silinmiş</option>
                               </select>
                             ) : (
                               <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadgeColor(request.status)}`}>
@@ -1956,6 +2061,30 @@ const SatisGalvanizRequest = () => {
                     <p className="text-sm text-gray-600">
                       <span className="font-medium">İşlem Tarihi:</span> {formatDate(selectedRequest.processed_at)}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Change tracking information - show if there are any changes recorded */}
+              {(selectedRequest.change_summary || selectedRequest.changed_fields || selectedRequest.original_stok_adi !== selectedRequest.final_stok_adi) && (
+                <div className="mt-6">
+                  <p className="text-sm font-medium text-gray-500">Üretim Ekibi Tarafından Yapılan Değişiklikler</p>
+                  <div className="mt-2 p-4 bg-green-50 rounded-md border border-green-200">
+                    {selectedRequest.change_summary && selectedRequest.change_summary !== 'Değişiklik yok' ? (
+                      <p className="text-base text-green-900 mb-2">{selectedRequest.change_summary}</p>
+                    ) : null}
+                    
+                    {selectedRequest.original_stok_adi && selectedRequest.final_stok_adi && 
+                     selectedRequest.original_stok_adi !== selectedRequest.final_stok_adi && (
+                      <div className="space-y-1 text-sm">
+                        <p className="text-green-700"><strong>Orijinal Ürün:</strong> {selectedRequest.original_stok_adi}</p>
+                        <p className="text-green-700"><strong>Son Ürün:</strong> {selectedRequest.final_stok_adi}</p>
+                      </div>
+                    )}
+                    
+                    {!selectedRequest.change_summary && !selectedRequest.original_stok_adi && (
+                      <p className="text-base text-green-900">Bu talep üretim ekibi tarafından düzenlenmiştir.</p>
+                    )}
                   </div>
                 </div>
               )}

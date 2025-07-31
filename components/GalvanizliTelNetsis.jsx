@@ -622,7 +622,11 @@ const GalvanizliTelNetsis = () => {
       const response = await fetchWithAuth(`${API_URLS.galSalRequests}`);
       if (response && response.ok) {
         const data = await response.json();
-        setRequests(Array.isArray(data) ? data : []);
+        const requestsData = Array.isArray(data) ? data : [];
+        setRequests(requestsData);
+        
+        // Check for deleted products and mark requests as "Silinmiş"
+        await checkForDeletedProducts(requestsData);
       }
     } catch (error) {
       console.error('Talepler getirilirken hata:', error);
@@ -630,6 +634,102 @@ const GalvanizliTelNetsis = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Check if products associated with requests still exist
+  const checkForDeletedProducts = async (requestsData) => {
+    try {
+      // Get all MM GT products to check against
+      const response = await fetchWithAuth(API_URLS.galMmGt);
+      if (!response || !response.ok) {
+        console.warn('Could not fetch products to check for deleted items');
+        return;
+      }
+      
+      const allProducts = await response.json();
+      const requestsToUpdate = [];
+      
+      // Check each request to see if its associated product still exists  
+      for (const request of requestsData) {
+        // Skip requests that are already marked as "Silinmiş"
+        if (request.status === 'silinmis') {
+          continue;
+        }
+        
+        // Find matching product using different matching strategies
+        let productExists = false;
+        
+        // Strategy 1: Try to match by final_product_key if available
+        if (request.final_product_key) {
+          productExists = allProducts.some(product => {
+            const productKey = generateProductKeyFromProduct(product);
+            return productKey === request.final_product_key;
+          });
+        }
+        
+        // Strategy 2: Try to match by original stok_kodu
+        if (!productExists && request.stok_kodu) {
+          productExists = allProducts.some(product => product.stok_kodu === request.stok_kodu);
+        }
+        
+        // Strategy 3: Try to match by final_stok_adi if available  
+        if (!productExists && request.final_stok_adi) {
+          productExists = allProducts.some(product => product.stok_adi === request.final_stok_adi);
+        }
+        
+        // Strategy 4: Match by product specifications (fallback)
+        if (!productExists) {
+          productExists = allProducts.some(product => {
+            return (
+              Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
+              product.kod_2 === request.kod_2 &&
+              Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+              Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
+              Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
+              Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
+              Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
+              Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
+            );
+          });
+        }
+        
+        // If product doesn't exist, mark request as "Silinmiş"
+        if (!productExists) {
+          requestsToUpdate.push(request.id);
+        }
+      }
+      
+      // Update requests that have deleted products
+      if (requestsToUpdate.length > 0) {
+        console.log(`Found ${requestsToUpdate.length} requests with deleted products, updating status...`);
+        
+        for (const requestId of requestsToUpdate) {
+          try {
+            await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'silinmis' })
+            });
+          } catch (error) {
+            console.error(`Failed to update request ${requestId} status:`, error);
+          }
+        }
+        
+        // Refresh requests to show updated statuses
+        setTimeout(() => {
+          fetchRequests();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error checking for deleted products:', error);
+    }
+  };
+
+  // Generate product key from product data for comparison
+  const generateProductKeyFromProduct = (product) => {
+    if (!product) return '';
+    
+    return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
 
   // Mevcut MM GT'leri getir
@@ -1600,6 +1700,8 @@ const GalvanizliTelNetsis = () => {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'completed':
         return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'silinmis':
+        return 'bg-gray-100 text-gray-700 border-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -1618,6 +1720,8 @@ const GalvanizliTelNetsis = () => {
         return 'İşleniyor';
       case 'completed':
         return 'Tamamlandı';
+      case 'silinmis':
+        return 'Silinmiş';
       default:
         return status;
     }
@@ -10983,25 +11087,8 @@ const GalvanizliTelNetsis = () => {
                     addToTaskQueue(taskName, async () => {
                       let saveResult;
                       
-                      // Check if editing existing product and show confirmation first
-                      if (isViewingExistingProduct) {
-                        const changes = detectChanges();
-                        if (changes.length > 0) {
-                          // Return a promise that will resolve when edit confirmation is handled
-                          return new Promise((resolve) => {
-                            setChangedFields(changes);
-                            setShowEditConfirmModal(true);
-                            // Store the resolve function to call it later
-                            window.editConfirmResolve = resolve;
-                          });
-                        } else {
-                          // No changes, proceed normally
-                          saveResult = await checkForDuplicatesAndConfirm();
-                        }
-                      } else {
-                        // New product, proceed normally
-                        saveResult = await checkForDuplicatesAndConfirm();
-                      }
+                      // For "Sadece Kaydet" button, skip confirmation dialog and save directly
+                      saveResult = await checkForDuplicatesAndConfirm();
                       
                       // If we have a pending approval action and save was successful, approve the request
                       if (saveResult && pendingApprovalAction && selectedRequest) {
@@ -11497,6 +11584,7 @@ const GalvanizliTelNetsis = () => {
                     <option value="rejected">Reddedildi</option>
                     <option value="in_progress">İşleniyor</option>
                     <option value="completed">Tamamlandı</option>
+                    <option value="silinmis">Silinmiş</option>
                   </select>
                 </div>
                 
