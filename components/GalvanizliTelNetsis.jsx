@@ -2235,6 +2235,62 @@ const GalvanizliTelNetsis = () => {
     ).join('; ');
   };
 
+  // Generate stok_adi (product name) based on current mmGtData
+  const generateStokAdi = () => {
+    const { adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
+    
+    // Build packaging suffix based on selected options
+    let packagingSuffix = '';
+    const packagingOptions = [];
+    
+    if (mmGtData.shrink === 'evet' || mmGtData.shrink === 'Yes') {
+      packagingOptions.push('Shrink');
+    }
+    if (mmGtData.palet === 'evet' || mmGtData.palet === 'Yes') {
+      packagingOptions.push('Plt');
+    }
+    if (mmGtData.sepet === 'evet' || mmGtData.sepet === 'Yes') {
+      packagingOptions.push('Spt');
+    }
+    
+    if (packagingOptions.length > 0) {
+      packagingSuffix = '-' + packagingOptions.join('-');
+    }
+    
+    return `Galvanizli Tel ${mmGtData.cap} mm ${adjustedMinusFormatted}/${adjustedPlusFormatted} ${mmGtData.kaplama} gr/m² ${mmGtData.min_mukavemet}-${mmGtData.max_mukavemet} MPa ID:${mmGtData.ic_cap} cm OD:${mmGtData.dis_cap} cm ${mmGtData.kg} kg${packagingSuffix}`;
+  };
+
+  // Alias for compatibility with existing code
+  const generateMmGtStokAdi = generateStokAdi;
+
+  // Handle edit confirmation modal
+  const handleEditConfirm = async () => {
+    try {
+      setIsLoading(true);
+      setShowEditConfirmModal(false);
+      
+      // Proceed with saving
+      const saveResult = await checkForDuplicatesAndConfirm();
+      
+      // If there's a queue resolve function waiting, call it
+      if (window.editConfirmResolve) {
+        window.editConfirmResolve(saveResult);
+        window.editConfirmResolve = null;
+      }
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error in handleEditConfirm:', error);
+      setIsLoading(false);
+      
+      // If there's a queue resolve function waiting, call it with error
+      if (window.editConfirmResolve) {
+        window.editConfirmResolve(false);
+        window.editConfirmResolve = null;
+      }
+    }
+  };
+
   // Detect changes between original and current data
   const detectChanges = () => {
     if (!originalProductData || !originalProductData.mmGt) return [];
@@ -4534,6 +4590,24 @@ const GalvanizliTelNetsis = () => {
             const updateResult = await updateResponse.json();
             toast.success('Talep stok kodu güncellendi');
             
+            // Refresh request data to show updated stok_kodu
+            console.log('Refreshing request data after stok_kodu update...');
+            await fetchRequests(); // Refresh the full requests list
+            
+            // If the request detail modal is open, update the selected request data
+            if (selectedRequest && selectedRequest.id === requestId) {
+              try {
+                const refreshResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`);
+                if (refreshResponse && refreshResponse.ok) {
+                  const refreshedRequest = await refreshResponse.json();
+                  setSelectedRequest(refreshedRequest);
+                  console.log('Request data refreshed with new stok_kodu:', refreshedRequest.stok_kodu);
+                }
+              } catch (refreshError) {
+                console.warn('Failed to refresh individual request data after stok_kodu update:', refreshError);
+              }
+            }
+            
             // Clean up sessionStorage after successful update
             sessionStorage.removeItem('lastEditedRequestId');
           } else {
@@ -5181,6 +5255,24 @@ const GalvanizliTelNetsis = () => {
         toast.success('Talep başarıyla onaylandı');
       } else if (isEdit) {
         toast.success('Talep başarıyla düzenlendi ve onaylandı');
+      }
+      
+      // Refresh the request data and requests list to show updated information
+      console.log('Refreshing request data after approval update...');
+      await fetchRequests(); // Refresh the full requests list
+      
+      // If the request detail modal is open, update the selected request data
+      if (selectedRequest) {
+        try {
+          const refreshResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`);
+          if (refreshResponse && refreshResponse.ok) {
+            const refreshedRequest = await refreshResponse.json();
+            setSelectedRequest(refreshedRequest);
+            console.log('Request data refreshed:', refreshedRequest);
+          }
+        } catch (refreshError) {
+          console.warn('Failed to refresh individual request data:', refreshError);
+        }
       }
       
       // Reset states
@@ -10961,7 +11053,27 @@ const GalvanizliTelNetsis = () => {
                     
                     // Add to queue with save function
                     addToTaskQueue(taskName, async () => {
-                      const saveResult = await checkForDuplicatesAndConfirm();
+                      let saveResult;
+                      
+                      // Check if editing existing product and show confirmation first
+                      if (isViewingExistingProduct) {
+                        const changes = detectChanges();
+                        if (changes.length > 0) {
+                          // Return a promise that will resolve when edit confirmation is handled
+                          return new Promise((resolve) => {
+                            setChangedFields(changes);
+                            setShowEditConfirmModal(true);
+                            // Store the resolve function to call it later
+                            window.editConfirmResolve = resolve;
+                          });
+                        } else {
+                          // No changes, proceed normally
+                          saveResult = await checkForDuplicatesAndConfirm();
+                        }
+                      } else {
+                        // New product, proceed normally
+                        saveResult = await checkForDuplicatesAndConfirm();
+                      }
                       
                       // If we have a pending approval action and save was successful, approve the request
                       if (saveResult && pendingApprovalAction && selectedRequest) {
@@ -12268,7 +12380,14 @@ const GalvanizliTelNetsis = () => {
               
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setShowEditConfirmModal(false)}
+                  onClick={() => {
+                    setShowEditConfirmModal(false);
+                    // If there's a queue resolve function waiting, call it with cancel
+                    if (window.editConfirmResolve) {
+                      window.editConfirmResolve(false);
+                      window.editConfirmResolve = null;
+                    }
+                  }}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   İptal
