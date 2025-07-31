@@ -5582,23 +5582,35 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Function to approve the request and update its status
+  // Function to approve the request and update its status through queue
   const approveRequestAndContinue = async () => {
     if (!selectedRequest) {
       toast.error('Seçili talep bulunamadı');
       return;
     }
     
+    // KRİTİK: Sonsuz döngüyü önlemek için pendingApprovalAction'ı hemen temizle
+    setPendingApprovalAction(null);
+    
+    // Kuyruğa task ekle ve gerçek işlemi kuyruk üzerinden yap
+    const taskId = Date.now().toString();
+    const newTask = {
+      id: taskId,
+      name: `Talep Düzenleniyor - ${selectedRequest.id}`,
+      status: 'processing',
+      startTime: Date.now()
+    };
+    
+    // Kuyruğa ekle
+    setTaskQueue(prev => [...prev, newTask]);
+    
     try {
-      setIsLoading(true);
-      console.log('Başlama: approveRequestAndContinue - Database Save First');
-      
-      // FIXED: First save to database, THEN approve request only if save succeeds
+      // Gerçek veritabanı kaydetme işlemi - bu normal sürede çalışacak
       console.log('Veritabanına kayıt işlemi başlatılıyor...');
       await continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
       console.log('Veritabanına kayıt işlemi tamamlandı');
       
-      // Only approve request AFTER successful database save
+      // Talep onaylama işlemini kuyruk üzerinden yap
       console.log('Database save başarılı, request onaylama işlemi başlatılıyor...');
       
       // Generate the actual stok_kodu that was used during database save
@@ -5607,10 +5619,6 @@ const GalvanizliTelNetsis = () => {
       
       console.log('Updating request ' + selectedRequest.id + ' with new stok_kodu: ' + actualStokKodu + ' (sequence: ' + processSequence + ')');
       console.log('Original request stok_kodu: ' + selectedRequest.stok_kodu);
-      
-      // Check what action was pending
-      const isApproval = pendingApprovalAction === 'approve';
-      const isEdit = pendingApprovalAction === 'edit';
       
       // Prepare tracking data for the request update
       const currentProductKey = generateProductKey({
@@ -5653,6 +5661,12 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (!updateResponse || !updateResponse.ok) {
+        // Kuyruk task'ını failed olarak işaretle
+        setTaskQueue(prev => prev.map(t => 
+          t.id === taskId 
+            ? { ...t, status: 'failed', name: 'Talep Onaylama Hatası' }
+            : t
+        ));
         const errorText = await updateResponse?.text() || 'Unknown error';
         console.error('Failed to update request: ' + (updateResponse?.status || 'undefined') + ' - ' + errorText);
         throw new Error('Talep durumu güncellenemedi');
@@ -5660,74 +5674,53 @@ const GalvanizliTelNetsis = () => {
       
       const updateResult = await updateResponse.json();
       
-      // Show appropriate success message
-      if (isApproval) {
-        toast.success('Talep başarıyla onaylandı');
-      } else if (isEdit) {
-        toast.success('Talep başarıyla düzenlendi ve onaylandı');
-      }
+      // Excel dosyaları oluşturma işlemi
+      console.log('Excel dosyalarını oluşturma işlemi başlatılıyor...');
+      await generateExcelFiles();
+      console.log('Excel dosyaları başarıyla oluşturuldu');
       
-      // Refresh the request data and requests list to show updated information
+      // Refresh the request data and requests list
       console.log('Refreshing request data after approval update...');
-      await fetchRequests(); // Refresh the full requests list
+      await fetchRequests();
       
-      // If the request detail modal is open, update the selected request data
       if (selectedRequest) {
         try {
           const refreshResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`);
           if (refreshResponse && refreshResponse.ok) {
             const refreshedRequest = await refreshResponse.json();
             setSelectedRequest(refreshedRequest);
-            console.log('Request data refreshed:', refreshedRequest);
+            console.log('Request data refreshed with new stok_kodu:', refreshedRequest.stok_kodu);
           }
         } catch (refreshError) {
           console.warn('Failed to refresh individual request data:', refreshError);
         }
       }
       
+      // Kuyruk task'ını tamamlandı olarak işaretle
+      setTaskQueue(prev => prev.map(t => 
+        t.id === taskId 
+          ? { ...t, status: 'completed', name: 'Talep Başarıyla Düzenlendi' }
+          : t
+      ));
+      
       // Reset states
       setIsEditingRequest(false);
-      setIsInApprovalProcess(false); // Reset approval process flag to prevent double modals
-      setPendingApprovalAction(null);
-      setIsRequestUsed(false); // Clear the used flag to remove status message
+      setIsInApprovalProcess(false);
+      setIsRequestUsed(false);
       
-      // Now also generate Excel files as the final step
-      console.log('Excel dosyalarını oluşturma işlemi başlatılıyor...');
-      toast.info('Excel dosyaları oluşturuluyor...');
-      
-      // Generate Excel files with saved data
-      await generateExcelFiles();
-      
-      console.log('Excel dosyaları başarıyla oluşturuldu');
-      toast.success('İşlem başarıyla tamamlandı!');
-      
-      // Clear any existing success messages to avoid duplication
-      setSuccessMessage('');
-      setTimeout(() => {
-        setSuccessMessage('İşlem başarıyla tamamlandı');
-        
-        // And clear it after 5 seconds
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 5000);
-      }, 100);
-      
-      // Make sure loading state is reset in all cases
+      toast.success('Talep başarıyla düzenlendi ve onaylandı!');
       console.log('İşlem tamamlandı: approveRequestAndContinue');
-      setIsLoading(false);
       
     } catch (error) {
       console.error('Talep onaylama hatası:', error);
       toast.error('Talep onaylanamadı: ' + error.message);
-      setIsLoading(false);
-    } finally {
-      // Extra insurance against stuck loading state
-      setTimeout(() => {
-        if (isLoading) {
-          console.log('Force-reset loading state after timeout');
-          setIsLoading(false);
-        }
-      }, 5000);
+      
+      // Kuyruk task'ını failed olarak işaretle
+      setTaskQueue(prev => prev.map(t => 
+        t.id === taskId 
+          ? { ...t, status: 'failed', name: 'İşlem Hatası' }
+          : t
+      ));
     }
   };
   
