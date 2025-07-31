@@ -1248,17 +1248,17 @@ const SatisGalvanizRequest = () => {
                             title="Tüm talepleri seç/kaldır"
                           />
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bağ Miktarı</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unwinding</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Talep No</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stok Kodu</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çap</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kaplama</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mukavemet</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ağırlık</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bağ Miktarı</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unwinding</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+                        <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1273,31 +1273,31 @@ const SatisGalvanizRequest = () => {
                               title="Bu talebi seç/kaldır"
                             />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.id.substring(0, 8)}...
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {request.stok_kodu || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.cap} mm
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.kod_2} {request.kaplama} g/m²
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.min_mukavemet} - {request.max_mukavemet} MPa
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.kg} kg
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.cast_kont || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.unwinding || 'Anti-Clockwise'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-2 py-4 whitespace-nowrap">
                             {hasPermission('manage:galvanizli-tel-requests') ? (
                               <select
                                 value={request.status}
@@ -1317,10 +1317,10 @@ const SatisGalvanizRequest = () => {
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(request.created_at)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center space-x-2">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center space-x-2">
                             <button
                               onClick={() => {
                                 setSelectedRequest(request);
@@ -1820,7 +1820,7 @@ const SatisGalvanizRequest = () => {
       {showDetailsModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <div className="flex justify-between items-center border-b border-gray-200 px-2 py-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -1961,7 +1961,7 @@ const SatisGalvanizRequest = () => {
               )}
             </div>
             
-            <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+            <div className="border-t border-gray-200 px-2 py-4 flex justify-end">
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
@@ -2024,7 +2024,7 @@ const SatisGalvanizRequest = () => {
       {showProductSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <div className="flex justify-between items-center border-b border-gray-200 px-2 py-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -2149,25 +2149,25 @@ const SatisGalvanizRequest = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getFilteredProducts().map((product, index) => (
                         <tr key={product.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.stok_kodu}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
+                          <td className="px-2 py-4 text-sm text-gray-500">
                             {product.stok_adi}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {product.cap} mm
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {product.kod_2} {product.kaplama} g/m²
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {product.min_mukavemet} - {product.max_mukavemet} MPa
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {product.kg} kg
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => {
@@ -2205,7 +2205,7 @@ const SatisGalvanizRequest = () => {
       {showProductDetailsModal && selectedProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
-            <div className="flex justify-between items-center border-b border-gray-200 px-6 py-4">
+            <div className="flex justify-between items-center border-b border-gray-200 px-2 py-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -2323,7 +2323,7 @@ const SatisGalvanizRequest = () => {
               </div>
             </div>
             
-            <div className="border-t border-gray-200 px-6 py-4 flex justify-end">
+            <div className="border-t border-gray-200 px-2 py-4 flex justify-end">
               <button
                 onClick={() => setShowProductDetailsModal(false)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"

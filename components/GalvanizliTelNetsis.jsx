@@ -1757,14 +1757,6 @@ const GalvanizliTelNetsis = () => {
         setPaketlemeSecenekleri(packaging);
       }
       
-      // Trigger YM GT generation for the loaded data
-      generateYmGtData();
-      
-      // Populate suitable YM STs if needed
-      if (suitableYmSts.length === 0) {
-        await findSuitableYmSts();
-      }
-      
       // Bir talep duzenlendigini isaretle ve talebi kullanilmis olarak ayarla
       setIsEditingRequest(true);
       setIsRequestUsed(true);
@@ -1773,9 +1765,15 @@ const GalvanizliTelNetsis = () => {
       // Clear edit reason  
       setEditReason('');
       
-      // Modali temizle ve giris ekranina git
+      // Modali temizle ve özet ekranına git
       setShowRequestDetailModal(false);
-      setCurrentStep('input');
+      setCurrentStep('summary');
+      
+      // Trigger YM GT generation for the loaded data
+      generateYmGtData();
+      
+      // Populate suitable YM STs if needed  
+      await findSuitableYmSts();
       
     } catch (error) {
       console.error('Talep düzenleme hatası:', error);
@@ -10774,32 +10772,52 @@ const GalvanizliTelNetsis = () => {
                         toast.success("Excel dosyaları başarıyla oluşturuldu!");
                       }
                     } else {
-                      // Normal flow for new products
-                      
-                      // First save to database if not already saved
-                      if (!savedToDatabase) {
-                        console.log("Saving to database...");
-                        const saveResult = await checkForDuplicatesAndConfirm();
-                        if (!saveResult) {
-                          // Either duplicates found or error occurred
-                          setIsLoading(false);
-                          return;
+                      // Check if we have a pending approval action
+                      if (pendingApprovalAction && selectedRequest) {
+                        console.log("Pending approval action detected, saving first then approving");
+                        
+                        // First save to database if not already saved
+                        if (!savedToDatabase) {
+                          console.log("Saving to database for approval...");
+                          const saveResult = await checkForDuplicatesAndConfirm();
+                          if (!saveResult) {
+                            // Either duplicates found or error occurred
+                            setIsLoading(false);
+                            return;
+                          }
+                          console.log("Database save completed for approval");
                         }
-                        console.log("Database save completed");
+                        
+                        // Now call the approval function which handles both approval and Excel generation
+                        await approveRequestAndContinue();
                       } else {
-                        console.log("Already saved to database, skipping");
+                        // Normal flow for new products
+                        
+                        // First save to database if not already saved
+                        if (!savedToDatabase) {
+                          console.log("Saving to database...");
+                          const saveResult = await checkForDuplicatesAndConfirm();
+                          if (!saveResult) {
+                            // Either duplicates found or error occurred
+                            setIsLoading(false);
+                            return;
+                          }
+                          console.log("Database save completed");
+                        } else {
+                          console.log("Already saved to database, skipping");
+                        }
+                        
+                        // Show notification that we're generating Excel files
+                        toast.info("Excel dosyaları oluşturuluyor...");
+                        
+                        // Then generate Excel files
+                        console.log("Generating Excel files...");
+                        await generateExcelFiles();
+                        console.log("Excel generation completed");
+                        
+                        // Success notification
+                        toast.success("İşlem başarıyla tamamlandı!");
                       }
-                      
-                      // Show notification that we're generating Excel files
-                      toast.info("Excel dosyaları oluşturuluyor...");
-                      
-                      // Then generate Excel files
-                      console.log("Generating Excel files...");
-                      await generateExcelFiles();
-                      console.log("Excel generation completed");
-                      
-                      // Success notification
-                      toast.success("İşlem başarıyla tamamlandı!");
                     }
                   } catch (error) {
                     console.error("Error during operation:", error);
@@ -10888,7 +10906,60 @@ const GalvanizliTelNetsis = () => {
                     
                     // Add to queue with save function
                     addToTaskQueue(taskName, async () => {
-                      return await checkForDuplicatesAndConfirm();
+                      const saveResult = await checkForDuplicatesAndConfirm();
+                      
+                      // If we have a pending approval action and save was successful, approve the request
+                      if (saveResult && pendingApprovalAction && selectedRequest) {
+                        console.log("Sadece Kaydet: Pending approval action detected, approving request");
+                        
+                        // Generate the actual stok_kodu that was used during database save
+                        const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+                        const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
+                        
+                        // Check what action was pending
+                        const isApproval = pendingApprovalAction === 'approve';
+                        const isEdit = pendingApprovalAction === 'edit';
+                        
+                        const updateRequestData = {
+                          status: 'approved',
+                          processed_by: user?.username || user?.id || 'system',
+                          processed_at: new Date().toISOString(),
+                          stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
+                          approved_by: isApproval ? (user?.username || user?.id || 'system') : undefined,
+                          approved_at: isApproval ? new Date().toISOString() : undefined
+                        };
+                        
+                        try {
+                          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(updateRequestData)
+                          });
+                          
+                          if (updateResponse && updateResponse.ok) {
+                            // Show appropriate success message
+                            if (isApproval) {
+                              toast.success('Talep başarıyla onaylandı');
+                            } else if (isEdit) {
+                              toast.success('Talep başarıyla düzenlendi ve onaylandı');
+                            }
+                            
+                            // Reset states
+                            setIsEditingRequest(false);
+                            setPendingApprovalAction(null);
+                          } else {
+                            console.error('Failed to update request status');
+                            toast.error('Talep onaylanamadı');
+                          }
+                        } catch (error) {
+                          console.error('Error updating request status:', error);
+                          toast.error('Talep onaylanamadı: ' + error.message);
+                        }
+                      }
+                      
+                      return saveResult;
                     }, taskId);
                     
                     // Start processing queue
@@ -10900,7 +10971,7 @@ const GalvanizliTelNetsis = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  Sadece Kaydet
+                  Sadece Kaydet (Kuyruğa Al)
                 </button>
               )}
             </div>
