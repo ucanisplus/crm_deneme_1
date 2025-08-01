@@ -4808,7 +4808,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Proceed with actual save (called either directly or after confirmation)
-  const proceedWithSave = async (allYmSts, nextSequence) => {
+  const proceedWithSave = async (allYmSts, nextSequence, requestIdOverride = null) => {
     try {
       console.log('🔍 PROCEEDING WITH SAVE:');
       console.log('nextSequence parameter received:', nextSequence);
@@ -4937,8 +4937,9 @@ const GalvanizliTelNetsis = () => {
       // Update request table with correct stok_kodu if this was from a request
       const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
       
-      if (requestIdFromSession || (selectedRequest && selectedRequest.id)) {
-        const requestId = requestIdFromSession || selectedRequest.id;
+      if (requestIdOverride || requestIdFromSession || (selectedRequest && selectedRequest.id)) {
+        const requestId = requestIdOverride || requestIdFromSession || selectedRequest.id;
+        console.log(`🎯 [proceedWithSave] Request ID resolution: override=${requestIdOverride}, session=${requestIdFromSession}, selected=${selectedRequest?.id}, final=${requestId}`);
         try {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
           const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
@@ -5176,12 +5177,14 @@ const GalvanizliTelNetsis = () => {
       // Check if we're working with a request by looking for recent PUT API calls in the session
       const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
       
-      if (requestIdFromSession || (selectedRequest && selectedRequest.id)) {
-        const requestId = requestIdFromSession || selectedRequest.id;
+      if (requestIdOverride || requestIdFromSession || (selectedRequest && selectedRequest.id)) {
+        const requestId = requestIdOverride || requestIdFromSession || selectedRequest.id;
+        console.log(`🎯 [proceedWithSave] Request ID resolution: override=${requestIdOverride}, session=${requestIdFromSession}, selected=${selectedRequest?.id}, final=${requestId}`);
         try {
           const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
           const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
           
+          console.log('[proceedWithSave] Updating request ' + requestId + ' with correct stok_kodu: ' + actualStokKodu + ' (sequence: ' + sequence + ')');
           
           const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
             method: 'PUT',
@@ -11487,6 +11490,10 @@ const GalvanizliTelNetsis = () => {
                     const taskName = `${productName}`;
                     const taskId = Date.now().toString();
                     
+                    // ✅ CRITICAL FIX: Capture request ID when task is created, not when it runs
+                    const currentRequestId = selectedRequest?.id;
+                    console.log(`📝 Capturing request ID for queue task: ${currentRequestId}`);
+                    
                     // Create animation element
                     const buttonRect = e.currentTarget.getBoundingClientRect();
                     const animElement = document.createElement('div');
@@ -11603,8 +11610,9 @@ const GalvanizliTelNetsis = () => {
                         // Convert sequence string back to number for proceedWithSave
                         const nextSequence = parseInt(sequence);
                         
-                        // Save directly without duplicate checking (queue system handles conflicts)
-                        saveResult = await proceedWithSave(allYmSts, nextSequence);
+                        // ✅ CRITICAL FIX: Pass the captured request ID to proceedWithSave
+                        console.log(`🎯 Using captured request ID in queue task: ${currentRequestId}`);
+                        saveResult = await proceedWithSave(allYmSts, nextSequence, currentRequestId);
                       } catch (error) {
                         console.error('Queue save error:', error);
                         toast.error('Kayıt hatası: ' + error.message);
