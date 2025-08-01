@@ -69,6 +69,18 @@ const GalvanizliTelNetsis = () => {
   // Kullanici girdi degerleri icin ayarlar modali
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
+  // Manual database edit modal
+  const [showManualEditModal, setShowManualEditModal] = useState(false);
+  const [manualEditData, setManualEditData] = useState({
+    mmGt: null,
+    ymGt: null,
+    ymSt: null,
+    mmGtRecipes: [],
+    ymGtRecipes: [],
+    ymStRecipes: []
+  });
+  const [selectedManualEditTab, setSelectedManualEditTab] = useState('mmgt');
+  
   // YM ST ekleme modalı
   const [showAddYmStModal, setShowAddYmStModal] = useState(false);
   const [newYmStData, setNewYmStData] = useState({
@@ -10164,16 +10176,30 @@ const GalvanizliTelNetsis = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
+    <div className={`p-6 max-w-7xl mx-auto min-h-screen ${isViewingExistingProduct ? 'bg-yellow-50' : 'bg-gray-50'}`}>
+      {/* Edit Mode Indicator */}
+      {isViewingExistingProduct && (
+        <div className="mb-4 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-r-lg">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <p className="text-sm font-medium text-yellow-800">
+              Düzenleme Modu - Mevcut ürün: {selectedExistingMmGt?.stok_kodu || 'Bilinmiyor'}
+            </p>
+          </div>
+        </div>
+      )}
+      
       {/* Ana Başlık ve Butonlar */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
+          <div className={`w-8 h-8 ${isViewingExistingProduct ? 'bg-yellow-600' : 'bg-red-600'} rounded-lg flex items-center justify-center`}>
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          Galvanizli Tel Netsis Entegrasyonu
+          Galvanizli Tel Netsis Entegrasyonu {isViewingExistingProduct && '(Düzenleme)'}
         </h1>
         
         <div className="flex gap-3">
@@ -10195,6 +10221,17 @@ const GalvanizliTelNetsis = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
             Veritabanı
+          </button>
+          
+          {/* Manual Database Edit Button */}
+          <button
+            onClick={() => setShowManualEditModal(true)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            Manuel Düzenleme
           </button>
           
           <button
@@ -10220,9 +10257,11 @@ const GalvanizliTelNetsis = () => {
 
       {/* Ana İçerik */}
       {currentStep === 'input' && (
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className={`${isViewingExistingProduct ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-white'} rounded-xl shadow-lg p-8`}>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">MM GT Ürün Bilgileri</h2>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {isViewingExistingProduct ? 'MM GT Ürün Düzenleme' : 'MM GT Ürün Bilgileri'}
+            </h2>
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span className="w-2 h-2 bg-red-500 rounded-full"></span>
               <span>Zorunlu Alanlar</span>
@@ -12369,7 +12408,7 @@ const GalvanizliTelNetsis = () => {
                               >
                                 Seç
                               </button>
-                              {request.status === 'pending' && (
+                              {(request.status === 'pending' || request.status === 'in_progress') && (
                                 <button
                                   onClick={() => {
                                     // If request is in queue, remove it from queue first
@@ -12377,12 +12416,19 @@ const GalvanizliTelNetsis = () => {
                                       setTaskQueue(prev => prev.filter(t => !t.name.includes(request.id)));
                                       taskQueueRef.current = taskQueueRef.current.filter(t => !t.name.includes(request.id));
                                     }
-                                    if (window.confirm('Bu talebi silmek istediğinizden emin misiniz?')) {
+                                    const confirmMessage = request.status === 'in_progress' 
+                                      ? 'Bu "İşleniyor" durumundaki talebi silmek istediğinizden emin misiniz?' 
+                                      : 'Bu talebi silmek istediğinizden emin misiniz?';
+                                    if (window.confirm(confirmMessage)) {
                                       deleteRequest(request.id);
                                     }
                                   }}
                                   className="text-red-600 hover:text-red-900 transition-colors"
-                                  title={isRequestInQueue(request.id) ? 'İşlem kuyruğundan çıkarılacak ve silinecek' : 'Talebi sil'}
+                                  title={
+                                    request.status === 'in_progress' 
+                                      ? 'İşleniyor durumundaki talebi sil' 
+                                      : (isRequestInQueue(request.id) ? 'İşlem kuyruğundan çıkarılacak ve silinecek' : 'Talebi sil')
+                                  }
                                 >
                                   Sil
                                 </button>
@@ -14368,6 +14414,257 @@ const GalvanizliTelNetsis = () => {
                 >
                   Excel Oluştur
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Manual Database Edit Modal */}
+      {showManualEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 h-full flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  Manuel Veritabanı Düzenleme
+                </h2>
+                <button
+                  onClick={() => setShowManualEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p className="text-sm text-yellow-700">
+                  <strong>Dikkat:</strong> Bu ekran veritabanındaki değerleri doğrudan düzenlemenizi sağlar. 
+                  Değişiklikler geri alınamaz ve format kontrolü yapılmaz. Dikkatli kullanın!
+                </p>
+              </div>
+              
+              {/* Tab Navigation */}
+              <div className="flex space-x-4 mb-4 border-b">
+                <button
+                  onClick={() => setSelectedManualEditTab('mmgt')}
+                  className={`pb-2 px-4 ${selectedManualEditTab === 'mmgt' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+                >
+                  MM GT
+                </button>
+                <button
+                  onClick={() => setSelectedManualEditTab('ymgt')}
+                  className={`pb-2 px-4 ${selectedManualEditTab === 'ymgt' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+                >
+                  YM GT
+                </button>
+                <button
+                  onClick={() => setSelectedManualEditTab('ymst')}
+                  className={`pb-2 px-4 ${selectedManualEditTab === 'ymst' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+                >
+                  YM ST
+                </button>
+              </div>
+              
+              {/* Content Area */}
+              <div className="flex-1 overflow-auto">
+                {selectedManualEditTab === 'mmgt' && (
+                  <div className="space-y-4">
+                    <div className="flex gap-4 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Stok Kodu ile ara (örn: GT.NIT.0810.00)"
+                        className="flex-1 px-4 py-2 border rounded-lg"
+                        onKeyPress={async (e) => {
+                          if (e.key === 'Enter') {
+                            const stokKodu = e.target.value.trim();
+                            if (stokKodu) {
+                              try {
+                                // Fetch MM GT data
+                                const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(stokKodu)}`);
+                                if (response && response.ok) {
+                                  const data = await response.json();
+                                  if (data && data.length > 0) {
+                                    setManualEditData(prev => ({ ...prev, mmGt: data[0] }));
+                                    
+                                    // Fetch recipes
+                                    const recipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${data[0].id}`);
+                                    if (recipeResponse && recipeResponse.ok) {
+                                      const recipes = await recipeResponse.json();
+                                      setManualEditData(prev => ({ ...prev, mmGtRecipes: recipes }));
+                                    }
+                                    
+                                    toast.success('Ürün bulundu ve yüklendi');
+                                  } else {
+                                    toast.error('Ürün bulunamadı');
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error fetching MM GT:', error);
+                                toast.error('Veri yükleme hatası');
+                              }
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          setManualEditData(prev => ({ 
+                            ...prev, 
+                            mmGt: {
+                              stok_kodu: '',
+                              cap: '',
+                              kod_2: 'NIT',
+                              kaplama: '',
+                              min_mukavemet: '',
+                              max_mukavemet: '',
+                              kg: '',
+                              boy: '',
+                              netKg: ''
+                            },
+                            mmGtRecipes: []
+                          }));
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        Yeni MM GT
+                      </button>
+                    </div>
+                    
+                    {manualEditData.mmGt && (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="font-semibold mb-3">MM GT Bilgileri</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Stok Kodu</label>
+                            <input
+                              type="text"
+                              value={manualEditData.mmGt.stok_kodu || ''}
+                              onChange={(e) => setManualEditData(prev => ({
+                                ...prev,
+                                mmGt: { ...prev.mmGt, stok_kodu: e.target.value }
+                              }))}
+                              className="w-full px-3 py-2 border rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Çap (mm)</label>
+                            <input
+                              type="text"
+                              value={manualEditData.mmGt.cap || ''}
+                              onChange={(e) => setManualEditData(prev => ({
+                                ...prev,
+                                mmGt: { ...prev.mmGt, cap: e.target.value }
+                              }))}
+                              className="w-full px-3 py-2 border rounded-md"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Kod 2</label>
+                            <select
+                              value={manualEditData.mmGt.kod_2 || 'NIT'}
+                              onChange={(e) => setManualEditData(prev => ({
+                                ...prev,
+                                mmGt: { ...prev.mmGt, kod_2: e.target.value }
+                              }))}
+                              className="w-full px-3 py-2 border rounded-md"
+                            >
+                              <option value="NIT">NIT</option>
+                              <option value="PAD">PAD</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama</label>
+                            <input
+                              type="text"
+                              value={manualEditData.mmGt.kaplama || ''}
+                              onChange={(e) => setManualEditData(prev => ({
+                                ...prev,
+                                mmGt: { ...prev.mmGt, kaplama: e.target.value }
+                              }))}
+                              className="w-full px-3 py-2 border rounded-md"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 flex justify-end gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (manualEditData.mmGt.id) {
+                                  // Update existing
+                                  await fetchWithAuth(`${API_URLS.galMmGt}/${manualEditData.mmGt.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(manualEditData.mmGt)
+                                  });
+                                  toast.success('MM GT güncellendi');
+                                } else {
+                                  // Create new
+                                  const response = await fetchWithAuth(API_URLS.galMmGt, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(manualEditData.mmGt)
+                                  });
+                                  if (response.ok) {
+                                    const newMmGt = await response.json();
+                                    setManualEditData(prev => ({ ...prev, mmGt: newMmGt }));
+                                    toast.success('MM GT oluşturuldu');
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Save error:', error);
+                                toast.error('Kayıt hatası');
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                          >
+                            Kaydet
+                          </button>
+                          {manualEditData.mmGt.id && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
+                                  try {
+                                    await fetchWithAuth(`${API_URLS.galMmGt}/${manualEditData.mmGt.id}`, {
+                                      method: 'DELETE'
+                                    });
+                                    setManualEditData(prev => ({ ...prev, mmGt: null, mmGtRecipes: [] }));
+                                    toast.success('MM GT silindi');
+                                  } catch (error) {
+                                    console.error('Delete error:', error);
+                                    toast.error('Silme hatası');
+                                  }
+                                }
+                              }}
+                              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Similar sections for YM GT and YM ST tabs */}
+                {selectedManualEditTab === 'ymgt' && (
+                  <div className="text-center text-gray-500 mt-8">
+                    YM GT düzenleme ekranı yakında eklenecek...
+                  </div>
+                )}
+                
+                {selectedManualEditTab === 'ymst' && (
+                  <div className="text-center text-gray-500 mt-8">
+                    YM ST düzenleme ekranı yakında eklenecek...
+                  </div>
+                )}
               </div>
             </div>
           </div>
