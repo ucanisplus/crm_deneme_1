@@ -8060,31 +8060,31 @@ const GalvanizliTelNetsis = () => {
             console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
             continue;
           }
-        
-        // Process only the specific MM GT for this request
-        for (const mmGt of mmGtArray) {
-          // Add MM GT
-          mmGtMap.set(mmGt.stok_kodu, mmGt);
           
-          // Find relationships created specifically for this request's MM GT
-          const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-          if (relationResponse && relationResponse.ok) {
-            const relations = await relationResponse.json();
+          // Process only the specific MM GT for this request
+          for (const mmGt of mmGtArray) {
+            // Add MM GT
+            mmGtMap.set(mmGt.stok_kodu, mmGt);
             
-            if (relations.length > 0) {
-              console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
-              const ymGtId = relations[0].ym_gt_id;
+            // Find relationships created specifically for this request's MM GT
+            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            if (relationResponse && relationResponse.ok) {
+              const relations = await relationResponse.json();
               
-              // Add YM GT data if it exists
-              if (ymGtId) {
-                try {
-                  const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
-                  if (ymGtResponse && ymGtResponse.ok) {
-                    const ymGtData = await ymGtResponse.json();
-                    console.log(`YM GT data received:`, ymGtData);
-                    const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
-                    if (ymGt) {
-                      ymGtMap.set(ymGt.stok_kodu, ymGt);
+              if (relations.length > 0) {
+                console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
+                const ymGtId = relations[0].ym_gt_id;
+                
+                // Add YM GT data if it exists
+                if (ymGtId) {
+                  try {
+                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                    if (ymGtResponse && ymGtResponse.ok) {
+                      const ymGtData = await ymGtResponse.json();
+                      console.log(`YM GT data received:`, ymGtData);
+                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
+                      if (ymGt) {
+                        ymGtMap.set(ymGt.stok_kodu, ymGt);
                         
                         // Add YM GT recipes
                         const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
@@ -8135,7 +8135,6 @@ const GalvanizliTelNetsis = () => {
                             });
                           }
                         } else {
-                          console.warn(`YM ST ${relation.ym_st_id} not found, skipping`);
                         }
                       }
                     }
@@ -8175,8 +8174,7 @@ const GalvanizliTelNetsis = () => {
               });
             }
           }
-        } // End of inner for loop
-      } else {
+        } else {
           failedApiCalls++;
           console.error('[' + request.id + '] MM GT API failed - Response status: ' + (mmGtResponse?.status || 'undefined'));
           console.error('[' + request.id + '] Response text:', await mmGtResponse?.text().catch(() => 'Unable to read response'));
