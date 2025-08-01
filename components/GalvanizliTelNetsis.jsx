@@ -7101,31 +7101,23 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
-  // Batch işlemleri için tolerans açıklama (signs'ları tahmin et)
-  const generateToleransAciklamaForBatch = (toleransPlus, toleransMinus) => {
+  // Batch işlemleri için tolerans açıklama
+  const generateToleransAciklamaForBatch = (toleransPlus, toleransMinus, maxSign = '+', minSign = '-') => {
     const plus = parseFloat(toleransPlus) || 0;
     const minus = parseFloat(toleransMinus) || 0;
+    
+    // Apply signs to get actual values
+    const actualPlusValue = maxSign === '-' ? -Math.abs(plus) : Math.abs(plus);
+    const actualMinusValue = minSign === '-' ? -Math.abs(minus) : Math.abs(minus);
+    
     let explanation = '';
     
-    // Check if values were mathematically swapped (this should be the corrected values from database)
-    const originalPlus = plus;
-    const originalMinus = minus;
-    let mathematicallySwapped = false;
-    
-    // If we detect that database values indicate a swap occurred (plus < minus means they were corrected)
-    // This is a heuristic - in practice, database stores corrected values
-    
-    // Eğer her ikisi de negatif ise standart dışı
-    if (plus < 0 && minus < 0) {
+    // Check if values are non-standard (not standard +/- format)
+    if ((actualPlusValue < 0 && actualMinusValue < 0) || 
+        (actualPlusValue > 0 && actualMinusValue > 0) ||
+        (Math.abs(actualPlusValue) !== 0.05 || Math.abs(actualMinusValue) !== 0.06)) {
       explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
-    // Eğer plus negatif veya minus pozitif ise standart dışı
-    else if (plus < 0 || minus > 0) {
-      explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
-    }
-    
-    // Note: For batch processing, we can't easily detect if mathematical correction occurred
-    // since we only have the final corrected values from database
     
     return explanation;
   };
@@ -9185,7 +9177,7 @@ const GalvanizliTelNetsis = () => {
       mmGt.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
       '', // COIL WEIGHT (KG) MAX
-      generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus) // Tolerans Açıklama
+      generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus, mmGt.tolerans_max_sign, mmGt.tolerans_min_sign) // Tolerans Açıklama
     ];
   };
 
@@ -9417,7 +9409,7 @@ const GalvanizliTelNetsis = () => {
       getGumrukTarifeKoduForCap(cap), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
-      generateToleransAciklamaForBatch(ymGt.tolerans_plus, ymGt.tolerans_minus) // Tolerans Açıklama
+      generateToleransAciklamaForBatch(ymGt.tolerans_plus, ymGt.tolerans_minus, ymGt.tolerans_max_sign, ymGt.tolerans_min_sign) // Tolerans Açıklama
     ];
   };
 
