@@ -8037,46 +8037,29 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
-        let mmGtProducts = [];
         if (mmGtResponse && mmGtResponse.ok) {
-          mmGtProducts = await mmGtResponse.json();
+          const mmGtProducts = await mmGtResponse.json();
           successfulApiCalls++;
-        }
-        
-        // If no exact match found, try pattern search results
-        if (mmGtProducts.length === 0) {
-          console.log(`🔍 [${request.id}] No exact match, trying pattern search for fallback...`);
-          const basePattern = request.stok_kodu.substring(0, request.stok_kodu.lastIndexOf('.'));
-          const patternResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(basePattern)}`);
-          if (patternResponse && patternResponse.ok) {
-            const patternResults = await patternResponse.json();
-            if (patternResults.length > 0) {
-              console.log(`🔍 [${request.id}] Using pattern results as fallback:`, patternResults.map(p => p.stok_kodu));
-              mmGtProducts = patternResults;
-              successfulApiCalls++;
-            }
-          }
-        }
-        
-        if (mmGtProducts.length > 0) {
+          
           console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
           
           // The API returns an array even for single stok_kodu query
           const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
           
-          console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
-            stok_kodu: p.stok_kodu, 
-            id: p.id, 
-            cap: p.cap,
-            kg: p.kg
-          })));
-        } else {
-          console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
-          console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
-          continue;
-        }
-        
-        const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
+          if (mmGtArray.length > 0) {
+            console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
+              stok_kodu: p.stok_kodu, 
+              id: p.id, 
+              cap: p.cap,
+              kg: p.kg
+            })));
+          }
+          
+          if (mmGtArray.length === 0) {
+            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
+            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
+            continue;
+          }
         
         // Process only the specific MM GT for this request
         for (const mmGt of mmGtArray) {
@@ -8193,7 +8176,11 @@ const GalvanizliTelNetsis = () => {
             }
           }
         } // End of inner for loop
-      
+      } else {
+          failedApiCalls++;
+          console.error('[' + request.id + '] MM GT API failed - Response status: ' + (mmGtResponse?.status || 'undefined'));
+          console.error('[' + request.id + '] Response text:', await mmGtResponse?.text().catch(() => 'Unable to read response'));
+        }
       } catch (error) {
         failedApiCalls++;
         console.error('[' + request.id + '] Exception during data loading:', error);
