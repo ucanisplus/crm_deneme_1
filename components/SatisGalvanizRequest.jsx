@@ -2062,7 +2062,27 @@ const SatisGalvanizRequest = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
                     <p className="text-base text-gray-900">
-                      {selectedRequest.tolerans_max_sign || '+'}{selectedRequest.tolerans_plus} mm / {selectedRequest.tolerans_min_sign || '-'}{selectedRequest.tolerans_minus} mm
+                      {(() => {
+                        // Apply mathematical correction to display tolerance values correctly
+                        const plusValue = parseFloat(selectedRequest.tolerans_plus) || 0;
+                        const minusValue = parseFloat(selectedRequest.tolerans_minus) || 0;
+                        const maxSign = selectedRequest.tolerans_max_sign || '+';
+                        const minSign = selectedRequest.tolerans_min_sign || '-';
+                        
+                        // Apply signs to get actual values
+                        const actualPlusValue = maxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
+                        const actualMinusValue = minSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
+                        
+                        // Determine which is mathematically higher/lower
+                        const higherValue = Math.max(actualPlusValue, actualMinusValue);
+                        const lowerValue = Math.min(actualPlusValue, actualMinusValue);
+                        
+                        // Format with proper signs
+                        const lowerText = lowerValue >= 0 ? `+${lowerValue.toFixed(2)}` : lowerValue.toFixed(2);
+                        const higherText = higherValue >= 0 ? `+${higherValue.toFixed(2)}` : higherValue.toFixed(2);
+                        
+                        return `${lowerText} mm / ${higherText} mm`;
+                      })()}
                     </p>
                   </div>
                   <div>
