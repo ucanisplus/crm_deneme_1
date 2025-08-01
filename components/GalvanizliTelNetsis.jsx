@@ -8077,31 +8077,31 @@ const GalvanizliTelNetsis = () => {
         }
         
         const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
+        
+        // Process only the specific MM GT for this request
+        for (const mmGt of mmGtArray) {
+          // Add MM GT
+          mmGtMap.set(mmGt.stok_kodu, mmGt);
           
-          // Process only the specific MM GT for this request
-          for (const mmGt of mmGtArray) {
-            // Add MM GT
-            mmGtMap.set(mmGt.stok_kodu, mmGt);
+          // Find relationships created specifically for this request's MM GT
+          const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+          if (relationResponse && relationResponse.ok) {
+            const relations = await relationResponse.json();
             
-            // Find relationships created specifically for this request's MM GT
-            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-            if (relationResponse && relationResponse.ok) {
-              const relations = await relationResponse.json();
+            if (relations.length > 0) {
+              console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
+              const ymGtId = relations[0].ym_gt_id;
               
-              if (relations.length > 0) {
-                console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
-                const ymGtId = relations[0].ym_gt_id;
-                
-                // Add YM GT data if it exists
-                if (ymGtId) {
-                  try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
-                    if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGtData = await ymGtResponse.json();
-                      console.log(`YM GT data received:`, ymGtData);
-                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
-                      if (ymGt) {
-                        ymGtMap.set(ymGt.stok_kodu, ymGt);
+              // Add YM GT data if it exists
+              if (ymGtId) {
+                try {
+                  const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                  if (ymGtResponse && ymGtResponse.ok) {
+                    const ymGtData = await ymGtResponse.json();
+                    console.log(`YM GT data received:`, ymGtData);
+                    const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
+                    if (ymGt) {
+                      ymGtMap.set(ymGt.stok_kodu, ymGt);
                         
                         // Add YM GT recipes
                         const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
@@ -8192,17 +8192,14 @@ const GalvanizliTelNetsis = () => {
               });
             }
           }
-        } else {
-          failedApiCalls++;
-          console.error('[' + request.id + '] MM GT API failed - Response status: ' + (mmGtResponse?.status || 'undefined'));
-          console.error('[' + request.id + '] Response text:', await mmGtResponse?.text().catch(() => 'Unable to read response'));
-        }
+        } // End of inner for loop
+      
       } catch (error) {
         failedApiCalls++;
         console.error('[' + request.id + '] Exception during data loading:', error);
         console.error('[' + request.id + '] Error details:', error.message);
       }
-    }
+    } // End of outer for loop
 
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
