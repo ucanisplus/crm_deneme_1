@@ -8473,6 +8473,54 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Generate Excel files for a specific request by loading its data from database
+  const generateExcelFromRequest = async (request) => {
+    if (!request || !request.stok_kodu) {
+      toast.error('Geçersiz talep - stok_kodu bulunamadı');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log(`🔄 Generating Excel for request ${request.id} with stok_kodu: ${request.stok_kodu}`);
+      
+      // Extract sequence from stok_kodu
+      let requestSequence = '00';
+      if (request.stok_kodu) {
+        const match = request.stok_kodu.match(/\.(\d+)$/);
+        if (match) {
+          requestSequence = match[1];
+        }
+      }
+      
+      console.log(`📊 Using sequence: ${requestSequence} for request ${request.id}`);
+      
+      // Find MM GT by stok_kodu
+      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
+      if (!mmGtResponse || !mmGtResponse.ok) {
+        throw new Error('MM GT ürünü bulunamadı');
+      }
+      
+      const mmGtProducts = await mmGtResponse.json();
+      if (!mmGtProducts || mmGtProducts.length === 0) {
+        throw new Error('MM GT ürünü veritabanında bulunamadı');
+      }
+      
+      const mmGt = mmGtProducts[0];
+      console.log(`📦 Found MM GT:`, { stok_kodu: mmGt.stok_kodu, id: mmGt.id });
+      
+      // Create individual Excel files using the request data
+      await generateBatchExcelFromRequests([request]);
+      
+      toast.success('Excel dosyaları başarıyla oluşturuldu');
+    } catch (error) {
+      console.error('Excel generation from request failed:', error);
+      toast.error('Excel oluşturulurken hata: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Excel dosyalarını oluştur
   const generateExcelFiles = async () => {
     try {
@@ -12345,12 +12393,17 @@ const GalvanizliTelNetsis = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Durum</p>
-                    <p className="px-2 py-1 text-xs inline-flex items-center font-medium rounded-full border bg-yellow-100 text-yellow-800 border-yellow-200">
+                    <p className={`px-2 py-1 text-xs inline-flex items-center font-medium rounded-full border ${
+                      selectedRequest.status === 'silinmis' 
+                        ? 'bg-red-100 text-red-800 border-red-200' 
+                        : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                    }`}>
                       {selectedRequest.status === 'pending' ? 'Beklemede' : 
                        selectedRequest.status?.toString().toLowerCase().trim() === 'approved' ? 'Onaylandı' : 
                        selectedRequest.status === 'rejected' ? 'Reddedildi' : 
                        selectedRequest.status === 'in_progress' ? 'İşleniyor' : 
                        selectedRequest.status === 'completed' ? 'Tamamlandı' : 
+                       selectedRequest.status === 'silinmis' ? 'Silinmiş' :
                        selectedRequest.status}
                     </p>
                   </div>
@@ -12645,6 +12698,51 @@ const GalvanizliTelNetsis = () => {
                         </svg>
                       )}
                       Kaydedilmiş Ürünü Düzenle
+                    </button>
+                  ) : selectedRequest.status === 'silinmis' ? (
+                    // Silinmiş status - show reopen option
+                    <button
+                      onClick={async () => {
+                        if (window.confirm('Bu silinmiş talebi yeniden açmak istediğinizden emin misiniz?\n\nTalep "Beklemede" durumuna geçecek ve tekrar işlenebilir hale gelecektir.')) {
+                          try {
+                            setIsLoading(true);
+                            await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: 'pending' })
+                            });
+                            
+                            // Update local state
+                            setRequests(prev => prev.map(req => 
+                              req.id === selectedRequest.id 
+                                ? { ...req, status: 'pending' }
+                                : req
+                            ));
+                            
+                            setSelectedRequest(prev => ({ ...prev, status: 'pending' }));
+                            toast.success('Talep başarıyla yeniden açıldı');
+                          } catch (error) {
+                            console.error('Error reopening request:', error);
+                            toast.error('Talep yeniden açılırken hata oluştu');
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="px-4 py-2 text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <svg className="animate-spin w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                      Talebi Yeniden Aç
                     </button>
                   ) : (
                     // Rejected or other status - no action buttons
