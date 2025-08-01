@@ -11600,6 +11600,9 @@ const GalvanizliTelNetsis = () => {
                         console.log(`🎯 [${taskId}] Final sequence: ${sequence} for ${baseCode}`);
                         setProcessSequence(sequence);
                         
+                        // Convert sequence string back to number for proceedWithSave
+                        const nextSequence = parseInt(sequence);
+                        
                         // Save directly without duplicate checking (queue system handles conflicts)
                         saveResult = await proceedWithSave(allYmSts, nextSequence);
                       } catch (error) {
