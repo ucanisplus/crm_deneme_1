@@ -275,8 +275,15 @@ const SatisGalvanizRequest = () => {
       const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm -${requestData.tolerans_minus}/+${requestData.tolerans_plus} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
       
       // Check 1: Find matching products in existing MM GT database by stok_adi
+      console.log('🔍 Duplicate check - Current stok_adi:', currentStokAdi);
+      console.log('🔍 Duplicate check - Checking against', existingProducts.length, 'existing products');
+      
       const matchingProduct = existingProducts.find(product => {
-        return product.stok_adi === currentStokAdi;
+        const matches = product.stok_adi === currentStokAdi;
+        if (matches) {
+          console.log('✅ Found matching product:', product.stok_adi);
+        }
+        return matches;
       });
       
       if (matchingProduct) {
@@ -2584,7 +2591,7 @@ const SatisGalvanizRequest = () => {
                       if (window.confirm('Bu silinmiş talebi yeniden açmak istediğinizden emin misiniz?\n\nTalep "Beklemede" durumuna geçecek ve tekrar işlenebilir hale gelecektir.')) {
                         try {
                           setIsLoading(true);
-                          await fetchWithAuth(`${API_URLS.galSalRequests}/${duplicateProduct.id}`, {
+                          await fetchWithAuth(`${API_URLS.galSalRequests}/${duplicateProduct.request_id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ status: 'pending' })

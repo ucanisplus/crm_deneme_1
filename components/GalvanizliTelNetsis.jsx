@@ -11541,31 +11541,71 @@ const GalvanizliTelNetsis = () => {
                           return false;
                         }
                         
-                        // Get next sequence for this product
+                        // Get next sequence for this product with atomic sequence generation
                         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
                         const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
-                        const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
-                        let nextSequence = 0; // FIXED: Start from 0, not 1
                         
-                        if (response && response.ok) {
-                          const existingProducts = await response.json();
-                          if (existingProducts.length > 0) {
-                            const sequences = existingProducts
-                              .map(p => {
-                                const match = p.stok_kodu.match(/\.(\d+)$/);
-                                return match ? parseInt(match[1]) : 0;
-                              })
-                              .filter(seq => !isNaN(seq));
-                            
-                            if (sequences.length > 0) {
-                              nextSequence = Math.max(...sequences) + 1;
+                        // Add task ID to sequence generation for atomic operation
+                        const taskId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        console.log(`🔒 [${taskId}] Starting atomic sequence generation for ${baseCode}`);
+                        
+                        let sequence = '00';
+                        let attempts = 0;
+                        const maxAttempts = 5;
+                        
+                        while (attempts < maxAttempts) {
+                          attempts++;
+                          console.log(`🔄 [${taskId}] Sequence generation attempt ${attempts}/${maxAttempts}`);
+                          
+                          const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
+                          let nextSequence = 0; // FIXED: Start from 0, not 1
+                          
+                          if (response && response.ok) {
+                            const existingProducts = await response.json();
+                            if (existingProducts.length > 0) {
+                              const sequences = existingProducts
+                                .map(p => {
+                                  const match = p.stok_kodu.match(/\.(\d+)$/);
+                                  return match ? parseInt(match[1]) : 0;
+                                })
+                                .filter(seq => !isNaN(seq));
+                              
+                              if (sequences.length > 0) {
+                                nextSequence = Math.max(...sequences) + 1;
+                              } else {
+                                nextSequence = 0; // If no valid sequences found, start from 0
+                              }
+                            }
+                          }
+                          
+                          sequence = nextSequence.toString().padStart(2, '0');
+                          const potentialStokKodu = `${baseCode}.${sequence}`;
+                          
+                          console.log(`🔍 [${taskId}] Checking if ${potentialStokKodu} already exists...`);
+                          
+                          // Double-check: verify this sequence is not already taken
+                          const checkResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${potentialStokKodu}`);
+                          if (checkResponse && checkResponse.ok) {
+                            const existing = await checkResponse.json();
+                            if (existing.length === 0) {
+                              console.log(`✅ [${taskId}] Sequence ${sequence} is available for ${baseCode}`);
+                              break; // Sequence is available
                             } else {
-                              nextSequence = 0; // If no valid sequences found, start from 0
+                              console.log(`⚠️ [${taskId}] Sequence ${sequence} is taken, retrying...`);
+                              // Add small delay to prevent tight loop
+                              await new Promise(resolve => setTimeout(resolve, 100));
+                              continue; // Try again
                             }
                           }
                         }
                         
-                        const sequence = nextSequence.toString().padStart(2, '0');
+                        if (attempts >= maxAttempts) {
+                          console.error(`💥 [${taskId}] Failed to generate unique sequence after ${maxAttempts} attempts`);
+                          toast.error('Sequence generation failed after multiple attempts');
+                          return false;
+                        }
+                        
+                        console.log(`🎯 [${taskId}] Final sequence: ${sequence} for ${baseCode}`);
                         setProcessSequence(sequence);
                         
                         // Save directly without duplicate checking (queue system handles conflicts)
