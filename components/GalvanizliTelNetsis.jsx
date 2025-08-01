@@ -11540,6 +11540,7 @@ const GalvanizliTelNetsis = () => {
                     // Add to queue with save function
                     addToTaskQueue(taskName, async () => {
                       let saveResult;
+                      let actualSequence = '00'; // ✅ CRITICAL FIX: Declare outside try block
                       
                       // For "Sadece Kaydet" button, save directly using queue system
                       try {
@@ -11621,7 +11622,7 @@ const GalvanizliTelNetsis = () => {
                         const nextSequence = parseInt(sequence);
                         
                         // ✅ CRITICAL FIX: Capture the actual sequence for later use in approval
-                        const actualSequence = sequence;
+                        actualSequence = sequence;
                         
                         // ✅ CRITICAL FIX: Pass the captured request ID to proceedWithSave
                         console.log(`🎯 Using captured request ID in queue task: ${currentRequestId}`);
@@ -11674,16 +11675,24 @@ const GalvanizliTelNetsis = () => {
                             setIsEditingRequest(false);
                             setPendingApprovalAction(null);
                             setIsRequestUsed(false); // Clear the used flag to remove status message
+                            
+                            // ✅ Return true since both save and approval succeeded
+                            return true;
                           } else {
                             console.error('Failed to update request status');
                             toast.error('Talep onaylanamadı');
+                            // ❌ Return false since approval failed
+                            return false;
                           }
                         } catch (error) {
                           console.error('Error updating request status:', error);
                           toast.error('Talep onaylanamadı: ' + error.message);
+                          // ❌ Return false since approval failed
+                          return false;
                         }
                       }
                       
+                      // If no approval action, return the save result
                       return saveResult;
                     }, taskId);
                     
