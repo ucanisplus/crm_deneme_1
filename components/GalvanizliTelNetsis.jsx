@@ -2346,11 +2346,11 @@ const GalvanizliTelNetsis = () => {
       setSelectedExistingMmGt(mmGt);
       setIsViewingExistingProduct(true); // Mark as viewing existing product
       
-      // Store original product data for change detection
+      // Store original product data for change detection (will be updated after YM STs are loaded)
       setOriginalProductData({
         mmGt: { ...mmGt },
         ymGts: [],
-        ymSts: []
+        ymSts: [] // Will be updated after loading
       });
       
       // Extract sequence from existing product's stok_kodu
@@ -2368,14 +2368,22 @@ const GalvanizliTelNetsis = () => {
         kg: mmGt.kg ? normalizeDecimalDisplay(mmGt.kg) : '',
         ic_cap: mmGt.ic_cap || 45,
         dis_cap: mmGt.dis_cap || 75,
-        tolerans_plus: mmGt.tolerans_plus ? normalizeDecimalDisplay(mmGt.tolerans_plus) : '',
-        tolerans_minus: mmGt.tolerans_minus ? normalizeDecimalDisplay(mmGt.tolerans_minus) : '',
+        tolerans_plus: mmGt.tolerans_plus ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_plus)) : '',
+        tolerans_minus: mmGt.tolerans_minus ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_minus)) : '',
         shrink: mmGt.shrink || 'evet',
         unwinding: mmGt.unwinding || '',
         cast_kont: mmGt.cast_kont || '',
         helix_kont: mmGt.helix_kont || '',
         elongation: mmGt.elongation || ''
       });
+      
+      // Set tolerance signs based on original values
+      if (mmGt.tolerans_plus !== undefined && mmGt.tolerans_plus !== null && mmGt.tolerans_plus !== '') {
+        setToleransMaxSign(mmGt.tolerans_plus >= 0 ? '+' : '-');
+      }
+      if (mmGt.tolerans_minus !== undefined && mmGt.tolerans_minus !== null && mmGt.tolerans_minus !== '') {
+        setToleransMinSign(mmGt.tolerans_minus >= 0 ? '+' : '-');
+      }
       
       // Clear existing selections first to avoid conflicts
       setSelectedYmSts([]);
@@ -2441,6 +2449,12 @@ const GalvanizliTelNetsis = () => {
       if (loadedYmSts.length > 0) {
         setMainYmStIndex(mainYmStIndex); // 🆕 NEW: Use the actual main index from database
       }
+      
+      // Update original product data with loaded YM STs for change detection
+      setOriginalProductData(prev => ({
+        ...prev,
+        ymSts: [...loadedYmSts]
+      }));
       
       // 🔄 STEP 2: Load all recipes
       console.log('🔍 Step 2: Loading all recipes...');
@@ -2698,16 +2712,43 @@ const GalvanizliTelNetsis = () => {
       const originalValue = original[field.key];
       const currentValue = mmGtData[field.key];
       
-      // Normalize values for comparison
-      const normalizedOriginal = originalValue ? String(originalValue).trim() : '';
-      const normalizedCurrent = currentValue ? String(currentValue).trim() : '';
-      
-      if (normalizedOriginal !== normalizedCurrent) {
-        changes.push({
-          field: field.label,
-          oldValue: normalizedOriginal || 'Boş',
-          newValue: normalizedCurrent || 'Boş'
-        });
+      // Special handling for tolerance fields - compare with signs
+      if (field.key === 'tolerans_plus') {
+        const originalTolerance = originalValue ? parseFloat(originalValue) : 0;
+        const currentTolerance = currentValue ? parseFloat(currentValue) : 0;
+        const currentWithSign = toleransMaxSign === '+' ? currentTolerance : -currentTolerance;
+        
+        if (Math.abs(originalTolerance - currentWithSign) > 0.0001) {
+          changes.push({
+            field: field.label,
+            oldValue: originalTolerance.toString(),
+            newValue: currentWithSign.toString()
+          });
+        }
+      } else if (field.key === 'tolerans_minus') {
+        const originalTolerance = originalValue ? parseFloat(originalValue) : 0;
+        const currentTolerance = currentValue ? parseFloat(currentValue) : 0;
+        const currentWithSign = toleransMinSign === '+' ? currentTolerance : -currentTolerance;
+        
+        if (Math.abs(originalTolerance - currentWithSign) > 0.0001) {
+          changes.push({
+            field: field.label,
+            oldValue: originalTolerance.toString(),
+            newValue: currentWithSign.toString()
+          });
+        }
+      } else {
+        // Normal field comparison
+        const normalizedOriginal = originalValue ? String(originalValue).trim() : '';
+        const normalizedCurrent = currentValue ? String(currentValue).trim() : '';
+        
+        if (normalizedOriginal !== normalizedCurrent) {
+          changes.push({
+            field: field.label,
+            oldValue: normalizedOriginal || 'Boş',
+            newValue: normalizedCurrent || 'Boş'
+          });
+        }
       }
     });
     
@@ -2726,6 +2767,31 @@ const GalvanizliTelNetsis = () => {
         oldValue: `Shrink: ${originalPackaging.shrink ? 'Evet' : 'Hayır'}, Paletli: ${originalPackaging.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${originalPackaging.sepetli ? 'Evet' : 'Hayır'}`,
         newValue: `Shrink: ${paketlemeSecenekleri.shrink ? 'Evet' : 'Hayır'}, Paletli: ${paketlemeSecenekleri.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${paketlemeSecenekleri.sepetli ? 'Evet' : 'Hayır'}`
       });
+    }
+    
+    // Check YM ST changes
+    const originalYmSts = originalProductData.ymSts || [];
+    const currentYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+    
+    // Compare YM ST counts
+    if (originalYmSts.length !== currentYmSts.length) {
+      changes.push({
+        field: 'YM ST Sayısı',
+        oldValue: originalYmSts.length.toString(),
+        newValue: currentYmSts.length.toString()
+      });
+    } else {
+      // Compare YM ST stok_kodu lists
+      const originalCodes = originalYmSts.map(ym => ym.stok_kodu).sort();
+      const currentCodes = currentYmSts.map(ym => ym.stok_kodu).sort();
+      
+      if (JSON.stringify(originalCodes) !== JSON.stringify(currentCodes)) {
+        changes.push({
+          field: 'YM ST Listesi',
+          oldValue: originalCodes.join(', '),
+          newValue: currentCodes.join(', ')
+        });
+      }
     }
     
     return changes;
@@ -4926,16 +4992,35 @@ const GalvanizliTelNetsis = () => {
         throw new Error('YM GT kaydedilemedi');
       }
       
-      // Save MM GT - Always create new, never update
-      const mmGtResponse = await fetchWithAuth(API_URLS.galMmGt, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(generateMmGtDatabaseData(sequence))
-      });
-      
-      if (mmGtResponse && mmGtResponse.ok) {
-        const mmGtResult = await mmGtResponse.json();
-        mmGtIds.push(mmGtResult.id);
+      // Save MM GT - Update existing if editing, create new if creating
+      let mmGtResponse;
+      if (isViewingExistingProduct && selectedExistingMmGt) {
+        // Update existing MM GT
+        console.log('🔄 Updating existing MM GT with ID:', selectedExistingMmGt.id);
+        mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${selectedExistingMmGt.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+        });
+        
+        if (mmGtResponse && mmGtResponse.ok) {
+          mmGtIds.push(selectedExistingMmGt.id); // Use existing ID
+          console.log('✅ MM GT updated successfully');
+        }
+      } else {
+        // Create new MM GT
+        console.log('🆕 Creating new MM GT');
+        mmGtResponse = await fetchWithAuth(API_URLS.galMmGt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+        });
+        
+        if (mmGtResponse && mmGtResponse.ok) {
+          const mmGtResult = await mmGtResponse.json();
+          mmGtIds.push(mmGtResult.id);
+          console.log('✅ MM GT created successfully with ID:', mmGtResult.id);
+        }
       }
       
       // Save all YM STs
@@ -11577,7 +11662,7 @@ const GalvanizliTelNetsis = () => {
               
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {(() => {
-                const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest || isEditingExistingProduct);
+                const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && !isViewingExistingProduct;
                 console.log('Sadece Kaydet button visibility:', {
                   shouldShow,
                   isViewingExistingProduct,
@@ -14671,15 +14756,6 @@ const GalvanizliTelNetsis = () => {
                         ))}
                       </div>
                     </div>
-                    
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-800 mb-2">Değiştirilmeyen Alanlar</h3>
-                      <div className="text-sm text-gray-600">
-                        <p>• <strong>Stok Kodu:</strong> {selectedExistingMmGt?.stok_kodu} <span className="text-green-600">(Korunur)</span></p>
-                        <p>• <strong>Reçete ilişkileri</strong> <span className="text-green-600">(Mevcut yapı korunur)</span></p>
-                        <p>• <strong>Veritabanı ID'leri</strong> <span className="text-green-600">(Değişmez)</span></p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -14701,43 +14777,26 @@ const GalvanizliTelNetsis = () => {
                       setIsLoading(true);
                       
                       if (pendingChanges.changes.length > 0) {
-                        // Use queue system for changes
-                        const task = {
-                          id: Date.now() + '_edit_existing',
-                          name: 'Mevcut Ürün Düzenleniyor',
-                          status: 'processing'
-                        };
-                        
-                        setTaskQueue(prev => [...prev, task]);
-                        taskQueueRef.current = [...taskQueueRef.current, task];
-                        
-                        // Proceed with saving directly using queue system
+                        // Update existing product directly - NO queue system needed for editing
                         const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
-                        const nextSequence = await checkForExistingProducts(
-                          mmGtData.cap,
-                          mmGtData.kod_2, 
-                          mmGtData.kaplama,
-                          mmGtData.min_mukavemet,
-                          mmGtData.max_mukavemet,
-                          mmGtData.kg
-                        );
-                        const saveResult = await proceedWithSave(allYmSts, nextSequence);
                         
-                        // Update task status
-                        setTaskQueue(prev => prev.map(t => 
-                          t.id === task.id 
-                            ? { ...t, status: saveResult ? 'completed' : 'failed', name: saveResult ? 'Ürün Düzenlendi' : 'Düzenleme Hatası' }
-                            : t
-                        ));
-                        taskQueueRef.current = taskQueueRef.current.map(t => 
-                          t.id === task.id 
-                            ? { ...t, status: saveResult ? 'completed' : 'failed', name: saveResult ? 'Ürün Düzenlendi' : 'Düzenleme Hatası' }
-                            : t
-                        );
+                        // Extract existing sequence from the existing product's stok_kodu
+                        const existingStokKodu = selectedExistingMmGt.stok_kodu;
+                        const sequencePart = existingStokKodu.split('.').pop(); // Get last part (e.g., "00")
+                        const existingSequence = parseInt(sequencePart); // Convert to number
+                        
+                        console.log('🔄 Updating existing product:', {
+                          existingStokKodu,
+                          extractedSequence: existingSequence,
+                          productId: selectedExistingMmGt.id
+                        });
+                        
+                        // Update existing product using existing sequence (no new product creation)
+                        const saveResult = await proceedWithSave(allYmSts, existingSequence);
                         
                         if (saveResult) {
                           await generateExcelFiles();
-                          toast.success("Ürün düzenlendi ve Excel dosyaları oluşturuldu!");
+                          toast.success("Ürün güncellendi ve Excel dosyaları oluşturuldu!");
                         }
                       } else {
                         // No changes, just generate Excel
