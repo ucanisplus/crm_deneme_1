@@ -7937,7 +7937,7 @@ const GalvanizliTelNetsis = () => {
       // Debug: Log all stok_kodu values from selected requests
       console.log('🔍 DEBUG: Selected requests stok_kodu values:');
       selectedRequests.forEach((req, index) => {
-        console.log(`Request ${index + 1} (ID: ${req.id}): stok_kodu = "${req.stok_kodu}"`);
+        console.log(`Request ${index + 1} (ID: ${req.id}): stok_kodu = "${req.stok_kodu}", status = "${req.status}", created_at = "${req.created_at}"`);
       });
       
       // Check for duplicate stok_kodu values
@@ -8064,6 +8064,7 @@ const GalvanizliTelNetsis = () => {
           // Process only the specific MM GT for this request
           for (const mmGt of mmGtArray) {
             // Add MM GT
+            console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
             mmGtMap.set(mmGt.stok_kodu, mmGt);
             
             // Find relationships created specifically for this request's MM GT
@@ -8190,6 +8191,11 @@ const GalvanizliTelNetsis = () => {
     console.log('📊 === API CALL STATISTICS ===');
 
     // Convert Maps to arrays for Excel generation
+    console.log('🗂️ === FINAL MAP CONTENTS ===');
+    console.log(`MM GT Map keys: [${Array.from(mmGtMap.keys()).join(', ')}]`);
+    console.log(`YM GT Map keys: [${Array.from(ymGtMap.keys()).join(', ')}]`);
+    console.log(`YM ST Map keys: [${Array.from(ymStMap.keys()).join(', ')}]`);
+    
     const allMmGtData = Array.from(mmGtMap.values());
     const allYmGtData = Array.from(ymGtMap.values());
     const allYmStData = Array.from(ymStMap.values());
