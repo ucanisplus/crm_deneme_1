@@ -57,8 +57,8 @@ const SatisGalvanizRequest = () => {
   const [duplicateProduct, setDuplicateProduct] = useState(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   
-  // Form data for MM GT request
-  const [requestData, setRequestData] = useState({
+  // Default form values
+  const defaultRequestData = {
     cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
     kod_2: 'NIT',          // Default: NIT
     kaplama: '100',        // Default: 100 g/m² (NIT valid range: 100-400, PAD fixed at 50)
@@ -74,11 +74,36 @@ const SatisGalvanizRequest = () => {
     cast_kont: '',          // Bağ Miktarı (Optional)
     helix_kont: '',         // Helix Control (Optional)
     elongation: ''          // Elongation (Optional)
+  };
+
+  // Form data for MM GT request - load from sessionStorage or use defaults
+  const [requestData, setRequestData] = useState(() => {
+    try {
+      const savedData = sessionStorage.getItem('galvanizRequestFormData');
+      return savedData ? { ...defaultRequestData, ...JSON.parse(savedData) } : defaultRequestData;
+    } catch (error) {
+      console.warn('Failed to load saved form data:', error);
+      return defaultRequestData;
+    }
   });
   
-  // Tolerans işaret durumları
-  const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
-  const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
+  // Tolerans işaret durumları - load from sessionStorage or use defaults
+  const [toleransMaxSign, setToleransMaxSign] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('galvanizToleranceMaxSign');
+      return saved || '+';
+    } catch (error) {
+      return '+';
+    }
+  });
+  const [toleransMinSign, setToleransMinSign] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('galvanizToleranceMinSign');
+      return saved || '-';
+    } catch (error) {
+      return '-';
+    }
+  });
   
   // Paketleme seçenekleri için state
   const [paketlemeSecenekleri, setPaketlemeSecenekleri] = useState({
@@ -91,6 +116,32 @@ const SatisGalvanizRequest = () => {
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   
+  // Save form data to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('galvanizRequestFormData', JSON.stringify(requestData));
+    } catch (error) {
+      console.warn('Failed to save form data:', error);
+    }
+  }, [requestData]);
+
+  // Save tolerance signs to sessionStorage whenever they change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('galvanizToleranceMaxSign', toleransMaxSign);
+    } catch (error) {
+      console.warn('Failed to save tolerance max sign:', error);
+    }
+  }, [toleransMaxSign]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('galvanizToleranceMinSign', toleransMinSign);
+    } catch (error) {
+      console.warn('Failed to save tolerance min sign:', error);
+    }
+  }, [toleransMinSign]);
+
   // Fetch existing requests on component mount
   useEffect(() => {
     fetchRequests();
@@ -1045,24 +1096,13 @@ const SatisGalvanizRequest = () => {
       
       console.log('✅ Talep başarıyla oluşturuldu');
       
-      // Reset form after successful submission
-      setRequestData({
-        cap: '2.50',
-        kod_2: 'NIT',
-        kaplama: '100',
-        min_mukavemet: '350',
-        max_mukavemet: '550',
-        kg: '500',
-        ic_cap: 45,
-        dis_cap: 75,
-        tolerans_plus: '0.05',
-        tolerans_minus: '0.06',
-        shrink: 'evet',
-        unwinding: 'Anti-Clockwise',
+      // Only clear optional fields after successful submission, keep the main values
+      setRequestData(prev => ({
+        ...prev,
         cast_kont: '',
         helix_kont: '',
         elongation: ''
-      });
+      }));
       
       // Refresh the request list
       fetchRequests();

@@ -4962,6 +4962,9 @@ const GalvanizliTelNetsis = () => {
             console.log('Refreshing request data after stok_kodu update...');
             await fetchRequests(); // Refresh the full requests list
             
+            // Add a small delay to ensure state updates are propagated
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             // If the request detail modal is open, update the selected request data
             if (selectedRequest && selectedRequest.id === requestId) {
               try {
@@ -5197,6 +5200,13 @@ const GalvanizliTelNetsis = () => {
           if (updateResponse && updateResponse.ok) {
             const updateResult = await updateResponse.json();
             toast.success('Talep stok kodu güncellendi');
+            
+            // Refresh request data to show updated stok_kodu
+            console.log('Refreshing request data after stok_kodu update...');
+            await fetchRequests(); // Refresh the full requests list
+            
+            // Add a small delay to ensure state updates are propagated
+            await new Promise(resolve => setTimeout(resolve, 100));
             
             // Clean up sessionStorage after successful update
             sessionStorage.removeItem('lastEditedRequestId');
@@ -11639,7 +11649,8 @@ const GalvanizliTelNetsis = () => {
                         };
                         
                         try {
-                          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
+                          console.log(`🎯 [Queue Approval] Updating request ${selectedRequest.id} vs captured ${currentRequestId} with actualStokKodu: ${actualStokKodu}`);
+                          const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${currentRequestId}`, {
                             method: 'PUT',
                             headers: {
                               'Content-Type': 'application/json'
