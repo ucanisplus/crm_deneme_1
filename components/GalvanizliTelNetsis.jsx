@@ -8214,19 +8214,34 @@ const GalvanizliTelNetsis = () => {
     const sortedMmGtData = allMmGtData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
+      // First sort by cap (diameter)
+      if (capA !== capB) {
+        return capA - capB; // Ascending: smaller diameters first
+      }
+      // If caps are equal, sort by stok_kodu to ensure sequence order
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
     
     const sortedYmGtData = allYmGtData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
+      // First sort by cap (diameter)
+      if (capA !== capB) {
+        return capA - capB; // Ascending: smaller diameters first
+      }
+      // If caps are equal, sort by stok_kodu to ensure sequence order
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
     
     const sortedYmStData = allYmStData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      return capA - capB; // Ascending: smaller diameters first
+      // First sort by cap (diameter)
+      if (capA !== capB) {
+        return capA - capB; // Ascending: smaller diameters first
+      }
+      // If caps are equal, sort by stok_kodu to ensure sequence order
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
     
     // Recipe order will be determined by sorted product data in generateBatchReceteExcel
