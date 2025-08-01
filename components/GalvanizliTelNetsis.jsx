@@ -4127,9 +4127,12 @@ const GalvanizliTelNetsis = () => {
       }
     }
     
-    // Tolerans validation: Basic numeric validation only
+    // Tolerans validation and mathematical correction
+    let toleransPlusValue = null;
+    let toleransMinusValue = null;
+    
     if (mmGtData.tolerans_plus) {
-      const toleransPlusValue = parseFloat(mmGtData.tolerans_plus);
+      toleransPlusValue = parseFloat(mmGtData.tolerans_plus);
       if (isNaN(toleransPlusValue)) {
         errors.push('Tolerans+ için geçerli bir sayısal değer giriniz.');
       } else if (toleransPlusValue < 0) {
@@ -4138,11 +4141,41 @@ const GalvanizliTelNetsis = () => {
     }
     
     if (mmGtData.tolerans_minus) {
-      const toleransMinusValue = parseFloat(mmGtData.tolerans_minus);
+      toleransMinusValue = parseFloat(mmGtData.tolerans_minus);
       if (isNaN(toleransMinusValue)) {
         errors.push('Tolerans- için geçerli bir sayısal değer giriniz.');
       } else if (toleransMinusValue < 0) {
         errors.push(`Tolerans- değeri negatif olamaz. Girilen değer: ${mmGtData.tolerans_minus}`);
+      }
+    }
+    
+    // Mathematical tolerance validation and auto-correction
+    if (toleransPlusValue !== null && toleransMinusValue !== null && !isNaN(toleransPlusValue) && !isNaN(toleransMinusValue)) {
+      // Get the actual signed values based on the sign selectors
+      const actualPlusValue = toleransMaxSign === '-' ? -toleransPlusValue : toleransPlusValue;
+      const actualMinusValue = toleransMinSign === '-' ? -toleransMinusValue : toleransMinusValue;
+      
+      // Check mathematical correctness: max tolerance should be >= min tolerance
+      if (actualPlusValue < actualMinusValue) {
+        // Auto-correct by swapping values and signs
+        console.log('🔧 Auto-correcting tolerance values:', {
+          original: { plus: actualPlusValue, minus: actualMinusValue },
+          corrected: { plus: actualMinusValue, minus: actualPlusValue }
+        });
+        
+        // Update the form data with corrected values
+        setMmGtData(prev => ({
+          ...prev,
+          tolerans_plus: Math.abs(actualMinusValue).toString(),
+          tolerans_minus: Math.abs(actualPlusValue).toString()
+        }));
+        
+        // Update the sign selectors
+        setToleransMaxSign(actualMinusValue >= 0 ? '+' : '-');
+        setToleransMinSign(actualPlusValue >= 0 ? '+' : '-');
+        
+        // Inform user about the correction
+        toast.info('Tolerans değerleri matematiksel olarak düzeltildi (Max ≥ Min)');
       }
     }
     
@@ -14708,10 +14741,10 @@ const GalvanizliTelNetsis = () => {
       
       {/* Change Preview Modal for Edit Mode */}
       {showChangePreviewModal && pendingChanges && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[80vh] overflow-hidden">
-            <div className="p-6 h-full flex flex-col">
-              <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -14730,8 +14763,9 @@ const GalvanizliTelNetsis = () => {
                   </svg>
                 </button>
               </div>
-              
-              <div className="flex-1 overflow-auto">
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
                 {pendingChanges.changes.length === 0 ? (
                   <div className="text-center py-8">
                     <div className="text-gray-400 mb-4">
@@ -14744,10 +14778,15 @@ const GalvanizliTelNetsis = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                      <p className="text-sm text-blue-700">
-                        <strong>Not:</strong> Stok kodu gibi değiştirilemeyen alanlar gösterilmez. 
-                        Sadece düzenlenebilir alanlar karşılaştırılır.
+                    <div className="bg-gray-50 border-l-4 border-gray-400 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Stok Kodu:</span>
+                        <span className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">
+                          {selectedExistingMmGt?.stok_kodu || 'Bilinmiyor'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        <strong>Not:</strong> Stok kodu değiştirilemez ve korunur.
                       </p>
                     </div>
                     
@@ -14782,9 +14821,10 @@ const GalvanizliTelNetsis = () => {
                     </div>
                   </div>
                 )}
-              </div>
-              
-              <div className="mt-6 flex justify-end gap-3 pt-4 border-t">
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 flex-shrink-0">
+              <div className="flex justify-end gap-3">
                 <button
                   onClick={() => {
                     setShowChangePreviewModal(false);
