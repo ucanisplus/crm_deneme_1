@@ -4967,7 +4967,7 @@ const GalvanizliTelNetsis = () => {
       // Also store sequence in sessionStorage for debugging
       sessionStorage.setItem('lastProcessSequence', sequence);
       
-      // Save YM GT - Use same sequence as MM GT (this was working before packaging update)
+      // Save YM GT - Check if existing YM GT needs to be updated or new one created
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
       console.log('🔍 DEBUGGING YMGT:');
@@ -4977,18 +4977,42 @@ const GalvanizliTelNetsis = () => {
       
       const ymGtData = generateYmGtDatabaseData(sequence); // Use same sequence as MMGT
       console.log('Generated YMGT data stok_kodu:', ymGtData.stok_kodu);
-      const ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ymGtData)
-      });
       
-      if (ymGtResponse && ymGtResponse.ok) {
-        const ymGtResult = await ymGtResponse.json();
-        ymGtId = ymGtResult.id;
-        console.log('YM GT created with ID:', ymGtId, 'and stok_kodu:', ymGtStokKodu);
+      // Check if YM GT already exists (especially important when editing)
+      const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
+      let ymGtResponse;
+      
+      if (existingYmGt) {
+        // Update existing YM GT
+        console.log('🔄 Updating existing YM GT with ID:', existingYmGt.id);
+        ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ymGtData)
+        });
+        
+        if (ymGtResponse && ymGtResponse.ok) {
+          ymGtId = existingYmGt.id;
+          console.log('✅ YM GT updated successfully with ID:', ymGtId);
+        }
       } else {
-        console.error('YM GT creation failed:', ymGtResponse?.status, await ymGtResponse?.text());
+        // Create new YM GT
+        console.log('🆕 Creating new YM GT');
+        ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ymGtData)
+        });
+        
+        if (ymGtResponse && ymGtResponse.ok) {
+          const ymGtResult = await ymGtResponse.json();
+          ymGtId = ymGtResult.id;
+          console.log('✅ YM GT created successfully with ID:', ymGtId);
+        }
+      }
+      
+      if (!ymGtResponse || !ymGtResponse.ok) {
+        console.error('YM GT operation failed:', ymGtResponse?.status, await ymGtResponse?.text());
         throw new Error('YM GT kaydedilemedi');
       }
       
