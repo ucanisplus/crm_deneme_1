@@ -11620,6 +11620,9 @@ const GalvanizliTelNetsis = () => {
                         // Convert sequence string back to number for proceedWithSave
                         const nextSequence = parseInt(sequence);
                         
+                        // ✅ CRITICAL FIX: Capture the actual sequence for later use in approval
+                        const actualSequence = sequence;
+                        
                         // ✅ CRITICAL FIX: Pass the captured request ID to proceedWithSave
                         console.log(`🎯 Using captured request ID in queue task: ${currentRequestId}`);
                         saveResult = await proceedWithSave(allYmSts, nextSequence, currentRequestId);
@@ -11635,7 +11638,8 @@ const GalvanizliTelNetsis = () => {
                         
                         // Generate the actual stok_kodu that was used during database save
                         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-                        const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
+                        const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
+                        console.log(`🎯 [Queue Approval] Using captured sequence: ${actualSequence} for stok_kodu: ${actualStokKodu}`);
                         
                         // Check what action was pending
                         const isApproval = pendingApprovalAction === 'approve';
