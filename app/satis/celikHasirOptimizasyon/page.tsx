@@ -882,6 +882,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Find folded improvements - check ALL combinations
   const findFoldedImprovements = () => {
     const opportunities: MergeOperation[] = [];
+    const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
       Number(p.hasirSayisi) <= maxHasirSayisi
@@ -897,8 +898,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
         if (sourceProduct.id === targetProduct.id) continue;
         if (sourceProduct.hasirTipi !== targetProduct.hasirTipi) continue;
         
+        // Skip if we've already processed this pair
+        const pairKey1 = `${sourceProduct.id}-${targetProduct.id}`;
+        const pairKey2 = `${targetProduct.id}-${sourceProduct.id}`;
+        if (processedPairs.has(pairKey1) || processedPairs.has(pairKey2)) continue;
+        
         // Check for exact multiples and multiples with tolerance
         const matches = findMatchingMultiples(sourceProduct, targetProduct);
+        
+        if (matches.length > 0) {
+          // Mark this pair as processed since we found at least one match
+          processedPairs.add(pairKey1);
+        }
         
         for (const match of matches) {
           if (match.type === 'exact') {
@@ -1057,6 +1068,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Find rounding opportunities - check ALL combinations
   const findRoundingOpportunities = () => {
     const opportunities: MergeOperation[] = [];
+    const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
       Number(p.hasirSayisi) <= maxHasirSayisi
@@ -1069,6 +1081,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const target = products[j];
         
         if (product.id === target.id) continue;
+        
+        // Skip if we've already processed this pair
+        const pairKey1 = `${product.id}-${target.id}`;
+        const pairKey2 = `${target.id}-${product.id}`;
+        if (processedPairs.has(pairKey1) || processedPairs.has(pairKey2)) continue;
+        
         if (product.hasirTipi !== target.hasirTipi || 
             product.boyCap !== target.boyCap || 
             product.enCap !== target.enCap) continue;
@@ -1079,6 +1097,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
         
         // Both dimensions must be larger OR within tolerance
         if (boyDiffCm >= 0 && enDiffCm >= 0 && boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
+          // Mark this pair as processed
+          processedPairs.add(pairKey1);
+          
           const result = {
             ...target,
             id: `rounded_${Date.now()}_${Math.random()}`,
@@ -1166,6 +1187,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Find Hasir Tipi change opportunities - check ALL combinations
   const findHasirTipiChangeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
+    const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
       Number(p.hasirSayisi) <= maxHasirSayisi
@@ -1182,6 +1204,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
         if (product.id === target.id) continue;
         if (target.hasirTipi.charAt(0) !== currentType) continue;
         
+        // Skip if we've already processed this pair
+        const pairKey1 = `${product.id}-${target.id}`;
+        const pairKey2 = `${target.id}-${product.id}`;
+        if (processedPairs.has(pairKey1) || processedPairs.has(pairKey2)) continue;
+        
         const toleranceCm = tolerance;
         const targetBoy = Number(target.uzunlukBoy);
         const targetEn = Number(target.uzunlukEn);
@@ -1192,6 +1219,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
         const enDiff = targetEn - sourceEn;
         
         if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+          // Mark this pair as processed
+          processedPairs.add(pairKey1);
+          
           const result = {
             ...target,
             id: `type_changed_same_${Date.now()}_${Math.random()}`,
@@ -1230,6 +1260,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
           if (product.id === target.id) continue;
           if (!target.hasirTipi.startsWith(targetType)) continue;
           
+          // Skip if we've already processed this pair
+          const pairKey1 = `${product.id}-${target.id}`;
+          const pairKey2 = `${target.id}-${product.id}`;
+          if (processedPairs.has(pairKey1) || processedPairs.has(pairKey2)) continue;
+          
           const toleranceCm = tolerance;
           const targetBoy = Number(target.uzunlukBoy);
           const targetEn = Number(target.uzunlukEn);
@@ -1240,6 +1275,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
           const enDiff = targetEn - sourceEn;
           
           if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+            // Mark this pair as processed
+            processedPairs.add(pairKey1);
+            
             const result = {
               ...target,
               id: `type_changed_cross_${Date.now()}_${Math.random()}`,
