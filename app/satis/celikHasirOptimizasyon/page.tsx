@@ -91,7 +91,7 @@ interface MergeOperation {
   result: Product;
   explanation: string;
   toleranceUsed: number; // Actual tolerance used for this operation
-  safetyLevel: 'safe' | 'caution' | 'risky'; // Safety indicator
+  safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky'; // Safety indicator
   safetyLevelNumber: number; // 0-10 numeric safety level for sorting
   approved?: boolean; // Whether this operation has been approved
   skipped?: boolean; // Whether this operation has been skipped
@@ -242,7 +242,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       target: Product;
       explanation: string;
       tolerance: number;
-      safetyLevel: 'safe' | 'caution' | 'risky';
+      safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky';
       priority: number;
     }>;
   } | null>(null);
@@ -497,7 +497,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
       target: Product;
       explanation: string;
       tolerance: number;
-      safetyLevel: 'safe' | 'caution' | 'risky';
+      safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky';
       priority: number;
     }> = [];
     
