@@ -1597,7 +1597,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     console.log(`🔍 Safe operations: ${safeOps.length}`);
     console.log('Safe operation types:', safeOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
     
-    const byType = {};
+    const byType: Record<string, number> = {};
     opportunities.forEach(op => {
       byType[op.type] = (byType[op.type] || 0) + 1;
     });
