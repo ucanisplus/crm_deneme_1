@@ -763,11 +763,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // OPTIMIZATION: Find ALL merge opportunities without early breaks or usedIds limitations
   const findMergeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
+    const processedPairs = new Set<string>();
     
     // STEP 1: Find all products that can be optimized
     const candidateProducts = products.filter(p => 
       Number(p.hasirSayisi) <= maxHasirSayisi // Only products under the threshold
     );
+    
+    console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
     
     // STEP 2: Check ALL possible combinations (no early breaks)
     for (let i = 0; i < candidateProducts.length; i++) {
@@ -779,6 +782,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
         
         // Skip self
         if (sourceProduct.id === targetProduct.id) continue;
+        
+        // Create unique pair key to avoid duplicates
+        const pairKey1 = `${sourceProduct.id}-${targetProduct.id}`;
+        const pairKey2 = `${targetProduct.id}-${sourceProduct.id}`;
+        
+        if (processedPairs.has(pairKey1) || processedPairs.has(pairKey2)) continue;
         
         // Must be same type and diameter
         if (targetProduct.hasirTipi !== sourceProduct.hasirTipi || 
@@ -814,20 +823,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
             safetyLevel: getSafetyLevel(actualDiffCm).category,
             safetyLevelNumber: getSafetyLevel(actualDiffCm).level
           });
+          
+          processedPairs.add(pairKey1);
         }
       }
     }
     
-    // Remove duplicate operations (same source-target pair OR reverse)
-    const uniqueOps = opportunities.filter((op, index, self) => 
-      index === self.findIndex(o => 
-        (o.source.id === op.source.id && o.target.id === op.target.id) ||
-        (o.source.id === op.target.id && o.target.id === op.source.id)
-      )
-    );
+    console.log(`💡 Found ${opportunities.length} unique merge opportunities`);
+    console.log(`🎯 Perfect matches (0 tolerance): ${opportunities.filter(op => op.toleranceUsed === 0).length}`);
     
     // Sort by safety (lowest tolerance first)
-    return uniqueOps.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+    return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
   };
 
   // Helper function to find matching multiples
