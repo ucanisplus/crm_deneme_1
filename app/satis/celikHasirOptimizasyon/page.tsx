@@ -818,10 +818,11 @@ const CelikHasirOptimizasyon: React.FC = () => {
       }
     }
     
-    // Remove duplicate operations (same source-target pair)
+    // Remove duplicate operations (same source-target pair OR reverse)
     const uniqueOps = opportunities.filter((op, index, self) => 
       index === self.findIndex(o => 
-        o.source.id === op.source.id && o.target.id === op.target.id
+        (o.source.id === op.source.id && o.target.id === op.target.id) ||
+        (o.source.id === op.target.id && o.target.id === op.source.id)
       )
     );
     
@@ -946,7 +947,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Remove duplicates and sort by safety
     const uniqueOps = opportunities.filter((op, index, self) => 
       index === self.findIndex(o => 
-        o.source.id === op.source.id && o.target.id === op.target.id && o.type === op.type
+        ((o.source.id === op.source.id && o.target.id === op.target.id) ||
+         (o.source.id === op.target.id && o.target.id === op.source.id)) && o.type === op.type
       )
     );
     
@@ -1093,7 +1095,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Remove duplicates and sort
     const uniqueOps = opportunities.filter((op, index, self) => 
       index === self.findIndex(o => 
-        o.source.id === op.source.id && o.target.id === op.target.id
+        (o.source.id === op.source.id && o.target.id === op.target.id) ||
+        (o.source.id === op.target.id && o.target.id === op.source.id)
       )
     );
     
@@ -1254,7 +1257,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Remove duplicates and sort
     const uniqueOps = opportunities.filter((op, index, self) => 
       index === self.findIndex(o => 
-        o.source.id === op.source.id && o.target.id === op.target.id && o.type === op.type
+        ((o.source.id === op.source.id && o.target.id === op.target.id) ||
+         (o.source.id === op.target.id && o.target.id === op.source.id)) && o.type === op.type
       )
     );
     
