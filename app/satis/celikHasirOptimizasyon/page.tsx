@@ -824,7 +824,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Helper function to find matching multiples
   const findMatchingMultiples = (source: Product, target: Product) => {
-    const matches: Array<{ type: 'exact' | 'tolerance'; multiple: string }> = [];
+    const matches: Array<{ type: 'exact' | 'tolerance'; multiple: string; boyMult: number; enMult: number }> = [];
     
     // Check various multiple combinations
     const multiples = [
@@ -842,14 +842,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
       
       // Check exact match
       if (target.uzunlukBoy === expectedBoy && target.uzunlukEn === expectedEn) {
-        matches.push({ type: 'exact', multiple: mult.label });
+        matches.push({ type: 'exact', multiple: mult.label, boyMult: mult.boyMult, enMult: mult.enMult });
       } else {
         // Check with tolerance
         const boyDiff = Math.abs(target.uzunlukBoy - expectedBoy);
         const enDiff = Math.abs(target.uzunlukEn - expectedEn);
         
         if (boyDiff <= tolerance && enDiff <= tolerance) {
-          matches.push({ type: 'tolerance', multiple: mult.label });
+          matches.push({ type: 'tolerance', multiple: mult.label, boyMult: mult.boyMult, enMult: mult.enMult });
         }
       }
     }
@@ -904,8 +904,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               safetyLevelNumber: 0
             });
           } else if (match.type === 'tolerance') {
-            const boyDiff = Math.abs(Number(targetProduct.uzunlukBoy) - Number(sourceProduct.uzunlukBoy) * match.multiple);
-            const enDiff = Math.abs(Number(targetProduct.uzunlukEn) - Number(sourceProduct.uzunlukEn) * match.multiple);
+            const boyDiff = Math.abs(Number(targetProduct.uzunlukBoy) - Number(sourceProduct.uzunlukBoy) * match.boyMult);
+            const enDiff = Math.abs(Number(targetProduct.uzunlukEn) - Number(sourceProduct.uzunlukEn) * match.enMult);
             const toleranceUsed = Math.max(boyDiff, enDiff);
             
             const result = {
