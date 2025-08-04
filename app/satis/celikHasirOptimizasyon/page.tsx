@@ -115,14 +115,22 @@ interface MergeOperation {
 }
 
 // Helper function to determine safety level based on tolerance used (0-10 scale)
-const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false): { level: number; category: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky' } => {
+const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false, isFoldingOperation: boolean = false): { level: number; category: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky' } => {
   // Hasır Tipi changes are always maximum risk
   if (isHasirTipiChange) return { level: 10, category: 'risky' };
   
-  // Gradual tolerance-based safety levels
+  // Folding operations are never 'safe', even with 0 tolerance
+  if (isFoldingOperation) {
+    if (toleranceUsed === 0) return { level: 1, category: 'low_risk' };     // Exact folding - light green
+    if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };     // Low tolerance folding
+    if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };  // Medium tolerance folding
+    return { level: 6, category: 'high_risk' };                             // High tolerance folding
+  }
+  
+  // Regular merge operations
   if (toleranceUsed === 0) return { level: 0, category: 'safe' };           // Perfect match - dark green
-  if (toleranceUsed <= 5) return { level: 1, category: 'low_risk' };        // Folding exact - light green  
-  if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };       // Very low risk - light green
+  if (toleranceUsed <= 5) return { level: 1, category: 'low_risk' };        // Very low tolerance  
+  if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };       // Low tolerance
   if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };    // Medium risk - yellow
   if (toleranceUsed <= 30) return { level: 6, category: 'high_risk' };      // Higher risk - orange
   if (toleranceUsed <= 50) return { level: 8, category: 'risky' };          // Risky - red
@@ -914,8 +922,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               result: result,
               explanation: `KATLI İYİLEŞTİRME (TAM KAT): ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: 0cm)`,
               toleranceUsed: 0,
-              safetyLevel: 'safe',
-              safetyLevelNumber: 0
+              safetyLevel: getSafetyLevel(0, false, true).category,  // Pass isFoldingOperation=true
+              safetyLevelNumber: getSafetyLevel(0, false, true).level
             });
           } else if (match.type === 'tolerance') {
             const boyDiff = Math.abs(Number(targetProduct.uzunlukBoy) - Number(sourceProduct.uzunlukBoy) * match.boyMult);
@@ -942,8 +950,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
               result: result,
               explanation: `KATLI İYİLEŞTİRME + TOLERANS: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: ${toleranceUsed.toFixed(1)}cm)`,
               toleranceUsed: toleranceUsed,
-              safetyLevel: getSafetyLevel(toleranceUsed).category,
-              safetyLevelNumber: getSafetyLevel(toleranceUsed).level
+              safetyLevel: getSafetyLevel(toleranceUsed, false, true).category,  // Pass isFoldingOperation=true
+              safetyLevelNumber: getSafetyLevel(toleranceUsed, false, true).level
             });
           }
         }
