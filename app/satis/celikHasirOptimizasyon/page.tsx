@@ -1997,6 +1997,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     // Apply all safe operations sequentially
     let currentProducts = [...products];
     let appliedCount = 0;
+    let skippedCount = 0;
     
     for (const operation of safeOperations) {
       // Check if source and target still exist (might have been used in previous operation)
@@ -2010,8 +2011,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
           .concat(operation.result);
         appliedCount++;
         console.log(`✅ Applied safe merge: ${operation.source.id} + ${operation.target.id}`);
+      } else {
+        skippedCount++;
+        if (!sourceExists) console.log(`⏭️ Skipped: Source ${operation.source.id} no longer exists`);
+        if (!targetExists) console.log(`⏭️ Skipped: Target ${operation.target.id} no longer exists`);
       }
     }
+    
+    console.log(`📊 Results: ${appliedCount} applied, ${skippedCount} skipped (products already merged)`);
+    console.log(`📈 Products: ${products.length} → ${currentProducts.length} (reduced by ${products.length - currentProducts.length})`);
     
     // Update products and close dialog
     setProducts(currentProducts);
@@ -2020,7 +2028,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setPendingOperations([]);
     setCurrentOperationIndex(0);
     
-    toast.success(`${appliedCount} güvenli birleştirme uygulandı!`);
+    toast.success(`${appliedCount} güvenli birleştirme uygulandı! (${skippedCount} zaten kullanılmış ürün atlandı)`);
   };
 
   const rejectCurrentOperation = () => {
@@ -3237,7 +3245,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   className="w-full bg-green-700 hover:bg-green-800 text-white font-bold"
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Tüm Güvenli Birleştirmeleri Uygula ({pendingOperations.filter(op => op.safetyLevel === 'safe').length} adet)
+                  Tüm Güvenli Birleştirmeleri Uygula (~{pendingOperations.filter(op => op.safetyLevel === 'safe').length} potansiyel)
                 </Button>
               )}
               
