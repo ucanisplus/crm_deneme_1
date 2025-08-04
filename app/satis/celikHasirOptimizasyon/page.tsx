@@ -1706,7 +1706,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     let currentProducts = [...products];
     let appliedCount = 0;
     
-    for (const operation of safeOperations) {
+    for (const operation of perfectMatches) {
       // Check if source and target still exist (might have been used in previous operation)
       const sourceExists = currentProducts.find(p => p.id === operation.source.id);
       const targetExists = currentProducts.find(p => p.id === operation.target.id);
