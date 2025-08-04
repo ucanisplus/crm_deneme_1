@@ -669,7 +669,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     return uniqueOptions.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.safetyLevel !== b.safetyLevel) {
-        const safetyOrder = { safe: 0, caution: 1, risky: 2 };
+        const safetyOrder = { safe: 0, low_risk: 1, medium_risk: 2, high_risk: 3, risky: 4 };
         return safetyOrder[a.safetyLevel] - safetyOrder[b.safetyLevel];
       }
       return a.tolerance - b.tolerance;
