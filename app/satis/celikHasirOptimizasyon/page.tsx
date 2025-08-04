@@ -1701,22 +1701,23 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
   };
 
-  // Apply all perfect match operations (0 tolerance only)
+  // Apply all safe operations (only operations marked as 'safe')
   const applyAllSafeOperations = () => {
-    const perfectMatches = pendingOperations.filter(op => op.toleranceUsed === 0);
+    // Only include operations with 'safe' safety level
+    const safeOperations = pendingOperations.filter(op => op.safetyLevel === 'safe');
     
-    if (perfectMatches.length === 0) {
-      toast.error('Mükemmel eşleşme (0 tolerans) işlem bulunamadı');
+    if (safeOperations.length === 0) {
+      toast.error('Güvenli işlem bulunamadı');
       return;
     }
     
-    console.log(`🚀 Applying ${perfectMatches.length} perfect match operations automatically`);
+    console.log(`🚀 Applying ${safeOperations.length} safe operations automatically`);
     
     // Apply all safe operations sequentially
     let currentProducts = [...products];
     let appliedCount = 0;
     
-    for (const operation of perfectMatches) {
+    for (const operation of safeOperations) {
       // Check if source and target still exist (might have been used in previous operation)
       const sourceExists = currentProducts.find(p => p.id === operation.source.id);
       const targetExists = currentProducts.find(p => p.id === operation.target.id);
@@ -2948,14 +2949,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
           
           <DialogFooter>
             <div className="flex flex-col gap-2 w-full">
-              {/* Safe operations button */}
-              {pendingOperations.filter(op => op.toleranceUsed === 0).length > 0 && (
+              {/* Safe operations button - only operations marked as 'safe' */}
+              {pendingOperations.filter(op => op.safetyLevel === 'safe').length > 0 && (
                 <Button 
                   onClick={applyAllSafeOperations}
                   className="w-full bg-green-700 hover:bg-green-800 text-white font-bold"
                 >
                   <Check className="w-4 h-4 mr-2" />
-                  Tüm Güvenli Birleştirmeleri Uygula ({pendingOperations.filter(op => op.toleranceUsed === 0).length} adet)
+                  Tüm Güvenli Birleştirmeleri Uygula ({pendingOperations.filter(op => op.safetyLevel === 'safe').length} adet)
                 </Button>
               )}
               
