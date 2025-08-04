@@ -115,25 +115,28 @@ interface MergeOperation {
 }
 
 // Helper function to determine safety level based on tolerance used (0-10 scale)
-const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false): { level: number; category: 'safe' | 'caution' | 'risky' } => {
+const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false): { level: number; category: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky' } => {
   // Hasır Tipi changes are always maximum risk
   if (isHasirTipiChange) return { level: 10, category: 'risky' };
   
-  // Tolerance-based safety levels
-  if (toleranceUsed === 0) return { level: 0, category: 'safe' };
-  if (toleranceUsed <= 15) return { level: 2, category: 'safe' };
-  if (toleranceUsed <= 30) return { level: 4, category: 'safe' };
-  if (toleranceUsed <= 50) return { level: 6, category: 'caution' };
-  if (toleranceUsed <= 100) return { level: 8, category: 'caution' };
-  return { level: 10, category: 'risky' };
+  // Gradual tolerance-based safety levels
+  if (toleranceUsed === 0) return { level: 0, category: 'safe' };           // Perfect match - dark green
+  if (toleranceUsed <= 5) return { level: 1, category: 'safe' };            // Folding exact - green  
+  if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };       // Very low risk - light green
+  if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };    // Medium risk - yellow
+  if (toleranceUsed <= 30) return { level: 6, category: 'high_risk' };      // Higher risk - orange
+  if (toleranceUsed <= 50) return { level: 8, category: 'risky' };          // Risky - red
+  return { level: 10, category: 'risky' };                                  // Very risky - dark red
 };
 
-// Helper functions for standardized display
-const getSafetyDisplay = (safetyLevel: 'safe' | 'caution' | 'risky', toleranceUsed: number, safetyLevelNumber?: number) => {
+// Helper functions for standardized display  
+const getSafetyDisplay = (safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky', toleranceUsed: number, safetyLevelNumber?: number) => {
   const configs = {
-    safe: { bgClass: 'bg-green-100 text-green-800', text: 'Güvenli', icon: '✓' },
-    caution: { bgClass: 'bg-yellow-100 text-yellow-800', text: 'Dikkat', icon: '⚠' },
-    risky: { bgClass: 'bg-red-100 text-red-800', text: 'Riskli', icon: '⚠' }
+    safe: { bgClass: 'bg-green-600 text-white', text: 'Güvenli', icon: '✓' },
+    low_risk: { bgClass: 'bg-green-400 text-white', text: 'Düşük Risk', icon: '✓' },
+    medium_risk: { bgClass: 'bg-yellow-500 text-black', text: 'Orta Risk', icon: '⚠' },
+    high_risk: { bgClass: 'bg-orange-500 text-white', text: 'Yüksek Risk', icon: '⚠' },
+    risky: { bgClass: 'bg-red-600 text-white', text: 'Riskli', icon: '⚠' }
   };
   const levelDisplay = safetyLevelNumber !== undefined ? ` [${safetyLevelNumber}]` : '';
   return {
@@ -1617,115 +1620,111 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setShowApprovalDialog(true);
   };
 
-  // Remove conflicting operations when an operation is approved
+  // Remove ALL operations involving deleted products when an operation is approved
   const removeConflictingOperations = (approvedOperation: MergeOperation, operations: MergeOperation[]) => {
-    const sourceIds = new Set<string>();
-    const targetIds = new Set<string>();
+    // When we approve an operation, the source product gets DELETED
+    const deletedProductId = approvedOperation.source.id;
     
-    // For smart multi operations, get all involved product IDs
-    if (approvedOperation.explanation.includes('AKILLI ÇOKLU BİRLEŞTİRME')) {
-      // Extract source product IDs from the explanation
-      sourceIds.add(approvedOperation.source.id);
-      targetIds.add(approvedOperation.target.id);
-      // Note: In a complete implementation, we'd need to track all source products involved in the smart merge
-    } else {
-      sourceIds.add(approvedOperation.source.id);
-      targetIds.add(approvedOperation.target.id);
-    }
+    console.log(`🗑️ Removing all operations involving deleted product: ${deletedProductId}`);
     
-    // Remove operations that involve any of these products
-    return operations.filter((op, index) => {
-      if (index <= currentOperationIndex) return true; // Keep already processed operations
+    // Remove ALL operations (both processed and unprocessed) that involve the deleted product
+    const remainingOperations = operations.filter((op, index) => {
+      // Skip the current approved operation itself
+      if (index === currentOperationIndex) return false;
       
-      const hasConflict = sourceIds.has(op.source.id) || sourceIds.has(op.target.id) ||
-                         targetIds.has(op.source.id) || targetIds.has(op.target.id);
+      // Remove any operation that uses the deleted product as source OR target
+      const involvesDeletedProduct = op.source.id === deletedProductId || op.target.id === deletedProductId;
       
-      return !hasConflict;
+      if (involvesDeletedProduct) {
+        console.log(`❌ Removing operation: ${op.explanation}`);
+      }
+      
+      return !involvesDeletedProduct;
     });
+    
+    console.log(`📊 Operations reduced from ${operations.length} to ${remainingOperations.length}`);
+    return remainingOperations;
   };
 
-  // Approve current operation
+  // Approve current operation and apply immediately
   const approveCurrentOperation = () => {
     if (currentOperationIndex >= pendingOperations.length) return;
     
     const operation = pendingOperations[currentOperationIndex];
     
-    // Remove conflicting operations from remaining suggestions
+    // STEP 1: Apply the merge immediately to the products table
+    const sourceExists = products.find(p => p.id === operation.source.id);
+    const targetExists = products.find(p => p.id === operation.target.id);
+    
+    if (sourceExists && targetExists) {
+      // Remove source and target, add merged result
+      const updatedProducts = products
+        .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+        .concat(operation.result);
+      
+      setProducts(updatedProducts);
+      addToHistory(updatedProducts);
+      
+      console.log(`✅ Applied merge: ${operation.source.id} + ${operation.target.id} = ${operation.result.id}`);
+      console.log(`📊 Products count: ${products.length} → ${updatedProducts.length}`);
+    }
+    
+    // STEP 2: Remove ALL operations involving the deleted product
     const filteredOperations = removeConflictingOperations(operation, pendingOperations);
     setPendingOperations(filteredOperations);
     
-    // Mark this operation as approved (but don't apply yet)
-    const updatedOperations = [...pendingOperations];
-    updatedOperations[currentOperationIndex] = { ...operation, approved: true };
-    setPendingOperations(updatedOperations);
-    
-    // Check for new merge opportunities with the updated products
-    const refreshOpportunities = () => {
-      // Find new opportunities based on current operation type
-      let newOpportunities: MergeOperation[] = [];
-      
-      if (operation.type.includes('tamamla')) {
-        newOpportunities = findMergeOpportunities();
-      } else if (operation.type.includes('katli')) {
-        newOpportunities = findFoldedImprovements();
-      }
-      
-      // Filter out already approved operations and operations involving non-existent products
-      const validNewOps = newOpportunities.filter(newOp => 
-        !updatedOperations.some(existingOp => 
-          existingOp.approved && 
-          existingOp.source.id === newOp.source.id && 
-          existingOp.target.id === newOp.target.id
-        ) &&
-        products.find(p => p.id === newOp.source.id) &&
-        products.find(p => p.id === newOp.target.id)
-      );
-      
-      if (validNewOps.length > 0) {
-        // Add new opportunities to the end of the list
-        const finalOperations = [...updatedOperations, ...validNewOps];
-        setPendingOperations(finalOperations);
-      }
-    };
-    
-    // Refresh opportunities after state update
-    setTimeout(refreshOpportunities, 100);
-    
-    if (currentOperationIndex < pendingOperations.length - 1) {
-      setCurrentOperationIndex(prev => prev + 1);
+    // STEP 3: Move to next operation or close dialog
+    if (filteredOperations.length > 0 && currentOperationIndex < filteredOperations.length) {
+      // Find next available operation index
+      const nextIndex = Math.min(currentOperationIndex, filteredOperations.length - 1);
+      setCurrentOperationIndex(nextIndex);
     } else {
+      // No more operations left
       setShowApprovalDialog(false);
-      
-      // Apply all approved operations in sequence
-      const approvedOperations = updatedOperations.filter(op => op.approved);
-      
-      if (approvedOperations.length > 0) {
-        // Apply all approved operations sequentially
-        let currentProducts = [...products];
-        
-        for (const operation of approvedOperations) {
-          // Check if source and target products still exist
-          const sourceExists = currentProducts.find(p => p.id === operation.source.id);
-          const targetExists = currentProducts.find(p => p.id === operation.target.id);
-          
-          if (sourceExists && targetExists) {
-            // Remove source and target, add result
-            currentProducts = currentProducts
-              .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
-              .concat(operation.result);
-          }
-        }
-        
-        // Update products state with final result
-        setProducts(currentProducts);
-        addToHistory(currentProducts);
-        
-        toast.success(`${approvedOperations.length} işlem tamamlandı`);
-      }
-      
       setPendingOperations([]);
       setCurrentOperationIndex(0);
+      toast.success('Tüm işlemler tamamlandı!');
     }
+  };
+
+  // Apply all safe operations (0 tolerance only)
+  const applyAllSafeOperations = () => {
+    const safeOperations = pendingOperations.filter(op => op.toleranceUsed === 0);
+    
+    if (safeOperations.length === 0) {
+      toast.error('Güvenli (0 tolerans) işlem bulunamadı');
+      return;
+    }
+    
+    console.log(`🚀 Applying ${safeOperations.length} safe operations automatically`);
+    
+    // Apply all safe operations sequentially
+    let currentProducts = [...products];
+    let appliedCount = 0;
+    
+    for (const operation of safeOperations) {
+      // Check if source and target still exist (might have been used in previous operation)
+      const sourceExists = currentProducts.find(p => p.id === operation.source.id);
+      const targetExists = currentProducts.find(p => p.id === operation.target.id);
+      
+      if (sourceExists && targetExists) {
+        // Apply the merge
+        currentProducts = currentProducts
+          .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+          .concat(operation.result);
+        appliedCount++;
+        console.log(`✅ Applied safe merge: ${operation.source.id} + ${operation.target.id}`);
+      }
+    }
+    
+    // Update products and close dialog
+    setProducts(currentProducts);
+    addToHistory(currentProducts);
+    setShowApprovalDialog(false);
+    setPendingOperations([]);
+    setCurrentOperationIndex(0);
+    
+    toast.success(`${appliedCount} güvenli birleştirme uygulandı!`);
   };
 
   const rejectCurrentOperation = () => {
@@ -2777,11 +2776,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <span className="text-xs font-medium">İşlem Güvenliği:</span>
                     <div 
                       className={`px-2 py-1 rounded-full text-xs font-bold ${
-                        pendingOperations[currentOperationIndex].safetyLevel === 'safe' 
-                          ? 'bg-green-500 text-white' 
-                          : pendingOperations[currentOperationIndex].safetyLevel === 'caution'
-                          ? 'bg-yellow-500 text-black'
-                          : 'bg-red-500 text-white'
+                        getSafetyDisplay(pendingOperations[currentOperationIndex].safetyLevel, pendingOperations[currentOperationIndex].toleranceUsed, pendingOperations[currentOperationIndex].safetyLevelNumber).bgClass
                       }`}
                     >
                       {getSafetyDisplay(pendingOperations[currentOperationIndex].safetyLevel, pendingOperations[currentOperationIndex].toleranceUsed, pendingOperations[currentOperationIndex].safetyLevelNumber).icon} {getSafetyDisplay(pendingOperations[currentOperationIndex].safetyLevel, pendingOperations[currentOperationIndex].toleranceUsed, pendingOperations[currentOperationIndex].safetyLevelNumber).text.toUpperCase()}
@@ -2938,43 +2933,57 @@ const CelikHasirOptimizasyon: React.FC = () => {
           )}
           
           <DialogFooter>
-            <div className="flex gap-2 w-full">
-              {pendingOperations.length > 1 && (
+            <div className="flex flex-col gap-2 w-full">
+              {/* Safe operations button */}
+              {pendingOperations.filter(op => op.toleranceUsed === 0).length > 0 && (
                 <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    // Go back to previous operation (approved or not)
-                    if (currentOperationIndex > 0) {
-                      setCurrentOperationIndex(currentOperationIndex - 1);
-                    }
-                  }}
-                  className="flex-1"
+                  onClick={applyAllSafeOperations}
+                  className="w-full bg-green-700 hover:bg-green-800 text-white font-bold"
                 >
-                  ⬅️ Önceki
+                  <Check className="w-4 h-4 mr-2" />
+                  Tüm Güvenli Birleştirmeleri Uygula ({pendingOperations.filter(op => op.toleranceUsed === 0).length} adet)
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                onClick={rejectCurrentOperation}
-                disabled={pendingOperations[currentOperationIndex]?.approved || pendingOperations[currentOperationIndex]?.skipped}
-                className="flex-1"
-              >
-                <X className="w-4 h-4 mr-1" />
-                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 
-                 pendingOperations[currentOperationIndex]?.skipped ? 'Atlandı' : '⏭️ Bu İşlemi Atla'}
-              </Button>
-              <Button 
-                onClick={approveCurrentOperation}
-                disabled={pendingOperations[currentOperationIndex]?.approved}
-                className={`flex-1 ${
-                  pendingOperations[currentOperationIndex]?.approved 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
-              >
-                <Check className="w-4 h-4 mr-1" />
-                {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 'Onayla'}
-              </Button>
+              
+              {/* Individual operation buttons */}
+              <div className="flex gap-2 w-full">
+                {pendingOperations.length > 1 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      // Go back to previous operation (approved or not)
+                      if (currentOperationIndex > 0) {
+                        setCurrentOperationIndex(currentOperationIndex - 1);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    ⬅️ Önceki
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={rejectCurrentOperation}
+                  disabled={pendingOperations[currentOperationIndex]?.approved || pendingOperations[currentOperationIndex]?.skipped}
+                  className="flex-1"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 
+                   pendingOperations[currentOperationIndex]?.skipped ? 'Atlandı' : '⏭️ Bu İşlemi Atla'}
+                </Button>
+                <Button 
+                  onClick={approveCurrentOperation}
+                  disabled={pendingOperations[currentOperationIndex]?.approved}
+                  className={`flex-1 ${
+                    pendingOperations[currentOperationIndex]?.approved 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  <Check className="w-4 h-4 mr-1" />
+                  {pendingOperations[currentOperationIndex]?.approved ? 'Onaylandı' : 'Onayla'}
+                </Button>
+              </div>
             </div>
           </DialogFooter>
         </DialogContent>
