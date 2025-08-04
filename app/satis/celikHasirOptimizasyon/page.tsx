@@ -753,67 +753,52 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
   };
 
-  // OPTIMIZATION: Find opportunities to eliminate low-quantity products
+  // OPTIMIZATION: Find ALL merge opportunities without early breaks or usedIds limitations
   const findMergeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
-    const usedIds = new Set<string>();
-
-    // STEP 1: Find all products that can be optimized (no quantity restriction)
-    const candidateProducts = products.filter(p => !usedIds.has(p.id));
     
-    for (const sourceProduct of candidateProducts) {
-      if (usedIds.has(sourceProduct.id)) continue;
+    // STEP 1: Find all products that can be optimized
+    const candidateProducts = products.filter(p => 
+      Number(p.hasirSayisi) <= maxHasirSayisi // Only products under the threshold
+    );
+    
+    // STEP 2: Check ALL possible combinations (no early breaks)
+    for (let i = 0; i < candidateProducts.length; i++) {
+      const sourceProduct = candidateProducts[i];
       
-      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
-      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
-      
-      // STEP 2: Find a SIMILAR product to merge with (no quantity restriction)
-      const candidates = products.filter(p => 
-        p.id !== sourceProduct.id && 
-        !usedIds.has(p.id) &&
-        p.hasirTipi === sourceProduct.hasirTipi && // Same mesh type
-        p.boyCap === sourceProduct.boyCap && // Same boy diameter 
-        p.enCap === sourceProduct.enCap // Same en diameter
-      );
-      
-      if (candidates.length === 0) continue;
-      
-      // Tolerance is in mm, dimensions are in cm, so convert tolerance to cm
-      const toleranceCm = tolerance;
-      
-      // STEP 3: Find the best match within tolerance
-      for (const targetProduct of candidates) {
-        const boyDiffCm = Math.abs(Number(sourceProduct.uzunlukBoy) - Number(targetProduct.uzunlukBoy));
-        const enDiffCm = Math.abs(Number(sourceProduct.uzunlukEn) - Number(targetProduct.uzunlukEn));
+      // Find ALL potential targets (not just the first match)
+      for (let j = 0; j < products.length; j++) {
+        const targetProduct = products[j];
         
-        // CRITICAL: For manufacturing constraints, source product dimensions must be SMALLER OR EQUAL to target
-        // The source product will be "eliminated" and produced as the target size
-        // So target must be >= source in all dimensions
+        // Skip self
+        if (sourceProduct.id === targetProduct.id) continue;
+        
+        // Must be same type and diameter
+        if (targetProduct.hasirTipi !== sourceProduct.hasirTipi || 
+            targetProduct.boyCap !== sourceProduct.boyCap || 
+            targetProduct.enCap !== sourceProduct.enCap) continue;
+        
+        const toleranceCm = tolerance;
         const targetBoy = Number(targetProduct.uzunlukBoy);
         const targetEn = Number(targetProduct.uzunlukEn);
         const sourceBoy = Number(sourceProduct.uzunlukBoy);
         const sourceEn = Number(sourceProduct.uzunlukEn);
         
-        // CRITICAL: For manufacturing, target MUST be >= source in ALL dimensions
-        // For boydan merge: target BOY >= source BOY, target EN >= source EN (both dimensions must be larger or equal)
-        const canOptimizeBoydan = targetBoy >= sourceBoy && 
-                                  targetEn >= sourceEn &&
-                                  (targetBoy - sourceBoy) <= toleranceCm &&
-                                  (targetEn - sourceEn) <= toleranceCm;
+        // Target must be >= source in both dimensions
+        const boyDiff = targetBoy - sourceBoy;
+        const enDiff = targetEn - sourceEn;
         
-        // For enden merge: target EN >= source EN, target BOY >= source BOY (both dimensions must be larger or equal)  
-        const canOptimizeEnden = targetEn >= sourceEn && 
-                                 targetBoy >= sourceBoy &&
-                                 (targetEn - sourceEn) <= toleranceCm &&
-                                 (targetBoy - sourceBoy) <= toleranceCm;
-        
-        if (canOptimizeBoydan) {
-          const optimized = optimizeBoydan(sourceProduct, targetProduct);
-          const boyDiff = targetBoy - sourceBoy;
-          const enDiff = targetEn - sourceEn;
-          const actualDiffCm = Math.max(boyDiff, enDiff); // Show the maximum difference
+        if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+          const actualDiffCm = Math.max(boyDiff, enDiff);
+          
+          // Determine merge type based on which dimension has less difference
+          const mergeType = boyDiff <= enDiff ? 'boydan' : 'enden';
+          const optimized = mergeType === 'boydan' 
+            ? optimizeBoydan(sourceProduct, targetProduct)
+            : optimizeEnden(sourceProduct, targetProduct);
+          
           opportunities.push({
-            type: 'boydan',
+            type: mergeType,
             source: sourceProduct,
             target: targetProduct,
             result: optimized,
@@ -822,70 +807,82 @@ const CelikHasirOptimizasyon: React.FC = () => {
             safetyLevel: getSafetyLevel(actualDiffCm).category,
             safetyLevelNumber: getSafetyLevel(actualDiffCm).level
           });
-          usedIds.add(sourceProduct.id);
-          usedIds.add(targetProduct.id);
-          break;
-        } else if (canOptimizeEnden) {
-          const optimized = optimizeEnden(sourceProduct, targetProduct);
-          const boyDiff = targetBoy - sourceBoy;
-          const enDiff = targetEn - sourceEn;
-          const actualDiffCm = Math.max(boyDiff, enDiff); // Show the maximum difference
-          opportunities.push({
-            type: 'enden',
-            source: sourceProduct,
-            target: targetProduct,
-            result: optimized,
-            explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silinecek → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
-            toleranceUsed: actualDiffCm,
-            safetyLevel: getSafetyLevel(actualDiffCm).category,
-            safetyLevelNumber: getSafetyLevel(actualDiffCm).level
-          });
-          usedIds.add(sourceProduct.id);
-          usedIds.add(targetProduct.id);
-          break;
         }
       }
     }
-
-    // Sort by tolerance used (safest first: 0 tolerance first, then higher)
-    return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+    
+    // Remove duplicate operations (same source-target pair)
+    const uniqueOps = opportunities.filter((op, index, self) => 
+      index === self.findIndex(o => 
+        o.source.id === op.source.id && o.target.id === op.target.id
+      )
+    );
+    
+    // Sort by safety (lowest tolerance first)
+    return uniqueOps.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
   };
 
-  // Find folded improvements - FIRST exact multiples, THEN with tolerance
+  // Helper function to find matching multiples
+  const findMatchingMultiples = (source: Product, target: Product) => {
+    const matches: Array<{ type: 'exact' | 'tolerance'; multiple: string }> = [];
+    
+    // Check various multiple combinations
+    const multiples = [
+      { boyMult: 2, enMult: 1, label: '2x boy' },
+      { boyMult: 1, enMult: 2, label: '2x en' },
+      { boyMult: 2, enMult: 2, label: '2x boyxen' },
+      { boyMult: 3, enMult: 1, label: '3x boy' },
+      { boyMult: 1, enMult: 3, label: '3x en' },
+      { boyMult: 3, enMult: 3, label: '3x boyxen' }
+    ];
+    
+    for (const mult of multiples) {
+      const expectedBoy = source.uzunlukBoy * mult.boyMult;
+      const expectedEn = source.uzunlukEn * mult.enMult;
+      
+      // Check exact match
+      if (target.uzunlukBoy === expectedBoy && target.uzunlukEn === expectedEn) {
+        matches.push({ type: 'exact', multiple: mult.label });
+      } else {
+        // Check with tolerance
+        const boyDiff = Math.abs(target.uzunlukBoy - expectedBoy);
+        const enDiff = Math.abs(target.uzunlukEn - expectedEn);
+        
+        if (boyDiff <= tolerance && enDiff <= tolerance) {
+          matches.push({ type: 'tolerance', multiple: mult.label });
+        }
+      }
+    }
+    
+    return matches;
+  };
+
+  // Find folded improvements - check ALL combinations
   const findFoldedImprovements = () => {
     const opportunities: MergeOperation[] = [];
-    const usedIds = new Set<string>();
-
-    // PHASE 1: Look for EXACT multiples first (2x, 3x) - no tolerance
-    for (const sourceProduct of products) {
-      if (usedIds.has(sourceProduct.id)) continue;
+    
+    const candidateProducts = products.filter(p => 
+      Number(p.hasirSayisi) <= maxHasirSayisi
+    );
+    
+    // Check ALL possible folding combinations
+    for (let i = 0; i < candidateProducts.length; i++) {
+      const sourceProduct = candidateProducts[i];
       
-      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
-      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
-
-      for (const targetProduct of products) {
-        if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
-        if (sourceProduct.hasirTipi !== targetProduct.hasirTipi || 
-            sourceProduct.boyCap !== targetProduct.boyCap || 
-            sourceProduct.enCap !== targetProduct.enCap) continue;
-
-        // Check for EXACT dimensional multiples (2x, 3x)
-        const exactMatches = [
-          // 2x possibilities
-          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn, multiple: '2x boy' },
-          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x en' },
-          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x boyxen' },
-          // 3x possibilities  
-          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn, multiple: '3x boy' },
-          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x en' },
-          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x boyxen' }
-        ];
-
-        for (const match of exactMatches) {
-          if (targetProduct.uzunlukBoy === match.targetBoy && targetProduct.uzunlukEn === match.targetEn) {
+      for (let j = 0; j < products.length; j++) {
+        const targetProduct = products[j];
+        
+        if (sourceProduct.id === targetProduct.id) continue;
+        if (sourceProduct.hasirTipi !== targetProduct.hasirTipi) continue;
+        
+        // Check for exact multiples and multiples with tolerance
+        const matches = findMatchingMultiples(sourceProduct, targetProduct);
+        
+        for (const match of matches) {
+          if (match.type === 'exact') {
             const result = {
               ...targetProduct,
-              id: `folded_exact_${Date.now()}`,
+              id: `folded_exact_${Date.now()}_${Math.random()}`,
               hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
               toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
               mergeHistory: [
@@ -895,92 +892,58 @@ const CelikHasirOptimizasyon: React.FC = () => {
               advancedOptimizationNotes: `Katlı iyileştirme EXACT: ${match.multiple} - ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
               aciklama: `${targetProduct.aciklama || ''} | KATLI: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x)`
             };
-
+            
             opportunities.push({
               type: 'katli_exact',
               source: sourceProduct,
               target: targetProduct,
               result: result,
-              explanation: `Katlı iyileştirme EXACT: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
-              toleranceUsed: 0, // Exact match = 0 tolerance
-              safetyLevel: getSafetyLevel(0).category,
-              safetyLevelNumber: getSafetyLevel(0).level
+              explanation: `KATLI İYİLEŞTİRME (TAM KAT): ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: 0cm)`,
+              toleranceUsed: 0,
+              safetyLevel: 'safe',
+              safetyLevelNumber: 0
             });
-
-            usedIds.add(sourceProduct.id);
-            usedIds.add(targetProduct.id);
-            break;
-          }
-        }
-        if (usedIds.has(sourceProduct.id)) break; // Found exact match, move to next source
-      }
-    }
-
-    // PHASE 2: If no exact matches found, apply tolerance to multiples
-    for (const sourceProduct of products.filter(p => !usedIds.has(p.id))) {
-      if (usedIds.has(sourceProduct.id)) continue;
-      
-      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
-      if (Number(sourceProduct.hasirSayisi) > maxHasirSayisi) continue;
-
-      for (const targetProduct of products) {
-        if (usedIds.has(targetProduct.id) || sourceProduct.id === targetProduct.id) continue;
-        if (sourceProduct.hasirTipi !== targetProduct.hasirTipi || 
-            sourceProduct.boyCap !== targetProduct.boyCap || 
-            sourceProduct.enCap !== targetProduct.enCap) continue;
-
-        // Check tolerance-based multiples
-        const toleranceMatches = [
-          // 2x with tolerance
-          { targetBoy: sourceProduct.uzunlukBoy * 2, targetEn: sourceProduct.uzunlukEn, multiple: '2x boy + tol' },
-          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 2, multiple: '2x en + tol' },
-          // 3x with tolerance
-          { targetBoy: sourceProduct.uzunlukBoy * 3, targetEn: sourceProduct.uzunlukEn, multiple: '3x boy + tol' },
-          { targetBoy: sourceProduct.uzunlukBoy, targetEn: sourceProduct.uzunlukEn * 3, multiple: '3x en + tol' }
-        ];
-
-        for (const match of toleranceMatches) {
-          // FIXED: Target must be >= multiple size (can cut down), within tolerance
-          const boyDiff = targetProduct.uzunlukBoy - match.targetBoy; // Positive = target is bigger
-          const enDiff = targetProduct.uzunlukEn - match.targetEn;     // Positive = target is bigger
-          
-          // Target must be bigger than multiple in BOTH dimensions, within tolerance
-          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= tolerance && enDiff <= tolerance) {
+          } else if (match.type === 'tolerance') {
+            const boyDiff = Math.abs(Number(targetProduct.uzunlukBoy) - Number(sourceProduct.uzunlukBoy) * match.multiple);
+            const enDiff = Math.abs(Number(targetProduct.uzunlukEn) - Number(sourceProduct.uzunlukEn) * match.multiple);
+            const toleranceUsed = Math.max(boyDiff, enDiff);
+            
             const result = {
               ...targetProduct,
-              id: `folded_tolerance_${Date.now()}`,
+              id: `folded_tolerance_${Date.now()}_${Math.random()}`,
               hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
               toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
               mergeHistory: [
                 ...(targetProduct.mergeHistory || []),
-                `KATLI + TOLERANS: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tol: ${Math.max(boyDiff, enDiff)}cm)`
+                `KATLI + TOLERANS: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tol: ${toleranceUsed}cm)`
               ],
-              advancedOptimizationNotes: `Katlı + Tolerans: ${match.multiple} - tol: ${Math.max(boyDiff, enDiff)}cm`,
-              aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x, ${Math.max(boyDiff, enDiff)}cm)`
+              advancedOptimizationNotes: `Katlı + Tolerans: ${match.multiple} - tol: ${toleranceUsed}cm`,
+              aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x, ${toleranceUsed}cm)`
             };
-
+            
             opportunities.push({
               type: 'katli_tolerance',
               source: sourceProduct,
               target: targetProduct,
               result: result,
-              explanation: `Katlı + Tolerans: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tolerans: ${Math.max(boyDiff, enDiff)}cm)`,
-              toleranceUsed: Math.max(boyDiff, enDiff),
-              safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff)).category,
-              safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff)).level
+              explanation: `KATLI İYİLEŞTİRME + TOLERANS: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: ${toleranceUsed.toFixed(1)}cm)`,
+              toleranceUsed: toleranceUsed,
+              safetyLevel: getSafetyLevel(toleranceUsed).category,
+              safetyLevelNumber: getSafetyLevel(toleranceUsed).level
             });
-
-            usedIds.add(sourceProduct.id);
-            usedIds.add(targetProduct.id);
-            break;
           }
         }
-        if (usedIds.has(sourceProduct.id)) break; // Found tolerance match, move to next source
       }
     }
-
-    // Sort by tolerance used (safest first: 0 tolerance first, then higher)
-    return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+    
+    // Remove duplicates and sort by safety
+    const uniqueOps = opportunities.filter((op, index, self) => 
+      index === self.findIndex(o => 
+        o.source.id === op.source.id && o.target.id === op.target.id && o.type === op.type
+      )
+    );
+    
+    return uniqueOps.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
   };
 
   // Find rounding opportunities using global tolerance
@@ -1068,33 +1031,34 @@ const CelikHasirOptimizasyon: React.FC = () => {
 //   };
 // 
 //   // Find rounding opportunities using global tolerance
+  // Find rounding opportunities - check ALL combinations
   const findRoundingOpportunities = () => {
     const opportunities: MergeOperation[] = [];
-    const usedIds = new Set<string>();
     
-    for (const product of products) {
-      if (usedIds.has(product.id)) continue;
+    const candidateProducts = products.filter(p => 
+      Number(p.hasirSayisi) <= maxHasirSayisi
+    );
+    
+    for (let i = 0; i < candidateProducts.length; i++) {
+      const product = candidateProducts[i];
       
-      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
-      if (Number(product.hasirSayisi) > maxHasirSayisi) continue;
-      
-      for (const target of products) {
-        if (product.id === target.id || usedIds.has(target.id)) continue;
+      for (let j = 0; j < products.length; j++) {
+        const target = products[j];
+        
+        if (product.id === target.id) continue;
         if (product.hasirTipi !== target.hasirTipi || 
             product.boyCap !== target.boyCap || 
             product.enCap !== target.enCap) continue;
         
-        // CRITICAL: Target must be LARGER or EQUAL in BOTH dimensions for "rounding up"
-        // Check if we can round UP to target dimensions (target >= source + tolerance)
-        const toleranceCm = tolerance; // Tolerance is in cm, same as dimensions
-        const boyDiffCm = target.uzunlukBoy - product.uzunlukBoy; // Positive = target is bigger
-        const enDiffCm = target.uzunlukEn - product.uzunlukEn;     // Positive = target is bigger
+        const toleranceCm = tolerance;
+        const boyDiffCm = target.uzunlukBoy - product.uzunlukBoy;
+        const enDiffCm = target.uzunlukEn - product.uzunlukEn;
         
-        // Both dimensions must be larger OR within tolerance (can be equal or slightly bigger)
+        // Both dimensions must be larger OR within tolerance
         if (boyDiffCm >= 0 && enDiffCm >= 0 && boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
           const result = {
             ...target,
-            id: `rounded_${Date.now()}`,
+            id: `rounded_${Date.now()}_${Math.random()}`,
             hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
             toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
             mergeHistory: [
@@ -1115,16 +1079,18 @@ const CelikHasirOptimizasyon: React.FC = () => {
             safetyLevel: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).category,
             safetyLevelNumber: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).level
           });
-          
-          usedIds.add(product.id);
-          usedIds.add(target.id);
-          break; // Found match for this product, move to next
         }
       }
     }
     
-    // Sort by tolerance used (safest first: 0 tolerance first, then higher)
-    return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+    // Remove duplicates and sort
+    const uniqueOps = opportunities.filter((op, index, self) => 
+      index === self.findIndex(o => 
+        o.source.id === op.source.id && o.target.id === op.target.id
+      )
+    );
+    
+    return uniqueOps.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
   };
 
   // Execute automatic merges
@@ -1173,128 +1139,119 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setShowApprovalDialog(true);
   };
 
-  // Find hasır tipi change opportunities (Q->TR, TR->R etc.)
+  // Find Hasir Tipi change opportunities - check ALL combinations
   const findHasirTipiChangeOpportunities = () => {
     const opportunities: MergeOperation[] = [];
-    const usedIds = new Set<string>();
     
-    for (const product of products) {
-      if (usedIds.has(product.id)) continue;
-      
-      // Only consider products with hasirSayisi <= maxHasirSayisi for elimination
-      if (Number(product.hasirSayisi) > maxHasirSayisi) continue; // No quantity restriction
-      
-      // PHASE 1: Try within same group first (Q to Q, R to R, TR to TR)
+    const candidateProducts = products.filter(p => 
+      Number(p.hasirSayisi) <= maxHasirSayisi
+    );
+    
+    for (let i = 0; i < candidateProducts.length; i++) {
+      const product = candidateProducts[i];
       const currentType = product.hasirTipi.charAt(0);
-      const sameGroupTargets = products.filter(target => 
-        !usedIds.has(target.id) && 
-        target.id !== product.id &&
-        target.hasirTipi.charAt(0) === currentType
-      );
       
-      let found = false;
-      
-      // Try same group first
-      for (const target of sameGroupTargets) {
+      // PHASE 1: Check all same-group possibilities
+      for (let j = 0; j < products.length; j++) {
+        const target = products[j];
+        
+        if (product.id === target.id) continue;
+        if (target.hasirTipi.charAt(0) !== currentType) continue;
+        
+        const toleranceCm = tolerance;
         const targetBoy = Number(target.uzunlukBoy);
         const targetEn = Number(target.uzunlukEn);
         const sourceBoy = Number(product.uzunlukBoy);
         const sourceEn = Number(product.uzunlukEn);
-        const toleranceCm = tolerance;
         
-        // Target dimensions must be >= source dimensions AND within tolerance limit
-        const boyDiff = targetBoy - sourceBoy; // Positive = target is bigger
-        const enDiff = targetEn - sourceEn;   // Positive = target is bigger
+        const boyDiff = targetBoy - sourceBoy;
+        const enDiff = targetEn - sourceEn;
         
         if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
           const result = {
             ...target,
-            id: `type_changed_same_${Date.now()}`,
+            id: `type_changed_same_${Date.now()}_${Math.random()}`,
             hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
-              toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
-              mergeHistory: [
-                ...(target.mergeHistory || []),
-                `Tip değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
-              ],
-              advancedOptimizationNotes: `Hasır tipi değişikliği: ${product.hasirTipi} -> ${target.hasirTipi}`,
-              aciklama: target.aciklama || `Tip değişikliği: ${product.id} -> ${target.id}`
-            };
-            
+            toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
+            mergeHistory: [
+              ...(target.mergeHistory || []),
+              `Tip değişikliği: ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
+            ],
+            advancedOptimizationNotes: `Hasır tipi değişikliği: ${product.hasirTipi} -> ${target.hasirTipi}`,
+            aciklama: target.aciklama || `Tip değişikliği: ${product.id} -> ${target.id}`
+          };
+          
           opportunities.push({
             type: 'tipi_degisiklik_same',
             source: product,
             target: target,
             result: result,
-            explanation: `Hasır tipi değişikliği (same group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn}) - Aynı grup içinde`,
+            explanation: `Hasır tipi değişikliği (aynı grup): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
             safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
             safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
           });
-          
-          usedIds.add(product.id);
-          usedIds.add(target.id);
-          found = true;
-          break;
         }
       }
       
-      // PHASE 2: If no same-group match found, try cross-group (Q->TR->R)
-      if (!found) {
-        let targetTypes: string[] = [];
-        if (currentType === 'Q') targetTypes = ['T']; // Q -> TR
-        else if (currentType === 'T') targetTypes = ['R']; // TR -> R
-        
-        for (const targetType of targetTypes) {
-          for (const target of products) {
-            if (usedIds.has(target.id) || target.id === product.id) continue;
-            if (!target.hasirTipi.startsWith(targetType)) continue;
+      // PHASE 2: Check all cross-group possibilities
+      let targetTypes: string[] = [];
+      if (currentType === 'Q') targetTypes = ['T'];
+      else if (currentType === 'T') targetTypes = ['R'];
+      
+      for (const targetType of targetTypes) {
+        for (let j = 0; j < products.length; j++) {
+          const target = products[j];
+          
+          if (product.id === target.id) continue;
+          if (!target.hasirTipi.startsWith(targetType)) continue;
+          
+          const toleranceCm = tolerance;
+          const targetBoy = Number(target.uzunlukBoy);
+          const targetEn = Number(target.uzunlukEn);
+          const sourceBoy = Number(product.uzunlukBoy);
+          const sourceEn = Number(product.uzunlukEn);
+          
+          const boyDiff = targetBoy - sourceBoy;
+          const enDiff = targetEn - sourceEn;
+          
+          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+            const result = {
+              ...target,
+              id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+              hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
+              toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
+              mergeHistory: [
+                ...(target.mergeHistory || []),
+                `Tip değişikliği (gruplar arası): ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
+              ],
+              advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${product.hasirTipi} -> ${target.hasirTipi}`,
+              aciklama: target.aciklama || `Gruplar arası tip değişikliği: ${product.id} -> ${target.id}`
+            };
             
-            const targetBoy = Number(target.uzunlukBoy);
-            const targetEn = Number(target.uzunlukEn);
-            const sourceBoy = Number(product.uzunlukBoy);
-            const sourceEn = Number(product.uzunlukEn);
-            const toleranceCm = tolerance;
-            
-            const boyDiff = targetBoy - sourceBoy;
-            const enDiff = targetEn - sourceEn;
-            
-            if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
-              const result = {
-                ...target,
-                id: `type_changed_cross_${Date.now()}`,
-                hasirSayisi: Number(product.hasirSayisi) + Number(target.hasirSayisi),
-                toplamKg: Number(product.toplamKg) + Number(target.toplamKg),
-                mergeHistory: [
-                  ...(target.mergeHistory || []),
-                  `Tip değişikliği (gruplar arası): ${product.hasirTipi}(${product.hasirSayisi}) -> ${target.hasirTipi}(+${product.hasirSayisi})`
-                ],
-                advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${product.hasirTipi} -> ${target.hasirTipi}`,
-                aciklama: target.aciklama || `Gruplar arası tip değişikliği: ${product.id} -> ${target.id}`
-              };
-              
-              opportunities.push({
-                type: 'tipi_degisiklik_cross',
-                source: product,
-                target: target,
-                result: result,
-                explanation: `Hasır tipi değişikliği (cross-group): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
-                toleranceUsed: Math.max(boyDiff, enDiff),
-                safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
-                safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
-              });
-              
-              usedIds.add(product.id);
-              usedIds.add(target.id);
-              break;
-            }
+            opportunities.push({
+              type: 'tipi_degisiklik_cross',
+              source: product,
+              target: target,
+              result: result,
+              explanation: `Hasır tipi değişikliği (gruplar arası): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
+              toleranceUsed: Math.max(boyDiff, enDiff),
+              safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+              safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+            });
           }
-          if (usedIds.has(product.id)) break; // Found cross-group match
         }
       }
     }
     
-    // Sort by tolerance used (safest first: 0 tolerance first, then higher)
-    return opportunities.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
+    // Remove duplicates and sort
+    const uniqueOps = opportunities.filter((op, index, self) => 
+      index === self.findIndex(o => 
+        o.source.id === op.source.id && o.target.id === op.target.id && o.type === op.type
+      )
+    );
+    
+    return uniqueOps.sort((a, b) => a.toleranceUsed - b.toleranceUsed);
   };
 
   // Smart Multi-Product Merging Analysis
