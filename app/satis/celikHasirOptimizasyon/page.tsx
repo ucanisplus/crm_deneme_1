@@ -121,7 +121,7 @@ const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = fals
   
   // Gradual tolerance-based safety levels
   if (toleranceUsed === 0) return { level: 0, category: 'safe' };           // Perfect match - dark green
-  if (toleranceUsed <= 5) return { level: 1, category: 'safe' };            // Folding exact - green  
+  if (toleranceUsed <= 5) return { level: 1, category: 'low_risk' };        // Folding exact - light green  
   if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };       // Very low risk - light green
   if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };    // Medium risk - yellow
   if (toleranceUsed <= 30) return { level: 6, category: 'high_risk' };      // Higher risk - orange
@@ -133,7 +133,11 @@ const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = fals
 const getSafetyDisplay = (safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky', toleranceUsed: number, safetyLevelNumber?: number) => {
   const configs = {
     safe: { bgClass: 'bg-green-600 text-white', text: 'Güvenli', icon: '✓' },
-    low_risk: { bgClass: 'bg-green-400 text-white', text: 'Düşük Risk', icon: '✓' },
+    low_risk: { 
+      bgClass: toleranceUsed <= 5 ? 'bg-green-500 text-white' : 'bg-green-400 text-white', 
+      text: toleranceUsed <= 5 ? 'Çok Düşük Risk' : 'Düşük Risk', 
+      icon: '✓' 
+    },
     medium_risk: { bgClass: 'bg-yellow-500 text-black', text: 'Orta Risk', icon: '⚠' },
     high_risk: { bgClass: 'bg-orange-500 text-white', text: 'Yüksek Risk', icon: '⚠' },
     risky: { bgClass: 'bg-red-600 text-white', text: 'Riskli', icon: '⚠' }
@@ -1687,16 +1691,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
   };
 
-  // Apply all safe operations (0 tolerance only)
+  // Apply all perfect match operations (0 tolerance only)
   const applyAllSafeOperations = () => {
-    const safeOperations = pendingOperations.filter(op => op.toleranceUsed === 0);
+    const perfectMatches = pendingOperations.filter(op => op.toleranceUsed === 0);
     
-    if (safeOperations.length === 0) {
-      toast.error('Güvenli (0 tolerans) işlem bulunamadı');
+    if (perfectMatches.length === 0) {
+      toast.error('Mükemmel eşleşme (0 tolerans) işlem bulunamadı');
       return;
     }
     
-    console.log(`🚀 Applying ${safeOperations.length} safe operations automatically`);
+    console.log(`🚀 Applying ${perfectMatches.length} perfect match operations automatically`);
     
     // Apply all safe operations sequentially
     let currentProducts = [...products];
