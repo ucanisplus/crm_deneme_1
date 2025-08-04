@@ -1569,59 +1569,283 @@ const CelikHasirOptimizasyon: React.FC = () => {
     toast.success(`${opportunities.length} akıllı çoklu birleştirme fırsatı bulundu!`);
   };
 
-  // Comprehensive mega-function combining all optimization types
+  // Find the best optimization opportunity for a specific product pair
+  const findBestOpportunityForPair = (sourceProduct: any, targetProduct: any): MergeOperation | null => {
+    const opportunities: MergeOperation[] = [];
+    
+    // 1. Check basic merge (boydan/enden)
+    if (targetProduct.hasirTipi === sourceProduct.hasirTipi && 
+        targetProduct.boyCap === sourceProduct.boyCap && 
+        targetProduct.enCap === sourceProduct.enCap) {
+      
+      const toleranceCm = tolerance;
+      const targetBoy = Number(targetProduct.uzunlukBoy);
+      const targetEn = Number(targetProduct.uzunlukEn);
+      const sourceBoy = Number(sourceProduct.uzunlukBoy);
+      const sourceEn = Number(sourceProduct.uzunlukEn);
+      
+      const boyDiff = targetBoy - sourceBoy;
+      const enDiff = targetEn - sourceEn;
+      
+      if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+        const actualDiffCm = Math.max(boyDiff, enDiff);
+        const mergeType = boyDiff <= enDiff ? 'boydan' : 'enden';
+        const optimized = mergeType === 'boydan' 
+          ? optimizeBoydan(sourceProduct, targetProduct)
+          : optimizeEnden(sourceProduct, targetProduct);
+        
+        opportunities.push({
+          type: mergeType,
+          source: sourceProduct,
+          target: targetProduct,
+          result: optimized,
+          explanation: `OPTİMİZASYON: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} silinecek → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} olarak üretilecek (+${sourceProduct.hasirSayisi} adet, tolerans: ${actualDiffCm.toFixed(1)}cm)`,
+          toleranceUsed: actualDiffCm,
+          safetyLevel: getSafetyLevel(actualDiffCm).category,
+          safetyLevelNumber: getSafetyLevel(actualDiffCm).level
+        });
+      }
+    }
+    
+    // 2. Check rounding (tamamla)
+    if (sourceProduct.hasirTipi === targetProduct.hasirTipi && 
+        sourceProduct.boyCap === targetProduct.boyCap && 
+        sourceProduct.enCap === targetProduct.enCap) {
+      
+      const toleranceCm = tolerance;
+      const boyDiffCm = targetProduct.uzunlukBoy - sourceProduct.uzunlukBoy;
+      const enDiffCm = targetProduct.uzunlukEn - sourceProduct.uzunlukEn;
+      
+      if (boyDiffCm >= 0 && enDiffCm >= 0 && boyDiffCm <= toleranceCm && enDiffCm <= toleranceCm) {
+        const result = {
+          ...targetProduct,
+          id: `rounded_${Date.now()}_${Math.random()}`,
+          hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+          toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+          mergeHistory: [
+            ...(targetProduct.mergeHistory || []),
+            `Yukarı yuvarla: ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}(${sourceProduct.hasirSayisi}) → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}(+${sourceProduct.hasirSayisi})`
+          ],
+          advancedOptimizationNotes: `Üste tamamla: ${sourceProduct.hasirSayisi}+${targetProduct.hasirSayisi}=${Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi)} adet (boy:+${boyDiffCm}cm, en:+${enDiffCm}cm)`,
+          aciklama: targetProduct.aciklama || `Yuvarlama birleştirme: ${sourceProduct.id} → ${targetProduct.id}`
+        };
+        
+        opportunities.push({
+          type: 'tamamla',
+          source: sourceProduct,
+          target: targetProduct,
+          result: result,
+          explanation: `Üste tamamla: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tolerans: ${Math.max(boyDiffCm, enDiffCm).toFixed(1)}cm)`,
+          toleranceUsed: Math.max(boyDiffCm, enDiffCm),
+          safetyLevel: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).category,
+          safetyLevelNumber: getSafetyLevel(Math.max(boyDiffCm, enDiffCm)).level
+        });
+      }
+    }
+    
+    // 3. Check folding opportunities
+    if (sourceProduct.hasirTipi === targetProduct.hasirTipi) {
+      const matches = findMatchingMultiples(sourceProduct, targetProduct);
+      
+      for (const match of matches) {
+        if (match.type === 'exact') {
+          const result = {
+            ...targetProduct,
+            id: `folded_exact_${Date.now()}_${Math.random()}`,
+            hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+            toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+            mergeHistory: [
+              ...(targetProduct.mergeHistory || []),
+              `KATLI İYİLEŞTİRME: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) EXACT ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`
+            ],
+            advancedOptimizationNotes: `Katlı iyileştirme EXACT: ${match.multiple} - ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn}`,
+            aciklama: `${targetProduct.aciklama || ''} | KATLI: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x)`
+          };
+          
+          opportunities.push({
+            type: 'katli_exact',
+            source: sourceProduct,
+            target: targetProduct,
+            result: result,
+            explanation: `KATLI İYİLEŞTİRME (TAM KAT): ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: 0cm)`,
+            toleranceUsed: 0,
+            safetyLevel: getSafetyLevel(0, false, true).category,
+            safetyLevelNumber: getSafetyLevel(0, false, true).level
+          });
+        } else if (match.type === 'tolerance') {
+          const boyDiff = Math.abs(Number(targetProduct.uzunlukBoy) - Number(sourceProduct.uzunlukBoy) * match.boyMult);
+          const enDiff = Math.abs(Number(targetProduct.uzunlukEn) - Number(sourceProduct.uzunlukEn) * match.enMult);
+          const toleranceUsed = Math.max(boyDiff, enDiff);
+          
+          const result = {
+            ...targetProduct,
+            id: `folded_tolerance_${Date.now()}_${Math.random()}`,
+            hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+            toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+            mergeHistory: [
+              ...(targetProduct.mergeHistory || []),
+              `KATLI + TOLERANS: ${sourceProduct.hasirSayisi}adet(${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn}) ${match.multiple} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (tol: ${toleranceUsed}cm)`
+            ],
+            advancedOptimizationNotes: `Katlı + Tolerans: ${match.multiple} - tol: ${toleranceUsed}cm`,
+            aciklama: `${targetProduct.aciklama || ''} | KATLI+TOL: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} -> ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x, ${toleranceUsed}cm)`
+          };
+          
+          opportunities.push({
+            type: 'katli_tolerance',
+            source: sourceProduct,
+            target: targetProduct,
+            result: result,
+            explanation: `KATLI İYİLEŞTİRME + TOLERANS: ${sourceProduct.hasirSayisi}adet ${sourceProduct.uzunlukBoy}x${sourceProduct.uzunlukEn} → ${targetProduct.uzunlukBoy}x${targetProduct.uzunlukEn} (${match.multiple}x kat, tolerans: ${toleranceUsed.toFixed(1)}cm)`,
+            toleranceUsed: toleranceUsed,
+            safetyLevel: getSafetyLevel(toleranceUsed, false, true).category,
+            safetyLevelNumber: getSafetyLevel(toleranceUsed, false, true).level
+          });
+        }
+      }
+    }
+    
+    // 4. Check hasir tipi changes (same group)
+    const currentType = sourceProduct.hasirTipi.charAt(0);
+    if (targetProduct.hasirTipi.charAt(0) === currentType) {
+      const toleranceCm = tolerance;
+      const targetBoy = Number(targetProduct.uzunlukBoy);
+      const targetEn = Number(targetProduct.uzunlukEn);
+      const sourceBoy = Number(sourceProduct.uzunlukBoy);
+      const sourceEn = Number(sourceProduct.uzunlukEn);
+      
+      const boyDiff = targetBoy - sourceBoy;
+      const enDiff = targetEn - sourceEn;
+      
+      if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+        const result = {
+          ...targetProduct,
+          id: `type_changed_same_${Date.now()}_${Math.random()}`,
+          hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+          toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+          mergeHistory: [
+            ...(targetProduct.mergeHistory || []),
+            `Tip değişikliği: ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
+          ],
+          advancedOptimizationNotes: `Hasır tipi değişikliği: ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
+          aciklama: targetProduct.aciklama || `Tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
+        };
+        
+        opportunities.push({
+          type: 'tipi_degisiklik_same',
+          source: sourceProduct,
+          target: targetProduct,
+          result: result,
+          explanation: `Hasır tipi değişikliği (aynı grup): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
+          toleranceUsed: Math.max(boyDiff, enDiff),
+          safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+          safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+        });
+      }
+    }
+    
+    // 5. Check hasir tipi changes (cross group)
+    let targetTypes: string[] = [];
+    if (currentType === 'Q') targetTypes = ['T'];
+    else if (currentType === 'T') targetTypes = ['R'];
+    
+    for (const targetType of targetTypes) {
+      if (targetProduct.hasirTipi.startsWith(targetType)) {
+        const toleranceCm = tolerance;
+        const targetBoy = Number(targetProduct.uzunlukBoy);
+        const targetEn = Number(targetProduct.uzunlukEn);
+        const sourceBoy = Number(sourceProduct.uzunlukBoy);
+        const sourceEn = Number(sourceProduct.uzunlukEn);
+        
+        const boyDiff = targetBoy - sourceBoy;
+        const enDiff = targetEn - sourceEn;
+        
+        if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+          const result = {
+            ...targetProduct,
+            id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+            hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+            toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+            mergeHistory: [
+              ...(targetProduct.mergeHistory || []),
+              `Tip değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
+            ],
+            advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
+            aciklama: targetProduct.aciklama || `Gruplar arası tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
+          };
+          
+          opportunities.push({
+            type: 'tipi_degisiklik_cross',
+            source: sourceProduct,
+            target: targetProduct,
+            result: result,
+            explanation: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
+            toleranceUsed: Math.max(boyDiff, enDiff),
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+          });
+        }
+      }
+    }
+    
+    // Return the safest (lowest safetyLevelNumber) opportunity if any found
+    if (opportunities.length === 0) return null;
+    
+    return opportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber)[0];
+  };
+
+  // Comprehensive mega-function with global deduplication
   const findAllOptimizationOpportunities = () => {
     console.log('🚀 Starting comprehensive optimization analysis...');
     
-    // Collect opportunities from all optimization functions
-    const basicMerges = findMergeOpportunities();
-    const foldedImprovements = findFoldedImprovements();
-    const roundingOps = findRoundingOpportunities();
-    const smartMulti = findSmartMultiProductMerges();
+    const allOpportunities: MergeOperation[] = [];
+    const globalProcessedPairs = new Set<string>();
     
-    console.log(`Found opportunities: Basic(${basicMerges.length}), Folded(${foldedImprovements.length}), Rounding(${roundingOps.length}), Smart(${smartMulti.length})`);
+    const candidateProducts = products.filter(p => 
+      Number(p.hasirSayisi) <= maxHasirSayisi
+    );
     
-    // Combine all opportunities
-    let allOpportunities = [
-      ...basicMerges,
-      ...foldedImprovements, 
-      ...roundingOps,
-      ...smartMulti
-    ];
+    console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
     
-    // Remove duplicates based on source+target product combinations
-    const usedCombinations = new Set<string>();
-    const uniqueOpportunities: MergeOperation[] = [];
-    
-    for (const opportunity of allOpportunities) {
-      // Create unique key for this combination
-      const key = `${opportunity.source.id}-${opportunity.target.id}`;
-      const reverseKey = `${opportunity.target.id}-${opportunity.source.id}`;
+    // Check ALL possible product pairs ONCE across all optimization types
+    for (let i = 0; i < candidateProducts.length; i++) {
+      const sourceProduct = candidateProducts[i];
       
-      if (!usedCombinations.has(key) && !usedCombinations.has(reverseKey)) {
-        uniqueOpportunities.push(opportunity);
-        usedCombinations.add(key);
-      } else {
-        // If duplicate found, keep the safer option
-        const existingIndex = uniqueOpportunities.findIndex(op => 
-          (op.source.id === opportunity.source.id && op.target.id === opportunity.target.id) ||
-          (op.source.id === opportunity.target.id && op.target.id === opportunity.source.id)
-        );
+      for (let j = 0; j < products.length; j++) {
+        const targetProduct = products[j];
         
-        if (existingIndex >= 0) {
-          const existing = uniqueOpportunities[existingIndex];
-          if (opportunity.safetyLevelNumber < existing.safetyLevelNumber) {
-            // Replace with safer option
-            uniqueOpportunities[existingIndex] = opportunity;
-          }
+        if (sourceProduct.id === targetProduct.id) continue;
+        
+        // Create unique pair key to avoid duplicates
+        const pairKey1 = `${sourceProduct.id}-${targetProduct.id}`;
+        const pairKey2 = `${targetProduct.id}-${sourceProduct.id}`;
+        
+        if (globalProcessedPairs.has(pairKey1) || globalProcessedPairs.has(pairKey2)) continue;
+        
+        // Mark this pair as processed immediately
+        globalProcessedPairs.add(pairKey1);
+        
+        const bestOpportunity = findBestOpportunityForPair(sourceProduct, targetProduct);
+        if (bestOpportunity) {
+          allOpportunities.push(bestOpportunity);
         }
       }
     }
     
     // Sort by safety level (safest first: 0 → 10)
-    const sortedOpportunities = uniqueOpportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber);
+    const sortedOpportunities = allOpportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber);
     
-    console.log(`💡 Total unique opportunities: ${sortedOpportunities.length} (after duplicate removal)`);
+    // Debug: Count operations by type and safety level
+    const safeOps = sortedOpportunities.filter(op => op.safetyLevel === 'safe');
+    console.log(`🔍 Safe operations: ${safeOps.length}`);
+    console.log('Safe operation types:', safeOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
+    
+    const byType: Record<string, number> = {};
+    sortedOpportunities.forEach(op => {
+      byType[op.type] = (byType[op.type] || 0) + 1;
+    });
+    console.log('Operations by type:', byType);
+    
+    console.log(`💡 Total unique opportunities: ${sortedOpportunities.length} (globally deduplicated)`);
     return sortedOpportunities;
   };
 
