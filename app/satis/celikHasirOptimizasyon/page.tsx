@@ -1592,6 +1592,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const opportunities = findAllOptimizationOpportunities();
     console.log('Comprehensive opportunities:', opportunities.length, opportunities);
     
+    // Debug: Count operations by type and safety level
+    const safeOps = opportunities.filter(op => op.safetyLevel === 'safe');
+    console.log(`🔍 Safe operations: ${safeOps.length}`);
+    console.log('Safe operation types:', safeOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
+    
+    const byType = {};
+    opportunities.forEach(op => {
+      byType[op.type] = (byType[op.type] || 0) + 1;
+    });
+    console.log('Operations by type:', byType);
+    
     if (opportunities.length === 0) {
       toast.error('Optimizasyon yapılabilecek ürün kombinasyonu bulunamadı');
       return;
