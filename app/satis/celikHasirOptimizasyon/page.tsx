@@ -865,7 +865,113 @@ const CelikHasirOptimizasyon: React.FC = () => {
       return true; // Keep if no duplicate or no preference
     });
     
-    // Sort by priority first, then by safety/tolerance
+    // FALLBACK OPTIONS: If no good options found, add risky/extreme alternatives
+    if (uniqueOptions.length === 0) {
+      console.log(`⚠️ No standard merge options found for ${product1.hasirTipi} ↔ ${product2.hasirTipi}, adding fallback options`);
+      
+      // FALLBACK 1: Force merge with new bigger dimensions (creates new larger product)
+      const maxBoy = Math.max(boy1, boy2);
+      const maxEn = Math.max(en1, en2);
+      const newBoy = Math.ceil(maxBoy * 1.1); // 10% larger
+      const newEn = Math.ceil(maxEn * 1.1);
+      
+      const biggerProduct1 = {
+        ...product1,
+        id: `forced_bigger_${Date.now()}_${Math.random()}`,
+        uzunlukBoy: newBoy,
+        uzunlukEn: newEn,
+        hasirSayisi: Number(product1.hasirSayisi) + Number(product2.hasirSayisi),
+        toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+        mergeHistory: [
+          ...(product1.mergeHistory || []),
+          `ZORLA BİRLEŞTİRME: ${product2.hasirSayisi}adet ${product2.hasirTipi}(${boy2}x${en2}) → YENİ BOYUT ${newBoy}x${newEn}`
+        ],
+        advancedOptimizationNotes: `Zorla birleştirme: Yeni boyut ${newBoy}x${newEn} yaratıldı`,
+        aciklama: `ZORLA BİRLEŞTİRME: ${product1.hasirTipi} + ${product2.hasirTipi} → ${newBoy}x${newEn}`
+      };
+      
+      uniqueOptions.push({
+        type: 'tamamla',
+        source: product2,
+        target: product1,
+        result: biggerProduct1,
+        explanation: `🚨 ZORLA BİRLEŞTİRME: Yeni büyük boyut yaratılacak ${newBoy}x${newEn} (ÇOK RİSKLİ!)`,
+        tolerance: Math.max(newBoy - maxBoy, newEn - maxEn),
+        safetyLevel: 'risky',
+        priority: 9
+      });
+      
+      // FALLBACK 2: Different diameter merge (very risky)  
+      if (product1.boyCap !== product2.boyCap || product1.enCap !== product2.enCap) {
+        const targetDiameter = Math.max(product1.boyCap, product2.boyCap);
+        const result = {
+          ...product1,
+          id: `diameter_change_${Date.now()}_${Math.random()}`,
+          boyCap: targetDiameter,
+          enCap: Math.max(product1.enCap, product2.enCap),
+          hasirSayisi: Number(product1.hasirSayisi) + Number(product2.hasirSayisi),
+          toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+          mergeHistory: [
+            ...(product1.mergeHistory || []),
+            `ÇAP DEĞİŞİKLİĞİ: ${product2.hasirTipi}(${product2.boyCap}x${product2.enCap}) → (${targetDiameter}x${Math.max(product1.enCap, product2.enCap)})`
+          ],
+          advancedOptimizationNotes: `Çap değişikliği: ${product2.boyCap}x${product2.enCap} → ${targetDiameter}x${Math.max(product1.enCap, product2.enCap)}`,
+          aciklama: `ÇAP DEĞİŞİKLİĞİ: ${product2.hasirTipi} çapı değiştirildi`
+        };
+        
+        uniqueOptions.push({
+          type: 'tipi_degisiklik',
+          source: product2,
+          target: product1,
+          result: result,
+          explanation: `🚨 ÇAP DEĞİŞİKLİĞİ: ${product2.hasirTipi} çapı ${product2.boyCap}→${targetDiameter} (AŞIRI RİSKLİ!)`,
+          tolerance: Math.abs(targetDiameter - product2.boyCap),
+          safetyLevel: 'risky',
+          priority: 10
+        });
+      }
+      
+      // FALLBACK 3: All possible type transitions (Q↔R, R↔Q, etc.)
+      const allTypeTransitions = [
+        ['Q', 'R'], ['R', 'Q'], ['Q', 'T'], ['T', 'Q'], ['T', 'R'], ['R', 'T']
+      ];
+      
+      for (const [fromType, toType] of allTypeTransitions) {
+        if (type1 === fromType && type2 === toType) {
+          const newBoySize = Math.max(boy1, boy2) + 10; // Add 10cm safety
+          const newEnSize = Math.max(en1, en2) + 10;
+          
+          const result = {
+            ...product2,
+            id: `extreme_type_change_${Date.now()}_${Math.random()}`,
+            uzunlukBoy: newBoySize,
+            uzunlukEn: newEnSize,
+            hasirSayisi: Number(product1.hasirSayisi) + Number(product2.hasirSayisi),
+            toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+            mergeHistory: [
+              ...(product2.mergeHistory || []),
+              `AŞIRI TİP DEĞİŞİKLİĞİ: ${product1.hasirTipi}(${boy1}x${en1}) → ${product2.hasirTipi}(${newBoySize}x${newEnSize})`
+            ],
+            advancedOptimizationNotes: `Aşırı tip değişikliği: ${product1.hasirTipi} → ${product2.hasirTipi} + boyut artışı`,
+            aciklama: `AŞIRI TİP DEĞİŞİKLİĞİ: ${product1.hasirTipi} → ${product2.hasirTipi}`
+          };
+          
+          uniqueOptions.push({
+            type: 'tipi_degisiklik_cross',
+            source: product1,
+            target: product2,
+            result: result,
+            explanation: `🚨 AŞIRI TİP DEĞİŞİKLİĞİ: ${product1.hasirTipi} → ${product2.hasirTipi} + boyut artışı (TEHLİKELİ!)`,
+            tolerance: Math.max(newBoySize - Math.max(boy1, boy2), newEnSize - Math.max(en1, en2)),
+            safetyLevel: 'risky',
+            priority: 11
+          });
+          break;
+        }
+      }
+    }
+
+    // Sort by priority first, then by safety/tolerance  
     return uniqueOptions.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.safetyLevel !== b.safetyLevel) {
@@ -2018,9 +2124,45 @@ const CelikHasirOptimizasyon: React.FC = () => {
         // Mark this pair as processed immediately
         globalProcessedPairs.add(pairKey1);
         
-        const bestOpportunity = findBestOpportunityForPair(sourceProduct, targetProduct, false); // Don't include type changes
-        if (bestOpportunity) {
-          allOpportunities.push(bestOpportunity);
+        // Use getAllMergeOptions to get all possible merge options (including fallbacks)
+        const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct);
+        
+        // First, try to find options within tolerance
+        const safeOptions = mergeOptions.filter(option => option.tolerance <= tolerance);
+        
+        if (safeOptions.length > 0) {
+          // Convert to MergeOperation format and add safe options (take the best one)
+          const bestSafeOption = safeOptions[0]; // Already sorted by safety/tolerance
+          const result = bestSafeOption.result || 
+            (bestSafeOption.type === 'boydan' ? optimizeBoydan(bestSafeOption.source, bestSafeOption.target) : 
+             bestSafeOption.type === 'enden' ? optimizeEnden(bestSafeOption.source, bestSafeOption.target) : 
+             bestSafeOption.target);
+          
+          allOpportunities.push({
+            type: bestSafeOption.type,
+            source: bestSafeOption.source,
+            target: bestSafeOption.target,
+            result: result,
+            explanation: bestSafeOption.explanation,
+            toleranceUsed: bestSafeOption.tolerance,
+            safetyLevel: bestSafeOption.safetyLevel,
+            safetyLevelNumber: getSafetyLevel(bestSafeOption.tolerance).level
+          });
+        } else if (mergeOptions.length > 0) {
+          // No safe options found, add the safest risky option as fallback
+          const safestRiskyOption = mergeOptions[0]; // getAllMergeOptions already sorts by safety
+          const result = safestRiskyOption.result || safestRiskyOption.target;
+          
+          allOpportunities.push({
+            type: safestRiskyOption.type,
+            source: safestRiskyOption.source,
+            target: safestRiskyOption.target,
+            result: result,
+            explanation: `⚠️ YEDEK SEÇENEK: ${safestRiskyOption.explanation}`,
+            toleranceUsed: safestRiskyOption.tolerance,
+            safetyLevel: safestRiskyOption.safetyLevel,
+            safetyLevelNumber: getSafetyLevel(safestRiskyOption.tolerance).level
+          });
         }
       }
     }
@@ -2050,8 +2192,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     // Debug: Count operations by type and safety level
     const safeOps = opportunities.filter(op => op.safetyLevel === 'safe');
-    console.log(`🔍 Safe operations: ${safeOps.length}`);
+    const riskyOps = opportunities.filter(op => op.safetyLevel === 'risky');
+    const fallbackOps = opportunities.filter(op => op.explanation.includes('YEDEK SEÇENEK'));
+    
+    console.log(`🔍 Safe operations: ${safeOps.length}, Risky operations: ${riskyOps.length}, Fallback options: ${fallbackOps.length}`);
     console.log('Safe operation types:', safeOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
+    if (fallbackOps.length > 0) {
+      console.log('Fallback operation types:', fallbackOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
+    }
     
     const byType: Record<string, number> = {};
     opportunities.forEach(op => {
@@ -2085,13 +2233,19 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Apply sorting when sort mode changes
   const applySorting = (newSortMode: 'safety' | 'quantity') => {
+    console.log(`🔄 APPLYING SORT: ${sortMode} → ${newSortMode}`);
     setSortMode(newSortMode);
     if (pendingOperations.length > 0) {
       const sortedOps = sortPendingOperations(pendingOperations, newSortMode);
+      console.log(`📊 SORTED OPS: ${pendingOperations.length} operations, first operation changed from ${pendingOperations[0]?.source.id} to ${sortedOps[0]?.source.id}`);
       // Force a new array reference to ensure React re-renders
       setPendingOperations([...sortedOps]);
       // Reset to first operation after sorting
       setCurrentOperationIndex(0);
+      // Force component re-render by updating state
+      setTimeout(() => {
+        console.log(`✅ SORT COMPLETE: Now showing operation for ${sortedOps[0]?.source.hasirTipi}`);
+      }, 10);
     }
   };
 
@@ -2652,7 +2806,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               >
                 <thead>
                   <tr className="bg-gradient-to-r from-gray-100 to-gray-200 border-b">
-                    <th className="w-8 sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900"></th>
+                    <th className="w-8 sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900 text-xs">No.</th>
                     <th className="sticky top-0 bg-white z-10 px-2 py-3 text-left font-medium text-gray-900 w-16">Kodu</th>
                     <th 
                       className={`sticky top-0 bg-white z-10 cursor-pointer hover:bg-gray-100 px-4 py-3 text-left font-medium text-gray-900 ${
@@ -2981,12 +3135,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         draggedProductId === product.id ? 'opacity-50' : ''
                       }`}
                     >
-                      <td className="text-center  px-2 py-3 border-b border-gray-200">
-                        <div className="inline-flex items-center justify-center p-1">
-                          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-bold">+</span>
-                          </div>
-                        </div>
+                      <td className="text-center px-2 py-3 border-b border-gray-200">
+                        <span className="text-sm font-medium text-gray-600">{index + 1}</span>
                       </td>
                       <td className="text-center px-2 py-3 border-b border-gray-200 font-bold text-sm">
                         {product.hasirTipi.charAt(0).toUpperCase()}
@@ -3290,7 +3440,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           )}
           
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
-            <div key={`operation-${currentOperationIndex}-${sortMode}`} className="space-y-4">
+            <div key={`operation-${currentOperationIndex}-${sortMode}-${pendingOperations[currentOperationIndex]?.source.id || 'none'}`} className="space-y-4">
               {pendingOperations[currentOperationIndex]?.approved && (
                 <Alert className="border-green-300 bg-green-50">
                   <Check className="h-4 w-4 text-green-600" />
