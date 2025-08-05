@@ -310,6 +310,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Update filtered products when filters or sort change
   useEffect(() => {
+    console.log('🔄 Updating filteredProducts, products.length:', products.length);
     let filtered = [...products];
 
     // Apply filters
@@ -370,6 +371,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
       });
     }
 
+    console.log('🎯 Setting filteredProducts, count:', filtered.length);
+    console.log('Filtered product IDs:', filtered.map(p => p.id));
     setFilteredProducts(filtered);
   }, [products, selectedFilters, sortConfig]);
 
@@ -2048,11 +2051,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
         .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
         .concat(operation.result);
       
+      console.log(`📊 BEFORE setProducts - Products count: ${products.length} → ${updatedProducts.length}`);
+      console.log('Deleted product ID:', operation.source.id);
+      console.log('Updated products IDs:', updatedProducts.map(p => p.id));
+      
       setProducts(updatedProducts);
       addToHistory(updatedProducts);
       
       console.log(`✅ Applied merge: ${operation.source.id} + ${operation.target.id} = ${operation.result.id}`);
-      console.log(`📊 Products count: ${products.length} → ${updatedProducts.length}`);
+      console.log(`📊 AFTER setProducts - Products should be: ${updatedProducts.length}`);
     }
     
     // STEP 2: Remove ALL operations involving the deleted product
@@ -2793,7 +2800,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                     <th className="sticky top-0 bg-white z-10 text-xs">İleri Opt. Notları</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody key={`tbody-${products.length}-${filteredProducts.length}`}>
                   {filteredProducts.map((product, index) => (
                     <tr
                       key={product.id}
