@@ -3480,11 +3480,32 @@ const CelikHasirOptimizasyon: React.FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              // Restore product
-                              const restoredProduct = { ...product };
-                              delete restoredProduct.deletedAt;
-                              delete restoredProduct.mergedInto;
-                              delete restoredProduct.reason;
+                              // Restore product - create a clean Product object
+                              const restoredProduct: Product = {
+                                id: product.id,
+                                hasirTipi: product.hasirTipi,
+                                hasirTuru: product.hasirTuru,
+                                uzunlukBoy: product.uzunlukBoy,
+                                uzunlukEn: product.uzunlukEn,
+                                boyCap: product.boyCap,
+                                enCap: product.enCap,
+                                hasirSayisi: product.hasirSayisi,
+                                toplamKg: product.toplamKg,
+                                boyAraligi: product.boyAraligi,
+                                enAraligi: product.enAraligi,
+                                cubukSayisiBoy: product.cubukSayisiBoy,
+                                cubukSayisiEn: product.cubukSayisiEn,
+                                solFiliz: product.solFiliz,
+                                sagFiliz: product.sagFiliz,
+                                onFiliz: product.onFiliz,
+                                arkaFiliz: product.arkaFiliz,
+                                adetKg: product.adetKg,
+                                isOptimized: product.isOptimized,
+                                uretilemez: product.uretilemez,
+                                aciklama: product.aciklama,
+                                mergeHistory: product.mergeHistory,
+                                advancedOptimizationNotes: product.advancedOptimizationNotes
+                              };
                               
                               setProducts(prev => [...prev, restoredProduct]);
                               setDeletedProducts(prev => prev.filter((_, i) => i !== index));
@@ -3506,13 +3527,31 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   variant="outline"
                   onClick={() => {
                     if (confirm(`${deletedProducts.length} silinen ürünün tümünü geri yüklemek istediğinizden emin misiniz?`)) {
-                      const restoredProducts = deletedProducts.map(product => {
-                        const restored = { ...product };
-                        delete restored.deletedAt;
-                        delete restored.mergedInto;
-                        delete restored.reason;
-                        return restored;
-                      });
+                      const restoredProducts: Product[] = deletedProducts.map(product => ({
+                        id: product.id,
+                        hasirTipi: product.hasirTipi,
+                        hasirTuru: product.hasirTuru,
+                        uzunlukBoy: product.uzunlukBoy,
+                        uzunlukEn: product.uzunlukEn,
+                        boyCap: product.boyCap,
+                        enCap: product.enCap,
+                        hasirSayisi: product.hasirSayisi,
+                        toplamKg: product.toplamKg,
+                        boyAraligi: product.boyAraligi,
+                        enAraligi: product.enAraligi,
+                        cubukSayisiBoy: product.cubukSayisiBoy,
+                        cubukSayisiEn: product.cubukSayisiEn,
+                        solFiliz: product.solFiliz,
+                        sagFiliz: product.sagFiliz,
+                        onFiliz: product.onFiliz,
+                        arkaFiliz: product.arkaFiliz,
+                        adetKg: product.adetKg,
+                        isOptimized: product.isOptimized,
+                        uretilemez: product.uretilemez,
+                        aciklama: product.aciklama,
+                        mergeHistory: product.mergeHistory,
+                        advancedOptimizationNotes: product.advancedOptimizationNotes
+                      }));
                       
                       setProducts(prev => [...prev, ...restoredProducts]);
                       setDeletedProducts([]);
