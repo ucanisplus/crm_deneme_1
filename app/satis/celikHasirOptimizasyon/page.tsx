@@ -500,13 +500,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // Get all possible merge options between two products
   const getAllMergeOptions = (product1: Product, product2: Product) => {
     const options: Array<{
-      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tamamla';
+      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross' | 'tamamla' | 'katli' | 'katli_exact' | 'katli_tolerance';
       source: Product;
       target: Product;
       explanation: string;
       tolerance: number;
       safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky';
       priority: number;
+      result?: Product;
     }> = [];
     
     const boy1 = Number(product1.uzunlukBoy);
@@ -578,39 +579,126 @@ const CelikHasirOptimizasyon: React.FC = () => {
       }
     }
     
-    // OPTION 2: Hasır Tipi Değişikliği (if different types but same diameter)
-    if (product1.hasirTipi !== product2.hasirTipi && 
-        product1.boyCap === product2.boyCap && 
-        product1.enCap === product2.enCap) {
-      
+    // OPTION 2: Hasır Tipi Değişikliği - Same Group (Q->Q, T->T, R->R)
+    const type1 = product1.hasirTipi.charAt(0);
+    const type2 = product2.hasirTipi.charAt(0);
+    
+    if (product1.hasirTipi !== product2.hasirTipi && type1 === type2) {
       // Check if dimensions are compatible for type change
       const canChange1to2 = boy2 >= boy1 && en2 >= en1;
       const canChange2to1 = boy1 >= boy2 && en1 >= en2;
       
       if (canChange1to2) {
         const tolerance = Math.max(boy2 - boy1, en2 - en1);
+        const result = {
+          ...product2,
+          id: `type_changed_same_${Date.now()}_${Math.random()}`,
+          hasirSayisi: Number(product1.hasirSayisi) + Number(product2.hasirSayisi),
+          toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+          mergeHistory: [
+            ...(product2.mergeHistory || []),
+            `Tip değişikliği: ${product1.hasirTipi}(${product1.hasirSayisi}) -> ${product2.hasirTipi}(+${product1.hasirSayisi})`
+          ],
+          advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product1.hasirTipi} -> ${product2.hasirTipi}`,
+          aciklama: product2.aciklama || `Tip değişikliği: ${product1.id} -> ${product2.id}`
+        };
         options.push({
-          type: 'tipi_degisiklik',
+          type: 'tipi_degisiklik_same',
           source: product1,
           target: product2,
-          explanation: `Tip değişikliği: ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
+          result: result,
+          explanation: `Tip değişikliği (aynı grup): ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
           tolerance,
           safetyLevel: getSafetyLevel(tolerance, true).category,
-          priority: 2
+          priority: 4
         });
       }
       
       if (canChange2to1) {
         const tolerance = Math.max(boy1 - boy2, en1 - en2);
+        const result = {
+          ...product1,
+          id: `type_changed_same_${Date.now()}_${Math.random()}`,
+          hasirSayisi: Number(product2.hasirSayisi) + Number(product1.hasirSayisi),
+          toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
+          mergeHistory: [
+            ...(product1.mergeHistory || []),
+            `Tip değişikliği: ${product2.hasirTipi}(${product2.hasirSayisi}) -> ${product1.hasirTipi}(+${product2.hasirSayisi})`
+          ],
+          advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product2.hasirTipi} -> ${product1.hasirTipi}`,
+          aciklama: product1.aciklama || `Tip değişikliği: ${product2.id} -> ${product1.id}`
+        };
         options.push({
-          type: 'tipi_degisiklik',
+          type: 'tipi_degisiklik_same',
           source: product2,
           target: product1,
-          explanation: `Tip değişikliği: ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
+          result: result,
+          explanation: `Tip değişikliği (aynı grup): ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
           tolerance,
           safetyLevel: getSafetyLevel(tolerance, true).category,
-          priority: 2
+          priority: 4
         });
+      }
+    }
+    
+    // OPTION 2B: Hasır Tipi Değişikliği - Cross Group (Q->T, T->R)
+    const crossGroupPairs = [['Q', 'T'], ['T', 'R']];
+    for (const [from, to] of crossGroupPairs) {
+      if ((type1 === from && type2 === to) || (type1 === to && type2 === from)) {
+        const canChange1to2 = boy2 >= boy1 && en2 >= en1;
+        const canChange2to1 = boy1 >= boy2 && en1 >= en2;
+        
+        if (canChange1to2 && type1 === from) {
+          const tolerance = Math.max(boy2 - boy1, en2 - en1);
+          const result = {
+            ...product2,
+            id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+            hasirSayisi: Number(product1.hasirSayisi) + Number(product2.hasirSayisi),
+            toplamKg: Number(product1.toplamKg) + Number(product2.toplamKg),
+            mergeHistory: [
+              ...(product2.mergeHistory || []),
+              `Tip değişikliği (gruplar arası): ${product1.hasirTipi}(${product1.hasirSayisi}) -> ${product2.hasirTipi}(+${product1.hasirSayisi})`
+            ],
+            advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${product1.hasirTipi} -> ${product2.hasirTipi}`,
+            aciklama: product2.aciklama || `Gruplar arası tip değişikliği: ${product1.id} -> ${product2.id}`
+          };
+          options.push({
+            type: 'tipi_degisiklik_cross',
+            source: product1,
+            target: product2,
+            result: result,
+            explanation: `Tip değişikliği (GRUPLAR ARASI): ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
+            tolerance,
+            safetyLevel: 'risky',
+            priority: 5
+          });
+        }
+        
+        if (canChange2to1 && type2 === from) {
+          const tolerance = Math.max(boy1 - boy2, en1 - en2);
+          const result = {
+            ...product1,
+            id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+            hasirSayisi: Number(product2.hasirSayisi) + Number(product1.hasirSayisi),
+            toplamKg: Number(product2.toplamKg) + Number(product1.toplamKg),
+            mergeHistory: [
+              ...(product1.mergeHistory || []),
+              `Tip değişikliği (gruplar arası): ${product2.hasirTipi}(${product2.hasirSayisi}) -> ${product1.hasirTipi}(+${product2.hasirSayisi})`
+            ],
+            advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${product2.hasirTipi} -> ${product1.hasirTipi}`,
+            aciklama: product1.aciklama || `Gruplar arası tip değişikliği: ${product2.id} -> ${product1.id}`
+          };
+          options.push({
+            type: 'tipi_degisiklik_cross',
+            source: product2,
+            target: product1,
+            result: result,
+            explanation: `Tip değişikliği (GRUPLAR ARASI): ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
+            tolerance,
+            safetyLevel: 'risky',
+            priority: 5
+          });
+        }
       }
     }
     
@@ -2947,39 +3035,46 @@ const CelikHasirOptimizasyon: React.FC = () => {
                               let merged: Product;
                               let successMessage: string;
                               
-                              if (option.type === 'boydan') {
-                                merged = optimizeBoydan(option.source, option.target);
-                                successMessage = `Boydan birleştirme başarılı`;
-                              } else if (option.type === 'enden') {
-                                merged = optimizeEnden(option.source, option.target);
-                                successMessage = `Enden birleştirme başarılı`;
-                              } else if (option.type === 'tipi_degisiklik') {
-                                // Create merged product for type change
-                                merged = {
-                                  ...option.target,
-                                  id: `merged_tipi_${Date.now()}`,
-                                  hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
-                                  toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
-                                  mergeHistory: [
-                                    ...(option.target.mergeHistory || []),
-                                    `Tip değişikliği: ${option.source.hasirSayisi}adet ${option.source.hasirTipi} → ${option.target.hasirTipi}`
-                                  ],
-                                  aciklama: `${option.target.aciklama || ''} | TİP DEĞ: ${option.source.hasirTipi} → ${option.target.hasirTipi}`
-                                };
-                                successMessage = `Tip değişikliği birleştirmesi başarılı`;
-                              } else { // tamamla
-                                merged = {
-                                  ...option.target,
-                                  id: `merged_tamamla_${Date.now()}`,
-                                  hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
-                                  toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
-                                  mergeHistory: [
-                                    ...(option.target.mergeHistory || []),
-                                    `Üste tamamla: ${option.source.hasirSayisi}adet ${option.source.uzunlukBoy}x${option.source.uzunlukEn} → ${option.target.uzunlukBoy}x${option.target.uzunlukEn}`
-                                  ],
-                                  aciklama: `${option.target.aciklama || ''} | TAMAMLA: +${option.tolerance.toFixed(1)}cm`
-                                };
-                                successMessage = `Üste tamamlama birleştirmesi başarılı`;
+                              // Use the result if provided, otherwise create merged product
+                              if (option.result) {
+                                merged = option.result;
+                                successMessage = `${option.explanation}`;
+                              } else {
+                                // Legacy handling for options without result
+                                if (option.type === 'boydan') {
+                                  merged = optimizeBoydan(option.source, option.target);
+                                  successMessage = `Boydan birleştirme başarılı`;
+                                } else if (option.type === 'enden') {
+                                  merged = optimizeEnden(option.source, option.target);
+                                  successMessage = `Enden birleştirme başarılı`;
+                                } else if (option.type === 'tipi_degisiklik') {
+                                  // Create merged product for type change
+                                  merged = {
+                                    ...option.target,
+                                    id: `merged_tipi_${Date.now()}`,
+                                    hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
+                                    toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
+                                    mergeHistory: [
+                                      ...(option.target.mergeHistory || []),
+                                      `Tip değişikliği: ${option.source.hasirSayisi}adet ${option.source.hasirTipi} → ${option.target.hasirTipi}`
+                                    ],
+                                    aciklama: `${option.target.aciklama || ''} | TİP DEĞ: ${option.source.hasirTipi} → ${option.target.hasirTipi}`
+                                  };
+                                  successMessage = `Tip değişikliği birleştirmesi başarılı`;
+                                } else { // tamamla
+                                  merged = {
+                                    ...option.target,
+                                    id: `merged_tamamla_${Date.now()}`,
+                                    hasirSayisi: Number(option.source.hasirSayisi) + Number(option.target.hasirSayisi),
+                                    toplamKg: Number(option.source.toplamKg) + Number(option.target.toplamKg),
+                                    mergeHistory: [
+                                      ...(option.target.mergeHistory || []),
+                                      `Üste tamamla: ${option.source.hasirSayisi}adet ${option.source.uzunlukBoy}x${option.source.uzunlukEn} → ${option.target.uzunlukBoy}x${option.target.uzunlukEn}`
+                                    ],
+                                    aciklama: `${option.target.aciklama || ''} | TAMAMLA: +${option.tolerance.toFixed(1)}cm`
+                                  };
+                                  successMessage = `Üste tamamlama birleştirmesi başarılı`;
+                                }
                               }
                               
                               const newProducts = [
