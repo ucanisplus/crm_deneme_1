@@ -223,6 +223,49 @@ const CelikHasirOptimizasyon: React.FC = () => {
   
   // State
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Debug wrapper for setProducts
+  const setProductsWithDebug = (newProducts: Product[] | ((prev: Product[]) => Product[])) => {
+    if (typeof newProducts === 'function') {
+      setProducts(prev => {
+        const result = newProducts(prev);
+        console.log(`🔄 SET PRODUCTS (function): ${prev.length} → ${result.length}, unique IDs: ${new Set(result.map(p => p.id)).size}`);
+        
+        // Check for duplicates in result
+        const uniqueIds = new Set(result.map(p => p.id));
+        if (uniqueIds.size !== result.length) {
+          console.error(`🚨 DUPLICATE IDS DETECTED in products update (function)!`);
+          console.error(`🚨 Total products: ${result.length}, Unique IDs: ${uniqueIds.size}`);
+        }
+        
+        return result;
+      });
+    } else {
+      console.log(`🔄 SET PRODUCTS (direct): ${newProducts.length} products, unique IDs: ${new Set(newProducts.map(p => p.id)).size}`);
+      
+      // Check for duplicates in newProducts
+      const uniqueIds = new Set(newProducts.map(p => p.id));
+      if (uniqueIds.size !== newProducts.length) {
+        console.error(`🚨 DUPLICATE IDS DETECTED in products update (direct)!`);
+        console.error(`🚨 Total products: ${newProducts.length}, Unique IDs: ${uniqueIds.size}`);
+        
+        // Remove duplicates by ID (keep first occurrence)
+        const seenIds = new Set();
+        const deduplicatedProducts = newProducts.filter(product => {
+          if (seenIds.has(product.id)) {
+            console.warn(`🚨 Removing duplicate product ID: ${product.id}`);
+            return false;
+          }
+          seenIds.add(product.id);
+          return true;
+        });
+        console.log(`🔧 After deduplication: ${deduplicatedProducts.length} products`);
+        setProducts(deduplicatedProducts);
+      } else {
+        setProducts(newProducts);
+      }
+    }
+  };
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [deletedProducts, setDeletedProducts] = useState<(Product & { deletedAt: Date, mergedInto?: string, reason: string })[]>([]);
   const [showDeletedDialog, setShowDeletedDialog] = useState(false);
@@ -277,7 +320,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           ...product,
           id: String(product.id || `product_${index}_${Date.now()}`)
         }));
-        setProducts(dataWithIds);
+        setProductsWithDebug(dataWithIds);
         setFilteredProducts(dataWithIds);
         // Initialize history
         setHistory([{ products: dataWithIds, timestamp: Date.now() }]);
@@ -300,7 +343,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           ...product,
           id: String(product.id || `product_${index}_${Date.now()}`)
         }));
-        setProducts(dataWithIds);
+        setProductsWithDebug(dataWithIds);
         setFilteredProducts(dataWithIds);
         // Initialize history
         setHistory([{ products: dataWithIds, timestamp: Date.now() }]);
@@ -314,6 +357,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Update filtered products when filters or sort change
   useEffect(() => {
+    console.log(`🎯 FILTER UPDATE: products.length=${products.length}, unique IDs=${new Set(products.map(p => p.id)).size}`);
+    console.log(`🔍 SORTING DEBUG: sortConfig=`, sortConfig);
+    console.log(`🎲 PRODUCT IDs BEFORE SORT:`, products.map(p => p.id));
     let filtered = [...products];
 
     // Apply filters
@@ -374,22 +420,56 @@ const CelikHasirOptimizasyon: React.FC = () => {
       });
     }
 
+    console.log(`🎯 FILTERED RESULT: filtered.length=${filtered.length}, unique IDs=${new Set(filtered.map(p => p.id)).size}`);
+    console.log(`🎲 PRODUCT IDs AFTER SORT:`, filtered.map(p => p.id));
+    
+    // Critical check: ensure no duplicate IDs in filtered products
+    const uniqueIds = new Set(filtered.map(p => p.id));
+    if (uniqueIds.size !== filtered.length) {
+      console.error(`🚨 DUPLICATE IDS DETECTED in filtered products!`);
+      console.error(`🚨 Total products: ${filtered.length}, Unique IDs: ${uniqueIds.size}`);
+      
+      // Remove duplicates by ID (keep first occurrence)
+      const seenIds = new Set();
+      filtered = filtered.filter(product => {
+        if (seenIds.has(product.id)) {
+          console.warn(`🚨 Removing duplicate product ID: ${product.id}`);
+          return false;
+        }
+        seenIds.add(product.id);
+        return true;
+      });
+      console.log(`🔧 After deduplication: ${filtered.length} products`);
+    }
+    
     setFilteredProducts(filtered);
   }, [products, selectedFilters, sortConfig]);
 
   // History management
   const addToHistory = (newProducts: Product[]) => {
+    console.log(`📚 ADD TO HISTORY: ${newProducts.length} products, unique IDs: ${new Set(newProducts.map(p => p.id)).size}`);
+    console.log(`📚 NEW PRODUCT IDS:`, newProducts.map(p => p.id));
+    
+    // Check if we're adding the same products as current
+    if (products.length === newProducts.length && products.every((p, i) => p.id === newProducts[i]?.id)) {
+      console.log(`⚠️ HISTORY: Skipping duplicate state (same products)`);
+      return;
+    }
+    
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ products: newProducts, timestamp: Date.now() });
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
-    setProducts(newProducts);
+    setProductsWithDebug(newProducts);
   };
 
   const undo = () => {
     if (historyIndex > 0) {
+      console.log(`⏪ UNDO: historyIndex ${historyIndex} → ${historyIndex - 1}`);
       setHistoryIndex(historyIndex - 1);
-      setProducts(history[historyIndex - 1].products);
+      const previousProducts = history[historyIndex - 1].products;
+      console.log(`⏪ UNDO PRODUCTS: ${previousProducts.length} products, unique IDs: ${new Set(previousProducts.map(p => p.id)).size}`);
+      setProductsWithDebug(previousProducts);
     }
   };
 
@@ -409,15 +489,21 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   const redo = () => {
     if (historyIndex < history.length - 1) {
+      console.log(`⏩ REDO: historyIndex ${historyIndex} → ${historyIndex + 1}`);
       setHistoryIndex(historyIndex + 1);
-      setProducts(history[historyIndex + 1].products);
+      const nextProducts = history[historyIndex + 1].products;
+      console.log(`⏩ REDO PRODUCTS: ${nextProducts.length} products, unique IDs: ${new Set(nextProducts.map(p => p.id)).size}`);
+      setProductsWithDebug(nextProducts);
     }
   };
 
   const resetToInitial = () => {
     if (history.length > 0) {
+      console.log(`🔄 RESET: historyIndex ${historyIndex} → 0`);
       setHistoryIndex(0);
-      setProducts(history[0].products);
+      const initialProducts = history[0].products;
+      console.log(`🔄 RESET PRODUCTS: ${initialProducts.length} products, unique IDs: ${new Set(initialProducts.map(p => p.id)).size}`);
+      setProductsWithDebug(initialProducts);
     }
   };
 
@@ -2070,7 +2156,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
         .concat(operation.result);
       
-      setProducts(updatedProducts);
+      setProductsWithDebug(updatedProducts);
       addToHistory(updatedProducts);
       
       console.log(`✅ Applied merge: ${operation.source.id} + ${operation.target.id} = ${operation.result.id}`);
@@ -2145,7 +2231,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     console.log(`📈 Products: ${products.length} → ${currentProducts.length} (reduced by ${products.length - currentProducts.length})`);
     
     // Update products and close dialog
-    setProducts(currentProducts);
+    setProductsWithDebug(currentProducts);
     addToHistory(currentProducts);
     setShowApprovalDialog(false);
     setPendingOperations([]);
@@ -2198,7 +2284,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           }
           
           // Update products state with final result
-          setProducts(currentProducts);
+          setProductsWithDebug(currentProducts);
           addToHistory(currentProducts);
           
           toast(`${approvedOperations.length} işlem onaylandı ve uygulandı`);
@@ -3126,7 +3212,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                                 ...products.filter(p => p.id !== option.source.id && p.id !== option.target.id),
                                 merged
                               ];
-                              setProducts(newProducts);
+                              setProductsWithDebug(newProducts);
                               addToHistory(newProducts);
                               setShowMergeDialog(false);
                               setPendingMerge(null);
@@ -3507,7 +3593,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                                 advancedOptimizationNotes: product.advancedOptimizationNotes
                               };
                               
-                              setProducts(prev => [...prev, restoredProduct]);
+                              setProductsWithDebug(prev => [...prev, restoredProduct]);
                               setDeletedProducts(prev => prev.filter((_, i) => i !== index));
                               toast.success(`${product.hasirTipi} geri yüklendi`);
                             }}
@@ -3553,7 +3639,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         advancedOptimizationNotes: product.advancedOptimizationNotes
                       }));
                       
-                      setProducts(prev => [...prev, ...restoredProducts]);
+                      setProductsWithDebug(prev => [...prev, ...restoredProducts]);
                       setDeletedProducts([]);
                       toast.success(`${restoredProducts.length} ürün geri yüklendi`);
                     }
