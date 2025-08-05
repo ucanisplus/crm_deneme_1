@@ -50,7 +50,8 @@ import {
   Settings,
   Layers,
   RefreshCw,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
 
 interface Product {
@@ -223,6 +224,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
   // State
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [deletedProducts, setDeletedProducts] = useState<(Product & { deletedAt: Date, mergedInto?: string, reason: string })[]>([]);
+  const [showDeletedDialog, setShowDeletedDialog] = useState(false);
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [selectedFilters, setSelectedFilters] = useState({
@@ -311,7 +314,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   // Update filtered products when filters or sort change
   useEffect(() => {
-    console.log('🔄 Updating filteredProducts, products.length:', products.length);
     let filtered = [...products];
 
     // Apply filters
@@ -372,8 +374,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
       });
     }
 
-    console.log('🎯 Setting filteredProducts, count:', filtered.length);
-    console.log('Filtered product IDs:', filtered.map(p => p.id));
     setFilteredProducts(filtered);
   }, [products, selectedFilters, sortConfig]);
 
@@ -391,6 +391,20 @@ const CelikHasirOptimizasyon: React.FC = () => {
       setHistoryIndex(historyIndex - 1);
       setProducts(history[historyIndex - 1].products);
     }
+  };
+
+  // Function to move products to deleted list (without updating products state)
+  const moveToDeleted = (productsToDelete: Product[], reason: string, mergedInto?: string) => {
+    const deletedItems = productsToDelete.map(product => ({
+      ...product,
+      deletedAt: new Date(),
+      mergedInto,
+      reason
+    }));
+    
+    setDeletedProducts(prev => [...prev, ...deletedItems]);
+    
+    console.log(`🗑️ Moved ${productsToDelete.length} products to deleted list`);
   };
 
   const redo = () => {
@@ -2047,20 +2061,20 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const targetExists = products.find(p => p.id === operation.target.id);
     
     if (sourceExists && targetExists) {
+      // Move source product to deleted list
+      const sourceProduct = products.find(p => p.id === operation.source.id)!;
+      moveToDeleted([sourceProduct], `Merged into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`, operation.result.id);
+      
       // Remove source and target, add merged result
       const updatedProducts = products
         .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
         .concat(operation.result);
       
-      console.log(`📊 BEFORE setProducts - Products count: ${products.length} → ${updatedProducts.length}`);
-      console.log('Deleted product ID:', operation.source.id);
-      console.log('Updated products IDs:', updatedProducts.map(p => p.id));
-      
       setProducts(updatedProducts);
       addToHistory(updatedProducts);
       
       console.log(`✅ Applied merge: ${operation.source.id} + ${operation.target.id} = ${operation.result.id}`);
-      console.log(`📊 AFTER setProducts - Products should be: ${updatedProducts.length}`);
+      console.log(`📊 Products count: ${products.length} → ${updatedProducts.length}`);
     }
     
     // STEP 2: Remove ALL operations involving the deleted product
@@ -2104,6 +2118,16 @@ const CelikHasirOptimizasyon: React.FC = () => {
       const targetExists = currentProducts.find(p => p.id === operation.target.id);
       
       if (sourceExists && targetExists) {
+        // Move source product to deleted list
+        const sourceProduct = currentProducts.find(p => p.id === operation.source.id)!;
+        const deletedItems = [{
+          ...sourceProduct,
+          deletedAt: new Date(),
+          mergedInto: operation.result.id,
+          reason: `Auto Safe Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
+        }];
+        setDeletedProducts(prev => [...prev, ...deletedItems]);
+        
         // Apply the merge
         currentProducts = currentProducts
           .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
@@ -2219,6 +2243,15 @@ const CelikHasirOptimizasyon: React.FC = () => {
               >
                 <Redo2 className="h-4 w-4 mr-1" />
                 İleri Al
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeletedDialog(true)}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Silinen Ürünler ({deletedProducts.length})
               </Button>
               <Button
                 variant="outline"
@@ -3085,6 +3118,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
                                 }
                               }
                               
+                              // Move source product to deleted list
+                              const sourceProduct = products.find(p => p.id === option.source.id)!;
+                              moveToDeleted([sourceProduct], `Drag & Drop: Merged into ${option.target.hasirTipi} (${option.target.uzunlukBoy}x${option.target.uzunlukEn})`, merged.id);
+                              
                               const newProducts = [
                                 ...products.filter(p => p.id !== option.source.id && p.id !== option.target.id),
                                 merged
@@ -3402,6 +3439,112 @@ const CelikHasirOptimizasyon: React.FC = () => {
                 </Button>
               </div>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deleted Products Dialog */}
+      <Dialog open={showDeletedDialog} onOpenChange={setShowDeletedDialog}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Silinen Ürünler ({deletedProducts.length})</DialogTitle>
+            <DialogDescription>
+              Birleştirme işlemleri sırasında silinen ürünler burada görüntülenir.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {deletedProducts.length > 0 ? (
+            <div className="space-y-4">
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left font-medium">Hasır Tipi</th>
+                      <th className="border p-2 text-left font-medium">Boyut</th>
+                      <th className="border p-2 text-left font-medium">Adet</th>
+                      <th className="border p-2 text-left font-medium">Silme Nedeni</th>
+                      <th className="border p-2 text-left font-medium">Silme Tarihi</th>
+                      <th className="border p-2 text-left font-medium">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deletedProducts.map((product, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="border p-2">{product.hasirTipi}</td>
+                        <td className="border p-2">{product.uzunlukBoy}x{product.uzunlukEn}</td>
+                        <td className="border p-2">{product.hasirSayisi}</td>
+                        <td className="border p-2 text-xs">{product.reason}</td>
+                        <td className="border p-2 text-xs">{product.deletedAt.toLocaleString('tr-TR')}</td>
+                        <td className="border p-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              // Restore product
+                              const restoredProduct = { ...product };
+                              delete restoredProduct.deletedAt;
+                              delete restoredProduct.mergedInto;
+                              delete restoredProduct.reason;
+                              
+                              setProducts(prev => [...prev, restoredProduct]);
+                              setDeletedProducts(prev => prev.filter((_, i) => i !== index));
+                              toast.success(`${product.hasirTipi} geri yüklendi`);
+                            }}
+                            className="text-xs"
+                          >
+                            Geri Yükle
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (confirm(`${deletedProducts.length} silinen ürünün tümünü geri yüklemek istediğinizden emin misiniz?`)) {
+                      const restoredProducts = deletedProducts.map(product => {
+                        const restored = { ...product };
+                        delete restored.deletedAt;
+                        delete restored.mergedInto;
+                        delete restored.reason;
+                        return restored;
+                      });
+                      
+                      setProducts(prev => [...prev, ...restoredProducts]);
+                      setDeletedProducts([]);
+                      toast.success(`${restoredProducts.length} ürün geri yüklendi`);
+                    }
+                  }}
+                >
+                  Tümünü Geri Yükle
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm('Silinen ürünlerin tümünü kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+                      setDeletedProducts([]);
+                      toast.success('Silinen ürünler kalıcı olarak temizlendi');
+                    }
+                  }}
+                >
+                  Kalıcı Olarak Sil
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Henüz silinmiş ürün bulunmuyor.
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeletedDialog(false)}>
+              Kapat
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
