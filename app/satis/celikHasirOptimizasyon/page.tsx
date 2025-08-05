@@ -1570,7 +1570,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Find the best optimization opportunity for a specific product pair
-  const findBestOpportunityForPair = (sourceProduct: any, targetProduct: any): MergeOperation | null => {
+  const findBestOpportunityForPair = (sourceProduct: any, targetProduct: any, includeTypeChanges: boolean = false): MergeOperation | null => {
     const opportunities: MergeOperation[] = [];
     
     // 1. Check basic merge (boydan/enden)
@@ -1704,9 +1704,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
       }
     }
     
-    // 4. Check hasir tipi changes (same group)
-    const currentType = sourceProduct.hasirTipi.charAt(0);
-    if (targetProduct.hasirTipi.charAt(0) === currentType) {
+    // 4. Check hasir tipi changes (same group) - only if includeTypeChanges is true
+    if (includeTypeChanges) {
+      const currentType = sourceProduct.hasirTipi.charAt(0);
+      if (targetProduct.hasirTipi.charAt(0) === currentType) {
       const toleranceCm = tolerance;
       const targetBoy = Number(targetProduct.uzunlukBoy);
       const targetEn = Number(targetProduct.uzunlukEn);
@@ -1786,6 +1787,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         }
       }
     }
+    } // Close includeTypeChanges check
     
     // Return the safest (lowest safetyLevelNumber) opportunity if any found
     if (opportunities.length === 0) return null;
@@ -1824,7 +1826,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         // Mark this pair as processed immediately
         globalProcessedPairs.add(pairKey1);
         
-        const bestOpportunity = findBestOpportunityForPair(sourceProduct, targetProduct);
+        const bestOpportunity = findBestOpportunityForPair(sourceProduct, targetProduct, false); // Don't include type changes
         if (bestOpportunity) {
           allOpportunities.push(bestOpportunity);
         }
@@ -1894,7 +1896,8 @@ const CelikHasirOptimizasyon: React.FC = () => {
     setSortMode(newSortMode);
     if (pendingOperations.length > 0) {
       const sortedOps = sortPendingOperations(pendingOperations, newSortMode);
-      setPendingOperations(sortedOps);
+      // Force a new array reference to ensure React re-renders
+      setPendingOperations([...sortedOps]);
       // Reset to first operation after sorting
       setCurrentOperationIndex(0);
     }
@@ -3061,7 +3064,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           )}
           
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
-            <div className="space-y-4">
+            <div key={`operation-${currentOperationIndex}-${sortMode}`} className="space-y-4">
               {pendingOperations[currentOperationIndex]?.approved && (
                 <Alert className="border-green-300 bg-green-50">
                   <Check className="h-4 w-4 text-green-600" />
