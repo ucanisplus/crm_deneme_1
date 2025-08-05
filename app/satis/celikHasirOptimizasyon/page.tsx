@@ -245,13 +245,14 @@ const CelikHasirOptimizasyon: React.FC = () => {
     target: Product;
     operation?: 'boydan' | 'enden';
     options?: Array<{
-      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tamamla';
+      type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross' | 'tamamla' | 'katli' | 'katli_exact' | 'katli_tolerance';
       source: Product;
       target: Product;
       explanation: string;
       tolerance: number;
       safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky';
       priority: number;
+      result?: Product;
     }>;
   } | null>(null);
   const [tolerance, setTolerance] = useState(10);
