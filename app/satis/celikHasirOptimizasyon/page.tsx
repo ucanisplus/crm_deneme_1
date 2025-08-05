@@ -2365,7 +2365,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
               }}
               className="text-xs px-3 py-1 h-7"
             >
-              Tümü ({products.length})
+              Tümü ({filteredProducts.length})
             </Button>
             <Button
               variant={selectedFilters.quantityFilter === 'low' ? 'default' : 'outline'}
@@ -2382,7 +2382,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
               }`}
             >
-              Düşük ({products.filter(p => p.hasirSayisi < 20).length})
+              Düşük ({filteredProducts.filter(p => p.hasirSayisi < 20).length})
             </Button>
             <Button
               variant={selectedFilters.quantityFilter === 'medium' ? 'default' : 'outline'}
@@ -2399,7 +2399,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
               }`}
             >
-              Orta ({products.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length})
+              Orta ({filteredProducts.filter(p => p.hasirSayisi >= 20 && p.hasirSayisi < 50).length})
             </Button>
             <Button
               variant={selectedFilters.quantityFilter === 'high' ? 'default' : 'outline'}
@@ -2416,7 +2416,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
               }`}
             >
-              Yüksek ({products.filter(p => p.hasirSayisi >= 50).length})
+              Yüksek ({filteredProducts.filter(p => p.hasirSayisi >= 50).length})
             </Button>
           </div>
 
@@ -2757,8 +2757,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
                         setDraggedProductId(null);
                       }}
                       className={`hover:bg-gray-50 cursor-move ${
-                        product.hasirSayisi < 20 ? 'bg-red-50' : ''
-                      } ${
                         (product.advancedOptimizationNotes && product.advancedOptimizationNotes.trim() !== '') 
                         ? 'bg-blue-100 border-l-4 border-blue-500' : ''
                       } ${
@@ -2802,8 +2800,17 @@ const CelikHasirOptimizasyon: React.FC = () => {
                       <td className="text-xs ">{product.onFiliz?.toFixed(2) || '-'}</td>
                       <td className="text-xs ">{product.arkaFiliz?.toFixed(2) || '-'}</td>
                       <td className="text-xs ">{product.adetKg?.toFixed(3) || '-'}</td>
-                      <td className="text-xs max-w-xs ">
-                        <div className="truncate" title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}>
+                      <td className="text-xs max-w-xs">
+                        <div 
+                          className={`${product.advancedOptimizationNotes ? 'font-semibold text-blue-700' : ''}`}
+                          title={product.advancedOptimizationNotes || product.mergeHistory?.join(' | ')}
+                          style={{ 
+                            maxWidth: '300px',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            lineHeight: '1.4'
+                          }}
+                        >
                           {product.advancedOptimizationNotes || product.mergeHistory?.join(' | ') || '-'}
                         </div>
                       </td>
