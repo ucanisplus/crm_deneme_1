@@ -12,6 +12,12 @@ export default function KeepAliveManager() {
     render: 'unknown',
     lastPing: null
   });
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Ensure component only works on client side
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Start keepalive when user logs in
   useEffect(() => {
@@ -65,9 +71,14 @@ export default function KeepAliveManager() {
     };
   }, []);
 
+  // Don't render anything on server side
+  if (!isMounted) {
+    return null;
+  }
+
   // Only show status in development or when explicitly needed
   const showStatus = process.env.NODE_ENV === 'development' || 
-                    new URLSearchParams(window.location.search).has('debug');
+                    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug'));
 
   if (!showStatus) {
     return null; // Hidden in production
