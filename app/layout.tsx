@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from '@/components/Providers';
 import { Analytics } from '@vercel/analytics/react';
+import KeepAliveManager from '@/components/KeepAliveManager';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en-US">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <KeepAliveManager />
+        </Providers>
         <Analytics />
       </body>
     </html>

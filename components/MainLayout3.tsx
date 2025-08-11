@@ -207,7 +207,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             { id: 'urun', name: 'Ürün Hesaplamaları', icon: <Package size={14} />, path: '/uretim/hesaplamalar/urun', hasSubItems: false },
             { id: 'maliyet', name: 'Maliyet Hesaplama', icon: <DollarSign size={14} />, path: '/uretim/hesaplamalar/maliyet', hasSubItems: false },
             { id: 'kapasite', name: 'Kapasite Analizi', icon: <BarChart size={14} />, path: '/uretim/hesaplamalar/kapasite' },
-            { id: 'planlama', name: 'Üretim Planlama', icon: <FileText size={14} />, path: '/uretim/hesaplamalar/planlama' },
+            { id: 'planlama', name: 'Üretim Planlama', icon: <FileText size={14} />, path: '/uretim/planlama' },
             { id: 'performans', name: 'Performans Metrikleri', icon: <Activity size={14} />, path: '/uretim/hesaplamalar/performans' },
           ]
         },
