@@ -60,10 +60,19 @@ export const API_URLS = {
   userRoles: `${SERVERS.VERCEL}/user-roles`,
   
   // HEAVY OPERATIONS (Render) - Production Planning, Optimization
-  // Production Planning Endpoints
+  // Production Planning Endpoints (Legacy)
   productionCalculateTime: `${SERVERS.RENDER}/production/calculate-time`,
   productionCapacity: `${SERVERS.RENDER}/production/capacity`,
   productionOptimizeSchedule: `${SERVERS.RENDER}/production/optimize-schedule`,
+  
+  // APS (Advanced Planning & Scheduling) Endpoints - NEW
+  apsCalculateTime: `${SERVERS.RENDER}/aps/calculate-time`,
+  apsFactoryStatus: `${SERVERS.RENDER}/aps/factory-status`,
+  apsOptimizeSchedule: `${SERVERS.RENDER}/aps/optimize-schedule`,
+  apsCalculateTlc: `${SERVERS.RENDER}/aps/calculate-tlc`,
+  apsLineCapacities: `${SERVERS.RENDER}/aps/line-capacities`,
+  apsCreateSchedule: `${SERVERS.RENDER}/aps/create-schedule`,
+  apsSchedules: `${SERVERS.RENDER}/aps/schedules`,
   
   // System Endpoints
   healthCheck: `${SERVERS.RENDER}/health`,
@@ -79,7 +88,9 @@ export const API_URLS = {
 export const smartApiCall = async (endpoint, options = {}) => {
   const isHeavyOperation = endpoint.includes('production') || 
                           endpoint.includes('optimize') || 
-                          endpoint.includes('calculate-time');
+                          endpoint.includes('calculate-time') ||
+                          endpoint.includes('aps/') ||
+                          endpoint.includes('factory-status');
   
   if (!SERVERS.USE_HYBRID || !isHeavyOperation) {
     // Use Vercel for fast operations or when hybrid disabled

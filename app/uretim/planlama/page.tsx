@@ -1,9 +1,7 @@
-import ProductionTimeCalculator from '@/components/ProductionTimeCalculator';
+import AlbayrakAPSImproved from '@/components/AlbayrakAPSImproved';
 
 export default function ProductionPlanningPage() {
   return (
-    <div className="container mx-auto">
-      <ProductionTimeCalculator />
-    </div>
+    <AlbayrakAPSImproved />
   );
 }
