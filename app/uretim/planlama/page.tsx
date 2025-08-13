@@ -290,9 +290,9 @@ export default function UnifiedAPSSystem() {
     return chain;
   };
 
-  const generateBasicTimeline = (order: UnifiedOrder) => {
+  const generateBasicTimeline = (order: UnifiedOrder): DependencyStatus[] => {
     const stages = ['filmasin', 'tel_cekme', 'galvaniz', 'panel_kesme', 'panel_kaynak', 'boyama', 'sevkiyat'];
-    const timeline = [];
+    const timeline: DependencyStatus[] = [];
     let currentTime = new Date();
 
     stages.forEach((stage, index) => {
@@ -303,7 +303,7 @@ export default function UnifiedAPSSystem() {
       timeline.push({
         stage,
         product: `${stage} işlemi`,
-        status: 'not_started',
+        status: 'not_started' as const,
         estimated_start: startTime.toISOString(),
         estimated_end: endTime.toISOString()
       });
