@@ -12,42 +12,101 @@ import { Label } from '@/components/ui/label';
 import { Upload, Settings, Play, Pause, AlertTriangle, CheckCircle, Plus, Filter, Search, BarChart3, Calendar, Package, Users, Zap, Clock, Move, Eye, Target } from 'lucide-react';
 import { API_URLS } from '@/api-config';
 
+// Type definitions
+interface Order {
+  id: string;
+  product: string;
+  quantity: number;
+  priority: 'high' | 'medium' | 'low';
+  estimatedTime: number;
+  type?: string;
+  height?: number;
+  width?: number;
+  color?: string;
+  inputDiameter?: number;
+  outputDiameter?: number;
+  progress?: number;
+}
+
+interface Kafa {
+  id: number;
+  name: string;
+  status: 'running' | 'idle' | 'maintenance';
+  currentOrder: string | null;
+  queue: Order[];
+  efficiency: number;
+}
+
+interface Machine {
+  id: number;
+  name: string;
+  status: 'running' | 'idle' | 'setup';
+  currentOrder: {
+    id: string;
+    inputDiameter: number;
+    outputDiameter: number;
+    quantity: number;
+    progress: number;
+  } | null;
+  efficiency: number;
+}
+
+interface StockDetail {
+  material: string;
+  stock: number;
+  reserved: number;
+  unit: string;
+}
+
+interface FactoryLine {
+  status: string;
+  efficiency: number;
+  current_order?: string;
+}
+
+interface FactoryStatus {
+  active_orders: number;
+  completed_today: number;
+  overall_efficiency: number;
+  lines: Record<string, FactoryLine>;
+}
+
 // Galvaniz Line Planning Component with 36 Kafas
 const GalvanizLinePlanning = () => {
-  const [selectedKafa, setSelectedKafa] = useState(null);
+  const [selectedKafa, setSelectedKafa] = useState<Kafa | null>(null);
   const [showOrderDialog, setShowOrderDialog] = useState(false);
-  const [draggedOrder, setDraggedOrder] = useState(null);
+  const [draggedOrder, setDraggedOrder] = useState<Order | null>(null);
 
   // Generate 36 kafas with mock data
-  const kafas = Array.from({ length: 36 }, (_, i) => ({
+  const kafas: Kafa[] = Array.from({ length: 36 }, (_, i) => ({
     id: i + 1,
     name: `Kafa ${i + 1}`,
-    status: ['running', 'idle', 'maintenance'][Math.floor(Math.random() * 3)],
+    status: (['running', 'idle', 'maintenance'] as const)[Math.floor(Math.random() * 3)],
     currentOrder: Math.random() > 0.6 ? `GT-2024-${String(i + 100).padStart(3, '0')}` : null,
     queue: Math.random() > 0.7 ? [
-      { id: `order-${i}-1`, product: 'Galvanizli Tel 3mm', quantity: 500, estimatedTime: 120 },
-      { id: `order-${i}-2`, product: 'Galvanizli Tel 2.5mm', quantity: 300, estimatedTime: 90 }
+      { id: `order-${i}-1`, product: 'Galvanizli Tel 3mm', quantity: 500, priority: 'medium' as const, estimatedTime: 120 },
+      { id: `order-${i}-2`, product: 'Galvanizli Tel 2.5mm', quantity: 300, priority: 'low' as const, estimatedTime: 90 }
     ] : [],
     efficiency: Math.floor(Math.random() * 40) + 60
   }));
 
-  const globalOrderQueue = [
-    { id: 'global-1', product: 'Galvanizli Tel 2mm', quantity: 1000, priority: 'high', estimatedTime: 180 },
-    { id: 'global-2', product: 'Galvanizli Tel 3.5mm', quantity: 750, priority: 'medium', estimatedTime: 160 },
-    { id: 'global-3', product: 'Galvanizli Tel 2.5mm', quantity: 500, priority: 'low', estimatedTime: 120 }
+  const globalOrderQueue: Order[] = [
+    { id: 'global-1', product: 'Galvanizli Tel 2mm', quantity: 1000, priority: 'high' as const, estimatedTime: 180 },
+    { id: 'global-2', product: 'Galvanizli Tel 3.5mm', quantity: 750, priority: 'medium' as const, estimatedTime: 160 },
+    { id: 'global-3', product: 'Galvanizli Tel 2.5mm', quantity: 500, priority: 'low' as const, estimatedTime: 120 }
   ];
 
-  const handleDragStart = (e, order) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, order: Order) => {
     setDraggedOrder(order);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e, kafaId) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, kafaId: number) => {
     e.preventDefault();
     if (draggedOrder) {
       // Here we would call OR-Tools to optimize the placement
@@ -56,7 +115,7 @@ const GalvanizLinePlanning = () => {
     }
   };
 
-  const KafaCard = ({ kafa }) => (
+  const KafaCard = ({ kafa }: { kafa: Kafa }) => (
     <Card 
       className={`cursor-pointer transition-all hover:shadow-md ${selectedKafa?.id === kafa.id ? 'ring-2 ring-blue-500' : ''}`}
       onClick={() => setSelectedKafa(kafa)}
@@ -226,10 +285,10 @@ const GalvanizLinePlanning = () => {
 
 // Panel Çit Line Planning Component - Painting Bottleneck Focus
 const PanelCitLinePlanning = () => {
-  const [orderQueue, setOrderQueue] = useState([
-    { id: 'pc-1', type: 'Double Panel', height: 173, width: 250, color: 'RAL 6005 (Yeşil)', quantity: 100, priority: 'high', estimatedTime: 280 },
-    { id: 'pc-2', type: 'Single Panel', height: 203, width: 250, color: 'RAL 7016 (Antrasit)', quantity: 150, priority: 'medium', estimatedTime: 180 },
-    { id: 'pc-3', type: 'Double Panel', height: 123, width: 250, color: 'RAL 6005 (Yeşil)', quantity: 75, priority: 'low', estimatedTime: 210 }
+  const [orderQueue, setOrderQueue] = useState<Order[]>([
+    { id: 'pc-1', product: 'Panel Çit', type: 'Double Panel', height: 173, width: 250, color: 'RAL 6005 (Yeşil)', quantity: 100, priority: 'high' as const, estimatedTime: 280 },
+    { id: 'pc-2', product: 'Panel Çit', type: 'Single Panel', height: 203, width: 250, color: 'RAL 7016 (Antrasit)', quantity: 150, priority: 'medium' as const, estimatedTime: 180 },
+    { id: 'pc-3', product: 'Panel Çit', type: 'Double Panel', height: 123, width: 250, color: 'RAL 6005 (Yeşil)', quantity: 75, priority: 'low' as const, estimatedTime: 210 }
   ]);
 
   const paintingLineStatus = {
@@ -244,7 +303,7 @@ const PanelCitLinePlanning = () => {
     }
   };
 
-  const OrderCard = ({ order, isActive = false, isDraggable = true }) => (
+  const OrderCard = ({ order, isActive = false, isDraggable = true }: { order: any, isActive?: boolean, isDraggable?: boolean }) => (
     <Card className={`transition-all ${isActive ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'} ${isDraggable ? 'cursor-move' : ''}`}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
@@ -405,14 +464,14 @@ const PanelCitLinePlanning = () => {
 
 // Tel Çekme Line Planning Component - TLC_Hızlar Integration
 const TelCekmeLinePlanning = () => {
-  const [selectedMachine, setSelectedMachine] = useState(null);
-  const [tlcCalculator, setTlcCalculator] = useState({ inputDiameter: '', outputDiameter: '', calculatedSpeed: null });
+  const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
+  const [tlcCalculator, setTlcCalculator] = useState<{ inputDiameter: string; outputDiameter: string; calculatedSpeed: number | null }>({ inputDiameter: '', outputDiameter: '', calculatedSpeed: null });
 
   // 9 Tel Çekme machines
-  const machines = Array.from({ length: 9 }, (_, i) => ({
+  const machines: Machine[] = Array.from({ length: 9 }, (_, i) => ({
     id: i + 1,
     name: `TC${i + 1}`,
-    status: ['running', 'idle', 'setup'][Math.floor(Math.random() * 3)],
+    status: (['running', 'idle', 'setup'] as const)[Math.floor(Math.random() * 3)],
     currentOrder: Math.random() > 0.5 ? {
       id: `TC-2024-${String(i + 50).padStart(3, '0')}`,
       inputDiameter: [5, 6, 7, 8][Math.floor(Math.random() * 4)],
@@ -442,7 +501,7 @@ const TelCekmeLinePlanning = () => {
     }
   };
 
-  const MachineCard = ({ machine }) => (
+  const MachineCard = ({ machine }: { machine: Machine }) => (
     <Card 
       className={`cursor-pointer transition-all hover:shadow-md ${selectedMachine?.id === machine.id ? 'ring-2 ring-blue-500' : ''}`}
       onClick={() => setSelectedMachine(machine)}
@@ -632,14 +691,18 @@ const TelCekmeLinePlanning = () => {
 };
 
 export default function APSPlanlamaSistemi() {
-  const [activeOrders, setActiveOrders] = useState([]);
-  const [factoryStatus, setFactoryStatus] = useState(null);
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+  const [factoryStatus, setFactoryStatus] = useState<FactoryStatus | null>(null);
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('today');
   const [selectedLine, setSelectedLine] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [newOrderDialog, setNewOrderDialog] = useState(false);
   const [selectedLineForOrder, setSelectedLineForOrder] = useState('');
-  const [stockData, setStockData] = useState({
+  const [stockData, setStockData] = useState<{
+    totalStock: number;
+    orderBoundStock: number;
+    details: StockDetail[];
+  }>({
     totalStock: 0,
     orderBoundStock: 0,
     details: []
@@ -728,14 +791,14 @@ export default function APSPlanlamaSistemi() {
       totalStock: 245000, // kg
       orderBoundStock: 89000, // kg
       details: [
-        { material: 'Çelik Tel 5mm', stock: 15000, reserved: 8000, unit: 'kg' },
-        { material: 'Çinko', stock: 2500, reserved: 450, unit: 'kg' },
-        { material: 'Panel Malzeme', stock: 850, reserved: 200, unit: 'adet' }
+        { material: 'Çelik Tel 5mm', stock: 15000, reserved: 8000, unit: 'kg' } as StockDetail,
+        { material: 'Çinko', stock: 2500, reserved: 450, unit: 'kg' } as StockDetail,
+        { material: 'Panel Malzeme', stock: 850, reserved: 200, unit: 'adet' } as StockDetail
       ]
     });
   };
 
-  const ProductionSummaryCard = ({ title, value, change, icon: Icon, color }) => (
+  const ProductionSummaryCard = ({ title, value, change, icon: Icon, color }: { title: string, value: string | number, change?: number, icon: any, color: string }) => (
     <Card className="hover:shadow-lg transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
@@ -758,8 +821,8 @@ export default function APSPlanlamaSistemi() {
     </Card>
   );
 
-  const LineStatusBadge = ({ status }) => {
-    const statusConfig = {
+  const LineStatusBadge = ({ status }: { status: string }) => {
+    const statusConfig: Record<string, { color: string; text: string; icon: any }> = {
       running: { color: 'bg-green-500', text: 'Çalışıyor', icon: Play },
       idle: { color: 'bg-yellow-500', text: 'Beklemede', icon: Pause },
       maintenance: { color: 'bg-red-500', text: 'Bakım', icon: AlertTriangle }
@@ -972,7 +1035,7 @@ export default function APSPlanlamaSistemi() {
                       </div>
                       <div className="flex justify-between">
                         <span>Verimlilik:</span>
-                        <span className={status?.efficiency > 80 ? 'text-green-600' : status?.efficiency > 60 ? 'text-yellow-600' : 'text-red-600'}>
+                        <span className={(status?.efficiency ?? 0) > 80 ? 'text-green-600' : (status?.efficiency ?? 0) > 60 ? 'text-yellow-600' : 'text-red-600'}>
                           {status?.efficiency || 0}%
                         </span>
                       </div>
