@@ -18,6 +18,13 @@ export default function LoginPage() {
     if (user) {
       router.push('/');
     }
+    
+    // Wake up Render backend early (it can be slow to start)
+    // This ensures APS features are ready when user needs them
+    fetch('https://crm-factory-backend.onrender.com/api/aps/test')
+      .then(res => res.json())
+      .then(data => console.log('Render backend status:', data.status))
+      .catch(err => console.log('Render wake-up call (this is normal on first load):', err.message));
   }, [user, router]);
 
   const handleSubmit = async (e) => {
