@@ -218,6 +218,11 @@ const PRODUCTION_FLOWS = {
     { id: 'profil_kaynak', name: 'Profil Kaynak', displayName: 'Profil Kaynak İşlemi' },
     { id: 'boyama', name: 'Boyama', displayName: 'Boyama İşlemi' },
     { id: 'sevkiyat', name: 'Sevkıyat', displayName: 'Sevkıyat' }
+  ],
+  palet: [
+    { id: 'palet_hammadde', name: 'Palet Hammadde', displayName: 'Palet Hammadde Hazırlama' },
+    { id: 'palet_imalat', name: 'Palet İmalat', displayName: 'Palet İmalat İşlemi' },
+    { id: 'sevkiyat', name: 'Sevkıyat', displayName: 'Sevkıyat' }
   ]
 };
 
