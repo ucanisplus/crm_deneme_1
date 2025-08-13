@@ -58,6 +58,14 @@ export const API_URLS = {
   // New URLs for profile pictures
   getProfilePicture: `https://crm-deneme-backend.vercel.app/api/user/profile-picture`,
   updateProfilePicture: `https://crm-deneme-backend.vercel.app/api/user/profile-picture`,
+  
+  // APS endpoints - Try Render first (has OR-Tools), fallback to Vercel
+  apsCalculateTime: 'https://crm-factory-backend.onrender.com/api/aps/calculate-time',
+  apsOptimizeSchedule: 'https://crm-factory-backend.onrender.com/api/aps/optimize-schedule',
+  apsTest: 'https://crm-factory-backend.onrender.com/api/aps/test',
+  // Fallback URLs if Render is slow/down
+  apsCalculateTimeVercel: 'https://crm-deneme-backend.vercel.app/api/aps/calculate-time',
+  apsOptimizeScheduleVercel: 'https://crm-deneme-backend.vercel.app/api/aps/optimize-schedule',
 };
 
 /**
