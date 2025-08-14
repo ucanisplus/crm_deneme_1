@@ -101,7 +101,6 @@ interface UnifiedOrder {
   quantity: number;
   unit: string;
   specs: ProductSpec;
-  priority: 'urgent' | 'high' | 'medium' | 'low';
   dueDate: string;
   status: 'pending' | 'in_progress' | 'completed' | 'blocked';
   currentStage: string;
@@ -129,6 +128,9 @@ interface Machine {
   setupTimeRemaining?: number;
   operatorCount: number;
   powerRating?: number;
+  brand?: string;
+  model?: string;
+  specifications?: string;
 }
 
 interface ProductionLine {
@@ -645,7 +647,6 @@ const generateSampleOrders = (): UnifiedOrder[] => [
       diameter: 5.1,
       renk: 'RAL6005'
     },
-    priority: 'high',
     dueDate: '2024-08-20',
     status: 'in_progress',
     currentStage: 'panel_kaynak',
@@ -669,7 +670,6 @@ const generateSampleOrders = (): UnifiedOrder[] => [
       kaplama: 'NIT',
       agirlik: 2500
     },
-    priority: 'medium',
     dueDate: '2024-08-18',
     status: 'in_progress',
     currentStage: 'galvaniz_process',
@@ -693,7 +693,6 @@ const generateSampleOrders = (): UnifiedOrder[] => [
       uzunluk: 2000,
       cap_araligi: 6.0
     },
-    priority: 'low',
     dueDate: '2024-08-25',
     status: 'pending',
     currentStage: 'beklemede',
@@ -716,7 +715,6 @@ const generateSampleOrders = (): UnifiedOrder[] => [
       yuzey_islem: 'parlatma',
       paketleme_turu: 'dokme'
     },
-    priority: 'medium',
     dueDate: '2024-08-22',
     status: 'in_progress',
     currentStage: 'parlatma',
@@ -817,14 +815,6 @@ export default function ComprehensiveAPSSystem() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
 
   const getStockStatusColor = (status: string) => {
     switch (status) {
@@ -849,7 +839,6 @@ export default function ComprehensiveAPSSystem() {
         ),
         constraints: {
           due_date: order.dueDate,
-          priority: order.priority,
           setup_matrix: getSetupMatrix(order.productType),
           capacity_limits: getCapacityLimits(order.productType)
         }
@@ -878,8 +867,7 @@ export default function ComprehensiveAPSSystem() {
       
       setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
       
-      alert(`OR-Tools Optimizasyonu Tamamlandı!
-• Maliyet Tasarrufu: ${result.cost_saving}₺
+      alert(`Optimizasyon Tamamlandı!
 • Setup Azalması: ${result.setup_reduction} dakika
 • Atanan Makineler: ${result.optimal_machines.join(', ')}`);
       
@@ -928,7 +916,6 @@ export default function ComprehensiveAPSSystem() {
         <div className="flex items-center justify-between mb-4">
           <h4 className="font-medium">Üretim Süreci - {order.product}</h4>
           <div className="flex items-center space-x-2">
-            <Badge className={getPriorityColor(order.priority)}>{order.priority.toUpperCase()}</Badge>
             {order.orToolsOptimized && (
               <Badge className="bg-purple-100 text-purple-800">Optimize Edildi</Badge>
             )}
@@ -1247,9 +1234,9 @@ export default function ComprehensiveAPSSystem() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-purple-700">Maliyet Tasarrufu</p>
+                      <p className="text-sm font-medium text-purple-700">Toplam Sipariş</p>
                       <p className="text-3xl font-bold text-purple-900">
-                        {orders.filter(o => o.orToolsOptimized).reduce((acc, o) => acc + (o.costSaving || 0), 0).toLocaleString()}₺
+                        {orders.length}
                       </p>
                       <p className="text-xs text-purple-600 mt-1">bu ay</p>
                     </div>
@@ -1664,21 +1651,6 @@ export default function ComprehensiveAPSSystem() {
                       </Select>
                     </div>
 
-                    {/* Priority Filter */}
-                    <div className="min-w-[120px]">
-                      <Select defaultValue="all">
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Öncelik" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tüm Öncelikler</SelectItem>
-                          <SelectItem value="urgent">Acil</SelectItem>
-                          <SelectItem value="high">Yüksek</SelectItem>
-                          <SelectItem value="medium">Orta</SelectItem>
-                          <SelectItem value="low">Düşük</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
 
                     {/* Date Range Filter */}
                     <div className="min-w-[130px]">
@@ -1888,10 +1860,6 @@ export default function ComprehensiveAPSSystem() {
                             <span>Kapasite:</span>
                             <span className="font-medium">{machine.capacity}/saat</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Operatör:</span>
-                            <span className="font-medium">{machine.operatorCount} kişi</span>
-                          </div>
                         </div>
                         
                         {machine.currentProduct && (
@@ -1918,7 +1886,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Tel Çekme Hattı - 9 Makine + Araçap</CardTitle>
-                <p className="text-gray-600">4 operatör ile 10 makine yönetimi | Kapasite: Çap ve ürün tipine bağlı</p>
+                <p className="text-gray-600">Tel çekme ve ara çap makineleri</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('tel_cekme')}
@@ -2011,7 +1979,7 @@ export default function ComprehensiveAPSSystem() {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Durum:</span>
-                          <Badge className="bg-green-100 text-green-800">Aktif - Eski Fırın</Badge>
+                          <Badge className="bg-green-100 text-green-800">Aktif</Badge>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Kapasite:</span>
@@ -2237,7 +2205,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Çelik Hasır Hattı</CardTitle>
-                <p className="text-gray-600">15 operatör | Yarı oto + tam oto kaynak makineleri</p>
+                <p className="text-gray-600">Yarı oto + tam oto kaynak makineleri</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('hasir')}
@@ -2405,10 +2373,6 @@ export default function ComprehensiveAPSSystem() {
                       <CardContent>
                         <div className="space-y-3">
                           <div className="flex justify-between">
-                            <span>Maliyet Tasarrufu:</span>
-                            <span className="font-bold text-green-600">+{selectedOrder.costSaving?.toLocaleString()}₺</span>
-                          </div>
-                          <div className="flex justify-between">
                             <span>Ayar Süresi Azalması:</span>
                             <span className="font-bold text-purple-600">-{selectedOrder.setupReduction}dk</span>
                           </div>
@@ -2456,6 +2420,14 @@ export default function ComprehensiveAPSSystem() {
               <DialogHeader>
                 <DialogTitle className="text-xl">
                   {selectedMachine.name} ({selectedMachine.code})
+                  {selectedMachine.brand && (
+                    <div className="text-sm text-gray-600 mt-1 font-normal">
+                      {selectedMachine.brand} {selectedMachine.model}
+                      {selectedMachine.specifications && (
+                        <div className="text-xs text-gray-500 mt-1">{selectedMachine.specifications}</div>
+                      )}
+                    </div>
+                  )}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-6 mt-4">
