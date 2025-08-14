@@ -191,7 +191,7 @@ export class ProductCalculator {
       weight: totalWeight,
       surface_area: surfaceArea,
       raw_materials: rawMaterials,
-      production_time: this.calculatePanelProductionTime(panel_tipi, surfaceArea, specs.boyali),
+      production_time: this.calculatePanelProductionTime(panel_tipi, surfaceArea, specs.boyali || false),
       stok_kodu: stokKodu,
       stok_adi: stokAdi,
       specifications: specs
@@ -324,7 +324,7 @@ export class ProductCalculator {
       product_type: 'profil',
       weight: profilWeight,
       raw_materials: rawMaterials,
-      production_time: this.calculateProfilProductionTime(yukseklik, specs.galvanizli),
+      production_time: this.calculateProfilProductionTime(yukseklik, specs.galvanizli || false),
       stok_kodu: stokKodu,
       stok_adi: stokAdi,
       specifications: specs
