@@ -46,7 +46,11 @@ import {
   Layers,
   GitBranch,
   Database,
-  Gauge
+  Gauge,
+  Flame,
+  Wrench,
+  ShoppingCart,
+  AlertCircle
 } from 'lucide-react';
 
 // Comprehensive Types based on real production flow
@@ -141,12 +145,15 @@ interface StockInfo {
   stokAdi: string;
   stokKodu: string;
   miktar: number;
+  stokMiktari: number; // Total stock amount
   birim: string;
   sipariseBagliStok: number;
   serbestStok: number;
   minimumStok: number;
+  kritikStok: number; // Critical stock level
   lokasyon: string;
   status: 'normal' | 'critical' | 'low';
+  rezervedFor?: string[]; // Orders this stock is reserved for
 }
 
 interface ProcessStage {
@@ -330,7 +337,7 @@ const generateMachines = (): Machine[] => {
       efficiency: Math.floor(Math.random() * 30) + 70,
       queue: [],
       nextAvailable: `${9 + Math.floor(Math.random() * 8)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
-      capacity: 800,
+      capacity: Math.floor(Math.random() * 500) + 500, // Çapa bağlı değişken kapasite
       operatorCount: 1,
       currentProduct: Math.random() > 0.5 ? `Siyah Tel ${(Math.random() * 3 + 2).toFixed(1)}mm` : undefined,
       setupTimeRemaining: Math.random() > 0.7 ? Math.floor(Math.random() * 60) + 15 : undefined
@@ -597,26 +604,26 @@ const generateMachines = (): Machine[] => {
 // Generate comprehensive stock data
 const mockStock: StockInfo[] = [
   // Hammadde
-  { stokAdi: 'Filmaşin 6.00mm 1008 Kalite', stokKodu: 'FLM.0600.1008', miktar: 25000, birim: 'kg', sipariseBagliStok: 8000, serbestStok: 17000, minimumStok: 5000, lokasyon: 'HAMMADDE_1', status: 'normal' },
-  { stokAdi: 'Filmaşin 7.00mm 1010 Kalite', stokKodu: 'FLM.0700.1010', miktar: 18000, birim: 'kg', sipariseBagliStok: 5500, serbestStok: 12500, minimumStok: 4000, lokasyon: 'HAMMADDE_1', status: 'normal' },
-  { stokAdi: 'Profil Hammadde Galvanizli', stokKodu: 'PROF.GLVZ.01', miktar: 2500, birim: 'kg', sipariseBagliStok: 800, serbestStok: 1700, minimumStok: 1000, lokasyon: 'HAMMADDE_2', status: 'normal' },
+  { stokAdi: 'Filmaşin 6.00mm 1008 Kalite', stokKodu: 'FLM.0600.1008', miktar: 25000, stokMiktari: 25000, birim: 'kg', sipariseBagliStok: 8000, serbestStok: 17000, minimumStok: 5000, kritikStok: 3000, lokasyon: 'HAMMADDE_1', status: 'normal', rezervedFor: ['SIP-2024-001', 'SIP-2024-003'] },
+  { stokAdi: 'Filmaşin 7.00mm 1010 Kalite', stokKodu: 'FLM.0700.1010', miktar: 18000, stokMiktari: 18000, birim: 'kg', sipariseBagliStok: 5500, serbestStok: 12500, minimumStok: 4000, kritikStok: 2500, lokasyon: 'HAMMADDE_1', status: 'normal', rezervedFor: ['SIP-2024-002'] },
+  { stokAdi: 'Profil Hammadde Galvanizli', stokKodu: 'PROF.GLVZ.01', miktar: 2500, stokMiktari: 2500, birim: 'kg', sipariseBagliStok: 800, serbestStok: 1700, minimumStok: 1000, kritikStok: 800, lokasyon: 'HAMMADDE_2', status: 'normal' },
   
   // Yarı Mamul
-  { stokAdi: 'Siyah Tel 2.00mm', stokKodu: 'YM.ST.0200.00', miktar: 12000, birim: 'kg', sipariseBagliStok: 5500, serbestStok: 6500, minimumStok: 2000, lokasyon: 'YARIMAMUL_1', status: 'normal' },
-  { stokAdi: 'Siyah Tel 4.00mm', stokKodu: 'YM.ST.0400.00', miktar: 8500, birim: 'kg', sipariseBagliStok: 3200, serbestStok: 5300, minimumStok: 1500, lokasyon: 'YARIMAMUL_1', status: 'normal' },
-  { stokAdi: 'Nervürlü Tel 6.5mm', stokKodu: 'YM.NTEL.0650', miktar: 4200, birim: 'kg', sipariseBagliStok: 1800, serbestStok: 2400, minimumStok: 1000, lokasyon: 'YARIMAMUL_2', status: 'normal' },
+  { stokAdi: 'Siyah Tel 2.00mm', stokKodu: 'YM.ST.0200.00', miktar: 12000, stokMiktari: 12000, birim: 'kg', sipariseBagliStok: 5500, serbestStok: 6500, minimumStok: 2000, kritikStok: 1500, lokasyon: 'YARIMAMUL_1', status: 'normal', rezervedFor: ['SIP-2024-004'] },
+  { stokAdi: 'Siyah Tel 4.00mm', stokKodu: 'YM.ST.0400.00', miktar: 8500, stokMiktari: 8500, birim: 'kg', sipariseBagliStok: 3200, serbestStok: 5300, minimumStok: 1500, kritikStok: 1200, lokasyon: 'YARIMAMUL_1', status: 'normal' },
+  { stokAdi: 'Nervürlü Tel 6.5mm', stokKodu: 'YM.NTEL.0650', miktar: 4200, stokMiktari: 4200, birim: 'kg', sipariseBagliStok: 1800, serbestStok: 2400, minimumStok: 1000, kritikStok: 800, lokasyon: 'YARIMAMUL_2', status: 'normal' },
   
   // Mamul
-  { stokAdi: 'Galvanizli Tel NIT 1.22mm', stokKodu: 'GT.NIT.0122.00', miktar: 8500, birim: 'kg', sipariseBagliStok: 3000, serbestStok: 5500, minimumStok: 1500, lokasyon: 'MAMUL_GALV', status: 'normal' },
-  { stokAdi: 'Galvanizli Tel PAD 3.90mm', stokKodu: 'GT.PAD.0390.00', miktar: 6200, birim: 'kg', sipariseBagliStok: 2100, serbestStok: 4100, minimumStok: 1200, lokasyon: 'MAMUL_GALV', status: 'normal' },
-  { stokAdi: 'Panel Çit 2D 830x2500mm RAL6005', stokKodu: '2D.0740.0540.2500.2030.51.6005', miktar: 150, birim: 'adet', sipariseBagliStok: 80, serbestStok: 70, minimumStok: 50, lokasyon: 'MAMUL_PANEL', status: 'normal' },
+  { stokAdi: 'Galvanizli Tel NIT 1.22mm', stokKodu: 'GT.NIT.0122.00', miktar: 8500, stokMiktari: 8500, birim: 'kg', sipariseBagliStok: 3000, serbestStok: 5500, minimumStok: 1500, kritikStok: 1000, lokasyon: 'MAMUL_GALV', status: 'normal' },
+  { stokAdi: 'Galvanizli Tel PAD 3.90mm', stokKodu: 'GT.PAD.0390.00', miktar: 6200, stokMiktari: 6200, birim: 'kg', sipariseBagliStok: 2100, serbestStok: 4100, minimumStok: 1200, kritikStok: 900, lokasyon: 'MAMUL_GALV', status: 'normal' },
+  { stokAdi: 'Panel Çit 2D 830x2500mm RAL6005', stokKodu: '2D.0740.0540.2500.2030.51.6005', miktar: 150, stokMiktari: 150, birim: 'adet', sipariseBagliStok: 80, serbestStok: 70, minimumStok: 50, kritikStok: 30, lokasyon: 'MAMUL_PANEL', status: 'normal' },
   
   // Yardımcı Malzemeler
-  { stokAdi: 'Çinko (Galvaniz)', stokKodu: 'CNKO.GLV.01', miktar: 850, birim: 'kg', sipariseBagliStok: 200, serbestStok: 650, minimumStok: 300, lokasyon: 'KIMYASAL_1', status: 'critical' },
-  { stokAdi: 'Asit (HCl)', stokKodu: 'ASIT.HCL.01', miktar: 1200, birim: 'L', sipariseBagliStok: 300, serbestStok: 900, minimumStok: 500, lokasyon: 'KIMYASAL_1', status: 'normal' },
-  { stokAdi: 'Boya RAL6005', stokKodu: 'BOYA.RAL6005', miktar: 180, birim: 'kg', sipariseBagliStok: 45, serbestStok: 135, minimumStok: 100, lokasyon: 'BOYA_DEPO', status: 'low' },
-  { stokAdi: 'Boş Makara', stokKodu: 'MAKARA.BOS.01', miktar: 230, birim: 'adet', sipariseBagliStok: 45, serbestStok: 185, minimumStok: 100, lokasyon: 'MAKARA_DEPO', status: 'critical' },
-  { stokAdi: 'Kaynak Elektrodu', stokKodu: 'ELKT.KYNK.01', miktar: 450, birim: 'kg', sipariseBagliStok: 80, serbestStok: 370, minimumStok: 150, lokasyon: 'KAYNAK_DEPO', status: 'normal' }
+  { stokAdi: 'Çinko (Galvaniz)', stokKodu: 'CNKO.GLV.01', miktar: 850, stokMiktari: 850, birim: 'kg', sipariseBagliStok: 200, serbestStok: 650, minimumStok: 300, kritikStok: 250, lokasyon: 'KIMYASAL_1', status: 'critical' },
+  { stokAdi: 'Asit (HCl)', stokKodu: 'ASIT.HCL.01', miktar: 1200, stokMiktari: 1200, birim: 'L', sipariseBagliStok: 300, serbestStok: 900, minimumStok: 500, kritikStok: 400, lokasyon: 'KIMYASAL_1', status: 'normal' },
+  { stokAdi: 'Boya RAL6005', stokKodu: 'BOYA.RAL6005', miktar: 180, stokMiktari: 180, birim: 'kg', sipariseBagliStok: 45, serbestStok: 135, minimumStok: 100, kritikStok: 80, lokasyon: 'BOYA_DEPO', status: 'low' },
+  { stokAdi: 'Boş Makara', stokKodu: 'MAKARA.BOS.01', miktar: 230, stokMiktari: 230, birim: 'adet', sipariseBagliStok: 45, serbestStok: 185, minimumStok: 100, kritikStok: 80, lokasyon: 'MAKARA_DEPO', status: 'critical' },
+  { stokAdi: 'Kaynak Elektrodu', stokKodu: 'ELKT.KYNK.01', miktar: 450, stokMiktari: 450, birim: 'kg', sipariseBagliStok: 80, serbestStok: 370, minimumStok: 150, kritikStok: 120, lokasyon: 'KAYNAK_DEPO', status: 'normal' }
 ];
 
 // Generate sample orders
@@ -742,6 +749,28 @@ export default function ComprehensiveAPSSystem() {
   const [stock] = useState<StockInfo[]>(mockStock);
   const [productionLines] = useState<ProductionLine[]>(mockProductionLines);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [selectedLineForDetail, setSelectedLineForDetail] = useState<string | null>(null);
+  const [showLineDetailModal, setShowLineDetailModal] = useState(false);
+
+  // Reçete (Recipe) and Raw Material System Integration
+  const [recipeData] = useState({
+    // Connected calculation components with full recipe support:
+    galvanizliTel: {
+      component: '/components/GalvanizliTelNetsis.jsx',
+      features: ['Otomatik reçete hesaplama', 'YM ST bileşen optimizasyonu', 'Kaplama hesaplamaları', 'Excel export'],
+      rawMaterials: ['Filmaşin', 'Çinko', 'Alüminyum', 'Demir klorür']
+    },
+    panelCit: {
+      component: '/components/PanelCitHesaplama.jsx', 
+      features: ['Profil hammadde hesaplama', 'Tel tüketim analizi', 'Maliyet optimizasyonu'],
+      rawMaterials: ['Profiller', 'Galvanizli Tel', 'Aksesuar parçaları']
+    },
+    celikHasir: {
+      component: '/components/CelikHasirHesaplama.jsx',
+      features: ['Tel tüketim hesaplama', 'Kaynak süre optimizasyonu'],
+      rawMaterials: ['Çelik tel', 'Kaynak malzemesi']
+    }
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -884,7 +913,7 @@ export default function ComprehensiveAPSSystem() {
           <div className="flex items-center space-x-2">
             <Badge className={getPriorityColor(order.priority)}>{order.priority.toUpperCase()}</Badge>
             {order.orToolsOptimized && (
-              <Badge className="bg-purple-100 text-purple-800">OR-Tools Optimized</Badge>
+              <Badge className="bg-purple-100 text-purple-800">OR-Tools ile Optimize Edildi</Badge>
             )}
           </div>
         </div>
@@ -981,11 +1010,6 @@ export default function ComprehensiveAPSSystem() {
                   <span>Operatör:</span>
                   <span>{machine.operatorCount}</span>
                 </div>
-                {machine.setupTimeRemaining && (
-                  <div className="text-purple-600 font-medium">
-                    Setup: {machine.setupTimeRemaining}dk
-                  </div>
-                )}
                 <div className="pt-1 border-t flex items-center justify-center">
                   <MousePointer2 className="w-3 h-3 mr-1" />
                   <span className="text-gray-500">Detay için tıkla</span>
@@ -1015,13 +1039,13 @@ export default function ComprehensiveAPSSystem() {
               </p>
               <div className="flex items-center mt-2 text-sm text-gray-500">
                 <Activity className="w-4 h-4 mr-1" />
-                <span>Real-time Production Tracking</span>
+                <span>Gerçek Zamanlı Üretim Takibi</span>
                 <span className="mx-2">•</span>
                 <GitBranch className="w-4 h-4 mr-1" />
-                <span>Horizontal Process Flow</span>
+                <span>Yatay Süreç Akışı</span>
                 <span className="mx-2">•</span>
                 <Database className="w-4 h-4 mr-1" />
-                <span>Unified Machine & Order Views</span>
+                <span>Birleşik Makine & Sipariş Görünümleri</span>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -1092,72 +1116,50 @@ export default function ComprehensiveAPSSystem() {
           </div>
         </div>
 
-        {/* Stock Summary Cards - Always Visible */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {stock.slice(0, 12).map((item, index) => (
-            <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedStock(item)}>
-              <CardContent className="p-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Package className="w-4 h-4 text-blue-600" />
-                    <div className={`w-2 h-2 rounded-full ${getStockStatusColor(item.status)}`} />
-                  </div>
-                  <h4 className="font-medium text-xs leading-tight line-clamp-2">{item.stokAdi}</h4>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Toplam:</span>
-                      <span className="font-bold">{item.miktar.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Bağlı:</span>
-                      <span className="font-medium text-orange-600">{item.sipariseBagliStok.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Serbest:</span>
-                      <span className="font-medium text-green-600">{item.serbestStok.toLocaleString()}</span>
-                    </div>
-                    <div className="text-center text-gray-400 mt-1">{item.birim}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Stock Cards moved to separate screen - show only when activeView is 'stoklar' */}
 
-        {/* Main Tabs System */}
+        {/* Main Tabs System - Reorganized */}
         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
-            <TabsTrigger value="overview" className="flex items-center space-x-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Genel Bakış</span>
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-10 gap-1">
+            <TabsTrigger value="overview" className="flex items-center space-x-1">
+              <BarChart3 className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Genel Bakış</span>
             </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center space-x-2">
-              <Package className="w-4 h-4" />
-              <span className="hidden sm:inline">Sipariş Görünümü</span>
+            <TabsTrigger value="stoklar" className="flex items-center space-x-1">
+              <Package className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Stoklar</span>
             </TabsTrigger>
-            <TabsTrigger value="machines" className="flex items-center space-x-2">
-              <Factory className="w-4 h-4" />
-              <span className="hidden sm:inline">Makine Görünümü</span>
+            <TabsTrigger value="orders" className="flex items-center space-x-1">
+              <ShoppingCart className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Siparişler</span>
             </TabsTrigger>
-            <TabsTrigger value="tel_cekme" className="flex items-center space-x-2">
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Tel Çekme</span>
+            <TabsTrigger value="tel_cekme" className="flex items-center space-x-1">
+              <Settings className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Tel Çekme</span>
             </TabsTrigger>
-            <TabsTrigger value="galvaniz" className="flex items-center space-x-2">
-              <Layers className="w-4 h-4" />
-              <span className="hidden sm:inline">Galvaniz</span>
+            <TabsTrigger value="galvaniz" className="flex items-center space-x-1">
+              <Layers className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Galvaniz</span>
             </TabsTrigger>
-            <TabsTrigger value="panel" className="flex items-center space-x-2">
-              <Gauge className="w-4 h-4" />
-              <span className="hidden sm:inline">Panel Çit</span>
+            <TabsTrigger value="tavli" className="flex items-center space-x-1">
+              <Flame className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Tavlı Tel</span>
             </TabsTrigger>
-            <TabsTrigger value="hasir" className="flex items-center space-x-2">
-              <Activity className="w-4 h-4" />
-              <span className="hidden sm:inline">Çelik Hasır</span>
+            <TabsTrigger value="civi" className="flex items-center space-x-1">
+              <Wrench className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Çivi</span>
             </TabsTrigger>
-            <TabsTrigger value="lines" className="flex items-center space-x-2">
-              <GitBranch className="w-4 h-4" />
-              <span className="hidden sm:inline">Diğer Hatlar</span>
+            <TabsTrigger value="hasir" className="flex items-center space-x-1">
+              <Activity className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Çelik Hasır</span>
+            </TabsTrigger>
+            <TabsTrigger value="panel" className="flex items-center space-x-1">
+              <Gauge className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Panel Çit</span>
+            </TabsTrigger>
+            <TabsTrigger value="lines" className="flex items-center space-x-1">
+              <GitBranch className="w-3 h-3" />
+              <span className="hidden xl:inline text-xs">Profil/Palet</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1263,69 +1265,303 @@ export default function ComprehensiveAPSSystem() {
               </CardContent>
             </Card>
 
-            {/* Active Orders with Horizontal Timeline */}
+            {/* Üretim Hatları Kapasite Durumu */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <GitBranch className="w-5 h-5 mr-2" />
-                    Aktif Siparişler - Horizontal İzleme
+                    <Gauge className="w-5 h-5 mr-2" />
+                    Üretim Hatları Kapasite ve Verimlilik
                   </div>
                   <Badge variant="outline" className="text-lg px-3 py-1">
-                    {orders.filter(o => o.status === 'in_progress').length} aktif
+                    6 ana hat
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {orders.filter(o => o.status === 'in_progress').map((order) => (
-                    <div key={order.id} className="p-6 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <span className="font-bold text-lg">{order.orderNumber}</span>
-                          <Badge className={getPriorityColor(order.priority)}>{order.priority.toUpperCase()}</Badge>
-                          {order.orToolsOptimized && (
-                            <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                              <Zap className="w-3 h-3 mr-1" />
-                              OR-Tools
-                            </Badge>
-                          )}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {/* Tel Çekme */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-blue-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('tel_cekme');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Tel Çekme</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#3b82f6" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.72)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">72%</span>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          {order.orToolsOptimized && (
-                            <div className="text-right text-sm">
-                              <div className="text-green-600 font-medium">+{order.costSaving?.toLocaleString()}₺ tasarruf</div>
-                              <div className="text-purple-600">-{order.setupReduction}dk setup</div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">9 makine aktif</p>
+                    </div>
+                  </div>
+
+                  {/* Galvaniz */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-green-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('galvaniz');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Galvaniz</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#10b981" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.84)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">84%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">36 kafa</p>
+                    </div>
+                  </div>
+
+                  {/* Tavlı Tel */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-orange-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('tavli_tel');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Tavlı Tel</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#f97316" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.91)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">91%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">Fırın + Yağlama</p>
+                    </div>
+                  </div>
+
+                  {/* Çivi */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-red-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('civi');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Çivi</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#ef4444" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.56)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">56%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">9 makine</p>
+                    </div>
+                  </div>
+
+                  {/* Çelik Hasır */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-purple-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('celik_hasir');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Çelik Hasır</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#a855f7" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.75)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">75%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">2 makine</p>
+                    </div>
+                  </div>
+
+                  {/* Panel Çit */}
+                  <div 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-b from-indigo-50 to-white"
+                    onClick={() => {
+                      setSelectedLineForDetail('panel_cit');
+                      setShowLineDetailModal(true);
+                    }}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-semibold text-sm mb-2">Panel Çit</h4>
+                      <div className="relative w-20 h-20 mx-auto">
+                        <svg className="transform -rotate-90 w-20 h-20">
+                          <circle cx="40" cy="40" r="36" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                          <circle 
+                            cx="40" cy="40" r="36" 
+                            stroke="#6366f1" 
+                            strokeWidth="8" 
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 36}`}
+                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - 0.68)}`}
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold">68%</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">Kesme + Kaynak</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Stoklar Tab */}
+          <TabsContent value="stoklar" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Package className="w-5 h-5 mr-2" />
+                    Stok Yönetimi
+                  </div>
+                  <Badge variant="outline" className="text-lg px-3 py-1">
+                    {stock.length} ürün
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {stock.map((item) => (
+                    <Card 
+                      key={item.stokKodu} 
+                      className="hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-white to-gray-50"
+                      onClick={() => setSelectedStock(item)}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <Badge variant={item.stokMiktari > item.kritikStok ? "default" : "destructive"}>
+                            {item.stokKodu}
+                          </Badge>
+                          <Package className="w-4 h-4 text-gray-400" />
+                        </div>
+                        <CardTitle className="text-sm mt-2">{item.stokAdi}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Toplam Stok:</span>
+                            <span className="font-bold">{item.stokMiktari.toLocaleString()} {item.birim}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Siparişe Bağlı:</span>
+                            <span className="font-medium text-blue-600">{item.sipariseBagliStok.toLocaleString()} {item.birim}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Serbest:</span>
+                            <span className="font-medium text-green-600">{item.serbestStok.toLocaleString()} {item.birim}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-2 border-t">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">Kritik Stok:</span>
+                            <span className="text-xs font-medium">{item.kritikStok.toLocaleString()} {item.birim}</span>
+                          </div>
+                          {item.stokMiktari <= item.kritikStok && (
+                            <div className="mt-2 p-2 bg-red-50 rounded-md">
+                              <p className="text-xs text-red-700 font-medium flex items-center">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Kritik seviyede!
+                              </p>
                             </div>
                           )}
-                          <Button size="sm" variant="outline" onClick={() => setSelectedOrder(order)}>
-                            <Eye className="w-4 h-4 mr-1" />
-                            Detay
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => optimizeWithORTools(order)}
-                            disabled={isOptimizing || order.orToolsOptimized}
-                          >
-                            <Zap className="w-4 h-4 mr-1" />
-                            {order.orToolsOptimized ? 'Optimized' : 'OR-Tools'}
-                          </Button>
                         </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <p className="font-medium text-gray-900">{order.product}</p>
-                        <div className="flex items-center space-x-6 text-sm text-gray-600 mt-2">
-                          <span>{order.customer}</span>
-                          <span>{order.quantity.toLocaleString()} {order.unit}</span>
-                          <span>Teslim: {new Date(order.dueDate).toLocaleDateString('tr-TR')}</span>
-                          <span className="text-blue-600">Makineler: {order.assignedMachines.join(', ')}</span>
+
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Doluluk</span>
+                            <span>{Math.round((item.stokMiktari / (item.stokMiktari + item.kritikStok * 2)) * 100)}%</span>
+                          </div>
+                          <Progress 
+                            value={Math.round((item.stokMiktari / (item.stokMiktari + item.kritikStok * 2)) * 100)} 
+                            className="h-2"
+                          />
                         </div>
-                      </div>
-                      
-                      {renderHorizontalTimeline(order)}
-                    </div>
+
+                        {item.rezervedFor && item.rezervedFor.length > 0 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-xs text-gray-500">Rezerve:</p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.rezervedFor.slice(0, 2).map((order) => (
+                                <Badge key={order} variant="secondary" className="text-xs">
+                                  {order}
+                                </Badge>
+                              ))}
+                              {item.rezervedFor.length > 2 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{item.rezervedFor.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </CardContent>
@@ -1351,6 +1587,124 @@ export default function ComprehensiveAPSSystem() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Order Filters */}
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                  <div className="flex flex-wrap items-center gap-4 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Filter className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">Filtreler:</span>
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div className="min-w-[150px]">
+                      <Select defaultValue="all">
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Durum" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Durumlar</SelectItem>
+                          <SelectItem value="pending">Beklemede</SelectItem>
+                          <SelectItem value="in_progress">Devam Ediyor</SelectItem>
+                          <SelectItem value="completed">Tamamlandı</SelectItem>
+                          <SelectItem value="blocked">Engellendi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Product Type Filter */}
+                    <div className="min-w-[150px]">
+                      <Select defaultValue="all">
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Ürün Tipi" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Ürünler</SelectItem>
+                          <SelectItem value="galvaniz">Galvanizli Tel</SelectItem>
+                          <SelectItem value="panel">Panel Çit</SelectItem>
+                          <SelectItem value="hasir">Çelik Hasır</SelectItem>
+                          <SelectItem value="civi">Çivi</SelectItem>
+                          <SelectItem value="tavli">Tavlı Tel</SelectItem>
+                          <SelectItem value="profil">Profil</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Priority Filter */}
+                    <div className="min-w-[120px]">
+                      <Select defaultValue="all">
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Öncelik" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Öncelikler</SelectItem>
+                          <SelectItem value="urgent">Acil</SelectItem>
+                          <SelectItem value="high">Yüksek</SelectItem>
+                          <SelectItem value="medium">Orta</SelectItem>
+                          <SelectItem value="low">Düşük</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div className="min-w-[130px]">
+                      <Select defaultValue="all">
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Zaman Aralığı" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Zamanlar</SelectItem>
+                          <SelectItem value="today">Bugün</SelectItem>
+                          <SelectItem value="week">Bu Hafta</SelectItem>
+                          <SelectItem value="month">Bu Ay</SelectItem>
+                          <SelectItem value="overdue">Geciken</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* OR-Tools Filter */}
+                    <div className="min-w-[120px]">
+                      <Select defaultValue="all">
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="OR-Tools" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Hepsi</SelectItem>
+                          <SelectItem value="optimized">Optimize Edildi</SelectItem>
+                          <SelectItem value="not_optimized">Optimize Edilmedi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        placeholder="Sipariş no, müşteri adı veya ürün ara..."
+                        className="pl-10 h-8 text-xs"
+                      />
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 px-3">
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Temizle
+                    </Button>
+                  </div>
+
+                  {/* Active Filters Display */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="text-xs text-gray-500">Aktif Filtreler:</span>
+                    <Badge variant="secondary" className="text-xs">
+                      Tüm Durumlar
+                      <XCircle className="w-3 h-3 ml-1 cursor-pointer" />
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Tüm Ürünler
+                      <XCircle className="w-3 h-3 ml-1 cursor-pointer" />
+                    </Badge>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {orders.map((order, index) => (
                     <div
@@ -1511,11 +1865,6 @@ export default function ComprehensiveAPSSystem() {
                           </div>
                         )}
                         
-                        {machine.setupTimeRemaining && (
-                          <div className="mt-2 p-2 bg-purple-50 rounded text-xs text-purple-700 text-center">
-                            Setup: {machine.setupTimeRemaining} dakika kaldı
-                          </div>
-                        )}
                         
                         <div className="mt-3 pt-3 border-t flex items-center justify-center text-xs text-gray-500">
                           <MousePointer2 className="w-3 h-3 mr-1" />
@@ -1534,7 +1883,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Tel Çekme Hattı - 9 Makine + Araçap</CardTitle>
-                <p className="text-gray-600">4 operatör ile 10 makine yönetimi | 800 kg/saat makine başına</p>
+                <p className="text-gray-600">4 operatör ile 10 makine yönetimi | Kapasite: Çap ve ürün tipine bağlı</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('tel_cekme')}
@@ -1606,11 +1955,215 @@ export default function ComprehensiveAPSSystem() {
             </Card>
           </TabsContent>
 
+          {/* Tavlı Tel Tab */}
+          <TabsContent value="tavli" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tavlı Tel Hattı</CardTitle>
+                <p className="text-gray-600">3 operatör | Fırın + Yağlama sistemleri</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Fırın Alt Sistemi */}
+                  <Card className="border-2">
+                    <CardHeader className="bg-orange-50">
+                      <CardTitle className="text-lg flex items-center">
+                        <Flame className="w-5 h-5 mr-2 text-orange-600" />
+                        Fırın Alt Sistemi
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Durum:</span>
+                          <Badge className="bg-green-100 text-green-800">Aktif - Eski Fırın</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Kapasite:</span>
+                          <span className="font-medium">Ürün tipine bağlı</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Operatör:</span>
+                          <span className="font-medium">2 kişi</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Sıcaklık:</span>
+                          <span className="font-medium text-orange-600">850°C</span>
+                        </div>
+                        <Progress value={91} className="mt-3" />
+                        <p className="text-xs text-gray-500 text-center">Verimlilik: 91%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Yağlama Makinesi */}
+                  <Card className="border-2">
+                    <CardHeader className="bg-blue-50">
+                      <CardTitle className="text-lg">Yağlama Makinesi</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Ürün:</span>
+                          <Badge variant="outline">Balya Teli</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Kapasite:</span>
+                          <span className="font-medium">Veri gerekli</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Operatör:</span>
+                          <span className="font-medium">1 kişi</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Yağ Tipi:</span>
+                          <span className="font-medium">Endüstriyel</span>
+                        </div>
+                        <Progress value={88} className="mt-3" />
+                        <p className="text-xs text-gray-500 text-center">Verimlilik: 88%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Üretim Özeti */}
+                <Card className="mt-6 bg-gradient-to-r from-orange-50 to-blue-50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Günlük Üretim Özeti</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-2xl font-bold text-orange-600">12.5</p>
+                        <p className="text-sm text-gray-600">Ton/Gün</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-blue-600">3</p>
+                        <p className="text-sm text-gray-600">Aktif Sipariş</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">91%</p>
+                        <p className="text-sm text-gray-600">Hat Verimi</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Çivi Tab */}
+          <TabsContent value="civi" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Çivi Üretim Hattı</CardTitle>
+                <p className="text-gray-600">9 makine | 2 Jingu + 7 Enkotek</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Jingu Makineleri */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Badge className="mr-2">Jingu</Badge>
+                      2 Makine
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[1, 2].map((id) => (
+                        <Card key={id} className="hover:shadow-md transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-sm">Jingu #{id}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Durum:</span>
+                                <Badge className={id === 1 ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                                  {id === 1 ? "Çalışıyor" : "Bakımda"}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Kapasite:</span>
+                                <span className="font-medium">Çapa bağlı</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Üretim:</span>
+                                <span className="font-medium">{id === 1 ? "2.5mm çivi" : "-"}</span>
+                              </div>
+                              <Progress value={id === 1 ? 65 : 0} className="mt-2" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Enkotek Makineleri */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Badge className="mr-2" variant="outline">Enkotek</Badge>
+                      7 Makine
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4, 5, 6, 7].map((id) => {
+                        const isRunning = id <= 5;
+                        return (
+                          <Card key={id} className="hover:shadow-md transition-shadow">
+                            <CardHeader className="pb-2 pt-3">
+                              <CardTitle className="text-xs">Enkotek #{id}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pb-3">
+                              <div className="space-y-1 text-xs">
+                                <Badge 
+                                  variant={isRunning ? "default" : "secondary"}
+                                  className="w-full justify-center"
+                                >
+                                  {isRunning ? "Aktif" : "Boşta"}
+                                </Badge>
+                                <div className="text-center text-gray-600 mt-1">
+                                  {isRunning ? `${(Math.random() * 3 + 2).toFixed(1)}mm` : "-"}
+                                </div>
+                                <Progress value={isRunning ? Math.floor(Math.random() * 40) + 40 : 0} className="h-1" />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Özet Bilgiler */}
+                  <Card className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-4 gap-4 text-center">
+                        <div>
+                          <p className="text-2xl font-bold">9</p>
+                          <p className="text-xs text-gray-600">Toplam Makine</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-green-600">6</p>
+                          <p className="text-xs text-gray-600">Aktif</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-blue-600">56%</p>
+                          <p className="text-xs text-gray-600">Verimlilik</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-orange-600">4.2</p>
+                          <p className="text-xs text-gray-600">Ton/Gün</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="panel" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Panel Çit Hattı</CardTitle>
-                <p className="text-gray-600">40-60 panel/saat | Setup matrisi: 76x76 kombinasyon</p>
+                <p className="text-gray-600">40-60 panel/saat | Kapasite: Ürün tipine bağlı</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('panel')}
@@ -1634,7 +2187,7 @@ export default function ComprehensiveAPSSystem() {
                         </div>
                         {order.orToolsOptimized && (
                           <div className="mt-2 text-xs text-purple-600">
-                            ✓ OR-Tools Optimized - Setup {order.setupReduction}dk azaldı
+                            ✓ OR-Tools ile Optimize Edildi - Ayar Süresi {order.setupReduction}dk azaldı
                           </div>
                         )}
                       </div>
@@ -1677,40 +2230,65 @@ export default function ComprehensiveAPSSystem() {
           </TabsContent>
 
           <TabsContent value="lines" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Çivi Hattı */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Çivi Hattı</CardTitle>
-                  <p className="text-gray-600">9 kesme makinesi | 7 operatör</p>
-                </CardHeader>
-                <CardContent>
-                  {renderMachineGrid('civi')}
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Profil ve Palet Üretim Hatları</CardTitle>
+                <p className="text-gray-600">Özel üretim hatları | Düşük hacimli, yüksek değerli ürünler</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Profil Hattı */}
+                  <Card className="border-2">
+                    <CardHeader className="bg-indigo-50">
+                      <CardTitle className="text-lg">Profil Üretim Hattı</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Kapasite:</span>
+                          <span className="font-medium">300-450 adet/vardiya</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Operatör:</span>
+                          <span className="font-medium">2 kişi</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Durum:</span>
+                          <Badge className="bg-yellow-100 text-yellow-800">Ayar Kaçması</Badge>
+                        </div>
+                        <Progress value={35} className="mt-3" />
+                        <p className="text-xs text-gray-500 text-center">Verimlilik: 35%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {/* Tavlı Tel */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Tavlı Tel Hattı</CardTitle>
-                  <p className="text-gray-600">5.5 ton/9 saat kapasiteli fırın</p>
-                </CardHeader>
-                <CardContent>
-                  {renderMachineGrid('tavli')}
-                </CardContent>
-              </Card>
-
-              {/* Profil Hattı */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profil Hattı</CardTitle>
-                  <p className="text-gray-600">300-450 adet/vardiya</p>
-                </CardHeader>
-                <CardContent>
-                  {renderMachineGrid('profil')}
-                </CardContent>
-              </Card>
-            </div>
+                  {/* Palet Hattı */}
+                  <Card className="border-2">
+                    <CardHeader className="bg-green-50">
+                      <CardTitle className="text-lg">Palet Üretim Hattı</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Kapasite:</span>
+                          <span className="font-medium">150-200 palet/gün</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Operatör:</span>
+                          <span className="font-medium">3 kişi</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Durum:</span>
+                          <Badge className="bg-green-100 text-green-800">Aktif</Badge>
+                        </div>
+                        <Progress value={65} className="mt-3" />
+                        <p className="text-xs text-gray-500 text-center">Verimlilik: 65%</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
@@ -1796,7 +2374,7 @@ export default function ComprehensiveAPSSystem() {
                             <span className="font-bold text-green-600">+{selectedOrder.costSaving?.toLocaleString()}₺</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Setup Süresi Azalması:</span>
+                            <span>Ayar Süresi Azalması:</span>
                             <span className="font-bold text-purple-600">-{selectedOrder.setupReduction}dk</span>
                           </div>
                           <div className="flex justify-between">
@@ -1881,9 +2459,6 @@ export default function ComprehensiveAPSSystem() {
                     <CardContent className="p-4 bg-blue-50">
                       <h4 className="font-medium text-blue-900 mb-2">Mevcut Üretim</h4>
                       <p className="text-blue-700">{selectedMachine.currentProduct}</p>
-                      {selectedMachine.setupTimeRemaining && (
-                        <p className="text-sm text-purple-600 mt-1">Setup: {selectedMachine.setupTimeRemaining} dakika kaldı</p>
-                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -1985,7 +2560,7 @@ export default function ComprehensiveAPSSystem() {
                   </div>
                   <p className="text-sm text-purple-700 mt-2">
                     Sipariş özelliklerinizi girin, OR-Tools algoritması en optimal makine atamasını, 
-                    setup süresi minimizasyonunu ve filmaşin→sevkıyat tam timeline'ını otomatik hesaplayacak.
+                    ayar süresi minimizasyonunu ve filmaşin→sevkıyat tam zaman çizelgesini otomatik hesaplayacak.
                   </p>
                 </div>
                 
@@ -2056,10 +2631,114 @@ export default function ComprehensiveAPSSystem() {
                   {/* Product-specific attributes would be shown here based on selection */}
                   <div className="bg-gray-50 border rounded-lg p-4">
                     <h4 className="font-medium mb-3">Ürün Özel Özellikleri</h4>
-                    <p className="text-sm text-gray-600">
-                      // TODO: Ürün tipine göre özel özellik alanları (çap, kaplama türü, boyut vs.) 
-                      // Buraya gelecek ve üretim & setup sürelerini etkileyecek
-                    </p>
+                    
+                    {/* Galvanizli Tel Specific */}
+                    <div className="space-y-3" id="galvaniz-fields" style={{display: 'none'}}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="cap">Çap (mm) *</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Çap seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1.25">1.25mm</SelectItem>
+                              <SelectItem value="1.4">1.4mm</SelectItem>
+                              <SelectItem value="1.6">1.6mm</SelectItem>
+                              <SelectItem value="2.0">2.0mm</SelectItem>
+                              <SelectItem value="2.5">2.5mm</SelectItem>
+                              <SelectItem value="3.0">3.0mm</SelectItem>
+                              <SelectItem value="4.0">4.0mm</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="kaplama">Kaplama Türü</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Kaplama" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NIT">NIT</SelectItem>
+                              <SelectItem value="PAD">PAD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="kaplama_miktari">Kaplama Miktarı (gr/m²)</Label>
+                          <Input type="number" placeholder="245" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Panel Çit Specific */}
+                    <div className="space-y-3" id="panel-fields" style={{display: 'none'}}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="en">En (mm) *</Label>
+                          <Input type="number" placeholder="2030" />
+                        </div>
+                        <div>
+                          <Label htmlFor="yukseklik">Yükseklik (mm) *</Label>
+                          <Input type="number" placeholder="2500" />
+                        </div>
+                        <div>
+                          <Label htmlFor="tel_cap">Tel Çapı (mm)</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Çap" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="4.0">4.0mm</SelectItem>
+                              <SelectItem value="5.0">5.0mm</SelectItem>
+                              <SelectItem value="6.0">6.0mm</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Çivi Specific */}
+                    <div className="space-y-3" id="civi-fields" style={{display: 'none'}}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="civi_cap">Çap (mm) *</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Çap seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="2.0">2.0mm</SelectItem>
+                              <SelectItem value="2.5">2.5mm</SelectItem>
+                              <SelectItem value="3.0">3.0mm</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="civi_uzunluk">Uzunluk (mm)</Label>
+                          <Input type="number" placeholder="50" />
+                        </div>
+                        <div>
+                          <Label htmlFor="civi_tip">Çivi Tipi</Label>
+                          <Select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Tip seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="duz">Düz Başlı</SelectItem>
+                              <SelectItem value="spiral">Spiral</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Default message when no product selected */}
+                    <div id="no-product-selected" className="text-center py-4">
+                      <p className="text-gray-500 text-sm">
+                        Ürün tipi seçtikten sonra özel özellikler burada görünecek
+                      </p>
+                    </div>
                   </div>
 
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -2160,6 +2839,365 @@ export default function ComprehensiveAPSSystem() {
                     Dosyayı Yükle ve İşle
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Production Line Detail Modal */}
+        {showLineDetailModal && (
+          <Dialog open={showLineDetailModal} onOpenChange={setShowLineDetailModal}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-xl">
+                  {selectedLineForDetail === 'tel_cekme' && 'Tel Çekme Hattı Detayları'}
+                  {selectedLineForDetail === 'galvaniz' && 'Galvaniz Hattı Detayları'}
+                  {selectedLineForDetail === 'tavli_tel' && 'Tavlı Tel Hattı Detayları'}
+                  {selectedLineForDetail === 'civi' && 'Çivi Hattı Detayları'}
+                  {selectedLineForDetail === 'celik_hasir' && 'Çelik Hasır Hattı Detayları'}
+                  {selectedLineForDetail === 'panel_cit' && 'Panel Çit Hattı Detayları'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="mt-4 space-y-6">
+                {/* Tel Çekme Details */}
+                {selectedLineForDetail === 'tel_cekme' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Ana Tel Çekme Makineleri</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">9 aktif + 1 yedek</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Çapa bağlı</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">4 kişi</span>
+                            </div>
+                            <Progress value={72} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Bobin Sarma</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">2 makine</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Otomatik sarma</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={85} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Toplam Hat Durumu</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Toplam Operatör:</span>
+                            <p className="font-medium text-lg">7 kişi</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Vardiya:</span>
+                            <p className="font-medium text-lg">3 vardiya</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Verimlilik:</span>
+                            <p className="font-medium text-lg">72%</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+
+                {/* Galvaniz Details */}
+                {selectedLineForDetail === 'galvaniz' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Galvanizleme Alt Sistemi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">36 kafa</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Güç Dağılımı:</span>
+                              <span className="font-medium">6x5KW + 30x3KW</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">5 kişi</span>
+                            </div>
+                            <Progress value={84} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Paketleme Alt Sistemi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">1 makine</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Otomatik paketleme</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={90} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+
+                {/* Tavlı Tel Details */}
+                {selectedLineForDetail === 'tavli_tel' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Fırın Alt Sistemi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Fırın:</span>
+                              <span className="font-medium">Eski fırın (aktif)</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Veri gerekli</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={91} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Yağlama Makinesi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Ürün:</span>
+                              <span className="font-medium">Balya teli</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Veri gerekli</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">1 kişi</span>
+                            </div>
+                            <Progress value={88} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+
+                {/* Çivi Details */}
+                {selectedLineForDetail === 'civi' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Jingu Makineleri</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">2 adet</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Çapa bağlı</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Durum:</span>
+                              <span className="font-medium">Aktif</span>
+                            </div>
+                            <Progress value={60} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Enkotek Makineleri</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">7 adet</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Çapa bağlı</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Durum:</span>
+                              <span className="font-medium">Aktif</span>
+                            </div>
+                            <Progress value={55} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+
+                {/* Çelik Hasır Details */}
+                {selectedLineForDetail === 'celik_hasir' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Schlatter Makinesi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Tip:</span>
+                              <span className="font-medium">Tam Otomatik</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Yüksek hız</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={80} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Eurobend Makinesi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Tip:</span>
+                              <span className="font-medium">Tam Otomatik</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Orta hız</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={70} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
+
+                {/* Panel Çit Details */}
+                {selectedLineForDetail === 'panel_cit' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Kesme Makinesi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Makine Sayısı:</span>
+                              <span className="font-medium">1 adet</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Veri gerekli</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">1 kişi</span>
+                            </div>
+                            <Progress value={65} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Kaynak Makinesi</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Panel tipine bağlı</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Kapasite:</span>
+                              <span className="font-medium">Veri gerekli</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Operatör:</span>
+                              <span className="font-medium">2 kişi</span>
+                            </div>
+                            <Progress value={70} className="mt-2" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </>
+                )}
               </div>
             </DialogContent>
           </Dialog>
