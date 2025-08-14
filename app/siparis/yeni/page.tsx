@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+// import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Plus, 
@@ -398,11 +398,10 @@ const YeniSiparis = () => {
               </div>
               <div className="md:col-span-2">
                 <Label>Adres</Label>
-                <Textarea 
+                <Input
                   value={customerInfo.address}
                   onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
                   placeholder="Müşteri adresi"
-                  rows={2}
                 />
               </div>
             </div>
@@ -606,11 +605,10 @@ const YeniSiparis = () => {
                 {/* Notes */}
                 <div>
                   <Label>Notlar</Label>
-                  <Textarea 
+                  <Input
                     value={currentItem.notes || ''}
                     onChange={(e) => setCurrentItem({...currentItem, notes: e.target.value})}
                     placeholder="Ek açıklamalar..."
-                    rows={3}
                   />
                 </div>
 
