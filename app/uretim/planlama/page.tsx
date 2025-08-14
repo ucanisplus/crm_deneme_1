@@ -502,7 +502,7 @@ const generateMachines = (): Machine[] => {
       queue: [],
       nextAvailable: `${10 + Math.floor(Math.random() * 6)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`,
       capacity: 100, // kg/hour
-      operatorCount: Math.ceil(i/3), // 4 operatör total
+      operatorCount: i <= 4 ? 1 : 0, // 4 makine Enkotek NM03, 4 operatör
       currentProduct: i <= 6 ? 'Çivi 2.5x50mm' : undefined
     });
   }
@@ -1730,7 +1730,6 @@ export default function ComprehensiveAPSSystem() {
                         <div className="flex items-center space-x-3">
                           <Move className="w-4 h-4 text-gray-400" />
                           <span className="font-bold">{order.orderNumber}</span>
-                          <Badge className={getPriorityColor(order.priority)}>{order.priority}</Badge>
                           <Badge variant="outline">{order.productType.toUpperCase()}</Badge>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1886,7 +1885,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Tel Çekme Hattı - 9 Makine + Araçap</CardTitle>
-                <p className="text-gray-600">Tel çekme ve ara çap makineleri</p>
+                <p className="text-gray-600">15 kişi (12 ana+1 araçap+1 coiler+1 hadde) | CSM makineleri</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('tel_cekme')}
@@ -1915,7 +1914,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Galvaniz Hattı - 36 Kafa Sistemi</CardTitle>
-                <p className="text-gray-600">27 operatör, 3 vardiya | 128.5 ton/gün kapasitesi</p>
+                <p className="text-gray-600">27 operatör (9×3 vardiya), CSM 36 Kanal | 128.5 ton/gün kapasitesi</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('galvaniz')}
@@ -1963,7 +1962,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Tavlı Tel Hattı</CardTitle>
-                <p className="text-gray-600">3 operatör | Fırın + Yağlama sistemleri</p>
+                <p className="text-gray-600">8 operatör (3 vardiya) | Çan Tipi Tav Fırını + Yağlama</p>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1987,7 +1986,7 @@ export default function ComprehensiveAPSSystem() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Operatör:</span>
-                          <span className="font-medium">2 kişi</span>
+                          <span className="font-medium">8 kişi (3 vardiya)</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Sıcaklık:</span>
@@ -2060,7 +2059,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Çivi Üretim Hattı</CardTitle>
-                <p className="text-gray-600">9 makine | 2 Jingu + 7 Enkotek</p>
+                <p className="text-gray-600">14 kişi | 4 Enkotek NM03 kesme + polishing + ovalama + paketleme</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -2166,7 +2165,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Panel Çit Hattı</CardTitle>
-                <p className="text-gray-600">40-60 panel/saat | Kapasite: Ürün tipine bağlı</p>
+                <p className="text-gray-600">12 kişi | 3 Kesme (Kocabey/Bugan) + Kaynak + Fems Boyama</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('panel')}
@@ -2205,7 +2204,7 @@ export default function ComprehensiveAPSSystem() {
             <Card>
               <CardHeader>
                 <CardTitle>Çelik Hasır Hattı</CardTitle>
-                <p className="text-gray-600">Yarı oto + tam oto kaynak makineleri</p>
+                <p className="text-gray-600">28 kişi (10+6+12) | 4 Dallı + 2 Mekosan + Schlatter/Eurobend</p>
               </CardHeader>
               <CardContent>
                 {renderMachineGrid('hasir')}
@@ -2332,9 +2331,6 @@ export default function ComprehensiveAPSSystem() {
                         </div>
                         <div>
                           <span className="text-gray-500">Öncelik:</span>
-                          <Badge className={getPriorityColor(selectedOrder.priority)}>
-                            {selectedOrder.priority.toUpperCase()}
-                          </Badge>
                         </div>
                         <div>
                           <span className="text-gray-500">Durum:</span>
@@ -2481,9 +2477,6 @@ export default function ComprehensiveAPSSystem() {
                           <div key={order.id} className="p-3 border rounded-lg">
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{index + 1}. {order.orderNumber}</span>
-                              <Badge className={getPriorityColor(order.priority)}>
-                                {order.priority}
-                              </Badge>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">{order.product}</p>
                             <p className="text-sm text-gray-500">{order.quantity} {order.unit}</p>
@@ -2928,11 +2921,11 @@ export default function ComprehensiveAPSSystem() {
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div>
                             <span className="text-gray-600">Toplam Operatör:</span>
-                            <p className="font-medium text-lg">7 kişi</p>
+                            <p className="font-medium text-lg">12 kişi</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Vardiya:</span>
-                            <p className="font-medium text-lg">3 vardiya</p>
+                            <p className="font-medium text-lg">3 vardiya (4×3)</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Verimlilik:</span>
