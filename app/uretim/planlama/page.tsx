@@ -27,6 +27,7 @@ import {
   Target,
   TrendingUp,
   Package,
+  ArrowLeft,
   Truck,
   Search,
   Filter,
@@ -788,10 +789,26 @@ export default function ComprehensiveAPSSystem() {
   }
 
   // Helper Functions
+  const translateStatus = (status: string) => {
+    switch (status) {
+      case 'idle': return 'Beklemede';
+      case 'running': return 'Çalışıyor';
+      case 'maintenance': return 'Bakımda';
+      case 'setup': return 'Ayar';
+      case 'blocked': return 'Bloke';
+      case 'completed': return 'Tamamlandı';
+      case 'in_progress': return 'Devam Ediyor';
+      case 'ready': return 'Hazır';
+      default: return status;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500';
       case 'in_progress': return 'bg-blue-500';
+      case 'running': return 'bg-green-500';
+      case 'idle': return 'bg-yellow-500';
       case 'blocked': return 'bg-red-500';
       case 'ready': return 'bg-yellow-500';
       case 'setup': return 'bg-purple-500';
@@ -913,7 +930,7 @@ export default function ComprehensiveAPSSystem() {
           <div className="flex items-center space-x-2">
             <Badge className={getPriorityColor(order.priority)}>{order.priority.toUpperCase()}</Badge>
             {order.orToolsOptimized && (
-              <Badge className="bg-purple-100 text-purple-800">OR-Tools ile Optimize Edildi</Badge>
+              <Badge className="bg-purple-100 text-purple-800">Optimize Edildi</Badge>
             )}
           </div>
         </div>
@@ -1026,6 +1043,24 @@ export default function ComprehensiveAPSSystem() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
+        {/* Navigation Back Button */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.push('/')}
+            className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Ana Sayfa</span>
+          </button>
+          <button
+            onClick={() => router.push('/uretim')}
+            className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Üretim Menüsü</span>
+          </button>
+        </div>
+        
         {/* Enhanced Header */}
         <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
@@ -1035,7 +1070,7 @@ export default function ComprehensiveAPSSystem() {
                 APS - İleri Planlama & Çizelgeleme
               </h1>
               <p className="text-gray-600 mt-2 text-lg">
-                OR-Tools destekli akıllı üretim optimizasyonu | Filmaşin → Sevkıyat tam takip
+                Akıllı üretim planlama ve çizelgeleme sistemi | Filmaşin → Sevkıyat tam takip
               </p>
               <div className="flex items-center mt-2 text-sm text-gray-500">
                 <Activity className="w-4 h-4 mr-1" />
@@ -1064,7 +1099,7 @@ export default function ComprehensiveAPSSystem() {
                 disabled={isOptimizing}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isOptimizing ? 'animate-spin' : ''}`} />
-                {isOptimizing ? 'Optimizasyon Devam Ediyor...' : 'OR-Tools Optimize Et'}
+                {isOptimizing ? 'Planlama Devam Ediyor...' : 'Planlamayı Yenile'}
               </Button>
             </div>
           </div>
@@ -1212,7 +1247,7 @@ export default function ComprehensiveAPSSystem() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-purple-700">OR-Tools Tasarrufu</p>
+                      <p className="text-sm font-medium text-purple-700">Maliyet Tasarrufu</p>
                       <p className="text-3xl font-bold text-purple-900">
                         {orders.filter(o => o.orToolsOptimized).reduce((acc, o) => acc + (o.costSaving || 0), 0).toLocaleString()}₺
                       </p>
@@ -2187,7 +2222,7 @@ export default function ComprehensiveAPSSystem() {
                         </div>
                         {order.orToolsOptimized && (
                           <div className="mt-2 text-xs text-purple-600">
-                            ✓ OR-Tools ile Optimize Edildi - Ayar Süresi {order.setupReduction}dk azaldı
+                            ✓ Optimize Edildi - Ayar Süresi {order.setupReduction}dk azaldı
                           </div>
                         )}
                       </div>
@@ -2335,7 +2370,7 @@ export default function ComprehensiveAPSSystem() {
                         </div>
                         <div>
                           <span className="text-gray-500">Durum:</span>
-                          <Badge>{selectedOrder.status.toUpperCase()}</Badge>
+                          <Badge>{translateStatus(selectedOrder.status)}</Badge>
                         </div>
                       </div>
                     </CardContent>
@@ -2364,7 +2399,7 @@ export default function ComprehensiveAPSSystem() {
                       <CardHeader>
                         <CardTitle className="text-lg flex items-center">
                           <Zap className="w-5 h-5 mr-2 text-purple-600" />
-                          OR-Tools Optimizasyon Sonuçları
+                          Optimizasyon Sonuçları
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -2549,7 +2584,7 @@ export default function ComprehensiveAPSSystem() {
               <DialogHeader>
                 <DialogTitle className="flex items-center">
                   <Plus className="w-5 h-5 mr-2 text-blue-600" />
-                  Yeni Sipariş - OR-Tools Akıllı Atama
+                  Yeni Sipariş - Akıllı Atama
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-6 mt-4">
@@ -2559,7 +2594,7 @@ export default function ComprehensiveAPSSystem() {
                     <span className="font-medium text-purple-800">Akıllı Planlama Sistemi Aktif</span>
                   </div>
                   <p className="text-sm text-purple-700 mt-2">
-                    Sipariş özelliklerinizi girin, OR-Tools algoritması en optimal makine atamasını, 
+                    Sipariş özelliklerinizi girin, planlama algoritması en optimal makine atamasını, 
                     ayar süresi minimizasyonunu ve filmaşin→sevkıyat tam zaman çizelgesini otomatik hesaplayacak.
                   </p>
                 </div>
@@ -2618,13 +2653,16 @@ export default function ComprehensiveAPSSystem() {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="due_date">Teslim Tarihi *</Label>
-                      <Input 
-                        id="due_date" 
-                        type="date" 
-                        min={new Date().toISOString().split('T')[0]}
-                        required 
-                      />
+                      <Label>Önerilen Teslimat Tarihi</Label>
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800 font-medium">
+                          {new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toLocaleDateString('tr-TR')} 
+                          <span className="text-green-600 ml-2">(7 gün)</span>
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          En erken: {new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toLocaleDateString('tr-TR')}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -2744,7 +2782,7 @@ export default function ComprehensiveAPSSystem() {
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <h4 className="font-medium mb-2 flex items-center">
                       <Target className="w-4 h-4 mr-2" />
-                      OR-Tools Optimizasyon Hedefleri
+                      Planlama Hedefleri
                     </h4>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex items-center">
@@ -2779,7 +2817,7 @@ export default function ComprehensiveAPSSystem() {
                       ) : (
                         <>
                           <Zap className="w-4 h-4 mr-2" />
-                          OR-Tools ile Optimize Et ve Ekle
+                          Optimize Et ve Ekle
                         </>
                       )}
                     </Button>
