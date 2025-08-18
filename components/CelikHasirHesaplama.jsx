@@ -343,7 +343,8 @@ const findColumnsByHeaderText = (headers, sheetData) => {
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
   const sampleSheet = sheetData.length > 0 ? sheetData[0] : null;
   const headers = sampleSheet?.headers || [];
-  const sampleRows = sampleSheet?.data.slice(0, 7) || [];
+  const sampleRows = sampleSheet?.data.slice(0, 20) || [];  // Show 20 samples instead of 7
+  const totalProductCount = sampleSheet?.data.length || 0;
   
   // Auto-detect columns on mount
   const autoDetectColumns = () => {
@@ -393,8 +394,13 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">Sütunları Eşleştir</h2>
+      <div className="bg-white rounded-lg p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Sütunları Eşleştir</h2>
+          <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+            {totalProductCount} ürün tespit edildi
+          </span>
+        </div>
         
         <div className="mb-6">
           <p className="text-sm text-gray-600 mb-2">
@@ -475,28 +481,32 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
             </div>
           </div>
           
-          <div className="overflow-x-auto mb-4 border border-gray-200 rounded-md">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="py-2 px-3 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sütun
+          <div className="overflow-x-auto mb-4 border border-gray-200 rounded-md max-h-96">
+            <table className="min-w-full bg-white text-xs">
+              <thead className="sticky top-0 bg-gray-100 z-10">
+                <tr>
+                  <th className="py-1 px-2 border-b text-left font-medium text-gray-500 uppercase tracking-wider">
+                    #
                   </th>
                   {headers.map((header, index) => (
-                    <th key={index} className="py-2 px-3 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {header || `Sütun ${index + 1}`}
-                      {mapping.hasirTipi === index && (
-                        <span className="ml-1 text-green-600">(Hasır Tipi)</span>
-                      )}
-                      {mapping.uzunlukBoy === index && (
-                        <span className="ml-1 text-blue-600">(Boy)</span>
-                      )}
-                      {mapping.uzunlukEn === index && (
-                        <span className="ml-1 text-blue-600">(En)</span>
-                      )}
-                      {mapping.hasirSayisi === index && (
-                        <span className="ml-1 text-blue-600">(Sayı)</span>
-                      )}
+                    <th key={index} className="py-1 px-2 border-b text-left font-medium text-gray-500 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="truncate max-w-[120px]" title={header || `Sütun ${index + 1}`}>
+                          {header || `Sütun ${index + 1}`}
+                        </span>
+                        {mapping.hasirTipi === index && (
+                          <span className="text-green-600 text-[10px]">(Hasır Tipi)</span>
+                        )}
+                        {mapping.uzunlukBoy === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy)</span>
+                        )}
+                        {mapping.uzunlukEn === index && (
+                          <span className="text-blue-600 text-[10px]">(En)</span>
+                        )}
+                        {mapping.hasirSayisi === index && (
+                          <span className="text-blue-600 text-[10px]">(Sayı)</span>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -504,12 +514,14 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
               <tbody>
                 {sampleRows.map((row, rowIndex) => (
                   <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="py-2 px-3 border-b text-sm font-medium text-gray-900">
-                      Örnek {rowIndex + 1}
+                    <td className="py-1 px-2 border-b font-medium text-gray-600">
+                      {rowIndex + 1}
                     </td>
                     {headers.map((_, colIndex) => (
-                      <td key={colIndex} className="py-2 px-3 border-b text-sm text-gray-500">
-                        {row[colIndex] || ''}
+                      <td key={colIndex} className="py-1 px-2 border-b text-gray-700 whitespace-nowrap">
+                        <span className="truncate block max-w-[120px]" title={row[colIndex] || ''}>
+                          {row[colIndex] || ''}
+                        </span>
                       </td>
                     ))}
                   </tr>

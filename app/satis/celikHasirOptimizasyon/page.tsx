@@ -307,6 +307,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
   const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
   const [sortMode, setSortMode] = useState<'safety' | 'quantity'>('safety');
+  const [includeTypeChanges, setIncludeTypeChanges] = useState(false);
+  const [dialogTolerance, setDialogTolerance] = useState(10);
+  const [dialogMaxHasirSayisi, setDialogMaxHasirSayisi] = useState(50);
 
   // Load initial data
   useEffect(() => {
@@ -602,7 +605,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
   };
 
   // Get all possible merge options between two products
-  const getAllMergeOptions = (product1: Product, product2: Product) => {
+  const getAllMergeOptions = (product1: Product, product2: Product, allowTypeChanges: boolean = false) => {
     const options: Array<{
       type: 'boydan' | 'enden' | 'tipi_degisiklik' | 'tipi_degisiklik_same' | 'tipi_degisiklik_cross' | 'tamamla' | 'katli' | 'katli_exact' | 'katli_tolerance';
       source: Product;
@@ -687,7 +690,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     const type1 = product1.hasirTipi.charAt(0);
     const type2 = product2.hasirTipi.charAt(0);
     
-    if (product1.hasirTipi !== product2.hasirTipi && type1 === type2) {
+    if (allowTypeChanges && product1.hasirTipi !== product2.hasirTipi && type1 === type2) {
       // Check if dimensions are compatible for type change
       const canChange1to2 = boy2 >= boy1 && en2 >= en1;
       const canChange2to1 = boy1 >= boy2 && en1 >= en2;
@@ -746,9 +749,10 @@ const CelikHasirOptimizasyon: React.FC = () => {
     }
     
     // OPTION 2B: Hasır Tipi Değişikliği - Cross Group (Q->T, T->R)
-    const crossGroupPairs = [['Q', 'T'], ['T', 'R']];
-    for (const [from, to] of crossGroupPairs) {
-      if ((type1 === from && type2 === to) || (type1 === to && type2 === from)) {
+    if (allowTypeChanges) {
+      const crossGroupPairs = [['Q', 'T'], ['T', 'R']];
+      for (const [from, to] of crossGroupPairs) {
+        if ((type1 === from && type2 === to) || (type1 === to && type2 === from)) {
         const canChange1to2 = boy2 >= boy1 && en2 >= en1;
         const canChange2to1 = boy1 >= boy2 && en1 >= en2;
         
@@ -804,6 +808,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
           });
         }
       }
+    }
     }
     
     // OPTION 3: Üste Tamamlama (Rounding up) - even for different types if diameter matches
@@ -1447,7 +1452,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
       return;
     }
     
-    setPendingOperations(opportunities);
+    // Apply initial sorting based on current sortMode
+    const sortedOps = sortPendingOperations(opportunities, sortMode);
+    setPendingOperations(sortedOps);
     setCurrentOperationIndex(0);
     setShowApprovalDialog(true);
   };
@@ -2099,6 +2106,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
     
     const allOpportunities: MergeOperation[] = [];
     const globalProcessedPairs = new Set<string>();
+    const operationSignatures = new Set<string>(); // Track unique operations to prevent duplicates
     
     const candidateProducts = products.filter(p => 
       Number(p.hasirSayisi) <= maxHasirSayisi
@@ -2125,7 +2133,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
         globalProcessedPairs.add(pairKey1);
         
         // Use getAllMergeOptions to get all possible merge options (including fallbacks)
-        const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct);
+        const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct, includeTypeChanges);
         
         // First, try to find options within tolerance
         const safeOptions = mergeOptions.filter(option => option.tolerance <= tolerance);
@@ -2138,31 +2146,49 @@ const CelikHasirOptimizasyon: React.FC = () => {
              bestSafeOption.type === 'enden' ? optimizeEnden(bestSafeOption.source, bestSafeOption.target) : 
              bestSafeOption.target);
           
-          allOpportunities.push({
-            type: bestSafeOption.type,
-            source: bestSafeOption.source,
-            target: bestSafeOption.target,
-            result: result,
-            explanation: bestSafeOption.explanation,
-            toleranceUsed: bestSafeOption.tolerance,
-            safetyLevel: bestSafeOption.safetyLevel,
-            safetyLevelNumber: getSafetyLevel(bestSafeOption.tolerance).level
-          });
+          // Create a signature for this operation to prevent duplicates
+          const sourceKey = `${bestSafeOption.source.hasirTipi}-${bestSafeOption.source.uzunlukBoy}x${bestSafeOption.source.uzunlukEn}-${bestSafeOption.source.hasirSayisi}`;
+          const targetKey = `${bestSafeOption.target.hasirTipi}-${bestSafeOption.target.uzunlukBoy}x${bestSafeOption.target.uzunlukEn}`;
+          const operationSig = `${bestSafeOption.type}:${sourceKey}→${targetKey}`;
+          
+          // Only add if this exact operation hasn't been added before
+          if (!operationSignatures.has(operationSig)) {
+            operationSignatures.add(operationSig);
+            allOpportunities.push({
+              type: bestSafeOption.type,
+              source: bestSafeOption.source,
+              target: bestSafeOption.target,
+              result: result,
+              explanation: bestSafeOption.explanation,
+              toleranceUsed: bestSafeOption.tolerance,
+              safetyLevel: bestSafeOption.safetyLevel,
+              safetyLevelNumber: getSafetyLevel(bestSafeOption.tolerance).level
+            });
+          }
         } else if (mergeOptions.length > 0) {
           // No safe options found, add the safest risky option as fallback
           const safestRiskyOption = mergeOptions[0]; // getAllMergeOptions already sorts by safety
           const result = safestRiskyOption.result || safestRiskyOption.target;
           
-          allOpportunities.push({
-            type: safestRiskyOption.type,
-            source: safestRiskyOption.source,
-            target: safestRiskyOption.target,
-            result: result,
-            explanation: `⚠️ YEDEK SEÇENEK: ${safestRiskyOption.explanation}`,
-            toleranceUsed: safestRiskyOption.tolerance,
-            safetyLevel: safestRiskyOption.safetyLevel,
-            safetyLevelNumber: getSafetyLevel(safestRiskyOption.tolerance).level
-          });
+          // Create a signature for this operation to prevent duplicates
+          const sourceKey = `${safestRiskyOption.source.hasirTipi}-${safestRiskyOption.source.uzunlukBoy}x${safestRiskyOption.source.uzunlukEn}-${safestRiskyOption.source.hasirSayisi}`;
+          const targetKey = `${safestRiskyOption.target.hasirTipi}-${safestRiskyOption.target.uzunlukBoy}x${safestRiskyOption.target.uzunlukEn}`;
+          const operationSig = `${safestRiskyOption.type}:${sourceKey}→${targetKey}`;
+          
+          // Only add if this exact operation hasn't been added before
+          if (!operationSignatures.has(operationSig)) {
+            operationSignatures.add(operationSig);
+            allOpportunities.push({
+              type: safestRiskyOption.type,
+              source: safestRiskyOption.source,
+              target: safestRiskyOption.target,
+              result: result,
+              explanation: `⚠️ YEDEK SEÇENEK: ${safestRiskyOption.explanation}`,
+              toleranceUsed: safestRiskyOption.tolerance,
+              safetyLevel: safestRiskyOption.safetyLevel,
+              safetyLevelNumber: getSafetyLevel(safestRiskyOption.tolerance).level
+            });
+          }
         }
       }
     }
@@ -2187,6 +2213,9 @@ const CelikHasirOptimizasyon: React.FC = () => {
 
   const executeComprehensiveOptimization = () => {
     console.log('🎯 executeComprehensiveOptimization clicked - tolerance:', tolerance);
+    // Sync dialog values with main values
+    setDialogTolerance(tolerance);
+    setDialogMaxHasirSayisi(maxHasirSayisi);
     const opportunities = findAllOptimizationOpportunities();
     console.log('Comprehensive opportunities:', opportunities.length, opportunities);
     
@@ -2212,10 +2241,12 @@ const CelikHasirOptimizasyon: React.FC = () => {
       return;
     }
     
-    setPendingOperations(opportunities);
+    // Apply initial sorting based on current sortMode (default is 'safety')
+    const sortedOps = sortPendingOperations(opportunities, sortMode);
+    setPendingOperations(sortedOps);
     setCurrentOperationIndex(0);
     setShowApprovalDialog(true);
-    toast.success(`${opportunities.length} optimizasyon fırsatı bulundu! (Güvenlik sırasına göre sıralandı)`);
+    toast.success(`${opportunities.length} optimizasyon fırsatı bulundu! (${sortMode === 'safety' ? 'Güvenlik sırasına' : 'Hasır sayısına'} göre sıralandı)`);
   };
 
   // Sort pending operations based on selected mode
@@ -3200,7 +3231,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   value={[tolerance]}
                   onValueChange={(value) => setTolerance(value[0])}
                   min={0}
-                  max={100}
+                  max={200}
                   step={1}
                   className="w-24"
                 />
@@ -3211,7 +3242,7 @@ const CelikHasirOptimizasyon: React.FC = () => {
                   value={[maxHasirSayisi]}
                   onValueChange={(value) => setMaxHasirSayisi(value[0])}
                   min={1}
-                  max={200}
+                  max={400}
                   step={1}
                   className="w-24"
                 />
@@ -3226,15 +3257,6 @@ const CelikHasirOptimizasyon: React.FC = () => {
             >
               <Settings className="w-4 h-4 mr-2" />
               Otomatik Tüm Birleştirmeler
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={executeHasirTipiChanges}
-              size="sm"
-              className="bg-red-50 border-red-300 text-red-700 hover:bg-red-100 text-sm font-semibold px-6"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Hasır Tipi Değişikliği (Riskli)
             </Button>
             </div>
           </div>
@@ -3404,40 +3426,120 @@ const CelikHasirOptimizasyon: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Sorting Options */}
-          {pendingOperations.length > 1 && (
-            <div className="border-b pb-3 mb-3">
-              <Label className="text-sm font-medium mb-2 block">Sıralama:</Label>
-              <div className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="sort-safety"
-                    name="sortMode"
-                    checked={sortMode === 'safety'}
-                    onChange={() => applySorting('safety')}
-                    className="w-4 h-4"
-                  />
-                  <Label htmlFor="sort-safety" className="text-sm cursor-pointer">
-                    İşlem Güvenliği (En Güvenli İlk)
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="sort-quantity"
-                    name="sortMode"
-                    checked={sortMode === 'quantity'}
-                    onChange={() => applySorting('quantity')}
-                    className="w-4 h-4"
-                  />
-                  <Label htmlFor="sort-quantity" className="text-sm cursor-pointer">
-                    Hasır Sayısı (En Düşük İlk)
-                  </Label>
+          {/* Advanced Filters and Controls */}
+          <div className="space-y-4 border-b pb-4 mb-4">
+            {/* Sorting Options */}
+            {pendingOperations.length > 1 && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Sıralama:</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="sort-safety"
+                      name="sortMode"
+                      checked={sortMode === 'safety'}
+                      onChange={() => applySorting('safety')}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="sort-safety" className="text-sm cursor-pointer">
+                      İşlem Güvenliği (En Güvenli İlk)
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="sort-quantity"
+                      name="sortMode"
+                      checked={sortMode === 'quantity'}
+                      onChange={() => applySorting('quantity')}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="sort-quantity" className="text-sm cursor-pointer">
+                      Hasır Sayısı (En Düşük İlk)
+                    </Label>
+                  </div>
                 </div>
               </div>
+            )}
+
+            {/* Tolerance Slider */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Tolerans (cm):</Label>
+                <span className="text-sm font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                  {dialogTolerance} cm
+                </span>
+              </div>
+              <Slider
+                value={[dialogTolerance]}
+                onValueChange={(value) => {
+                  setDialogTolerance(value[0]);
+                  setTolerance(value[0]); // Update main tolerance too
+                  // Refilter operations when tolerance changes
+                  const updatedOps = findAllOptimizationOpportunities();
+                  const filteredOps = updatedOps.filter(op => op.toleranceUsed <= value[0]);
+                  const sortedOps = sortPendingOperations(filteredOps, sortMode);
+                  setPendingOperations(sortedOps);
+                  setCurrentOperationIndex(0);
+                  toast(`Tolerans güncellendi: ${value[0]}cm`);
+                }}
+                min={0}
+                max={200}
+                step={1}
+                className="w-full"
+              />
             </div>
-          )}
+
+            {/* Minimum Hasır Sayısı Slider */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Minimum Hasır Sayısı:</Label>
+                <span className="text-sm font-semibold bg-green-100 text-green-800 px-2 py-1 rounded">
+                  {dialogMaxHasirSayisi} adet
+                </span>
+              </div>
+              <Slider
+                value={[dialogMaxHasirSayisi]}
+                onValueChange={(value) => {
+                  setDialogMaxHasirSayisi(value[0]);
+                  setMaxHasirSayisi(value[0]);
+                  // Refilter operations when max hasır sayısı changes
+                  const updatedOps = findAllOptimizationOpportunities();
+                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
+                  setPendingOperations(sortedOps);
+                  setCurrentOperationIndex(0);
+                }}
+                min={1}
+                max={400}
+                step={1}
+                className="w-full"
+              />
+            </div>
+
+            {/* Type Change Radio Button */}
+            <div className="flex items-center space-x-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <Checkbox
+                id="include-type-changes"
+                checked={includeTypeChanges}
+                onCheckedChange={(checked) => {
+                  setIncludeTypeChanges(checked as boolean);
+                  // Refilter operations when type change setting changes
+                  const updatedOps = findAllOptimizationOpportunities();
+                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
+                  setPendingOperations(sortedOps);
+                  setCurrentOperationIndex(0);
+                  toast(checked ? 'Hasır tipi değişiklikleri dahil edildi' : 'Hasır tipi değişiklikleri hariç tutuldu');
+                }}
+              />
+              <Label htmlFor="include-type-changes" className="text-sm cursor-pointer">
+                <span className="font-medium">Hasır Tipi Değişikliklerini Dahil Et</span>
+                <span className="text-xs text-yellow-700 block">
+                  (Riskli: Farklı hasır tiplerini birleştirir)
+                </span>
+              </Label>
+            </div>
+          </div>
           
           {pendingOperations.length > 0 && currentOperationIndex < pendingOperations.length && (
             <div key={`operation-${currentOperationIndex}-${sortMode}-${pendingOperations[currentOperationIndex]?.source.id || 'none'}`} className="space-y-4">
