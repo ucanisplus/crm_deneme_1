@@ -8868,13 +8868,7 @@ const GalvanizliTelNetsis = () => {
     ymGtSheet.addRow(stokKartiHeaders);
     
     // YM GT için doğru sequence kullan (stok kartı fonksiyonu sequence bekliyor, stok kodu değil)
-    console.log('🔍 YM GT Stok Kartı Debug:');
-    console.log('- Sequence being passed:', excelData.sequence);
-    console.log('- ymGtData before generation:', ymGtData);
-    const ymGtRow = generateYmGtStokKartiData(excelData.sequence);
-    console.log('- Generated YM GT row:', ymGtRow);
-    console.log('- YM GT Stock Code (first column):', ymGtRow[0]);
-    ymGtSheet.addRow(ymGtRow);
+    ymGtSheet.addRow(generateYmGtStokKartiData(excelData.sequence));
     
     // YM ST Sheet - Ana YM ST'yi ilk sıraya ekle
     const ymStSheet = workbook.addWorksheet('YM ST');
@@ -8919,13 +8913,6 @@ const GalvanizliTelNetsis = () => {
     // Sadece ana YMST için MM GT reçete satırları ekle
     const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex_] } || {};
     
-    // DEBUG: Log the MM GT recipe data
-    console.log('🔍 MM GT Recipe Debug:');
-    console.log('- mainYmStIndex_:', mainYmStIndex_);
-    console.log('- All MM GT recipes:', excelData.allRecipes.mmGtRecipes);
-    console.log('- Selected MM GT recipe:', mmGtRecipe);
-    console.log('- Recipe keys:', Object.keys(mmGtRecipe));
-    console.log('- Recipe entries with values:', Object.entries(mmGtRecipe).filter(([key, value]) => value > 0));
     
     // DÜZELTME: Doğru YM.GT kodu oluştur - MMGT ile aynı sequence kullanılmalı
     const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
@@ -8933,7 +8920,8 @@ const GalvanizliTelNetsis = () => {
     // Reçetedeki YM.GT kodlarını düzelt - yeni bir obje oluşturarak
     const fixedRecipe = {};
     Object.entries(mmGtRecipe).forEach(([key, value]) => {
-      if (key.includes('YM.GT.') && key !== correctStokKodu) {
+      if (key.includes('YM.GT.')) {
+        // Always replace ANY YM.GT key with the correct sequence
         fixedRecipe[correctStokKodu] = value;
       } else {
         fixedRecipe[key] = value;
@@ -9238,13 +9226,69 @@ const GalvanizliTelNetsis = () => {
       const mainYmStIndex_ = excelData.mainYmStIndex;
       const sequence = excelData.sequence;
       
-      // Add MM GT recipes
+      // Add MM GT recipes  
       const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex_] } || {};
       const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
       
-      if (mmGtRecipe[correctStokKodu] && mmGtRecipe[correctStokKodu] > 0) {
-        mmGtReceteSheet.addRow(generateMmGtReceteRow(correctStokKodu, mmGtRecipe[correctStokKodu], 1));
-      }
+      // Fix YM.GT key in recipe (same logic as individual function)
+      const fixedRecipe = {};
+      Object.entries(mmGtRecipe).forEach(([key, value]) => {
+        if (key.includes('YM.GT.')) {
+          // Always replace ANY YM.GT key with the correct sequence
+          fixedRecipe[correctStokKodu] = value;
+        } else {
+          fixedRecipe[key] = value;
+        }
+      });
+      
+      // Process all MM GT recipe components in proper order
+      const processedMmGtRecipe = fixedRecipe;
+      const recipeEntries = Object.entries(processedMmGtRecipe);
+      
+      // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+      const ymGtEntry = recipeEntries.find(([key]) => key === correctStokKodu) || 
+                        recipeEntries.find(([key]) => key.includes('YM.GT.'));
+      const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
+      const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
+      const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
+      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+      const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
+      const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
+      
+      // Other entries that might exist but aren't in the fixed order
+      const otherEntries = recipeEntries.filter(([key]) => 
+        !key.includes('YM.GT.') && 
+        key !== 'GTPKT01' &&
+        key !== 'AMB.ÇEM.KARTON.GAL' &&
+        !key.includes('AMB.SHRİNK.') &&
+        key !== 'SM.7MMHALKA' &&
+        key !== 'AMB.APEX CEMBER 38X080' &&
+        key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+        key !== 'SM.DESİ.PAK'
+      );
+      
+      // Sırayla ekle - exact order
+      const orderedEntries = [
+        ymGtEntry, 
+        gtpkt01Entry, 
+        kartonEntry,
+        shrinkEntry,
+        halkaEntry,
+        cemberEntry,
+        tokaEntry,
+        desiEntry,
+        ...otherEntries
+      ].filter(Boolean);
+      
+      // Add all MM GT recipe components
+      let siraNo = 1;
+      orderedEntries.forEach(([key, value]) => {
+        if (value > 0) {
+          mmGtReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+          siraNo++;
+        }
+      });
       
       // Add YM GT recipes
       const ymGtRecipe = excelData.allRecipes.ymGtRecipe || {};
