@@ -46,12 +46,12 @@ export default function Home() {
               </a>
             )}
             
-            <a href="/uretim/hesaplamalar" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
+            <a href="/uretim/hesaplamalar/urun" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 text-gray-800">Ürün Hesaplamaları</h3>
               <p className="text-gray-600 text-sm">Ürün reçete ve maliyet hesaplamaları</p>
             </a>
             
-            <a href="/satis" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
+            <a href="/satis/galvaniz-talebi" className="bg-white p-5 border border-gray-200 rounded-xl shadow hover:shadow-md transition-shadow cursor-pointer">
               <h3 className="text-lg font-semibold mb-2 text-gray-800">Satış</h3>
               <p className="text-gray-600 text-sm">Satış yönetimi ve müşteri takibi</p>
             </a>

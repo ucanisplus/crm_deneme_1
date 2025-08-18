@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import MainLayout3 from '@/components/MainLayout3';
+import ClientAuthCheck from '@/components/ClientAuthCheck.jsx';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +29,6 @@ import {
   Target,
   TrendingUp,
   Package,
-  ArrowLeft,
   Truck,
   Search,
   Filter,
@@ -727,7 +728,7 @@ const generateSampleOrders = (): UnifiedOrder[] => [
   }
 ];
 
-export default function ComprehensiveAPSSystem() {
+function ComprehensiveAPSSystem() {
   const { user, loading } = useAuth();
   const router = useRouter();
   
@@ -1027,26 +1028,8 @@ export default function ComprehensiveAPSSystem() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="space-y-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        
-        {/* Navigation Back Button */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Ana Sayfa</span>
-          </button>
-          <button
-            onClick={() => router.push('/uretim')}
-            className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Üretim Menüsü</span>
-          </button>
-        </div>
         
         {/* Enhanced Header */}
         <div className="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
@@ -3207,5 +3190,24 @@ export default function ComprehensiveAPSSystem() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function APSSystemPage() {
+  return (
+    <ClientAuthCheck>
+      <MainLayout3>
+        <div className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">İleri Planlama & Çizelgeleme (APS)</h1>
+            <p className="text-gray-600">Akıllı üretim planlama ve çizelgeleme sistemi</p>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow">
+            <ComprehensiveAPSSystem />
+          </div>
+        </div>
+      </MainLayout3>
+    </ClientAuthCheck>
   );
 }
