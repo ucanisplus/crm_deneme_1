@@ -397,14 +397,24 @@ const GalvanizliTelNetsis = () => {
       // Check if we just finished all tasks and should show completion popup
       const completedTasks = taskQueueRef.current.filter(t => t.status === 'completed');
       const failedTasks = taskQueueRef.current.filter(t => t.status === 'failed');
+      const processingTasks = taskQueueRef.current.filter(t => t.status === 'processing');
       const totalTasks = taskQueueRef.current.length;
       
-      if (totalTasks > 0 && (completedTasks.length + failedTasks.length) === totalTasks) {
-        // All tasks are finished, show completion popup if there are completed tasks
-        if (completedTasks.length > 0) {
-          setCompletedQueueTasks(completedTasks);
-          setShowQueueCompletionPopup(true);
-        }
+      // Only show popup if:
+      // 1. There are tasks in the queue
+      // 2. No tasks are still processing (safety check)
+      // 3. All tasks are either completed or failed
+      // 4. There are some completed tasks
+      // 5. Popup is not already showing (prevent duplicates)
+      if (totalTasks > 0 && 
+          processingTasks.length === 0 && 
+          (completedTasks.length + failedTasks.length) === totalTasks && 
+          completedTasks.length > 0 &&
+          !showQueueCompletionPopup) {
+        console.log('🎉 Queue completed! Showing completion popup for', completedTasks.length, 'completed tasks');
+        // Create a copy of completed tasks to avoid reference issues
+        setCompletedQueueTasks([...completedTasks]);
+        setShowQueueCompletionPopup(true);
       }
       return;
     }
@@ -443,9 +453,14 @@ const GalvanizliTelNetsis = () => {
       const processingCount = taskQueue.filter(t => t.status === 'processing').length;
       const totalActive = pendingCount + processingCount;
       
-      if (totalActive > 0) {
+      if (totalActive > 0 || showQueueCompletionPopup) {
         e.preventDefault();
-        const message = `${processingCount} işlem devam ediyor ve ${pendingCount} işlem bekliyor. Sayfayı kapatırsanız bu işlemler iptal olacak. Devam etmek istiyor musunuz?`;
+        let message;
+        if (showQueueCompletionPopup) {
+          message = 'Kuyruk tamamlanma penceresi açık. Sayfayı kapatırsanız Excel indirme seçeneklerini kaybedeceksiniz. Devam etmek istiyor musunuz?';
+        } else {
+          message = `${processingCount} işlem devam ediyor ve ${pendingCount} işlem bekliyor. Sayfayı kapatırsanız bu işlemler iptal olacak. Devam etmek istiyor musunuz?`;
+        }
         e.returnValue = message;
         return message;
       }
@@ -453,7 +468,7 @@ const GalvanizliTelNetsis = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [taskQueue]);
+  }, [taskQueue, showQueueCompletionPopup]);
 
   // Kod-2 değişikliğinde kaplama değerini güncelle
   useEffect(() => {
@@ -5803,6 +5818,7 @@ const GalvanizliTelNetsis = () => {
     
     // Kuyruğa ekle
     setTaskQueue(prev => [...prev, newTask]);
+    taskQueueRef.current = [...taskQueueRef.current, newTask];
     
     try {
       // Gerçek veritabanı kaydetme işlemi - bu normal sürede çalışacak
@@ -5867,6 +5883,11 @@ const GalvanizliTelNetsis = () => {
             ? { ...t, status: 'failed', name: 'Talep Onaylama Hatası' }
             : t
         ));
+        taskQueueRef.current = taskQueueRef.current.map(t => 
+          t.id === taskId 
+            ? { ...t, status: 'failed', name: 'Talep Onaylama Hatası' }
+            : t
+        );
         const errorText = await updateResponse?.text() || 'Unknown error';
         console.error('Failed to update request: ' + (updateResponse?.status || 'undefined') + ' - ' + errorText);
         throw new Error('Talep durumu güncellenemedi');
@@ -5902,6 +5923,11 @@ const GalvanizliTelNetsis = () => {
           ? { ...t, status: 'completed', name: 'Talep Başarıyla Düzenlendi' }
           : t
       ));
+      taskQueueRef.current = taskQueueRef.current.map(t => 
+        t.id === taskId 
+          ? { ...t, status: 'completed', name: 'Talep Başarıyla Düzenlendi' }
+          : t
+      );
       
       // Reset states
       setIsEditingRequest(false);
@@ -5921,6 +5947,11 @@ const GalvanizliTelNetsis = () => {
           ? { ...t, status: 'failed', name: 'İşlem Hatası' }
           : t
       ));
+      taskQueueRef.current = taskQueueRef.current.map(t => 
+        t.id === taskId 
+          ? { ...t, status: 'failed', name: 'İşlem Hatası' }
+          : t
+      );
     }
   };
   
@@ -8776,182 +8807,117 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Generate Excel for a specific product from queue completion popup
-  const generateExcelForProduct = async (kod2, capValue, taskId) => {
+  // Generate Excel for a specific task using existing batch system
+  const generateExcelForTask = async (task) => {
     try {
-      // Find the product data from the database
-      const response = await fetchWithAuth(`${API_URLS.galvanizliTel}?kod_2=${kod2}&cap=${capValue}`);
-      if (!response.ok) throw new Error('Ürün verileri yüklenemedi');
-      
-      const products = await response.json();
-      if (products.length === 0) {
-        throw new Error('Ürün bulunamadı');
+      // Extract stok_kodu from task name or find the related request
+      const taskRequests = findRequestsForTask(task);
+      if (taskRequests.length === 0) {
+        throw new Error('Bu görev için talep bulunamadı');
       }
       
-      const product = products[0];
-      
-      // Load related data (YMGT and YMST)
-      const [ymGtResponse, ymStResponse] = await Promise.all([
-        fetchWithAuth(`${API_URLS.ymGt}?mmgt_id=${product.id}`),
-        fetchWithAuth(`${API_URLS.ymSt}?mmgt_id=${product.id}`)
-      ]);
-      
-      if (!ymGtResponse.ok || !ymStResponse.ok) {
-        throw new Error('İlgili veriler yüklenemedi');
-      }
-      
-      const ymGtData = await ymGtResponse.json();
-      const ymStData = await ymStResponse.json();
-      
-      // Generate Excel files using existing logic
-      const Excel = require('exceljs');
-      const { saveAs } = require('file-saver');
-      
-      const workbook = new Excel.Workbook();
-      const worksheet = workbook.addWorksheet('Recete');
-      
-      // Add headers
-      worksheet.columns = [
-        { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
-        { header: 'Stok Adı', key: 'stok_adi', width: 30 },
-        { header: 'Miktar', key: 'miktar', width: 15 },
-        { header: 'Birim', key: 'birim', width: 10 }
-      ];
-      
-      // Add MMGT data
-      const capFormatted = Math.round(parseFloat(product.cap) * 100).toString().padStart(4, '0');
-      const sequence = product.stok_kodu ? product.stok_kodu.split('.').pop() : '00';
-      const mmGtStokKodu = `GT.${product.kod_2}.${capFormatted}.${sequence}`;
-      
-      worksheet.addRow({
-        stok_kodu: mmGtStokKodu,
-        stok_adi: `GT ${product.kod_2} ${product.cap}mm ${product.kaplama}`,
-        miktar: 1,
-        birim: 'KG'
-      });
-      
-      // Add YMGT data
-      ymGtData.forEach(ymgt => {
-        worksheet.addRow({
-          stok_kodu: ymgt.stok_kodu || `YM.GT.${ymgt.kod_2}.${capFormatted}`,
-          stok_adi: `YM GT ${ymgt.kod_2} ${ymgt.cap}mm`,
-          miktar: ymgt.miktar,
-          birim: 'KG'
-        });
-      });
-      
-      // Add YMST data
-      ymStData.forEach(ymst => {
-        worksheet.addRow({
-          stok_kodu: ymst.stok_kodu,
-          stok_adi: ymst.stok_adi,
-          miktar: ymst.miktar,
-          birim: ymst.birim
-        });
-      });
-      
-      // Generate and save file
-      const buffer = await workbook.xlsx.writeBuffer();
-      const filename = `${mmGtStokKodu}_Recete.xlsx`;
-      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
-      
-      toast.success(`${filename} dosyası indirildi!`);
+      // Use existing batch Excel function for individual task
+      await generateBatchExcelFromRequests(taskRequests);
+      toast.success('Excel dosyaları başarıyla oluşturuldu!');
       
     } catch (error) {
-      console.error('Excel generation error:', error);
+      console.error('Task Excel generation error:', error);
       throw error;
     }
   };
 
-  // Generate combined Excel for all completed tasks
-  const generateCombinedExcel = async (tasks) => {
+  // Generate combined Excel for all completed tasks using existing batch system
+  const generateCombinedExcelForTasks = async (tasks) => {
     try {
-      const Excel = require('exceljs');
-      const { saveAs } = require('file-saver');
-      
-      const workbook = new Excel.Workbook();
+      // Collect all requests for all tasks
+      let allTaskRequests = [];
       
       for (const task of tasks) {
-        // Extract product info from task name
-        const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
-        if (!productInfo) continue;
-        
-        const [, kod2, cap] = productInfo;
-        const capValue = parseFloat(cap.replace('mm', ''));
-        
-        // Load product data
-        const response = await fetchWithAuth(`${API_URLS.galvanizliTel}?kod_2=${kod2}&cap=${capValue}`);
-        if (!response.ok) continue;
-        
-        const products = await response.json();
-        if (products.length === 0) continue;
-        
-        const product = products[0];
-        
-        // Create worksheet for this product
-        const worksheet = workbook.addWorksheet(`${kod2}_${cap}`);
-        
-        // Add headers
-        worksheet.columns = [
-          { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
-          { header: 'Stok Adı', key: 'stok_adi', width: 30 },
-          { header: 'Miktar', key: 'miktar', width: 15 },
-          { header: 'Birim', key: 'birim', width: 10 }
-        ];
-        
-        // Load related data
-        const [ymGtResponse, ymStResponse] = await Promise.all([
-          fetchWithAuth(`${API_URLS.ymGt}?mmgt_id=${product.id}`),
-          fetchWithAuth(`${API_URLS.ymSt}?mmgt_id=${product.id}`)
-        ]);
-        
-        if (ymGtResponse.ok && ymStResponse.ok) {
-          const ymGtData = await ymGtResponse.json();
-          const ymStData = await ymStResponse.json();
-          
-          // Add data to worksheet
-          const capFormatted = Math.round(parseFloat(product.cap) * 100).toString().padStart(4, '0');
-          const sequence = product.stok_kodu ? product.stok_kodu.split('.').pop() : '00';
-          const mmGtStokKodu = `GT.${product.kod_2}.${capFormatted}.${sequence}`;
-          
-          worksheet.addRow({
-            stok_kodu: mmGtStokKodu,
-            stok_adi: `GT ${product.kod_2} ${product.cap}mm ${product.kaplama}`,
-            miktar: 1,
-            birim: 'KG'
-          });
-          
-          ymGtData.forEach(ymgt => {
-            worksheet.addRow({
-              stok_kodu: ymgt.stok_kodu || `YM.GT.${ymgt.kod_2}.${capFormatted}`,
-              stok_adi: `YM GT ${ymgt.kod_2} ${ymgt.cap}mm`,
-              miktar: ymgt.miktar,
-              birim: 'KG'
-            });
-          });
-          
-          ymStData.forEach(ymst => {
-            worksheet.addRow({
-              stok_kodu: ymst.stok_kodu,
-              stok_adi: ymst.stok_adi,
-              miktar: ymst.miktar,
-              birim: ymst.birim
-            });
-          });
-        }
+        const taskRequests = findRequestsForTask(task);
+        allTaskRequests = [...allTaskRequests, ...taskRequests];
       }
       
-      // Generate and save combined file
-      const buffer = await workbook.xlsx.writeBuffer();
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `Birlestirilmis_Receteler_${timestamp}.xlsx`;
-      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+      if (allTaskRequests.length === 0) {
+        throw new Error('Tamamlanan görevler için talep bulunamadı');
+      }
       
-      toast.success(`${filename} dosyası indirildi!`);
+      // Remove duplicates based on request ID
+      const uniqueRequests = allTaskRequests.filter((request, index, self) => 
+        index === self.findIndex(r => r.id === request.id)
+      );
+      
+      // Use existing batch Excel function
+      await generateBatchExcelFromRequests(uniqueRequests);
+      toast.success(`${uniqueRequests.length} talep için birleştirilmiş Excel dosyaları oluşturuldu!`);
       
     } catch (error) {
       console.error('Combined Excel generation error:', error);
       throw error;
+    }
+  };
+
+  // Helper function to find requests for a specific task
+  const findRequestsForTask = (task) => {
+    try {
+      console.log('🔍 Finding requests for task:', task.name);
+      console.log('📋 Available requests count:', requests.length);
+      console.log('📋 Approved requests:', requests.filter(r => r.status === 'approved').length);
+      
+      // Extract product info from task name
+      const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
+      if (!productInfo) {
+        console.warn('Could not extract product info from task name:', task.name);
+        return [];
+      }
+      
+      const [, kod2, cap] = productInfo;
+      const capValue = parseFloat(cap.replace('mm', ''));
+      console.log('🎯 Extracted product info:', { kod2, cap, capValue });
+      
+      // Find approved requests that match this product
+      const matchingRequests = requests.filter(request => {
+        if (!request || request.status !== 'approved') return false;
+        
+        const reqKod2 = request.kod_2;
+        const reqCap = parseFloat(request.cap);
+        
+        const matches = reqKod2 === kod2 && Math.abs(reqCap - capValue) < 0.001;
+        if (matches) {
+          console.log('✅ Found matching request:', { id: request.id, kod_2: reqKod2, cap: reqCap, stok_kodu: request.stok_kodu });
+        }
+        return matches;
+      });
+      
+      console.log(`🔍 Found ${matchingRequests.length} matching requests by kod_2/cap`);
+      
+      // If no matching requests found in current requests, try to find by stok_kodu
+      if (matchingRequests.length === 0) {
+        console.log('🔍 No direct matches found, trying stok_kodu pattern...');
+        
+        // Generate expected stok_kodu pattern
+        const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
+        const expectedStokKoduPattern = `GT.${kod2}.${capFormatted}`;
+        console.log('🎯 Expected stok_kodu pattern:', expectedStokKoduPattern);
+        
+        const requestsByStokKodu = requests.filter(request => {
+          if (!request || request.status !== 'approved' || !request.stok_kodu) return false;
+          
+          const matches = request.stok_kodu.startsWith(expectedStokKoduPattern);
+          if (matches) {
+            console.log('✅ Found matching request by stok_kodu:', { id: request.id, stok_kodu: request.stok_kodu });
+          }
+          return matches;
+        });
+        
+        console.log(`🔍 Found ${requestsByStokKodu.length} matching requests by stok_kodu`);
+        return requestsByStokKodu;
+      }
+      
+      return matchingRequests;
+      
+    } catch (error) {
+      console.error('Error finding requests for task:', error);
+      return [];
     }
   };
 
@@ -14816,6 +14782,11 @@ const GalvanizliTelNetsis = () => {
                 <div className="mt-2 flex justify-end">
                   <button
                     onClick={() => {
+                      // If completion popup is showing, don't allow clearing
+                      if (showQueueCompletionPopup) {
+                        toast.warning('Önce kuyruk tamamlanma penceresini kapatın');
+                        return;
+                      }
                       setTaskQueue(prev => prev.filter(t => t.status !== 'completed'));
                       taskQueueRef.current = taskQueueRef.current.filter(t => t.status !== 'completed');
                     }}
@@ -15056,7 +15027,7 @@ const GalvanizliTelNetsis = () => {
 
       {/* Queue Completion Popup */}
       {showQueueCompletionPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15081,20 +15052,10 @@ const GalvanizliTelNetsis = () => {
                   <button
                     onClick={async () => {
                       try {
-                        // Extract product info from task name for Excel export
-                        const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
-                        if (productInfo) {
-                          const [, kod2, cap] = productInfo;
-                          const capValue = parseFloat(cap.replace('mm', ''));
-                          
-                          // Generate Excel for this specific product
-                          await generateExcelForProduct(kod2, capValue, task.id);
-                        } else {
-                          toast.error('Ürün bilgisi bulunamadı');
-                        }
+                        await generateExcelForTask(task);
                       } catch (error) {
                         console.error('Excel export error:', error);
-                        toast.error('Excel dosyası oluşturulamadı');
+                        toast.error('Excel dosyası oluşturulamadı: ' + error.message);
                       }
                     }}
                     className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
@@ -15109,11 +15070,10 @@ const GalvanizliTelNetsis = () => {
               <button
                 onClick={async () => {
                   try {
-                    // Generate combined Excel for all completed tasks
-                    await generateCombinedExcel(completedQueueTasks);
+                    await generateCombinedExcelForTasks(completedQueueTasks);
                   } catch (error) {
                     console.error('Combined Excel export error:', error);
-                    toast.error('Birleştirilmiş Excel dosyası oluşturulamadı');
+                    toast.error('Birleştirilmiş Excel dosyası oluşturulamadı: ' + error.message);
                   }
                 }}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mb-3 flex items-center justify-center gap-2"
