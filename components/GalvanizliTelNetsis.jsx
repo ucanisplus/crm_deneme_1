@@ -9243,21 +9243,21 @@ const GalvanizliTelNetsis = () => {
       
       // Process all MM GT recipe components in proper order
       const processedMmGtRecipe = fixedRecipe;
-      const recipeEntries = Object.entries(processedMmGtRecipe);
+      const mmGtRecipeEntries = Object.entries(processedMmGtRecipe);
       
       // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
-      const ymGtEntry = recipeEntries.find(([key]) => key === correctStokKodu) || 
-                        recipeEntries.find(([key]) => key.includes('YM.GT.'));
-      const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
-      const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
-      const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
-      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-      const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
-      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
+      const ymGtEntry = mmGtRecipeEntries.find(([key]) => key === correctStokKodu) || 
+                        mmGtRecipeEntries.find(([key]) => key.includes('YM.GT.'));
+      const gtpkt01Entry = mmGtRecipeEntries.find(([key]) => key === 'GTPKT01');
+      const kartonEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
+      const shrinkEntry = mmGtRecipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
+      const halkaEntry = mmGtRecipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+      const cemberEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+      const tokaEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
+      const desiEntry = mmGtRecipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
       
       // Other entries that might exist but aren't in the fixed order
-      const otherEntries = recipeEntries.filter(([key]) => 
+      const otherEntries = mmGtRecipeEntries.filter(([key]) => 
         !key.includes('YM.GT.') && 
         key !== 'GTPKT01' &&
         key !== 'AMB.ÇEM.KARTON.GAL' &&
