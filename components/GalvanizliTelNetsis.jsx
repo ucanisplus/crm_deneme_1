@@ -109,6 +109,8 @@ const GalvanizliTelNetsis = () => {
   // Task Queue System için state'ler
   const [taskQueue, setTaskQueue] = useState([]); // {id, name, status: 'pending'|'processing'|'completed'|'failed', timestamp}
   const [showTaskQueuePopup, setShowTaskQueuePopup] = useState(false);
+  const [showQueueCompletionPopup, setShowQueueCompletionPopup] = useState(false);
+  const [completedQueueTasks, setCompletedQueueTasks] = useState([]);
   const taskQueueRef = useRef([]);
   const processingTaskRef = useRef(false);
   
@@ -391,7 +393,21 @@ const GalvanizliTelNetsis = () => {
     if (processingTaskRef.current) return;
     
     const pendingTasks = taskQueueRef.current.filter(t => t.status === 'pending');
-    if (pendingTasks.length === 0) return;
+    if (pendingTasks.length === 0) {
+      // Check if we just finished all tasks and should show completion popup
+      const completedTasks = taskQueueRef.current.filter(t => t.status === 'completed');
+      const failedTasks = taskQueueRef.current.filter(t => t.status === 'failed');
+      const totalTasks = taskQueueRef.current.length;
+      
+      if (totalTasks > 0 && (completedTasks.length + failedTasks.length) === totalTasks) {
+        // All tasks are finished, show completion popup if there are completed tasks
+        if (completedTasks.length > 0) {
+          setCompletedQueueTasks(completedTasks);
+          setShowQueueCompletionPopup(true);
+        }
+      }
+      return;
+    }
     
     processingTaskRef.current = true;
     const currentTask = pendingTasks[0];
@@ -8760,6 +8776,185 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Generate Excel for a specific product from queue completion popup
+  const generateExcelForProduct = async (kod2, capValue, taskId) => {
+    try {
+      // Find the product data from the database
+      const response = await fetchWithAuth(`${API_URLS.galvanizliTel}?kod_2=${kod2}&cap=${capValue}`);
+      if (!response.ok) throw new Error('Ürün verileri yüklenemedi');
+      
+      const products = await response.json();
+      if (products.length === 0) {
+        throw new Error('Ürün bulunamadı');
+      }
+      
+      const product = products[0];
+      
+      // Load related data (YMGT and YMST)
+      const [ymGtResponse, ymStResponse] = await Promise.all([
+        fetchWithAuth(`${API_URLS.ymGt}?mmgt_id=${product.id}`),
+        fetchWithAuth(`${API_URLS.ymSt}?mmgt_id=${product.id}`)
+      ]);
+      
+      if (!ymGtResponse.ok || !ymStResponse.ok) {
+        throw new Error('İlgili veriler yüklenemedi');
+      }
+      
+      const ymGtData = await ymGtResponse.json();
+      const ymStData = await ymStResponse.json();
+      
+      // Generate Excel files using existing logic
+      const Excel = require('exceljs');
+      const { saveAs } = require('file-saver');
+      
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Recete');
+      
+      // Add headers
+      worksheet.columns = [
+        { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
+        { header: 'Stok Adı', key: 'stok_adi', width: 30 },
+        { header: 'Miktar', key: 'miktar', width: 15 },
+        { header: 'Birim', key: 'birim', width: 10 }
+      ];
+      
+      // Add MMGT data
+      const capFormatted = Math.round(parseFloat(product.cap) * 100).toString().padStart(4, '0');
+      const sequence = product.stok_kodu ? product.stok_kodu.split('.').pop() : '00';
+      const mmGtStokKodu = `GT.${product.kod_2}.${capFormatted}.${sequence}`;
+      
+      worksheet.addRow({
+        stok_kodu: mmGtStokKodu,
+        stok_adi: `GT ${product.kod_2} ${product.cap}mm ${product.kaplama}`,
+        miktar: 1,
+        birim: 'KG'
+      });
+      
+      // Add YMGT data
+      ymGtData.forEach(ymgt => {
+        worksheet.addRow({
+          stok_kodu: ymgt.stok_kodu || `YM.GT.${ymgt.kod_2}.${capFormatted}`,
+          stok_adi: `YM GT ${ymgt.kod_2} ${ymgt.cap}mm`,
+          miktar: ymgt.miktar,
+          birim: 'KG'
+        });
+      });
+      
+      // Add YMST data
+      ymStData.forEach(ymst => {
+        worksheet.addRow({
+          stok_kodu: ymst.stok_kodu,
+          stok_adi: ymst.stok_adi,
+          miktar: ymst.miktar,
+          birim: ymst.birim
+        });
+      });
+      
+      // Generate and save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const filename = `${mmGtStokKodu}_Recete.xlsx`;
+      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+      
+      toast.success(`${filename} dosyası indirildi!`);
+      
+    } catch (error) {
+      console.error('Excel generation error:', error);
+      throw error;
+    }
+  };
+
+  // Generate combined Excel for all completed tasks
+  const generateCombinedExcel = async (tasks) => {
+    try {
+      const Excel = require('exceljs');
+      const { saveAs } = require('file-saver');
+      
+      const workbook = new Excel.Workbook();
+      
+      for (const task of tasks) {
+        // Extract product info from task name
+        const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
+        if (!productInfo) continue;
+        
+        const [, kod2, cap] = productInfo;
+        const capValue = parseFloat(cap.replace('mm', ''));
+        
+        // Load product data
+        const response = await fetchWithAuth(`${API_URLS.galvanizliTel}?kod_2=${kod2}&cap=${capValue}`);
+        if (!response.ok) continue;
+        
+        const products = await response.json();
+        if (products.length === 0) continue;
+        
+        const product = products[0];
+        
+        // Create worksheet for this product
+        const worksheet = workbook.addWorksheet(`${kod2}_${cap}`);
+        
+        // Add headers
+        worksheet.columns = [
+          { header: 'Stok Kodu', key: 'stok_kodu', width: 20 },
+          { header: 'Stok Adı', key: 'stok_adi', width: 30 },
+          { header: 'Miktar', key: 'miktar', width: 15 },
+          { header: 'Birim', key: 'birim', width: 10 }
+        ];
+        
+        // Load related data
+        const [ymGtResponse, ymStResponse] = await Promise.all([
+          fetchWithAuth(`${API_URLS.ymGt}?mmgt_id=${product.id}`),
+          fetchWithAuth(`${API_URLS.ymSt}?mmgt_id=${product.id}`)
+        ]);
+        
+        if (ymGtResponse.ok && ymStResponse.ok) {
+          const ymGtData = await ymGtResponse.json();
+          const ymStData = await ymStResponse.json();
+          
+          // Add data to worksheet
+          const capFormatted = Math.round(parseFloat(product.cap) * 100).toString().padStart(4, '0');
+          const sequence = product.stok_kodu ? product.stok_kodu.split('.').pop() : '00';
+          const mmGtStokKodu = `GT.${product.kod_2}.${capFormatted}.${sequence}`;
+          
+          worksheet.addRow({
+            stok_kodu: mmGtStokKodu,
+            stok_adi: `GT ${product.kod_2} ${product.cap}mm ${product.kaplama}`,
+            miktar: 1,
+            birim: 'KG'
+          });
+          
+          ymGtData.forEach(ymgt => {
+            worksheet.addRow({
+              stok_kodu: ymgt.stok_kodu || `YM.GT.${ymgt.kod_2}.${capFormatted}`,
+              stok_adi: `YM GT ${ymgt.kod_2} ${ymgt.cap}mm`,
+              miktar: ymgt.miktar,
+              birim: 'KG'
+            });
+          });
+          
+          ymStData.forEach(ymst => {
+            worksheet.addRow({
+              stok_kodu: ymst.stok_kodu,
+              stok_adi: ymst.stok_adi,
+              miktar: ymst.miktar,
+              birim: ymst.birim
+            });
+          });
+        }
+      }
+      
+      // Generate and save combined file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `Birlestirilmis_Receteler_${timestamp}.xlsx`;
+      saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+      
+      toast.success(`${filename} dosyası indirildi!`);
+      
+    } catch (error) {
+      console.error('Combined Excel generation error:', error);
+      throw error;
+    }
+  };
+
   // Excel dosyalarını oluştur
   const generateExcelFiles = async () => {
     try {
@@ -11608,12 +11803,16 @@ const GalvanizliTelNetsis = () => {
                 {isViewingExistingProduct ? 'Değişiklikleri İptal Et' : 'Geri'}
               </button>
               
-              <button
-                onClick={async () => {
-                  try {
-                    setIsLoading(true);
-                    
-                    if (isViewingExistingProduct) {
+              {/* REMOVED: Veritabanına Kaydet ve Excel Oluştur button - was causing infinite loops */}
+              {/* Use only the queue-based "Kaydet ve Kuyruğa Al" button below */}
+              
+              {/* For existing products, show a simple save changes button */}
+              {isViewingExistingProduct && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsLoading(true);
+                      
                       // First check for duplicate stok_kodu when editing
                       const isDuplicateValid = await checkForDuplicatesWhenEditing();
                       if (!isDuplicateValid) {
@@ -11637,85 +11836,38 @@ const GalvanizliTelNetsis = () => {
                       setShowChangePreviewModal(true);
                       setIsLoading(false);
                       return;
-                    } else {
-                      // Check if we have a pending approval action
-                      if (pendingApprovalAction && selectedRequest) {
-                        console.log("Pending approval action detected, saving first then approving");
-                        
-                        // First save to database if not already saved
-                        if (!savedToDatabase) {
-                          console.log("Saving to database for approval...");
-                          const saveResult = await checkForDuplicatesNoPopup();
-                          if (!saveResult) {
-                            // Error occurred
-                            setIsLoading(false);
-                            return;
-                          }
-                          console.log("Database save completed for approval");
-                        }
-                        
-                        // Now call the approval function which handles both approval and Excel generation
-                        await approveRequestAndContinue();
-                      } else {
-                        // Normal flow for new products
-                        
-                        // First save to database if not already saved
-                        if (!savedToDatabase) {
-                          console.log("Saving to database...");
-                          const saveResult = await checkForDuplicatesNoPopup();
-                          if (!saveResult) {
-                            // Error occurred
-                            setIsLoading(false);
-                            return;
-                          }
-                          console.log("Database save completed");
-                        } else {
-                          console.log("Already saved to database, skipping");
-                        }
-                        
-                        // Show notification that we're generating Excel files
-                        toast.info("Excel dosyaları oluşturuluyor...");
-                        
-                        // Then generate Excel files
-                        console.log("Generating Excel files...");
-                        await generateExcelFiles();
-                        console.log("Excel generation completed");
-                        
-                        // Success notification
-                        toast.success("İşlem başarıyla tamamlandı!");
-                      }
+                    } catch (error) {
+                      console.error("Error during operation:", error);
+                      setError(`İşlem hatası: ${error.message}`);
+                      toast.error(`İşlem hatası: ${error.message}`);
+                      
+                      // Reset loading state to allow user to try again
+                      setIsLoading(false);
+                    } finally {
+                      setIsLoading(false);
                     }
-                  } catch (error) {
-                    console.error("Error during operation:", error);
-                    setError(`İşlem hatası: ${error.message}`);
-                    toast.error(`İşlem hatası: ${error.message}`);
-                    
-                    // Reset loading state to allow user to try again
-                    setIsLoading(false);
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-                disabled={isLoading}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    İşlem Yapılıyor...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                    {isViewingExistingProduct ? 'Değişiklikleri Kaydet' : 'Veritabanına Kaydet ve Excel Oluştur'}
-                  </>
-                )}
-              </button>
+                  }}
+                  disabled={isLoading}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-lg flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      İşlem Yapılıyor...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Değişiklikleri Kaydet
+                    </>
+                  )}
+                </button>
+              )}
               
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {(() => {
@@ -14897,6 +15049,93 @@ const GalvanizliTelNetsis = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Queue Completion Popup */}
+      {showQueueCompletionPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-lg font-semibold">Kuyruk Tamamlandı</h3>
+            </div>
+            
+            <div className="text-gray-600 mb-4">
+              {completedQueueTasks.length} işlem başarıyla tamamlandı. Aşağıdaki Excel dosyalarını indirebilirsiniz:
+            </div>
+            
+            <div className="space-y-2 mb-6">
+              {completedQueueTasks.map((task) => (
+                <div key={task.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-medium truncate">{task.name}</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Extract product info from task name for Excel export
+                        const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
+                        if (productInfo) {
+                          const [, kod2, cap] = productInfo;
+                          const capValue = parseFloat(cap.replace('mm', ''));
+                          
+                          // Generate Excel for this specific product
+                          await generateExcelForProduct(kod2, capValue, task.id);
+                        } else {
+                          toast.error('Ürün bilgisi bulunamadı');
+                        }
+                      } catch (error) {
+                        console.error('Excel export error:', error);
+                        toast.error('Excel dosyası oluşturulamadı');
+                      }
+                    }}
+                    className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
+                  >
+                    Excel İndir
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            <div className="border-t pt-4">
+              <button
+                onClick={async () => {
+                  try {
+                    // Generate combined Excel for all completed tasks
+                    await generateCombinedExcel(completedQueueTasks);
+                  } catch (error) {
+                    console.error('Combined Excel export error:', error);
+                    toast.error('Birleştirilmiş Excel dosyası oluşturulamadı');
+                  }
+                }}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mb-3 flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Birleştirilmiş Excel İndir
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowQueueCompletionPopup(false);
+                  setCompletedQueueTasks([]);
+                  // Clear completed tasks from queue
+                  setTaskQueue(prev => prev.filter(t => t.status !== 'completed'));
+                  taskQueueRef.current = taskQueueRef.current.filter(t => t.status !== 'completed');
+                }}
+                className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Tamam
+              </button>
             </div>
           </div>
         </div>
