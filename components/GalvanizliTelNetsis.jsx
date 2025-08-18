@@ -8868,7 +8868,13 @@ const GalvanizliTelNetsis = () => {
     ymGtSheet.addRow(stokKartiHeaders);
     
     // YM GT için doğru sequence kullan (stok kartı fonksiyonu sequence bekliyor, stok kodu değil)
-    ymGtSheet.addRow(generateYmGtStokKartiData(excelData.sequence));
+    console.log('🔍 YM GT Stok Kartı Debug:');
+    console.log('- Sequence being passed:', excelData.sequence);
+    console.log('- ymGtData before generation:', ymGtData);
+    const ymGtRow = generateYmGtStokKartiData(excelData.sequence);
+    console.log('- Generated YM GT row:', ymGtRow);
+    console.log('- YM GT Stock Code (first column):', ymGtRow[0]);
+    ymGtSheet.addRow(ymGtRow);
     
     // YM ST Sheet - Ana YM ST'yi ilk sıraya ekle
     const ymStSheet = workbook.addWorksheet('YM ST');
@@ -8912,6 +8918,14 @@ const GalvanizliTelNetsis = () => {
     
     // Sadece ana YMST için MM GT reçete satırları ekle
     const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex_] } || {};
+    
+    // DEBUG: Log the MM GT recipe data
+    console.log('🔍 MM GT Recipe Debug:');
+    console.log('- mainYmStIndex_:', mainYmStIndex_);
+    console.log('- All MM GT recipes:', excelData.allRecipes.mmGtRecipes);
+    console.log('- Selected MM GT recipe:', mmGtRecipe);
+    console.log('- Recipe keys:', Object.keys(mmGtRecipe));
+    console.log('- Recipe entries with values:', Object.entries(mmGtRecipe).filter(([key, value]) => value > 0));
     
     // DÜZELTME: Doğru YM.GT kodu oluştur - MMGT ile aynı sequence kullanılmalı
     const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
@@ -10286,7 +10300,9 @@ const GalvanizliTelNetsis = () => {
     if (!ymGtData) return [];
     
     const cap = parseFloat(ymGtData.cap);
-    const stokKodu = ymGtData.stok_kodu;
+    // Generate correct stock code using the passed sequence
+    const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+    const stokKodu = `YM.GT.${ymGtData.kod_2}.${capFormatted}.${sequence}`;
     
     // Use YM GT tolerance data for proper calculation with mathematical correction
     const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
