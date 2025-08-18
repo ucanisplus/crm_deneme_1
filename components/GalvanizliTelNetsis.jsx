@@ -9309,7 +9309,7 @@ const GalvanizliTelNetsis = () => {
         });
       
       sortedEntries.forEach(([key, value], index) => {
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, index + 1));
+        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, index + 1, sequence));
       });
       
       // Add YM ST recipes - Main YM ST first
@@ -15605,7 +15605,7 @@ const GalvanizliTelNetsis = () => {
             </div>
             
             <div className="space-y-2 mb-6">
-              {completedQueueTasks.map((task) => {
+              {completedQueueTasks.map((task, index) => {
                 const isLoading = excelGenerationProgress[task.id]?.loading || false;
                 const progress = excelGenerationProgress[task.id]?.progress || 0;
                 
@@ -15613,6 +15613,7 @@ const GalvanizliTelNetsis = () => {
                   <div key={task.id} className="bg-gray-50 p-3 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-700 min-w-[1.5rem]">{index + 1}.</span>
                         <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
