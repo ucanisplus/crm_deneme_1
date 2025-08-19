@@ -11122,9 +11122,9 @@ const GalvanizliTelNetsis = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
             Talepler
-            {requests.length > 0 && (
+            {requests.filter(r => r.status === 'pending').length > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {requests.length}
+                {requests.filter(r => r.status === 'pending').length}
               </span>
             )}
           </button>
@@ -12557,6 +12557,11 @@ const GalvanizliTelNetsis = () => {
                             setIsEditingRequest(false);
                             setPendingApprovalAction(null);
                             setIsRequestUsed(false); // Clear the used flag to remove status message
+                            
+                            // Refresh requests list to update status from 'işleniyor' to 'onaylandı'
+                            setTimeout(async () => {
+                              await fetchRequests();
+                            }, 500);
                             
                             // ✅ Return success with excel data since both save and approval succeeded
                             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
