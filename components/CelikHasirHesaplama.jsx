@@ -615,17 +615,9 @@ const CelikHasirHesaplama = () => {
   };
 
   // Save unknown mesh type specifications
-  const handleSaveUnknownMeshType = async (specifications) => {
+  const handleSaveUnknownMeshType = async (meshConfig) => {
     try {
-      const meshConfig = {
-        hasirTipi: unknownMeshType,
-        boyCap: parseFloat(specifications.boyCap),
-        enCap: parseFloat(specifications.enCap),
-        boyAralik: parseFloat(specifications.boyAralik),
-        enAralik: parseFloat(specifications.enAralik),
-        type: unknownMeshType.replace(/\d+.*/, '').toUpperCase(),
-        description: `User-defined ${unknownMeshType} configuration`
-      };
+      console.log('Saving mesh config:', meshConfig);
 
       await meshConfigService.saveMeshConfig(meshConfig);
       
