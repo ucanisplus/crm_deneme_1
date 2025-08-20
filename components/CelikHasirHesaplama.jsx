@@ -575,6 +575,9 @@ const CelikHasirHesaplama = () => {
   
   // Preview modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  
+  // Flag to prevent duplicate processing
+  const [isProcessingComplete, setIsProcessingComplete] = useState(false);
 
   // Load mesh configurations on component mount
   useEffect(() => {
@@ -733,20 +736,33 @@ const CelikHasirHesaplama = () => {
         }
       });
       
-      // Add rows to main table
-      setRows(prev => [...prev, ...updatedRows]);
-      
-      // Recalculate each row with new mesh configurations
-      const tempRows = [...rows, ...updatedRows];
-      updatedRows.forEach((_, index) => {
-        const actualIndex = rows.length + index;
-        updateRowFromHasirTipi(tempRows, actualIndex);
+      // Replace existing rows with new rows (don't add to empty row)
+      setRows(prev => {
+        console.log(`Before transfer: main table has ${prev.length} rows`);
+        console.log(`Replacing with ${updatedRows.length} new rows from Excel`);
+        // If there's only 1 empty row, replace it. Otherwise, add to existing rows.
+        const newRows = (prev.length === 1 && !prev[0].hasirTipi) ? [...updatedRows] : [...prev, ...updatedRows];
+        
+        // Recalculate each new row with mesh configurations
+        updatedRows.forEach((newRow, index) => {
+          const actualIndex = prev.length + index;
+          try {
+            updateRowFromHasirTipi(newRows, actualIndex);
+          } catch (error) {
+            console.error(`Error updating row ${actualIndex}:`, error);
+          }
+        });
+        
+        return newRows;
       });
       
       // Clear preview and pending data
       setPreviewData([]);
       setShowPreviewModal(false);
       window.pendingPreviewData = null;
+      
+      // Mark processing as complete to prevent duplicate processing
+      setIsProcessingComplete(true);
       
       console.log(`Successfully transferred ${updatedRows.length} rows with new mesh configurations`);
     } else if (window.pendingPreviewData) {
@@ -805,6 +821,12 @@ const handleConfirmMapping = (mapping) => {
 
 // Kullanıcı onaylı eşleştirmeyle Excel verilerini işle
 const processExcelWithMapping = (sheets, mapping) => {
+  // Prevent duplicate processing if already completed via unknown type handling
+  if (isProcessingComplete) {
+    console.log('Processing already completed via unknown type handling, skipping duplicate processing');
+    return;
+  }
+  
   const allValidRows = [];
   
   // Her sayfayı işle
@@ -4259,6 +4281,8 @@ const processExtractedTextFromOCR = (extractedText) => {
     const uploadedFile = event.target.files[0];
     if (uploadedFile) {
       setFile(uploadedFile);
+      // Reset processing flag for new file
+      setIsProcessingComplete(false);
       const reader = new FileReader();
       
       reader.onload = (e) => {
