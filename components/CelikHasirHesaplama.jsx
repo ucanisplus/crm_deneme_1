@@ -590,9 +590,15 @@ const CelikHasirHesaplama = () => {
 
   // Handle unknown mesh type
   const handleUnknownMeshType = (meshType, rowIndex) => {
-    if (!showUnknownMeshModal) {
-      setUnknownMeshType(meshType);
-      setShowUnknownMeshModal(true);
+    // Add to queue if not already present
+    if (!unknownMeshQueue.includes(meshType)) {
+      setUnknownMeshQueue(prev => [...prev, meshType]);
+      
+      // Show modal if not already showing (for the first unknown type)
+      if (!showUnknownMeshModal) {
+        setUnknownMeshType(meshType);
+        setShowUnknownMeshModal(true);
+      }
     }
   };
 
@@ -615,18 +621,114 @@ const CelikHasirHesaplama = () => {
       const updatedConfigs = await meshConfigService.loadMeshConfigs();
       setMeshConfigs(updatedConfigs);
       
-      // Close modal
-      setShowUnknownMeshModal(false);
-      setUnknownMeshType('');
-      
       console.log(`Saved new mesh configuration: ${unknownMeshType}`);
       
-      // Process any queued calculations
-      // This would trigger recalculation of the affected rows
+      // Remove current mesh type from queue
+      const currentMeshType = unknownMeshType;
+      setUnknownMeshQueue(prev => prev.filter(type => type !== currentMeshType));
+      
+      // Check if there are more unknown types to process
+      const remainingQueue = unknownMeshQueue.filter(type => type !== currentMeshType);
+      if (remainingQueue.length > 0) {
+        // Process next unknown type
+        setUnknownMeshType(remainingQueue[0]);
+        // Modal stays open for next type
+      } else {
+        // All unknown types processed, close modal
+        setShowUnknownMeshModal(false);
+        setUnknownMeshType('');
+        
+        // Recalculate all affected rows and transfer to main table
+        recalculateAndTransferRows();
+      }
       
     } catch (error) {
       console.error('Error saving mesh configuration:', error);
       alert('Failed to save mesh configuration. Please try again.');
+    }
+  };
+
+  // Recalculate all rows and transfer to main table after unknown types are resolved
+  const recalculateAndTransferRows = () => {
+    // Get current preview data (either from state or pending data)
+    const currentPreview = window.pendingPreviewData || previewData;
+    
+    if (currentPreview && currentPreview.length > 0) {
+      // Process each row to recalculate with new mesh configs
+      const updatedRows = [];
+      
+      currentPreview.forEach((rowData, index) => {
+        if (rowData.hasirTipi && rowData.uzunlukBoy && rowData.uzunlukEn && rowData.hasirSayisi) {
+          try {
+            const newRow = {
+              id: Date.now() + index,
+              hasirTipi: rowData.hasirTipi,
+              uzunlukBoy: parseFloat(rowData.uzunlukBoy) || 0,
+              uzunlukEn: parseFloat(rowData.uzunlukEn) || 0,
+              hasirSayisi: parseFloat(rowData.hasirSayisi) || 0,
+              hasirTuru: '',
+              boyCap: 0,
+              enCap: 0,
+              boyAraligi: 0,
+              enAraligi: 0,
+              cubukSayisiBoy: 0,
+              cubukSayisiEn: 0,
+              solFiliz: 0,
+              sagFiliz: 0,
+              onFiliz: 0,
+              arkaFiliz: 0,
+              agirlik: 0,
+              modified: {
+                uzunlukBoy: false,
+                uzunlukEn: false,
+                hasirSayisi: false,
+                cubukSayisiBoy: false,
+                cubukSayisiEn: false,
+                solFiliz: false,
+                sagFiliz: false,
+                onFiliz: false,
+                arkaFiliz: false,
+                hasirTuru: false
+              },
+              uretilemez: false
+            };
+            
+            updatedRows.push(newRow);
+          } catch (error) {
+            console.error('Error processing row:', rowData, error);
+          }
+        }
+      });
+      
+      // Add rows to main table
+      setRows(prev => [...prev, ...updatedRows]);
+      
+      // Recalculate each row with new mesh configurations
+      const tempRows = [...rows, ...updatedRows];
+      updatedRows.forEach((_, index) => {
+        const actualIndex = rows.length + index;
+        updateRowFromHasirTipi(tempRows, actualIndex);
+      });
+      
+      // Clear preview and pending data
+      setPreviewData([]);
+      setShowPreviewModal(false);
+      window.pendingPreviewData = null;
+      
+      console.log(`Successfully transferred ${updatedRows.length} rows with new mesh configurations`);
+    } else if (window.pendingPreviewData) {
+      // If we have pending data but couldn't process it, show normal preview
+      const previewItems = window.pendingPreviewData.map((rowData, index) => ({
+        id: index,
+        hasirTipi: rowData.hasirTipi || '',
+        uzunlukBoy: rowData.uzunlukBoy || '',
+        uzunlukEn: rowData.uzunlukEn || '',
+        hasirSayisi: rowData.hasirSayisi || ''
+      }));
+      
+      setPreviewData(previewItems);
+      setShowPreviewModal(true);
+      window.pendingPreviewData = null;
     }
   };
 
@@ -744,6 +846,24 @@ const processExcelWithMapping = (sheets, mapping) => {
   if (allValidRows.length === 0) {
     alert('İşlenebilir veri bulunamadı.');
     return;
+  }
+  
+  // Check for unknown mesh types BEFORE showing preview
+  const unknownTypes = new Set();
+  allValidRows.forEach(rowData => {
+    const hasirTipi = rowData.hasirTipi;
+    if (hasirTipi && !getMeshConfig(hasirTipi)) {
+      unknownTypes.add(hasirTipi);
+    }
+  });
+  
+  // If unknown types found, they will trigger the modal via getMeshConfig
+  // The preview will be shown after all unknown types are resolved
+  if (unknownTypes.size > 0) {
+    console.log(`Found ${unknownTypes.size} unknown mesh types:`, Array.from(unknownTypes));
+    // Store preview data for later processing
+    window.pendingPreviewData = allValidRows;
+    return; // Stop here, modal will handle the rest
   }
   
   // Önizleme verilerini ayarla
