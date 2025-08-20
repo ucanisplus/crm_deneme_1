@@ -44,6 +44,9 @@ import CelikHasirNetsis from './CelikHasirNetsis';
 // Import the Unknown Mesh Type Modal
 import UnknownMeshTypeModal from './UnknownMeshTypeModal';
 
+// Import mesh configuration service
+import meshConfigService from '../mesh-config-service';
+
 // Başlık metinlerinden sütunları bulma - İyileştirilmiş versiyon
 const findColumnsByHeaderText = (headers, sheetData) => {
   const result = {
@@ -561,7 +564,93 @@ const CelikHasirHesaplama = () => {
   const [sheetData, setSheetData] = useState([]);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [columnMapping, setColumnMapping] = useState(null);
+  
+  // Unknown mesh type modal states
+  const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
+  const [unknownMeshType, setUnknownMeshType] = useState('');
+  const [unknownMeshQueue, setUnknownMeshQueue] = useState([]);
+  
+  // Database mesh configurations
+  const [meshConfigs, setMeshConfigs] = useState(new Map());
 
+  // Load mesh configurations on component mount
+  useEffect(() => {
+    const loadMeshConfigs = async () => {
+      try {
+        const configs = await meshConfigService.loadMeshConfigs();
+        setMeshConfigs(configs);
+        console.log(`Loaded ${configs.size} mesh configurations from database`);
+      } catch (error) {
+        console.error('Failed to load mesh configurations:', error);
+      }
+    };
+    
+    loadMeshConfigs();
+  }, []);
+
+  // Handle unknown mesh type
+  const handleUnknownMeshType = (meshType, rowIndex) => {
+    if (!showUnknownMeshModal) {
+      setUnknownMeshType(meshType);
+      setShowUnknownMeshModal(true);
+    }
+  };
+
+  // Save unknown mesh type specifications
+  const handleSaveUnknownMeshType = async (specifications) => {
+    try {
+      const meshConfig = {
+        hasirTipi: unknownMeshType,
+        boyCap: parseFloat(specifications.boyCap),
+        enCap: parseFloat(specifications.enCap),
+        boyAralik: parseFloat(specifications.boyAralik),
+        enAralik: parseFloat(specifications.enAralik),
+        type: unknownMeshType.replace(/\d+.*/, '').toUpperCase(),
+        description: `User-defined ${unknownMeshType} configuration`
+      };
+
+      await meshConfigService.saveMeshConfig(meshConfig);
+      
+      // Update local configs
+      const updatedConfigs = await meshConfigService.loadMeshConfigs();
+      setMeshConfigs(updatedConfigs);
+      
+      // Close modal
+      setShowUnknownMeshModal(false);
+      setUnknownMeshType('');
+      
+      console.log(`Saved new mesh configuration: ${unknownMeshType}`);
+      
+      // Process any queued calculations
+      // This would trigger recalculation of the affected rows
+      
+    } catch (error) {
+      console.error('Error saving mesh configuration:', error);
+      alert('Failed to save mesh configuration. Please try again.');
+    }
+  };
+
+  // Get mesh config from database, fallback to hardcoded, or trigger unknown popup
+  const getMeshConfig = (hasirTipi) => {
+    // First check database
+    if (meshConfigs.has(hasirTipi)) {
+      return meshConfigs.get(hasirTipi);
+    }
+    
+    // Check for Q-type combinations
+    if (hasirTipi.includes('/')) {
+      const processedType = processComplexHasirType(hasirTipi);
+      if (processedType !== hasirTipi) {
+        return getMeshConfig(processedType);
+      }
+    }
+    
+    // If not found, trigger unknown mesh type popup
+    handleUnknownMeshType(hasirTipi);
+    
+    // Return null - calculations should handle this gracefully
+    return null;
+  };
 
   // Eşleştirme onaylama işlevi
 const handleConfirmMapping = (mapping) => {
@@ -7109,10 +7198,14 @@ useEffect(() => {
     
     {/* Unknown Mesh Type Modal */}
     <UnknownMeshTypeModal
-      isOpen={false}
-      onClose={() => {}}
-      meshType=""
-      onSave={() => {}}
+      isOpen={showUnknownMeshModal}
+      onClose={() => {
+        setShowUnknownMeshModal(false);
+        setUnknownMeshType('');
+        setUnknownMeshQueue([]);
+      }}
+      meshType={unknownMeshType}
+      onSave={handleSaveUnknownMeshType}
     />
 
     </div>
