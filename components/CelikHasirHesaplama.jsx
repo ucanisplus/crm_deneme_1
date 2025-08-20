@@ -7265,18 +7265,8 @@ useEffect(() => {
       onClose={() => setShowCubukCizelgesi(false)}
       mainTableData={rows}
     />
-    
-    {/* Unknown Mesh Type Modal */}
-    <UnknownMeshTypeModal
-      isOpen={showUnknownMeshModal}
-      onClose={() => {
-        setShowUnknownMeshModal(false);
-        setUnknownMeshType('');
-        setUnknownMeshQueue([]);
-      }}
-      meshType={unknownMeshType}
-      onSave={handleSaveUnknownMeshType}
-    />
+
+
 
     </div>
   );
