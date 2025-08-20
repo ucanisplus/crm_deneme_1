@@ -7255,34 +7255,31 @@ useEffect(() => {
         </div>
       </div>
 
-    {/* Sütun eşleştirme modalı */}
-    <ColumnMappingModal
-      isOpen={showMappingModal}
-      onClose={() => setShowMappingModal(false)}
-      sheetData={sheetData}
-      onConfirmMapping={handleConfirmMapping}
-    />
-    
-    <CubukUretimCizelgesi
-      isOpen={showCubukCizelgesi}
-      onClose={() => setShowCubukCizelgesi(false)}
-      mainTableData={rows}
-    />
-    
-    {/* Unknown Mesh Type Modal */}
-    <UnknownMeshTypeModal
-      isOpen={showUnknownMeshModal}
-      onClose={() => {
-        setShowUnknownMeshModal(false);
-        setUnknownMeshType('');
-        setUnknownMeshQueue([]);
-      }}
-      meshType={unknownMeshType}
-      onSave={handleSaveUnknownMeshType}
-    />
-
-
-
+      {/* Sütun eşleştirme modalı */}
+      <ColumnMappingModal
+        isOpen={showMappingModal}
+        onClose={() => setShowMappingModal(false)}
+        sheetData={sheetData}
+        onConfirmMapping={handleConfirmMapping}
+      />
+      
+      <CubukUretimCizelgesi
+        isOpen={showCubukCizelgesi}
+        onClose={() => setShowCubukCizelgesi(false)}
+        mainTableData={rows}
+      />
+      
+      {/* Unknown Mesh Type Modal */}
+      <UnknownMeshTypeModal
+        isOpen={showUnknownMeshModal}
+        onClose={() => {
+          setShowUnknownMeshModal(false);
+          setUnknownMeshType('');
+          setUnknownMeshQueue([]);
+        }}
+        meshType={unknownMeshType}
+        onSave={handleSaveUnknownMeshType}
+      />
     </div>
   );
 }
