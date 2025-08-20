@@ -1157,6 +1157,13 @@ const processExcelWithMapping = (sheets, mapping) => {
     // Q, R veya TR ile başladığını kontrol et
     if (!/^(Q|R|TR)/.test(standardized)) return value;
     
+    // Q106/106 -> Q106 (remove duplicate suffix)
+    // Q257/257 -> Q257 (remove duplicate suffix) 
+    const match = standardized.match(/^(Q|R|TR)(\d+)\/\2$/);
+    if (match) {
+      standardized = match[1] + match[2]; // Q + 257
+    }
+    
     return standardized;
   };
   
