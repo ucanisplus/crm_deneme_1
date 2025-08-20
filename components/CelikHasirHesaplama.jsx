@@ -572,6 +572,9 @@ const CelikHasirHesaplama = () => {
   
   // Database mesh configurations
   const [meshConfigs, setMeshConfigs] = useState(new Map());
+  
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Load mesh configurations on component mount
   useEffect(() => {
