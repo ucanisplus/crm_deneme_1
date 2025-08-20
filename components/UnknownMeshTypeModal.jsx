@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Save, X } from 'lucide-react';
 
-const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
+const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [specifications, setSpecifications] = useState({
     boyCap: '',
     enCap: '',
@@ -10,6 +11,9 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  
+  const currentMeshType = meshTypes[currentIndex] || '';
+  const totalTypes = meshTypes.length;
 
   const handleInputChange = (field, value) => {
     // Convert comma to period for decimal inputs
@@ -73,17 +77,17 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
     try {
       // Convert strings to numbers
       const meshConfig = {
-        hasirTipi: meshType,
+        hasirTipi: currentMeshType,
         boyCap: parseFloat(specifications.boyCap),
         enCap: parseFloat(specifications.enCap),
         boyAralik: parseFloat(specifications.boyAralik),
         enAralik: parseFloat(specifications.enAralik),
-        type: meshType.substring(0, meshType.match(/\d/) ? meshType.search(/\d/) : meshType.length).toUpperCase()
+        type: currentMeshType.substring(0, currentMeshType.match(/\d/) ? currentMeshType.search(/\d/) : currentMeshType.length).toUpperCase()
       };
 
       await onSave(meshConfig);
       
-      // Reset form
+      // Reset form for next mesh type
       setSpecifications({
         boyCap: '',
         enCap: '',
@@ -91,7 +95,15 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
         enAralik: ''
       });
       setErrors({});
-      onClose();
+      
+      // Move to next mesh type or close if done
+      if (currentIndex < totalTypes - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        // All mesh types processed, close modal
+        setCurrentIndex(0);
+        onClose();
+      }
     } catch (error) {
       console.error('Error saving mesh type:', error);
       alert('Hasır tipi kaydedilirken hata oluştu: ' + error.message);
@@ -108,10 +120,11 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
       enAralik: ''
     });
     setErrors({});
+    setCurrentIndex(0);
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || totalTypes === 0) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -120,12 +133,21 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshType, onSave }) => {
           <div className="bg-orange-100 p-2 rounded-full">
             <AlertTriangle className="w-6 h-6 text-orange-600" />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">
-              Bilinmeyen Hasır Tipi
-            </h2>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Bilinmeyen Hasır Tipi
+              </h2>
+              {totalTypes > 1 && (
+                <div className="bg-gray-100 px-3 py-1 rounded-full">
+                  <span className="text-sm font-medium text-gray-600">
+                    {currentIndex + 1}/{totalTypes}
+                  </span>
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-600">
-              <span className="font-medium">{meshType}</span> için teknik özellikler gerekli
+              <span className="font-medium">{currentMeshType}</span> için teknik özellikler gerekli
             </p>
           </div>
         </div>

@@ -567,8 +567,7 @@ const CelikHasirHesaplama = () => {
   
   // Unknown mesh type modal states
   const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
-  const [unknownMeshType, setUnknownMeshType] = useState('');
-  const [unknownMeshQueue, setUnknownMeshQueue] = useState([]);
+  const [unknownMeshTypes, setUnknownMeshTypes] = useState([]);
   
   // Database mesh configurations
   const [meshConfigs, setMeshConfigs] = useState(new Map());
@@ -614,44 +613,33 @@ const CelikHasirHesaplama = () => {
     }
   };
 
-  // Save unknown mesh type specifications
+  // Save unknown mesh type specifications (called for each type saved)
   const handleSaveUnknownMeshType = async (meshConfig) => {
     try {
       console.log('Saving mesh config:', meshConfig);
 
       await meshConfigService.saveMeshConfig(meshConfig);
       
-      // Update local configs
+      // Update local configs immediately
       const updatedConfigs = await meshConfigService.loadMeshConfigs();
       setMeshConfigs(updatedConfigs);
       
-      console.log(`Saved new mesh configuration: ${unknownMeshType}`);
-      
-      // Remove current mesh type from queue and process next
-      const currentMeshType = unknownMeshType;
-      const remainingQueue = unknownMeshQueue.filter(type => type !== currentMeshType);
-      
-      setUnknownMeshQueue(remainingQueue);
-      
-      if (remainingQueue.length > 0) {
-        // Process next unknown type
-        console.log(`Processing next unknown type: ${remainingQueue[0]} (${remainingQueue.length} remaining)`);
-        setUnknownMeshType(remainingQueue[0]);
-        // Modal stays open for next type
-      } else {
-        // All unknown types processed, close modal
-        console.log('All unknown types processed, closing modal and transferring data');
-        setShowUnknownMeshModal(false);
-        setUnknownMeshType('');
-        
-        // Recalculate all affected rows and transfer to main table
-        recalculateAndTransferRows();
-      }
+      console.log(`Saved new mesh configuration: ${meshConfig.hasirTipi}`);
       
     } catch (error) {
       console.error('Error saving mesh configuration:', error);
-      alert('Failed to save mesh configuration. Please try again.');
+      throw error; // Let the modal handle the error
     }
+  };
+
+  // Handle when all unknown mesh types are saved and modal closes
+  const handleUnknownMeshModalClose = () => {
+    console.log('All unknown mesh types processed, transferring data');
+    setShowUnknownMeshModal(false);
+    setUnknownMeshTypes([]);
+    
+    // Transfer data to main table
+    recalculateAndTransferRows();
   };
 
   // Recalculate all rows and transfer to main table after unknown types are resolved
@@ -5837,10 +5825,10 @@ const processPreviewData = () => {
   console.log('Unknown mesh types found in preview data:', unknownTypes);
   
   if (unknownTypes.length > 0) {
-    // Show popup for unknown types
-    console.log('Starting unknown mesh type sequence with:', unknownTypes);
-    setUnknownMeshQueue(unknownTypes);
-    handleUnknownMeshType(unknownTypes[0]);
+    // Show popup for all unknown types at once
+    console.log('Showing popup for unknown mesh types:', unknownTypes);
+    setUnknownMeshTypes(unknownTypes);
+    setShowUnknownMeshModal(true);
     return; // Stop processing until unknown types are resolved
   }
   
@@ -7296,12 +7284,8 @@ useEffect(() => {
     {/* Unknown Mesh Type Modal */}
     <UnknownMeshTypeModal
       isOpen={showUnknownMeshModal}
-      onClose={() => {
-        setShowUnknownMeshModal(false);
-        setUnknownMeshType('');
-        setUnknownMeshQueue([]);
-      }}
-      meshType={unknownMeshType}
+      onClose={handleUnknownMeshModalClose}
+      meshTypes={unknownMeshTypes}
       onSave={handleSaveUnknownMeshType}
     />
 
