@@ -6848,7 +6848,7 @@ useEffect(() => {
                 // Satırda temel alanlar dolu mu?
                 const isBasicFieldsFilled = isRowFilled(row);
                 
-                 return (
+                return (
                     <tr key={row.id} className={
                       row.uretilemez ? 'bg-red-50' : 
                       (rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50')
