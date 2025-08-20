@@ -595,10 +595,16 @@ const CelikHasirHesaplama = () => {
   const handleUnknownMeshType = (meshType, rowIndex) => {
     // Add to queue if not already present
     if (!unknownMeshQueue.includes(meshType)) {
-      setUnknownMeshQueue(prev => [...prev, meshType]);
+      console.log(`Adding unknown mesh type to queue: ${meshType} (current queue size: ${unknownMeshQueue.length})`);
+      setUnknownMeshQueue(prev => {
+        const newQueue = [...prev, meshType];
+        console.log(`Updated queue:`, newQueue);
+        return newQueue;
+      });
       
       // Show modal if not already showing (for the first unknown type)
       if (!showUnknownMeshModal) {
+        console.log(`Showing modal for first unknown type: ${meshType}`);
         setUnknownMeshType(meshType);
         setShowUnknownMeshModal(true);
       }
@@ -626,18 +632,20 @@ const CelikHasirHesaplama = () => {
       
       console.log(`Saved new mesh configuration: ${unknownMeshType}`);
       
-      // Remove current mesh type from queue
+      // Remove current mesh type from queue and process next
       const currentMeshType = unknownMeshType;
-      setUnknownMeshQueue(prev => prev.filter(type => type !== currentMeshType));
-      
-      // Check if there are more unknown types to process
       const remainingQueue = unknownMeshQueue.filter(type => type !== currentMeshType);
+      
+      setUnknownMeshQueue(remainingQueue);
+      
       if (remainingQueue.length > 0) {
         // Process next unknown type
+        console.log(`Processing next unknown type: ${remainingQueue[0]} (${remainingQueue.length} remaining)`);
         setUnknownMeshType(remainingQueue[0]);
         // Modal stays open for next type
       } else {
         // All unknown types processed, close modal
+        console.log('All unknown types processed, closing modal and transferring data');
         setShowUnknownMeshModal(false);
         setUnknownMeshType('');
         
@@ -661,14 +669,36 @@ const CelikHasirHesaplama = () => {
       const updatedRows = [];
       
       currentPreview.forEach((rowData, index) => {
-        if (rowData.hasirTipi && rowData.uzunlukBoy && rowData.uzunlukEn && rowData.hasirSayisi) {
+        // Validate row data more strictly
+        const hasirTipi = String(rowData.hasirTipi || '').trim();
+        const uzunlukBoy = String(rowData.uzunlukBoy || '').trim();
+        const uzunlukEn = String(rowData.uzunlukEn || '').trim();
+        const hasirSayisi = String(rowData.hasirSayisi || '').trim();
+        
+        // Skip empty or invalid rows
+        if (!hasirTipi || !uzunlukBoy || !uzunlukEn || !hasirSayisi) {
+          console.log(`Skipping invalid row ${index}:`, { hasirTipi, uzunlukBoy, uzunlukEn, hasirSayisi });
+          return;
+        }
+        
+        // Also check if values can be parsed as numbers
+        const boyNum = parseFloat(uzunlukBoy);
+        const enNum = parseFloat(uzunlukEn);
+        const sayisiNum = parseFloat(hasirSayisi);
+        
+        if (isNaN(boyNum) || isNaN(enNum) || isNaN(sayisiNum) || boyNum <= 0 || enNum <= 0 || sayisiNum <= 0) {
+          console.log(`Skipping row ${index} with invalid numbers:`, { boyNum, enNum, sayisiNum });
+          return;
+        }
+        
+        if (hasirTipi && uzunlukBoy && uzunlukEn && hasirSayisi) {
           try {
             const newRow = {
               id: Date.now() + index,
-              hasirTipi: rowData.hasirTipi,
-              uzunlukBoy: parseFloat(rowData.uzunlukBoy) || 0,
-              uzunlukEn: parseFloat(rowData.uzunlukEn) || 0,
-              hasirSayisi: parseFloat(rowData.hasirSayisi) || 0,
+              hasirTipi: hasirTipi,
+              uzunlukBoy: boyNum,
+              uzunlukEn: enNum,
+              hasirSayisi: sayisiNum,
               hasirTuru: '',
               boyCap: 0,
               enCap: 0,
