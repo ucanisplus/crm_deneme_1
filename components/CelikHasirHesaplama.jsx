@@ -668,116 +668,11 @@ const CelikHasirHesaplama = () => {
     const currentPreview = window.pendingPreviewData || previewData;
     
     if (currentPreview && currentPreview.length > 0) {
-      // Process each row to recalculate with new mesh configs
-      const updatedRows = [];
-      
-      currentPreview.forEach((rowData, index) => {
-        // Validate row data more strictly
-        const hasirTipi = String(rowData.hasirTipi || '').trim();
-        const uzunlukBoy = String(rowData.uzunlukBoy || '').trim();
-        const uzunlukEn = String(rowData.uzunlukEn || '').trim();
-        const hasirSayisi = String(rowData.hasirSayisi || '').trim();
-        
-        // Skip empty or invalid rows
-        if (!hasirTipi || !uzunlukBoy || !uzunlukEn || !hasirSayisi) {
-          console.log(`Skipping invalid row ${index}:`, { hasirTipi, uzunlukBoy, uzunlukEn, hasirSayisi });
-          return;
-        }
-        
-        // Also check if values can be parsed as numbers
-        const boyNum = parseFloat(uzunlukBoy);
-        const enNum = parseFloat(uzunlukEn);
-        const sayisiNum = parseFloat(hasirSayisi);
-        
-        if (isNaN(boyNum) || isNaN(enNum) || isNaN(sayisiNum) || boyNum <= 0 || enNum <= 0 || sayisiNum <= 0) {
-          console.log(`Skipping row ${index} with invalid numbers:`, { boyNum, enNum, sayisiNum });
-          return;
-        }
-        
-        if (hasirTipi && uzunlukBoy && uzunlukEn && hasirSayisi) {
-          try {
-            const newRow = {
-              id: Date.now() + index,
-              hasirTipi: hasirTipi,
-              uzunlukBoy: boyNum,
-              uzunlukEn: enNum,
-              hasirSayisi: sayisiNum,
-              hasirTuru: '',
-              boyCap: 0,
-              enCap: 0,
-              boyAraligi: 0,
-              enAraligi: 0,
-              cubukSayisiBoy: 0,
-              cubukSayisiEn: 0,
-              solFiliz: 0,
-              sagFiliz: 0,
-              onFiliz: 0,
-              arkaFiliz: 0,
-              agirlik: 0,
-              modified: {
-                uzunlukBoy: false,
-                uzunlukEn: false,
-                hasirSayisi: false,
-                cubukSayisiBoy: false,
-                cubukSayisiEn: false,
-                solFiliz: false,
-                sagFiliz: false,
-                onFiliz: false,
-                arkaFiliz: false,
-                hasirTuru: false
-              },
-              uretilemez: false
-            };
-            
-            updatedRows.push(newRow);
-          } catch (error) {
-            console.error('Error processing row:', rowData, error);
-          }
-        }
-      });
-      
-      // Replace existing rows with new rows (don't add to empty row)
-      setRows(prev => {
-        console.log(`Before transfer: main table has ${prev.length} rows`);
-        console.log(`Replacing with ${updatedRows.length} new rows from Excel`);
-        // If there's only 1 empty row, replace it. Otherwise, add to existing rows.
-        const newRows = (prev.length === 1 && !prev[0].hasirTipi) ? [...updatedRows] : [...prev, ...updatedRows];
-        
-        // Recalculate each new row with mesh configurations
-        updatedRows.forEach((newRow, index) => {
-          const actualIndex = prev.length + index;
-          try {
-            updateRowFromHasirTipi(newRows, actualIndex);
-          } catch (error) {
-            console.error(`Error updating row ${actualIndex}:`, error);
-          }
-        });
-        
-        return newRows;
-      });
-      
-      // Clear preview and pending data
-      setPreviewData([]);
-      setShowPreviewModal(false);
-      window.pendingPreviewData = null;
-      
-      // Mark processing as complete to prevent duplicate processing
-      setIsProcessingComplete(true);
-      
-      console.log(`Successfully transferred ${updatedRows.length} rows with new mesh configurations`);
-    } else if (window.pendingPreviewData) {
-      // If we have pending data but couldn't process it, show normal preview
-      const previewItems = window.pendingPreviewData.map((rowData, index) => ({
-        id: index,
-        hasirTipi: rowData.hasirTipi || '',
-        uzunlukBoy: rowData.uzunlukBoy || '',
-        uzunlukEn: rowData.uzunlukEn || '',
-        hasirSayisi: rowData.hasirSayisi || ''
-      }));
-      
-      setPreviewData(previewItems);
-      setShowPreviewModal(true);
-      window.pendingPreviewData = null;
+      console.log('Recalculating and transferring rows with resolved mesh types');
+      // Use the processValidPreviewData function which handles everything properly
+      processValidPreviewData(currentPreview);
+    } else {
+      console.log('No preview data to transfer');
     }
   };
 
@@ -5933,11 +5828,43 @@ const processPreviewData = () => {
     return;
   }
   
+  // Store preview data globally for later use
+  window.pendingPreviewData = validPreviewData;
+  
+  // Check for unknown mesh types FIRST before processing
+  const unknownTypes = [];
+  validPreviewData.forEach(row => {
+    const hasirTipi = standardizeHasirTipi(row.hasirTipi);
+    if (!meshConfigs.has(hasirTipi)) {
+      if (!unknownTypes.includes(hasirTipi)) {
+        unknownTypes.push(hasirTipi);
+      }
+    }
+  });
+  
+  console.log('Unknown mesh types found in preview data:', unknownTypes);
+  
+  if (unknownTypes.length > 0) {
+    // Show popup for unknown types
+    console.log('Starting unknown mesh type sequence with:', unknownTypes);
+    setUnknownMeshQueue(unknownTypes);
+    handleUnknownMeshType(unknownTypes[0]);
+    return; // Stop processing until unknown types are resolved
+  }
+  
+  // If no unknown types, proceed with normal processing
+  processValidPreviewData(validPreviewData);
+};
+
+// Separate function for processing valid preview data (called after unknown types are resolved)
+const processValidPreviewData = (validData) => {
+  console.log('Processing valid preview data:', validData);
+  
   // Yeni satır ID'leri için başlangıç değeri
   const startId = rows.length > 0 ? Math.max(...rows.map(row => row.id)) + 1 : 0;
   
   // Ön izleme verilerinden tam satırlar oluştur
-  const newRows = validPreviewData.map((previewRow, index) => {
+  const newRows = validData.map((previewRow, index) => {
     const newRow = createEmptyRow(startId + index);
     
     // Temel verileri aktar - değerleri ayarlamadan
@@ -5983,6 +5910,9 @@ const processPreviewData = () => {
   setSheetData([]);
   setColumnMapping(null);
   setShowMappingModal(false);
+  
+  // Clear the global pending data
+  delete window.pendingPreviewData;
 };
   
   // Boş satır oluşturma fonksiyonunu güncelle
