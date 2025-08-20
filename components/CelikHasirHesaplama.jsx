@@ -637,11 +637,18 @@ const CelikHasirHesaplama = () => {
       return meshConfigs.get(hasirTipi);
     }
     
-    // Check for Q-type combinations
+    // Check for Q-type combinations (Q106/106 -> Q106)
     if (hasirTipi.includes('/')) {
-      const processedType = processComplexHasirType(hasirTipi);
-      if (processedType !== hasirTipi) {
-        return getMeshConfig(processedType);
+      const parts = hasirTipi.split('/');
+      if (parts.length === 2) {
+        const [first, second] = parts;
+        const firstType = first.match(/^[A-Z]+\d+/)?.[0];
+        const secondType = second.match(/^\d+/)?.[0];
+        
+        // Handle Q106/106 -> Q106 case
+        if (firstType && secondType && first.includes(secondType)) {
+          return getMeshConfig(firstType);
+        }
       }
     }
     
@@ -1817,32 +1824,19 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
   if (hasirTipi.includes('/')) {
     // Q257/131 gibi kombinasyonları işleme
     processComplexHasirType(row, hasirTipi);
-  } else if (hasirReferenceData[hasirTipi]) {
-    // Referans veride hasır tipi doğrudan varsa kullanıyoruz
-    const refData = hasirReferenceData[hasirTipi];
-    row.boyCap = refData.boyCap;
-    row.enCap = refData.enCap;
-    row.boyAraligi = refData.boyAralik;
-    row.enAraligi = refData.enAralik;
-  } else if (hasirTipi.startsWith('Q')) {
-    // DÜZELTİLDİ: Sadece Q tiplerinde, eğer doğrudan bulunamazsa, hasir_tipi/hasir_tipi şeklinde simüle ediyoruz
-    // Örneğin Q257 -> Q257/257 olarak değerlendirilir
-    const simulatedHasirTipi = hasirTipi + '/' + hasirTipi;
-    if (hasirReferenceData[simulatedHasirTipi]) {
-      const refData = hasirReferenceData[simulatedHasirTipi];
-      row.boyCap = refData.boyCap;
-      row.enCap = refData.enCap;
-      row.boyAraligi = refData.boyAralik;
-      row.enAraligi = refData.enAralik;
+  } else {
+    // Use database lookup with unknown mesh type detection
+    const meshConfig = getMeshConfig(hasirTipi);
+    if (meshConfig) {
+      row.boyCap = meshConfig.boyCap;
+      row.enCap = meshConfig.enCap;
+      row.boyAraligi = meshConfig.boyAralik;
+      row.enAraligi = meshConfig.enAralik;
+      console.log(`Applied database config for ${hasirTipi}:`, meshConfig);
     } else {
-      // Eğer simulasyon da bulunamazsa, qTypeReferenceMap'ten değerleri al
-      if (qTypeReferenceMap[hasirTipi]) {
-        const capValue = qTypeReferenceMap[hasirTipi];
-        row.boyCap = capValue;
-        row.enCap = capValue;
-        row.boyAraligi = 15; // Q tipi için standart aralık değerleri
-        row.enAraligi = 15;
-      }
+      console.log(`Unknown mesh type detected: ${hasirTipi} - popup should have been triggered`);
+      // Don't set any values - let the popup handle it
+      return;
     }
   }
 
@@ -1883,25 +1877,27 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     // Kendisi / Kendisi formatını kontrol et (örn: Q257/257)
     if (firstNumStr === secondNumStr) {
       const selfReferenceFormat = firstType + "/" + firstType;
-      if (hasirReferenceData[selfReferenceFormat] || hasirReferenceData[firstType]) {
-        const refData = hasirReferenceData[selfReferenceFormat] || hasirReferenceData[firstType];
-        row.boyCap = refData.boyCap;
-        row.enCap = refData.enCap;
-        row.boyAraligi = refData.boyAralik;
-        row.enAraligi = refData.enAralik;
+      const meshConfig = getMeshConfig(firstType);
+      if (meshConfig) {
+        row.boyCap = meshConfig.boyCap;
+        row.enCap = meshConfig.enCap;
+        row.boyAraligi = meshConfig.boyAralik;
+        row.enAraligi = meshConfig.enAralik;
         return;
       }
     }
     
     // Q tipleri için doğrudan çap eşleştirme
     if (prefix === 'Q') {
-      if (qTypeReferenceMap[firstType] && qTypeReferenceMap[secondType]) {
-        row.boyCap = qTypeReferenceMap[firstType];
-        row.enCap = qTypeReferenceMap[secondType];
+      const firstConfig = getMeshConfig(firstType);
+      const secondConfig = getMeshConfig(secondType);
+      if (firstConfig && secondConfig) {
+        row.boyCap = firstConfig.boyCap;
+        row.enCap = secondConfig.enCap;
         
-        // Aralık değerlerini tipik Q tipi değerlerinden al
-        row.boyAraligi = 15;
-        row.enAraligi = 15;
+        // Aralık değerlerini ilk tipten al
+        row.boyAraligi = firstConfig.boyAralik;
+        row.enAraligi = firstConfig.enAralik;
         return;
       }
     }
@@ -1911,14 +1907,16 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     const secondMatch = findClosestMatch(secondType, prefix);
     
     if (firstMatch && secondMatch) {
-      if (hasirReferenceData[firstMatch] && hasirReferenceData[secondMatch]) {
+      const firstConfig = getMeshConfig(firstMatch);
+      const secondConfig = getMeshConfig(secondMatch);
+      if (firstConfig && secondConfig) {
         // Boy ve en cap değerlerini ayarla
-        row.boyCap = hasirReferenceData[firstMatch].boyCap;
-        row.enCap = hasirReferenceData[secondMatch].enCap;
+        row.boyCap = firstConfig.boyCap;
+        row.enCap = secondConfig.enCap;
         
         // Aralık değerlerini birinci eşleşmeden al
-        row.boyAraligi = hasirReferenceData[firstMatch].boyAralik;
-        row.enAraligi = hasirReferenceData[firstMatch].enAralik;
+        row.boyAraligi = firstConfig.boyAralik;
+        row.enAraligi = firstConfig.enAralik;
       }
     }
   };
@@ -1926,7 +1924,7 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
   // En yakın hasır tipi eşleşmesini bulma
   const findClosestMatch = (type, prefix) => {
     // Tam eşleşme varsa onu döndür
-    if (hasirReferenceData[type]) return type;
+    if (meshConfigs.has(type)) return type;
     
     // Prefix + numaraları çıkar
     const typeNum = parseInt(type.replace(/\D/g, ''));
@@ -1935,7 +1933,7 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     let closestMatch = null;
     let closestDiff = Number.MAX_VALUE;
     
-    Object.keys(hasirReferenceData).forEach(key => {
+    meshConfigs.forEach((config, key) => {
       if (key.startsWith(prefix) && !key.includes('/')) {
         const keyNum = parseInt(key.replace(/\D/g, ''));
         const diff = Math.abs(keyNum - typeNum);
