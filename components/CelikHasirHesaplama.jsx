@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { API_URLS, postData } from '@/api-config';
 import { 
   Table, 
   Calculator, 
@@ -37,6 +38,8 @@ import Fuse from 'fuse.js';
 
 // Import the rod production schedule component
 import CubukUretimCizelgesi from './CubukUretimCizelgesi';
+import UnknownMeshTypeModal from './UnknownMeshTypeModal';
+import meshConfigService from '../mesh-config-service';
 
 // Import the Çelik Hasır Netsis component
 import CelikHasirNetsis from './CelikHasirNetsis';
@@ -558,6 +561,16 @@ const CelikHasirHesaplama = () => {
   const [sheetData, setSheetData] = useState([]);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [columnMapping, setColumnMapping] = useState(null);
+  
+  // Unknown mesh type modal state
+  const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
+  const [unknownMeshType, setUnknownMeshType] = useState('');
+  const [unknownMeshQueue, setUnknownMeshQueue] = useState([]);
+  
+  // Database-driven mesh configurations (replaces hardcoded hasirReferenceData)
+  const [hasirReferenceData, setHasirReferenceData] = useState({});
+  const [qTypeReferenceMap, setQTypeReferenceMap] = useState({});
+  const [meshConfigsLoaded, setMeshConfigsLoaded] = useState(false);
 
 
   // Eşleştirme onaylama işlevi
@@ -568,6 +581,112 @@ const handleConfirmMapping = (mapping) => {
   // Onaylanan eşleştirmeyle verileri işle
   processExcelWithMapping(sheetData, mapping);
 };
+
+// Handle unknown mesh types
+const handleUnknownMeshType = (meshType, rowIndex) => {
+  // Check if we already have this mesh type in custom configs
+  if (customMeshConfigs[meshType]) {
+    // Apply the custom configuration
+    const config = customMeshConfigs[meshType];
+    const row = rows[rowIndex];
+    row.boyCap = config.boyCap;
+    row.enCap = config.enCap;
+    row.boyAraligi = config.boyAralik;
+    row.enAraligi = config.enAralik;
+    return;
+  }
+
+  // Check if it's already in the queue
+  if (unknownMeshQueue.includes(meshType)) {
+    return;
+  }
+
+  // Add to queue and show modal for the first unknown type
+  setUnknownMeshQueue(prev => [...prev, meshType]);
+  
+  if (!showUnknownMeshModal) {
+    setUnknownMeshType(meshType);
+    setShowUnknownMeshModal(true);
+  }
+};
+
+const handleSaveUnknownMeshType = async (meshConfig) => {
+  try {
+    // Save to database
+    const response = await postData(API_URLS.meshTypeConfigs, meshConfig);
+    
+    if (response) {
+      // Add to local custom configs
+      setCustomMeshConfigs(prev => ({
+        ...prev,
+        [meshConfig.hasirTipi]: meshConfig
+      }));
+
+      // Remove from queue
+      setUnknownMeshQueue(prev => prev.filter(type => type !== meshConfig.hasirTipi));
+
+      // Apply the configuration to all rows with this mesh type
+      setRows(prevRows => {
+        const updatedRows = [...prevRows];
+        updatedRows.forEach((row, index) => {
+          if (row.hasirTipi === meshConfig.hasirTipi) {
+            row.boyCap = meshConfig.boyCap;
+            row.enCap = meshConfig.enCap;
+            row.boyAraligi = meshConfig.boyAralik;
+            row.enAraligi = meshConfig.enAralik;
+            
+            // Recalculate values for this row
+            if (isRowFilled(row)) {
+              calculateBasicValues(updatedRows, index);
+            }
+          }
+        });
+        return updatedRows;
+      });
+
+      // Show next unknown type if any
+      const remaining = unknownMeshQueue.filter(type => type !== meshConfig.hasirTipi);
+      if (remaining.length > 0) {
+        setUnknownMeshType(remaining[0]);
+      } else {
+        setShowUnknownMeshModal(false);
+        setUnknownMeshType('');
+      }
+
+      console.log(`Mesh type ${meshConfig.hasirTipi} saved successfully`);
+    }
+  } catch (error) {
+    console.error('Error saving mesh type:', error);
+    throw error;
+  }
+};
+
+// Load existing mesh type configurations on component mount
+useEffect(() => {
+  const loadMeshConfigs = async () => {
+    try {
+      const response = await fetch(API_URLS.meshTypeConfigs);
+      if (response.ok) {
+        const configs = await response.json();
+        const configMap = {};
+        configs.forEach(config => {
+          configMap[config.hasir_tipi] = {
+            boyCap: config.boy_cap,
+            enCap: config.en_cap,
+            boyAralik: config.boy_aralik,
+            enAralik: config.en_aralik,
+            type: config.type
+          };
+        });
+        setCustomMeshConfigs(configMap);
+      }
+    } catch (error) {
+      console.log('Could not load existing mesh configurations (expected if table does not exist yet):', error);
+    }
+  };
+  
+  loadMeshConfigs();
+}, []);
 
 // Kullanıcı onaylı eşleştirmeyle Excel verilerini işle
 const processExcelWithMapping = (sheets, mapping) => {
@@ -666,6 +785,39 @@ const processExcelWithMapping = (sheets, mapping) => {
 };
 
   // Hasır tiplerinin referans verileri
+  // Load mesh configurations from database
+  useEffect(() => {
+    const loadMeshConfigurations = async () => {
+      try {
+        console.log('Loading mesh configurations from database...');
+        
+        // Load both reference data formats for backward compatibility
+        const [referenceData, qTypeMap] = await Promise.all([
+          meshConfigService.getHasirReferenceData(),
+          meshConfigService.getQTypeReferenceMap()
+        ]);
+        
+        setHasirReferenceData(referenceData);
+        setQTypeReferenceMap(qTypeMap);
+        setMeshConfigsLoaded(true);
+        
+        console.log(`Loaded ${Object.keys(referenceData).length} mesh configurations from database`);
+      } catch (error) {
+        console.error('Error loading mesh configurations:', error);
+        
+        // Fallback to empty configurations (will trigger unknown mesh type modal)
+        setHasirReferenceData({});
+        setQTypeReferenceMap({});
+        setMeshConfigsLoaded(true);
+      }
+    };
+
+    loadMeshConfigurations();
+  }, []);
+
+  // DEPRECATED: Hardcoded mesh data moved to database
+  // This section is kept for reference but the data is now loaded from database above
+  /*
   const hasirReferenceData = {
     // Q Tipi Hasırlar
     "Q106/106": { boyCap: 4.5, enCap: 4.5, boyAralik: 15, enAralik: 15, type: "Q" },
@@ -1732,6 +1884,13 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     row.enCap = refData.enCap;
     row.boyAraligi = refData.boyAralik;
     row.enAraligi = refData.enAralik;
+  } else if (customMeshConfigs[hasirTipi]) {
+    // Custom/user-defined mesh configurations
+    const config = customMeshConfigs[hasirTipi];
+    row.boyCap = config.boyCap;
+    row.enCap = config.enCap;
+    row.boyAraligi = config.boyAralik;
+    row.enAraligi = config.enAralik;
   } else if (hasirTipi.startsWith('Q')) {
     // DÜZELTİLDİ: Sadece Q tiplerinde, eğer doğrudan bulunamazsa, hasir_tipi/hasir_tipi şeklinde simüle ediyoruz
     // Örneğin Q257 -> Q257/257 olarak değerlendirilir
@@ -1750,8 +1909,14 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
         row.enCap = capValue;
         row.boyAraligi = 15; // Q tipi için standart aralık değerleri
         row.enAraligi = 15;
+      } else {
+        // UNKNOWN Q TYPE - Add to queue for user input
+        handleUnknownMeshType(hasirTipi, rowIndex);
       }
     }
+  } else if (hasirTipi.startsWith('R') || hasirTipi.startsWith('TR')) {
+    // UNKNOWN R or TR TYPE - Add to queue for user input
+    handleUnknownMeshType(hasirTipi, rowIndex);
   }
 
   // Gerekli alanlar doluysa hesaplama yap
@@ -7102,6 +7267,18 @@ useEffect(() => {
       isOpen={showCubukCizelgesi}
       onClose={() => setShowCubukCizelgesi(false)}
       mainTableData={rows}
+    />
+    
+    {/* Unknown Mesh Type Modal */}
+    <UnknownMeshTypeModal
+      isOpen={showUnknownMeshModal}
+      onClose={() => {
+        setShowUnknownMeshModal(false);
+        setUnknownMeshType('');
+        setUnknownMeshQueue([]);
+      }}
+      meshType={unknownMeshType}
+      onSave={handleSaveUnknownMeshType}
     />
 
 

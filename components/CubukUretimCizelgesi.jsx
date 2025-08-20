@@ -99,59 +99,153 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
   // Calculate aggregated rods from main table data
   useEffect(() => {
     if (isOpen && mainTableData && mainTableData.length > 0) {
+      console.log('=== ÇUBUK CALCULATION DEBUG ===');
+      console.log(`Received mainTableData with ${mainTableData.length} rows`);
+      console.log('Sample rows (first 3):');
+      mainTableData.slice(0, 3).forEach((row, i) => {
+        console.log(`Row ${i}:`, {
+          hasirTipi: row.hasirTipi,
+          dimensions: `${row.uzunlukBoy}×${row.uzunlukEn}`,
+          hasirSayisi: row.hasirSayisi,
+          cubukSayisiBoy: row.cubukSayisiBoy,
+          cubukSayisiEn: row.cubukSayisiEn,
+          modified: row.modified // Check if we have modification tracking
+        });
+      });
+      
       const rodMap = new Map();
       
-      mainTableData.forEach(row => {
+      mainTableData.forEach((row, rowIndex) => {
         // Skip empty or invalid rows
-        if (!row.uzunlukBoy || !row.uzunlukEn || !row.boyCap || !row.enCap) return;
+        if (!row.uzunlukBoy || !row.uzunlukEn || !row.boyCap || !row.enCap) {
+          console.log(`Row ${rowIndex} skipped - missing dimensions:`, {
+            uzunlukBoy: row.uzunlukBoy,
+            uzunlukEn: row.uzunlukEn,
+            boyCap: row.boyCap,
+            enCap: row.enCap
+          });
+          return;
+        }
+
+        // Additional validation - skip rows with zero or invalid rod counts
+        if ((!row.cubukSayisiBoy || parseInt(row.cubukSayisiBoy) <= 0) && 
+            (!row.cubukSayisiEn || parseInt(row.cubukSayisiEn) <= 0)) {
+          console.log(`Row ${rowIndex} skipped - no valid rod counts:`, {
+            cubukSayisiBoy: row.cubukSayisiBoy,
+            cubukSayisiEn: row.cubukSayisiEn
+          });
+          return;
+        }
         
         // Create product info for tracking
+        const hasirSayisi = parseInt(row.hasirSayisi) || 1;
+        
+        // Validate hasirSayisi - should be reasonable positive number
+        if (hasirSayisi <= 0 || hasirSayisi > 1000) {
+          console.warn(`Row ${rowIndex} has suspicious hasirSayisi: ${hasirSayisi}, using 1`);
+        }
+        
         const productInfo = {
           hasirTipi: row.hasirTipi || 'Bilinmeyen',
           uzunlukBoy: row.uzunlukBoy,
           uzunlukEn: row.uzunlukEn,
-          hasirSayisi: parseInt(row.hasirSayisi) || 1
+          hasirSayisi: Math.max(1, Math.min(hasirSayisi, 1000)) // Clamp between 1 and 1000
         };
         
+        console.log(`Processing row ${rowIndex}:`, {
+          productInfo,
+          cubukSayisiBoy_raw: row.cubukSayisiBoy,
+          cubukSayisiBoy_type: typeof row.cubukSayisiBoy,
+          cubukSayisiEn_raw: row.cubukSayisiEn,
+          cubukSayisiEn_type: typeof row.cubukSayisiEn,
+          hasirSayisi_raw: row.hasirSayisi,
+          hasirSayisi_type: typeof row.hasirSayisi,
+          boyCap: row.boyCap,
+          enCap: row.enCap,
+          rowId: row.id || `row-${rowIndex}`
+        });
+        
         // Process Boy rods
-        if (row.cubukSayisiBoy > 0) {
+        const cubukSayisiBoy = parseInt(row.cubukSayisiBoy) || 0;
+        if (cubukSayisiBoy > 0) {
           const key = `${row.boyCap}-${row.uzunlukBoy}`;
+          const boyQuantity = cubukSayisiBoy * productInfo.hasirSayisi;
+          
+          console.log(`Boy rod calculation for key ${key}:`, {
+            cubukSayisiBoy: cubukSayisiBoy,
+            cubukSayisiBoy_type: typeof cubukSayisiBoy,
+            hasirSayisi: productInfo.hasirSayisi,
+            hasirSayisi_type: typeof productInfo.hasirSayisi,
+            multiplication_result: boyQuantity,
+            multiplication_type: typeof boyQuantity,
+            existing: rodMap.has(key)
+          });
+          
           if (rodMap.has(key)) {
             const existingRod = rodMap.get(key);
-            existingRod.quantity += row.cubukSayisiBoy * productInfo.hasirSayisi;
+            const oldQuantity = existingRod.quantity;
+            
+            // CRITICAL: Ensure numeric addition, not string concatenation
+            console.log(`BEFORE addition - oldQuantity: ${oldQuantity} (type: ${typeof oldQuantity}), boyQuantity: ${boyQuantity} (type: ${typeof boyQuantity})`);
+            
+            existingRod.quantity = Number(existingRod.quantity) + Number(boyQuantity);
             existingRod.usedInProducts.push(productInfo);
+            
+            console.log(`Updated existing boy rod ${key}: ${oldQuantity} + ${boyQuantity} = ${existingRod.quantity} (type: ${typeof existingRod.quantity})`);
           } else {
             const suggestedFLM = flmMappings.getSuggestedFLM(row.boyCap);
             rodMap.set(key, {
               id: `boy-${key}`,
               diameter: row.boyCap,
               length: row.uzunlukBoy,
-              quantity: row.cubukSayisiBoy * productInfo.hasirSayisi,
+              quantity: Number(boyQuantity), // Ensure it's stored as number
               flmDiameter: suggestedFLM.diameter,
               flmQuality: suggestedFLM.quality,
               usedInProducts: [productInfo]
             });
+            console.log(`Created new boy rod ${key}: quantity = ${boyQuantity} (type: ${typeof boyQuantity})`);
           }
         }
         
         // Process En rods
-        if (row.cubukSayisiEn > 0) {
+        const cubukSayisiEn = parseInt(row.cubukSayisiEn) || 0;
+        if (cubukSayisiEn > 0) {
           const key = `${row.enCap}-${row.uzunlukEn}`;
+          const enQuantity = cubukSayisiEn * productInfo.hasirSayisi;
+          
+          console.log(`En rod calculation for key ${key}:`, {
+            cubukSayisiEn: cubukSayisiEn,
+            cubukSayisiEn_type: typeof cubukSayisiEn,
+            hasirSayisi: productInfo.hasirSayisi,
+            hasirSayisi_type: typeof productInfo.hasirSayisi,
+            multiplication_result: enQuantity,
+            multiplication_type: typeof enQuantity,
+            existing: rodMap.has(key)
+          });
+          
           if (rodMap.has(key)) {
             const existingRod = rodMap.get(key);
-            existingRod.quantity += row.cubukSayisiEn * productInfo.hasirSayisi;
+            const oldQuantity = existingRod.quantity;
+            
+            // CRITICAL: Ensure numeric addition, not string concatenation
+            console.log(`BEFORE addition - oldQuantity: ${oldQuantity} (type: ${typeof oldQuantity}), enQuantity: ${enQuantity} (type: ${typeof enQuantity})`);
+            
+            existingRod.quantity = Number(existingRod.quantity) + Number(enQuantity);
             existingRod.usedInProducts.push(productInfo);
+            
+            console.log(`Updated existing en rod ${key}: ${oldQuantity} + ${enQuantity} = ${existingRod.quantity} (type: ${typeof existingRod.quantity})`);
           } else {
             const suggestedFLM = flmMappings.getSuggestedFLM(row.enCap);
             rodMap.set(key, {
               id: `en-${key}`,
               diameter: row.enCap,
               length: row.uzunlukEn,
-              quantity: row.cubukSayisiEn * productInfo.hasirSayisi,
+              quantity: Number(enQuantity), // Ensure it's stored as number
               flmDiameter: suggestedFLM.diameter,
               flmQuality: suggestedFLM.quality,
               usedInProducts: [productInfo]
             });
+            console.log(`Created new en rod ${key}: quantity = ${enQuantity} (type: ${typeof enQuantity})`);
           }
         }
       });
@@ -163,6 +257,41 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
         }
         return a.length - b.length;
       });
+      
+      console.log('Final rod map contents:');
+      let totalCalculatedRods = 0;
+      let duplicateProductWarnings = 0;
+      
+      rodMap.forEach((rod, key) => {
+        totalCalculatedRods += rod.quantity;
+        
+        // Check for potential duplicate products (same mesh type with same dimensions)
+        const productKeys = new Set();
+        rod.usedInProducts.forEach(p => {
+          const productKey = `${p.hasirTipi}-${p.uzunlukBoy}-${p.uzunlukEn}`;
+          if (productKeys.has(productKey)) {
+            console.warn(`⚠️ DUPLICATE PRODUCT WARNING for rod ${key}: ${productKey} appears multiple times!`);
+            duplicateProductWarnings++;
+          }
+          productKeys.add(productKey);
+        });
+        
+        console.log(`${key}:`, {
+          quantity: rod.quantity,
+          usedInProducts: rod.usedInProducts.map(p => ({
+            hasirTipi: p.hasirTipi,
+            hasirSayisi: p.hasirSayisi,
+            dimensions: `${p.uzunlukBoy}×${p.uzunlukEn}`
+          }))
+        });
+      });
+      
+      console.log('📊 CALCULATION SUMMARY:');
+      console.log(`Total unique rod specifications: ${sortedRods.length}`);
+      console.log(`Total rod quantity across all specifications: ${totalCalculatedRods}`);
+      console.log(`Duplicate product warnings: ${duplicateProductWarnings}`);
+      console.log(`Total rows processed: ${mainTableData.length}`);
+      console.log('=== END DEBUG ===');
       
       setRods(sortedRods);
       setShowTable(true);

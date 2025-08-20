@@ -37,6 +37,9 @@ export const API_URLS = {
   celikHasirNcbkRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
   celikHasirNtelRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
   celikHasirSequence: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_sequence',
+  
+  // Mesh Type Configurations - NEW
+  meshTypeConfigs: 'https://crm-deneme-backend.vercel.app/api/mesh-configs',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
