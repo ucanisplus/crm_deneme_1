@@ -6504,24 +6504,21 @@ useEffect(() => {
           <h2 className="text-xl font-semibold text-gray-900">Çelik Hasır Hesaplama</h2>
         </div>
         
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            accept=".xlsx,.xls,.csv,.txt" 
-            style={{ display: 'none' }} 
-          />
-          
-          <input 
-            type="file" 
-            ref={imageInputRef} 
-            onChange={handleImageUpload} 
-            accept="image/*" 
-            style={{ display: 'none' }} 
-          />
-          
-          
-        </div>
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileUpload} 
+          accept=".xlsx,.xls,.csv,.txt" 
+          style={{ display: 'none' }} 
+        />
+        
+        <input 
+          type="file" 
+          ref={imageInputRef} 
+          onChange={handleImageUpload} 
+          accept="image/*" 
+          style={{ display: 'none' }} 
+        />
         
         {/* Toplu Veri Girişi bölümü - Accordion yapısında */}
         <div className="mb-6">
@@ -7255,31 +7252,32 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Sütun eşleştirme modalı */}
-      <ColumnMappingModal
-        isOpen={showMappingModal}
-        onClose={() => setShowMappingModal(false)}
-        sheetData={sheetData}
-        onConfirmMapping={handleConfirmMapping}
-      />
-      
-      <CubukUretimCizelgesi
-        isOpen={showCubukCizelgesi}
-        onClose={() => setShowCubukCizelgesi(false)}
-        mainTableData={rows}
-      />
-      
-      {/* Unknown Mesh Type Modal */}
-      <UnknownMeshTypeModal
-        isOpen={showUnknownMeshModal}
-        onClose={() => {
-          setShowUnknownMeshModal(false);
-          setUnknownMeshType('');
-          setUnknownMeshQueue([]);
-        }}
-        meshType={unknownMeshType}
-        onSave={handleSaveUnknownMeshType}
-      />
+    {/* Sütun eşleştirme modalı */}
+    <ColumnMappingModal
+      isOpen={showMappingModal}
+      onClose={() => setShowMappingModal(false)}
+      sheetData={sheetData}
+      onConfirmMapping={handleConfirmMapping}
+    />
+    
+    <CubukUretimCizelgesi
+      isOpen={showCubukCizelgesi}
+      onClose={() => setShowCubukCizelgesi(false)}
+      mainTableData={rows}
+    />
+    
+    {/* Unknown Mesh Type Modal */}
+    <UnknownMeshTypeModal
+      isOpen={showUnknownMeshModal}
+      onClose={() => {
+        setShowUnknownMeshModal(false);
+        setUnknownMeshType('');
+        setUnknownMeshQueue([]);
+      }}
+      meshType={unknownMeshType}
+      onSave={handleSaveUnknownMeshType}
+    />
+
     </div>
   );
 }
