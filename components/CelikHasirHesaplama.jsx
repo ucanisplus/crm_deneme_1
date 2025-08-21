@@ -5820,11 +5820,18 @@ const processPreviewData = () => {
   
   // Check for unknown mesh types FIRST before processing
   const unknownTypes = [];
+  console.log('Checking mesh types in preview data...');
+  console.log('Current meshConfigs size:', meshConfigs.size);
+  
   validPreviewData.forEach(row => {
+    const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
+    console.log(`Checking: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
+    
     if (!meshConfigs.has(hasirTipi)) {
       if (!unknownTypes.includes(hasirTipi)) {
         unknownTypes.push(hasirTipi);
+        console.log(`Added unknown type: ${hasirTipi}`);
       }
     }
   });
