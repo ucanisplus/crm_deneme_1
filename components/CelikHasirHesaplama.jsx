@@ -593,24 +593,11 @@ const CelikHasirHesaplama = () => {
     loadMeshConfigs();
   }, []);
 
-  // Handle unknown mesh type
+  // Handle unknown mesh type (legacy function - keeping for compatibility)
   const handleUnknownMeshType = (meshType, rowIndex) => {
-    // Add to queue if not already present
-    if (!unknownMeshQueue.includes(meshType)) {
-      console.log(`Adding unknown mesh type to queue: ${meshType} (current queue size: ${unknownMeshQueue.length})`);
-      setUnknownMeshQueue(prev => {
-        const newQueue = [...prev, meshType];
-        console.log(`Updated queue:`, newQueue);
-        return newQueue;
-      });
-      
-      // Show modal if not already showing (for the first unknown type)
-      if (!showUnknownMeshModal) {
-        console.log(`Showing modal for first unknown type: ${meshType}`);
-        setUnknownMeshType(meshType);
-        setShowUnknownMeshModal(true);
-      }
-    }
+    // This function is called from getMeshConfig but we handle unknown types differently now
+    // Just log for debugging
+    console.log(`Unknown mesh type detected: ${meshType} at row ${rowIndex}`);
   };
 
   // Save unknown mesh type specifications (called for each type saved)
