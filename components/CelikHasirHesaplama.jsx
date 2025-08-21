@@ -774,12 +774,18 @@ const processExcelWithMapping = (sheets, mapping) => {
     }
   });
   
-  // If unknown types found, they will trigger the modal via getMeshConfig
-  // The preview will be shown after all unknown types are resolved
+  // If unknown types found, show the unknown mesh modal
   if (unknownTypes.size > 0) {
-    console.log(`Found ${unknownTypes.size} unknown mesh types:`, Array.from(unknownTypes));
+    const unknownTypesArray = Array.from(unknownTypes);
+    console.log(`Found ${unknownTypes.size} unknown mesh types:`, unknownTypesArray);
+    
     // Store preview data for later processing
     window.pendingPreviewData = allValidRows;
+    
+    // Show the unknown mesh modal with all unknown types
+    setUnknownMeshTypes(unknownTypesArray);
+    setShowUnknownMeshModal(true);
+    
     return; // Stop here, modal will handle the rest
   }
   
