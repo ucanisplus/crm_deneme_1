@@ -621,12 +621,29 @@ const CelikHasirHesaplama = () => {
 
   // Handle when all unknown mesh types are saved and modal closes
   const handleUnknownMeshModalClose = () => {
-    console.log('All unknown mesh types processed, transferring data');
+    console.log('All unknown mesh types processed, showing preview');
     setShowUnknownMeshModal(false);
     setUnknownMeshTypes([]);
     
-    // Transfer data to main table
-    recalculateAndTransferRows();
+    // Get the pending preview data
+    const pendingData = window.pendingPreviewData;
+    if (pendingData && pendingData.length > 0) {
+      // Show preview table instead of directly transferring
+      const previewItems = pendingData.map((rowData, index) => ({
+        id: index,
+        hasirTipi: rowData.hasirTipi || '',
+        uzunlukBoy: rowData.uzunlukBoy || '',
+        uzunlukEn: rowData.uzunlukEn || '',
+        hasirSayisi: rowData.hasirSayisi || '',
+        sheetName: rowData.sheetName || ''
+      }));
+      
+      setPreviewData(previewItems);
+      setBulkInputVisible(true);
+      
+      // Clear the pending data
+      window.pendingPreviewData = null;
+    }
   };
 
   // Recalculate all rows and transfer to main table after unknown types are resolved
