@@ -1,5 +1,5 @@
 // Çelik Hasır Netsis Integration Component
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { API_URLS, fetchWithAuth } from '@/api-config';
@@ -88,6 +88,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Database save progress
   const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
   const [databaseProgress, setDatabaseProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
+
+  // New popup states for enhanced database checking
+  const [showExcelOptionsModal, setShowExcelOptionsModal] = useState(false);
+  const [showPreSaveConfirmModal, setShowPreSaveConfirmModal] = useState(false);
+  const [preSaveConfirmData, setPreSaveConfirmData] = useState({ newProducts: [], existingProducts: [] });
   
   // Sequence tracking
   const [sequences, setSequences] = useState({});
@@ -104,7 +109,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('Count update triggered - optimized products:', validProducts.length, 
                 'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length,
                 'to save:', getProductsToSave().length);
-  }, [savedProducts, validProducts]);
+  }, [savedProducts, validProducts, getProductsToSave]);
 
   // Veritabanından kayıtlı ürünleri getir
   const fetchSavedProducts = async () => {
@@ -174,67 +179,156 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return validProducts.some(product => !isProductOptimized(product));
   };
 
-  // Kaydedilecek ürünleri hesapla
-  const getProductsToSave = () => {
+  // Kaydedilecek ürünleri hesapla - Enhanced with Stok Adı matching
+  const getProductsToSave = useCallback(() => {
     if (validProducts.length === 0) return [];
     
     const newProducts = [];
     
     for (const product of validProducts) {
-      // Only check if the main CH product exists - don't check related products
-      const chExists = savedProducts.mm.some(p => 
-        p.hasir_tipi === product.hasirTipi &&
-        p.ebat_boy === parseFloat(product.uzunlukBoy) &&
-        p.ebat_en === parseFloat(product.uzunlukEn) &&
-        p.cap === parseFloat(product.boyCap) &&
-        p.cap2 === parseFloat(product.enCap)
-      );
+      // Generate the Stok Adı for this product
+      const productStokAdi = generateStokAdi(product, 'CH');
       
-      // Only add if CH product doesn't exist
-      if (!chExists) {
+      // Check if product exists using multiple strategies similar to GalvanizliTelNetsis
+      let productExists = false;
+      
+      // Strategy 1: Match by Stok Adı (most reliable)
+      productExists = savedProducts.mm.some(p => p.stok_adi === productStokAdi);
+      
+      // Strategy 2: Fallback - Match by product specifications (legacy)
+      if (!productExists) {
+        productExists = savedProducts.mm.some(p => 
+          p.hasir_tipi === product.hasirTipi &&
+          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+        );
+      }
+      
+      // Only add if product doesn't exist
+      if (!productExists) {
         newProducts.push(product);
       }
     }
     
     return newProducts;
+  }, [validProducts, savedProducts]);
+
+  // Analyze products and categorize them into new vs existing with full details
+  const analyzeProductsForConfirmation = async () => {
+    if (validProducts.length === 0) return { newProducts: [], existingProducts: [] };
+    
+    const newProducts = [];
+    const existingProducts = [];
+    
+    for (const product of validProducts) {
+      // Generate the Stok Adı for this product
+      const productStokAdi = generateStokAdi(product, 'CH');
+      
+      // Find existing product by Stok Adı
+      let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      
+      // Fallback to specifications matching if not found by Stok Adı
+      if (!existingProduct) {
+        existingProduct = savedProducts.mm.find(p => 
+          p.hasir_tipi === product.hasirTipi &&
+          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+        );
+      }
+      
+      if (existingProduct) {
+        // Product exists - add to existing list with stok_kodu
+        existingProducts.push({
+          ...product,
+          existingStokKodu: existingProduct.stok_kodu,
+          stokAdi: productStokAdi
+        });
+      } else {
+        // Product is new - generate new stok_kodu and add to new list
+        const newStokKodu = await checkForExistingProducts(product, 'CH');
+        newProducts.push({
+          ...product,
+          newStokKodu: newStokKodu,
+          stokAdi: productStokAdi
+        });
+      }
+    }
+    
+    return { newProducts, existingProducts };
   };
 
-  // Stok kodu oluştur
-  const generateStokKodu = (product, productType) => {
-    const diameter = parseFloat(product.boyCap || product.enCap || 0);
-    const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
-    
-    if (productType === 'CH') {
-      // Standart boyut kontrolü (500x215)
-      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
-      
-      if (isStandard) {
-        // Standart ürün: CH.STD.0450.00
-        const sequenceKey = `CH_STD_${diameterCode}`;
-        const currentSeq = sequences[sequenceKey] || 0;
-        const newSeq = currentSeq + 1;
-        sequences[sequenceKey] = newSeq;
+  // Check for existing products and determine next sequence number
+  const checkForExistingProducts = async (product, productType) => {
+    try {
+      if (productType === 'CH') {
+        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+        const diameter = parseFloat(product.boyCap || product.enCap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
         
-        return `CH.STD.${diameterCode}.${String(newSeq).padStart(2, '0')}`;
-      } else {
-        // Özel boyut: CHOZL0001
-        const sequenceKey = 'CH_OZL_GLOBAL';
-        const currentSeq = sequences[sequenceKey] || 0;
-        const newSeq = currentSeq + 1;
-        sequences[sequenceKey] = newSeq;
-        
-        return `CHOZL${String(newSeq).padStart(4, '0')}`;
+        if (isStandard) {
+          // For standard products: CH.STD.0450.XX
+          const baseCode = `CH.STD.${diameterCode}`;
+          const existingProducts = savedProducts.mm.filter(p => 
+            p.stok_kodu && p.stok_kodu.startsWith(baseCode)
+          );
+          
+          let maxSequence = -1;
+          existingProducts.forEach(p => {
+            const parts = p.stok_kodu.split('.');
+            if (parts.length >= 4) {
+              const sequenceNum = parseInt(parts[3]);
+              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
+            }
+          });
+          
+          const nextSequence = maxSequence + 1;
+          return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
+        } else {
+          // For özel products: CHOZL0001, CHOZL0002, etc.
+          const existingOzelProducts = savedProducts.mm.filter(p => 
+            p.stok_kodu && p.stok_kodu.startsWith('CHOZL')
+          );
+          
+          let maxSequence = 0;
+          existingOzelProducts.forEach(p => {
+            const match = p.stok_kodu.match(/^CHOZL(\d+)$/);
+            if (match) {
+              const sequenceNum = parseInt(match[1]);
+              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
+            }
+          });
+          
+          const nextSequence = maxSequence + 1;
+          return `CHOZL${String(nextSequence).padStart(4, '0')}`;
+        }
+      } else if (productType === 'NCBK') {
+        const diameter = parseFloat(product.cap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+        const length = product.length || 215;
+        return `YM.NCBK.${diameterCode}.${length}`;
+      } else if (productType === 'NTEL') {
+        const diameter = parseFloat(product.cap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+        return `YM.NTEL.${diameterCode}`;
       }
-    } else if (productType === 'NCBK') {
-      // YM.NCBK.0420.215
-      const length = product.length || 215;
-      return `YM.NCBK.${diameterCode}.${length}`;
-    } else if (productType === 'NTEL') {
-      // YM.NTEL.0445
-      return `YM.NTEL.${diameterCode}`;
+    } catch (error) {
+      console.error('Error checking existing products:', error);
     }
     
     return '';
+  };
+
+  // Stok kodu oluştur - Enhanced with database-aware incrementality
+  const generateStokKodu = async (product, productType) => {
+    return await checkForExistingProducts(product, productType);
   };
 
   // Stok adı oluştur
@@ -305,10 +399,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const chSheet = workbook.addWorksheet('CH STOK');
     const chHeaders = [
       'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
-      'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay', 'Depo Kodu',
-      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1',
-      'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2',
-      'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
+      'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
+      'Ölçü Br-1', 'Ölçü Br-2', 'Çevrim Pay-1', 'Çevrim Payda-1', 'Çevrim Değeri-1',
+      'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2', 'Türü',
+      'Mamul Grup', 'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
       'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
       'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)',
       'Özel Saha 2 (Alf.)', 'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi',
@@ -324,9 +418,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     chSheet.addRow(chHeaders);
 
     // CH ürünlerini ekle
-    products.forEach(product => {
+    for (const product of products) {
       if (isProductOptimized(product)) {
-        const stokKodu = generateStokKodu(product, 'CH');
+        const stokKodu = await generateStokKodu(product, 'CH');
         const stokAdi = generateStokAdi(product, 'CH');
         const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
@@ -335,25 +429,56 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         chSheet.addRow([
           stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
-          '20', '20', '31', '36', 'KG', 'AD', '1', product.adetKg || '', 
-          'VİRGÜLDEN SONRA 4 HANE OLMASI GEREKİYOR/DÖNÜŞÜMDE DOĞRU DEĞERİ YAKALAMAK İÇİN',
-          '', '1', '1', '1', product.hasirTipi, product.boyCap, product.enCap,
-          product.uzunlukBoy, product.uzunlukEn, gozAraligi, product.adetKg || '',
-          product.cubukSayisiBoy || '', product.cubukSayisiEn || '', '0', '0', '0',
-          '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-          '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-          '', '', '', 'E', 'E'
+          '20', '20', '31', '36', 'KG', 'AD', '1', parseFloat(product.totalKg || 0).toFixed(5), '',
+          '1', '1', '1', 'M', stokKodu, product.hasirTipi, parseFloat(product.boyCap).toFixed(1),
+          parseFloat(product.enCap).toFixed(1), parseInt(product.uzunlukBoy), parseInt(product.uzunlukEn),
+          gozAraligi, parseFloat(product.totalKg || 0).toFixed(5), parseInt(product.cubukSayisiBoy || 0),
+          parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '', '0', '2', '0', '0', '0',
+          '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '',
+          'H', 'H', '', '', ''
         ]);
       }
-    });
+    }
 
     // YM NCBK STOK sheet oluştur
     const ncbkSheet = workbook.addWorksheet('YM NCBK STOK');
-    ncbkSheet.addRow(chHeaders); // Aynı header yapısı
+    const ncbkHeaders = [
+      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
+      'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
+      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3',
+      'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2', 'Türü', 'Mamul Grup',
+      'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
+      'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
+      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)', 'Özel Saha 2 (Alf.)',
+      'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1', 'Satış Fiyatı-2',
+      'Satış Fiyatı-3', 'Satış Fiyatı-4', 'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti',
+      'Döviz Satış Fiyatı', 'Azami Stok', 'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi',
+      'Alış Döviz Tipi', 'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
+      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4', 'Kod-5',
+      'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu', 'Yapılandırma Kodu',
+      'Yap. Açıklama', 'Girişlerde Seri Numarası Takibi Yapılsın', 'Çıkışlarda Seri Numarası Takibi Yapılsın'
+    ];
+    ncbkSheet.addRow(ncbkHeaders);
 
     // YM NTEL STOK sheet oluştur
     const ntelSheet = workbook.addWorksheet('YM NTEL STOK');
-    ntelSheet.addRow(chHeaders); // Aynı header yapısı
+    const ntelHeaders = [
+      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
+      'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
+      ' Br-1', ' Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3',
+      'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2', 'Türü', 'Mamul Grup',
+      'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
+      'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
+      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)', 'Özel Saha 2 (Alf.)',
+      'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1', 'Satış Fiyatı-2',
+      'Satış Fiyatı-3', 'Satış Fiyatı-4', 'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti',
+      'Döviz Satış Fiyatı', 'Azami Stok', 'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi',
+      'Alış Döviz Tipi', 'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
+      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4', 'Kod-5',
+      'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu', 'Yapılandırma Kodu',
+      'Yap. Açıklama', 'Girişlerde Seri Numarası Takibi Yapılsın', 'Çıkışlarda Seri Numarası Takibi Yapılsın'
+    ];
+    ntelSheet.addRow(ntelHeaders);
 
     // NCBK ve NTEL ürünlerini generate et
     products.forEach(product => {
@@ -363,11 +488,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${length}`;
           const stokAdi = `YM Nervürlü Çubuk ${product.boyCap} mm ${length} cm`;
           
+          const ncbkWeight = product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * length / 4000).toFixed(5) : '';
+          
           ncbkSheet.addRow([
-            stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '', '35',
-            'AD', 'KG', product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * length / 4000).toFixed(9) : '',
-            '1', '', '', '1', '1', '1', '', '', product.boyCap, '', length, '', '', '', '', '', '0', '0',
-            '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '20', '35',
+            'AD', 'KG', parseFloat(ncbkWeight).toFixed(5), '1', '', '1', '1', '1', 'Y', stokKodu,
+            '', parseFloat(product.boyCap).toFixed(1), '', length, '', '', '', '', '', '0', '0',
+            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
           ]);
@@ -376,12 +503,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // NTEL ürünü
         const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`;
         const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
+        const ntelWeight = product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * 100 / 4000).toFixed(5) : '';
         
         ntelSheet.addRow([
-          ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '', '35',
-          'MT', 'KG', product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * 100 / 4000000).toFixed(9) : '',
-          '1', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '0', '0',
-          '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+          ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '20', '35',
+          'MT', 'KG', parseFloat(ntelWeight).toFixed(5), '1', '', '', '', '', 'Y', ntelStokKodu,
+          '', '', '', '', '', '', '', '', '', '0', '0',
+          '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
           '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
           '', '', '', 'E', 'E'
         ]);
@@ -402,9 +530,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
-      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Öncelik', 'Planlama Oranı',
+      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
       'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
-      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ'
+      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ',
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
     // CH REÇETE sheet
@@ -420,9 +549,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntelReceteSheet.addRow(receteHeaders);
 
     // Reçete verilerini ekle
-    products.forEach(product => {
+    for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = generateStokKodu(product, 'CH');
+        const chStokKodu = await generateStokKodu(product, 'CH');
         
         // CH Reçete - Boy ve En çubuk tüketimleri
         chReceteSheet.addRow([
@@ -447,41 +576,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
         // NCBK Reçeteler - Her boy için
         [500, 215].forEach((length, index) => {
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(parseFloat(index === 0 ? product.boyCap : product.enCap) * 100)).padStart(4, '0')}.${length}`;
+          const diameter = parseFloat(index === 0 ? product.boyCap : product.enCap);
+          const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
+          const flmKodu = `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`;
+          const flmTuketimi = (diameter * diameter * Math.PI * 7.85 * length / 4000000).toFixed(5);
           
           // Bileşen - FLM
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '0', '', 'AD', '1', 'Bileşen', 'FLM.0600.1008',
-            'KG', '1', `FLM tüketimi - ${length}cm çubuk için`, '', '', '', '', '', '', '1',
-            'evet', 'evet', '', '', '', '', '', '', ''
+            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
+            'KG', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
-          // Operasyon - YOTOCH
+          // Operasyon - NDK01
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '0', '', 'AD', '2', 'Operasyon', 'YOTOCH',
-            'AD', '1', 'Yarı Otomatik Nervürlü Çubuk Operasyonu', '', '', '', '', '', '', '1',
-            'evet', 'evet', '', '', '', '', '', '', ''
+            ncbkStokKodu, '1', '', '', 'AD', '2', 'Operasyon', 'NDK01',
+            '', '1.00000', '', '', '', '', '', '', '0.00833',
+            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         });
 
         // NTEL Reçete
-        const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap || product.enCap) * 100)).padStart(4, '0')}`;
+        const ntelDiameter = parseFloat(product.boyCap || product.enCap);
+        const ntelStokKodu = `YM.NTEL.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}`;
+        const ntelFlmKodu = `FLM.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}.1008`;
+        const ntelFlmTuketimi = (ntelDiameter * ntelDiameter * Math.PI * 7.85 * 1000 / 4000000).toFixed(5);
         
         // Bileşen - FLM
         ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen', 'FLM.0600.1008',
-          'KG', '1', 'FLM tüketimi - metre başına', '', '', '', '', '', '', '1',
-          'evet', 'evet', '', '', '', '', '', '', ''
+          ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
+          'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
         
-        // Operasyon - OTOCH
+        // Operasyon - NTLC01
         ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '0', '', 'MT', '2', 'Operasyon', 'OTOCH',
-          'MT', '1', 'Tam Otomatik Nervürlü Tel Operasyonu', '', '', '', '', '', '', '1',
-          'evet', 'evet', '', '', '', '', '', '', ''
+          ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+          '', '1.00000', '', '', '', '', '', '', '0.00278',
+          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
       }
-    });
+    }
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -497,9 +632,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
-      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Öncelik', 'Planlama Oranı',
+      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
       'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
-      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ'
+      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ',
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
     // CH REÇETE sheet (NTEL bazlı)
@@ -515,9 +651,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntelReceteSheet.addRow(receteHeaders);
 
     // Alternatif reçete verilerini ekle (NTEL bazlı)
-    products.forEach(product => {
+    for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = generateStokKodu(product, 'CH');
+        const chStokKodu = await generateStokKodu(product, 'CH');
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
@@ -530,13 +666,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
           `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
-          '1', flmTuketimi, 'FLM Tüketimi (NTEL Bazlı)', '', '', '', '', '', '', '1', // Placeholder değer
+          'KG', flmTuketimi, 'FLM Tüketimi (NTEL Bazlı)', '', '', '', '', '', '', '1',
           'evet', 'evet', '', '', '', '', '', '', ''
         ]);
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
-          '1', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', '1', // Placeholder değer
+          'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', '1',
           'evet', 'evet', '', '', '', '', '', '', ''
         ]);
         
@@ -546,16 +682,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ncbkFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * length / 4000000).toFixed(6); // kg
           
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
+            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
             `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
-            '1', ncbkFlmTuketimi, 'FLM Tüketimi - Yarı Otomatik', '', '', '', '', '', '', '1',
-            'evet', 'evet', '', '', '', '', '', '', ''
+            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'YARICH',
-            '1', '1', 'Yarı Otomatik Nervürlü Çubuk İşlemi', '', '', '', '', '', '', '1',
-            'evet', 'evet', '', '', '', '', '', '', ''
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+            '', '1.00000', '', '', '', '', '', '', '0.00833',
+            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         });
         
@@ -564,19 +700,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const ntelFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * 1000 / 4000000).toFixed(6); // kg per meter
         
         ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
+          ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
           `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
-          '1', ntelFlmTuketimi, 'FLM Tüketimi - Tam Otomatik', '', '', '', '', '', '', '1',
-          'evet', 'evet', '', '', '', '', '', '', ''
+          'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
         
         ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
-          '1', '1', 'Tam Otomatik Nervürlü Tel Operasyonu', '', '', '', '', '', '', '1',
-          'evet', 'evet', '', '', '', '', '', '', ''
+          ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+          '', '1.00000', '', '', '', '', '', '', '0.00278',
+          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
       }
-    });
+    }
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -647,9 +783,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
+            bilesen_kodu: `FLM.${String(Math.round(parseFloat(ncbkResult.cap) * 100)).padStart(4, '0')}.1008`,
             olcu_br_bilesen: 'KG',
-            miktar: 1, // Placeholder - formülle hesaplanacak  
+            miktar: parseFloat((Math.pow(parseFloat(ncbkResult.cap), 2) * Math.PI * 7.85 * parseFloat(length) / 4000000).toFixed(5)),
             aciklama: `FLM tüketimi - ${length}cm çubuk için`,
           },
           // Operasyon - Yarı Otomatik İşlem
@@ -688,9 +824,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'MT',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: 'FLM.0600.1008', // Placeholder - formülle hesaplanacak
+          bilesen_kodu: `FLM.${String(Math.round(parseFloat(ntelResult.cap) * 100)).padStart(4, '0')}.1008`,
           olcu_br_bilesen: 'KG',
-          miktar: 1, // Placeholder - formülle hesaplanacak
+          miktar: parseFloat((Math.pow(parseFloat(ntelResult.cap), 2) * Math.PI * 7.85 * 1000 / 4000000).toFixed(5)),
           aciklama: 'FLM tüketimi - metre başına',
         },
         // Operasyon - Tam Otomatik İşlem
@@ -895,7 +1031,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         // CH kaydı
         const chData = {
-          stok_kodu: generateStokKodu(product, 'CH'),
+          stok_kodu: await generateStokKodu(product, 'CH'),
           stok_adi: generateStokAdi(product, 'CH'),
           grup_kodu: 'MM',
           kod_1: 'HSR',
@@ -1289,16 +1425,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs text-gray-600">Netsis:</span>
         <button
-          onClick={() => {
+          onClick={async () => {
             // Refresh saved products state to ensure accurate counts
-            fetchSavedProducts();
+            await fetchSavedProducts();
             
             if (validProducts.length === 0) {
               setShowDatabaseModal(true);
             } else if (hasUnoptimizedProducts()) {
               setShowOptimizationWarning(true);
             } else {
-              setShowDatabaseWarning(true);
+              // Analyze products and show pre-save confirmation
+              const analysisData = await analyzeProductsForConfirmation();
+              setPreSaveConfirmData(analysisData);
+              setShowPreSaveConfirmModal(true);
             }
           }}
           disabled={isLoading || isGeneratingExcel}
@@ -1313,7 +1452,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
               return;
             }
-            await generateExcelFiles(validProducts, true);
+            setShowExcelOptionsModal(true);
           }}
           disabled={isLoading || isGeneratingExcel || validProducts.length === 0}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-2 py-1 rounded text-xs transition-colors"
@@ -2003,6 +2142,151 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excel Options Modal */}
+      {showExcelOptionsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <FileSpreadsheet className="w-6 h-6 text-blue-500" />
+              <h3 className="text-lg font-semibold">Excel Oluşturma Seçenekleri</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Hangi ürünler için Excel dosyalarını oluşturmak istiyorsunuz?
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  setShowExcelOptionsModal(false);
+                  await generateExcelFiles(validProducts, true);
+                }}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-left"
+              >
+                <div className="font-medium">Tüm Ürünler ({validProducts.length} adet)</div>
+                <div className="text-sm opacity-90 mt-1">Listede bulunan tüm ürünler için Excel oluştur</div>
+              </button>
+              
+              <button
+                onClick={async () => {
+                  setShowExcelOptionsModal(false);
+                  const newProducts = getProductsToSave();
+                  if (newProducts.length === 0) {
+                    toast.info('Kaydedilmemiş ürün bulunamadı.');
+                    return;
+                  }
+                  await generateExcelFiles(newProducts, false);
+                }}
+                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-left"
+              >
+                <div className="font-medium">Sadece Kaydedilmemiş Ürünler ({getProductsToSave().length} adet)</div>
+                <div className="text-sm opacity-90 mt-1">Veritabanında bulunmayan ürünler için Excel oluştur</div>
+              </button>
+            </div>
+            
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <button
+                onClick={() => setShowExcelOptionsModal(false)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pre-Save Confirmation Modal */}
+      {showPreSaveConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <Database className="w-6 h-6 text-green-500" />
+              <h3 className="text-lg font-semibold">Veritabanı Kayıt Onayı</h3>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex gap-4 mb-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex-1">
+                  <div className="font-medium text-green-800">Yeni Ürünler</div>
+                  <div className="text-2xl font-bold text-green-600">{preSaveConfirmData.newProducts.length}</div>
+                  <div className="text-sm text-green-600">Veritabanına eklenecek</div>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex-1">
+                  <div className="font-medium text-blue-800">Mevcut Ürünler</div>
+                  <div className="text-2xl font-bold text-blue-600">{preSaveConfirmData.existingProducts.length}</div>
+                  <div className="text-sm text-blue-600">Zaten kayıtlı</div>
+                </div>
+              </div>
+              
+              {preSaveConfirmData.newProducts.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-800 mb-2">Eklenecek Yeni Ürünler:</h4>
+                  <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
+                    {preSaveConfirmData.newProducts.map((product, index) => (
+                      <div key={index} className="text-sm mb-1">
+                        <span className="font-mono text-green-600">{product.newStokKodu}</span> - {product.stokAdi}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {preSaveConfirmData.existingProducts.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler:</h4>
+                  <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
+                    {preSaveConfirmData.existingProducts.map((product, index) => (
+                      <div key={index} className="text-sm mb-1">
+                        <span className="font-mono text-blue-600">{product.existingStokKodu}</span> - {product.stokAdi}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPreSaveConfirmModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                İptal
+              </button>
+              
+              {preSaveConfirmData.newProducts.length > 0 ? (
+                <button
+                  onClick={async () => {
+                    setShowPreSaveConfirmModal(false);
+                    const newProducts = await saveToDatabase(validProducts);
+                    if (newProducts && newProducts.length > 0) {
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
+                      await generateExcelFiles(newProducts, false);
+                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                    } else {
+                      toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  {preSaveConfirmData.newProducts.length} Yeni Ürün Kaydet ve Excel Oluştur
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowPreSaveConfirmModal(false);
+                    toast.info('Kaydedilecek yeni ürün bulunmamaktadır.');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
+                  disabled
+                >
+                  Kaydedilecek Yeni Ürün Yok
+                </button>
+              )}
             </div>
           </div>
         </div>
