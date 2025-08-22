@@ -107,9 +107,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   useEffect(() => {
     // This will trigger re-render when dependencies change
     console.log('Count update triggered - optimized products:', validProducts.length, 
-                'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length,
-                'to save:', getProductsToSave().length);
-  }, [savedProducts, validProducts, getProductsToSave]);
+                'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length);
+    // Note: Removed getProductsToSave from dependencies to avoid potential infinite loops
+  }, [savedProducts, validProducts]);
 
   // Veritabanından kayıtlı ürünleri getir
   const fetchSavedProducts = async () => {
@@ -177,6 +177,88 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Optimize edilmemiş ürünleri kontrol et
   const hasUnoptimizedProducts = () => {
     return validProducts.some(product => !isProductOptimized(product));
+  };
+
+  // Check for existing products and determine next sequence number - Moved up to avoid hoisting issues
+  function checkForExistingProducts(product, productType) {
+    try {
+      if (productType === 'CH') {
+        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+        const diameter = parseFloat(product.boyCap || product.enCap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+        
+        if (isStandard) {
+          // For standard products: CH.STD.0450.XX
+          const baseCode = `CH.STD.${diameterCode}`;
+          const existingProducts = savedProducts.mm.filter(p => 
+            p.stok_kodu && p.stok_kodu.startsWith(baseCode)
+          );
+          
+          let maxSequence = -1;
+          existingProducts.forEach(p => {
+            const parts = p.stok_kodu.split('.');
+            if (parts.length >= 4) {
+              const sequenceNum = parseInt(parts[3]);
+              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
+            }
+          });
+          
+          const nextSequence = maxSequence + 1;
+          return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
+        } else {
+          // For özel products: CHOZL0001, CHOZL0002, etc.
+          const existingOzelProducts = savedProducts.mm.filter(p => 
+            p.stok_kodu && p.stok_kodu.startsWith('CHOZL')
+          );
+          
+          let maxSequence = 0;
+          existingOzelProducts.forEach(p => {
+            const match = p.stok_kodu.match(/^CHOZL(\d+)$/);
+            if (match) {
+              const sequenceNum = parseInt(match[1]);
+              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
+            }
+          });
+          
+          const nextSequence = maxSequence + 1;
+          return `CHOZL${String(nextSequence).padStart(4, '0')}`;
+        }
+      } else if (productType === 'NCBK') {
+        const diameter = parseFloat(product.cap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+        const length = product.length || 215;
+        return `YM.NCBK.${diameterCode}.${length}`;
+      } else if (productType === 'NTEL') {
+        const diameter = parseFloat(product.cap || 0);
+        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+        return `YM.NTEL.${diameterCode}`;
+      }
+    } catch (error) {
+      console.error('Error checking existing products:', error);
+    }
+    
+    return '';
+  }
+
+  // Stok kodu oluştur - Enhanced with database-aware incrementality
+  function generateStokKodu(product, productType) {
+    return checkForExistingProducts(product, productType);
+  }
+
+  // Stok adı oluştur - Moved up to avoid hoisting issues
+  const generateStokAdi = (product, productType) => {
+    if (productType === 'CH') {
+      return `${product.hasirTipi} Çap(${product.boyCap}x${product.enCap} mm) Ebat(${product.uzunlukBoy}x${product.uzunlukEn} cm) Göz Ara(${product.boyAraligi}*${product.enAraligi} cm)`;
+    } else if (productType === 'NCBK') {
+      return `YM Nervürlü Çubuk ${product.cap} mm ${product.length} cm`;
+    } else if (productType === 'NTEL') {
+      return `YM Nervürlü Tel ${product.cap} mm`;
+    }
+    return '';
   };
 
   // Kaydedilecek ürünleri hesapla - Enhanced with Stok Adı matching
@@ -249,7 +331,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
       } else {
         // Product is new - generate new stok_kodu and add to new list
-        const newStokKodu = await checkForExistingProducts(product, 'CH');
+        const newStokKodu = checkForExistingProducts(product, 'CH');
         newProducts.push({
           ...product,
           newStokKodu: newStokKodu,
@@ -261,87 +343,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return { newProducts, existingProducts };
   };
 
-  // Check for existing products and determine next sequence number
-  const checkForExistingProducts = async (product, productType) => {
-    try {
-      if (productType === 'CH') {
-        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
-        const diameter = parseFloat(product.boyCap || product.enCap || 0);
-        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
-        
-        if (isStandard) {
-          // For standard products: CH.STD.0450.XX
-          const baseCode = `CH.STD.${diameterCode}`;
-          const existingProducts = savedProducts.mm.filter(p => 
-            p.stok_kodu && p.stok_kodu.startsWith(baseCode)
-          );
-          
-          let maxSequence = -1;
-          existingProducts.forEach(p => {
-            const parts = p.stok_kodu.split('.');
-            if (parts.length >= 4) {
-              const sequenceNum = parseInt(parts[3]);
-              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-                maxSequence = sequenceNum;
-              }
-            }
-          });
-          
-          const nextSequence = maxSequence + 1;
-          return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
-        } else {
-          // For özel products: CHOZL0001, CHOZL0002, etc.
-          const existingOzelProducts = savedProducts.mm.filter(p => 
-            p.stok_kodu && p.stok_kodu.startsWith('CHOZL')
-          );
-          
-          let maxSequence = 0;
-          existingOzelProducts.forEach(p => {
-            const match = p.stok_kodu.match(/^CHOZL(\d+)$/);
-            if (match) {
-              const sequenceNum = parseInt(match[1]);
-              if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-                maxSequence = sequenceNum;
-              }
-            }
-          });
-          
-          const nextSequence = maxSequence + 1;
-          return `CHOZL${String(nextSequence).padStart(4, '0')}`;
-        }
-      } else if (productType === 'NCBK') {
-        const diameter = parseFloat(product.cap || 0);
-        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
-        const length = product.length || 215;
-        return `YM.NCBK.${diameterCode}.${length}`;
-      } else if (productType === 'NTEL') {
-        const diameter = parseFloat(product.cap || 0);
-        const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
-        return `YM.NTEL.${diameterCode}`;
-      }
-    } catch (error) {
-      console.error('Error checking existing products:', error);
-    }
-    
-    return '';
-  };
 
-  // Stok kodu oluştur - Enhanced with database-aware incrementality
-  const generateStokKodu = async (product, productType) => {
-    return await checkForExistingProducts(product, productType);
-  };
-
-  // Stok adı oluştur
-  const generateStokAdi = (product, productType) => {
-    if (productType === 'CH') {
-      return `${product.hasirTipi} Çap(${product.boyCap}x${product.enCap} mm) Ebat(${product.uzunlukBoy}x${product.uzunlukEn} cm) Göz Ara(${product.boyAraligi}*${product.enAraligi} cm)`;
-    } else if (productType === 'NCBK') {
-      return `YM Nervürlü Çubuk ${product.cap} mm ${product.length} cm`;
-    } else if (productType === 'NTEL') {
-      return `YM Nervürlü Tel ${product.cap} mm`;
-    }
-    return '';
-  };
 
   // İngilizce isim oluştur
   const generateIngilizceIsim = (product, productType) => {
@@ -420,7 +422,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // CH ürünlerini ekle
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const stokKodu = await generateStokKodu(product, 'CH');
+        const stokKodu = generateStokKodu(product, 'CH');
         const stokAdi = generateStokAdi(product, 'CH');
         const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
@@ -551,7 +553,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Reçete verilerini ekle
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = await generateStokKodu(product, 'CH');
+        const chStokKodu = generateStokKodu(product, 'CH');
         
         // CH Reçete - Boy ve En çubuk tüketimleri
         chReceteSheet.addRow([
@@ -653,7 +655,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Alternatif reçete verilerini ekle (NTEL bazlı)
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = await generateStokKodu(product, 'CH');
+        const chStokKodu = generateStokKodu(product, 'CH');
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
@@ -1031,7 +1033,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         // CH kaydı
         const chData = {
-          stok_kodu: await generateStokKodu(product, 'CH'),
+          stok_kodu: generateStokKodu(product, 'CH'),
           stok_adi: generateStokAdi(product, 'CH'),
           grup_kodu: 'MM',
           kod_1: 'HSR',
