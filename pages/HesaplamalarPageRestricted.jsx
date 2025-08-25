@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Grid, Link, Link2, Hammer } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import PanelCitHesaplamaRestricted from '@/components/PanelCitHesaplamaRestricted';
-import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
+// import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 
@@ -82,7 +82,7 @@ const HesaplamalarPageRestricted = () => {
           ) : (
             <>
               {activeTab === 'panel-cit' && <PanelCitHesaplamaRestricted />}
-              {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
+              {activeTab === 'celik-hasir' && <div>Çelik Hasır component temporarily disabled</div>}
               {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
             </>
           )}
