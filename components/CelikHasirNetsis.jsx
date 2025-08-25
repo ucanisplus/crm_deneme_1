@@ -390,23 +390,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Stok adı oluştur - Moved up to avoid hoisting issues
   const generateStokAdi = (product, productType) => {
     if (productType === 'CH') {
-      // Ensure all values are properly defined with fallbacks
-      const hasirTipi = product.hasirTipi || 'UNKNOWN';
-      const boyCap = product.boyCap || 0;
-      const enCap = product.enCap || 0;
-      const uzunlukBoy = product.uzunlukBoy || 0;
-      const uzunlukEn = product.uzunlukEn || 0;
-      const boyAraligi = product.boyAraligi || 0;
-      const enAraligi = product.enAraligi || 0;
-      
-      return `${hasirTipi} Çap(${boyCap}x${enCap} mm) Ebat(${uzunlukBoy}x${uzunlukEn} cm) Göz Ara(${boyAraligi}*${enAraligi} cm)`;
+      return `${product.hasirTipi || ''} Çap(${product.boyCap || 0}x${product.enCap || 0} mm) Ebat(${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} cm) Göz Ara(${product.boyAraligi || 0}*${product.enAraligi || 0} cm)`;
     } else if (productType === 'NCBK') {
-      const cap = product.cap || 0;
-      const length = product.length || 0;
-      return `YM Nervürlü Çubuk ${cap} mm ${length} cm`;
+      return `YM Nervürlü Çubuk ${product.cap || 0} mm ${product.length || 0} cm`;
     } else if (productType === 'NTEL') {
-      const cap = product.cap || 0;
-      return `YM Nervürlü Tel ${cap} mm`;
+      return `YM Nervürlü Tel ${product.cap || 0} mm`;
     }
     return '';
   };
