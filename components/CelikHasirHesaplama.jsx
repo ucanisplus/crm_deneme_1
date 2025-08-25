@@ -982,23 +982,6 @@ const processExcelWithMapping = (sheets, mapping) => {
   const [bulkInputVisible, setBulkInputVisible] = useState(false);
   const [file, setFile] = useState(null);
 
-  // Handle skip and continue for unknown mesh types
-  const handleSkipAndContinueUnknownMesh = () => {
-    console.log('Skipping unknown mesh types, proceeding with preview');
-    setShowUnknownMeshModal(false);
-    setUnknownMeshTypes([]);
-    
-    // Get the pending preview data
-    const pendingData = sessionStorage.getItem('pendingPreviewData');
-    if (pendingData) {
-      const parsedData = JSON.parse(pendingData);
-      setPreviewData(parsedData);
-      setBulkInputVisible(true);
-      sessionStorage.removeItem('pendingPreviewData');
-      console.log('Restored pending preview data and showing bulk input');
-    }
-  };
-  
   // OCR işlemi için durum
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -1216,6 +1199,23 @@ const processExcelWithMapping = (sheets, mapping) => {
   };
 
   
+
+  // Handle skip and continue for unknown mesh types
+  const handleSkipAndContinueUnknownMesh = () => {
+    console.log('Skipping unknown mesh types, proceeding with preview');
+    setShowUnknownMeshModal(false);
+    setUnknownMeshTypes([]);
+    
+    // Get the pending preview data
+    const pendingData = sessionStorage.getItem('pendingPreviewData');
+    if (pendingData) {
+      const parsedData = JSON.parse(pendingData);
+      setPreviewData(parsedData);
+      setBulkInputVisible(true);
+      sessionStorage.removeItem('pendingPreviewData');
+      console.log('Restored pending preview data and showing bulk input');
+    }
+  };
 
   // Ana tablo yedeklemesi - Deep copy için güncellendi
   const backupTable = () => {
