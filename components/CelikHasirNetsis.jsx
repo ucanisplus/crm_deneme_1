@@ -74,6 +74,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentItem: '' });
   
+  // Database filtering states
+  const [dbSearchText, setDbSearchText] = useState('');
+  const [dbFilterHasirTipi, setDbFilterHasirTipi] = useState('');
+  const [dbFilterHasirTuru, setDbFilterHasirTuru] = useState('');
+  const [dbSortBy, setDbSortBy] = useState('stok_kodu'); // stok_kodu, stok_adi, cap, length_cm, created_at
+  const [dbSortOrder, setDbSortOrder] = useState('asc'); // asc, desc
+  
+  // Additional comprehensive filters
+  const [dbFilterMinCap, setDbFilterMinCap] = useState('');        // Minimum diameter
+  const [dbFilterMaxCap, setDbFilterMaxCap] = useState('');        // Maximum diameter  
+  const [dbFilterGrupKodu, setDbFilterGrupKodu] = useState('');    // Group code filter
+  const [dbFilterKod1, setDbFilterKod1] = useState('');            // Kod1 filter
+  const [dbFilterDateFrom, setDbFilterDateFrom] = useState('');    // Date range from
+  const [dbFilterDateTo, setDbFilterDateTo] = useState('');        // Date range to
+  
   // Global operation duration calculator
   const calculateOperationDuration = (operationType, product) => {
     switch(operationType) {
@@ -146,6 +161,101 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
            (wireFactor * 0.01) + 
            (densityFactor * 0.015);
   };
+
+  // Filter and sort database products
+  const getFilteredAndSortedProducts = useCallback(() => {
+    let filteredProducts = [...savedProducts[activeDbTab]];
+    
+    // Apply search filter
+    if (dbSearchText.trim()) {
+      const searchLower = dbSearchText.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.stok_kodu || '').toLowerCase().includes(searchLower) ||
+        (product.stok_adi || '').toLowerCase().includes(searchLower) ||
+        (product.grup_kodu || '').toLowerCase().includes(searchLower) ||
+        (product.kod_1 || '').toLowerCase().includes(searchLower) ||
+        (product.kod_2 || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply hasır tipi filter
+    if (dbFilterHasirTipi.trim()) {
+      const hasirTipiLower = dbFilterHasirTipi.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes(hasirTipiLower)
+      );
+    }
+    
+    // Apply hasır türü filter (looking in stok_adi typically)
+    if (dbFilterHasirTuru.trim()) {
+      const hasirTuruLower = dbFilterHasirTuru.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.stok_adi || '').toLowerCase().includes(hasirTuruLower)
+      );
+    }
+    
+    // Apply diameter range filter
+    if (dbFilterMinCap.trim() || dbFilterMaxCap.trim()) {
+      filteredProducts = filteredProducts.filter(product => {
+        const cap = parseFloat(product.cap) || 0;
+        const minCap = dbFilterMinCap.trim() ? parseFloat(dbFilterMinCap) : 0;
+        const maxCap = dbFilterMaxCap.trim() ? parseFloat(dbFilterMaxCap) : Infinity;
+        return cap >= minCap && cap <= maxCap;
+      });
+    }
+    
+    // Apply grup kodu filter
+    if (dbFilterGrupKodu.trim()) {
+      const grupKoduLower = dbFilterGrupKodu.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.grup_kodu || '').toLowerCase().includes(grupKoduLower)
+      );
+    }
+    
+    // Apply kod1 filter
+    if (dbFilterKod1.trim()) {
+      const kod1Lower = dbFilterKod1.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.kod_1 || '').toLowerCase().includes(kod1Lower)
+      );
+    }
+    
+    // Apply date range filter
+    if (dbFilterDateFrom.trim() || dbFilterDateTo.trim()) {
+      filteredProducts = filteredProducts.filter(product => {
+        const productDate = new Date(product.created_at || 0);
+        const fromDate = dbFilterDateFrom.trim() ? new Date(dbFilterDateFrom) : new Date('1970-01-01');
+        const toDate = dbFilterDateTo.trim() ? new Date(dbFilterDateTo + 'T23:59:59') : new Date('2099-12-31');
+        return productDate >= fromDate && productDate <= toDate;
+      });
+    }
+    
+    // Apply sorting
+    filteredProducts.sort((a, b) => {
+      let aValue = a[dbSortBy];
+      let bValue = b[dbSortBy];
+      
+      // Handle numeric fields
+      if (dbSortBy === 'cap' || dbSortBy === 'length_cm') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      } else if (dbSortBy === 'created_at') {
+        aValue = new Date(aValue || 0);
+        bValue = new Date(bValue || 0);
+      } else {
+        // Handle text fields
+        aValue = (aValue || '').toString().toLowerCase();
+        bValue = (bValue || '').toString().toLowerCase();
+      }
+      
+      if (aValue < bValue) return dbSortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return dbSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return filteredProducts;
+  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder, 
+      dbFilterMinCap, dbFilterMaxCap, dbFilterGrupKodu, dbFilterKod1, dbFilterDateFrom, dbFilterDateTo]);
 
   // Database verileri
   const [savedProducts, setSavedProducts] = useState({
