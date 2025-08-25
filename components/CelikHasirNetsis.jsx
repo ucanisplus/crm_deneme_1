@@ -543,6 +543,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return newProducts;
   }, [validProducts, savedProducts]);
 
+  // Get products that are already saved in database (opposite of getProductsToSave)
+  const getSavedProductsList = useCallback(() => {
+    if (!validProducts?.length || !savedProducts?.mm?.length) return [];
+
+    const savedProductsList = [];
+    
+    for (const product of validProducts) {
+      // Generate the Stok Adı for this product
+      const productStokAdi = generateStokAdi(product, 'CH');
+      
+      // Check if this product exists in database by Stok Adı
+      const existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      
+      if (existingProduct) {
+        // Product is already saved - add it to saved list
+        savedProductsList.push({
+          ...product,
+          existingStokKodu: existingProduct.stok_kodu,
+          stokAdi: productStokAdi
+        });
+      }
+    }
+    
+    return savedProductsList;
+  }, [validProducts, savedProducts]);
+
   // Analyze products and categorize them into new vs existing with full details
   const analyzeProductsForConfirmation = async () => {
     if (validProducts.length === 0) return { newProducts: [], existingProducts: [] };
@@ -694,8 +720,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         chSheet.addRow([
           stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
           '20', '20', '31', '36', 'KG', 'AD', '1', parseFloat(product.totalKg || 0).toFixed(5), '',
-          '1', '1', '1', 'M', stokKodu, product.hasirTipi, parseFloat(product.boyCap).toFixed(1),
-          parseFloat(product.enCap).toFixed(1), parseInt(product.uzunlukBoy), parseInt(product.uzunlukEn),
+          '1', '1', '1', 'M', stokKodu, product.hasirTipi, parseFloat(product.boyCap || 0).toFixed(1),
+          parseFloat(product.enCap || 0).toFixed(1), parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0),
           gozAraligi, parseFloat(product.totalKg || 0).toFixed(5), parseInt(product.cubukSayisiBoy || 0),
           parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '', '0', '2', '0', '0', '0',
           '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '',
@@ -756,8 +782,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkSheet.addRow([
             stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '20', '35',
-            'AD', 'KG', parseFloat(ncbkWeight).toFixed(5), '1', '', '1', '1', '1', 'Y', stokKodu,
-            '', parseFloat(product.boyCap).toFixed(1), '', length, '', '', '', '', '', '0', '0',
+            'AD', 'KG', ncbkWeight, '1', '', '1', '1', '1', 'Y', stokKodu,
+            '', parseFloat(product.boyCap || 0).toFixed(1), '', length, '', '', '', '', '', '0', '0',
             '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
@@ -771,8 +797,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         ntelSheet.addRow([
           ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '20', '35',
-          'MT', 'KG', parseFloat(ntelWeight).toFixed(5), '1', '', '', '', '', 'Y', ntelStokKodu,
-          '', '', '', '', '', '', '', '', '', '0', '0',
+          'MT', 'KG', ntelWeight, '1', '', '', '', '', 'Y', ntelStokKodu,
+          '', parseFloat(product.boyCap || 0).toFixed(1), '', '', '', '', '', '', '', '0', '0',
           '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
           '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
           '', '', '', 'E', 'E'
@@ -813,9 +839,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntelReceteSheet.addRow(receteHeaders);
 
     // Reçete verilerini ekle
+    let receteBatchIndex = 0;
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = generateStokKodu(product, 'CH');
+        const chStokKodu = generateStokKodu(product, 'CH', receteBatchIndex);
+        receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
         chReceteSheet.addRow([
@@ -2620,6 +2648,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               >
                 <div className="font-medium">Sadece Kaydedilmemiş Ürünler ({getProductsToSave().length} adet)</div>
                 <div className="text-sm opacity-90 mt-1">Veritabanında bulunmayan ürünler için Excel oluştur</div>
+              </button>
+              
+              <button
+                onClick={async () => {
+                  setShowExcelOptionsModal(false);
+                  const savedProductsList = getSavedProductsList();
+                  if (savedProductsList.length === 0) {
+                    toast.info('Kaydedilmiş ürün bulunamadı.');
+                    return;
+                  }
+                  await generateExcelFiles(savedProductsList, false);
+                }}
+                className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-left"
+              >
+                <div className="font-medium">Sadece Kaydedilmiş Ürünler ({getSavedProductsList().length} adet)</div>
+                <div className="text-sm opacity-90 mt-1">Veritabanında zaten kayıtlı olan ürünler için Excel oluştur</div>
               </button>
             </div>
             
