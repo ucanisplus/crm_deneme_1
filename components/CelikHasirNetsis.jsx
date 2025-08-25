@@ -549,6 +549,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     
     const newProducts = [];
     const existingProducts = [];
+    let modalBatchIndex = 0;
     
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
@@ -576,13 +577,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           stokAdi: productStokAdi
         });
       } else {
-        // Product is new - generate new stok_kodu and add to new list
-        const newStokKodu = checkForExistingProducts(product, 'CH');
+        // Product is new - generate new stok_kodu with proper batch indexing
+        const newStokKodu = checkForExistingProducts(product, 'CH', modalBatchIndex);
         newProducts.push({
           ...product,
           newStokKodu: newStokKodu,
           stokAdi: productStokAdi
         });
+        modalBatchIndex++;
       }
     }
     
@@ -678,12 +680,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     chSheet.addRow(chHeaders);
 
     // CH ürünlerini ekle
+    let excelBatchIndex = 0;
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const stokKodu = generateStokKodu(product, 'CH');
+        const stokKodu = generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
         const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
+        excelBatchIndex++;
         
         const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
         
