@@ -3939,7 +3939,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               variant="destructive"
               onClick={() => {
                 setShowBackConfirmDialog(false);
-                router.push('/uretim/planlama');
+                router.push('/uretim/hesaplamalar/urun');
               }}
             >
               Evet, Geri Dön

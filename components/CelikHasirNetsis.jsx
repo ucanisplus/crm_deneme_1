@@ -1118,57 +1118,64 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       setSavedProducts(freshSavedProducts);
       
-      // Use fresh data for duplicate checking
-      const existingStokKodlari = new Set([
-        ...freshSavedProducts.mm.map(p => p.stok_kodu),
-        ...freshSavedProducts.ncbk.map(p => p.stok_kodu),
-        ...freshSavedProducts.ntel.map(p => p.stok_kodu)
-      ]);
+      // Create a map of Stok Adı to all related Stok Kodus
+      const stokAdiToStokKodusMap = new Map();
       
-      console.log('Fresh existing stock codes:', Array.from(existingStokKodlari));
+      // Map all existing products by Stok Adı
+      [...freshSavedProducts.mm, ...freshSavedProducts.ncbk, ...freshSavedProducts.ntel].forEach(p => {
+        if (p.stok_adi) {
+          if (!stokAdiToStokKodusMap.has(p.stok_adi)) {
+            stokAdiToStokKodusMap.set(p.stok_adi, []);
+          }
+          stokAdiToStokKodusMap.get(p.stok_adi).push(p.stok_kodu);
+        }
+      });
+      
+      console.log('Stok Adı to Stok Kodus mapping:', Array.from(stokAdiToStokKodusMap.entries()));
       
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
       const skippedProducts = [];
       
       for (const product of productsToSave) {
-        // Instead of checking by stok_kodu, check by product characteristics
-        // CH products should be identified by their physical properties, not generated codes
-        const productKey = `${product.hasirTipi}_${product.uzunlukBoy}_${product.uzunlukEn}_${product.boyCap}_${product.enCap}`;
+        // Generate Stok Adı for identification
+        const productStokAdi = generateStokAdi(product, 'CH');
         
-        // Check if a product with the same characteristics already exists
-        const chExists = freshSavedProducts.mm.some(p => 
-          p.hasir_tipi === product.hasirTipi &&
-          p.ebat_boy === parseFloat(product.uzunlukBoy) &&
-          p.ebat_en === parseFloat(product.uzunlukEn) &&
-          p.cap === parseFloat(product.boyCap) &&
-          p.cap2 === parseFloat(product.enCap)
-        );
+        // Check if product with same Stok Adı already exists
+        const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
+        const chExists = existingStokKodus.length > 0;
         
-        const ncbkExists500 = freshSavedProducts.ncbk.some(p => 
-          p.cap === parseFloat(product.boyCap) && p.length_cm === 500
-        );
+        // Also check for NCBK/NTEL variants
+        const ncbkStokAdi500 = `YM Nervürlü Çubuk ${product.boyCap} mm 500 cm`;
+        const ncbkStokAdi215 = `YM Nervürlü Çubuk ${product.enCap} mm 215 cm`;
+        const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
         
-        const ncbkExists215 = freshSavedProducts.ncbk.some(p => 
-          p.cap === parseFloat(product.enCap) && p.length_cm === 215
-        );
-        
-        const ntelExists = freshSavedProducts.ntel.some(p => 
-          p.cap === parseFloat(product.boyCap)
-        );
+        const ncbkExists500 = stokAdiToStokKodusMap.has(ncbkStokAdi500);
+        const ncbkExists215 = stokAdiToStokKodusMap.has(ncbkStokAdi215);
+        const ntelExists = stokAdiToStokKodusMap.has(ntelStokAdi);
         
         if (chExists && ncbkExists500 && ncbkExists215 && ntelExists) {
           console.log(`Ürün atlandı - zaten var: ${product.hasirTipi}`, {
-            productKey,
+            stokAdi: productStokAdi,
+            existingStokKodus: existingStokKodus,
             chExists,
             ncbkExists500,
             ncbkExists215,
             ntelExists
           });
-          skippedProducts.push(product);
+          skippedProducts.push({
+            ...product,
+            existingStokKodus: existingStokKodus,
+            existingStokAdiVariants: {
+              ch: existingStokKodus,
+              ncbk500: stokAdiToStokKodusMap.get(ncbkStokAdi500) || [],
+              ncbk215: stokAdiToStokKodusMap.get(ncbkStokAdi215) || [],
+              ntel: stokAdiToStokKodusMap.get(ntelStokAdi) || []
+            }
+          });
         } else {
           console.log(`Yeni ürün eklenecek: ${product.hasirTipi}`, {
-            productKey,
+            stokAdi: productStokAdi,
             chExists,
             ncbkExists500,
             ncbkExists215,
@@ -1186,8 +1193,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       if (newProducts.length === 0) {
-        toast.info(`Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı.`);
-        console.log('Hiçbir yeni ürün yok, Excel oluşturulmayacak');
+        // Show detailed info about skipped products with their existing Stok Kodus
+        const skippedInfo = skippedProducts.slice(0, 3).map(p => {
+          const stokKodusInfo = p.existingStokKodus ? p.existingStokKodus.join(', ') : '';
+          return `${p.hasirTipi} (Mevcut: ${stokKodusInfo})`;
+        }).join('; ');
+        
+        const message = skippedProducts.length > 3 
+          ? `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı. Örnekler: ${skippedInfo}...`
+          : `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı: ${skippedInfo}`;
+        
+        toast.info(message);
+        console.log('Hiçbir yeni ürün yok, Excel oluşturulmayacak. Atlanan ürünler:', skippedProducts);
         setIsSavingToDatabase(false);
         return [];
       }
@@ -2072,9 +2089,135 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* Filter Controls */}
+              <div className="mb-4 space-y-3">
+                {/* Search and main filters row */}
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    type="text"
+                    placeholder="Ara (Stok Kodu, Stok Adı, Grup Kodu...)"
+                    value={dbSearchText}
+                    onChange={(e) => setDbSearchText(e.target.value)}
+                    className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hasır Tipi"
+                    value={dbFilterHasirTipi}
+                    onChange={(e) => setDbFilterHasirTipi(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hasır Türü"
+                    value={dbFilterHasirTuru}
+                    onChange={(e) => setDbFilterHasirTuru(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                {/* Advanced filters row */}
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    type="number"
+                    placeholder="Min Çap (mm)"
+                    value={dbFilterMinCap}
+                    onChange={(e) => setDbFilterMinCap(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Çap (mm)"
+                    value={dbFilterMaxCap}
+                    onChange={(e) => setDbFilterMaxCap(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Grup Kodu"
+                    value={dbFilterGrupKodu}
+                    onChange={(e) => setDbFilterGrupKodu(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Kod-1"
+                    value={dbFilterKod1}
+                    onChange={(e) => setDbFilterKod1(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                {/* Date and sorting row */}
+                <div className="flex gap-2 flex-wrap items-center">
+                  <input
+                    type="date"
+                    placeholder="Başlangıç Tarihi"
+                    value={dbFilterDateFrom}
+                    onChange={(e) => setDbFilterDateFrom(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="date"
+                    placeholder="Bitiş Tarihi"
+                    value={dbFilterDateTo}
+                    onChange={(e) => setDbFilterDateTo(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  
+                  <div className="flex items-center gap-2 ml-auto">
+                    <label className="text-sm text-gray-600">Sırala:</label>
+                    <select
+                      value={dbSortBy}
+                      onChange={(e) => setDbSortBy(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="stok_kodu">Stok Kodu</option>
+                      <option value="stok_adi">Stok Adı</option>
+                      <option value="cap">Çap</option>
+                      <option value="length_cm">Uzunluk</option>
+                      <option value="created_at">Eklenme Tarihi</option>
+                    </select>
+                    <select
+                      value={dbSortOrder}
+                      onChange={(e) => setDbSortOrder(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="asc">Artan</option>
+                      <option value="desc">Azalan</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Clear filters button */}
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => {
+                      setDbSearchText('');
+                      setDbFilterHasirTipi('');
+                      setDbFilterHasirTuru('');
+                      setDbFilterMinCap('');
+                      setDbFilterMaxCap('');
+                      setDbFilterGrupKodu('');
+                      setDbFilterKod1('');
+                      setDbFilterDateFrom('');
+                      setDbFilterDateTo('');
+                      setDbSortBy('stok_kodu');
+                      setDbSortOrder('asc');
+                    }}
+                    className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Toplam: {getFilteredAndSortedProducts().length} / {savedProducts[activeDbTab].length} ürün
+                  </span>
+                </div>
+              </div>
+              
               {/* Ürün Listesi */}
               <div className="space-y-3">
-                {savedProducts[activeDbTab].map(product => (
+                {getFilteredAndSortedProducts().map(product => (
                   <div key={product.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -2111,9 +2254,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </div>
                 ))}
                 
-                {savedProducts[activeDbTab].length === 0 && (
+                {getFilteredAndSortedProducts().length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    Bu kategoride kayıtlı ürün bulunmamaktadır.
+                    {savedProducts[activeDbTab].length === 0 
+                      ? "Bu kategoride kayıtlı ürün bulunmamaktadır."
+                      : "Filtrelere uygun ürün bulunmamaktadır."
+                    }
                   </div>
                 )}
               </div>
