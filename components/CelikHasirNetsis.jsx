@@ -846,24 +846,36 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
-        chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', 'AD', '1', 'Bileşen', 
-          `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`,
-          '1', product.cubukSayisiBoy || '0', 'Boy Çubuk Tüketimi', '', '', '', '', '', '', '1', // Placeholder değer
-          'evet', 'evet', '', '', '', '', '', '', ''
-        ]);
+        // Determine mesh type pattern for quantities
+        const isQType = product.hasirTipi && product.hasirTipi.includes('Q');
+        const isRType = product.hasirTipi && product.hasirTipi.includes('R');
         
+        // Set quantities based on reference pattern
+        const enCubukMiktar = isRType ? '20' : '32'; // R-type: 20, Q-type: 32
+        const boyCubukMiktar = '15'; // Always 15 for BOY ÇUBUĞU
+        const operationTime = isRType ? '0.1667' : '0.2667'; // R-type: 0.1667, Q-type: 0.2667
+        
+        // EN ÇUBUĞU (215cm)
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', 'AD', '2', 'Bileşen',
+          chStokKodu, '1', '', '', '2', '1', 'Bileşen',
           `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`, 
-          '1', product.cubukSayisiEn || '0', 'En Çubuk Tüketimi', '', '', '', '', '', '', '1', // Placeholder değer
-          'evet', 'evet', '', '', '', '', '', '', ''
+          '', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
         
+        // BOY ÇUBUĞU (500cm)  
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', 'DK', '3', 'Operasyon', 'YOTOCH',
-          '1', '1', 'Yarı Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('YOTOCH', product),
-          'evet', 'evet', '', '', '', '', '', '', ''
+          chStokKodu, '1', '', '', '2', '2', 'Bileşen',
+          `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`,
+          '', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+        
+        // YOTOCH Operasyon
+        chReceteSheet.addRow([
+          chStokKodu, '1', '', '', '2', '3', 'Operasyon', 'YOTOCH',
+          '', '1', '', '', '', '', '', '', '', operationTime,
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
 
         // NCBK Reçeteler - Her boy için
@@ -876,14 +888,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Bileşen - FLM
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
-            'KG', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            '1', parseFloat(flmTuketimi).toFixed(6), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Operasyon - NDK01
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'AD', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
             'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         });
@@ -897,7 +909,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Bileşen - FLM
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
-          'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+          '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
           'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
         
