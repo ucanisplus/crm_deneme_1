@@ -435,7 +435,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Stok adı oluştur - Moved up to avoid hoisting issues
   const generateStokAdi = (product, productType) => {
     if (productType === 'CH') {
-      return `${product.hasirTipi} Çap(${product.boyCap}x${product.enCap} mm) Ebat(${product.uzunlukBoy}x${product.uzunlukEn} cm) Göz Ara(${product.boyAraligi}*${product.enAraligi} cm)`;
+      // IMPORTANT: Match the exact format used in the database
+      // The database might not include göz aralığı in stok_adi or use a different format
+      // For now, let's create the stok_adi without göz aralığı to match what might be in the database
+      
+      // First try the simple format without göz aralığı
+      const simpleFormat = `${product.hasirTipi || ''} ${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} ${product.boyCap || 0}/${product.enCap || 0}`;
+      
+      // Also prepare the full format with göz aralığı (if available)
+      let gozAraligi = '';
+      if (product.boyAraligi && product.enAraligi) {
+        gozAraligi = `${product.boyAraligi}*${product.enAraligi}`;
+      } else if (product.boyAralik && product.enAralik) {
+        gozAraligi = `${product.boyAralik}*${product.enAralik}`;
+      } else if (product.gozAraligi) {
+        gozAraligi = product.gozAraligi;
+      } else if (product.goz_araligi) {
+        gozAraligi = product.goz_araligi;
+      }
+      
+      // Return the format that matches database - let's use the detailed format
+      // but we need to verify what format the database actually uses
+      const detailedFormat = `${product.hasirTipi || ''} Çap(${product.boyCap || 0}x${product.enCap || 0} mm) Ebat(${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
+      
+      return detailedFormat;
     } else if (productType === 'NCBK') {
       return `YM Nervürlü Çubuk ${product.cap} mm ${product.length} cm`;
     } else if (productType === 'NTEL') {
@@ -542,7 +565,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Göz aralığı formatla
   const formatGozAraligi = (product) => {
-    return `${product.boyAraligi}*${product.enAraligi}`;
+    // Check multiple possible field names
+    if (product.boyAraligi && product.enAraligi) {
+      return `${product.boyAraligi}*${product.enAraligi}`;
+    } else if (product.boyAralik && product.enAralik) {
+      return `${product.boyAralik}*${product.enAralik}`;
+    } else if (product.gozAraligi) {
+      return product.gozAraligi;
+    } else if (product.goz_araligi) {
+      return product.goz_araligi;
+    } else {
+      // Default fallback - return empty or default value
+      return '0*0';
+    }
   };
 
   // Excel dosyalarını oluştur
@@ -1132,6 +1167,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       console.log('Stok Adı to Stok Kodus mapping:', Array.from(stokAdiToStokKodusMap.entries()));
+      console.log('Sample database Stok Adı formats:', Array.from(stokAdiToStokKodusMap.keys()).slice(0, 3));
       
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
@@ -1140,6 +1176,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       for (const product of productsToSave) {
         // Generate Stok Adı for identification
         const productStokAdi = generateStokAdi(product, 'CH');
+        
+        // Debug: Log what we're comparing
+        console.log('Checking product:', {
+          generated: productStokAdi,
+          hasirTipi: product.hasirTipi,
+          boyCap: product.boyCap,
+          enCap: product.enCap
+        });
         
         // Check if product with same Stok Adı already exists
         const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
