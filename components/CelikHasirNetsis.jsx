@@ -70,6 +70,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingProduct, setViewingProduct] = useState(null);
   
+  // Database filtering states
+  const [dbSearchText, setDbSearchText] = useState('');
+  const [dbFilterHasirTipi, setDbFilterHasirTipi] = useState('');
+  const [dbFilterHasirTuru, setDbFilterHasirTuru] = useState('');
+  const [dbSortBy, setDbSortBy] = useState('stok_kodu'); // stok_kodu, stok_adi, cap, length_cm, created_at
+  const [dbSortOrder, setDbSortOrder] = useState('asc'); // asc, desc
+  
   // Bulk delete progress tracking
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentItem: '' });
@@ -146,6 +153,64 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
            (wireFactor * 0.01) + 
            (densityFactor * 0.015);
   };
+
+  // Filter and sort database products
+  const getFilteredAndSortedProducts = useCallback(() => {
+    let filteredProducts = [...savedProducts[activeDbTab]];
+    
+    // Apply search filter
+    if (dbSearchText.trim()) {
+      const searchLower = dbSearchText.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.stok_kodu || '').toLowerCase().includes(searchLower) ||
+        (product.stok_adi || '').toLowerCase().includes(searchLower) ||
+        (product.grup_kodu || '').toLowerCase().includes(searchLower) ||
+        (product.kod_1 || '').toLowerCase().includes(searchLower) ||
+        (product.kod_2 || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply hasır tipi filter
+    if (dbFilterHasirTipi.trim()) {
+      const hasirTipiLower = dbFilterHasirTipi.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes(hasirTipiLower)
+      );
+    }
+    
+    // Apply hasır türü filter (looking in stok_adi typically)
+    if (dbFilterHasirTuru.trim()) {
+      const hasirTuruLower = dbFilterHasirTuru.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.stok_adi || '').toLowerCase().includes(hasirTuruLower)
+      );
+    }
+    
+    // Apply sorting
+    filteredProducts.sort((a, b) => {
+      let aValue = a[dbSortBy];
+      let bValue = b[dbSortBy];
+      
+      // Handle numeric fields
+      if (dbSortBy === 'cap' || dbSortBy === 'length_cm') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      } else if (dbSortBy === 'created_at') {
+        aValue = new Date(aValue || 0);
+        bValue = new Date(bValue || 0);
+      } else {
+        // Handle text fields
+        aValue = (aValue || '').toString().toLowerCase();
+        bValue = (bValue || '').toString().toLowerCase();
+      }
+      
+      if (aValue < bValue) return dbSortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return dbSortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return filteredProducts;
+  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
   // Database verileri
   const [savedProducts, setSavedProducts] = useState({
@@ -325,11 +390,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Stok adı oluştur - Moved up to avoid hoisting issues
   const generateStokAdi = (product, productType) => {
     if (productType === 'CH') {
-      return `${product.hasirTipi} Çap(${product.boyCap}x${product.enCap} mm) Ebat(${product.uzunlukBoy}x${product.uzunlukEn} cm) Göz Ara(${product.boyAraligi}*${product.enAraligi} cm)`;
+      // Ensure all values are properly defined with fallbacks
+      const hasirTipi = product.hasirTipi || 'UNKNOWN';
+      const boyCap = product.boyCap || 0;
+      const enCap = product.enCap || 0;
+      const uzunlukBoy = product.uzunlukBoy || 0;
+      const uzunlukEn = product.uzunlukEn || 0;
+      const boyAraligi = product.boyAraligi || 0;
+      const enAraligi = product.enAraligi || 0;
+      
+      return `${hasirTipi} Çap(${boyCap}x${enCap} mm) Ebat(${uzunlukBoy}x${uzunlukEn} cm) Göz Ara(${boyAraligi}*${enAraligi} cm)`;
     } else if (productType === 'NCBK') {
-      return `YM Nervürlü Çubuk ${product.cap} mm ${product.length} cm`;
+      const cap = product.cap || 0;
+      const length = product.length || 0;
+      return `YM Nervürlü Çubuk ${cap} mm ${length} cm`;
     } else if (productType === 'NTEL') {
-      return `YM Nervürlü Tel ${product.cap} mm`;
+      const cap = product.cap || 0;
+      return `YM Nervürlü Tel ${cap} mm`;
     }
     return '';
   };
@@ -350,15 +427,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Strategy 1: Match by Stok Adı (most reliable)
       productExists = savedProducts.mm.some(p => p.stok_adi === productStokAdi);
       
+      // Debug logging for product identification
+      if (productExists) {
+        console.log(`✅ Product found by Stok Adı: "${productStokAdi}"`);
+      } else {
+        console.log(`❌ Product NOT found by Stok Adı: "${productStokAdi}"`);
+      }
+      
       // Strategy 2: Fallback - Match by product specifications (legacy)
-      if (!productExists) {
-        productExists = savedProducts.mm.some(p => 
-          p.hasir_tipi === product.hasirTipi &&
-          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
-        );
+      if (!productExists && product.hasirTipi && product.uzunlukBoy && product.uzunlukEn) {
+        productExists = savedProducts.mm.some(p => {
+          // Ensure all required fields exist before comparison
+          if (!p.hasir_tipi || !p.ebat_boy || !p.ebat_en) {
+            return false;
+          }
+          
+          return p.hasir_tipi === product.hasirTipi &&
+            Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01;
+        });
+        
+        // Debug logging for fallback strategy
+        if (productExists) {
+          console.log(`✅ Product found by specifications fallback: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
+        } else {
+          console.log(`❌ Product NOT found by specifications fallback: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
+        }
       }
       
       // Only add if product doesn't exist
@@ -385,14 +481,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
       // Fallback to specifications matching if not found by Stok Adı
-      if (!existingProduct) {
-        existingProduct = savedProducts.mm.find(p => 
-          p.hasir_tipi === product.hasirTipi &&
-          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
-        );
+      if (!existingProduct && product.hasirTipi && product.uzunlukBoy && product.uzunlukEn) {
+        existingProduct = savedProducts.mm.find(p => {
+          // Ensure all required fields exist before comparison
+          if (!p.hasir_tipi || !p.ebat_boy || !p.ebat_en) {
+            return false;
+          }
+          
+          return p.hasir_tipi === product.hasirTipi &&
+            Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+            Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01;
+        });
       }
       
       if (existingProduct) {
@@ -1948,7 +2049,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 ].map(tab => (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveDbTab(tab.key)}
+                    onClick={() => {
+                      setActiveDbTab(tab.key);
+                      // Clear filters when switching tabs
+                      setDbSearchText('');
+                      setDbFilterHasirTipi('');
+                      setDbFilterHasirTuru('');
+                      setDbSortBy('stok_kodu');
+                      setDbSortOrder('asc');
+                    }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       activeDbTab === tab.key
                         ? 'bg-blue-600 text-white'
@@ -1962,9 +2071,104 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* Filter Section */}
+              <div className="mb-6 space-y-4 bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-800 mb-3">Filtreler ve Sıralama</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Search */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Genel Arama
+                    </label>
+                    <input
+                      type="text"
+                      value={dbSearchText}
+                      onChange={(e) => setDbSearchText(e.target.value)}
+                      placeholder="Stok kodu, adı, grup..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Hasır Tipi Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hasır Tipi
+                    </label>
+                    <input
+                      type="text"
+                      value={dbFilterHasirTipi}
+                      onChange={(e) => setDbFilterHasirTipi(e.target.value)}
+                      placeholder="Q131, R188, TR..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Hasır Türü Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hasır Türü/Açıklama
+                    </label>
+                    <input
+                      type="text"
+                      value={dbFilterHasirTuru}
+                      onChange={(e) => setDbFilterHasirTuru(e.target.value)}
+                      placeholder="Stok adında arama"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Sort By */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sıralama
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={dbSortBy}
+                        onChange={(e) => setDbSortBy(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      >
+                        <option value="stok_kodu">Stok Kodu</option>
+                        <option value="stok_adi">Stok Adı</option>
+                        <option value="cap">Çap</option>
+                        <option value="length_cm">Uzunluk</option>
+                        <option value="created_at">Tarih</option>
+                      </select>
+                      <button
+                        onClick={() => setDbSortOrder(dbSortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        title={dbSortOrder === 'asc' ? 'Artan sıralama' : 'Azalan sıralama'}
+                      >
+                        {dbSortOrder === 'asc' ? '↑' : '↓'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Clear Filters Button */}
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => {
+                      setDbSearchText('');
+                      setDbFilterHasirTipi('');
+                      setDbFilterHasirTuru('');
+                      setDbSortBy('stok_kodu');
+                      setDbSortOrder('asc');
+                    }}
+                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 underline"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    {getFilteredAndSortedProducts().length} / {savedProducts[activeDbTab].length} ürün
+                  </span>
+                </div>
+              </div>
+              
               {/* Ürün Listesi */}
               <div className="space-y-3">
-                {savedProducts[activeDbTab].map(product => (
+                {getFilteredAndSortedProducts().map(product => (
                   <div key={product.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -2000,6 +2204,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     </div>
                   </div>
                 ))}
+                
+                {getFilteredAndSortedProducts().length === 0 && savedProducts[activeDbTab].length > 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    Filtre kriterlerine uygun ürün bulunamadı.
+                  </div>
+                )}
                 
                 {savedProducts[activeDbTab].length === 0 && (
                   <div className="text-center py-8 text-gray-500">

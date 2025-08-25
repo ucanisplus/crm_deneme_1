@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Save, X } from 'lucide-react';
 
-const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave }) => {
+const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onSkipAndContinue }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [specifications, setSpecifications] = useState({
     boyCap: '',
@@ -124,6 +124,22 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave }) => {
     onClose();
   };
 
+  const handleSkipAndContinue = () => {
+    setSpecifications({
+      boyCap: '',
+      enCap: '',
+      boyAralik: '',
+      enAralik: ''
+    });
+    setErrors({});
+    setCurrentIndex(0);
+    if (onSkipAndContinue) {
+      onSkipAndContinue();
+    } else {
+      onClose();
+    }
+  };
+
   if (!isOpen || totalTypes === 0) return null;
 
   return (
@@ -233,24 +249,31 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave }) => {
           </p>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="flex gap-2 mt-6">
           <button
             onClick={handleClose}
             disabled={saving}
-            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
           >
-            <X size={18} className="inline mr-1" />
+            <X size={16} className="inline mr-1" />
             İptal
+          </button>
+          <button
+            onClick={handleSkipAndContinue}
+            disabled={saving}
+            className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors disabled:opacity-50 text-sm"
+          >
+            Atla ve Devam Et
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 text-sm"
           >
             {saving ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Save size={18} />
+              <Save size={16} />
             )}
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>

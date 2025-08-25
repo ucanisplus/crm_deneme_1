@@ -2559,7 +2559,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                     'Boy Çap (mm)': product.boyCap,
                     'En Çap (mm)': product.enCap,
                     'Hasır Sayısı': product.hasirSayisi,
-                    'Toplam Kg': product.toplamKg.toFixed(2),
+                    'Toplam Kg': (product.toplamKg && typeof product.toplamKg === 'number') ? product.toplamKg.toFixed(2) : '0.00',
                     'Hasır Türü': product.hasirTuru || '',
                     'Boy Aralığı': product.boyAraligi || '',
                     'En Aralığı': product.enAraligi || '',
@@ -3203,7 +3203,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="font-medium ">{product.toplamKg.toFixed(2)}</td>
+                      <td className="font-medium ">{(product.toplamKg && typeof product.toplamKg === 'number') ? product.toplamKg.toFixed(2) : '0.00'}</td>
                       <td className="text-xs ">{product.hasirTuru || '-'}</td>
                       <td className="text-xs ">{product.boyAraligi || '-'}</td>
                       <td className="text-xs ">{product.enAraligi || '-'}</td>
@@ -3667,7 +3667,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                       <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
                       <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
                       <p><strong>Toplam Adet:</strong> {pendingOperations[currentOperationIndex].result.hasirSayisi}</p>
-                      <p><strong>Toplam Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
+                      <p><strong>Toplam Kg:</strong> {(pendingOperations[currentOperationIndex].result.toplamKg && typeof pendingOperations[currentOperationIndex].result.toplamKg === 'number') ? pendingOperations[currentOperationIndex].result.toplamKg.toFixed(2) : '0.00'}</p>
                     </div>
                   </div>
                 </div>
@@ -3687,7 +3687,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                             ({getQuantityLabel(Number(pendingOperations[currentOperationIndex].source.hasirSayisi)).toUpperCase()} MİKTAR)
                           </span>
                         </p>
-                        <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].source.toplamKg?.toFixed(2)}</p>
+                        <p><strong>Kg:</strong> {(pendingOperations[currentOperationIndex].source.toplamKg && typeof pendingOperations[currentOperationIndex].source.toplamKg === 'number') ? pendingOperations[currentOperationIndex].source.toplamKg.toFixed(2) : '0.00'}</p>
                       </div>
                     </div>
                     
@@ -3697,7 +3697,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                         <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].target.hasirTipi}</p>
                         <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].target.uzunlukBoy}x{pendingOperations[currentOperationIndex].target.uzunlukEn} cm</p>
                         <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].target.hasirSayisi}</p>
-                        <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].target.toplamKg?.toFixed(2)}</p>
+                        <p><strong>Kg:</strong> {(pendingOperations[currentOperationIndex].target.toplamKg && typeof pendingOperations[currentOperationIndex].target.toplamKg === 'number') ? pendingOperations[currentOperationIndex].target.toplamKg.toFixed(2) : '0.00'}</p>
                       </div>
                     </div>
                   </div>
@@ -3708,7 +3708,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                       <p><strong>Tip:</strong> {pendingOperations[currentOperationIndex].result.hasirTipi}</p>
                       <p><strong>Boyut:</strong> {pendingOperations[currentOperationIndex].result.uzunlukBoy}x{pendingOperations[currentOperationIndex].result.uzunlukEn} cm</p>
                       <p><strong>Adet:</strong> {pendingOperations[currentOperationIndex].result.hasirSayisi}</p>
-                      <p><strong>Kg:</strong> {pendingOperations[currentOperationIndex].result.toplamKg?.toFixed(2)}</p>
+                      <p><strong>Kg:</strong> {(pendingOperations[currentOperationIndex].result.toplamKg && typeof pendingOperations[currentOperationIndex].result.toplamKg === 'number') ? pendingOperations[currentOperationIndex].result.toplamKg.toFixed(2) : '0.00'}</p>
                     </div>
                   </div>
                 </>
@@ -3939,7 +3939,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               variant="destructive"
               onClick={() => {
                 setShowBackConfirmDialog(false);
-                router.push('/satis/celikHasir');
+                router.push('/uretim/planlama');
               }}
             >
               Evet, Geri Dön

@@ -646,6 +646,33 @@ const CelikHasirHesaplama = () => {
     }
   };
 
+  // Handle skip and continue for unknown mesh types
+  const handleSkipAndContinueUnknownMesh = () => {
+    console.log('Skipping unknown mesh types and continuing with import');
+    setShowUnknownMeshModal(false);
+    setUnknownMeshTypes([]);
+    
+    // Get the pending preview data and continue with import
+    const pendingData = window.pendingPreviewData;
+    if (pendingData && pendingData.length > 0) {
+      // Show preview table with unknown types having empty mesh configurations
+      const previewItems = pendingData.map((rowData, index) => ({
+        id: index,
+        hasirTipi: rowData.hasirTipi || '',
+        uzunlukBoy: rowData.uzunlukBoy || '',
+        uzunlukEn: rowData.uzunlukEn || '',
+        hasirSayisi: rowData.hasirSayisi || '',
+        sheetName: rowData.sheetName || ''
+      }));
+      
+      setPreviewData(previewItems);
+      setBulkInputVisible(true);
+      
+      // Clear the pending data
+      window.pendingPreviewData = null;
+    }
+  };
+
   // Recalculate all rows and transfer to main table after unknown types are resolved
   const recalculateAndTransferRows = () => {
     // Get current preview data (either from state or pending data)
@@ -7311,6 +7338,7 @@ useEffect(() => {
       onClose={handleUnknownMeshModalClose}
       meshTypes={unknownMeshTypes}
       onSave={handleSaveUnknownMeshType}
+      onSkipAndContinue={handleSkipAndContinueUnknownMesh}
     />
 
     </div>
