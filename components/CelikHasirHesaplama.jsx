@@ -2536,7 +2536,7 @@ const iyilestir = async (rowIndex) => {
           Math.abs(initialFiliz.on - row.onFiliz) > 0.1 ||
           Math.abs(initialFiliz.arka - row.arkaFiliz) > 0.1) {
         isImproved = true;
-        newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm, Sol/Sağ: ${row.solFiliz.toFixed(2)}cm. `;
+        newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${(row.onFiliz && typeof row.onFiliz === 'number') ? row.onFiliz.toFixed(2) : '0.00'}cm, Arka: ${(row.arkaFiliz && typeof row.arkaFiliz === 'number') ? row.arkaFiliz.toFixed(2) : '0.00'}cm, Sol/Sağ: ${(row.solFiliz && typeof row.solFiliz === 'number') ? row.solFiliz.toFixed(2) : '0.00'}cm. `;
       }
     }
     
@@ -2747,7 +2747,7 @@ const iyilestirAll = async () => {
             Math.abs(initialFilizValues.on - row.onFiliz) > 0.1 ||
             Math.abs(initialFilizValues.arka - row.arkaFiliz) > 0.1) {
           changesCount++;
-          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
+          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${(row.solFiliz && typeof row.solFiliz === 'number') ? row.solFiliz.toFixed(2) : '0.00'}cm, Ön: ${(row.onFiliz && typeof row.onFiliz === 'number') ? row.onFiliz.toFixed(2) : '0.00'}cm, Arka: ${(row.arkaFiliz && typeof row.arkaFiliz === 'number') ? row.arkaFiliz.toFixed(2) : '0.00'}cm). `;
         }
       }
       
