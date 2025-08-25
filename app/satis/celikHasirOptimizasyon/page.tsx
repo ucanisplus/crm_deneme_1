@@ -7,6 +7,14 @@ import ClientAuthCheck from '@/components/ClientAuthCheck';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -53,7 +61,8 @@ import {
   Layers,
   RefreshCw,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 
 interface Product {
@@ -303,8 +312,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       result?: Product;
     }>;
   } | null>(null);
-  const [tolerance, setTolerance] = useState(10);
-  const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Only eliminate products with ≤ this quantity
+  const [tolerance, setTolerance] = useState(10); // Hidden - uses default value for main page operations
+  const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Hidden - uses default value for main page operations
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
   const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
   const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
@@ -312,6 +321,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   const [includeTypeChanges, setIncludeTypeChanges] = useState(false);
   const [dialogTolerance, setDialogTolerance] = useState(10);
   const [dialogMaxHasirSayisi, setDialogMaxHasirSayisi] = useState(50);
+  const [showBackConfirmDialog, setShowBackConfirmDialog] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -563,11 +573,11 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   // Smart merge suggestion based on product analysis
-  const getSuggestedMergeOperation = (source: Product, target: Product): 'boydan' | 'enden' | null => {
+  const getSuggestedMergeOperation = (source: Product, target: Product, toleranceCm: number = 10): 'boydan' | 'enden' | null => {
     // CRITICAL: Source product will be ELIMINATED and produced as target size
     // Therefore, target dimensions MUST be >= source dimensions (can cut down, not up)
     
-    const toleranceCm = tolerance;
+    // Use passed tolerance parameter or default to 10cm
     const sourceBoy = Number(source.uzunlukBoy);
     const sourceEn = Number(source.uzunlukEn);
     const targetBoy = Number(target.uzunlukBoy);
@@ -2214,10 +2224,10 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   const executeComprehensiveOptimization = () => {
-    console.log('🎯 executeComprehensiveOptimization clicked - tolerance:', tolerance);
-    // Sync dialog values with main values
-    setDialogTolerance(tolerance);
-    setDialogMaxHasirSayisi(maxHasirSayisi);
+    console.log('🎯 executeComprehensiveOptimization clicked - opening dialog with default values');
+    // Use default dialog values (no longer dependent on main page sliders)
+    setDialogTolerance(10); // Default tolerance
+    setDialogMaxHasirSayisi(50); // Default minimum hasır sayısı
     const opportunities = findAllOptimizationOpportunities();
     console.log('Comprehensive opportunities:', opportunities.length, opportunities);
     
@@ -2495,7 +2505,18 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg py-2">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-xl font-bold">İleri Optimizasyon</CardTitle>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBackConfirmDialog(true)}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Geri
+              </Button>
+              <CardTitle className="text-xl font-bold">İleri Optimizasyon</CardTitle>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -3227,28 +3248,6 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           {/* Automatic operations */}
           <div className="mt-1 p-1 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
             <div className="flex items-center gap-4 mb-1 flex-wrap justify-center">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs font-medium whitespace-nowrap">+ Tolerans: {tolerance}cm</Label>
-                <Slider
-                  value={[tolerance]}
-                  onValueChange={(value) => setTolerance(value[0])}
-                  min={0}
-                  max={200}
-                  step={1}
-                  className="w-24"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs font-medium whitespace-nowrap">Kabul Edilecek Minimum Hasır Sayısı: {maxHasirSayisi}</Label>
-                <Slider
-                  value={[maxHasirSayisi]}
-                  onValueChange={(value) => setMaxHasirSayisi(value[0])}
-                  min={1}
-                  max={400}
-                  step={1}
-                  className="w-24"
-                />
-              </div>
             </div>
             <div className="flex gap-4 justify-center">
             <Button 
@@ -3947,6 +3946,35 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </div>
         </div>
       </MainLayout3>
+
+      {/* Back Confirmation Dialog */}
+      <Dialog open={showBackConfirmDialog} onOpenChange={setShowBackConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sayfadan Ayrılmak İstiyor musunuz?</DialogTitle>
+            <DialogDescription>
+              Yaptığınız değişiklikler kaydedilmeyecektir. Çelik Hasır ana sayfasına geri dönmek istediğinizden emin misiniz?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBackConfirmDialog(false)}
+            >
+              İptal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setShowBackConfirmDialog(false);
+                router.push('/satis/celikHasir');
+              }}
+            >
+              Evet, Geri Dön
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ClientAuthCheck>
   );
 };
