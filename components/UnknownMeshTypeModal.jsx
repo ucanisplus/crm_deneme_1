@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Save, X } from 'lucide-react';
 
-const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onSkipAndContinue }) => {
+const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemove, customTitle }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [specifications, setSpecifications] = useState({
     boyCap: '',
@@ -124,19 +124,9 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onSkipA
     onClose();
   };
 
-  const handleSkipAndContinue = () => {
-    setSpecifications({
-      boyCap: '',
-      enCap: '',
-      boyAralik: '',
-      enAralik: ''
-    });
-    setErrors({});
-    setCurrentIndex(0);
-    if (onSkipAndContinue) {
-      onSkipAndContinue();
-    } else {
-      onClose();
+  const handleRemove = () => {
+    if (onRemove && currentMeshType) {
+      onRemove(currentMeshType);
     }
   };
 
@@ -152,7 +142,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onSkipA
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800">
-                Bilinmeyen Hasır Tipi
+                {customTitle ? customTitle : 'Bilinmeyen Hasır Tipi'}
               </h2>
               {totalTypes > 1 && (
                 <div className="bg-gray-100 px-3 py-1 rounded-full">
@@ -258,13 +248,16 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onSkipA
             <X size={16} className="inline mr-1" />
             İptal
           </button>
-          <button
-            onClick={handleSkipAndContinue}
-            disabled={saving}
-            className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors disabled:opacity-50 text-sm"
-          >
-            Atla ve Devam Et
-          </button>
+          {onRemove && (
+            <button
+              onClick={handleRemove}
+              disabled={saving}
+              className="flex-1 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 text-sm"
+            >
+              <X size={16} className="inline mr-1" />
+              Kaldır
+            </button>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}

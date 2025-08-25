@@ -568,6 +568,7 @@ const CelikHasirHesaplama = () => {
   // Unknown mesh type modal states
   const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
   const [unknownMeshTypes, setUnknownMeshTypes] = useState([]);
+  const [currentUnknownType, setCurrentUnknownType] = useState(''); // For modal title
   
   // Database mesh configurations
   const [meshConfigs, setMeshConfigs] = useState(new Map());
@@ -782,29 +783,8 @@ const processExcelWithMapping = (sheets, mapping) => {
     return;
   }
   
-  // Check for unknown mesh types BEFORE showing preview
-  const unknownTypes = new Set();
-  allValidRows.forEach(rowData => {
-    const hasirTipi = rowData.hasirTipi;
-    if (hasirTipi && !getMeshConfig(hasirTipi)) {
-      unknownTypes.add(hasirTipi);
-    }
-  });
-  
-  // If unknown types found, show the unknown mesh modal
-  if (unknownTypes.size > 0) {
-    const unknownTypesArray = Array.from(unknownTypes);
-    console.log(`Found ${unknownTypes.size} unknown mesh types:`, unknownTypesArray);
-    
-    // Store preview data for later processing
-    window.pendingPreviewData = allValidRows;
-    
-    // Show the unknown mesh modal with all unknown types
-    setUnknownMeshTypes(unknownTypesArray);
-    setShowUnknownMeshModal(true);
-    
-    return; // Stop here, modal will handle the rest
-  }
+  // Immediately show preview table without checking for unknown mesh types
+  console.log(`Processed ${allValidRows.length} rows from Excel, showing preview immediately`);
   
   // Önizleme verilerini ayarla
   const previewItems = allValidRows.map((rowData, index) => ({
@@ -1198,58 +1178,23 @@ const processExcelWithMapping = (sheets, mapping) => {
     }
   };
 
-  // Handle skip and continue for unknown mesh types
-  const handleSkipAndContinueUnknownMesh = () => {
-    console.log('Skipping unknown mesh types, processing all rows with defaults');
-    setShowUnknownMeshModal(false);
-    setUnknownMeshTypes([]);
+  // Handle removing unknown mesh type from preview
+  const handleRemoveUnknownType = (meshTypeToRemove) => {
+    // Remove all rows with this mesh type from preview data
+    const updatedPreviewData = previewData.filter(row => row.hasirTipi !== meshTypeToRemove);
+    setPreviewData(updatedPreviewData);
     
-    // Get the pending preview data and add ALL rows to main table (with defaults for unknown types)
-    const pendingData = sessionStorage.getItem('pendingPreviewData');
-    if (pendingData) {
-      try {
-        const parsedData = JSON.parse(pendingData);
-        
-        // Process ALL rows - give unknown mesh types default values
-        const processedRows = parsedData.map(row => {
-          if (!row.hasirTipi || !row.hasirTipi.trim() || !/^(Q|R|TR)\d+/.test(row.hasirTipi.trim())) {
-            // Unknown mesh type - set default values
-            return {
-              ...row,
-              boyCap: 0,
-              enCap: 0, 
-              boyAraligi: 0,
-              enAraligi: 0,
-              hasirTuru: 'Bilinmeyen',
-              // Keep other fields as they were imported
-            };
-          }
-          return row; // Known mesh type - keep as is
-        });
-        
-        if (processedRows.length > 0) {
-          // Add all processed rows to the main table
-          setRows(prevRows => [...prevRows, ...processedRows]);
-          const unknownCount = processedRows.filter(r => r.hasirTuru === 'Bilinmeyen').length;
-          const validCount = processedRows.length - unknownCount;
-          
-          console.log(`Added ${processedRows.length} total rows: ${validCount} valid, ${unknownCount} with defaults`);
-          
-          // Show success message
-          alert(`Excel işlemi tamamlandı!\n✅ ${validCount} geçerli satır eklendi\n⚠️ ${unknownCount} bilinmeyen tip varsayılan değerlerle eklendi`);
-        }
-        
-        // Clean up
-        sessionStorage.removeItem('pendingPreviewData');
-        setBulkInputVisible(false);
-        
-      } catch (error) {
-        console.error('Error processing pending data:', error);
-        alert('Veri işlenirken hata oluştu.');
-      }
-    } else {
-      console.log('No pending data found to process');
-      alert('İşlenecek veri bulunamadı.');
+    // Remove this mesh type from unknown types list
+    const updatedUnknownTypes = unknownMeshTypes.filter(type => type !== meshTypeToRemove);
+    setUnknownMeshTypes(updatedUnknownTypes);
+    
+    console.log(`Removed all rows with mesh type: ${meshTypeToRemove} from preview`);
+    
+    // If no more unknown types, close modal and continue
+    if (updatedUnknownTypes.length === 0) {
+      setShowUnknownMeshModal(false);
+      // Continue processing with remaining preview data
+      processValidPreviewData(updatedPreviewData);
     }
   };
 
@@ -5884,12 +5829,10 @@ const processPreviewData = () => {
   // Store preview data in sessionStorage for skip functionality  
   sessionStorage.setItem('pendingPreviewData', JSON.stringify(validPreviewData));
   
-  // For "Verileri İşle" button, we skip the unknown mesh type modal
-  // Unknown mesh types will get default values (0) during processing
-  console.log('Processing preview data without unknown mesh type modal...');
+  // Check for unknown mesh types and show modal if any found
+  console.log('Checking for unknown mesh types in preview data...');
   console.log('Current meshConfigs size:', meshConfigs.size);
   
-  // Log unknown types for debugging but don't stop processing
   const unknownTypes = [];
   validPreviewData.forEach(row => {
     const originalType = row.hasirTipi;
@@ -5899,13 +5842,18 @@ const processPreviewData = () => {
     if (!meshConfigs.has(hasirTipi)) {
       if (!unknownTypes.includes(hasirTipi)) {
         unknownTypes.push(hasirTipi);
-        console.log(`Unknown type found (will use default values): ${hasirTipi}`);
+        console.log(`Unknown type found: ${hasirTipi}`);
       }
     }
   });
   
   if (unknownTypes.length > 0) {
-    console.log(`Found ${unknownTypes.length} unknown mesh types, but continuing with default values:`, unknownTypes);
+    console.log(`Found ${unknownTypes.length} unknown mesh types, showing modal:`, unknownTypes);
+    // Show modal for unknown mesh types
+    setUnknownMeshTypes(unknownTypes);
+    setCurrentUnknownType(unknownTypes[0]); // Set first unknown type for title
+    setShowUnknownMeshModal(true);
+    return; // Stop processing until unknown types are resolved
   }
   
   // If no unknown types, proceed with normal processing
@@ -7363,7 +7311,8 @@ useEffect(() => {
       onClose={handleUnknownMeshModalClose}
       meshTypes={unknownMeshTypes}
       onSave={handleSaveUnknownMeshType}
-      onSkipAndContinue={handleSkipAndContinueUnknownMesh}
+      onRemove={handleRemoveUnknownType}
+      customTitle={currentUnknownType ? `Lütfen ${currentUnknownType} için teknik özellikleri giriniz veya listeden kaldırınız.` : undefined}
     />
 
     </div>
