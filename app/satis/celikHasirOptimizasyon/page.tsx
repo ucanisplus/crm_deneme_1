@@ -3918,26 +3918,6 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-};
-
-// Main page component with layout
-const CelikHasirOptimizasyon: React.FC = () => {
-  return (
-    <ClientAuthCheck>
-      <MainLayout3>
-        <div className="container mx-auto px-4 py-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Çelik Hasır İleri Optimizasyon</h1>
-            <p className="text-gray-600">Akıllı algoritma ile çelik hasır ürün optimizasyonu ve birleştirme işlemleri</p>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow">
-            <CelikHasirOptimizasyonContent />
-          </div>
-        </div>
-      </MainLayout3>
 
       {/* Back Confirmation Dialog */}
       <Dialog open={showBackConfirmDialog} onOpenChange={setShowBackConfirmDialog}>
@@ -3967,6 +3947,26 @@ const CelikHasirOptimizasyon: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+};
+
+// Main page component with layout
+const CelikHasirOptimizasyon: React.FC = () => {
+  return (
+    <ClientAuthCheck>
+      <MainLayout3>
+        <div className="container mx-auto px-4 py-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">Çelik Hasır İleri Optimizasyon</h1>
+            <p className="text-gray-600">Akıllı algoritma ile çelik hasır ürün optimizasyonu ve birleştirme işlemleri</p>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow">
+            <CelikHasirOptimizasyonContent />
+          </div>
+        </div>
+      </MainLayout3>
     </ClientAuthCheck>
   );
 };
