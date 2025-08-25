@@ -1200,18 +1200,44 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Handle skip and continue for unknown mesh types
   const handleSkipAndContinueUnknownMesh = () => {
-    console.log('Skipping unknown mesh types, proceeding with preview');
+    console.log('Skipping unknown mesh types, proceeding with known data');
     setShowUnknownMeshModal(false);
     setUnknownMeshTypes([]);
     
-    // Get the pending preview data
+    // Get the pending preview data and add valid rows to main table
     const pendingData = sessionStorage.getItem('pendingPreviewData');
     if (pendingData) {
-      const parsedData = JSON.parse(pendingData);
-      setPreviewData(parsedData);
-      setBulkInputVisible(true);
-      sessionStorage.removeItem('pendingPreviewData');
-      console.log('Restored pending preview data and showing bulk input');
+      try {
+        const parsedData = JSON.parse(pendingData);
+        
+        // Filter out rows with unknown mesh types and add valid rows to main table
+        const validRows = parsedData.filter(row => {
+          return row.hasirTipi && row.hasirTipi.trim() && 
+                 /^(Q|R|TR)\d+/.test(row.hasirTipi.trim());
+        });
+        
+        if (validRows.length > 0) {
+          // Add valid rows to the main table
+          setRows(prevRows => [...prevRows, ...validRows]);
+          console.log(`Added ${validRows.length} valid rows to main table, skipped unknown mesh types`);
+          
+          // Show success message
+          alert(`Excel işlemi tamamlandı!\n✅ ${validRows.length} geçerli satır eklendi\n⚠️ Bilinmeyen hasır tipleri atlandı`);
+        } else {
+          alert('Geçerli veri bulunamadı. Tüm satırlar bilinmeyen hasır tipi içeriyor.');
+        }
+        
+        // Clean up
+        sessionStorage.removeItem('pendingPreviewData');
+        setBulkInputVisible(false);
+        
+      } catch (error) {
+        console.error('Error processing pending data:', error);
+        alert('Veri işlenirken hata oluştu.');
+      }
+    } else {
+      console.log('No pending data found to process');
+      alert('İşlenecek veri bulunamadı.');
     }
   };
 
