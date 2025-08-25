@@ -4,13 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { Grid, Link, Link2, Hammer } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import PanelCitHesaplamaRestricted from '@/components/PanelCitHesaplamaRestricted';
-// import CelikHasirHesaplama from '@/components/CelikHasirHesaplama';
 import { useAuth } from '@/context/AuthContext';
 import ClientAuthCheck from '@/components/ClientAuthCheck';
 
-// Dynamic import ile GalvanizliTelNetsis componentını yükle
+// Dynamic imports to prevent SSR and initialization issues
 const GalvanizliTelNetsis = dynamic(
   () => import('@/components/GalvanizliTelNetsis'),
+  { ssr: false }
+);
+
+const CelikHasirHesaplama = dynamic(
+  () => import('@/components/CelikHasirHesaplama'),
   { ssr: false }
 );
 
@@ -82,7 +86,7 @@ const HesaplamalarPageRestricted = () => {
           ) : (
             <>
               {activeTab === 'panel-cit' && <PanelCitHesaplamaRestricted />}
-              {activeTab === 'celik-hasir' && <div>Çelik Hasır component temporarily disabled</div>}
+              {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
               {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
             </>
           )}
