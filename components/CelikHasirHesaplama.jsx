@@ -646,33 +646,6 @@ const CelikHasirHesaplama = () => {
     }
   };
 
-  // Handle skip and continue for unknown mesh types
-  const handleSkipAndContinueUnknownMesh = () => {
-    console.log('Skipping unknown mesh types and continuing with import');
-    setShowUnknownMeshModal(false);
-    setUnknownMeshTypes([]);
-    
-    // Get the pending preview data and continue with import
-    const pendingData = window.pendingPreviewData;
-    if (pendingData && pendingData.length > 0) {
-      // Show preview table with unknown types having empty mesh configurations
-      const previewItems = pendingData.map((rowData, index) => ({
-        id: index,
-        hasirTipi: rowData.hasirTipi || '',
-        uzunlukBoy: rowData.uzunlukBoy || '',
-        uzunlukEn: rowData.uzunlukEn || '',
-        hasirSayisi: rowData.hasirSayisi || '',
-        sheetName: rowData.sheetName || ''
-      }));
-      
-      setPreviewData(previewItems);
-      setBulkInputVisible(true);
-      
-      // Clear the pending data
-      window.pendingPreviewData = null;
-    }
-  };
-
   // Recalculate all rows and transfer to main table after unknown types are resolved
   const recalculateAndTransferRows = () => {
     // Get current preview data (either from state or pending data)
@@ -1008,6 +981,23 @@ const processExcelWithMapping = (sheets, mapping) => {
   const [previewData, setPreviewData] = useState([]);
   const [bulkInputVisible, setBulkInputVisible] = useState(false);
   const [file, setFile] = useState(null);
+
+  // Handle skip and continue for unknown mesh types
+  const handleSkipAndContinueUnknownMesh = () => {
+    console.log('Skipping unknown mesh types, proceeding with preview');
+    setShowUnknownMeshModal(false);
+    setUnknownMeshTypes([]);
+    
+    // Get the pending preview data
+    const pendingData = sessionStorage.getItem('pendingPreviewData');
+    if (pendingData) {
+      const parsedData = JSON.parse(pendingData);
+      setPreviewData(parsedData);
+      setBulkInputVisible(true);
+      sessionStorage.removeItem('pendingPreviewData');
+      console.log('Restored pending preview data and showing bulk input');
+    }
+  };
   
   // OCR işlemi için durum
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -2548,7 +2538,7 @@ const iyilestir = async (rowIndex) => {
           Math.abs(initialFiliz.on - row.onFiliz) > 0.1 ||
           Math.abs(initialFiliz.arka - row.arkaFiliz) > 0.1) {
         isImproved = true;
-        newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm, Sol/Sağ: ${row.solFiliz.toFixed(2)}cm. `;
+        newAciklama += `5. Filiz değerleri optimize edildi: Ön: ${(row.onFiliz && typeof row.onFiliz === 'number') ? row.onFiliz.toFixed(2) : '0.00'}cm, Arka: ${(row.arkaFiliz && typeof row.arkaFiliz === 'number') ? row.arkaFiliz.toFixed(2) : '0.00'}cm, Sol/Sağ: ${(row.solFiliz && typeof row.solFiliz === 'number') ? row.solFiliz.toFixed(2) : '0.00'}cm. `;
       }
     }
     
@@ -2759,7 +2749,7 @@ const iyilestirAll = async () => {
             Math.abs(initialFilizValues.on - row.onFiliz) > 0.1 ||
             Math.abs(initialFilizValues.arka - row.arkaFiliz) > 0.1) {
           changesCount++;
-          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${row.solFiliz.toFixed(2)}cm, Ön: ${row.onFiliz.toFixed(2)}cm, Arka: ${row.arkaFiliz.toFixed(2)}cm). `;
+          newAciklama += `${changesCount + 1}. Filiz değerleri optimize edildi (Sol/Sağ: ${(row.solFiliz && typeof row.solFiliz === 'number') ? row.solFiliz.toFixed(2) : '0.00'}cm, Ön: ${(row.onFiliz && typeof row.onFiliz === 'number') ? row.onFiliz.toFixed(2) : '0.00'}cm, Arka: ${(row.arkaFiliz && typeof row.arkaFiliz === 'number') ? row.arkaFiliz.toFixed(2) : '0.00'}cm). `;
         }
       }
       

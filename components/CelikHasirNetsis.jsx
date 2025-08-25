@@ -77,6 +77,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [dbSortBy, setDbSortBy] = useState('stok_kodu'); // stok_kodu, stok_adi, cap, length_cm, created_at
   const [dbSortOrder, setDbSortOrder] = useState('asc'); // asc, desc
   
+  // Additional comprehensive filters
+  const [dbFilterMinCap, setDbFilterMinCap] = useState('');        // Minimum diameter
+  const [dbFilterMaxCap, setDbFilterMaxCap] = useState('');        // Maximum diameter  
+  const [dbFilterGrupKodu, setDbFilterGrupKodu] = useState('');    // Group code filter
+  const [dbFilterKod1, setDbFilterKod1] = useState('');            // Kod1 filter
+  const [dbFilterDateFrom, setDbFilterDateFrom] = useState('');    // Date range from
+  const [dbFilterDateTo, setDbFilterDateTo] = useState('');        // Date range to
+  
   // Bulk delete progress tracking
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentItem: '' });
@@ -186,6 +194,42 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       );
     }
     
+    // Apply diameter range filter
+    if (dbFilterMinCap.trim() || dbFilterMaxCap.trim()) {
+      filteredProducts = filteredProducts.filter(product => {
+        const cap = parseFloat(product.cap) || 0;
+        const minCap = dbFilterMinCap.trim() ? parseFloat(dbFilterMinCap) : 0;
+        const maxCap = dbFilterMaxCap.trim() ? parseFloat(dbFilterMaxCap) : Infinity;
+        return cap >= minCap && cap <= maxCap;
+      });
+    }
+    
+    // Apply grup kodu filter
+    if (dbFilterGrupKodu.trim()) {
+      const grupKoduLower = dbFilterGrupKodu.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.grup_kodu || '').toLowerCase().includes(grupKoduLower)
+      );
+    }
+    
+    // Apply kod1 filter
+    if (dbFilterKod1.trim()) {
+      const kod1Lower = dbFilterKod1.toLowerCase();
+      filteredProducts = filteredProducts.filter(product => 
+        (product.kod_1 || '').toLowerCase().includes(kod1Lower)
+      );
+    }
+    
+    // Apply date range filter
+    if (dbFilterDateFrom.trim() || dbFilterDateTo.trim()) {
+      filteredProducts = filteredProducts.filter(product => {
+        const productDate = new Date(product.created_at || 0);
+        const fromDate = dbFilterDateFrom.trim() ? new Date(dbFilterDateFrom) : new Date('1970-01-01');
+        const toDate = dbFilterDateTo.trim() ? new Date(dbFilterDateTo + 'T23:59:59') : new Date('2099-12-31');
+        return productDate >= fromDate && productDate <= toDate;
+      });
+    }
+    
     // Apply sorting
     filteredProducts.sort((a, b) => {
       let aValue = a[dbSortBy];
@@ -210,7 +254,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     });
     
     return filteredProducts;
-  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
+  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder, 
+      dbFilterMinCap, dbFilterMaxCap, dbFilterGrupKodu, dbFilterKod1, dbFilterDateFrom, dbFilterDateTo]);
 
   // Database verileri
   const [savedProducts, setSavedProducts] = useState({
@@ -2045,6 +2090,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       setDbFilterHasirTuru('');
                       setDbSortBy('stok_kodu');
                       setDbSortOrder('asc');
+                      setDbFilterMinCap('');
+                      setDbFilterMaxCap('');
+                      setDbFilterGrupKodu('');
+                      setDbFilterKod1('');
+                      setDbFilterDateFrom('');
+                      setDbFilterDateTo('');
                     }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       activeDbTab === tab.key
@@ -2063,7 +2114,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <div className="mb-6 space-y-4 bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-800 mb-3">Filtreler ve Sıralama</h4>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                   {/* Search */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2132,6 +2183,91 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Min Diameter Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Min Çap (mm)
+                    </label>
+                    <input
+                      type="number"
+                      value={dbFilterMinCap}
+                      onChange={(e) => setDbFilterMinCap(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Max Diameter Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Çap (mm)
+                    </label>
+                    <input
+                      type="number"
+                      value={dbFilterMaxCap}
+                      onChange={(e) => setDbFilterMaxCap(e.target.value)}
+                      placeholder="∞"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+                
+                {/* Second row of filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Grup Kodu Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Grup Kodu
+                    </label>
+                    <input
+                      type="text"
+                      value={dbFilterGrupKodu}
+                      onChange={(e) => setDbFilterGrupKodu(e.target.value)}
+                      placeholder="Grup kodu filtrele..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Kod1 Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Kod 1
+                    </label>
+                    <input
+                      type="text"
+                      value={dbFilterKod1}
+                      onChange={(e) => setDbFilterKod1(e.target.value)}
+                      placeholder="Kod 1 filtrele..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Date From Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tarih (Başlangıç)
+                    </label>
+                    <input
+                      type="date"
+                      value={dbFilterDateFrom}
+                      onChange={(e) => setDbFilterDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  
+                  {/* Date To Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tarih (Bitiş)
+                    </label>
+                    <input
+                      type="date"
+                      value={dbFilterDateTo}
+                      onChange={(e) => setDbFilterDateTo(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
                 </div>
                 
                 {/* Clear Filters Button */}
@@ -2143,6 +2279,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       setDbFilterHasirTuru('');
                       setDbSortBy('stok_kodu');
                       setDbSortOrder('asc');
+                      setDbFilterMinCap('');
+                      setDbFilterMaxCap('');
+                      setDbFilterGrupKodu('');
+                      setDbFilterKod1('');
+                      setDbFilterDateFrom('');
+                      setDbFilterDateTo('');
                     }}
                     className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 underline"
                   >
