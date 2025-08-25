@@ -162,6 +162,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
            (densityFactor * 0.015);
   };
 
+  // Database verileri
+  const [savedProducts, setSavedProducts] = useState({
+    mm: [],
+    ncbk: [],
+    ntel: []
+  });
+  
+  // Excel generation durumu
+  const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
+  const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
+  
+  // Database save progress
+  const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
+  const [databaseProgress, setDatabaseProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
+
+  // New popup states for enhanced database checking
+  const [showExcelOptionsModal, setShowExcelOptionsModal] = useState(false);
+  const [showPreSaveConfirmModal, setShowPreSaveConfirmModal] = useState(false);
+  const [preSaveConfirmData, setPreSaveConfirmData] = useState({ newProducts: [], existingProducts: [] });
+  
+  // Sequence tracking
+  const [sequences, setSequences] = useState({});
+
   // Filter and sort database products
   const getFilteredAndSortedProducts = useCallback(() => {
     let filteredProducts = [...savedProducts[activeDbTab]];
@@ -256,29 +279,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return filteredProducts;
   }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder, 
       dbFilterMinCap, dbFilterMaxCap, dbFilterGrupKodu, dbFilterKod1, dbFilterDateFrom, dbFilterDateTo]);
-
-  // Database verileri
-  const [savedProducts, setSavedProducts] = useState({
-    mm: [],
-    ncbk: [],
-    ntel: []
-  });
-  
-  // Excel generation durumu
-  const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
-  const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
-  
-  // Database save progress
-  const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
-  const [databaseProgress, setDatabaseProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
-
-  // New popup states for enhanced database checking
-  const [showExcelOptionsModal, setShowExcelOptionsModal] = useState(false);
-  const [showPreSaveConfirmModal, setShowPreSaveConfirmModal] = useState(false);
-  const [preSaveConfirmData, setPreSaveConfirmData] = useState({ newProducts: [], existingProducts: [] });
-  
-  // Sequence tracking
-  const [sequences, setSequences] = useState({});
 
   // Component yüklendiğinde verileri getir
   useEffect(() => {
