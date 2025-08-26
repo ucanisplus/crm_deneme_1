@@ -630,10 +630,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       if (existingProduct) {
         // Product is already saved - add it to saved list
+        // Map database fields to expected format for Excel generation
         savedProductsList.push({
           ...product,
           existingStokKodu: existingProduct.stok_kodu,
-          stokAdi: productStokAdi
+          stokAdi: productStokAdi,
+          // Map database fields to expected Excel generation format
+          boyCap: existingProduct.cap || product.boyCap,
+          enCap: existingProduct.cap2 || product.enCap,
+          hasirTipi: existingProduct.hasir_tipi || product.hasirTipi,
+          uzunlukBoy: existingProduct.ebat_boy || product.uzunlukBoy,
+          uzunlukEn: existingProduct.ebat_en || product.uzunlukEn,
+          totalKg: existingProduct.kg || product.totalKg,
+          gozAraligi: existingProduct.goz_araligi || product.gozAraligi,
+          cubukSayisiBoy: existingProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
+          cubukSayisiEn: existingProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
         });
       }
     }
@@ -781,7 +792,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let excelBatchIndex = 0;
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const stokKodu = generateStokKodu(product, 'CH', excelBatchIndex);
+        // For saved products, use existing Stok Kodu; for new products, generate new one
+        const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
         const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
@@ -2886,10 +2898,48 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               {(preSaveConfirmData.existingProducts?.length > 0 || preSaveConfirmData.skippedProducts?.length > 0) && (
                 <div className="mb-4">
                   <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler:</h4>
-                  <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
+                  <div className="max-h-40 overflow-y-auto bg-gray-50 rounded-lg p-3">
                     {(preSaveConfirmData.existingProducts || preSaveConfirmData.skippedProducts || []).map((product, index) => (
-                      <div key={index} className="text-sm mb-1">
-                        <span className="font-mono text-blue-600">{product.existingStokKodu || 'Çoklu Stok Kodu'}</span> - {product.stokAdi || product.hasirTipi}
+                      <div key={index} className="border-b border-gray-200 pb-2 mb-2 last:border-b-0">
+                        <div className="font-medium text-gray-700 mb-1">{product.stokAdi}</div>
+                        <div className="text-xs text-gray-600">
+                          <div className="mb-1">
+                            <span className="font-medium">CH: </span>
+                            <span className="font-mono text-blue-600">
+                              {product.existingStokKodus && product.existingStokKodus.length > 0 
+                                ? product.existingStokKodus.join(', ') 
+                                : 'Yok'}
+                            </span>
+                          </div>
+                          {product.existingStokAdiVariants && (
+                            <>
+                              <div className="mb-1">
+                                <span className="font-medium">NCBK 500cm: </span>
+                                <span className="font-mono text-blue-600">
+                                  {product.existingStokAdiVariants.ncbk500?.length > 0 
+                                    ? product.existingStokAdiVariants.ncbk500.join(', ') 
+                                    : 'Yok'}
+                                </span>
+                              </div>
+                              <div className="mb-1">
+                                <span className="font-medium">NCBK 215cm: </span>
+                                <span className="font-mono text-blue-600">
+                                  {product.existingStokAdiVariants.ncbk215?.length > 0 
+                                    ? product.existingStokAdiVariants.ncbk215.join(', ') 
+                                    : 'Yok'}
+                                </span>
+                              </div>
+                              <div className="mb-1">
+                                <span className="font-medium">NTEL: </span>
+                                <span className="font-mono text-blue-600">
+                                  {product.existingStokAdiVariants.ntel?.length > 0 
+                                    ? product.existingStokAdiVariants.ntel.join(', ') 
+                                    : 'Yok'}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
