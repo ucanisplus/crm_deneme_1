@@ -287,27 +287,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
     
-    // Apply hasır türü filter (looking in kod_2 and stok_adi)
+    // Apply hasır türü filter (looking in hasir_turu column)
     if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
-      if (dbFilterHasirTuru === 'Standart') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.kod_2 || '').toLowerCase() === 'std' || 
-          (product.stok_adi || '').toLowerCase().includes('standart')
-        );
-      } else if (dbFilterHasirTuru === 'Perde') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.stok_adi || '').toLowerCase().includes('perde') &&
-          !(product.stok_adi || '').toLowerCase().includes('dk perde')
-        );
-      } else if (dbFilterHasirTuru === 'DK Perde') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.stok_adi || '').toLowerCase().includes('dk perde')
-        );
-      } else if (dbFilterHasirTuru === 'Döşeme') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.stok_adi || '').toLowerCase().includes('döşeme')
-        );
-      }
+      filteredProducts = filteredProducts.filter(product => 
+        (product.hasir_turu || '').toLowerCase() === dbFilterHasirTuru.toLowerCase()
+      );
     }
     
     
@@ -421,8 +405,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
+    // Transform database products to expected Excel format
+    const transformedProducts = selectedProducts.map(product => ({
+      // Map database fields to expected Excel generation format
+      boyCap: product.cap || 0,
+      enCap: product.cap2 || 0,
+      hasirTipi: product.hasir_tipi || '',
+      uzunlukBoy: product.ebat_boy || 0,
+      uzunlukEn: product.ebat_en || 0,
+      boyAraligi: product.goz_araligi ? product.goz_araligi.split('*')[0] : '15',
+      enAraligi: product.goz_araligi ? product.goz_araligi.split('*')[1] || product.goz_araligi.split('*')[0] : '15',
+      gozAraligi: product.goz_araligi || '15*15',
+      totalKg: product.kg || 0,
+      adetKg: product.kg || 0,
+      cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+      cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+      hasirSayisi: product.hasir_sayisi || 1,
+      hasirTuru: product.hasir_turu || 'Standart',
+      // Add existing stok kodu for saved products
+      existingStokKodu: product.stok_kodu
+    }));
+
+    console.log('DEBUG: Selected products for export:', transformedProducts);
+
     try {
-      await generateExcelFiles(selectedProducts, false);
+      await generateExcelFiles(transformedProducts, true); // Set includeAllProducts to true for saved products
       toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
     } catch (error) {
       console.error('Export error:', error);
@@ -1116,7 +1123,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${length}`;
           const stokAdi = `YM Nervürlü Çubuk ${product.boyCap} mm ${length} cm`;
           
-          const ncbkWeight = product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * length / 4000).toFixed(5) : '';
+          const ncbkWeight = product.boyCap ? (Math.PI * (parseFloat(product.boyCap)/20) * (parseFloat(product.boyCap)/20) * length * 7.85 / 1000).toFixed(5) : '';
           
           ncbkSheet.addRow([
             stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '20', '35',
@@ -1131,7 +1138,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // NTEL ürünü
         const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`;
         const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
-        const ntelWeight = product.boyCap ? (parseFloat(product.boyCap) * parseFloat(product.boyCap) * Math.PI * 7.85 * 100 / 4000).toFixed(5) : '';
+        const ntelWeight = product.boyCap ? (Math.PI * (parseFloat(product.boyCap)/20) * (parseFloat(product.boyCap)/20) * 100 * 7.85 / 1000).toFixed(5) : '';
         
         ntelSheet.addRow([
           ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '20', '35',
@@ -1253,20 +1260,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
           
-          // Calculate FLM consumption with proper formula
-          // Volume of steel = π × (diameter/2)² × length
-          // Weight = Volume × density (7.85 g/cm³)
-          const volumeCm3 = Math.PI * Math.pow(diameter/10/2, 2) * length; // Convert mm to cm
-          const weightKg = volumeCm3 * 7.85 / 1000;
-          
-          // Apply stretching factor for tel çekme process
-          const stretchFactor = flmDiameter / diameter; // How much bigger the filmaşin is
-          const flmTuketimi = (weightKg * Math.pow(stretchFactor, 2)).toFixed(6); // Square of diameter ratio
+          // Calculate FLM consumption with correct formula
+          // Use final product diameter, not filmaşin diameter
+          // π × (diameter_mm/20)² × length_cm × 7.85 g/cm³ / 1000 for kg
+          const flmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5);
           
           // Bileşen - FLM
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
-            '1', parseFloat(flmTuketimi).toFixed(6), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -1311,11 +1313,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
         
-        // Calculate NTEL FLM consumption per meter
-        const ntelVolumeCm3 = Math.PI * Math.pow(ntelDiameter/10/2, 2) * 100; // per meter (100cm)
-        const ntelWeightKg = ntelVolumeCm3 * 7.85 / 1000;
-        const ntelStretchFactor = ntelFlmDiameter / ntelDiameter;
-        const ntelFlmTuketimi = (ntelWeightKg * Math.pow(ntelStretchFactor, 2)).toFixed(5);
+        // Calculate NTEL FLM consumption per meter using correct formula
+        // Use final product diameter: π × (diameter_mm/20)² × length_cm × 7.85 g/cm³ / 1000 for kg
+        const ntelFlmTuketimi = (Math.PI * (ntelDiameter/20) * (ntelDiameter/20) * 100 * 7.85 / 1000).toFixed(5);
         
         // Bileşen - FLM
         ntelReceteSheet.addRow([
@@ -1402,7 +1402,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         
         const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
-        const flmTuketimi = (diameter * diameter * Math.PI * 7.85 * totalLength / 4000000).toFixed(6); // kg
+        const flmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * totalLength * 7.85 / 1000).toFixed(5); // kg
         
         // CH REÇETE entries
         chReceteSheet.addRow([
@@ -1421,7 +1421,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // NCBK REÇETE entries - Boy ve En çubukları için
         [500, 215].forEach(length => {
           const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
-          const ncbkFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * length / 4000000).toFixed(6); // kg
+          const ncbkFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5); // kg
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
@@ -1439,7 +1439,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // NTEL REÇETE entries
         const ntelStokKodu = `YM.NTEL.${String(Math.round(diameter * 100)).padStart(4, '0')}`;
-        const ntelFlmTuketimi = (diameter * diameter * Math.PI * 7.85 * 1000 / 4000000).toFixed(6); // kg per meter
+        const ntelFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
         
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
@@ -1527,7 +1527,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             operasyon_bilesen: 'Bileşen',
             bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)),
             olcu_br_bilesen: 'KG',
-            miktar: parseFloat((Math.pow(parseFloat(ncbkResult.cap), 2) * Math.PI * 7.85 * parseFloat(length) / 4000000).toFixed(5)),
+            miktar: parseFloat((Math.PI * (parseFloat(ncbkResult.cap)/20) * (parseFloat(ncbkResult.cap)/20) * parseFloat(length) * 7.85 / 1000).toFixed(5)),
             aciklama: `FLM tüketimi - ${length}cm çubuk için`,
           },
           // Operasyon - Yarı Otomatik İşlem
@@ -1568,7 +1568,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)),
           olcu_br_bilesen: 'KG',
-          miktar: parseFloat((Math.pow(parseFloat(ntelResult.cap), 2) * Math.PI * 7.85 * 1000 / 4000000).toFixed(5)),
+          miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
           aciklama: 'FLM tüketimi - metre başına',
         },
         // Operasyon - Tam Otomatik İşlem
