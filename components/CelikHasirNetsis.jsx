@@ -926,7 +926,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let receteBatchIndex = 0;
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = generateStokKodu(product, 'CH', receteBatchIndex);
+        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
@@ -1104,7 +1104,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Alternatif reçete verilerini ekle (NTEL bazlı)
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = generateStokKodu(product, 'CH');
+        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH');
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
@@ -2861,7 +2861,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       {/* Pre-Save Confirmation Modal */}
       {showPreSaveConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
+          <div className="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <Database className="w-6 h-6 text-green-500" />
               <h3 className="text-lg font-semibold">Veritabanı Kayıt Onayı</h3>
@@ -2897,51 +2897,66 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               
               {(preSaveConfirmData.existingProducts?.length > 0 || preSaveConfirmData.skippedProducts?.length > 0) && (
                 <div className="mb-4">
-                  <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler:</h4>
-                  <div className="max-h-40 overflow-y-auto bg-gray-50 rounded-lg p-3">
-                    {(preSaveConfirmData.existingProducts || preSaveConfirmData.skippedProducts || []).map((product, index) => (
-                      <div key={index} className="border-b border-gray-200 pb-2 mb-2 last:border-b-0">
-                        <div className="font-medium text-gray-700 mb-1">{product.stokAdi}</div>
-                        <div className="text-xs text-gray-600">
-                          <div className="mb-1">
-                            <span className="font-medium">CH: </span>
-                            <span className="font-mono text-blue-600">
-                              {product.existingStokKodus && product.existingStokKodus.length > 0 
-                                ? product.existingStokKodus.join(', ') 
-                                : 'Yok'}
-                            </span>
-                          </div>
-                          {product.existingStokAdiVariants && (
-                            <>
-                              <div className="mb-1">
-                                <span className="font-medium">NCBK 500cm: </span>
-                                <span className="font-mono text-blue-600">
-                                  {product.existingStokAdiVariants.ncbk500?.length > 0 
-                                    ? product.existingStokAdiVariants.ncbk500.join(', ') 
-                                    : 'Yok'}
-                                </span>
+                  <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler - Detaylı Tablo:</h4>
+                  <div className="max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                        <tr>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">Ürün</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">CH Stok Kodus</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 500cm</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 215cm</th>
+                          <th className="text-left p-2 font-medium text-gray-700">NTEL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(preSaveConfirmData.existingProducts || preSaveConfirmData.skippedProducts || []).map((product, index) => (
+                          <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="p-2 border-r border-gray-200">
+                              <div className="font-medium text-gray-800 max-w-xs break-words">
+                                {product.stokAdi}
                               </div>
-                              <div className="mb-1">
-                                <span className="font-medium">NCBK 215cm: </span>
-                                <span className="font-mono text-blue-600">
-                                  {product.existingStokAdiVariants.ncbk215?.length > 0 
-                                    ? product.existingStokAdiVariants.ncbk215.join(', ') 
-                                    : 'Yok'}
-                                </span>
+                            </td>
+                            <td className="p-2 border-r border-gray-200">
+                              <div className="font-mono text-xs text-blue-600">
+                                {product.existingStokKodus && product.existingStokKodus.length > 0 
+                                  ? product.existingStokKodus.map((kod, i) => (
+                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
+                                    ))
+                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
                               </div>
-                              <div className="mb-1">
-                                <span className="font-medium">NTEL: </span>
-                                <span className="font-mono text-blue-600">
-                                  {product.existingStokAdiVariants.ntel?.length > 0 
-                                    ? product.existingStokAdiVariants.ntel.join(', ') 
-                                    : 'Yok'}
-                                </span>
+                            </td>
+                            <td className="p-2 border-r border-gray-200">
+                              <div className="font-mono text-xs text-blue-600">
+                                {product.existingStokAdiVariants?.ncbk500?.length > 0 
+                                  ? product.existingStokAdiVariants.ncbk500.map((kod, i) => (
+                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
+                                    ))
+                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
                               </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                            </td>
+                            <td className="p-2 border-r border-gray-200">
+                              <div className="font-mono text-xs text-blue-600">
+                                {product.existingStokAdiVariants?.ncbk215?.length > 0 
+                                  ? product.existingStokAdiVariants.ncbk215.map((kod, i) => (
+                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
+                                    ))
+                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
+                              </div>
+                            </td>
+                            <td className="p-2">
+                              <div className="font-mono text-xs text-blue-600">
+                                {product.existingStokAdiVariants?.ntel?.length > 0 
+                                  ? product.existingStokAdiVariants.ntel.map((kod, i) => (
+                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
+                                    ))
+                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
