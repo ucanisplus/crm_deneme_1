@@ -829,22 +829,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Excel dosyalarını oluştur
   const generateExcelFiles = async (products, includeAllProducts = false) => {
     try {
+      console.log('DEBUG: generateExcelFiles called with:', {
+        productsCount: products.length,
+        includeAllProducts,
+        firstProduct: products[0] || 'No products'
+      });
+      
       setIsGeneratingExcel(true);
       setExcelProgress({ current: 0, total: 3, operation: 'Excel dosyaları hazırlanıyor...' });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
       
       // 1. Stok Kartı Excel
+      console.log('DEBUG: Starting Stok Kartı Excel generation...');
       setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
       await generateStokKartiExcel(products, timestamp, includeAllProducts);
+      console.log('DEBUG: Stok Kartı Excel completed');
       
       // 2. Reçete Excel  
+      console.log('DEBUG: Starting Reçete Excel generation...');
       setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
       await generateReceteExcel(products, timestamp, includeAllProducts);
+      console.log('DEBUG: Reçete Excel completed');
       
       // 3. Alternatif Reçete Excel
+      console.log('DEBUG: Starting Alternatif Reçete Excel generation...');
       setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
       await generateAlternatifReceteExcel(products, timestamp, includeAllProducts);
+      console.log('DEBUG: Alternatif Reçete Excel completed');
       
       toast.success('Excel dosyaları başarıyla oluşturuldu!');
       
