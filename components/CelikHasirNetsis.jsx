@@ -423,7 +423,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       hasirSayisi: product.hasir_sayisi || 1,
       hasirTuru: product.hasir_turu || 'Standart',
       // Add existing stok kodu for saved products
-      existingStokKodu: product.stok_kodu
+      existingStokKodu: product.stok_kodu,
+      // CRITICAL: Mark as optimized so Excel generation processes them
+      isOptimized: true
     }));
 
     console.log('DEBUG: Selected products for export:', transformedProducts);
@@ -511,7 +513,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const isProductOptimized = (product) => {
     // Check if optimization has been run by checking if the product has the isOptimized flag
     // This flag should be set by the iyilestir functions
-    return product.isOptimized === true;
+    // For Excel generation from database, also allow products with existingStokKodu
+    return product.isOptimized === true || product.existingStokKodu;
   };
 
   // Optimize edilmemiş ürünleri kontrol et
@@ -1064,10 +1067,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         chSheet.addRow([
           stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
-          '20', '20', '31', '36', 'KG', 'AD', '1', parseFloat(product.totalKg || 0).toFixed(5), '',
+          '20', '20', '31', '36', 'KG', 'AD', '1', parseFloat(product.totalKg || product.adetKg || 0).toFixed(5), '',
           '1', '1', '1', 'M', stokKodu, 'MM', product.hasirTipi, parseFloat(product.boyCap || 0).toFixed(1),
           parseFloat(product.enCap || 0).toFixed(1), parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0),
-          gozAraligi, parseFloat(product.totalKg || 0).toFixed(5), parseInt(product.cubukSayisiBoy || 0),
+          gozAraligi, parseFloat(product.totalKg || product.adetKg || 0).toFixed(5), parseInt(product.cubukSayisiBoy || 0),
           parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '', '0', '2', '0', '0', '0',
           '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '',
           'H', 'H', '', '', ''
@@ -1950,10 +1953,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
 
         // Recipe kayıtları oluştur (sadece yeni ürünler için)
-        if (chResult && Object.keys(ncbkResults).length > 0) {
+        if (chResult && chResult.stok_kodu && Object.keys(ncbkResults).length > 0) {
           try {
-            await saveRecipeData(product, chResult, ncbkResults, ntelResult);
-            console.log(`Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
+            // Extra validation before calling saveRecipeData
+            const validNcbkResults = {};
+            Object.entries(ncbkResults).forEach(([key, result]) => {
+              if (result && result.stok_kodu) {
+                validNcbkResults[key] = result;
+              }
+            });
+            
+            if (Object.keys(validNcbkResults).length > 0) {
+              await saveRecipeData(product, chResult, validNcbkResults, ntelResult);
+              console.log(`Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
+            } else {
+              console.warn(`Recipe kayıtları atlandı - geçerli NCBK sonucu yok: ${product.hasirTipi}`);
+            }
             
             // Sequence güncelle (sadece yeni ürünler için)
             if (chResponse && chResponse.status !== 409) {
