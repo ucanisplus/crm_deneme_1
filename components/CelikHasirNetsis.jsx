@@ -701,20 +701,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
-          const diameterMatch = Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-                               Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01;
+          // Handle decimal separator differences (7,8 vs 7.8)
+          const normalizeDecimal = (value) => {
+            if (!value) return 0;
+            return parseFloat(String(value).replace(',', '.'));
+          };
+          
+          const diameterMatch = Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.01 &&
+                               Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.01;
           
           // Smart hasır tipi comparison - handles format variations intelligently
           const hasirTipiMatch = normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi);
           
-          // For göz aralığı, extract the first number to handle "15*15 cm" vs "15" vs "30*15 cm" vs "30"
-          const extractGozNumber = (goz) => {
-            if (!goz) return 0;
-            const match = String(goz).match(/(\d+)/);
-            return match ? parseInt(match[1]) : 0;
+          // Normalize göz aralığı format (15x15 vs 15*15)
+          const normalizeGozAraligi = (goz) => {
+            if (!goz) return '';
+            // Replace 'x' with '*' and remove 'cm' and spaces
+            return String(goz).replace(/x/g, '*').replace(/\s*cm\s*/g, '').trim();
           };
           
-          const gozMatch = extractGozNumber(p.goz_araligi) === extractGozNumber(formatGozAraligi(product));
+          // Compare normalized göz aralığı values
+          const gozMatch = normalizeGozAraligi(p.goz_araligi) === normalizeGozAraligi(formatGozAraligi(product));
           
           // Debug each comparison for the first product to understand why matching fails
           if (p.stok_kodu === existingProduct.stok_kodu) {
@@ -733,14 +740,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('  dimensionMatchBoy:', Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01);
             console.log('  dimensionMatchEn:', Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01);
             console.log('  dimensionMatch:', dimensionMatch);
-            console.log('  capDB:', p.cap, 'vs boyCapProduct:', product.boyCap);
-            console.log('  cap2DB:', p.cap2, 'vs enCapProduct:', product.enCap);
-            console.log('  diameterMatchBoy:', Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01);
-            console.log('  diameterMatchEn:', Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01);
+            console.log('  capDB:', p.cap, '→', normalizeDecimal(p.cap), 'vs boyCapProduct:', product.boyCap, '→', normalizeDecimal(product.boyCap));
+            console.log('  cap2DB:', p.cap2, '→', normalizeDecimal(p.cap2), 'vs enCapProduct:', product.enCap, '→', normalizeDecimal(product.enCap));
+            console.log('  diameterMatchBoy:', Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.01);
+            console.log('  diameterMatchEn:', Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.01);
             console.log('  diameterMatch:', diameterMatch);
-            console.log('  gozAraligiDB:', p.goz_araligi, 'vs gozAraligiProduct:', formatGozAraligi(product));
-            console.log('  gozExtractedDB:', extractGozNumber(p.goz_araligi), 'vs gozExtractedProduct:', extractGozNumber(formatGozAraligi(product)));
-            console.log('  gozMatch:', gozMatch);
+            console.log('  📐 GÖZ ARALIĞI ANALYSIS:');
+            console.log('    - DB value:', `"${p.goz_araligi}"`, '→ normalized:', `"${normalizeGozAraligi(p.goz_araligi)}"`);
+            console.log('    - Product value:', `"${formatGozAraligi(product)}"`, '→ normalized:', `"${normalizeGozAraligi(formatGozAraligi(product))}"`);
+            console.log('    - Match result:', gozMatch);
             console.log('  finalResult:', hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch);
           }
           
