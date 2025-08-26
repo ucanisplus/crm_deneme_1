@@ -689,6 +689,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (existingProduct) {
         console.log('DEBUG: Found existing product:', existingProduct.stok_adi, existingProduct.stok_kodu);
         
+        // Find ALL products that match this product's specifications (to show all duplicates)
+        const allMatchingProducts = savedProducts.mm.filter(p => 
+          p.hasir_tipi === product.hasirTipi &&
+          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+        );
+        
+        console.log('DEBUG: All matching products:', allMatchingProducts.map(p => p.stok_kodu));
+        
         // Product exists - add to existing list with stok_kodu and variant info
         // Create a map of Stok Adı to all related Stok Kodus (same logic as saveToDatabase)
         const stokAdiToStokKodusMap = new Map();
@@ -715,7 +726,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         const variants = {
-          ch: [existingProduct.stok_kodu],
+          ch: allMatchingProducts.map(p => p.stok_kodu), // Show ALL matching CH products
           ncbk500: stokAdiToStokKodusMap.get(ncbkStokAdi500) || [],
           ncbk215: stokAdiToStokKodusMap.get(ncbkStokAdi215) || [],
           ntel: stokAdiToStokKodusMap.get(ntelStokAdi) || []
@@ -725,7 +736,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         existingProducts.push({
           ...product,
-          existingStokKodus: [existingProduct.stok_kodu],
+          existingStokKodus: allMatchingProducts.map(p => p.stok_kodu), // Show ALL matching Stok Kodus
           stokAdi: productStokAdi,
           existingStokAdiVariants: variants
         });
@@ -2958,7 +2969,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                         <tr>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">Ürün</th>
-                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">CH Stok Kodus</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">CH Stok Kodları</th>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 500cm</th>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 215cm</th>
                           <th className="text-left p-2 font-medium text-gray-700">NTEL</th>
