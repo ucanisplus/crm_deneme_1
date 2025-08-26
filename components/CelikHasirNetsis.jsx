@@ -689,16 +689,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (existingProduct) {
         console.log('DEBUG: Found existing product:', existingProduct.stok_adi, existingProduct.stok_kodu);
         
-        // Find ALL products that match this product's specifications (to show all duplicates)
+        // Find ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
+        // This will catch products with identical specs but different Stok Adı formatting
         const allMatchingProducts = savedProducts.mm.filter(p => 
           p.hasir_tipi === product.hasirTipi &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01 &&
+          p.goz_araligi === product.gozAraligi
         );
         
-        console.log('DEBUG: All matching products:', allMatchingProducts.map(p => p.stok_kodu));
+        console.log(`DEBUG: Found ${allMatchingProducts.length} products with IDENTICAL specifications:`, 
+          allMatchingProducts.map(p => ({ 
+            stok_kodu: p.stok_kodu,
+            stok_adi: p.stok_adi,
+            specs: `${p.hasir_tipi} ${p.ebat_boy}x${p.ebat_en} ${p.cap}x${p.cap2} ${p.goz_araligi}`
+          }))
+        );
+        
+        if (allMatchingProducts.length > 1) {
+          console.log('DEBUG: ⚠️ DUPLICATES FOUND! Multiple products with same specs but different Stok Adı/Kodu');
+        }
         
         // Product exists - add to existing list with stok_kodu and variant info
         // Create a map of Stok Adı to all related Stok Kodus (same logic as saveToDatabase)
