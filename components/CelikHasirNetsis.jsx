@@ -789,58 +789,133 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
-          // Handle decimal separator differences (7,8 vs 7.8)
+          // Enhanced decimal normalization (handles comma vs dot, different precisions)
           const normalizeDecimal = (value) => {
             if (!value) return 0;
             return parseFloat(String(value).replace(',', '.'));
           };
           
-          const diameterMatch = Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.01 &&
-                               Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.01;
+          // Tighter tolerance for diameter matching to handle precision differences
+          const diameterMatch = Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.001 &&
+                               Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.001;
           
-          // Smart hasır tipi comparison - handles format variations intelligently
-          const hasirTipiMatch = normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi);
-          
-          // Normalize göz aralığı format (15x15 vs 15*15)
-          const normalizeGozAraligi = (goz) => {
-            if (!goz) return '';
-            // Replace 'x' with '*' and remove 'cm' and spaces
-            return String(goz).replace(/x/g, '*').replace(/\s*cm\s*/g, '').trim();
+          // Enhanced hasır tipi comparison with format variations (Q257/257 vs Q257)
+          const enhancedNormalizeHasirTipi = (hasirTipi) => {
+            if (!hasirTipi) return '';
+            let normalized = normalizeHasirTipi(hasirTipi);
+            // Remove trailing /XXX patterns (Q257/257 → Q257)
+            normalized = normalized.replace(/\/\d+$/, '').toUpperCase().trim();
+            return normalized;
           };
           
-          // Compare normalized göz aralığı values
-          const gozMatch = normalizeGozAraligi(p.goz_araligi) === normalizeGozAraligi(formatGozAraligi(product));
+          const hasirTipiMatch = enhancedNormalizeHasirTipi(p.hasir_tipi) === enhancedNormalizeHasirTipi(product.hasirTipi);
           
-          // Debug each comparison for the first product to understand why matching fails
+          // Enhanced göz aralığı normalization (handles all format variations)
+          const enhancedNormalizeGozAraligi = (goz) => {
+            if (!goz) return '';
+            return String(goz)
+              .replace(/\s*cm\s*/gi, '')     // Remove cm/CM
+              .replace(/\s*x\s*/gi, '*')     // Replace x/X with *  
+              .replace(/\s+/g, '')           // Remove all spaces
+              .toLowerCase()
+              .trim();
+          };
+          
+          const gozMatch = enhancedNormalizeGozAraligi(p.goz_araligi) === enhancedNormalizeGozAraligi(formatGozAraligi(product));
+          
+          // Enhanced Stok Adı similarity check (typo tolerance)
+          const calculateSimilarity = (str1, str2) => {
+            if (!str1 || !str2) return 0;
+            
+            // Advanced normalization for typo detection
+            const normalize = (s) => s.toLowerCase()
+              .replace(/\s+/g, ' ')                    // Multiple spaces → single space
+              .replace(/[()]/g, '')                    // Remove parentheses
+              .replace(/[*x×]/gi, '')                  // Remove separators from göz aralığı  
+              .replace(/mm|cm/gi, '')                  // Remove units
+              .replace(/[,]/g, '.')                    // Comma → dot decimals
+              .replace(/çaa+p/gi, 'çap')              // Fix typos: çaap/çaaap → çap
+              .replace(/ebaa+t/gi, 'ebat')            // Fix typos: ebaaat → ebat  
+              .replace(/göz\s*ara+/gi, 'göz ara')     // Fix typos: göz araaa → göz ara
+              .replace(/(\d)(\D)(\d)/g, '$1 $2 $3')   // Add spaces around non-digits
+              .trim();
+            
+            const n1 = normalize(str1);
+            const n2 = normalize(str2);
+            
+            if (n1 === n2) return 1.0;
+            
+            // Levenshtein distance for fuzzy matching
+            const distance = levenshteinDistance(n1, n2);
+            const maxLength = Math.max(n1.length, n2.length);
+            return maxLength === 0 ? 1.0 : Math.max(0, (maxLength - distance) / maxLength);
+          };
+          
+          // Helper function for edit distance calculation
+          const levenshteinDistance = (str1, str2) => {
+            const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
+            
+            for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+            for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+            
+            for (let j = 1; j <= str2.length; j++) {
+              for (let i = 1; i <= str1.length; i++) {
+                const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                matrix[j][i] = Math.min(
+                  matrix[j - 1][i] + 1,      // deletion
+                  matrix[j][i - 1] + 1,      // insertion  
+                  matrix[j - 1][i - 1] + cost // substitution
+                );
+              }
+            }
+            return matrix[str2.length][str1.length];
+          };
+          
+          // Generate expected stok_adi for similarity comparison
+          const expectedStokAdi = generateStokAdi(product, 'CH');
+          const similarity = calculateSimilarity(p.stok_adi, expectedStokAdi);
+          const stokAdiMatch = similarity > 0.80; // 80% similarity threshold for typo tolerance
+          
+          // Combine all matching criteria
+          const overallMatch = hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch && stokAdiMatch;
+          
+          // Enhanced debug for first product  
           if (p.stok_kodu === existingProduct.stok_kodu) {
-            console.log('DEBUG: Detailed matching for', p.stok_kodu);
-            console.log('  hasirTipiDB:', p.hasir_tipi, 'vs hasirTipiProduct:', product.hasirTipi);
-            console.log('  hasirTipiNormalizedDB:', normalizeHasirTipi(p.hasir_tipi), 'vs hasirTipiNormalizedProduct:', normalizeHasirTipi(product.hasirTipi));
-            console.log('  hasirTipiMatch:', hasirTipiMatch);
-            console.log('  📊 HASIR TIPI ANALYSIS:');
-            console.log('    - Original DB value:', `"${p.hasir_tipi}"`);
-            console.log('    - Original Product value:', `"${product.hasirTipi}"`);
-            console.log('    - DB after normalization:', `"${normalizeHasirTipi(p.hasir_tipi)}"`);
-            console.log('    - Product after normalization:', `"${normalizeHasirTipi(product.hasirTipi)}"`);
-            console.log('    - Are they equal?:', normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi));
-            console.log('  ebatBoyDB:', p.ebat_boy, 'vs uzunlukBoyProduct:', product.uzunlukBoy);
-            console.log('  ebatEnDB:', p.ebat_en, 'vs uzunlukEnProduct:', product.uzunlukEn);
-            console.log('  dimensionMatchBoy:', Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01);
-            console.log('  dimensionMatchEn:', Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01);
-            console.log('  dimensionMatch:', dimensionMatch);
-            console.log('  capDB:', p.cap, '→', normalizeDecimal(p.cap), 'vs boyCapProduct:', product.boyCap, '→', normalizeDecimal(product.boyCap));
-            console.log('  cap2DB:', p.cap2, '→', normalizeDecimal(p.cap2), 'vs enCapProduct:', product.enCap, '→', normalizeDecimal(product.enCap));
-            console.log('  diameterMatchBoy:', Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.01);
-            console.log('  diameterMatchEn:', Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.01);
-            console.log('  diameterMatch:', diameterMatch);
-            console.log('  📐 GÖZ ARALIĞI ANALYSIS:');
-            console.log('    - DB value:', `"${p.goz_araligi}"`, '→ normalized:', `"${normalizeGozAraligi(p.goz_araligi)}"`);
-            console.log('    - Product value:', `"${formatGozAraligi(product)}"`, '→ normalized:', `"${normalizeGozAraligi(formatGozAraligi(product))}"`);
-            console.log('    - Match result:', gozMatch);
-            console.log('  finalResult:', hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch);
+            console.log('🔍 ENHANCED DUPLICATE DETECTION for', p.stok_kodu);
+            console.log('  📊 HASIR TIPI:', { 
+              db: p.hasir_tipi, 
+              product: product.hasirTipi, 
+              normalized_db: enhancedNormalizeHasirTipi(p.hasir_tipi), 
+              normalized_product: enhancedNormalizeHasirTipi(product.hasirTipi), 
+              match: hasirTipiMatch 
+            });
+            console.log('  📏 DIMENSIONS:', { 
+              db: [p.ebat_boy, p.ebat_en], 
+              product: [product.uzunlukBoy, product.uzunlukEn], 
+              match: dimensionMatch 
+            });
+            console.log('  📐 DIAMETERS:', { 
+              db: [normalizeDecimal(p.cap), normalizeDecimal(p.cap2)], 
+              product: [normalizeDecimal(product.boyCap), normalizeDecimal(product.enCap)], 
+              match: diameterMatch 
+            });
+            console.log('  🕳️ GOZ ARALIGI:', { 
+              db: p.goz_araligi, 
+              product: formatGozAraligi(product), 
+              normalized_db: enhancedNormalizeGozAraligi(p.goz_araligi), 
+              normalized_product: enhancedNormalizeGozAraligi(formatGozAraligi(product)), 
+              match: gozMatch 
+            });
+            console.log('  📝 STOK ADI SIMILARITY:', { 
+              db: p.stok_adi, 
+              expected: expectedStokAdi, 
+              similarity: similarity.toFixed(3), 
+              match: stokAdiMatch 
+            });
+            console.log('  ✅ OVERALL MATCH:', overallMatch);
           }
           
-          return hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch;
+          return overallMatch;
         });
         
         // Debug all hasır tipi variations in the database for this comparison
@@ -856,6 +931,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             specs: `${p.hasir_tipi} ${p.ebat_boy}x${p.ebat_en} ${p.cap}x${p.cap2} ${p.goz_araligi}`
           }))
         );
+        
+        // Fallback: if no matches found with smart filtering, try simpler fallback matching
+        if (allMatchingProducts.length === 0) {
+          console.log('DEBUG: No smart matches found, trying fallback matching...');
+          // Try with just hasir tipi and dimensions (less strict)
+          const fallbackMatches = savedProducts.mm.filter(p => {
+            const hasirTipiBasicMatch = (p.hasir_tipi || '').toLowerCase().includes(product.hasirTipi.toLowerCase()) ||
+                                      product.hasirTipi.toLowerCase().includes((p.hasir_tipi || '').toLowerCase());
+            const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+                                 Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
+            return hasirTipiBasicMatch && dimensionMatch;
+          });
+          
+          if (fallbackMatches.length > 0) {
+            console.log(`DEBUG: Fallback found ${fallbackMatches.length} matches:`, fallbackMatches.map(p => p.stok_kodu));
+            allMatchingProducts.push(...fallbackMatches);
+          }
+        }
         
         if (allMatchingProducts.length > 1) {
           console.log('DEBUG: ⚠️ DUPLICATES FOUND! Multiple products with same specs but different Stok Adı/Kodu');
@@ -899,7 +992,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ...product,
           existingStokKodus: allMatchingProducts.map(p => p.stok_kodu), // Show ALL matching Stok Kodus
           stokAdi: productStokAdi,
-          existingStokAdiVariants: variants
+          existingStokAdiVariants: {
+            ...variants,
+            ch: allMatchingProducts.map(p => p.stok_kodu) // Ensure CH variants are also populated
+          }
         });
       } else {
         console.log('DEBUG: Product not found, creating new:', productStokAdi);
@@ -1369,9 +1465,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntelReceteSheet.addRow(receteHeaders);
 
     // Alternatif reçete verilerini ekle (NTEL bazlı)
+    let altReceteBatchIndex = 0;
     for (const product of products) {
       if (isProductOptimized(product)) {
-        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH');
+        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
+        altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
