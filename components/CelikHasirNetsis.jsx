@@ -691,14 +691,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Find ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
         // This will catch products with identical specs but different Stok Adı formatting
-        const allMatchingProducts = savedProducts.mm.filter(p => 
-          p.hasir_tipi === product.hasirTipi &&
-          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01 &&
-          p.goz_araligi === product.gozAraligi
-        );
+        
+        // Handle hasir_tipi variations (Q257/257 vs Q257, etc.)
+        const normalizeHasirTipi = (tipi) => {
+          if (!tipi) return '';
+          return tipi.replace(/\/.*$/, ''); // Remove everything after "/" (Q257/257 -> Q257)
+        };
+        
+        const allMatchingProducts = savedProducts.mm.filter(p => {
+          const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+                                 Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
+          
+          const diameterMatch = Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+                               Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01;
+          
+          // Normalize hasir_tipi for comparison (Q257/257 = Q257)
+          const hasirTipiMatch = normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi);
+          
+          // For göz aralığı, extract the first number to handle "15*15 cm" vs "15" vs "30*15 cm" vs "30"
+          const extractGozNumber = (goz) => {
+            if (!goz) return 0;
+            const match = String(goz).match(/(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          };
+          
+          const gozMatch = extractGozNumber(p.goz_araligi) === extractGozNumber(product.gozAraligi);
+          
+          return hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch;
+        });
         
         console.log(`DEBUG: Found ${allMatchingProducts.length} products with IDENTICAL specifications:`, 
           allMatchingProducts.map(p => ({ 
