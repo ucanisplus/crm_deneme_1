@@ -719,21 +719,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Debug each comparison for the first product to understand why matching fails
           if (p.stok_kodu === existingProduct.stok_kodu) {
-            console.log('DEBUG: Detailed matching for', p.stok_kodu, ':', {
-              hasirTipiDB: p.hasir_tipi, hasirTipiProduct: product.hasirTipi,
-              hasirTipiNormalizedDB: normalizeHasirTipi(p.hasir_tipi), hasirTipiNormalizedProduct: normalizeHasirTipi(product.hasirTipi),
-              hasirTipiMatch,
-              ebatBoyDB: p.ebat_boy, uzunlukBoyProduct: product.uzunlukBoy, dimensionMatchBoy: Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01,
-              ebatEnDB: p.ebat_en, uzunlukEnProduct: product.uzunlukEn, dimensionMatchEn: Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01,
-              dimensionMatch,
-              capDB: p.cap, boyCapProduct: product.boyCap, diameterMatchBoy: Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01,
-              cap2DB: p.cap2, enCapProduct: product.enCap, diameterMatchEn: Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01,
-              diameterMatch,
-              gozAraligiDB: p.goz_araligi, gozAraligiProduct: product.gozAraligi,
-              gozExtractedDB: extractGozNumber(p.goz_araligi), gozExtractedProduct: extractGozNumber(product.gozAraligi),
-              gozMatch,
-              finalResult: hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch
-            });
+            console.log('DEBUG: Detailed matching for', p.stok_kodu);
+            console.log('  hasirTipiDB:', p.hasir_tipi, 'vs hasirTipiProduct:', product.hasirTipi);
+            console.log('  hasirTipiNormalizedDB:', normalizeHasirTipi(p.hasir_tipi), 'vs hasirTipiNormalizedProduct:', normalizeHasirTipi(product.hasirTipi));
+            console.log('  hasirTipiMatch:', hasirTipiMatch);
+            console.log('  ebatBoyDB:', p.ebat_boy, 'vs uzunlukBoyProduct:', product.uzunlukBoy);
+            console.log('  ebatEnDB:', p.ebat_en, 'vs uzunlukEnProduct:', product.uzunlukEn);
+            console.log('  dimensionMatchBoy:', Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01);
+            console.log('  dimensionMatchEn:', Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01);
+            console.log('  dimensionMatch:', dimensionMatch);
+            console.log('  capDB:', p.cap, 'vs boyCapProduct:', product.boyCap);
+            console.log('  cap2DB:', p.cap2, 'vs enCapProduct:', product.enCap);
+            console.log('  diameterMatchBoy:', Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01);
+            console.log('  diameterMatchEn:', Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01);
+            console.log('  diameterMatch:', diameterMatch);
+            console.log('  gozAraligiDB:', p.goz_araligi, 'vs gozAraligiProduct:', product.gozAraligi);
+            console.log('  gozExtractedDB:', extractGozNumber(p.goz_araligi), 'vs gozExtractedProduct:', extractGozNumber(product.gozAraligi));
+            console.log('  gozMatch:', gozMatch);
+            console.log('  finalResult:', hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch);
           }
           
           return hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch;
@@ -1247,6 +1250,33 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // FLM tüketimi hesapla (NTEL için)
         const diameter = parseFloat(product.boyCap || product.enCap || 0);
+        
+        // Calculate filmaşin diameter and quality (same logic as in other functions)
+        const ALT_FILMASIN_MAPPING = {
+          4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+          5.50: 6.5,
+          6.00: 7.0,
+          6.50: 7.5,
+          7.00: 8.0,
+          7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+          9.20: 11.0,
+          10.60: 12.0
+        };
+        
+        let flmDiameter = ALT_FILMASIN_MAPPING[diameter];
+        if (!flmDiameter) {
+          if (diameter <= 6.0) {
+            flmDiameter = diameter + 1.5;
+          } else if (diameter <= 8.0) {
+            flmDiameter = diameter + 1.5;
+          } else {
+            flmDiameter = diameter + 2.0;
+          }
+          const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+          flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+        }
+        
+        const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
         const flmTuketimi = (diameter * diameter * Math.PI * 7.85 * totalLength / 4000000).toFixed(6); // kg
         
         // CH REÇETE entries
