@@ -20,6 +20,40 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+// Filmaşin selection function
+const getFilmasinKodu = (diameter) => {
+  const FILMASIN_MAPPING = {
+    4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+    5.50: 6.5,
+    6.00: 7.0,
+    6.50: 7.5,
+    7.00: 8.0,
+    7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+    9.20: 11.0,
+    10.60: 12.0
+  };
+  
+  // Get filmaşin diameter from mapping table
+  let flmDiameter = FILMASIN_MAPPING[diameter];
+  
+  // If not in mapping, use formula
+  if (!flmDiameter) {
+    if (diameter <= 6.0) {
+      flmDiameter = diameter + 1.5;
+    } else if (diameter <= 8.0) {
+      flmDiameter = diameter + 1.5;
+    } else {
+      flmDiameter = diameter + 2.0;
+    }
+    // Round to nearest standard filmaşin size
+    const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+    flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+  }
+  
+  const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
+  return `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+};
+
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
   // Check for optimized data from advanced optimization screen
   const [products, setProducts] = useState(optimizedProducts);
@@ -126,9 +160,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // NCBK duration calculation (Reliability: 94.8%)
-  const calculateNCBKDuration = (length_mm, diameter_mm) => {
-    return length_mm * 0.000056 * Math.pow(diameter_mm / 7.5, 0.75);
+  // NCBK duration calculation - New machine speed based formula
+  const calculateNCBKDuration = (length_cm, diameter_mm) => {
+    const length_m = length_cm / 100; // Convert cm to m
+    
+    // Determine machine speed based on diameter and length
+    let speed_m_per_min;
+    
+    if (diameter_mm >= 4.20 && diameter_mm <= 4.80) {
+      // Category 1: 4.20-4.80mm
+      speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 200 : 160;
+    } else if (diameter_mm >= 5.00 && diameter_mm <= 8.00) {
+      // Category 2: 5.00-8.00mm  
+      speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 200 : 160;
+    } else if (diameter_mm >= 8.5 && diameter_mm <= 9.5) {
+      // Category 3: 8.5-9.5mm
+      speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 180 : 150;
+    } else if (diameter_mm >= 10.0 && diameter_mm <= 10.6) {
+      // Category 4: 10.0-10.6mm
+      speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 160 : 140;
+    } else {
+      // For diameters not in the specified ranges, use interpolation or fallback
+      if (diameter_mm < 4.20) {
+        speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 200 : 160;
+      } else if (diameter_mm > 10.6) {
+        speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 140 : 120; // Slower for larger diameters
+      } else {
+        speed_m_per_min = (length_cm >= 180 && length_cm <= 500) ? 180 : 150; // Default middle range
+      }
+    }
+    
+    // Calculate duration in minutes for 1 piece
+    // Time per piece = piece_length_m / machine_speed_m_per_min  
+    // Example: 2.15m piece at 200m/min speed = 2.15/200 = 0.01075 min per piece
+    const duration_minutes = length_m / speed_m_per_min;
+    
+    // But this seems too small. Let me add a realistic cutting/setup time
+    // Real-world cutting involves setup, positioning, etc.
+    const realistic_duration_minutes = duration_minutes + 0.5; // Add 0.5 min setup time
+    
+    // Convert to hours and return  
+    return realistic_duration_minutes / 60;
   };
 
   // NTEL duration calculation per meter (Reliability: 91.3%)
@@ -882,42 +954,105 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         [500, 215].forEach((length, index) => {
           const diameter = parseFloat(index === 0 ? product.boyCap : product.enCap);
           const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
-          const flmKodu = `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`;
-          const flmTuketimi = (diameter * diameter * Math.PI * 7.85 * length / 4000000).toFixed(5);
+          // Use proper FILMASIN_MAPPING table for accurate selection
+          const FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 7.5,
+            7.00: 8.0,
+            7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+            9.20: 11.0,
+            10.60: 12.0
+          };
+          
+          // Get filmaşin diameter from mapping table
+          let flmDiameter = FILMASIN_MAPPING[diameter];
+          
+          // If not in mapping, use formula: +1.5mm for small diameters, +2mm for larger
+          if (!flmDiameter) {
+            if (diameter <= 6.0) {
+              flmDiameter = diameter + 1.5;
+            } else if (diameter <= 8.0) {
+              flmDiameter = diameter + 1.5;
+            } else {
+              flmDiameter = diameter + 2.0;
+            }
+            // Round to nearest standard filmaşin size
+            const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+            flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+          }
+          
+          const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
+          
+          const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+          
+          // Calculate FLM consumption with proper formula
+          // Volume of steel = π × (diameter/2)² × length
+          // Weight = Volume × density (7.85 g/cm³)
+          const volumeCm3 = Math.PI * Math.pow(diameter/10/2, 2) * length; // Convert mm to cm
+          const weightKg = volumeCm3 * 7.85 / 1000;
+          
+          // Apply stretching factor for tel çekme process
+          const stretchFactor = flmDiameter / diameter; // How much bigger the filmaşin is
+          const flmTuketimi = (weightKg * Math.pow(stretchFactor, 2)).toFixed(6); // Square of diameter ratio
           
           // Bileşen - FLM
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
             '1', parseFloat(flmTuketimi).toFixed(6), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Operasyon - NDK01
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
             '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
-            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         });
 
         // NTEL Reçete
         const ntelDiameter = parseFloat(product.boyCap || product.enCap);
         const ntelStokKodu = `YM.NTEL.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}`;
-        const ntelFlmKodu = `FLM.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}.1008`;
-        const ntelFlmTuketimi = (ntelDiameter * ntelDiameter * Math.PI * 7.85 * 1000 / 4000000).toFixed(5);
+        // NTEL için aynı FILMASIN_MAPPING tablosunu kullan
+        let ntelFlmDiameter = FILMASIN_MAPPING[ntelDiameter];
+        
+        // If not in mapping, use formula
+        if (!ntelFlmDiameter) {
+          if (ntelDiameter <= 6.0) {
+            ntelFlmDiameter = ntelDiameter + 1.5;
+          } else if (ntelDiameter <= 8.0) {
+            ntelFlmDiameter = ntelDiameter + 1.5;
+          } else {
+            ntelFlmDiameter = ntelDiameter + 2.0;
+          }
+          const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+          ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
+        }
+        
+        const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
+        
+        const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
+        
+        // Calculate NTEL FLM consumption per meter
+        const ntelVolumeCm3 = Math.PI * Math.pow(ntelDiameter/10/2, 2) * 100; // per meter (100cm)
+        const ntelWeightKg = ntelVolumeCm3 * 7.85 / 1000;
+        const ntelStretchFactor = ntelFlmDiameter / ntelDiameter;
+        const ntelFlmTuketimi = (ntelWeightKg * Math.pow(ntelStretchFactor, 2)).toFixed(5);
         
         // Bileşen - FLM
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
           '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
         
         // Operasyon - NTLC01
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
           '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
-          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
       }
     }
@@ -969,15 +1104,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // CH REÇETE entries
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
-          `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
+          `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
           'KG', flmTuketimi, 'FLM Tüketimi (NTEL Bazlı)', '', '', '', '', '', '', '1',
-          'evet', 'evet', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
           'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product),
-          'evet', 'evet', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
         
         // NCBK REÇETE entries - Boy ve En çubukları için
@@ -987,15 +1122,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
-            `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
+            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
-            'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         });
         
@@ -1005,15 +1140,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
-          `FLM.${String(Math.round(diameter * 100)).padStart(4, '0')}.1008`,
+          `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
           'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
         
         ntelReceteSheet.addRow([
           ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
           '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
-          'evet', 'evet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
       }
     }
@@ -1087,7 +1222,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: `FLM.${String(Math.round(parseFloat(ncbkResult.cap) * 100)).padStart(4, '0')}.1008`,
+            bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)),
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.pow(parseFloat(ncbkResult.cap), 2) * Math.PI * 7.85 * parseFloat(length) / 4000000).toFixed(5)),
             aciklama: `FLM tüketimi - ${length}cm çubuk için`,
@@ -1128,7 +1263,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'MT',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: `FLM.${String(Math.round(parseFloat(ntelResult.cap) * 100)).padStart(4, '0')}.1008`,
+          bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)),
           olcu_br_bilesen: 'KG',
           miktar: parseFloat((Math.pow(parseFloat(ntelResult.cap), 2) * Math.PI * 7.85 * 1000 / 4000000).toFixed(5)),
           aciklama: 'FLM tüketimi - metre başına',
@@ -1336,16 +1471,36 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       if (newProducts.length === 0) {
         // Show detailed info about skipped products with their existing Stok Kodus
-        const skippedInfo = skippedProducts.slice(0, 3).map(p => {
-          const stokKodusInfo = p.existingStokKodus ? p.existingStokKodus.join(', ') : '';
-          return `${p.hasirTipi} (Mevcut: ${stokKodusInfo})`;
-        }).join('; ');
+        const allSkippedStokKodus = new Set();
+        skippedProducts.forEach(p => {
+          // Collect all Stok Kodus from all variants (CH, NCBK, NTEL)
+          if (p.existingStokKodus) p.existingStokKodus.forEach(kod => allSkippedStokKodus.add(kod));
+          if (p.existingStokAdiVariants?.ch) p.existingStokAdiVariants.ch.forEach(kod => allSkippedStokKodus.add(kod));
+          if (p.existingStokAdiVariants?.ncbk500) p.existingStokAdiVariants.ncbk500.forEach(kod => allSkippedStokKodus.add(kod));
+          if (p.existingStokAdiVariants?.ncbk215) p.existingStokAdiVariants.ncbk215.forEach(kod => allSkippedStokKodus.add(kod));
+          if (p.existingStokAdiVariants?.ntel) p.existingStokAdiVariants.ntel.forEach(kod => allSkippedStokKodus.add(kod));
+        });
         
+        const skippedStokKodusList = Array.from(allSkippedStokKodus).sort();
+        const skippedInfo = skippedProducts.slice(0, 3).map(p => p.hasirTipi).join(', ');
+        
+        const stokKodusDisplay = skippedStokKodusList.length > 10 
+          ? `${skippedStokKodusList.slice(0, 10).join(', ')}... (+${skippedStokKodusList.length - 10} daha)`
+          : skippedStokKodusList.join(', ');
+          
         const message = skippedProducts.length > 3 
           ? `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı. Örnekler: ${skippedInfo}...`
           : `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı: ${skippedInfo}`;
         
-        toast.info(message);
+        // Show a more detailed modal with all Stok Kodus
+        setPreSaveConfirmData({
+          newProducts: [],
+          skippedProducts: skippedProducts,
+          allSkippedStokKodus: skippedStokKodusList
+        });
+        setShowPreSaveConfirmModal(true);
+        
+        toast.info(`${skippedProducts.length} mevcut ürün atlandı. Mevcut Stok Kodus: ${stokKodusDisplay}`);
         console.log('Hiçbir yeni ürün yok, Excel oluşturulmayacak. Atlanan ürünler:', skippedProducts);
         setIsSavingToDatabase(false);
         return [];
@@ -2710,7 +2865,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex-1">
                   <div className="font-medium text-blue-800">Mevcut Ürünler</div>
-                  <div className="text-2xl font-bold text-blue-600">{preSaveConfirmData.existingProducts.length}</div>
+                  <div className="text-2xl font-bold text-blue-600">{preSaveConfirmData.existingProducts?.length || preSaveConfirmData.skippedProducts?.length || 0}</div>
                   <div className="text-sm text-blue-600">Zaten kayıtlı</div>
                 </div>
               </div>
@@ -2728,15 +2883,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 </div>
               )}
               
-              {preSaveConfirmData.existingProducts.length > 0 && (
+              {(preSaveConfirmData.existingProducts?.length > 0 || preSaveConfirmData.skippedProducts?.length > 0) && (
                 <div className="mb-4">
                   <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler:</h4>
                   <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
-                    {preSaveConfirmData.existingProducts.map((product, index) => (
+                    {(preSaveConfirmData.existingProducts || preSaveConfirmData.skippedProducts || []).map((product, index) => (
                       <div key={index} className="text-sm mb-1">
-                        <span className="font-mono text-blue-600">{product.existingStokKodu}</span> - {product.stokAdi}
+                        <span className="font-mono text-blue-600">{product.existingStokKodu || 'Çoklu Stok Kodu'}</span> - {product.stokAdi || product.hasirTipi}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+              
+              {preSaveConfirmData.allSkippedStokKodus && preSaveConfirmData.allSkippedStokKodus.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-800 mb-2">Mevcut Stok Kodus ({preSaveConfirmData.allSkippedStokKodus.length}):</h4>
+                  <div className="max-h-40 overflow-y-auto bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      {preSaveConfirmData.allSkippedStokKodus.map((stokKodu, index) => (
+                        <div key={index} className="font-mono text-yellow-800 bg-yellow-100 px-2 py-1 rounded">
+                          {stokKodu}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
