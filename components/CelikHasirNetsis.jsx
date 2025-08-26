@@ -715,7 +715,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             return match ? parseInt(match[1]) : 0;
           };
           
-          const gozMatch = extractGozNumber(p.goz_araligi) === extractGozNumber(product.gozAraligi);
+          const gozMatch = extractGozNumber(p.goz_araligi) === extractGozNumber(formatGozAraligi(product));
           
           // Debug each comparison for the first product to understand why matching fails
           if (p.stok_kodu === existingProduct.stok_kodu) {
@@ -733,8 +733,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('  diameterMatchBoy:', Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01);
             console.log('  diameterMatchEn:', Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01);
             console.log('  diameterMatch:', diameterMatch);
-            console.log('  gozAraligiDB:', p.goz_araligi, 'vs gozAraligiProduct:', product.gozAraligi);
-            console.log('  gozExtractedDB:', extractGozNumber(p.goz_araligi), 'vs gozExtractedProduct:', extractGozNumber(product.gozAraligi));
+            console.log('  gozAraligiDB:', p.goz_araligi, 'vs gozAraligiProduct:', formatGozAraligi(product));
+            console.log('  gozExtractedDB:', extractGozNumber(p.goz_araligi), 'vs gozExtractedProduct:', extractGozNumber(formatGozAraligi(product)));
             console.log('  gozMatch:', gozMatch);
             console.log('  finalResult:', hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch);
           }
@@ -933,7 +933,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         chSheet.addRow([
           stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
           '20', '20', '31', '36', 'KG', 'AD', '1', parseFloat(product.totalKg || 0).toFixed(5), '',
-          '1', '1', '1', 'M', stokKodu, product.hasirTipi, parseFloat(product.boyCap || 0).toFixed(1),
+          '1', '1', '1', 'M', stokKodu, 'MM', product.hasirTipi, parseFloat(product.boyCap || 0).toFixed(1),
           parseFloat(product.enCap || 0).toFixed(1), parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0),
           gozAraligi, parseFloat(product.totalKg || 0).toFixed(5), parseInt(product.cubukSayisiBoy || 0),
           parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '', '0', '2', '0', '0', '0',
@@ -996,7 +996,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ncbkSheet.addRow([
             stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '20', '35',
             'AD', 'KG', ncbkWeight, '1', '', '1', '1', '1', 'Y', stokKodu,
-            '', parseFloat(product.boyCap || 0).toFixed(1), '', length, '', '', '', '', '', '0', '0',
+            'YM', '', parseFloat(product.boyCap || 0).toFixed(1), '', length, '', '', ncbkWeight, '0', '0',
             '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
@@ -1011,7 +1011,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntelSheet.addRow([
           ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '20', '35',
           'MT', 'KG', ntelWeight, '1', '', '', '', '', 'Y', ntelStokKodu,
-          '', parseFloat(product.boyCap || 0).toFixed(1), '', '', '', '', '', '', '', '0', '0',
+          'YM', '', parseFloat(product.boyCap || 0).toFixed(1), '', '', '', '', ntelWeight, '0', '0',
           '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
           '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
           '', '', '', 'E', 'E'
