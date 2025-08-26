@@ -567,8 +567,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         gozAraligi = product.goz_araligi;
       }
       
+      // Normalize hasır tipi to correct format (Q257/257, R257, TR257)
+      const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
+      
       // Create the standard format used in database saves
-      const stokAdi = `${product.hasirTipi || ''} Çap(${product.boyCap || 0}x${product.enCap || 0} mm) Ebat(${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
+      const stokAdi = `${normalizedHasirTipi} Çap(${product.boyCap || 0}x${product.enCap || 0} mm) Ebat(${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
       
       return stokAdi;
     } else if (productType === 'NCBK') {
@@ -692,11 +695,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Find ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
         // This will catch products with identical specs but different Stok Adı formatting
         
-        // Handle hasir_tipi variations (Q257/257 vs Q257, etc.)
-        const normalizeHasirTipi = (tipi) => {
-          if (!tipi) return '';
-          return tipi.replace(/\/.*$/, ''); // Remove everything after "/" (Q257/257 -> Q257)
-        };
+        // Using the component-level normalizeHasirTipi function for intelligent format handling
         
         const allMatchingProducts = savedProducts.mm.filter(p => {
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
@@ -705,7 +704,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const diameterMatch = Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
                                Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01;
           
-          // Normalize hasir_tipi for comparison (Q257/257 = Q257)
+          // Smart hasır tipi comparison - handles format variations intelligently
           const hasirTipiMatch = normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi);
           
           // For göz aralığı, extract the first number to handle "15*15 cm" vs "15" vs "30*15 cm" vs "30"
@@ -723,6 +722,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('  hasirTipiDB:', p.hasir_tipi, 'vs hasirTipiProduct:', product.hasirTipi);
             console.log('  hasirTipiNormalizedDB:', normalizeHasirTipi(p.hasir_tipi), 'vs hasirTipiNormalizedProduct:', normalizeHasirTipi(product.hasirTipi));
             console.log('  hasirTipiMatch:', hasirTipiMatch);
+            console.log('  📊 HASIR TIPI ANALYSIS:');
+            console.log('    - Original DB value:', `"${p.hasir_tipi}"`);
+            console.log('    - Original Product value:', `"${product.hasirTipi}"`);
+            console.log('    - DB after normalization:', `"${normalizeHasirTipi(p.hasir_tipi)}"`);
+            console.log('    - Product after normalization:', `"${normalizeHasirTipi(product.hasirTipi)}"`);
+            console.log('    - Are they equal?:', normalizeHasirTipi(p.hasir_tipi) === normalizeHasirTipi(product.hasirTipi));
             console.log('  ebatBoyDB:', p.ebat_boy, 'vs uzunlukBoyProduct:', product.uzunlukBoy);
             console.log('  ebatEnDB:', p.ebat_en, 'vs uzunlukEnProduct:', product.uzunlukEn);
             console.log('  dimensionMatchBoy:', Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01);
@@ -742,10 +747,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch;
         });
         
+        // Debug all hasır tipi variations in the database for this comparison
+        const allHasirTipiVariations = new Set(savedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
+        console.log('📋 ALL HASIR TIPI VARIATIONS IN DATABASE:', Array.from(allHasirTipiVariations).sort());
+        
         console.log(`DEBUG: Found ${allMatchingProducts.length} products with IDENTICAL specifications:`, 
           allMatchingProducts.map(p => ({ 
             stok_kodu: p.stok_kodu,
             stok_adi: p.stok_adi,
+            hasir_tipi_original: p.hasir_tipi,
+            hasir_tipi_normalized: normalizeHasirTipi(p.hasir_tipi),
             specs: `${p.hasir_tipi} ${p.ebat_boy}x${p.ebat_en} ${p.cap}x${p.cap2} ${p.goz_araligi}`
           }))
         );
@@ -845,6 +856,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } else {
       // Default fallback - return empty or default value
       return '0*0';
+    }
+  };
+
+  // Smart hasır tipi normalizer - handles Q/R/TR format variations intelligently
+  const normalizeHasirTipi = (tipi) => {
+    if (!tipi) return '';
+    
+    // Handle various input formats and clean the string
+    let cleanTipi = tipi.toString().trim().toUpperCase();
+    
+    // Remove any extra whitespace between letters and numbers
+    cleanTipi = cleanTipi.replace(/\s+/g, '');
+    
+    // Extract the base pattern (Q257, R257, TR257, etc.)
+    // Handle both Q257 and Q257/257 formats
+    const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
+    if (!match) return cleanTipi;
+    
+    const prefix = match[1];  // Q, R, or TR
+    const number = match[2];  // 257, 221, etc.
+    
+    // Normalize based on type rules from CSV analysis:
+    // Q types should have double format: Q257/257
+    // R and TR types should have single format: R257, TR257
+    if (prefix === 'Q') {
+      return `${prefix}${number}/${number}`;
+    } else {
+      return `${prefix}${number}`;
     }
   };
 
@@ -1718,7 +1757,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           kod_1: 'HSR',
           kod_2: product.uzunlukBoy === '500' && product.uzunlukEn === '215' ? 'STD' : 'OZL',
           ingilizce_isim: generateIngilizceIsim(product, 'CH'),
-          hasir_tipi: product.hasirTipi,
+          hasir_tipi: normalizeHasirTipi(product.hasirTipi),
           cap: parseFloat(product.boyCap),
           cap2: parseFloat(product.enCap),
           ebat_boy: parseFloat(product.uzunlukBoy),
