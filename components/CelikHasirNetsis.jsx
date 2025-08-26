@@ -660,9 +660,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const existingProducts = [];
     let modalBatchIndex = 0;
     
+    // Debug: Log the savedProducts structure
+    console.log('DEBUG: savedProducts in analyzeProductsForConfirmation:', {
+      mm: savedProducts.mm?.length || 0,
+      ncbk: savedProducts.ncbk?.length || 0,
+      ntel: savedProducts.ntel?.length || 0
+    });
+    
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
+      console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
       // Find existing product by Stok Adı
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
@@ -679,13 +687,51 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       if (existingProduct) {
-        // Product exists - add to existing list with stok_kodu
+        console.log('DEBUG: Found existing product:', existingProduct.stok_adi, existingProduct.stok_kodu);
+        
+        // Product exists - add to existing list with stok_kodu and variant info
+        // Create a map of Stok Adı to all related Stok Kodus (same logic as saveToDatabase)
+        const stokAdiToStokKodusMap = new Map();
+        
+        // Map all existing products by Stok Adı
+        [...savedProducts.mm, ...savedProducts.ncbk, ...savedProducts.ntel].forEach(p => {
+          if (p.stok_adi) {
+            if (!stokAdiToStokKodusMap.has(p.stok_adi)) {
+              stokAdiToStokKodusMap.set(p.stok_adi, []);
+            }
+            stokAdiToStokKodusMap.get(p.stok_adi).push(p.stok_kodu);
+          }
+        });
+        
+        // Check for NCBK/NTEL variants
+        const ncbkStokAdi500 = `YM Nervürlü Çubuk ${product.boyCap} mm 500 cm`;
+        const ncbkStokAdi215 = `YM Nervürlü Çubuk ${product.enCap} mm 215 cm`;
+        const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
+        
+        console.log('DEBUG: Looking for variant Stok Adıs:', {
+          ncbkStokAdi500,
+          ncbkStokAdi215, 
+          ntelStokAdi
+        });
+        
+        const variants = {
+          ch: [existingProduct.stok_kodu],
+          ncbk500: stokAdiToStokKodusMap.get(ncbkStokAdi500) || [],
+          ncbk215: stokAdiToStokKodusMap.get(ncbkStokAdi215) || [],
+          ntel: stokAdiToStokKodusMap.get(ntelStokAdi) || []
+        };
+        
+        console.log('DEBUG: Found variants:', variants);
+        
         existingProducts.push({
           ...product,
-          existingStokKodu: existingProduct.stok_kodu,
-          stokAdi: productStokAdi
+          existingStokKodus: [existingProduct.stok_kodu],
+          stokAdi: productStokAdi,
+          existingStokAdiVariants: variants
         });
       } else {
+        console.log('DEBUG: Product not found, creating new:', productStokAdi);
+        
         // Product is new - generate new stok_kodu with proper batch indexing
         const newStokKodu = checkForExistingProducts(product, 'CH', modalBatchIndex);
         newProducts.push({
@@ -696,6 +742,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         modalBatchIndex++;
       }
     }
+    
+    console.log('DEBUG: Final analysis result:', { 
+      newProducts: newProducts.length,
+      existingProducts: existingProducts.length,
+      existingProductsData: existingProducts
+    });
     
     return { newProducts, existingProducts };
   };
@@ -1505,6 +1557,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           : `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı: ${skippedInfo}`;
         
         // Show a more detailed modal with all Stok Kodus
+        console.log('*** SETTING MODAL DATA FOR SKIPPED PRODUCTS ***');
+        console.log('skippedProducts:', skippedProducts);
+        console.log('allSkippedStokKodusList:', skippedStokKodusList);
         setPreSaveConfirmData({
           newProducts: [],
           skippedProducts: skippedProducts,
@@ -2897,7 +2952,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               
               {(preSaveConfirmData.existingProducts?.length > 0 || preSaveConfirmData.skippedProducts?.length > 0) && (
                 <div className="mb-4">
-                  <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler - Detaylı Tablo:</h4>
+                  <h4 className="font-medium text-gray-800 mb-2">Zaten Kayıtlı Ürünler:</h4>
                   <div className="max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg">
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
