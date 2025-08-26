@@ -110,18 +110,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   
   // Database filtering states
   const [dbSearchText, setDbSearchText] = useState('');
-  const [dbFilterHasirTipi, setDbFilterHasirTipi] = useState('');
-  const [dbFilterHasirTuru, setDbFilterHasirTuru] = useState('');
+  const [dbFilterHasirTipi, setDbFilterHasirTipi] = useState('All');
+  const [dbFilterHasirTuru, setDbFilterHasirTuru] = useState('All');
   const [dbSortBy, setDbSortBy] = useState('stok_kodu'); // stok_kodu, stok_adi, cap, length_cm, created_at
   const [dbSortOrder, setDbSortOrder] = useState('asc'); // asc, desc
   
-  // Additional comprehensive filters
-  const [dbFilterMinCap, setDbFilterMinCap] = useState('');        // Minimum diameter
-  const [dbFilterMaxCap, setDbFilterMaxCap] = useState('');        // Maximum diameter  
-  const [dbFilterGrupKodu, setDbFilterGrupKodu] = useState('');    // Group code filter
-  const [dbFilterKod1, setDbFilterKod1] = useState('');            // Kod1 filter
-  const [dbFilterDateFrom, setDbFilterDateFrom] = useState('');    // Date range from
-  const [dbFilterDateTo, setDbFilterDateTo] = useState('');        // Date range to
+  // Multi-select functionality states
+  const [selectedDbItems, setSelectedDbItems] = useState([]);      // Selected product IDs
+  const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
   
   // Global operation duration calculator
   const calculateOperationDuration = (operationType, product) => {
@@ -274,56 +270,46 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
     
     // Apply hasır tipi filter
-    if (dbFilterHasirTipi.trim()) {
-      const hasirTipiLower = dbFilterHasirTipi.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
-        (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes(hasirTipiLower)
-      );
+    if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
+      if (dbFilterHasirTipi === 'Q types') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('q')
+        );
+      } else if (dbFilterHasirTipi === 'R types') {
+        filteredProducts = filteredProducts.filter(product => {
+          const hasirTipi = (product.hasir_tipi || product.stok_kodu || '').toLowerCase();
+          return hasirTipi.includes('r') && !hasirTipi.includes('tr');
+        });
+      } else if (dbFilterHasirTipi === 'TR types') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('tr')
+        );
+      }
     }
     
-    // Apply hasır türü filter (looking in stok_adi typically)
-    if (dbFilterHasirTuru.trim()) {
-      const hasirTuruLower = dbFilterHasirTuru.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
-        (product.stok_adi || '').toLowerCase().includes(hasirTuruLower)
-      );
+    // Apply hasır türü filter (looking in kod_2 and stok_adi)
+    if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
+      if (dbFilterHasirTuru === 'Standart') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.kod_2 || '').toLowerCase() === 'std' || 
+          (product.stok_adi || '').toLowerCase().includes('standart')
+        );
+      } else if (dbFilterHasirTuru === 'Perde') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.stok_adi || '').toLowerCase().includes('perde') &&
+          !(product.stok_adi || '').toLowerCase().includes('dk perde')
+        );
+      } else if (dbFilterHasirTuru === 'DK Perde') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.stok_adi || '').toLowerCase().includes('dk perde')
+        );
+      } else if (dbFilterHasirTuru === 'Döşeme') {
+        filteredProducts = filteredProducts.filter(product => 
+          (product.stok_adi || '').toLowerCase().includes('döşeme')
+        );
+      }
     }
     
-    // Apply diameter range filter
-    if (dbFilterMinCap.trim() || dbFilterMaxCap.trim()) {
-      filteredProducts = filteredProducts.filter(product => {
-        const cap = parseFloat(product.cap) || 0;
-        const minCap = dbFilterMinCap.trim() ? parseFloat(dbFilterMinCap) : 0;
-        const maxCap = dbFilterMaxCap.trim() ? parseFloat(dbFilterMaxCap) : Infinity;
-        return cap >= minCap && cap <= maxCap;
-      });
-    }
-    
-    // Apply grup kodu filter
-    if (dbFilterGrupKodu.trim()) {
-      const grupKoduLower = dbFilterGrupKodu.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
-        (product.grup_kodu || '').toLowerCase().includes(grupKoduLower)
-      );
-    }
-    
-    // Apply kod1 filter
-    if (dbFilterKod1.trim()) {
-      const kod1Lower = dbFilterKod1.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
-        (product.kod_1 || '').toLowerCase().includes(kod1Lower)
-      );
-    }
-    
-    // Apply date range filter
-    if (dbFilterDateFrom.trim() || dbFilterDateTo.trim()) {
-      filteredProducts = filteredProducts.filter(product => {
-        const productDate = new Date(product.created_at || 0);
-        const fromDate = dbFilterDateFrom.trim() ? new Date(dbFilterDateFrom) : new Date('1970-01-01');
-        const toDate = dbFilterDateTo.trim() ? new Date(dbFilterDateTo + 'T23:59:59') : new Date('2099-12-31');
-        return productDate >= fromDate && productDate <= toDate;
-      });
-    }
     
     // Apply sorting
     filteredProducts.sort((a, b) => {
@@ -349,8 +335,100 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     });
     
     return filteredProducts;
-  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder, 
-      dbFilterMinCap, dbFilterMaxCap, dbFilterGrupKodu, dbFilterKod1, dbFilterDateFrom, dbFilterDateTo]);
+  }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
+
+  // Database multi-select functions
+  const handleToggleDbSelection = (itemId) => {
+    setSelectedDbItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAllDb = (items) => {
+    const itemIds = items.map(item => item.id);
+    setSelectedDbItems(prev => 
+      prev.length === itemIds.length 
+        ? [] 
+        : itemIds
+    );
+  };
+
+  // Bulk delete function for selected items
+  const handleBulkDeleteSelected = async () => {
+    if (selectedDbItems.length === 0) {
+      toast.error('Silinecek ürün seçiniz');
+      return;
+    }
+
+    if (!window.confirm(`${selectedDbItems.length} ürünü silmek istediğinizden emin misiniz?`)) {
+      return;
+    }
+
+    setIsDeletingBulkDb(true);
+
+    try {
+      const tabEndpoints = {
+        mm: API_URLS.celikHasir,
+        ncbk: API_URLS.celikHasirNcbk,
+        ntel: API_URLS.celikHasirNtel
+      };
+
+      for (const itemId of selectedDbItems) {
+        try {
+          const response = await fetch(`${tabEndpoints[activeDbTab]}/${itemId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+        } catch (error) {
+          console.error(`Failed to delete item ${itemId}:`, error);
+          toast.error(`Ürün ${itemId} silinemedi: ${error.message}`);
+        }
+      }
+
+      toast.success(`${selectedDbItems.length} ürün başarıyla silindi`);
+      setSelectedDbItems([]);
+      await fetchSavedProducts();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error('Toplu silme işlemi sırasında hata oluştu');
+    } finally {
+      setIsDeletingBulkDb(false);
+    }
+  };
+
+  // Bulk Excel export for selected items
+  const handleBulkExportSelected = async () => {
+    if (selectedDbItems.length === 0) {
+      toast.error('Dışa aktarılacak ürün seçiniz');
+      return;
+    }
+
+    const filteredProducts = getFilteredAndSortedProducts();
+    const selectedProducts = filteredProducts.filter(product => 
+      selectedDbItems.includes(product.id)
+    );
+
+    if (selectedProducts.length === 0) {
+      toast.error('Seçili ürünler bulunamadı');
+      return;
+    }
+
+    try {
+      await generateExcelFiles(selectedProducts, false);
+      toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu');
+    }
+  };
 
   // Component yüklendiğinde verileri getir
   useEffect(() => {
@@ -2601,7 +2679,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 ].map(tab => (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveDbTab(tab.key)}
+                    onClick={() => {
+                      setActiveDbTab(tab.key);
+                      setSelectedDbItems([]);
+                    }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       activeDbTab === tab.key
                         ? 'bg-blue-600 text-white'
@@ -2626,71 +2707,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     onChange={(e) => setDbSearchText(e.target.value)}
                     className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <input
-                    type="text"
-                    placeholder="Hasır Tipi"
+                  <select
                     value={dbFilterHasirTipi}
                     onChange={(e) => setDbFilterHasirTipi(e.target.value)}
                     className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Hasır Türü"
+                  >
+                    <option value="All">Hasır Tipi</option>
+                    <option value="Q types">Q types</option>
+                    <option value="R types">R types</option>
+                    <option value="TR types">TR types</option>
+                  </select>
+                  <select
                     value={dbFilterHasirTuru}
                     onChange={(e) => setDbFilterHasirTuru(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                    className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="All">Hasır Türü</option>
+                    <option value="Standart">Standart</option>
+                    <option value="Perde">Perde</option>
+                    <option value="DK Perde">DK Perde</option>
+                    <option value="Döşeme">Döşeme</option>
+                  </select>
                 </div>
                 
-                {/* Advanced filters row */}
-                <div className="flex gap-2 flex-wrap">
-                  <input
-                    type="number"
-                    placeholder="Min Çap (mm)"
-                    value={dbFilterMinCap}
-                    onChange={(e) => setDbFilterMinCap(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max Çap (mm)"
-                    value={dbFilterMaxCap}
-                    onChange={(e) => setDbFilterMaxCap(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Grup Kodu"
-                    value={dbFilterGrupKodu}
-                    onChange={(e) => setDbFilterGrupKodu(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Kod-1"
-                    value={dbFilterKod1}
-                    onChange={(e) => setDbFilterKod1(e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                {/* Date and sorting row */}
+                {/* Sorting controls */}
                 <div className="flex gap-2 flex-wrap items-center">
-                  <input
-                    type="date"
-                    placeholder="Başlangıç Tarihi"
-                    value={dbFilterDateFrom}
-                    onChange={(e) => setDbFilterDateFrom(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="date"
-                    placeholder="Bitiş Tarihi"
-                    value={dbFilterDateTo}
-                    onChange={(e) => setDbFilterDateTo(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  
                   <div className="flex items-center gap-2 ml-auto">
                     <label className="text-sm text-gray-600">Sırala:</label>
                     <select
@@ -2720,16 +2761,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <button
                     onClick={() => {
                       setDbSearchText('');
-                      setDbFilterHasirTipi('');
-                      setDbFilterHasirTuru('');
-                      setDbFilterMinCap('');
-                      setDbFilterMaxCap('');
-                      setDbFilterGrupKodu('');
-                      setDbFilterKod1('');
-                      setDbFilterDateFrom('');
-                      setDbFilterDateTo('');
+                      setDbFilterHasirTipi('All');
+                      setDbFilterHasirTuru('All');
                       setDbSortBy('stok_kodu');
                       setDbSortOrder('asc');
+                      setSelectedDbItems([]);
                     }}
                     className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
                   >
@@ -2739,6 +2775,48 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     Toplam: {getFilteredAndSortedProducts().length} / {savedProducts[activeDbTab].length} ürün
                   </span>
                 </div>
+
+                {/* Select All Checkbox */}
+                <div className="flex items-center gap-3 py-2 px-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <input
+                    type="checkbox"
+                    checked={
+                      getFilteredAndSortedProducts().length > 0 && 
+                      getFilteredAndSortedProducts().every(product => selectedDbItems.includes(product.id))
+                    }
+                    onChange={() => handleSelectAllDb(getFilteredAndSortedProducts())}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label className="text-sm font-medium text-gray-700">
+                    Tümünü Seç ({getFilteredAndSortedProducts().length} ürün)
+                  </label>
+                </div>
+
+                {/* Bulk Actions Toolbar */}
+                {selectedDbItems.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <span className="text-blue-700 font-medium">
+                      {selectedDbItems.length} ürün seçili
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleBulkDeleteSelected}
+                        disabled={isDeletingBulkDb}
+                        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Seçilileri Sil
+                      </button>
+                      <button
+                        onClick={handleBulkExportSelected}
+                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
+                      >
+                        <Download className="w-4 h-4" />
+                        Excel'e Aktar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Ürün Listesi */}
@@ -2746,14 +2824,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 {getFilteredAndSortedProducts().map(product => (
                   <div key={product.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-1">{product.stok_kodu}</h4>
-                        <p className="text-sm text-gray-600 mb-2">{product.stok_adi}</p>
-                        <div className="flex gap-4 text-xs text-gray-500">
-                          <span>Grup: {product.grup_kodu}</span>
-                          <span>Kod-1: {product.kod_1}</span>
-                          {product.cap && <span>Çap: {product.cap}mm</span>}
-                          {product.length_cm && <span>Uzunluk: {product.length_cm}cm</span>}
+                      <div className="flex items-center gap-3 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedDbItems.includes(product.id)}
+                          onChange={() => handleToggleDbSelection(product.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-1">{product.stok_kodu}</h4>
+                          <p className="text-sm text-gray-600 mb-2">{product.stok_adi}</p>
+                          <div className="flex gap-4 text-xs text-gray-500">
+                            <span>Grup: {product.grup_kodu}</span>
+                            <span>Kod-1: {product.kod_1}</span>
+                            {product.cap && <span>Çap: {product.cap}mm</span>}
+                            {product.length_cm && <span>Uzunluk: {product.length_cm}cm</span>}
+                          </div>
                         </div>
                       </div>
                       
