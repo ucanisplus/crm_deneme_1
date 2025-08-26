@@ -717,6 +717,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           const gozMatch = extractGozNumber(p.goz_araligi) === extractGozNumber(product.gozAraligi);
           
+          // Debug each comparison for the first product to understand why matching fails
+          if (p.stok_kodu === existingProduct.stok_kodu) {
+            console.log('DEBUG: Detailed matching for', p.stok_kodu, ':', {
+              hasirTipiDB: p.hasir_tipi, hasirTipiProduct: product.hasirTipi,
+              hasirTipiNormalizedDB: normalizeHasirTipi(p.hasir_tipi), hasirTipiNormalizedProduct: normalizeHasirTipi(product.hasirTipi),
+              hasirTipiMatch,
+              ebatBoyDB: p.ebat_boy, uzunlukBoyProduct: product.uzunlukBoy, dimensionMatchBoy: Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01,
+              ebatEnDB: p.ebat_en, uzunlukEnProduct: product.uzunlukEn, dimensionMatchEn: Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01,
+              dimensionMatch,
+              capDB: p.cap, boyCapProduct: product.boyCap, diameterMatchBoy: Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01,
+              cap2DB: p.cap2, enCapProduct: product.enCap, diameterMatchEn: Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01,
+              diameterMatch,
+              gozAraligiDB: p.goz_araligi, gozAraligiProduct: product.gozAraligi,
+              gozExtractedDB: extractGozNumber(p.goz_araligi), gozExtractedProduct: extractGozNumber(product.gozAraligi),
+              gozMatch,
+              finalResult: hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch
+            });
+          }
+          
           return hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch;
         });
         
@@ -1135,7 +1154,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const ntelDiameter = parseFloat(product.boyCap || product.enCap);
         const ntelStokKodu = `YM.NTEL.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}`;
         // NTEL için aynı FILMASIN_MAPPING tablosunu kullan
-        let ntelFlmDiameter = FILMASIN_MAPPING[ntelDiameter];
+        const NTEL_FILMASIN_MAPPING = {
+          4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+          5.50: 6.5,
+          6.00: 7.0,
+          6.50: 7.5,
+          7.00: 8.0,
+          7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+          9.20: 11.0,
+          10.60: 12.0
+        };
+        let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[ntelDiameter];
         
         // If not in mapping, use formula
         if (!ntelFlmDiameter) {
