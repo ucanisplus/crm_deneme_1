@@ -1145,11 +1145,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // İngilizce isim oluştur
   const generateIngilizceIsim = (product, productType) => {
     if (productType === 'CH') {
-      return 'Wire Mesh';
+      const hasirTipi = product.hasirTipi || '';
+      const boyCap = formatDecimalForDisplay(product.boyCap || 0, false); // Use dot for English
+      const enCap = formatDecimalForDisplay(product.enCap || 0, false);
+      const uzunlukBoy = product.uzunlukBoy || 0;
+      const uzunlukEn = product.uzunlukEn || 0;
+      const gozAraligi = formatGozAraligi(product) || '';
+      
+      return `Wire Mesh- ${hasirTipi} Dia(${boyCap}x${enCap} mm) Size(${uzunlukBoy}x${uzunlukEn} cm) Mesh(${gozAraligi} cm)`;
     } else if (productType === 'NCBK') {
-      return '';
+      const cap = formatDecimalForDisplay(product.cap || 0, false);
+      const length = product.length || 0;
+      return `Ribbed Rebar ${cap} mm ${length} cm`;
     } else if (productType === 'NTEL') {
-      return '';
+      const cap = formatDecimalForDisplay(product.cap || 0, false);
+      return `Ribbed Wire ${cap} mm`;
     }
     return '';
   };
@@ -1334,39 +1344,100 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ];
     ntelSheet.addRow(ntelHeaders);
 
-    // NCBK ve NTEL ürünlerini generate et
+    // Create correct NCBK ve NTEL ürünleri based on CH product requirements
+    const uniqueNCBKProducts = new Set();
+    const uniqueNTELProducts = new Set();
+    
     products.forEach(product => {
-      // For Excel generation, process all products regardless of optimization status
-        // NCBK ürünleri - Boy ve En çubukları için
-        [500, 215].forEach(length => {
-          const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${length}`;
-          const stokAdi = `YM Nervürlü Çubuk ${product.boyCap} mm ${length} cm`;
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+      
+      // CORRECT MAPPING: For each CH product, create NCBK based on direction-specific requirements
+      // Boy direction uses boyCap with 500cm length
+      if (boyCap > 0) {
+        const boyKey = `${boyCap}-500`;
+        if (!uniqueNCBKProducts.has(boyKey)) {
+          uniqueNCBKProducts.add(boyKey);
           
-          const ncbkWeight = product.boyCap ? (Math.PI * (parseFloat(product.boyCap)/20) * (parseFloat(product.boyCap)/20) * length * 7.85 / 1000).toFixed(5) : '';
+          const stokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.500`;
+          const stokAdi = `YM Nervürlü Çubuk ${boyCap} mm 500 cm`;
+          const ingilizceIsim = generateIngilizceIsim({cap: boyCap, length: 500}, 'NCBK');
+          const ncbkWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5);
           
           ncbkSheet.addRow([
-            stokKodu, stokAdi, 'YM', 'NCBK', '', '', '20', '20', '20', '35',
+            stokKodu, stokAdi, 'YM', 'NCBK', '', ingilizceIsim, '20', '20', '20', '35',
             'AD', 'KG', ncbkWeight, '1', '', '1', '1', '1', 'Y', stokKodu,
-            'YM', '', parseFloat(product.boyCap || 0).toFixed(1), '', length, '', '', ncbkWeight, '0', '0',
+            'YM', '', parseFloat(boyCap).toFixed(1), '', 500, '', '', ncbkWeight, '0', '0',
             '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
           ]);
-        });
-
-        // NTEL ürünü
-        const ntelStokKodu = `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`;
-        const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
-        const ntelWeight = product.boyCap ? (Math.PI * (parseFloat(product.boyCap)/20) * (parseFloat(product.boyCap)/20) * 100 * 7.85 / 1000).toFixed(5) : '';
+        }
         
-        ntelSheet.addRow([
-          ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', '20', '20', '20', '35',
-          'MT', 'KG', ntelWeight, '1', '', '', '', '', 'Y', ntelStokKodu,
-          'YM', '', parseFloat(product.boyCap || 0).toFixed(1), '', '', '', '', ntelWeight, '0', '0',
-          '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-          '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-          '', '', '', 'E', 'E'
-        ]);
+        // Create NTEL for boyCap
+        const boyNtelKey = boyCap.toString();
+        if (!uniqueNTELProducts.has(boyNtelKey)) {
+          uniqueNTELProducts.add(boyNtelKey);
+          
+          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const ntelStokAdi = `YM Nervürlü Tel ${boyCap} mm`;
+          const ntelIngilizceIsim = generateIngilizceIsim({cap: boyCap}, 'NTEL');
+          const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
+          
+          ntelSheet.addRow([
+            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
+            'MT', 'KG', ntelWeight, '1', '', '', '', '', 'Y', ntelStokKodu,
+            'YM', '', parseFloat(boyCap).toFixed(1), '', '', '', '', ntelWeight, '0', '0',
+            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
+            '', '', '', 'E', 'E'
+          ]);
+        }
+      }
+      
+      // En direction uses enCap with 215cm length
+      if (enCap > 0) {
+        const enKey = `${enCap}-215`;
+        if (!uniqueNCBKProducts.has(enKey)) {
+          uniqueNCBKProducts.add(enKey);
+          
+          const stokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.215`;
+          const stokAdi = `YM Nervürlü Çubuk ${enCap} mm 215 cm`;
+          const ingilizceIsim = generateIngilizceIsim({cap: enCap, length: 215}, 'NCBK');
+          const ncbkWeight = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5);
+          
+          ncbkSheet.addRow([
+            stokKodu, stokAdi, 'YM', 'NCBK', '', ingilizceIsim, '20', '20', '20', '35',
+            'AD', 'KG', ncbkWeight, '1', '', '1', '1', '1', 'Y', stokKodu,
+            'YM', '', parseFloat(enCap).toFixed(1), '', 215, '', '', ncbkWeight, '0', '0',
+            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
+            '', '', '', 'E', 'E'
+          ]);
+        }
+        
+        // Create NTEL for enCap if different from boyCap
+        if (enCap !== boyCap) {
+          const enNtelKey = enCap.toString();
+          if (!uniqueNTELProducts.has(enNtelKey)) {
+            uniqueNTELProducts.add(enNtelKey);
+            
+            const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+            const ntelStokAdi = `YM Nervürlü Tel ${enCap} mm`;
+            const ntelIngilizceIsim = generateIngilizceIsim({cap: enCap}, 'NTEL');
+            const ntelWeight = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
+            
+            ntelSheet.addRow([
+              ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
+              'MT', 'KG', ntelWeight, '1', '', '', '', '', 'Y', ntelStokKodu,
+              'YM', '', parseFloat(enCap).toFixed(1), '', '', '', '', ntelWeight, '0', '0',
+              '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+              '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
+              '', '', '', 'E', 'E'
+            ]);
+          }
+        }
+      }
     });
 
     // Excel dosyasını kaydet
@@ -1441,12 +1512,71 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
 
-        // NCBK Reçeteler - Her boy için
-        [500, 215].forEach((length, index) => {
-          const diameter = parseFloat(index === 0 ? product.boyCap : product.enCap);
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
-          // Use proper FILMASIN_MAPPING table for accurate selection
-          const FILMASIN_MAPPING = {
+    }
+    
+    // Create correct NCBK and NTEL recipes based on CH product requirements - avoid duplicates
+    const processedNCBKRecipes = new Set();
+    const processedNTELRecipes = new Set();
+    
+    products.forEach(product => {
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+      
+      // CORRECT MAPPING: Boy direction uses boyCap with 500cm length
+      if (boyCap > 0) {
+        const boyKey = `${boyCap}-500`;
+        if (!processedNCBKRecipes.has(boyKey)) {
+          processedNCBKRecipes.add(boyKey);
+            
+            const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.500`;
+            const FILMASIN_MAPPING = {
+              4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+              5.50: 6.5,
+              6.00: 7.0,
+              6.50: 7.5,
+              7.00: 8.0,
+              7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+              9.20: 11.0,
+              10.60: 12.0
+            };
+            
+            let flmDiameter = FILMASIN_MAPPING[boyCap];
+            if (!flmDiameter) {
+              if (boyCap <= 6.0) {
+                flmDiameter = boyCap + 1.5;
+              } else if (boyCap <= 8.0) {
+                flmDiameter = boyCap + 1.5;
+              } else {
+                flmDiameter = boyCap + 2.0;
+              }
+              const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+              flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+            }
+            
+            const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
+            const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+            const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5);
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
+              '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 500, boyCap: boyCap, enCap: boyCap }),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        
+        // NTEL recipe for boyCap
+        const ntelKey = boyCap.toString();
+        if (!processedNTELRecipes.has(ntelKey)) {
+          processedNTELRecipes.add(ntelKey);
+          
+          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const NTEL_FILMASIN_MAPPING = {
             4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
             5.50: 6.5,
             6.00: 7.0,
@@ -1456,99 +1586,136 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             9.20: 11.0,
             10.60: 12.0
           };
+          let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[boyCap];
           
-          // Get filmaşin diameter from mapping table
-          let flmDiameter = FILMASIN_MAPPING[diameter];
-          
-          // If not in mapping, use formula: +1.5mm for small diameters, +2mm for larger
-          if (!flmDiameter) {
-            if (diameter <= 6.0) {
-              flmDiameter = diameter + 1.5;
-            } else if (diameter <= 8.0) {
-              flmDiameter = diameter + 1.5;
+          if (!ntelFlmDiameter) {
+            if (boyCap <= 6.0) {
+              ntelFlmDiameter = boyCap + 1.5;
+            } else if (boyCap <= 8.0) {
+              ntelFlmDiameter = boyCap + 1.5;
             } else {
-              flmDiameter = diameter + 2.0;
+              ntelFlmDiameter = boyCap + 2.0;
             }
-            // Round to nearest standard filmaşin size
-            const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-            flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
           }
           
-          const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
+          const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
+          const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
+          const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
-          const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
-          
-          // Calculate FLM consumption with correct formula
-          // Use final product diameter, not filmaşin diameter
-          // π × (diameter_mm/20)² × length_cm × 7.85 g/cm³ / 1000 for kg
-          const flmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5);
-          
-          // Bileşen - FLM
-          ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
-            '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
+            '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
-          // Operasyon - NDK01
-          ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
-        });
-
-        // NTEL Reçete
-        const ntelDiameter = parseFloat(product.boyCap || product.enCap);
-        const ntelStokKodu = `YM.NTEL.${String(Math.round(ntelDiameter * 100)).padStart(4, '0')}`;
-        // NTEL için aynı FILMASIN_MAPPING tablosunu kullan
-        const NTEL_FILMASIN_MAPPING = {
-          4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-          5.50: 6.5,
-          6.00: 7.0,
-          6.50: 7.5,
-          7.00: 8.0,
-          7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-          9.20: 11.0,
-          10.60: 12.0
-        };
-        let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[ntelDiameter];
-        
-        // If not in mapping, use formula
-        if (!ntelFlmDiameter) {
-          if (ntelDiameter <= 6.0) {
-            ntelFlmDiameter = ntelDiameter + 1.5;
-          } else if (ntelDiameter <= 8.0) {
-            ntelFlmDiameter = ntelDiameter + 1.5;
-          } else {
-            ntelFlmDiameter = ntelDiameter + 2.0;
-          }
-          const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-          ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
         }
+      }
+      
+      // CORRECT MAPPING: En direction uses enCap with 215cm length
+      if (enCap > 0) {
+        const enKey = `${enCap}-215`;
+        if (!processedNCBKRecipes.has(enKey)) {
+          processedNCBKRecipes.add(enKey);
+            
+            const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.215`;
+            const FILMASIN_MAPPING = {
+              4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+              5.50: 6.5,
+              6.00: 7.0,
+              6.50: 7.5,
+              7.00: 8.0,
+              7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+              9.20: 11.0,
+              10.60: 12.0
+            };
+            
+            let flmDiameter = FILMASIN_MAPPING[enCap];
+            if (!flmDiameter) {
+              if (enCap <= 6.0) {
+                flmDiameter = enCap + 1.5;
+              } else if (enCap <= 8.0) {
+                flmDiameter = enCap + 1.5;
+              } else {
+                flmDiameter = enCap + 2.0;
+              }
+              const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+              flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+            }
+            
+            const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
+            const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+            const flmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5);
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
+              '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 215, boyCap: enCap, enCap: enCap }),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+          }
         
-        const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
-        
-        const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
-        
-        // Calculate NTEL FLM consumption per meter using correct formula
-        // Use final product diameter: π × (diameter_mm/20)² × length_cm × 7.85 g/cm³ / 1000 for kg
-        const ntelFlmTuketimi = (Math.PI * (ntelDiameter/20) * (ntelDiameter/20) * 100 * 7.85 / 1000).toFixed(5);
-        
-        // Bileşen - FLM
-        ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
-          '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-        ]);
-        
-        // Operasyon - NTLC01
-        ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-          '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
-          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-        ]);
-    }
+        // NTEL recipe for enCap if different from boyCap
+        if (enCap !== boyCap) {
+          const ntelKey = enCap.toString();
+          if (!processedNTELRecipes.has(ntelKey)) {
+            processedNTELRecipes.add(ntelKey);
+            
+            const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+            const NTEL_FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 7.5,
+            7.00: 8.0,
+            7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
+            9.20: 11.0,
+            10.60: 12.0
+          };
+          let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[enCap];
+          
+          if (!ntelFlmDiameter) {
+            if (enCap <= 6.0) {
+              ntelFlmDiameter = enCap + 1.5;
+            } else if (enCap <= 8.0) {
+              ntelFlmDiameter = enCap + 1.5;
+            } else {
+              ntelFlmDiameter = enCap + 2.0;
+            }
+            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
+            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
+          }
+          
+          const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
+          const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
+          const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
+            '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}),
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          }
+        }
+      }
+    });
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -1592,44 +1759,46 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
         
-        // FLM tüketimi hesapla (NTEL için)
-        const diameter = parseFloat(product.boyCap || product.enCap || 0);
+        // CORRECT: Use NTEL components for CH Alternatif Recipe instead of Filmaşin
+        const boyCap = parseFloat(product.boyCap || 0);
+        const enCap = parseFloat(product.enCap || 0);
         
-        // Calculate filmaşin diameter and quality (same logic as in other functions)
-        const ALT_FILMASIN_MAPPING = {
-          4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-          5.50: 6.5,
-          6.00: 7.0,
-          6.50: 7.5,
-          7.00: 8.0,
-          7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-          9.20: 11.0,
-          10.60: 12.0
-        };
-        
-        let flmDiameter = ALT_FILMASIN_MAPPING[diameter];
-        if (!flmDiameter) {
-          if (diameter <= 6.0) {
-            flmDiameter = diameter + 1.5;
-          } else if (diameter <= 8.0) {
-            flmDiameter = diameter + 1.5;
-          } else {
-            flmDiameter = diameter + 2.0;
-          }
-          const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-          flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+        // Boy direction NTEL consumption
+        if (boyCap > 0) {
+          const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const boyNtelMiktar = (parseFloat(product.cubukSayisiBoy || 0) * 5).toFixed(5); // 5 meters per cubuk
+          
+          chReceteSheet.addRow([
+            chStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+            boyNtelKodu,
+            'MT', boyNtelMiktar, 'Boy Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'E', 'E', '', '', '', '', '', '', ''
+          ]);
         }
         
-        const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
-        const flmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * totalLength * 7.85 / 1000).toFixed(5); // kg
-        
-        // CH REÇETE entries
-        chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', 'KG', '1', 'Bileşen',
-          `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
-          'KG', flmTuketimi, 'FLM Tüketimi (NTEL Bazlı)', '', '', '', '', '', '', '1',
-          'E', 'E', '', '', '', '', '', '', ''
-        ]);
+        // En direction NTEL consumption (if different from boy)
+        if (enCap > 0 && enCap !== boyCap) {
+          const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5); // 2.15 meters per cubuk
+          
+          chReceteSheet.addRow([
+            chStokKodu, '1', '0', '', 'MT', '2', 'Bileşen',
+            enNtelKodu,
+            'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'E', 'E', '', '', '', '', '', '', ''
+          ]);
+        } else if (enCap > 0 && enCap === boyCap) {
+          // Same diameter for both directions
+          const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5);
+          
+          chReceteSheet.addRow([
+            chStokKodu, '1', '0', '', 'MT', '2', 'Bileşen',
+            enNtelKodu,
+            'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'E', 'E', '', '', '', '', '', '', ''
+          ]);
+        }
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
@@ -1637,42 +1806,63 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
-        // NCBK REÇETE entries - Boy ve En çubukları için
+    }
+    
+    // Create unique NCBK and NTEL recipes for alternative recipe sheet - avoid duplicates
+    const processedAltNCBKRecipes = new Set();
+    const processedAltNTELRecipes = new Set();
+    
+    products.forEach(product => {
+      const diameter = parseFloat(product.boyCap || product.enCap || 0);
+      
+      if (diameter > 0) {
+        // NCBK REÇETE entries - Boy ve En çubukları için (unique diameters only)
         [500, 215].forEach(length => {
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
-          const ncbkFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5); // kg
-          
-          ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
-            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
-            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-          ]);
-          
-          ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-          ]);
+          const ncbkKey = `${diameter}-${length}`;
+          if (!processedAltNCBKRecipes.has(ncbkKey)) {
+            processedAltNCBKRecipes.add(ncbkKey);
+            
+            const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
+            const ncbkFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5); // kg
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+              'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+            
+            ncbkReceteSheet.addRow([
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+          }
         });
         
-        // NTEL REÇETE entries
-        const ntelStokKodu = `YM.NTEL.${String(Math.round(diameter * 100)).padStart(4, '0')}`;
-        const ntelFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
-        
-        ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
-          `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
-          'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-        ]);
-        
-        ntelReceteSheet.addRow([
-          ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-          '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
-          'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-        ]);
-    }
+        // NTEL REÇETE entries (unique diameters only)
+        const ntelKey = diameter.toString();
+        if (!processedAltNTELRecipes.has(ntelKey)) {
+          processedAltNTELRecipes.add(ntelKey);
+          
+          const ntelStokKodu = `YM.NTEL.${String(Math.round(diameter * 100)).padStart(4, '0')}`;
+          const ntelFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        }
+      }
+    });
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
