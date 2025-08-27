@@ -1725,6 +1725,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Alternatif Reçete Excel oluştur
   const generateAlternatifReceteExcel = async (products, timestamp, includeAllProducts) => {
+    console.log('DEBUG: generateAlternatifReceteExcel started with', products.length, 'products');
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
@@ -1752,9 +1753,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     // Alternatif reçete verilerini ekle (NTEL bazlı)
     let altReceteBatchIndex = 0;
+    console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
+        console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
@@ -1922,8 +1925,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     });
 
     // Excel dosyasını kaydet
+    console.log('DEBUG: generateAlternatifReceteExcel - saving file with', products.length, 'products processed');
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
+    console.log('DEBUG: generateAlternatifReceteExcel completed successfully');
   };
 
   // Recipe kayıtlarını veritabanına kaydet
@@ -3306,7 +3311,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
                       >
                         <Download className="w-4 h-4" />
-                        Excel'e Aktar
+                        Excel Oluştur
                       </button>
                     </div>
                   </div>
@@ -3859,7 +3864,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                       >
                         <Download className="w-4 h-4" />
-                        Kayıtlı Ürünleri Excel'e Aktar
+                        Kayıtlı Ürünleri Excel Oluştur
                       </button>
                     </div>
                   )}
