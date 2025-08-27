@@ -1753,10 +1753,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Alternatif reçete verilerini ekle (NTEL bazlı)
     let altReceteBatchIndex = 0;
     console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
+    let chRowCount = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
-        console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap);
+        console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
@@ -1777,6 +1778,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'MT', boyNtelMiktar, 'Boy Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
+          chRowCount++;
+          console.log('DEBUG: Added CH row for boy NTEL:', boyNtelKodu, 'miktar:', boyNtelMiktar);
         }
         
         // En direction NTEL consumption (if different from boy)
@@ -1924,7 +1927,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     });
 
     // Excel dosyasını kaydet
-    console.log('DEBUG: generateAlternatifReceteExcel - saving file with', products.length, 'products processed');
+    console.log('DEBUG: generateAlternatifReceteExcel - saving file with', products.length, 'products processed, CH rows added:', chRowCount);
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
     console.log('DEBUG: generateAlternatifReceteExcel completed successfully');
