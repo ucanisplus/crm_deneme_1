@@ -769,6 +769,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const getProductsToSave = useCallback(() => {
     if (validProducts.length === 0) return [];
     
+    console.log('DEBUG: getProductsToSave - checking', validProducts.length, 'products against', savedProducts?.mm?.length || 0, 'saved products');
     const newProducts = [];
     
     for (const product of validProducts) {
@@ -798,6 +799,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
     
+    console.log('DEBUG: getProductsToSave - found', newProducts.length, 'new products');
     return newProducts;
   }, [validProducts, savedProducts]);
 
@@ -806,53 +808,50 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     if (!validProducts?.length || !savedProducts?.mm?.length) return [];
 
     const savedProductsList = [];
+    console.log('DEBUG: getSavedProductsList - checking', validProducts.length, 'products against', savedProducts.mm.length, 'saved products');
     
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
       
-      // Find ALL matching products by Stok Adı
-      const matchingProducts = savedProducts.mm.filter(p => p.stok_adi === productStokAdi);
+      // Use same logic as analyzeProductsForConfirmation - first try Stok Adı, then fallback to specs
+      let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
-      if (matchingProducts.length > 0) {
-        // If multiple products exist, use the one with lowest sequence (earliest/preferred stok_kodu)
-        const selectedProduct = matchingProducts.reduce((prev, current) => {
-          // Extract sequence from stok_kodu (e.g., CHOZL2443 -> 2443, CH.STD.0700.01 -> 01)
-          const getSequence = (stokKodu) => {
-            if (stokKodu.startsWith('CHOZL')) {
-              return parseInt(stokKodu.replace('CHOZL', '')) || 0;
-            } else if (stokKodu.startsWith('CH.STD.')) {
-              const parts = stokKodu.split('.');
-              return parseInt(parts[3]) || 0;
-            }
-            return 0;
-          };
-          
-          const prevSeq = getSequence(prev.stok_kodu);
-          const currentSeq = getSequence(current.stok_kodu);
-          return currentSeq < prevSeq ? current : prev; // Use < instead of > for lowest sequence
-        });
+      // Fallback to specifications matching if not found by Stok Adı (same as analyzeProductsForConfirmation)
+      if (!existingProduct) {
+        existingProduct = savedProducts.mm.find(p => 
+          p.hasir_tipi === product.hasirTipi &&
+          Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+        );
+      }
+      
+      if (existingProduct) {
+        // Product is already saved - use the found existing product
         
         // Product is already saved - add it to saved list
         // Map database fields to expected format for Excel generation
         savedProductsList.push({
           ...product,
-          existingStokKodu: selectedProduct.stok_kodu,
+          existingStokKodu: existingProduct.stok_kodu,
           stokAdi: productStokAdi,
           // Map database fields to expected Excel generation format
-          boyCap: selectedProduct.cap || product.boyCap,
-          enCap: selectedProduct.cap2 || product.enCap,
-          hasirTipi: selectedProduct.hasir_tipi || product.hasirTipi,
-          uzunlukBoy: selectedProduct.ebat_boy || product.uzunlukBoy,
-          uzunlukEn: selectedProduct.ebat_en || product.uzunlukEn,
-          totalKg: selectedProduct.kg || product.totalKg,
-          gozAraligi: selectedProduct.goz_araligi || product.gozAraligi,
-          cubukSayisiBoy: selectedProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
-          cubukSayisiEn: selectedProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
+          boyCap: existingProduct.cap || product.boyCap,
+          enCap: existingProduct.cap2 || product.enCap,
+          hasirTipi: existingProduct.hasir_tipi || product.hasirTipi,
+          uzunlukBoy: existingProduct.ebat_boy || product.uzunlukBoy,
+          uzunlukEn: existingProduct.ebat_en || product.uzunlukEn,
+          totalKg: existingProduct.kg || product.totalKg,
+          gozAraligi: existingProduct.goz_araligi || product.gozAraligi,
+          cubukSayisiBoy: existingProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
+          cubukSayisiEn: existingProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
         });
       }
     }
     
+    console.log('DEBUG: getSavedProductsList - found', savedProductsList.length, 'saved products');
     return savedProductsList;
   }, [validProducts, savedProducts]);
 
@@ -3769,8 +3768,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         <tr>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">Ürün</th>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">CH Stok Kodları</th>
-                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 500cm</th>
-                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK 215cm</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK</th>
                           <th className="text-left p-2 font-medium text-gray-700">NTEL</th>
                         </tr>
                       </thead>
@@ -3793,20 +3791,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             </td>
                             <td className="p-2 border-r border-gray-200">
                               <div className="font-mono text-xs text-blue-600">
-                                {product.existingStokAdiVariants?.ncbk500?.length > 0 
-                                  ? product.existingStokAdiVariants.ncbk500.map((kod, i) => (
-                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
-                                    ))
-                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
-                              </div>
-                            </td>
-                            <td className="p-2 border-r border-gray-200">
-                              <div className="font-mono text-xs text-blue-600">
-                                {product.existingStokAdiVariants?.ncbk215?.length > 0 
-                                  ? product.existingStokAdiVariants.ncbk215.map((kod, i) => (
-                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
-                                    ))
-                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
+                                {(() => {
+                                  const ncbk500 = product.existingStokAdiVariants?.ncbk500 || [];
+                                  const ncbk215 = product.existingStokAdiVariants?.ncbk215 || [];
+                                  const allNCBK = [...ncbk500, ...ncbk215];
+                                  
+                                  return allNCBK.length > 0 
+                                    ? allNCBK.map((kod, i) => (
+                                        <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
+                                      ))
+                                    : <span className="text-gray-400 italic">Kayıtsız</span>;
+                                })()}
                               </div>
                             </td>
                             <td className="p-2">
