@@ -1571,7 +1571,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 500, boyCap: boyCap, enCap: boyCap }),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1656,7 +1656,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 215, boyCap: enCap, enCap: enCap }),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1845,7 +1845,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 500, boyCap: boyCap, enCap: boyCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1873,7 +1873,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
           
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -2021,10 +2021,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'DK',
             sira_no: 2,
             operasyon_bilesen: 'Operasyon',
-            bilesen_kodu: 'YOTOCH',
+            bilesen_kodu: 'NDK01',
             olcu_br_bilesen: 'DK',
             miktar: 1,
-            aciklama: 'Yarı Otomatik Nervürlü Çubuk Operasyonu',
+            aciklama: 'Nervürlü Çubuk Kesme Operasyonu',
             uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: 500 })
           }
         ];
@@ -4056,51 +4056,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       </tbody>
                     </table>
                   </div>
-                  {/* Export button for existing products */}
-                  {((preSaveConfirmData.existingProducts && preSaveConfirmData.existingProducts.length > 0) || 
-                    (preSaveConfirmData.skippedProducts && preSaveConfirmData.skippedProducts.length > 0)) && (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        onClick={async () => {
-                          const existingProducts = [
-                            ...(preSaveConfirmData.existingProducts || []),
-                            ...(preSaveConfirmData.skippedProducts || [])
-                          ];
-                          
-                          const transformedProducts = existingProducts.map(product => ({
-                            boyCap: product.boyCap || 0,
-                            enCap: product.enCap || 0,
-                            hasirTipi: product.hasirTipi || '',
-                            uzunlukBoy: product.uzunlukBoy || 0,
-                            uzunlukEn: product.uzunlukEn || 0,
-                            boyAraligi: product.boyAraligi || '15',
-                            enAraligi: product.enAraligi || '15',
-                            gozAraligi: product.gozAraligi || '15*15',
-                            totalKg: product.totalKg || 0,
-                            adetKg: product.adetKg || 0,
-                            cubukSayisiBoy: product.cubukSayisiBoy || 0,
-                            cubukSayisiEn: product.cubukSayisiEn || 0,
-                            hasirSayisi: product.hasirSayisi || 1,
-                            hasirTuru: product.hasirTuru || 'Standart',
-                            existingStokKodu: product.existingStokKodus && product.existingStokKodus.length > 0 ? product.existingStokKodus[0] : '',
-                            isOptimized: true
-                          }));
-                          
-                          try {
-                            await generateExcelFiles(transformedProducts, true);
-                            toast.success(`${transformedProducts.length} kayıtlı ürün için Excel dosyaları oluşturuldu!`);
-                          } catch (error) {
-                            console.error('Export error:', error);
-                            toast.error('Excel dosyaları oluşturulurken hata oluştu');
-                          }
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Kayıtlı Ürünleri Excel Oluştur
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
               
