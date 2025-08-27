@@ -126,6 +126,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
+  const [deletingProductId, setDeletingProductId] = useState(null); // Individual product deletion tracking
   
   // Global operation duration calculator
   const calculateOperationDuration = (operationType, product) => {
@@ -457,7 +458,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Component yüklendiğinde verileri getir
   useEffect(() => {
-    fetchSavedProducts(1, true); // Load first page
+    fetchSavedProducts(); // Load all data automatically on component mount
     fetchSequences();
   }, []);
 
@@ -1813,40 +1814,71 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedAltNTELRecipes = new Set();
     
     products.forEach(product => {
-      const diameter = parseFloat(product.boyCap || product.enCap || 0);
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
       
-      if (diameter > 0) {
-        // NCBK REÇETE entries - Boy ve En çubukları için (unique diameters only)
-        [500, 215].forEach(length => {
-          const ncbkKey = `${diameter}-${length}`;
-          if (!processedAltNCBKRecipes.has(ncbkKey)) {
-            processedAltNCBKRecipes.add(ncbkKey);
+      // CORRECT MAPPING: Boy direction uses boyCap with 500cm length
+      if (boyCap > 0) {
+        const boyKey = `${boyCap}-500`;
+        if (!processedAltNCBKRecipes.has(boyKey)) {
+          processedAltNCBKRecipes.add(boyKey);
             
-            const ncbkStokKodu = `YM.NCBK.${String(Math.round(diameter * 100)).padStart(4, '0')}.${length}`;
-            const ncbkFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * length * 7.85 / 1000).toFixed(5); // kg
-            
-            ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
-              `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
-              'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-            ]);
-            
-            ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: length, boyCap: diameter, enCap: diameter }),
-              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-            ]);
-          }
-        });
-        
-        // NTEL REÇETE entries (unique diameters only)
-        const ntelKey = diameter.toString();
-        if (!processedAltNTELRecipes.has(ntelKey)) {
-          processedAltNTELRecipes.add(ntelKey);
+          const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.500`;
+          const flmDiameter = getFilmasinKodu(boyCap).diameter;
+          const flmQuality = getFilmasinKodu(boyCap).quality;
+          const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5); // kg
           
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(diameter * 100)).padStart(4, '0')}`;
-          const ntelFlmTuketimi = (Math.PI * (diameter/20) * (diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 500, boyCap: boyCap, enCap: boyCap }),
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        }
+      }
+      
+      // CORRECT MAPPING: En direction uses enCap with 215cm length
+      if (enCap > 0) {
+        const enKey = `${enCap}-215`;
+        if (!processedAltNCBKRecipes.has(enKey)) {
+          processedAltNCBKRecipes.add(enKey);
+            
+          const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.215`;
+          const flmDiameter = getFilmasinKodu(enCap).diameter;
+          const flmQuality = getFilmasinKodu(enCap).quality;
+          const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5); // kg
+          
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          
+          ncbkReceteSheet.addRow([
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }),
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        }
+      }
+        
+      // NTEL REÇETE entries (unique diameters only)
+      if (boyCap > 0) {
+        const boyNtelKey = boyCap.toString();
+        if (!processedAltNTELRecipes.has(boyNtelKey)) {
+          processedAltNTELRecipes.add(boyNtelKey);
+          
+          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const flmDiameter = getFilmasinKodu(boyCap).diameter;
+          const flmQuality = getFilmasinKodu(boyCap).quality;
+          const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
@@ -1857,7 +1889,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }),
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        }
+      }
+      
+      if (enCap > 0 && enCap !== boyCap) {
+        const enNtelKey = enCap.toString();
+        if (!processedAltNTELRecipes.has(enNtelKey)) {
+          processedAltNTELRecipes.add(enNtelKey);
+          
+          const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const flmDiameter = getFilmasinKodu(enCap).diameter;
+          const flmQuality = getFilmasinKodu(enCap).quality;
+          const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+          
+          ntelReceteSheet.addRow([
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2429,6 +2486,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     try {
       setIsLoading(true);
+      setDeletingProductId(productId); // Track which product is being deleted
       
       // Önce reçete kayıtlarını sil
       const product = savedProducts[productType].find(p => p.id === productId);
@@ -2499,6 +2557,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       toast.error('Ürün silinirken hata oluştu');
     } finally {
       setIsLoading(false);
+      setDeletingProductId(null); // Clear deletion tracking
     }
   };
 
@@ -3291,10 +3350,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         </button>
                         <button
                           onClick={() => deleteProduct(product.id, activeDbTab)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          disabled={deletingProductId === product.id}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Sil"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingProductId === product.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>
