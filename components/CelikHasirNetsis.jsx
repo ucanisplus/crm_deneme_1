@@ -123,6 +123,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [dbItemsPerPage] = useState(30); // Fixed at 30 items per page
   const [dbTotalCount, setDbTotalCount] = useState(0);
   const [isLoadingDb, setIsLoadingDb] = useState(false);
+  
+  // Backend connection states
+  const [backendError, setBackendError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
   
   // Global operation duration calculator
@@ -470,11 +475,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   }, [savedProducts, validProducts]);
 
   // Veritabanından kayıtlı ürünleri getir
-  const fetchSavedProducts = async (page = 1, resetData = true) => {
+  const fetchSavedProducts = async (page = 1, resetData = true, isRetry = false) => {
     try {
-      if (resetData) {
+      if (resetData && !isRetry) {
         setIsLoadingDb(true);
         setSelectedDbItems([]); // Clear selection when loading new data
+        setBackendError(null);
       }
       
       console.log(`Fetching saved products from database... Page ${page} (showing first ${dbItemsPerPage})`);
@@ -486,6 +492,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         fetchWithAuth(API_URLS.celikHasirNcbk),
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
+
+      // Check if any of the responses failed
+      const responses = { mm: mmResponse, ncbk: ncbkResponse, ntel: ntelResponse };
+      const failedResponses = Object.entries(responses).filter(([key, response]) => !response?.ok);
+      
+      if (failedResponses.length > 0) {
+        throw new Error(`Backend responses failed: ${failedResponses.map(([key]) => key).join(', ')}`);
+      }
 
       const allData = {
         mm: mmResponse?.ok ? await mmResponse.json() : [],
@@ -518,16 +532,52 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setDbTotalCount(allData[activeDbTab]?.length || 0);
       }
       
-      console.log(`Fetched page ${page} - showing ${paginatedData[activeDbTab]?.length || 0} of ${allData[activeDbTab]?.length || 0} total products`);
+      // Reset error states on successful fetch
+      setBackendError(null);
+      setRetryCount(0);
+      
+      console.log(`✅ Başarıyla yüklendi - Sayfa ${page}: ${paginatedData[activeDbTab]?.length || 0} / ${allData[activeDbTab]?.length || 0} ürün`);
       
     } catch (error) {
-      console.error('Kayıtlı ürünler getirilemedi:', error);
-      toast.error('Veritabanı bağlantısı kurulamadı - Backend sunucusu çalışmıyor olabilir');
-      if (resetData) {
-        setSavedProducts({ mm: [], ncbk: [], ntel: [] });
+      console.error('❌ Veritabanı bağlantı hatası:', error);
+      
+      const isNetworkError = error.message.includes('fetch') || error.message.includes('NetworkError') || 
+                            error.message.includes('Backend responses failed');
+      
+      if (isNetworkError && retryCount < maxRetries && !isRetry) {
+        // Auto retry logic
+        const nextRetryCount = retryCount + 1;
+        setRetryCount(nextRetryCount);
+        console.log(`🔄 Otomatik yeniden deneme ${nextRetryCount}/${maxRetries}...`);
+        
+        setTimeout(() => {
+          fetchSavedProducts(page, resetData, true);
+        }, 2000 * nextRetryCount); // Progressive delay: 2s, 4s, 6s
+        
+        setBackendError({
+          type: 'retrying',
+          message: `Bağlantı hatası - Yeniden denenyor (${nextRetryCount}/${maxRetries})...`,
+          canRetry: false
+        });
+      } else {
+        // Final error state
+        setBackendError({
+          type: 'connection',
+          message: isNetworkError ? 
+            'Vercel Backend sunucusu şu anda erişilebilir durumda değil. Lütfen birkaç dakika sonra tekrar deneyin.' :
+            'Beklenmeyen bir hata oluştu.',
+          canRetry: true
+        });
+        
+        if (resetData) {
+          setSavedProducts({ mm: [], ncbk: [], ntel: [] });
+        }
       }
+      
     } finally {
-      setIsLoadingDb(false);
+      if (!backendError || backendError.type !== 'retrying') {
+        setIsLoadingDb(false);
+      }
     }
   };
 
@@ -2983,9 +3033,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </button>
                   <span className="text-sm text-gray-600">
                     {isLoadingDb ? (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                        Yükleniyor...
+                        {backendError?.type === 'retrying' ? backendError.message : 'Veriler yükleniyor, lütfen bekleyin...'}
+                      </span>
+                    ) : backendError ? (
+                      <span className="flex items-center gap-2 text-red-600">
+                        <div className="w-4 h-4 text-red-500">⚠️</div>
+                        Bağlantı hatası
                       </span>
                     ) : (
                       <>Gösterilen: {getFilteredAndSortedProducts().length} / Toplam: {dbTotalCount > 0 ? dbTotalCount : savedProducts[activeDbTab].length} ürün</>
@@ -3083,7 +3138,43 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </div>
                 ))}
                 
-                {getFilteredAndSortedProducts().length === 0 && !isLoadingDb && (
+                {/* Backend Error Panel */}
+                {backendError && backendError.type === 'connection' && (
+                  <div className="text-center py-12 px-6">
+                    <div className="max-w-md mx-auto">
+                      <div className="w-16 h-16 mx-auto mb-4 text-red-500">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Veritabanı Bağlantısı Kurulamadı</h3>
+                      <p className="text-gray-600 mb-4 text-sm">{backendError.message}</p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
+                        <strong>Olası Nedenler:</strong>
+                        <ul className="mt-1 list-disc list-inside text-left">
+                          <li>Vercel Backend deployment hatası</li>
+                          <li>Supabase veritabanı bağlantı sorunu</li>
+                          <li>Geçici sunucu bakımı</li>
+                        </ul>
+                      </div>
+                      {backendError.canRetry && (
+                        <button
+                          onClick={() => {
+                            setRetryCount(0);
+                            fetchSavedProducts(1, true);
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2 mx-auto"
+                        >
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin hidden"></div>
+                          🔄 Tekrar Dene
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Empty State */}
+                {!backendError && getFilteredAndSortedProducts().length === 0 && !isLoadingDb && (
                   <div className="text-center py-8 text-gray-500">
                     {savedProducts[activeDbTab].length === 0 
                       ? "Bu kategoride kayıtlı ürün bulunmamaktadır."
@@ -3093,7 +3184,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 )}
                 
                 {/* Load More Button */}
-                {savedProducts[activeDbTab].length > 0 && savedProducts[activeDbTab].length < dbTotalCount && !isLoadingDb && (
+                {!backendError && savedProducts[activeDbTab].length > 0 && savedProducts[activeDbTab].length < dbTotalCount && !isLoadingDb && (
                   <div className="text-center py-4">
                     <button
                       onClick={() => {
@@ -3109,11 +3200,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 )}
                 
                 {/* Loading indicator for initial load */}
-                {isLoadingDb && savedProducts[activeDbTab].length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-2 text-gray-500">
-                      <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-                      İlk 30 ürün yükleniyor...
+                {isLoadingDb && savedProducts[activeDbTab].length === 0 && !backendError && (
+                  <div className="text-center py-12">
+                    <div className="flex flex-col items-center gap-3 text-gray-500">
+                      <div className="w-8 h-8 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      <p className="text-sm font-medium">Veriler yükleniyor, lütfen bekleyin...</p>
+                      <p className="text-xs text-gray-400">İlk 30 ürün getiriliyor</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Retry Loading State */}
+                {isLoadingDb && backendError?.type === 'retrying' && (
+                  <div className="text-center py-12">
+                    <div className="flex flex-col items-center gap-3 text-blue-600">
+                      <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                      <p className="text-sm font-medium">{backendError.message}</p>
+                      <p className="text-xs text-gray-400">Otomatik yeniden deneme</p>
                     </div>
                   </div>
                 )}
