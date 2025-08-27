@@ -1152,7 +1152,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // CH ürünlerini ekle
     let excelBatchIndex = 0;
     for (const product of products) {
-      if (isProductOptimized(product)) {
+      // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
         const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
@@ -1173,7 +1173,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '',
           'H', 'H', '', '', ''
         ]);
-      }
     }
 
     // YM NCBK STOK sheet oluştur
@@ -1218,7 +1217,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     // NCBK ve NTEL ürünlerini generate et
     products.forEach(product => {
-      if (isProductOptimized(product)) {
+      // For Excel generation, process all products regardless of optimization status
         // NCBK ürünleri - Boy ve En çubukları için
         [500, 215].forEach(length => {
           const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${length}`;
@@ -1249,7 +1248,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
           '', '', '', 'E', 'E'
         ]);
-      }
     });
 
     // Excel dosyasını kaydet
@@ -1287,7 +1285,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Reçete verilerini ekle
     let receteBatchIndex = 0;
     for (const product of products) {
-      if (isProductOptimized(product)) {
+      // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
         
@@ -1431,7 +1429,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
           'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
-      }
     }
 
     // Excel dosyasını kaydet
@@ -1469,7 +1466,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Alternatif reçete verilerini ekle (NTEL bazlı)
     let altReceteBatchIndex = 0;
     for (const product of products) {
-      if (isProductOptimized(product)) {
+      // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
@@ -1556,7 +1553,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', product),
           'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
-      }
     }
 
     // Excel dosyasını kaydet
