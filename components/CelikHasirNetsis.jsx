@@ -118,10 +118,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Multi-select functionality states
   const [selectedDbItems, setSelectedDbItems] = useState([]);      // Selected product IDs
   
-  // Pagination states
-  const [dbCurrentPage, setDbCurrentPage] = useState(1);
-  const [dbItemsPerPage] = useState(30); // Fixed at 30 items per page
-  const [dbTotalCount, setDbTotalCount] = useState(0);
+  // Loading states
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   
   // Backend connection states
@@ -474,19 +471,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Note: Removed getProductsToSave from dependencies to avoid potential infinite loops
   }, [savedProducts, validProducts]);
 
-  // Veritabanından kayıtlı ürünleri getir
-  const fetchSavedProducts = async (page = 1, resetData = true, isRetry = false) => {
+  // Veritabanından kayıtlı ürünleri getir - Load all data at once
+  const fetchSavedProducts = async (isRetry = false) => {
     try {
-      if (resetData && !isRetry) {
+      if (!isRetry) {
         setIsLoadingDb(true);
         setSelectedDbItems([]); // Clear selection when loading new data
         setBackendError(null);
       }
       
-      console.log(`Fetching saved products from database... Page ${page} (showing first ${dbItemsPerPage})`);
+      console.log('Fetching all saved products from database...');
       
-      // For now, load all data but only show first 30 items
-      // TODO: Implement proper backend pagination when backend supports it
+      // Load all data at once - no pagination
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
         fetchWithAuth(API_URLS.celikHasirMm),
         fetchWithAuth(API_URLS.celikHasirNcbk),
@@ -507,36 +503,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntel: ntelResponse?.ok ? await ntelResponse.json() : []
       };
       
-      // Apply client-side pagination for now
-      const paginateData = (data, page, itemsPerPage) => {
-        const startIndex = (page - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        return data.slice(startIndex, endIndex);
-      };
-      
-      const paginatedData = {
-        mm: paginateData(allData.mm, page, dbItemsPerPage),
-        ncbk: paginateData(allData.ncbk, page, dbItemsPerPage),
-        ntel: paginateData(allData.ntel, page, dbItemsPerPage)
-      };
-      
-      // Store full data for filtering/searching but show paginated data
-      setSavedProducts(resetData ? paginatedData : {
-        mm: [...(savedProducts.mm || []), ...paginatedData.mm],
-        ncbk: [...(savedProducts.ncbk || []), ...paginatedData.ncbk],
-        ntel: [...(savedProducts.ntel || []), ...paginatedData.ntel]
-      });
-      
-      // Set total counts
-      if (resetData) {
-        setDbTotalCount(allData[activeDbTab]?.length || 0);
-      }
+      // Store all data - no pagination
+      setSavedProducts(allData);
       
       // Reset error states on successful fetch
       setBackendError(null);
       setRetryCount(0);
       
-      console.log(`✅ Başarıyla yüklendi - Sayfa ${page}: ${paginatedData[activeDbTab]?.length || 0} / ${allData[activeDbTab]?.length || 0} ürün`);
+      console.log(`✅ Başarıyla yüklendi - Toplam: MM(${allData.mm?.length || 0}), NCBK(${allData.ncbk?.length || 0}), NTEL(${allData.ntel?.length || 0}) ürün`);
       
     } catch (error) {
       console.error('❌ Veritabanı bağlantı hatası:', error);
@@ -551,7 +525,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`🔄 Otomatik yeniden deneme ${nextRetryCount}/${maxRetries}...`);
         
         setTimeout(() => {
-          fetchSavedProducts(page, resetData, true);
+          fetchSavedProducts(true);
         }, 2000 * nextRetryCount); // Progressive delay: 2s, 4s, 6s
         
         setBackendError({
@@ -2904,13 +2878,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
-                      setDbCurrentPage(1);
-                      fetchSavedProducts(1, true);
+                      fetchSavedProducts();
                     }}
                     disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={`w-4 h-4 ${isLoadingDb ? 'animate-spin' : ''}`} />
                     Yenile
                   </button>
                   <button
@@ -3034,7 +3007,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <span className="text-sm text-gray-600">
                     {isLoadingDb ? (
                       <span className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                        <RefreshCw className="w-4 h-4 animate-spin text-red-600" />
                         {backendError?.type === 'retrying' ? backendError.message : 'Veriler yükleniyor, lütfen bekleyin...'}
                       </span>
                     ) : backendError ? (
@@ -3043,7 +3016,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         Bağlantı hatası
                       </span>
                     ) : (
-                      <>Gösterilen: {getFilteredAndSortedProducts().length} / Toplam: {dbTotalCount > 0 ? dbTotalCount : savedProducts[activeDbTab].length} ürün</>
+                      <>Toplam: {getFilteredAndSortedProducts().length} / {savedProducts[activeDbTab].length} ürün</>
                     )}
                   </span>
                 </div>
@@ -3161,11 +3134,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         <button
                           onClick={() => {
                             setRetryCount(0);
-                            fetchSavedProducts(1, true);
+                            fetchSavedProducts();
                           }}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2 mx-auto"
                         >
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin hidden"></div>
+                          <RefreshCw className="w-4 h-4" />
                           🔄 Tekrar Dene
                         </button>
                       )}
@@ -3183,29 +3156,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </div>
                 )}
                 
-                {/* Load More Button */}
-                {!backendError && savedProducts[activeDbTab].length > 0 && savedProducts[activeDbTab].length < dbTotalCount && !isLoadingDb && (
-                  <div className="text-center py-4">
-                    <button
-                      onClick={() => {
-                        const nextPage = Math.floor(savedProducts[activeDbTab].length / dbItemsPerPage) + 1;
-                        fetchSavedProducts(nextPage, false);
-                      }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2 mx-auto"
-                    >
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin hidden" id="load-more-spinner"></div>
-                      Daha Fazla Yükle ({Math.min(dbItemsPerPage, dbTotalCount - savedProducts[activeDbTab].length)} ürün daha)
-                    </button>
-                  </div>
-                )}
                 
                 {/* Loading indicator for initial load */}
                 {isLoadingDb && savedProducts[activeDbTab].length === 0 && !backendError && (
                   <div className="text-center py-12">
                     <div className="flex flex-col items-center gap-3 text-gray-500">
-                      <div className="w-8 h-8 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
                       <p className="text-sm font-medium">Veriler yükleniyor, lütfen bekleyin...</p>
-                      <p className="text-xs text-gray-400">İlk 30 ürün getiriliyor</p>
+                      <p className="text-xs text-gray-400">Tüm ürünler getiriliyor</p>
                     </div>
                   </div>
                 )}
@@ -3214,7 +3172,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 {isLoadingDb && backendError?.type === 'retrying' && (
                   <div className="text-center py-12">
                     <div className="flex flex-col items-center gap-3 text-blue-600">
-                      <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                      <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
                       <p className="text-sm font-medium">{backendError.message}</p>
                       <p className="text-xs text-gray-400">Otomatik yeniden deneme</p>
                     </div>
