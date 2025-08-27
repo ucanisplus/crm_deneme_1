@@ -287,11 +287,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
     
-    // Apply hasır türü filter (looking in hasir_turu column)
+    // Apply hasır türü filter - check both hasir_turu and kod_2 columns
     if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
-      filteredProducts = filteredProducts.filter(product => 
-        (product.hasir_turu || '').toLowerCase() === dbFilterHasirTuru.toLowerCase()
-      );
+      if (dbFilterHasirTuru.toLowerCase() === 'standart') {
+        // For Standart, check kod_2 = 'STD'
+        filteredProducts = filteredProducts.filter(product => 
+          (product.kod_2 || '').toUpperCase() === 'STD'
+        );
+      } else {
+        // For other filters, use hasir_turu column
+        filteredProducts = filteredProducts.filter(product => 
+          (product.hasir_turu || '').toLowerCase() === dbFilterHasirTuru.toLowerCase()
+        );
+      }
     }
     
     
@@ -620,7 +628,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return checkForExistingProducts(product, productType, batchIndex);
   }
 
-  // Stok adı oluştur - Moved up to avoid hoisting issues
+  // Format decimal for display - Turkish format with comma or point
+  const formatDecimalForDisplay = (value, useComma = true) => {
+    if (!value && value !== 0) return '0';
+    const num = parseFloat(value);
+    if (isNaN(num)) return '0';
+    
+    // Remove trailing zeros and format
+    let formatted = num.toString();
+    if (formatted.includes('.')) {
+      formatted = formatted.replace(/\.?0+$/, '');
+    }
+    
+    // Replace dot with comma for Turkish format if requested
+    if (useComma && formatted.includes('.')) {
+      formatted = formatted.replace('.', ',');
+    }
+    
+    return formatted;
+  };
+
+  // Stok adı oluştur - Fixed formatting
   const generateStokAdi = (product, productType) => {
     if (productType === 'CH') {
       // Try to get göz aralığı data from multiple sources
@@ -659,14 +687,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Normalize hasır tipi to correct format (Q257/257, R257, TR257)
       const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
       
+      // Format decimal values properly - use comma for Turkish format
+      const formattedBoyCap = formatDecimalForDisplay(product.boyCap, true);
+      const formattedEnCap = formatDecimalForDisplay(product.enCap, true);
+      const formattedBoy = parseInt(product.uzunlukBoy || 0);
+      const formattedEn = parseInt(product.uzunlukEn || 0);
+      
       // Create the standard format used in database saves
-      const stokAdi = `${normalizedHasirTipi} Çap(${product.boyCap || 0}x${product.enCap || 0} mm) Ebat(${product.uzunlukBoy || 0}x${product.uzunlukEn || 0} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
+      const stokAdi = `${normalizedHasirTipi} Çap(${formattedBoyCap}x${formattedEnCap} mm) Ebat(${formattedBoy}x${formattedEn} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
       
       return stokAdi;
     } else if (productType === 'NCBK') {
-      return `YM Nervürlü Çubuk ${product.cap} mm ${product.length} cm`;
+      const formattedCap = formatDecimalForDisplay(product.cap, true);
+      const formattedLength = parseInt(product.length || 0);
+      return `YM Nervürlü Çubuk ${formattedCap} mm ${formattedLength} cm`;
     } else if (productType === 'NTEL') {
-      return `YM Nervürlü Tel ${product.cap} mm`;
+      const formattedCap = formatDecimalForDisplay(product.cap, true);
+      return `YM Nervürlü Tel ${formattedCap} mm`;
     }
     return '';
   };
@@ -717,26 +754,44 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
       
-      // Check if this product exists in database by Stok Adı
-      const existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      // Find ALL matching products by Stok Adı
+      const matchingProducts = savedProducts.mm.filter(p => p.stok_adi === productStokAdi);
       
-      if (existingProduct) {
+      if (matchingProducts.length > 0) {
+        // If multiple products exist, use the one with highest sequence (latest stok_kodu)
+        const selectedProduct = matchingProducts.reduce((prev, current) => {
+          // Extract sequence from stok_kodu (e.g., CHOZL2443 -> 2443, CH.STD.0700.01 -> 01)
+          const getSequence = (stokKodu) => {
+            if (stokKodu.startsWith('CHOZL')) {
+              return parseInt(stokKodu.replace('CHOZL', '')) || 0;
+            } else if (stokKodu.startsWith('CH.STD.')) {
+              const parts = stokKodu.split('.');
+              return parseInt(parts[3]) || 0;
+            }
+            return 0;
+          };
+          
+          const prevSeq = getSequence(prev.stok_kodu);
+          const currentSeq = getSequence(current.stok_kodu);
+          return currentSeq > prevSeq ? current : prev;
+        });
+        
         // Product is already saved - add it to saved list
         // Map database fields to expected format for Excel generation
         savedProductsList.push({
           ...product,
-          existingStokKodu: existingProduct.stok_kodu,
+          existingStokKodu: selectedProduct.stok_kodu,
           stokAdi: productStokAdi,
           // Map database fields to expected Excel generation format
-          boyCap: existingProduct.cap || product.boyCap,
-          enCap: existingProduct.cap2 || product.enCap,
-          hasirTipi: existingProduct.hasir_tipi || product.hasirTipi,
-          uzunlukBoy: existingProduct.ebat_boy || product.uzunlukBoy,
-          uzunlukEn: existingProduct.ebat_en || product.uzunlukEn,
-          totalKg: existingProduct.kg || product.totalKg,
-          gozAraligi: existingProduct.goz_araligi || product.gozAraligi,
-          cubukSayisiBoy: existingProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
-          cubukSayisiEn: existingProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
+          boyCap: selectedProduct.cap || product.boyCap,
+          enCap: selectedProduct.cap2 || product.enCap,
+          hasirTipi: selectedProduct.hasir_tipi || product.hasirTipi,
+          uzunlukBoy: selectedProduct.ebat_boy || product.uzunlukBoy,
+          uzunlukEn: selectedProduct.ebat_en || product.uzunlukEn,
+          totalKg: selectedProduct.kg || product.totalKg,
+          gozAraligi: selectedProduct.goz_araligi || product.gozAraligi,
+          cubukSayisiBoy: selectedProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
+          cubukSayisiEn: selectedProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
         });
       }
     }
@@ -790,10 +845,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
-          // Enhanced decimal normalization (handles comma vs dot, different precisions)
+          // Enhanced decimal normalization (handles comma vs dot, different precisions, trailing zeros)
           const normalizeDecimal = (value) => {
-            if (!value) return 0;
-            return parseFloat(String(value).replace(',', '.'));
+            if (!value && value !== 0) return 0;
+            let str = String(value).replace(',', '.');
+            const num = parseFloat(str);
+            if (isNaN(num)) return 0;
+            
+            // Normalize to remove trailing zeros and standardize format
+            // E.g., 7.0000 -> 7, 7,5 -> 7.5, 5.00 -> 5
+            return parseFloat(num.toFixed(4)); // Keep max 4 decimals then remove trailing zeros
           };
           
           // Tighter tolerance for diameter matching to handle precision differences
@@ -835,6 +896,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               .replace(/[*x×]/gi, '')                  // Remove separators from göz aralığı  
               .replace(/mm|cm/gi, '')                  // Remove units
               .replace(/[,]/g, '.')                    // Comma → dot decimals
+              .replace(/(\d+)\.0+(?=\s|$)/g, '$1')     // Remove trailing zeros: 7.0000 → 7, 5.00 → 5
+              .replace(/(\d+\.\d*?)0+(?=\s|$)/g, '$1') // Remove trailing zeros after decimals: 7.50 → 7.5
               .replace(/çaa+p/gi, 'çap')              // Fix typos: çaap/çaaap → çap
               .replace(/ebaa+t/gi, 'ebat')            // Fix typos: ebaaat → ebat  
               .replace(/göz\s*ara+/gi, 'göz ara')     // Fix typos: göz araaa → göz ara
