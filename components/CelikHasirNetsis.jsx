@@ -51,7 +51,15 @@ const getFilmasinKodu = (diameter) => {
   }
   
   const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
-  return `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+  const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+  
+  // Return both the code and the properties for backward compatibility
+  return {
+    code: flmKodu,
+    diameter: flmDiameter,
+    quality: flmQuality,
+    toString: () => flmKodu  // For backward compatibility when used as string
+  };
 };
 
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
@@ -372,7 +380,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     try {
       const tabEndpoints = {
-        mm: API_URLS.celikHasir,
+        mm: API_URLS.celikHasirMm,
         ncbk: API_URLS.celikHasirNcbk,
         ntel: API_URLS.celikHasirNtel
       };
@@ -922,7 +930,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             // Normalize to remove trailing zeros and standardize format
             // E.g., 7.0000 -> 7, 7,5 -> 7.5, 5.00 -> 5
-            return parseFloat(num.toFixed(4)); // Keep max 4 decimals then remove trailing zeros
+            return parseFloat(num.toFixed(5)); // Keep max 5 decimals then remove trailing zeros
           };
           
           // Tighter tolerance for diameter matching to handle precision differences
@@ -1041,7 +1049,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('  📝 STOK ADI SIMILARITY:', { 
               db: p.stok_adi, 
               expected: expectedStokAdi, 
-              similarity: similarity.toFixed(3), 
+              similarity: similarity.toFixed(5), 
               match: stokAdiMatch 
             });
             console.log('  ✅ OVERALL MATCH:', overallMatch);
@@ -1462,8 +1470,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
-      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.',
-      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', '', // 'Ölçü Br.' - leaving empty
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', '', // 'Ölçü Br. - Bileşen' - leaving empty
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
       'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
@@ -1552,21 +1560,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            let flmDiameter = FILMASIN_MAPPING[boyCap];
-            if (!flmDiameter) {
-              if (boyCap <= 6.0) {
-                flmDiameter = boyCap + 1.5;
-              } else if (boyCap <= 8.0) {
-                flmDiameter = boyCap + 1.5;
-              } else {
-                flmDiameter = boyCap + 2.0;
-              }
-              const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-              flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
-            }
-            
-            const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
-            const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+            const flmKodu = getFilmasinKodu(boyCap).code;
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -1577,7 +1571,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
               '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 500, boyCap: boyCap, enCap: boyCap }),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1651,21 +1645,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            let flmDiameter = FILMASIN_MAPPING[enCap];
-            if (!flmDiameter) {
-              if (enCap <= 6.0) {
-                flmDiameter = enCap + 1.5;
-              } else if (enCap <= 8.0) {
-                flmDiameter = enCap + 1.5;
-              } else {
-                flmDiameter = enCap + 2.0;
-              }
-              const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-              flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
-            }
-            
-            const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
-            const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
+            const flmKodu = getFilmasinKodu(enCap).code;
             const flmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -1676,7 +1656,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
               '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: 215, boyCap: enCap, enCap: enCap }),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1745,8 +1725,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
-      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.',
-      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', '', // 'Ölçü Br.' - leaving empty
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', '', // 'Ölçü Br. - Bileşen' - leaving empty
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
       'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
@@ -1850,21 +1830,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           processedAltNCBKRecipes.add(boyKey);
             
           const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.500`;
-          const flmDiameter = getFilmasinKodu(boyCap).diameter;
-          const flmQuality = getFilmasinKodu(boyCap).quality;
+          const flmInfo = getFilmasinKodu(boyCap);
+          const flmDiameter = flmInfo.diameter;
+          const flmQuality = flmInfo.quality;
           const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5); // kg
           
           // Olcu Birimi: Originally was 'AD' for NCBK alternatif recipe, now left empty per user request
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
-            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            flmInfo.code,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 500, boyCap: boyCap, enCap: boyCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1878,20 +1859,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           processedAltNCBKRecipes.add(enKey);
             
           const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.215`;
-          const flmDiameter = getFilmasinKodu(enCap).diameter;
-          const flmQuality = getFilmasinKodu(enCap).quality;
+          const flmInfo = getFilmasinKodu(enCap);
+          const flmDiameter = flmInfo.diameter;
+          const flmQuality = flmInfo.quality;
           const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5); // kg
           
           // Olcu Birimi: Originally was 'AD' for NCBK alternatif recipe, now left empty per user request
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
-            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            flmInfo.code,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'YOTOCH',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1905,14 +1887,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           processedAltNTELRecipes.add(boyNtelKey);
           
           const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
-          const flmDiameter = getFilmasinKodu(boyCap).diameter;
-          const flmQuality = getFilmasinKodu(boyCap).quality;
+          const flmInfo = getFilmasinKodu(boyCap);
+          const flmDiameter = flmInfo.diameter;
+          const flmQuality = flmInfo.quality;
           const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
           
           // Olcu Birimi: Originally was 'MT' for NTEL alternatif recipe, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
-            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            flmInfo.code,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1932,14 +1915,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           processedAltNTELRecipes.add(enNtelKey);
           
           const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-          const flmDiameter = getFilmasinKodu(enCap).diameter;
-          const flmQuality = getFilmasinKodu(enCap).quality;
+          const flmInfo = getFilmasinKodu(enCap);
+          const flmDiameter = flmInfo.diameter;
+          const flmQuality = flmInfo.quality;
           const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
           
           // Olcu Birimi: Originally was 'MT' for NTEL alternatif recipe, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
-            `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
+            flmInfo.code,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1997,7 +1981,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           sira_no: 3,
           operasyon_bilesen: 'Operasyon',
           bilesen_kodu: 'YOTOCH',
-          olcu_br_bilesen: 'AD',
+          olcu_br_bilesen: 'DK',
           miktar: 1,
           aciklama: 'Yarı Otomatik Çelik Hasır Operasyonu',
           uretim_suresi: calculateOperationDuration('YOTOCH', product)
@@ -2024,7 +2008,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)),
+            bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)).code,
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (parseFloat(ncbkResult.cap)/20) * (parseFloat(ncbkResult.cap)/20) * parseFloat(length) * 7.85 / 1000).toFixed(5)),
             aciklama: `FLM tüketimi - ${length}cm çubuk için`,
@@ -2034,11 +2018,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             mamul_kodu: ncbkResult.stok_kodu,
             recete_top: 1,
             fire_orani: 0,
-            olcu_br: 'AD',
+            olcu_br: 'DK',
             sira_no: 2,
             operasyon_bilesen: 'Operasyon',
             bilesen_kodu: 'YOTOCH',
-            olcu_br_bilesen: 'AD',
+            olcu_br_bilesen: 'DK',
             miktar: 1,
             aciklama: 'Yarı Otomatik Nervürlü Çubuk Operasyonu',
             uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: 500 })
@@ -2065,7 +2049,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'MT',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)),
+          bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)).code,
           olcu_br_bilesen: 'KG',
           miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
           aciklama: 'FLM tüketimi - metre başına',
@@ -3002,8 +2986,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSavingToDatabase || isGeneratingExcel}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 justify-center"
               >
+                {(isSavingToDatabase || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
                 Kaydet ve Excel Oluştur
               </button>
             </div>
@@ -4155,8 +4141,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                     }
                   }}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={isSavingToDatabase || isGeneratingExcel}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 justify-center"
                 >
+                  {(isSavingToDatabase || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
                   {preSaveConfirmData.newProducts.length} Yeni Ürün Kaydet ve Excel Oluştur
                 </button>
               ) : (
