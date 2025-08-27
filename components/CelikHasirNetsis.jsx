@@ -117,6 +117,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   
   // Multi-select functionality states
   const [selectedDbItems, setSelectedDbItems] = useState([]);      // Selected product IDs
+  
+  // Pagination states
+  const [dbCurrentPage, setDbCurrentPage] = useState(1);
+  const [dbItemsPerPage] = useState(30); // Fixed at 30 items per page
+  const [dbTotalCount, setDbTotalCount] = useState(0);
+  const [isLoadingDb, setIsLoadingDb] = useState(false);
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
   
   // Global operation duration calculator
@@ -449,53 +455,79 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Component yüklendiğinde verileri getir
   useEffect(() => {
-    fetchSavedProducts();
+    fetchSavedProducts(1, true); // Load first page
     fetchSequences();
   }, []);
 
   // Force update when savedProducts or validProducts change to ensure counts are accurate
   useEffect(() => {
-    // This will trigger re-render when dependencies change
-    console.log('Count update triggered - optimized products:', validProducts.length, 
-                'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length);
+    // Only log and update counts if there are actually products in the form
+    if (validProducts.length > 0) {
+      console.log('Count update triggered - optimized products:', validProducts.length, 
+                  'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length);
+    }
     // Note: Removed getProductsToSave from dependencies to avoid potential infinite loops
   }, [savedProducts, validProducts]);
 
   // Veritabanından kayıtlı ürünleri getir
-  const fetchSavedProducts = async () => {
+  const fetchSavedProducts = async (page = 1, resetData = true) => {
     try {
-      setIsLoading(true);
+      if (resetData) {
+        setIsLoadingDb(true);
+        setSelectedDbItems([]); // Clear selection when loading new data
+      }
       
-      console.log('Fetching saved products from database...');
+      console.log(`Fetching saved products from database... Page ${page} (showing first ${dbItemsPerPage})`);
       
-      // Paralel olarak tüm ürün tiplerini getir
+      // For now, load all data but only show first 30 items
+      // TODO: Implement proper backend pagination when backend supports it
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
         fetchWithAuth(API_URLS.celikHasirMm),
         fetchWithAuth(API_URLS.celikHasirNcbk),
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
 
-      const newSavedProducts = {
+      const allData = {
         mm: mmResponse?.ok ? await mmResponse.json() : [],
         ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : [],
         ntel: ntelResponse?.ok ? await ntelResponse.json() : []
       };
       
-      console.log('Fetched products from database:', {
-        mm: newSavedProducts.mm.length,
-        ncbk: newSavedProducts.ncbk.length,
-        ntel: newSavedProducts.ntel.length,
-        mmCodes: newSavedProducts.mm.map(p => p.stok_kodu),
-        ncbkCodes: newSavedProducts.ncbk.map(p => p.stok_kodu),
-        ntelCodes: newSavedProducts.ntel.map(p => p.stok_kodu)
+      // Apply client-side pagination for now
+      const paginateData = (data, page, itemsPerPage) => {
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return data.slice(startIndex, endIndex);
+      };
+      
+      const paginatedData = {
+        mm: paginateData(allData.mm, page, dbItemsPerPage),
+        ncbk: paginateData(allData.ncbk, page, dbItemsPerPage),
+        ntel: paginateData(allData.ntel, page, dbItemsPerPage)
+      };
+      
+      // Store full data for filtering/searching but show paginated data
+      setSavedProducts(resetData ? paginatedData : {
+        mm: [...(savedProducts.mm || []), ...paginatedData.mm],
+        ncbk: [...(savedProducts.ncbk || []), ...paginatedData.ncbk],
+        ntel: [...(savedProducts.ntel || []), ...paginatedData.ntel]
       });
       
-      setSavedProducts(newSavedProducts);
+      // Set total counts
+      if (resetData) {
+        setDbTotalCount(allData[activeDbTab]?.length || 0);
+      }
+      
+      console.log(`Fetched page ${page} - showing ${paginatedData[activeDbTab]?.length || 0} of ${allData[activeDbTab]?.length || 0} total products`);
+      
     } catch (error) {
       console.error('Kayıtlı ürünler getirilemedi:', error);
-      toast.error('Kayıtlı ürünler getirilemedi');
+      toast.error('Veritabanı bağlantısı kurulamadı - Backend sunucusu çalışmıyor olabilir');
+      if (resetData) {
+        setSavedProducts({ mm: [], ncbk: [], ntel: [] });
+      }
     } finally {
-      setIsLoading(false);
+      setIsLoadingDb(false);
     }
   };
 
@@ -758,7 +790,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const matchingProducts = savedProducts.mm.filter(p => p.stok_adi === productStokAdi);
       
       if (matchingProducts.length > 0) {
-        // If multiple products exist, use the one with highest sequence (latest stok_kodu)
+        // If multiple products exist, use the one with lowest sequence (earliest/preferred stok_kodu)
         const selectedProduct = matchingProducts.reduce((prev, current) => {
           // Extract sequence from stok_kodu (e.g., CHOZL2443 -> 2443, CH.STD.0700.01 -> 01)
           const getSequence = (stokKodu) => {
@@ -773,7 +805,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           const prevSeq = getSequence(prev.stok_kodu);
           const currentSeq = getSequence(current.stok_kodu);
-          return currentSeq > prevSeq ? current : prev;
+          return currentSeq < prevSeq ? current : prev; // Use < instead of > for lowest sequence
         });
         
         // Product is already saved - add it to saved list
@@ -2821,8 +2853,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 <h3 className="text-xl font-semibold">Çelik Hasır Veritabanı</h3>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={fetchSavedProducts}
-                    disabled={isLoading}
+                    onClick={() => {
+                      setDbCurrentPage(1);
+                      fetchSavedProducts(1, true);
+                    }}
+                    disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -2947,7 +2982,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     Filtreleri Temizle
                   </button>
                   <span className="text-sm text-gray-600">
-                    Toplam: {getFilteredAndSortedProducts().length} / {savedProducts[activeDbTab].length} ürün
+                    {isLoadingDb ? (
+                      <span className="flex items-center gap-1">
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                        Yükleniyor...
+                      </span>
+                    ) : (
+                      <>Gösterilen: {getFilteredAndSortedProducts().length} / Toplam: {dbTotalCount > 0 ? dbTotalCount : savedProducts[activeDbTab].length} ürün</>
+                    )}
                   </span>
                 </div>
 
@@ -3041,12 +3083,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </div>
                 ))}
                 
-                {getFilteredAndSortedProducts().length === 0 && (
+                {getFilteredAndSortedProducts().length === 0 && !isLoadingDb && (
                   <div className="text-center py-8 text-gray-500">
                     {savedProducts[activeDbTab].length === 0 
                       ? "Bu kategoride kayıtlı ürün bulunmamaktadır."
                       : "Filtrelere uygun ürün bulunmamaktadır."
                     }
+                  </div>
+                )}
+                
+                {/* Load More Button */}
+                {savedProducts[activeDbTab].length > 0 && savedProducts[activeDbTab].length < dbTotalCount && !isLoadingDb && (
+                  <div className="text-center py-4">
+                    <button
+                      onClick={() => {
+                        const nextPage = Math.floor(savedProducts[activeDbTab].length / dbItemsPerPage) + 1;
+                        fetchSavedProducts(nextPage, false);
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-2 mx-auto"
+                    >
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin hidden" id="load-more-spinner"></div>
+                      Daha Fazla Yükle ({Math.min(dbItemsPerPage, dbTotalCount - savedProducts[activeDbTab].length)} ürün daha)
+                    </button>
+                  </div>
+                )}
+                
+                {/* Loading indicator for initial load */}
+                {isLoadingDb && savedProducts[activeDbTab].length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-2 text-gray-500">
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      İlk 30 ürün yükleniyor...
+                    </div>
                   </div>
                 )}
               </div>
