@@ -534,7 +534,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   function checkForExistingProducts(product, productType, batchIndex = 0) {
     try {
       if (productType === 'CH') {
-        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                           (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
         const diameter = parseFloat(product.boyCap || product.enCap || 0);
         const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
         
@@ -1159,7 +1160,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const gozAraligi = formatGozAraligi(product);
         excelBatchIndex++;
         
-        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+        const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                           (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
         
         chSheet.addRow([
           stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
@@ -1942,7 +1944,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           stok_adi: generateStokAdi(product, 'CH'),
           grup_kodu: 'MM',
           kod_1: 'HSR',
-          kod_2: product.uzunlukBoy === '500' && product.uzunlukEn === '215' ? 'STD' : 'OZL',
+          kod_2: (product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                  (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25')) ? 'STD' : 'OZL',
           ingilizce_isim: generateIngilizceIsim(product, 'CH'),
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
           cap: parseFloat(product.boyCap),
@@ -3373,6 +3376,51 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       </tbody>
                     </table>
                   </div>
+                  {/* Export button for existing products */}
+                  {((preSaveConfirmData.existingProducts && preSaveConfirmData.existingProducts.length > 0) || 
+                    (preSaveConfirmData.skippedProducts && preSaveConfirmData.skippedProducts.length > 0)) && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        onClick={async () => {
+                          const existingProducts = [
+                            ...(preSaveConfirmData.existingProducts || []),
+                            ...(preSaveConfirmData.skippedProducts || [])
+                          ];
+                          
+                          const transformedProducts = existingProducts.map(product => ({
+                            boyCap: product.boyCap || 0,
+                            enCap: product.enCap || 0,
+                            hasirTipi: product.hasirTipi || '',
+                            uzunlukBoy: product.uzunlukBoy || 0,
+                            uzunlukEn: product.uzunlukEn || 0,
+                            boyAraligi: product.boyAraligi || '15',
+                            enAraligi: product.enAraligi || '15',
+                            gozAraligi: product.gozAraligi || '15*15',
+                            totalKg: product.totalKg || 0,
+                            adetKg: product.adetKg || 0,
+                            cubukSayisiBoy: product.cubukSayisiBoy || 0,
+                            cubukSayisiEn: product.cubukSayisiEn || 0,
+                            hasirSayisi: product.hasirSayisi || 1,
+                            hasirTuru: product.hasirTuru || 'Standart',
+                            existingStokKodu: product.existingStokKodus && product.existingStokKodus.length > 0 ? product.existingStokKodus[0] : '',
+                            isOptimized: true
+                          }));
+                          
+                          try {
+                            await generateExcelFiles(transformedProducts, true);
+                            toast.success(`${transformedProducts.length} kayıtlı ürün için Excel dosyaları oluşturuldu!`);
+                          } catch (error) {
+                            console.error('Export error:', error);
+                            toast.error('Excel dosyaları oluşturulurken hata oluştu');
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Kayıtlı Ürünleri Excel'e Aktar
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               
