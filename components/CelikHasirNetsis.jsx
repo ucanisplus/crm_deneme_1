@@ -120,6 +120,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   
   // Loading states
   const [isLoadingDb, setIsLoadingDb] = useState(false);
+  const [dbLoadingProgress, setDbLoadingProgress] = useState({ current: 0, total: 3, operation: '' });
   
   // Backend connection states
   const [backendError, setBackendError] = useState(null);
@@ -479,16 +480,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setIsLoadingDb(true);
         setSelectedDbItems([]); // Clear selection when loading new data
         setBackendError(null);
+        setDbLoadingProgress({ current: 0, total: 3, operation: 'Başlatılıyor...' });
       }
       
       console.log('Fetching all saved products from database...');
       
-      // Load all data at once - no pagination
-      const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
-        fetchWithAuth(API_URLS.celikHasirMm),
+      // Load data with progress tracking
+      setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
+      const mmResponse = await fetchWithAuth(API_URLS.celikHasirMm);
+      
+      setDbLoadingProgress({ current: 2, total: 3, operation: 'NCBK ve NTEL ürünleri getiriliyor...' });
+      const [ncbkResponse, ntelResponse] = await Promise.all([
         fetchWithAuth(API_URLS.celikHasirNcbk),
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
+      
+      setDbLoadingProgress({ current: 3, total: 3, operation: 'Veriler işleniyor...' });
 
       // Check if any of the responses failed
       const responses = { mm: mmResponse, ncbk: ncbkResponse, ntel: ntelResponse };
@@ -552,6 +559,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } finally {
       if (!backendError || backendError.type !== 'retrying') {
         setIsLoadingDb(false);
+        setDbLoadingProgress({ current: 0, total: 3, operation: '' });
       }
     }
   };
@@ -687,7 +695,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Format decimal for display - Turkish format with comma or point
   const formatDecimalForDisplay = (value, useComma = true) => {
-    if (!value && value !== 0) return '0';
+    // Handle undefined, null, empty string, and NaN cases
+    if (value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value))) {
+      return '0';
+    }
+    
     const num = parseFloat(value);
     if (isNaN(num)) return '0';
     
@@ -1557,8 +1569,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5);
             
+            // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
+              ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
               '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1604,14 +1617,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
           const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
+          // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
+            ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
             '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
+          // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1653,8 +1668,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const flmKodu = `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`;
             const flmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5);
             
+            // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
+              ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
               '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -1701,8 +1717,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
           const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
+          // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
+            ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
             '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1772,8 +1789,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
           const boyNtelMiktar = (parseFloat(product.cubukSayisiBoy || 0) * 5).toFixed(5); // 5 meters per cubuk
           
+          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+            chStokKodu, '1', '0', '', '', '1', 'Bileşen',
             boyNtelKodu,
             'MT', boyNtelMiktar, 'Boy Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
             'E', 'E', '', '', '', '', '', '', ''
@@ -1787,8 +1805,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
           const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5); // 2.15 meters per cubuk
           
+          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', 'MT', '2', 'Bileşen',
+            chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
             'E', 'E', '', '', '', '', '', '', ''
@@ -1798,16 +1817,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
           const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5);
           
+          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', 'MT', '2', 'Bileşen',
+            chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
         
+        // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', 'DK', '2', 'Operasyon', 'OTOCH',
+          chStokKodu, '1', '0', '', '', '2', 'Operasyon', 'OTOCH',
           'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
@@ -1833,15 +1854,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const flmQuality = getFilmasinKodu(boyCap).quality;
           const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 500 * 7.85 / 1000).toFixed(5); // kg
           
+          // Olcu Birimi: Originally was 'AD' for NCBK alternatif recipe, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+            ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
+          // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 500, boyCap: boyCap, enCap: boyCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1859,8 +1882,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const flmQuality = getFilmasinKodu(enCap).quality;
           const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 215 * 7.85 / 1000).toFixed(5); // kg
           
+          // Olcu Birimi: Originally was 'AD' for NCBK alternatif recipe, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+            ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -1885,15 +1909,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const flmQuality = getFilmasinKodu(boyCap).quality;
           const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
           
+          // Olcu Birimi: Originally was 'MT' for NTEL alternatif recipe, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+            ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
+          // Olcu Birimi: Originally was 'DK' for NTEL alternatif recipe operations, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
             '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -1910,8 +1936,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const flmQuality = getFilmasinKodu(enCap).quality;
           const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
           
+          // Olcu Birimi: Originally was 'MT' for NTEL alternatif recipe, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+            ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             `FLM.${String(Math.round(flmDiameter * 100)).padStart(4, '0')}.${flmQuality}`,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -2308,6 +2335,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
         // CH kaydı
+        const kgValue = parseFloat(product.adetKg || product.totalKg || 0);
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH', i),
           stok_adi: generateStokAdi(product, 'CH'),
@@ -2316,21 +2344,59 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           kod_2: (product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                   (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25')) ? 'STD' : 'OZL',
           ingilizce_isim: generateIngilizceIsim(product, 'CH'),
+          // Standard columns from SQL
+          alis_kdv_orani: 20,
+          satis_kdv_orani: 20,
+          muh_detay: 31,
+          depo_kodu: 36,
+          br_1: 'KG',
+          br_2: 'AD',
+          pay_1: 1,
+          payda_1: parseFloat(kgValue.toFixed(5)),
+          cevrim_degeri_1: 0,
+          olcu_br_3: null,
+          cevrim_pay_2: 1,
+          cevrim_payda_2: 1,
+          cevrim_degeri_2: 1,
+          // Product specific columns
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(product.boyCap),
-          cap2: parseFloat(product.enCap),
-          ebat_boy: parseFloat(product.uzunlukBoy),
-          ebat_en: parseFloat(product.uzunlukEn),
+          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)),
+          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)),
+          ebat_boy: parseFloat(product.uzunlukBoy || 0),
+          ebat_en: parseFloat(product.uzunlukEn || 0),
           goz_araligi: formatGozAraligi(product),
-          kg: parseFloat(product.adetKg || 0),
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy),
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn),
+          kg: parseFloat(kgValue.toFixed(5)),
+          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0),
+          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0),
           hasir_sayisi: parseInt(product.hasirSayisi || 1),
-          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy),
-          cubuk_sayisi_en: parseInt(product.cubukSayisiEn),
-          adet_kg: parseFloat(product.adetKg || 0),
-          toplam_kg: parseFloat(product.toplamKg || 0),
+          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0),
+          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0),
+          adet_kg: parseFloat(kgValue.toFixed(5)),
+          toplam_kg: parseFloat(kgValue.toFixed(5)),
           hasir_turu: product.hasirTuru || '',
+          // Default values from SQL
+          ozel_saha_2_say: 0,
+          ozel_saha_3_say: 0,
+          ozel_saha_4_say: 0,
+          alis_fiyati: 0,
+          fiyat_birimi: 1,
+          satis_fiyati_1: 0,
+          satis_fiyati_2: 0,
+          satis_fiyati_3: 0,
+          satis_fiyati_4: 0,
+          doviz_tip: 0,
+          doviz_alis: 0,
+          doviz_maliyeti: 0,
+          doviz_satis_fiyati: 0,
+          azami_stok: 0,
+          asgari_stok: 0,
+          bekleme_suresi: 0,
+          temin_suresi: 0,
+          birim_agirlik: 0,
+          nakliye_tutar: 0,
+          stok_turu: 'D',
+          esnek_yapilandir: 'H',
+          super_recete_kullanilsin: 'H',
           user_id: user.id
         };
 
@@ -2359,14 +2425,62 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ncbkLengths = [500, 215];
           for (const length of ncbkLengths) {
             const cap = length === 500 ? product.boyCap : product.enCap;
+            const ncbkWeight = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000);
             const ncbkData = {
               stok_kodu: `YM.NCBK.${String(Math.round(parseFloat(cap) * 100)).padStart(4, '0')}.${length}`,
-              stok_adi: `YM Nervürlü Çubuk ${cap} mm ${length} cm`,
+              stok_adi: `YM Nervürlü Çubuk ${formatDecimalForDisplay(cap, true)} mm ${length} cm`,
               grup_kodu: 'YM',
               kod_1: 'NCBK',
-              cap: parseFloat(cap),
+              kod_2: '',
+              ingilizce_isim: `Ribbed Rod ${formatDecimalForDisplay(cap, false)} mm ${length} cm`,
+              // Standard columns
+              alis_kdv_orani: 20,
+              satis_kdv_orani: 20,
+              muh_detay: 35,
+              depo_kodu: 36,
+              br_1: 'AD',
+              br_2: 'KG',
+              pay_1: 1,
+              payda_1: parseFloat(ncbkWeight.toFixed(5)),
+              cevrim_degeri_1: 0,
+              olcu_br_3: null,
+              cevrim_pay_2: 1,
+              cevrim_payda_2: 1,
+              cevrim_degeri_2: 1,
+              // Product specific
+              cap: parseFloat(parseFloat(cap || 0).toFixed(1)),
+              cap2: parseFloat(parseFloat(cap || 0).toFixed(1)),
               ebat_boy: length,
+              ebat_en: 0,
+              goz_araligi: '',
+              kg: parseFloat(ncbkWeight.toFixed(5)),
               length_cm: length,
+              // Defaults
+              hasir_tipi: '',
+              ic_cap_boy_cubuk_ad: 0,
+              dis_cap_en_cubuk_ad: 0,
+              ozel_saha_2_say: 0,
+              ozel_saha_3_say: 0,
+              ozel_saha_4_say: 0,
+              alis_fiyati: 0,
+              fiyat_birimi: 1,
+              satis_fiyati_1: 0,
+              satis_fiyati_2: 0,
+              satis_fiyati_3: 0,
+              satis_fiyati_4: 0,
+              doviz_tip: 0,
+              doviz_alis: 0,
+              doviz_maliyeti: 0,
+              doviz_satis_fiyati: 0,
+              azami_stok: 0,
+              asgari_stok: 0,
+              bekleme_suresi: 0,
+              temin_suresi: 0,
+              birim_agirlik: 0,
+              nakliye_tutar: 0,
+              stok_turu: 'D',
+              esnek_yapilandir: 'H',
+              super_recete_kullanilsin: 'H',
               user_id: user.id
             };
 
@@ -2390,13 +2504,62 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
 
           // NTEL kaydı
+          const ntelCap = parseFloat(product.boyCap || 0);
+          const ntelWeight = (Math.PI * (ntelCap/20) * (ntelCap/20) * 100 * 7.85 / 1000); // per meter
           const ntelData = {
-            stok_kodu: `YM.NTEL.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}`,
-            stok_adi: `YM Nervürlü Tel ${product.boyCap} mm`,
+            stok_kodu: `YM.NTEL.${String(Math.round(ntelCap * 100)).padStart(4, '0')}`,
+            stok_adi: `YM Nervürlü Tel ${formatDecimalForDisplay(ntelCap, true)} mm`,
             grup_kodu: 'YM',
             kod_1: 'NTEL',
+            kod_2: '',
+            ingilizce_isim: `Ribbed Wire ${formatDecimalForDisplay(ntelCap, false)} mm`,
+            // Standard columns
+            alis_kdv_orani: 20,
+            satis_kdv_orani: 20,
+            muh_detay: 35,
+            depo_kodu: 36,
             br_1: 'MT',
-            cap: parseFloat(product.boyCap),
+            br_2: 'KG',
+            pay_1: 1,
+            payda_1: parseFloat(ntelWeight.toFixed(5)),
+            cevrim_degeri_1: 0,
+            olcu_br_3: null,
+            cevrim_pay_2: 1,
+            cevrim_payda_2: 1,
+            cevrim_degeri_2: 1,
+            // Product specific
+            cap: parseFloat(ntelCap.toFixed(1)),
+            cap2: parseFloat(ntelCap.toFixed(1)),
+            ebat_boy: 0,
+            ebat_en: 0,
+            goz_araligi: '',
+            kg: parseFloat(ntelWeight.toFixed(5)),
+            // Defaults
+            hasir_tipi: '',
+            ic_cap_boy_cubuk_ad: 0,
+            dis_cap_en_cubuk_ad: 0,
+            ozel_saha_2_say: 0,
+            ozel_saha_3_say: 0,
+            ozel_saha_4_say: 0,
+            alis_fiyati: 0,
+            fiyat_birimi: 1,
+            satis_fiyati_1: 0,
+            satis_fiyati_2: 0,
+            satis_fiyati_3: 0,
+            satis_fiyati_4: 0,
+            doviz_tip: 0,
+            doviz_alis: 0,
+            doviz_maliyeti: 0,
+            doviz_satis_fiyati: 0,
+            azami_stok: 0,
+            asgari_stok: 0,
+            bekleme_suresi: 0,
+            temin_suresi: 0,
+            birim_agirlik: 0,
+            nakliye_tutar: 0,
+            stok_turu: 'D',
+            esnek_yapilandir: 'H',
+            super_recete_kullanilsin: 'H',
             user_id: user.id
           };
 
@@ -2738,9 +2901,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               setShowPreSaveConfirmModal(true);
             }
           }}
-          disabled={isLoading || isGeneratingExcel}
-          className="bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
+          disabled={isLoading || isGeneratingExcel || isSavingToDatabase}
+          className="bg-teal-600 hover:bg-teal-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
         >
+          {(isLoading || isSavingToDatabase) && <Loader className="w-4 h-4 animate-spin" />}
           Kaydet ve Excel Oluştur
         </button>
         
@@ -2758,9 +2922,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             setShowExcelOptionsModal(true);
           }}
-          disabled={isLoading || isGeneratingExcel || validProducts.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
+          disabled={isLoading || isGeneratingExcel || isSavingToDatabase || validProducts.length === 0}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
         >
+          {isGeneratingExcel && <Loader className="w-4 h-4 animate-spin" />}
           Sadece Excel Oluştur
         </button>
         
@@ -3263,8 +3428,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <span className="text-sm text-gray-600">
                     {isLoadingDb ? (
                       <span className="flex items-center gap-2">
-                        <RefreshCw className="w-4 h-4 animate-spin text-red-600" />
-                        {backendError?.type === 'retrying' ? backendError.message : 'Veriler yükleniyor, lütfen bekleyin...'}
+                        <div className="w-4 h-1 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-1 bg-blue-600 transition-all duration-300"
+                            style={{ width: `${(dbLoadingProgress.current / dbLoadingProgress.total) * 100}%` }}
+                          ></div>
+                        </div>
+                        {backendError?.type === 'retrying' ? backendError.message : (dbLoadingProgress.operation || 'Veriler yükleniyor...')}
                       </span>
                     ) : backendError ? (
                       <span className="flex items-center gap-2 text-red-600">
@@ -3421,10 +3591,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 {/* Loading indicator for initial load */}
                 {isLoadingDb && savedProducts[activeDbTab].length === 0 && !backendError && (
                   <div className="text-center py-12">
-                    <div className="flex flex-col items-center gap-3 text-gray-500">
-                      <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
-                      <p className="text-sm font-medium">Veriler yükleniyor, lütfen bekleyin...</p>
-                      <p className="text-xs text-gray-400">Tüm ürünler getiriliyor</p>
+                    <div className="flex flex-col items-center gap-4 text-gray-500 max-w-md mx-auto">
+                      <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
+                        <div 
+                          className="bg-blue-600 h-3 rounded-full transition-all duration-300 relative"
+                          style={{ width: `${(dbLoadingProgress.current / dbLoadingProgress.total) * 100}%` }}
+                        >
+                          <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">{dbLoadingProgress.operation || 'Veriler yükleniyor...'}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {dbLoadingProgress.current} / {dbLoadingProgress.total} adım tamamlandı
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
