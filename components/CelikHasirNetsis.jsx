@@ -3790,27 +3790,95 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                               </div>
                             </td>
                             <td className="p-2 border-r border-gray-200">
-                              <div className="font-mono text-xs text-blue-600">
+                              <div className="font-mono text-xs">
                                 {(() => {
-                                  const ncbk500 = product.existingStokAdiVariants?.ncbk500 || [];
-                                  const ncbk215 = product.existingStokAdiVariants?.ncbk215 || [];
-                                  const allNCBK = [...ncbk500, ...ncbk215];
+                                  // Generate specific NCBK products needed for this CH product
+                                  const boyCap = parseFloat(product.boyCap || 0);
+                                  const enCap = parseFloat(product.enCap || 0);
+                                  const neededNCBK = [];
                                   
-                                  return allNCBK.length > 0 
-                                    ? allNCBK.map((kod, i) => (
-                                        <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
-                                      ))
-                                    : <span className="text-gray-400 italic">Kayıtsız</span>;
+                                  // Boy direction NCBK (500cm)
+                                  if (boyCap > 0) {
+                                    const boyNCBKStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.500`;
+                                    const boyNCBKStokAdi = `YM Nervürlü Çubuk ${boyCap} mm 500 cm`;
+                                    const boyExists = savedProducts.ncbk?.some(p => p.stok_kodu === boyNCBKStokKodu || p.stok_adi === boyNCBKStokAdi);
+                                    
+                                    neededNCBK.push({
+                                      stokKodu: boyNCBKStokKodu,
+                                      exists: boyExists,
+                                      label: `${boyCap}mm-500cm`
+                                    });
+                                  }
+                                  
+                                  // En direction NCBK (215cm) 
+                                  if (enCap > 0) {
+                                    const enNCBKStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.215`;
+                                    const enNCBKStokAdi = `YM Nervürlü Çubuk ${enCap} mm 215 cm`;
+                                    const enExists = savedProducts.ncbk?.some(p => p.stok_kodu === enNCBKStokKodu || p.stok_adi === enNCBKStokAdi);
+                                    
+                                    neededNCBK.push({
+                                      stokKodu: enNCBKStokKodu,
+                                      exists: enExists,
+                                      label: `${enCap}mm-215cm`
+                                    });
+                                  }
+                                  
+                                  return neededNCBK.map((ncbk, i) => (
+                                    <div key={i} className={`px-1 py-0.5 rounded mb-1 last:mb-0 ${
+                                      ncbk.exists ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                    }`}>
+                                      <div className="font-semibold">{ncbk.label}</div>
+                                      <div className="text-xs opacity-75">{ncbk.exists ? '✓ Kayıtlı' : '✗ Kayıtsız'}</div>
+                                    </div>
+                                  ));
                                 })()}
                               </div>
                             </td>
                             <td className="p-2">
-                              <div className="font-mono text-xs text-blue-600">
-                                {product.existingStokAdiVariants?.ntel?.length > 0 
-                                  ? product.existingStokAdiVariants.ntel.map((kod, i) => (
-                                      <div key={i} className="bg-blue-50 px-1 py-0.5 rounded mb-1 last:mb-0">{kod}</div>
-                                    ))
-                                  : <span className="text-gray-400 italic">Kayıtsız</span>}
+                              <div className="font-mono text-xs">
+                                {(() => {
+                                  // Generate specific NTEL products needed for this CH product
+                                  const boyCap = parseFloat(product.boyCap || 0);
+                                  const enCap = parseFloat(product.enCap || 0);
+                                  const neededNTEL = [];
+                                  
+                                  // Boy direction NTEL
+                                  if (boyCap > 0) {
+                                    const boyNTELStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+                                    const boyNTELStokAdi = `YM Nervürlü Tel ${boyCap} mm`;
+                                    const boyExists = savedProducts.ntel?.some(p => p.stok_kodu === boyNTELStokKodu || p.stok_adi === boyNTELStokAdi);
+                                    
+                                    neededNTEL.push({
+                                      stokKodu: boyNTELStokKodu,
+                                      exists: boyExists,
+                                      label: `${boyCap}mm Tel`,
+                                      diameter: boyCap
+                                    });
+                                  }
+                                  
+                                  // En direction NTEL (if different from boy)
+                                  if (enCap > 0 && enCap !== boyCap) {
+                                    const enNTELStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+                                    const enNTELStokAdi = `YM Nervürlü Tel ${enCap} mm`;
+                                    const enExists = savedProducts.ntel?.some(p => p.stok_kodu === enNTELStokKodu || p.stok_adi === enNTELStokAdi);
+                                    
+                                    neededNTEL.push({
+                                      stokKodu: enNTELStokKodu,
+                                      exists: enExists,
+                                      label: `${enCap}mm Tel`,
+                                      diameter: enCap
+                                    });
+                                  }
+                                  
+                                  return neededNTEL.map((ntel, i) => (
+                                    <div key={i} className={`px-1 py-0.5 rounded mb-1 last:mb-0 ${
+                                      ntel.exists ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                    }`}>
+                                      <div className="font-semibold">{ntel.label}</div>
+                                      <div className="text-xs opacity-75">{ntel.exists ? '✓ Kayıtlı' : '✗ Kayıtsız'}</div>
+                                    </div>
+                                  ));
+                                })()}
                               </div>
                             </td>
                           </tr>
