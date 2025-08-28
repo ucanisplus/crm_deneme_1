@@ -2829,10 +2829,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             });
             
             if (ncbkResponse.status === 409) {
-              // Bu OLMAMALI - duplicate checking başarısız olmuş
-              console.error(`BEKLENMEYEN DUPLICATE: NCBK ürün zaten var: ${ncbkData.stok_kodu}`);
-              toast.error(`Duplicate hatası: ${ncbkData.stok_kodu}`);
-              continue; // Bu NCBK'yi atla
+              // NCBK already exists - this is normal, just use existing
+              console.log(`ℹ️ NCBK already exists, using existing: ${ncbkData.stok_kodu}`);
+              // Store a placeholder result to continue the process
+              const specKey = `${spec.type}-${cap}-${length}`;
+              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing' };
+              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing' };
+              continue; // Continue to next NCBK
             } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
@@ -2912,10 +2915,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           });
           
           if (ntelResponse.status === 409) {
-            // Bu OLMAMALI - duplicate checking başarısız olmuş
-            console.error(`BEKLENMEYEN DUPLICATE: NTEL ürün zaten var: ${ntelData.stok_kodu}`);
-            toast.error(`Duplicate hatası: ${ntelData.stok_kodu}`);
-            // NTEL kaydı atlandı ama devam et
+            // NTEL already exists - this is normal, just use existing
+            console.log(`ℹ️ NTEL already exists, using existing: ${ntelData.stok_kodu}`);
+            ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing' };
+            // Continue with existing NTEL
           } else if (!ntelResponse.ok) {
             throw new Error(`NTEL kaydı başarısız: ${ntelResponse.status}`);
           } else {
