@@ -288,20 +288,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       );
     }
     
-    // Apply hasır tipi filter
+    // Apply hasır tipi filter - primarily check stok_adi where Q/R/TR codes are stored
     if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
-      if (dbFilterHasirTipi === 'Q types') {
+      if (dbFilterHasirTipi === 'Q Tipleri') {
         filteredProducts = filteredProducts.filter(product => 
-          (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('q')
+          (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('q')
         );
-      } else if (dbFilterHasirTipi === 'R types') {
+      } else if (dbFilterHasirTipi === 'R Tipleri') {
         filteredProducts = filteredProducts.filter(product => {
-          const hasirTipi = (product.hasir_tipi || product.stok_kodu || '').toLowerCase();
-          return hasirTipi.includes('r') && !hasirTipi.includes('tr');
+          const searchText = (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase();
+          return searchText.includes('r') && !searchText.includes('tr');
         });
-      } else if (dbFilterHasirTipi === 'TR types') {
+      } else if (dbFilterHasirTipi === 'TR Tipleri') {
         filteredProducts = filteredProducts.filter(product => 
-          (product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('tr')
+          (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('tr')
         );
       }
     }
@@ -999,7 +999,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               .trim();
           };
           
-          const hasirTipiMatch = enhancedNormalizeHasirTipi(p.hasir_tipi) === enhancedNormalizeHasirTipi(product.hasirTipi);
+          // Check both hasir_tipi field and stok_adi (where Q/R/TR codes are stored)
+          const hasirTipiFromField = enhancedNormalizeHasirTipi(p.hasir_tipi);
+          const hasirTipiFromStokAdi = enhancedNormalizeHasirTipi(p.stok_adi);
+          const productHasirTipi = enhancedNormalizeHasirTipi(product.hasirTipi);
+          
+          const hasirTipiMatch = hasirTipiFromField === productHasirTipi || 
+                                hasirTipiFromStokAdi.includes(productHasirTipi) || 
+                                productHasirTipi.includes(hasirTipiFromStokAdi);
           
           // Enhanced göz aralığı normalization based on ACTUAL database patterns
           const enhancedNormalizeGozAraligi = (goz) => {
@@ -3522,9 +3529,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="All">Hasır Tipi</option>
-                    <option value="Q types">Q types</option>
-                    <option value="R types">R types</option>
-                    <option value="TR types">TR types</option>
+                    <option value="Q Tipleri">Q Tipleri</option>
+                    <option value="R Tipleri">R Tipleri</option>
+                    <option value="TR Tipleri">TR Tipleri</option>
                   </select>
                   <select
                     value={dbFilterHasirTuru}
