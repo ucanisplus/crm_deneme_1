@@ -893,8 +893,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
       
       // Format decimal values properly - use comma for Turkish format
+      console.log('generateStokAdi - product values:', { boyCap: product.boyCap, enCap: product.enCap });
       const formattedBoyCap = formatDecimalForDisplay(product.boyCap, true);
       const formattedEnCap = formatDecimalForDisplay(product.enCap, true);
+      console.log('generateStokAdi - formatted values:', { formattedBoyCap, formattedEnCap });
       const formattedBoy = parseInt(product.uzunlukBoy || 0);
       const formattedEn = parseInt(product.uzunlukEn || 0);
       
@@ -2653,18 +2655,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // CH kaydı
         const kgValue = parseFloat(product.adetKg || product.totalKg || 0);
         
-        console.log('*** DEBUG: Product data before CH save ***', {
-          hasirTipi: product.hasirTipi,
-          boyCap: product.boyCap,
-          enCap: product.enCap,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn,
-          adetKg: product.adetKg,
-          totalKg: product.totalKg,
-          kgValue: kgValue,
-          cubukSayisiBoy: product.cubukSayisiBoy,
-          cubukSayisiEn: product.cubukSayisiEn
-        });
         
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH', i),
@@ -2703,7 +2693,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0),
           adet_kg: parseFloat(kgValue.toFixed(5)),
           toplam_kg: parseFloat(kgValue.toFixed(5)),
-          hasir_turu: product.hasirTuru || '',
+          hasir_turu: 'MM',
           // Default values from SQL
           ozel_saha_2_say: 0,
           ozel_saha_3_say: 0,
@@ -2733,8 +2723,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let chResult, ncbkResults = {}, ntelResult, chResponse;
         
         try {
-          console.log('*** DEBUG: Final chData being sent to API ***', chData);
-          console.log('*** DEBUG: JSON stringified chData ***', JSON.stringify(chData, null, 2));
           
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
           chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
