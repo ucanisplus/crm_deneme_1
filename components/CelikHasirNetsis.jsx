@@ -963,16 +963,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
-          // Enhanced decimal normalization (handles comma vs dot, different precisions, trailing zeros)
+          // Enhanced decimal normalization based on ACTUAL database patterns
           const normalizeDecimal = (value) => {
             if (!value && value !== 0) return 0;
-            let str = String(value).replace(',', '.');
+            
+            // Handle all decimal format variations found in database
+            let str = String(value)
+              .replace(',', '.')           // "6,5" → "6.5" 
+              .replace(/\s+/g, '')         // "6 .5" → "6.5"
+              .trim();
+              
             const num = parseFloat(str);
             if (isNaN(num)) return 0;
             
-            // Normalize to remove trailing zeros and standardize format
-            // E.g., 7.0000 -> 7, 7,5 -> 7.5, 5.00 -> 5
-            return parseFloat(num.toFixed(5)); // Keep max 5 decimals then remove trailing zeros
+            // Round to 1 decimal place for consistency with database format
+            // Database stores: 6.5, 7.0, 8.5, 7.8 (1 decimal precision)
+            return Math.round(num * 10) / 10;
           };
           
           // Tighter tolerance for diameter matching to handle precision differences
@@ -983,22 +989,60 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const enhancedNormalizeHasirTipi = (hasirTipi) => {
             if (!hasirTipi) return '';
             let normalized = normalizeHasirTipi(hasirTipi);
-            // Remove trailing /XXX patterns (Q257/257 → Q257)
-            normalized = normalized.replace(/\/\d+$/, '').toUpperCase().trim();
+            // Remove trailing /XXX patterns (Q257/257 → Q257, Q221/221 → Q221)
+            normalized = normalized.replace(/\/\d+$/, '')
+                                 .replace(/\s+/g, '') // Remove all spaces
+                                 .toUpperCase()
+                                 .trim();
             return normalized;
           };
           
           const hasirTipiMatch = enhancedNormalizeHasirTipi(p.hasir_tipi) === enhancedNormalizeHasirTipi(product.hasirTipi);
           
-          // Enhanced göz aralığı normalization (handles all format variations)
+          // Enhanced göz aralığı normalization based on ACTUAL database patterns
           const enhancedNormalizeGozAraligi = (goz) => {
             if (!goz) return '';
-            return String(goz)
-              .replace(/\s*cm\s*/gi, '')     // Remove cm/CM
-              .replace(/\s*x\s*/gi, '*')     // Replace x/X with *  
-              .replace(/\s+/g, '')           // Remove all spaces
+            
+            let normalized = String(goz)
+              .replace(/\s*cm\s*/gi, '')      // Remove "cm"/"CM" 
+              .replace(/\s*ara\s*/gi, '')     // Remove "ara" from "Göz Ara"
+              .replace(/\s*göz\s*/gi, '')     // Remove "göz"
+              .replace(/[()]/g, '')           // Remove parentheses
+              .replace(/\s*x\s*/gi, '*')      // "15x15" → "15*15"
+              .replace(/\s*X\s*/gi, '*')      // "15X15" → "15*15" 
+              .replace(/\s*×\s*/gi, '*')      // "15×15" → "15*15"
+              .replace(/\s+\*\s*/g, '*')      // "15 * 15" → "15*15"
+              .replace(/\*\s+/g, '*')         // "15* 15" → "15*15"
+              .replace(/,/g, '.')             // "15,15" → "15.15" (then will become 15*15 by duplication logic)
+              .replace(/\./g, '*')            // "15.15" → "15*15" 
+              .replace(/\s{2,}/g, ' ')        // Multiple spaces → single space
+              .replace(/\s+/g, '')            // Remove remaining spaces "15 15" → "1515"  
               .toLowerCase()
               .trim();
+              
+            // Handle single values that need duplication: "15" → "15*15", "1515" → "15*15"
+            if (normalized && !normalized.includes('*')) {
+              // Check if it's a double number like "1515" → "15*15"
+              if (normalized.length === 4 && /^\d{4}$/.test(normalized)) {
+                const first = normalized.substring(0, 2);
+                const second = normalized.substring(2, 4);
+                if (first === second) {
+                  return `${first}*${second}`;
+                }
+              }
+              // Check if it's a double number like "3015" → "30*15" 
+              if (normalized.length === 4 && /^\d{4}$/.test(normalized)) {
+                const first = normalized.substring(0, 2);
+                const second = normalized.substring(2, 4);
+                return `${first}*${second}`;
+              }
+              // Single value: "15" → "15*15"
+              if (/^\d{1,2}$/.test(normalized)) {
+                return `${normalized}*${normalized}`;
+              }
+            }
+            
+            return normalized;
           };
           
           const gozMatch = enhancedNormalizeGozAraligi(p.goz_araligi) === enhancedNormalizeGozAraligi(formatGozAraligi(product));
@@ -1007,18 +1051,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const calculateSimilarity = (str1, str2) => {
             if (!str1 || !str2) return 0;
             
-            // Advanced normalization for typo detection
+            // Advanced normalization based on ACTUAL database patterns
             const normalize = (s) => s.toLowerCase()
               .replace(/\s+/g, ' ')                    // Multiple spaces → single space
               .replace(/[()]/g, '')                    // Remove parentheses
-              .replace(/[*x×]/gi, '')                  // Remove separators from göz aralığı  
+              .replace(/[*x×]/gi, '*')                 // Normalize separators: x/× → *
+              .replace(/-e$/gi, '')                    // Remove "-E" suffix (found in CHOZL0028)
               .replace(/mm|cm/gi, '')                  // Remove units
-              .replace(/[,]/g, '.')                    // Comma → dot decimals
-              .replace(/(\d+)\.0+(?=\s|$)/g, '$1')     // Remove trailing zeros: 7.0000 → 7, 5.00 → 5
-              .replace(/(\d+\.\d*?)0+(?=\s|$)/g, '$1') // Remove trailing zeros after decimals: 7.50 → 7.5
-              .replace(/çaa+p/gi, 'çap')              // Fix typos: çaap/çaaap → çap
+              .replace(/[,]/g, '.')                    // "6,5" → "6.5" (found in CSV data)
+              .replace(/(\d+)\.0+(?=\s|$)/g, '$1')     // Remove trailing zeros: "7.0" → "7"
+              .replace(/(\d+\.\d*?)0+(?=\s|$)/g, '$1') // Remove trailing zeros: "7.50" → "7.5"
+              .replace(/çaa+p/gi, 'çap')              // Fix typos: çaap → çap
               .replace(/ebaa+t/gi, 'ebat')            // Fix typos: ebaaat → ebat  
               .replace(/göz\s*ara+/gi, 'göz ara')     // Fix typos: göz araaa → göz ara
+              .replace(/ara\s*\(/gi, 'ara(')           // "göz ara (" → "göz ara("
+              .replace(/\s*\/\s*\d+/g, '')             // Remove "/XXX" patterns: "Q221/221" → "Q221"
+              .replace(/\s*tr\s*/gi, 'tr')             // Normalize TR prefix
+              .replace(/\s*q\s*/gi, 'q')               // Normalize Q prefix  
+              .replace(/\s*r\s*/gi, 'r')               // Normalize R prefix
               .replace(/(\d)(\D)(\d)/g, '$1 $2 $3')   // Add spaces around non-digits
               .trim();
             
@@ -1526,8 +1576,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
-      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', '', // 'Ölçü Br.' - leaving empty
-      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', '', // 'Ölçü Br. - Bileşen' - leaving empty
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.', 
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
       'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
@@ -1629,7 +1679,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }),
+              '', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -1678,7 +1728,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1715,7 +1765,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukEn, boyCap: enCap, enCap: enCap }),
+              '', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukEn, boyCap: enCap, enCap: enCap }).toFixed(5),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -1764,7 +1814,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           }
@@ -1783,8 +1833,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
-      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', '', // 'Ölçü Br.' - leaving empty
-      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', '', // 'Ölçü Br. - Bileşen' - leaving empty
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.', 
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
       'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
       'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
       'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
@@ -1867,7 +1917,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '2', 'Operasyon', 'OTOCH',
-          'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product),
+          'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product).toFixed(5),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
@@ -1905,7 +1955,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1934,7 +1984,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1963,7 +2013,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NTEL alternatif recipe operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1990,7 +2040,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }),
+            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2016,7 +2066,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'AD',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: ncbkResults[parseInt(product.uzunlukBoy || 0)]?.stok_kodu || '',
+          bilesen_kodu: (ncbkResults[`${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`] || ncbkResults[parseInt(product.uzunlukBoy || 0)])?.stok_kodu || '',
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiBoy || 0,
           aciklama: 'BOY ÇUBUĞU',
@@ -2028,7 +2078,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'AD',
           sira_no: 2,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: ncbkResults[parseInt(product.uzunlukEn || 0)]?.stok_kodu || '',
+          bilesen_kodu: (ncbkResults[`${product.enCap}-${parseInt(product.uzunlukEn || 0)}`] || ncbkResults[parseInt(product.uzunlukEn || 0)])?.stok_kodu || '',
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiEn || 0,
           aciklama: 'EN ÇUBUĞU',
@@ -2071,7 +2121,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)).code,
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (parseFloat(ncbkResult.cap)/20) * (parseFloat(ncbkResult.cap)/20) * parseFloat(length) * 7.85 / 1000).toFixed(5)),
-            aciklama: `FLM tüketimi - ${length}cm çubuk için`,
+            aciklama: 'Filmaşin Tüketim Miktarı',
           },
           // Operasyon - Yarı Otomatik İşlem
           {
@@ -2084,7 +2134,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             bilesen_kodu: 'NDK01',
             olcu_br_bilesen: 'DK',
             miktar: 1,
-            aciklama: 'Yarı Otomatik Operasyon',
+            aciklama: 'Nervürlü Çubuk Kesme Operasyonu',
             uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: length })
           }
         ];
@@ -2466,10 +2516,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
+          // Database should create ALL NCBKs including duplicates for recipe accuracy
           const ncbkSpecs = [
-            { cap: product.boyCap, length: parseInt(product.uzunlukBoy || 0) },
-            { cap: product.enCap, length: parseInt(product.uzunlukEn || 0) }
+            { cap: product.boyCap, length: parseInt(product.uzunlukBoy || 0), type: 'boy' },
+            { cap: product.enCap, length: parseInt(product.uzunlukEn || 0), type: 'en' }
           ];
+          
           for (const spec of ncbkSpecs) {
             const cap = spec.cap;
             const length = spec.length;
@@ -2547,6 +2599,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
               const ncbkResult = await ncbkResponse.json();
+              // Store with spec type to handle boy/en separately even if same dimensions
+              const specKey = `${spec.type}-${cap}-${length}`;
+              ncbkResults[specKey] = ncbkResult;
+              // Also store with just length for recipe lookup compatibility
               ncbkResults[length] = ncbkResult;
             }
           }
@@ -2930,21 +2986,26 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         <span className="text-sm font-medium text-gray-700">Netsis:</span>
         <button
           onClick={async () => {
-            // Refresh saved products state to ensure accurate counts
-            await fetchSavedProducts();
-            
-            // Show analysis count
-            const newProductsCount = getProductsToSave().length;
-            const existingProductsCount = validProducts.length - newProductsCount;
-            toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilecek`);
-            
-            if (validProducts.length === 0) {
-              setShowDatabaseModal(true);
-            } else {
-              // Analyze products and show pre-save confirmation - skip optimization check
-              const analysisData = await analyzeProductsForConfirmation();
-              setPreSaveConfirmData(analysisData);
-              setShowPreSaveConfirmModal(true);
+            setIsLoading(true); // Show immediate feedback
+            try {
+              // Refresh saved products state to ensure accurate counts
+              await fetchSavedProducts();
+              
+              // Show analysis count
+              const newProductsCount = getProductsToSave().length;
+              const existingProductsCount = validProducts.length - newProductsCount;
+              toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilecek`);
+              
+              if (validProducts.length === 0) {
+                setShowDatabaseModal(true);
+              } else {
+                // Analyze products and show pre-save confirmation - skip optimization check
+                const analysisData = await analyzeProductsForConfirmation();
+                setPreSaveConfirmData(analysisData);
+                setShowPreSaveConfirmModal(true);
+              }
+            } finally {
+              setIsLoading(false); // Hide loading when modal appears
             }
           }}
           disabled={isLoading || isGeneratingExcel || isSavingToDatabase}
@@ -2961,17 +3022,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               return;
             }
             
-            // Show analysis count for Excel operations
-            const newProductsCount = getProductsToSave().length;
-            const existingProductsCount = validProducts.length - newProductsCount;
-            toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilmemiş`);
-            
-            setShowExcelOptionsModal(true);
+            setIsLoading(true); // Show immediate feedback
+            try {
+              // Show analysis count for Excel operations
+              const newProductsCount = getProductsToSave().length;
+              const existingProductsCount = validProducts.length - newProductsCount;
+              toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilmemiş`);
+              
+              setShowExcelOptionsModal(true);
+            } finally {
+              setIsLoading(false); // Hide loading when modal appears
+            }
           }}
           disabled={isLoading || isGeneratingExcel || isSavingToDatabase || validProducts.length === 0}
           className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
         >
-          {isGeneratingExcel && <Loader className="w-4 h-4 animate-spin" />}
+          {(isLoading || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
           Sadece Excel Oluştur
         </button>
         
