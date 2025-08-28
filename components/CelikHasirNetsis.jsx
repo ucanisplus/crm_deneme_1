@@ -777,7 +777,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Stok kodu oluştur - Enhanced with database-aware incrementality  
   function generateStokKodu(product, productType, batchIndex = 0) {
-    return checkForExistingProducts(product, productType, batchIndex);
+    if (productType === 'CH') {
+      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                         (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
+      const diameter = parseFloat(product.boyCap || product.enCap || 0);
+      const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
+      
+      if (isStandard) {
+        // For standard products: CH.STD.0450.XX
+        const baseCode = `CH.STD.${diameterCode}`;
+        const existingProducts = savedProducts.mm.filter(p => 
+          p.stok_kodu && p.stok_kodu.startsWith(baseCode)
+        );
+        
+        let maxSequence = -1;
+        existingProducts.forEach(p => {
+          const parts = p.stok_kodu.split('.');
+          if (parts.length >= 4) {
+            const sequenceNum = parseInt(parts[3]);
+            if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
+              maxSequence = sequenceNum;
+            }
+          }
+        });
+        
+        const nextSequence = maxSequence + 1;
+        return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
+      } else {
+        // For özel products: use the new generation function
+        return generateNewStokKodu(product, productType, batchIndex);
+      }
+    }
+    return 'CH.STD.0700.00'; // Default fallback
   }
 
   // Format decimal for display - Turkish format with comma or point
@@ -2384,7 +2415,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const updateSequences = async (product) => {
     try {
       // CH sequence güncelle
-      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215';
+      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                         (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
       const kod2 = isStandard ? 'STD' : 'OZL';
       const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
       
