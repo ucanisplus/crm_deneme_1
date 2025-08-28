@@ -711,42 +711,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         } else {
           // For özel products: CHOZL0001, CHOZL0002, etc.
           
-          // Initialize counter only once per batch operation
-          if (!batchSequenceInitialized) {
-            const existingOzelProducts = savedProducts.mm.filter(p => 
-              p.stok_kodu && p.stok_kodu.startsWith('CHOZL')
-            );
-            
-            let maxSequence = 0;
-            existingOzelProducts.forEach(p => {
-              const match = p.stok_kodu.match(/^CHOZL(\d+)$/);
-              if (match) {
-                const sequenceNum = parseInt(match[1]);
-                if (!isNaN(sequenceNum) && sequenceNum > maxSequence) {
-                  maxSequence = sequenceNum;
-                }
-              }
-            });
-            
-            batchSequenceCounter = maxSequence;
-            batchSequenceInitialized = true;
-            
-            console.log('*** BATCH STOK KODU INITIALIZED ***');
-            console.log('Total savedProducts.mm:', savedProducts.mm.length);
-            console.log('Existing CHOZL products:', existingOzelProducts.length);
-            console.log('Max sequence in database:', maxSequence);
-            console.log('Batch counter initialized at:', batchSequenceCounter);
-          }
-          
-          // Increment counter for each new product and generate unique code
-          batchSequenceCounter++;
-          const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
-          
-          console.log('*** STOK KODU GENERATION ***');
-          console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
-          console.log('Sequence for this product:', batchSequenceCounter, 'Generated:', generatedCode);
-          
-          return generatedCode;
+          // This function should only CHECK for existing products, not generate new codes
+          // New products should use generateNewStokKodu function instead
+          console.warn('WARNING: checkForExistingProducts called for code generation - use generateNewStokKodu instead');
+          return 'CH.STD.0700.00'; // Default fallback
         }
       } else if (productType === 'NCBK') {
         const diameter = parseFloat(product.cap || 0);
@@ -763,6 +731,48 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
     
     return '';
+  }
+
+  // Generate new stok kodu for genuinely new products only
+  function generateNewStokKodu(product, productType, batchIndex = 0) {
+    if (productType === 'CH') {
+      // Initialize batch counter only once per batch operation
+      if (!batchSequenceInitialized) {
+        const existingOzelProducts = savedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.startsWith('CHOZL'));
+        let maxSequence = 2443; // Start from known max
+        
+        existingOzelProducts.forEach(p => {
+          const match = p.stok_kodu.match(/CHOZL(\d+)/);
+          if (match) {
+            const sequenceNum = parseInt(match[1]);
+            if (sequenceNum > maxSequence) {
+              maxSequence = sequenceNum;
+            }
+          }
+        });
+        
+        batchSequenceCounter = maxSequence;
+        batchSequenceInitialized = true;
+        
+        console.log('*** BATCH STOK KODU INITIALIZED FOR NEW PRODUCTS ***');
+        console.log('Total savedProducts.mm:', savedProducts.mm.length);
+        console.log('Existing CHOZL products:', existingOzelProducts.length);
+        console.log('Max sequence in database:', maxSequence);
+        console.log('Batch counter initialized at:', batchSequenceCounter);
+      }
+      
+      // Increment counter ONLY when creating new product
+      batchSequenceCounter++;
+      const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
+      
+      console.log('*** NEW STOK KODU GENERATION ***');
+      console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
+      console.log('Sequence for this NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
+      
+      return generatedCode;
+    }
+    
+    return 'CH.STD.0700.00'; // Default fallback
   }
 
   // Stok kodu oluştur - Enhanced with database-aware incrementality  
@@ -1408,7 +1418,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('DEBUG: Product not found, creating new:', productStokAdi);
         
         // Product is new - generate new stok_kodu with proper batch indexing
-        const newStokKodu = checkForExistingProducts(product, 'CH', modalBatchIndex);
+        const newStokKodu = generateNewStokKodu(product, 'CH', modalBatchIndex);
         newProducts.push({
           ...product,
           newStokKodu: newStokKodu,
