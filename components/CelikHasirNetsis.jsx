@@ -2734,6 +2734,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         try {
           console.log('*** DEBUG: Final chData being sent to API ***', chData);
+          console.log('*** DEBUG: JSON stringified chData ***', JSON.stringify(chData, null, 2));
           
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
           chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
