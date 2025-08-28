@@ -859,7 +859,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const newProducts = [];
     
     // Helper function to normalize Stok Adı for comparison
-    // This handles variations like "5x5" vs "5,0x5,0" vs "5.0x5.0"
+    // This handles variations like "5x5" vs "5,0x5,0" vs "5.0x5.0" and "15*25" vs "15x25"
     const normalizeStokAdiForComparison = (stokAdi) => {
       if (!stokAdi) return '';
       
@@ -867,7 +867,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Replace all decimal variations with a standard format
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
-        .replace(/\s+/g, ' ')                  // Normalize spaces
+        // Normalize göz aralığı separators
+        .replace(/(\d+)\*(\d+)/g, '$1x$2')   // Convert 15*25 to 15x25
+        .replace(/\s+/g, ' ')                 // Normalize spaces
         .toLowerCase()
         .trim();
     };
@@ -946,7 +948,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Replace all decimal variations with a standard format
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
-        .replace(/\s+/g, ' ')                  // Normalize spaces
+        // Normalize göz aralığı separators
+        .replace(/(\d+)\*(\d+)/g, '$1x$2')   // Convert 15*25 to 15x25
+        .replace(/\s+/g, ' ')                 // Normalize spaces
         .toLowerCase()
         .trim();
     };
@@ -1037,7 +1041,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Replace all decimal variations with a standard format
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
-        .replace(/\s+/g, ' ')                  // Normalize spaces
+        // Normalize göz aralığı separators
+        .replace(/(\d+)\*(\d+)/g, '$1x$2')   // Convert 15*25 to 15x25
+        .replace(/\s+/g, ' ')                 // Normalize spaces
         .toLowerCase()
         .trim();
     };
@@ -1060,6 +1066,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (existingProduct) {
           console.log(`DEBUG: Found match via normalized Stok Adı: "${productStokAdi}" matched "${existingProduct.stok_adi}"`);
+        } else {
+          // If still not found, show some similar products for debugging
+          const similarProducts = savedProducts.mm.filter(p => {
+            const normalized = normalizeStokAdiForComparison(p.stok_adi);
+            return normalized.includes(productStokAdi.toLowerCase().substring(0, 8)); // First 8 chars
+          }).slice(0, 2);
+          
+          if (similarProducts.length > 0) {
+            console.log(`DEBUG: No match for "${productStokAdi}". Similar products found:`, 
+              similarProducts.map(p => p.stok_adi));
+            console.log(`DEBUG: Generated normalized: "${normalizedProductStokAdi}"`);
+            console.log(`DEBUG: Similar normalized:`, 
+              similarProducts.map(p => normalizeStokAdiForComparison(p.stok_adi)));
+          }
         }
       }
       
