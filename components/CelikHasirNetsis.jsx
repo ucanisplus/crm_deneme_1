@@ -893,10 +893,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
       
       // Format decimal values properly - use comma for Turkish format
-      console.log('generateStokAdi - product values:', { boyCap: product.boyCap, enCap: product.enCap });
       const formattedBoyCap = formatDecimalForDisplay(product.boyCap, true);
       const formattedEnCap = formatDecimalForDisplay(product.enCap, true);
-      console.log('generateStokAdi - formatted values:', { formattedBoyCap, formattedEnCap });
       const formattedBoy = parseInt(product.uzunlukBoy || 0);
       const formattedEn = parseInt(product.uzunlukEn || 0);
       
