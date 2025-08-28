@@ -673,11 +673,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Track batch counter for sequential Stok Kodu generation  
   let batchSequenceCounter = null;
   let batchSequenceInitialized = false;
+  let productStokKoduCache = new Map(); // Cache to prevent multiple STOK KODU generation for same product
   
   // Reset batch counter for new batch
   const resetBatchSequenceCounter = () => {
     batchSequenceCounter = null;
     batchSequenceInitialized = false;
+    productStokKoduCache.clear(); // Clear cache when resetting batch
   };
 
   function checkForExistingProducts(product, productType, batchIndex = 0) {
@@ -736,6 +738,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Generate new stok kodu for genuinely new products only
   function generateNewStokKodu(product, productType, batchIndex = 0) {
     if (productType === 'CH') {
+      // Create unique cache key for this product
+      const productKey = `${product.hasirTipi}-${product.boyCap}-${product.enCap}-${product.uzunlukBoy}-${product.uzunlukEn}-${formatGozAraligi(product)}`;
+      
+      // Return cached STOK KODU if already generated for this product
+      if (productStokKoduCache.has(productKey)) {
+        const cachedCode = productStokKoduCache.get(productKey);
+        console.log('*** USING CACHED STOK KODU ***');
+        console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
+        console.log('Cached STOK KODU:', cachedCode);
+        return cachedCode;
+      }
+      
       // Initialize batch counter only once per batch operation
       if (!batchSequenceInitialized) {
         const existingOzelProducts = savedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.startsWith('CHOZL'));
@@ -761,13 +775,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('Batch counter initialized at:', batchSequenceCounter);
       }
       
-      // Increment counter ONLY when creating new product
+      // Increment counter ONLY when creating NEW product (not cached)
       batchSequenceCounter++;
       const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
+      
+      // Cache the generated code for this product
+      productStokKoduCache.set(productKey, generatedCode);
       
       console.log('*** NEW STOK KODU GENERATION ***');
       console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
       console.log('Sequence for this NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
+      console.log('Cached for future use with key:', productKey);
       
       return generatedCode;
     }
@@ -1552,6 +1570,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Excel dosyalarını oluştur
   const generateExcelFiles = async (products, includeAllProducts = false) => {
     try {
+      // Reset cache to prevent multiple STOK KODU generation during Excel creation
+      // Note: Don't reset batch counter here as it should persist from database save
+      productStokKoduCache.clear();
+      
       console.log('DEBUG: generateExcelFiles called with:', {
         productsCount: products.length,
         includeAllProducts,
