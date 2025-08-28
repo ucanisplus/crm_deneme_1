@@ -3404,8 +3404,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     className="px-3 py-1 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400"
                   >
                     <Trash2 className="w-4 h-4" />
-                    {activeDbTab === 'mm' ? 'CH Sil' : activeDbTab === 'ncbk' ? 'NCBK Sil' : 'NTEL Sil'}
+                    {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
                   </button>
+                  
+                  {/* Selection-based action buttons */}
+                  {selectedDbItems.length > 0 && (
+                    <>
+                      <button
+                        onClick={handleBulkDeleteSelected}
+                        disabled={isDeletingBulkDb}
+                        className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Seçilileri Sil ({selectedDbItems.length})
+                      </button>
+                      {activeDbTab === 'mm' && (
+                        <button
+                          onClick={handleBulkExportSelected}
+                          className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
+                        >
+                          <Download className="w-4 h-4" />
+                          Excel Oluştur ({selectedDbItems.length})
+                        </button>
+                      )}
+                    </>
+                  )}
+                  
                   <button
                     onClick={() => setShowDatabaseModal(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -3554,49 +3578,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </label>
                 </div>
 
-                {/* Fixed Action Buttons - Always visible at top */}
-                <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                  <div className="text-gray-600 text-sm">
-                    {getFilteredAndSortedProducts().length} ürün
-                    {selectedDbItems.length > 0 && (
-                      <span className="text-blue-600 font-medium ml-2">
-                        ({selectedDbItems.length} seçili)
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedDbItems.length > 0 && (
-                      <>
-                        <button
-                          onClick={handleBulkDeleteSelected}
-                          disabled={isDeletingBulkDb}
-                          className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Seçilileri Sil
-                        </button>
-                        {activeDbTab === 'mm' && (
-                          <button
-                            onClick={handleBulkExportSelected}
-                            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
-                          >
-                            <Download className="w-4 h-4" />
-                            Excel Oluştur
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {activeDbTab === 'mm' && (
-                      <button
-                        onClick={() => {/* TODO: Add recipe creation logic */}}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-1"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Reçete Oluştur
-                      </button>
-                    )}
-                  </div>
-                </div>
 
               </div>
               
