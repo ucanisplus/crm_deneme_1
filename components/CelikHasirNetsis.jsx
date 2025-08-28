@@ -1619,22 +1619,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '1', 'Bileşen',
           `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`, 
-          '', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
-          'E', 'E', '', '', '', '', '', '', ''
+          'AD', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
+          '', '', '', '', '', '', '', '', ''
         ]);
         
         // BOY ÇUBUĞU (500cm)  
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '2', 'Bileşen',
           `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`,
-          '', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
-          'E', 'E', '', '', '', '', '', '', ''
+          'AD', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
+          '', '', '', '', '', '', '', '', ''
         ]);
         
         // YOTOCH Operasyon
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '3', 'Operasyon', 'YOTOCH',
-          '', '1', '', '', '', '', '', '', '', operationTime,
+          'DK', '1', '', '', '', '', '', '', '', operationTime,
           'E', 'E', '', '', '', '', '', '', ''
         ]);
 
@@ -1673,13 +1673,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
-              '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+              'KG', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
             
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
+              'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -1721,14 +1721,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
-            '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1759,13 +1759,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
-              '1', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+              'KG', parseFloat(flmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
             
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukEn, boyCap: enCap, enCap: enCap }).toFixed(5),
+              'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { length: uzunlukEn, boyCap: enCap, enCap: enCap }).toFixed(5),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -1808,13 +1808,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
-            '1', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           }
@@ -1882,7 +1882,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '1', 'Bileşen',
             boyNtelKodu,
             'MT', boyNtelMiktar, 'Boy Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
-            'E', 'E', '', '', '', '', '', '', ''
+            '', '', '', '', '', '', '', '', ''
           ]);
           chRowCount++;
           console.log('DEBUG: Added CH row for boy NTEL:', boyNtelKodu, 'miktar:', boyNtelMiktar);
@@ -1898,7 +1898,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
-            'E', 'E', '', '', '', '', '', '', ''
+            '', '', '', '', '', '', '', '', ''
           ]);
         } else if (enCap > 0 && enCap === boyCap) {
           // Same diameter for both directions
@@ -1910,14 +1910,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
-            'E', 'E', '', '', '', '', '', '', ''
+            '', '', '', '', '', '', '', '', ''
           ]);
         }
         
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-          '', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product).toFixed(5),
+          'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', calculateOperationDuration('OTOCH', product).toFixed(5),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
@@ -1949,13 +1949,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1979,12 +1979,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
             'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2007,13 +2007,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           // Olcu Birimi: Originally was 'DK' for NTEL alternatif recipe operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2035,12 +2035,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
             'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
-            'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            '', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }).toFixed(5),
+            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
