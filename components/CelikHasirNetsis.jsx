@@ -821,10 +821,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Strategy 1: Match by Stok Adı (most reliable)
       productExists = savedProducts.mm.some(p => p.stok_adi === productStokAdi);
       
-      // Strategy 2: Fallback - Match by product specifications (legacy)
+      // Strategy 2: Fallback - Match by product specifications with proper hasir_tipi normalization
       if (!productExists) {
+        const normalizeHasirTipiForComparison = (hasirTipi) => {
+          if (!hasirTipi) return '';
+          return String(hasirTipi)
+            .replace(/\/\d+$/, '') // Remove /XXX patterns: Q221/221 → Q221
+            .replace(/\s+/g, '')   // Remove spaces
+            .toUpperCase()
+            .trim();
+        };
+
         productExists = savedProducts.mm.some(p => 
-          p.hasir_tipi === product.hasirTipi &&
+          normalizeHasirTipiForComparison(p.hasir_tipi) === normalizeHasirTipiForComparison(product.hasirTipi) &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
@@ -856,10 +865,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Use same logic as analyzeProductsForConfirmation - first try Stok Adı, then fallback to specs
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
-      // Fallback to specifications matching if not found by Stok Adı (same as analyzeProductsForConfirmation)
+      // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
       if (!existingProduct) {
+        const normalizeHasirTipiForComparison = (hasirTipi) => {
+          if (!hasirTipi) return '';
+          return String(hasirTipi)
+            .replace(/\/\d+$/, '') // Remove /XXX patterns: Q221/221 → Q221
+            .replace(/\s+/g, '')   // Remove spaces
+            .toUpperCase()
+            .trim();
+        };
+
         existingProduct = savedProducts.mm.find(p => 
-          p.hasir_tipi === product.hasirTipi &&
+          normalizeHasirTipiForComparison(p.hasir_tipi) === normalizeHasirTipiForComparison(product.hasirTipi) &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
@@ -917,10 +935,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Find existing product by Stok Adı
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
-      // Fallback to specifications matching if not found by Stok Adı
+      // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
       if (!existingProduct) {
+        const normalizeHasirTipiForComparison = (hasirTipi) => {
+          if (!hasirTipi) return '';
+          return String(hasirTipi)
+            .replace(/\/\d+$/, '') // Remove /XXX patterns: Q221/221 → Q221
+            .replace(/\s+/g, '')   // Remove spaces
+            .toUpperCase()
+            .trim();
+        };
+
         existingProduct = savedProducts.mm.find(p => 
-          p.hasir_tipi === product.hasirTipi &&
+          normalizeHasirTipiForComparison(p.hasir_tipi) === normalizeHasirTipiForComparison(product.hasirTipi) &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
@@ -965,13 +992,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Enhanced hasır tipi comparison with format variations (Q257/257 vs Q257)
           const enhancedNormalizeHasirTipi = (hasirTipi) => {
             if (!hasirTipi) return '';
-            let normalized = normalizeHasirTipi(hasirTipi);
-            // Remove trailing /XXX patterns (Q257/257 → Q257, Q221/221 → Q221)
-            normalized = normalized.replace(/\/\d+$/, '')
-                                 .replace(/\s+/g, '') // Remove all spaces
-                                 .toUpperCase()
-                                 .trim();
-            return normalized;
+            return String(hasirTipi)
+              .replace(/\/\d+$/, '') // Remove trailing /XXX patterns (Q257/257 → Q257, Q221/221 → Q221)
+              .replace(/\s+/g, '')   // Remove all spaces
+              .toUpperCase()
+              .trim();
           };
           
           const hasirTipiMatch = enhancedNormalizeHasirTipi(p.hasir_tipi) === enhancedNormalizeHasirTipi(product.hasirTipi);
@@ -1144,10 +1169,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Fallback: if no matches found with smart filtering, try simpler fallback matching
         if (allMatchingProducts.length === 0) {
           console.log('DEBUG: No smart matches found, trying fallback matching...');
-          // Try with just hasir tipi and dimensions (less strict)
+          // Try with just hasir tipi and dimensions (less strict) with proper normalization
           const fallbackMatches = savedProducts.mm.filter(p => {
-            const hasirTipiBasicMatch = (p.hasir_tipi || '').toLowerCase().includes(product.hasirTipi.toLowerCase()) ||
-                                      product.hasirTipi.toLowerCase().includes((p.hasir_tipi || '').toLowerCase());
+            const normalizeForFallback = (hasirTipi) => {
+              if (!hasirTipi) return '';
+              return String(hasirTipi)
+                .replace(/\/\d+$/, '') // Remove /XXX patterns
+                .replace(/\s+/g, '')   // Remove spaces
+                .toUpperCase()
+                .trim();
+            };
+
+            const hasirTipiBasicMatch = normalizeForFallback(p.hasir_tipi) === normalizeForFallback(product.hasirTipi);
             const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
             return hasirTipiBasicMatch && dimensionMatch;
@@ -1157,6 +1190,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`DEBUG: Fallback found ${fallbackMatches.length} matches:`, fallbackMatches.map(p => p.stok_kodu));
             allMatchingProducts.push(...fallbackMatches);
           }
+        }
+        
+        // Safeguard: If we found an existingProduct but allMatchingProducts is empty, include the existingProduct
+        if (allMatchingProducts.length === 0 && existingProduct) {
+          console.log('DEBUG: ⚠️ SAFEGUARD: No allMatchingProducts found, but existingProduct exists. Adding existingProduct to results.');
+          console.log('DEBUG: existingProduct:', existingProduct.stok_kodu, existingProduct.stok_adi);
+          allMatchingProducts.push(existingProduct);
         }
         
         if (allMatchingProducts.length > 1) {
