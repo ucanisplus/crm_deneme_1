@@ -2330,7 +2330,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           bilesen_kodu: 'YOTOCH',
           olcu_br_bilesen: 'DK',
           miktar: 1,
-          aciklama: 'Yarı Otomatik Çelik Hasır Operasyonu',
+          aciklama: null,
           uretim_suresi: calculateOperationDuration('YOTOCH', product)
         }
       ];
@@ -2386,45 +2386,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ));
       }
 
-      // NTEL Recipe kayıtları
-      const ntelRecipes = [
-        // Bileşen - FLM tüketimi
-        {
-          mamul_kodu: ntelResult.stok_kodu,
-          recete_top: 1,
-          fire_orani: 0,
-          olcu_br: 'MT',
-          sira_no: 1,
-          operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)).code,
-          olcu_br_bilesen: 'KG',
-          miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
-          aciklama: 'FLM tüketimi - metre başına',
-        },
-        // Operasyon - Tam Otomatik İşlem
-        {
-          mamul_kodu: ntelResult.stok_kodu,
-          recete_top: 1,
-          fire_orani: 0,
-          olcu_br: 'MT',
-          sira_no: 2,
-          operasyon_bilesen: 'Operasyon',
-          bilesen_kodu: 'OTOCH',
-          olcu_br_bilesen: 'MT',
-          miktar: 1,
-          aciklama: 'Yarı Otomatik Operasyon',
-          uretim_suresi: calculateOperationDuration('NTEL', product)
-        }
-      ];
+      // NTEL Recipe kayıtları - only if ntelResult exists (newly created)
+      if (ntelResult && ntelResult.stok_kodu) {
+        const ntelRecipes = [
+          // Bileşen - FLM tüketimi
+          {
+            mamul_kodu: ntelResult.stok_kodu,
+            recete_top: 1,
+            fire_orani: 0,
+            olcu_br: 'MT',
+            sira_no: 1,
+            operasyon_bilesen: 'Bileşen',
+            bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)).code,
+            olcu_br_bilesen: 'KG',
+            miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
+            aciklama: 'FLM tüketimi - metre başına',
+          },
+          // Operasyon - Tam Otomatik İşlem
+          {
+            mamul_kodu: ntelResult.stok_kodu,
+            recete_top: 1,
+            fire_orani: 0,
+            olcu_br: 'MT',
+            sira_no: 2,
+            operasyon_bilesen: 'Operasyon',
+            bilesen_kodu: 'OTOCH',
+            olcu_br_bilesen: 'MT',
+            miktar: 1,
+            aciklama: 'Yarı Otomatik Operasyon',
+            uretim_suresi: calculateOperationDuration('NTEL', product)
+          }
+        ];
 
-      // NTEL recipes kaydet - paralel işlem
-      await Promise.all(ntelRecipes.map(recipe =>
-        fetchWithAuth(API_URLS.celikHasirNtelRecete, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(recipe)
-        })
-      ));
+        // NTEL recipes kaydet - paralel işlem
+        await Promise.all(ntelRecipes.map(recipe =>
+          fetchWithAuth(API_URLS.celikHasirNtelRecete, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(recipe)
+          })
+        ));
+      }
 
     } catch (error) {
       console.error('Recipe kaydetme hatası:', error);
@@ -2697,7 +2699,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ozel_saha_3_say: 0,
           ozel_saha_4_say: 0,
           alis_fiyati: 0,
-          fiyat_birimi: 1,
+          fiyat_birimi: 2,
           satis_fiyati_1: 0,
           satis_fiyati_2: 0,
           satis_fiyati_3: 0,
@@ -2723,6 +2725,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         try {
           
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
+          console.log('🔍 DEBUG - CH Data being saved:', {
+            stok_kodu: chData.stok_kodu,
+            stok_adi: chData.stok_adi,
+            hasir_tipi: chData.hasir_tipi,
+            fiyat_birimi: chData.fiyat_birimi,
+            cap: chData.cap,
+            cap2: chData.cap2,
+            ebat_boy: chData.ebat_boy,
+            ebat_en: chData.ebat_en,
+            kg: chData.kg
+          });
+
           chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2788,7 +2802,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ozel_saha_3_say: 0,
               ozel_saha_4_say: 0,
               alis_fiyati: 0,
-              fiyat_birimi: 1,
+              fiyat_birimi: 2,
               satis_fiyati_1: 0,
               satis_fiyati_2: 0,
               satis_fiyati_3: 0,
@@ -2808,6 +2822,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               super_recete_kullanilsin: 'H',
               user_id: user.id
             };
+
+            console.log('🔍 DEBUG - NCBK Data being saved:', {
+              stok_kodu: ncbkData.stok_kodu,
+              stok_adi: ncbkData.stok_adi,
+              fiyat_birimi: ncbkData.fiyat_birimi,
+              cap: ncbkData.cap,
+              length_cm: length,
+              kg: ncbkData.payda_1
+            });
 
             const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk, {
               method: 'POST',
@@ -2874,7 +2897,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ozel_saha_3_say: 0,
             ozel_saha_4_say: 0,
             alis_fiyati: 0,
-            fiyat_birimi: 1,
+            fiyat_birimi: 2,
             satis_fiyati_1: 0,
             satis_fiyati_2: 0,
             satis_fiyati_3: 0,
@@ -2894,6 +2917,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             super_recete_kullanilsin: 'H',
             user_id: user.id
           };
+
+          console.log('🔍 DEBUG - NTEL Data being saved:', {
+            stok_kodu: ntelData.stok_kodu,
+            stok_adi: ntelData.stok_adi,
+            fiyat_birimi: ntelData.fiyat_birimi,
+            cap: ntelData.cap,
+            kg_per_meter: ntelData.payda_1
+          });
 
           const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel, {
             method: 'POST',
@@ -2920,19 +2951,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Recipe kayıtları oluştur (sadece yeni ürünler için)
         if (chResult && chResult.stok_kodu && Object.keys(ncbkResults).length > 0) {
           try {
-            // Extra validation before calling saveRecipeData
-            const validNcbkResults = {};
+            // Only create recipes for NEWLY created NCBK/NTEL (not existing ones)
+            const newNcbkResults = {};
             Object.entries(ncbkResults).forEach(([key, result]) => {
-              if (result && result.stok_kodu) {
-                validNcbkResults[key] = result;
+              if (result && result.stok_kodu && result.message !== 'existing') {
+                newNcbkResults[key] = result;
               }
             });
             
-            if (Object.keys(validNcbkResults).length > 0) {
-              await saveRecipeData(product, chResult, validNcbkResults, ntelResult);
-              console.log(`Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
+            // Check if NTEL is newly created (not existing)
+            const newNtelResult = (ntelResult && ntelResult.message !== 'existing') ? ntelResult : null;
+            
+            console.log('🔍 DEBUG - Recipe Creation Decision:', {
+              productType: product.hasirTipi,
+              chResult: !!chResult,
+              totalNcbkResults: Object.keys(ncbkResults).length,
+              newNcbkResults: Object.keys(newNcbkResults).length,
+              ntelResult: !!ntelResult,
+              newNtelResult: !!newNtelResult,
+              willCreateRecipes: Object.keys(newNcbkResults).length > 0 || newNtelResult
+            });
+
+            if (Object.keys(newNcbkResults).length > 0 || newNtelResult) {
+              await saveRecipeData(product, chResult, newNcbkResults, newNtelResult);
+              console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             } else {
-              console.warn(`Recipe kayıtları atlandı - geçerli NCBK sonucu yok: ${product.hasirTipi}`);
+              console.log(`⏭️  Recipe kayıtları atlandı - tüm NCBK/NTEL zaten mevcut: ${product.hasirTipi}`);
             }
             
             // Sequence güncelle (sadece yeni ürünler için)
