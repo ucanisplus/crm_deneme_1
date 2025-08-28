@@ -1882,7 +1882,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '1', 'Bileşen',
             boyNtelKodu,
             'MT', boyNtelMiktar, 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
-            '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', ''
           ]);
           chRowCount++;
           console.log('DEBUG: Added CH row for boy NTEL:', boyNtelKodu, 'miktar:', boyNtelMiktar);
@@ -1898,7 +1898,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En NTEL Tüketimi', '', '', '', '', '', '', '',
-            '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', ''
           ]);
         } else if (enCap > 0 && enCap === boyCap) {
           // Same diameter for both directions
@@ -1910,7 +1910,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
             'MT', enNtelMiktar, 'En NTEL Tüketimi', '', '', '', '', '', '', '',
-            '', '', '', '', '', '', '', '', ''
+            'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
         
