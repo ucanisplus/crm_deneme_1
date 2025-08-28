@@ -290,20 +290,45 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     
     // Apply hasır tipi filter - primarily check stok_adi where Q/R/TR codes are stored
     if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
+      console.log(`🔍 Filtering for ${dbFilterHasirTipi}, total products before filter:`, filteredProducts.length);
+      
       if (dbFilterHasirTipi === 'Q Tipleri') {
         filteredProducts = filteredProducts.filter(product => 
           (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('q')
         );
       } else if (dbFilterHasirTipi === 'R Tipleri') {
+        // Debug: Show sample products to understand the data structure
+        if (filteredProducts.length > 0) {
+          console.log('🔍 Sample products for R-type debugging:', filteredProducts.slice(0, 5).map(p => ({
+            stok_adi: p.stok_adi,
+            hasir_tipi: p.hasir_tipi, 
+            stok_kodu: p.stok_kodu
+          })));
+        }
+        
         filteredProducts = filteredProducts.filter(product => {
           const searchText = (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase();
-          return searchText.includes('r') && !searchText.includes('tr');
+          
+          // More specific R-type detection - look for R followed by numbers (like R257, R131, etc.)
+          // This avoids false matches from words containing 'r' like "Ara", "Çap", etc.
+          const hasRCode = /\br\d+/i.test(searchText); // R followed by digits
+          const hasTR = searchText.includes('tr');
+          const match = hasRCode && !hasTR;
+          
+          // Debug individual matches
+          if (searchText.includes('r')) {
+            console.log(`🔍 R-type check: "${searchText}" -> hasRCode:${hasRCode}, hasTR:${hasTR}, match:${match}`);
+          }
+          
+          return match;
         });
       } else if (dbFilterHasirTipi === 'TR Tipleri') {
         filteredProducts = filteredProducts.filter(product => 
           (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('tr')
         );
       }
+      
+      console.log(`🔍 After filtering for ${dbFilterHasirTipi}, remaining products:`, filteredProducts.length);
     }
     
     // Apply hasır türü filter - check both hasir_turu and kod_2 columns
