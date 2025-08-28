@@ -16,6 +16,7 @@ import {
   Trash2, 
   Download,
   Upload,
+  FileText,
   Loader,
   RefreshCw
 } from 'lucide-react';
@@ -377,6 +378,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     setIsDeletingBulkDb(true);
+    let deletedCount = 0;
 
     try {
       const tabEndpoints = {
@@ -385,49 +387,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntel: API_URLS.celikHasirNtel
       };
 
-      const recipeEndpoints = {
-        mm: API_URLS.celikHasirMmRecete,
-        ncbk: API_URLS.celikHasirNcbkRecete,
-        ntel: API_URLS.celikHasirNtelRecete
-      };
-
-      // Get selected products for recipe deletion
-      const selectedProducts = savedProducts[activeDbTab].filter(product => 
-        selectedDbItems.includes(product.id)
-      );
-
-      // First delete recipe records
-      for (const product of selectedProducts) {
-        if (product.stok_kodu) {
-          try {
-            // Get recipe records for this product
-            const getRecipeResponse = await fetchWithAuth(`${recipeEndpoints[activeDbTab]}?mamul_kodu=${product.stok_kodu}`);
-            
-            if (getRecipeResponse.ok) {
-              const recipes = await getRecipeResponse.json();
-              
-              // Delete each recipe record by ID
-              for (const recipe of recipes) {
-                if (recipe.id) {
-                  try {
-                    const deleteRecipeResponse = await fetchWithAuth(`${recipeEndpoints[activeDbTab]}/${recipe.id}`, { method: 'DELETE' });
-                    if (!deleteRecipeResponse.ok) {
-                      console.warn(`Failed to delete recipe ID: ${recipe.id}`);
-                    }
-                  } catch (deleteError) {
-                    console.warn(`Recipe delete error (ID: ${recipe.id}):`, deleteError);
-                  }
-                }
-              }
-            }
-          } catch (recipeError) {
-            console.warn(`Recipe fetch error (${product.stok_kodu}):`, recipeError);
-          }
-        }
-      }
-
-      // Then delete product records
-      for (const itemId of selectedDbItems) {
+      // Delete products in parallel for speed - let backend handle recipe cascading
+      const deletePromises = selectedDbItems.map(async (itemId) => {
         try {
           const response = await fetch(`${tabEndpoints[activeDbTab]}/${itemId}`, {
             method: 'DELETE',
@@ -439,15 +400,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
+          
+          deletedCount++;
+          return { success: true, itemId };
         } catch (error) {
           console.error(`Failed to delete item ${itemId}:`, error);
-          toast.error(`Ürün ${itemId} silinemedi: ${error.message}`);
+          return { success: false, itemId, error: error.message };
         }
+      });
+
+      const results = await Promise.all(deletePromises);
+      
+      // Check for any failures
+      const failures = results.filter(result => !result.success);
+      
+      if (failures.length > 0) {
+        failures.forEach(failure => {
+          toast.error(`Ürün ${failure.itemId} silinemedi: ${failure.error}`);
+        });
       }
 
-      toast.success(`${selectedDbItems.length} ürün başarıyla silindi`);
-      setSelectedDbItems([]);
-      await fetchSavedProducts();
+      if (deletedCount > 0) {
+        toast.success(`${deletedCount} ürün başarıyla silindi`);
+        setSelectedDbItems([]);
+        await fetchSavedProducts();
+      }
     } catch (error) {
       console.error('Bulk delete error:', error);
       toast.error('Toplu silme işlemi sırasında hata oluştu');
@@ -3577,31 +3554,50 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </label>
                 </div>
 
-                {/* Bulk Actions Toolbar */}
-                {selectedDbItems.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                    <span className="text-blue-700 font-medium">
-                      {selectedDbItems.length} ürün seçili
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleBulkDeleteSelected}
-                        disabled={isDeletingBulkDb}
-                        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Seçilileri Sil
-                      </button>
-                      <button
-                        onClick={handleBulkExportSelected}
-                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
-                      >
-                        <Download className="w-4 h-4" />
-                        Excel Oluştur
-                      </button>
-                    </div>
+                {/* Fixed Action Buttons - Always visible at top */}
+                <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <div className="text-gray-600 text-sm">
+                    {getFilteredAndSortedProducts().length} ürün
+                    {selectedDbItems.length > 0 && (
+                      <span className="text-blue-600 font-medium ml-2">
+                        ({selectedDbItems.length} seçili)
+                      </span>
+                    )}
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    {selectedDbItems.length > 0 && (
+                      <>
+                        <button
+                          onClick={handleBulkDeleteSelected}
+                          disabled={isDeletingBulkDb}
+                          className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Seçilileri Sil
+                        </button>
+                        {activeDbTab === 'mm' && (
+                          <button
+                            onClick={handleBulkExportSelected}
+                            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm flex items-center gap-1"
+                          >
+                            <Download className="w-4 h-4" />
+                            Excel Oluştur
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {activeDbTab === 'mm' && (
+                      <button
+                        onClick={() => {/* TODO: Add recipe creation logic */}}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-1"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Reçete Oluştur
+                      </button>
+                    )}
+                  </div>
+                </div>
+
               </div>
               
               {/* Ürün Listesi */}
