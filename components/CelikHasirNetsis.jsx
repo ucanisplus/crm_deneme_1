@@ -1570,9 +1570,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Excel dosyalarını oluştur
   const generateExcelFiles = async (products, includeAllProducts = false) => {
     try {
-      // Reset cache to prevent multiple STOK KODU generation during Excel creation
-      // Note: Don't reset batch counter here as it should persist from database save
-      productStokKoduCache.clear();
+      // DON'T clear cache here - it should persist from database save to Excel generation
+      // so that same products get same STOK KODUs in both database and Excel files
       
       console.log('DEBUG: generateExcelFiles called with:', {
         productsCount: products.length,
@@ -2467,13 +2466,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setIsSavingToDatabase(true);
       setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
       
-      // Önce optimize edilmemiş ürünleri kontrol et
-      if (products.length > 0 && hasUnoptimizedProducts()) {
-        setIsSavingToDatabase(false);
-        setIsLoading(false);
-        setShowOptimizationWarning(true);
-        return;
-      }
+      // Optimization check removed - save products with or without optimization
       
       // Sadece kaydedilmesi gereken ürünleri kaydet
       const productsToSave = getProductsToSave();
@@ -2659,6 +2652,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         // CH kaydı
         const kgValue = parseFloat(product.adetKg || product.totalKg || 0);
+        
+        console.log('*** DEBUG: Product data before CH save ***', {
+          hasirTipi: product.hasirTipi,
+          boyCap: product.boyCap,
+          enCap: product.enCap,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn,
+          adetKg: product.adetKg,
+          totalKg: product.totalKg,
+          kgValue: kgValue,
+          cubukSayisiBoy: product.cubukSayisiBoy,
+          cubukSayisiEn: product.cubukSayisiEn
+        });
+        
         const chData = {
           stok_kodu: generateStokKodu(product, 'CH', i),
           stok_adi: generateStokAdi(product, 'CH'),
@@ -2726,6 +2733,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let chResult, ncbkResults = {}, ntelResult, chResponse;
         
         try {
+          console.log('*** DEBUG: Final chData being sent to API ***', chData);
+          
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
           chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
             method: 'POST',
