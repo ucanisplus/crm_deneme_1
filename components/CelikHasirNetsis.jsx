@@ -672,10 +672,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Check for existing products and determine next sequence number - Moved up to avoid hoisting issues
   // Track batch counter for sequential Stok Kodu generation  
   let batchSequenceCounter = null;
+  let batchSequenceInitialized = false;
   
   // Reset batch counter for new batch
   const resetBatchSequenceCounter = () => {
     batchSequenceCounter = null;
+    batchSequenceInitialized = false;
   };
 
   function checkForExistingProducts(product, productType, batchIndex = 0) {
@@ -709,8 +711,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         } else {
           // For özel products: CHOZL0001, CHOZL0002, etc.
           
-          // Initialize counter only once per batch (when batchIndex is 0)  
-          if (batchIndex === 0 || batchSequenceCounter === null) {
+          // Initialize counter only once per batch operation
+          if (!batchSequenceInitialized) {
             const existingOzelProducts = savedProducts.mm.filter(p => 
               p.stok_kodu && p.stok_kodu.startsWith('CHOZL')
             );
@@ -727,6 +729,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             });
             
             batchSequenceCounter = maxSequence;
+            batchSequenceInitialized = true;
             
             console.log('*** BATCH STOK KODU INITIALIZED ***');
             console.log('Total savedProducts.mm:', savedProducts.mm.length);
@@ -735,13 +738,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('Batch counter initialized at:', batchSequenceCounter);
           }
           
-          // Generate sequential codes for batch: CHOZL0062, CHOZL0063, CHOZL0064, etc.
-          const sequenceForThisProduct = batchSequenceCounter + 1 + batchIndex;
-          const generatedCode = `CHOZL${String(sequenceForThisProduct).padStart(4, '0')}`;
+          // Increment counter for each new product and generate unique code
+          batchSequenceCounter++;
+          const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
           
           console.log('*** STOK KODU GENERATION ***');
           console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
-          console.log('Sequence for this product:', sequenceForThisProduct, 'Generated:', generatedCode);
+          console.log('Sequence for this product:', batchSequenceCounter, 'Generated:', generatedCode);
           
           return generatedCode;
         }
@@ -1128,9 +1131,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const num = parseFloat(str);
             if (isNaN(num)) return 0;
             
-            // Round to 1 decimal place for consistency with database format
-            // Database stores: 6.5, 7.0, 8.5, 7.8 (1 decimal precision)
-            return Math.round(num * 10) / 10;
+            // Handle floating point precision issues - database has values like: 6.5, 7.8, 9.2, 7.5
+            // Don't round decimals as they are exact values in the database
+            return Math.round(num * 100) / 100;
           };
           
           // Tighter tolerance for diameter matching to handle precision differences
