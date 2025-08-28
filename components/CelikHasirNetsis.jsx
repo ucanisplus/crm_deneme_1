@@ -501,7 +501,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   }, [savedProducts, validProducts]);
 
   // Veritabanından kayıtlı ürünleri getir - Load all data at once
-  const fetchSavedProducts = async (isRetry = false) => {
+  const fetchSavedProducts = async (isRetry = false, resetData = false) => {
     try {
       if (!isRetry) {
         setIsLoadingDb(true);
@@ -512,31 +512,53 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('Fetching all saved products from database...');
       
-      // Load data with progress tracking
+      // Load data with progress tracking and better error handling
       setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
-      const mmResponse = await fetchWithAuth(API_URLS.celikHasirMm);
       
-      setDbLoadingProgress({ current: 2, total: 3, operation: 'NCBK ve NTEL ürünleri getiriliyor...' });
-      const [ncbkResponse, ntelResponse] = await Promise.all([
+      const [mmResult, ncbkResult, ntelResult] = await Promise.allSettled([
+        fetchWithAuth(API_URLS.celikHasirMm),
         fetchWithAuth(API_URLS.celikHasirNcbk),
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
       
       setDbLoadingProgress({ current: 3, total: 3, operation: 'Veriler işleniyor...' });
 
-      // Check if any of the responses failed
-      const responses = { mm: mmResponse, ncbk: ncbkResponse, ntel: ntelResponse };
-      const failedResponses = Object.entries(responses).filter(([key, response]) => !response?.ok);
-      
-      if (failedResponses.length > 0) {
-        throw new Error(`Backend responses failed: ${failedResponses.map(([key]) => key).join(', ')}`);
+      // Handle results with fallbacks
+      const mmResponse = mmResult.status === 'fulfilled' ? mmResult.value : null;
+      const ncbkResponse = ncbkResult.status === 'fulfilled' ? ncbkResult.value : null;
+      const ntelResponse = ntelResult.status === 'fulfilled' ? ntelResult.value : null;
+
+      // Log API failures but continue with available data
+      const failedAPIs = [];
+      if (mmResult.status === 'rejected') {
+        console.warn('MM API failed:', mmResult.reason);
+        failedAPIs.push('MM');
+      }
+      if (ncbkResult.status === 'rejected') {
+        console.warn('NCBK API failed:', ncbkResult.reason);
+        failedAPIs.push('NCBK');
+      }
+      if (ntelResult.status === 'rejected') {
+        console.warn('NTEL API failed:', ntelResult.reason);
+        failedAPIs.push('NTEL');
+      }
+
+      // Only throw error if all APIs fail or MM (critical) fails
+      if (mmResult.status === 'rejected') {
+        throw new Error(`Critical MM API failed: ${mmResult.reason}`);
       }
 
       const allData = {
         mm: mmResponse?.ok ? await mmResponse.json() : [],
-        ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : [],
-        ntel: ntelResponse?.ok ? await ntelResponse.json() : []
+        ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : savedProducts.ncbk || [],
+        ntel: ntelResponse?.ok ? await ntelResponse.json() : savedProducts.ntel || []
       };
+
+      // Warn user about partial failures
+      if (failedAPIs.length > 0) {
+        console.warn(`⚠️ Partial API failure: ${failedAPIs.join(', ')} endpoints failed`);
+        toast.warning(`Bazı veriler güncellenemedi: ${failedAPIs.join(', ')}`);
+      }
       
       // Store all data - no pagination
       setSavedProducts(allData);
@@ -2273,18 +2295,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('Refreshing database state before save...');
       
-      // Force fresh database fetch
-      const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
+      // Force fresh database fetch with error handling for individual APIs
+      const [mmResponse, ncbkResponse, ntelResponse] = await Promise.allSettled([
         fetchWithAuth(API_URLS.celikHasirMm),
         fetchWithAuth(API_URLS.celikHasirNcbk),
         fetchWithAuth(API_URLS.celikHasirNtel)
       ]);
 
       const freshSavedProducts = {
-        mm: mmResponse?.ok ? await mmResponse.json() : [],
-        ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : [],
-        ntel: ntelResponse?.ok ? await ntelResponse.json() : []
+        mm: (mmResponse.status === 'fulfilled' && mmResponse.value?.ok) ? await mmResponse.value.json() : [],
+        ncbk: (ncbkResponse.status === 'fulfilled' && ncbkResponse.value?.ok) ? await ncbkResponse.value.json() : savedProducts.ncbk || [],
+        ntel: (ntelResponse.status === 'fulfilled' && ntelResponse.value?.ok) ? await ntelResponse.value.json() : savedProducts.ntel || []
       };
+      
+      // Log API failures but continue with partial data
+      if (mmResponse.status === 'rejected') {
+        console.warn('MM API failed:', mmResponse.reason);
+        toast.warning('MM verisi güncellenemedi, mevcut veri kullanılıyor');
+      }
+      if (ncbkResponse.status === 'rejected') {
+        console.warn('NCBK API failed:', ncbkResponse.reason);
+        // Use existing data as fallback
+      }
+      if (ntelResponse.status === 'rejected') {
+        console.warn('NTEL API failed:', ntelResponse.reason);
+        // Use existing data as fallback
+      }
       
       console.log('Fresh database state:', {
         mm: freshSavedProducts.mm.length,
@@ -2768,11 +2804,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
-      toast.error('Veritabanına kaydetme sırasında hata oluştu');
+      
+      // Provide specific error messages based on error type
+      if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
+        toast.error('Ağ bağlantısı hatası - Lütfen internet bağlantınızı kontrol edin');
+      } else if (error.message?.includes('Backend responses failed')) {
+        toast.error('Veritabanı sunucusuna erişilemiyor - Lütfen daha sonra tekrar deneyin');
+      } else if (error.message?.includes('401') || error.message?.includes('403')) {
+        toast.error('Yetki hatası - Lütfen tekrar giriş yapın');
+      } else {
+        toast.error(`Veritabanına kaydetme sırasında hata oluştu: ${error.message || 'Bilinmeyen hata'}`);
+      }
+      
       return [];
     } finally {
       setIsLoading(false);
       setIsSavingToDatabase(false);
+      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   };
 
