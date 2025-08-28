@@ -1258,10 +1258,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const generateIngilizceIsim = (product, productType) => {
     if (productType === 'CH') {
       const hasirTipi = product.hasirTipi || '';
-      const boyCap = formatDecimalForDisplay(product.boyCap || 0, false); // Use dot for English
-      const enCap = formatDecimalForDisplay(product.enCap || 0, false);
-      const uzunlukBoy = product.uzunlukBoy || 0;
-      const uzunlukEn = product.uzunlukEn || 0;
+      const boyCap = formatDecimalForDisplay(product.boyCap || 0, true); // No decimals for English
+      const enCap = formatDecimalForDisplay(product.enCap || 0, true);
+      const uzunlukBoy = Math.round(product.uzunlukBoy || 0);
+      const uzunlukEn = Math.round(product.uzunlukEn || 0);
       const gozAraligi = formatGozAraligi(product) || '';
       
       return `Wire Mesh- ${hasirTipi} Dia(${boyCap}x${enCap} mm) Size(${uzunlukBoy}x${uzunlukEn} cm) Mesh(${gozAraligi} cm)`;
@@ -1620,7 +1620,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chStokKodu, '1', '', '', '', '1', 'Bileşen',
           `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`, 
           'AD', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
-          '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
         
         // BOY ÇUBUĞU (500cm)  
@@ -1628,7 +1628,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chStokKodu, '1', '', '', '', '2', 'Bileşen',
           `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`,
           'AD', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
-          '', '', '', '', '', '', '', '', ''
+          'E', 'E', '', '', '', '', '', '', ''
         ]);
         
         // YOTOCH Operasyon
@@ -1728,7 +1728,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1814,7 +1814,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap}).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           }
@@ -1881,7 +1881,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '1', 'Bileşen',
             boyNtelKodu,
-            'MT', boyNtelMiktar, 'Boy Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'MT', boyNtelMiktar, 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
             '', '', '', '', '', '', '', '', ''
           ]);
           chRowCount++;
@@ -1897,7 +1897,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
-            'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'MT', enNtelMiktar, 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             '', '', '', '', '', '', '', '', ''
           ]);
         } else if (enCap > 0 && enCap === boyCap) {
@@ -1909,7 +1909,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
-            'MT', enNtelMiktar, 'En Yönü NTEL Tüketimi', '', '', '', '', '', '', '1',
+            'MT', enNtelMiktar, 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1955,7 +1955,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -1984,7 +1984,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2013,7 +2013,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NTEL alternatif recipe operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: boyCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -2040,7 +2040,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
-            'DK', '1.00000', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }).toFixed(5),
+            'DK', '1', '', '', '', '', '', '', '', calculateOperationDuration('NTEL', { ...product, boyCap: enCap }).toFixed(5),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
