@@ -2290,37 +2290,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      // Mevcut ürünleri getir ve karşılaştır
-      setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut ürünler kontrol ediliyor...', currentProduct: '' });
+      // Skip database refresh during save to avoid timeout - use existing data  
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut veriler kullanılıyor...', currentProduct: '' });
       
-      console.log('Refreshing database state before save...');
+      console.log('Using existing database state for save operation (avoiding timeout)');
       
-      // Force fresh database fetch with error handling for individual APIs
-      const [mmResponse, ncbkResponse, ntelResponse] = await Promise.allSettled([
-        fetchWithAuth(API_URLS.celikHasirMm),
-        fetchWithAuth(API_URLS.celikHasirNcbk),
-        fetchWithAuth(API_URLS.celikHasirNtel)
-      ]);
-
-      const freshSavedProducts = {
-        mm: (mmResponse.status === 'fulfilled' && mmResponse.value?.ok) ? await mmResponse.value.json() : [],
-        ncbk: (ncbkResponse.status === 'fulfilled' && ncbkResponse.value?.ok) ? await ncbkResponse.value.json() : savedProducts.ncbk || [],
-        ntel: (ntelResponse.status === 'fulfilled' && ntelResponse.value?.ok) ? await ntelResponse.value.json() : savedProducts.ntel || []
-      };
-      
-      // Log API failures but continue with partial data
-      if (mmResponse.status === 'rejected') {
-        console.warn('MM API failed:', mmResponse.reason);
-        toast.warning('MM verisi güncellenemedi, mevcut veri kullanılıyor');
-      }
-      if (ncbkResponse.status === 'rejected') {
-        console.warn('NCBK API failed:', ncbkResponse.reason);
-        // Use existing data as fallback
-      }
-      if (ntelResponse.status === 'rejected') {
-        console.warn('NTEL API failed:', ntelResponse.reason);
-        // Use existing data as fallback
-      }
+      // Use existing savedProducts instead of fetching fresh data to avoid timeout
+      const freshSavedProducts = savedProducts;
       
       console.log('Fresh database state:', {
         mm: freshSavedProducts.mm.length,
@@ -2792,8 +2768,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         products: newProducts.map(p => p.hasirTipi)
       });
       
-      // Listeyi güncelle
-      await fetchSavedProducts();
+      // Listeyi güncelle (don't await to avoid timeout)
+      fetchSavedProducts().catch(error => {
+        console.warn('Database refresh failed after save:', error);
+        toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
+      });
       
       // Force re-render for count updates
       setIsSavingToDatabase(false);
