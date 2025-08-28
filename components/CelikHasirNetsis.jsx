@@ -858,17 +858,44 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('DEBUG: getProductsToSave - checking', validProducts.length, 'products against', savedProducts?.mm?.length || 0, 'saved products');
     const newProducts = [];
     
+    // Helper function to normalize Stok Adı for comparison
+    // This handles variations like "5x5" vs "5,0x5,0" vs "5.0x5.0"
+    const normalizeStokAdiForComparison = (stokAdi) => {
+      if (!stokAdi) return '';
+      
+      return stokAdi
+        // Replace all decimal variations with a standard format
+        .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
+        .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
+        .replace(/\s+/g, ' ')                  // Normalize spaces
+        .toLowerCase()
+        .trim();
+    };
+    
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
+      const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
       
-      // Check if product exists using multiple strategies similar to GalvanizliTelNetsis
+      // Check if product exists using multiple strategies
       let productExists = false;
       
-      // Strategy 1: Match by Stok Adı (most reliable)
+      // Strategy 1: Match by exact Stok Adı
       productExists = savedProducts.mm.some(p => p.stok_adi === productStokAdi);
       
-      // Strategy 2: Fallback - Match by product specifications with proper hasir_tipi normalization
+      // Strategy 2: Match by normalized Stok Adı (handles decimal variations)
+      if (!productExists) {
+        productExists = savedProducts.mm.some(p => {
+          const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
+          return normalizedDbStokAdi === normalizedProductStokAdi;
+        });
+        
+        if (productExists) {
+          console.log(`Found match via normalized Stok Adı: "${productStokAdi}" matched database entry`);
+        }
+      }
+      
+      // Strategy 3: Fallback - Match by product specifications with proper hasir_tipi normalization
       if (!productExists) {
         const normalizeHasirTipiForComparison = (hasirTipi) => {
           if (!hasirTipi) return '';
@@ -886,11 +913,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
         );
+        
+        if (productExists) {
+          console.log(`Found match via specifications for: ${productStokAdi}`);
+        }
       }
       
       // Only add if product doesn't exist
       if (!productExists) {
         newProducts.push(product);
+      } else {
+        console.log(`Product already exists, skipping: ${productStokAdi}`);
       }
     }
     
@@ -905,12 +938,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const savedProductsList = [];
     console.log('DEBUG: getSavedProductsList - checking', validProducts.length, 'products against', savedProducts.mm.length, 'saved products');
     
+    // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
+    const normalizeStokAdiForComparison = (stokAdi) => {
+      if (!stokAdi) return '';
+      
+      return stokAdi
+        // Replace all decimal variations with a standard format
+        .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
+        .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
+        .replace(/\s+/g, ' ')                  // Normalize spaces
+        .toLowerCase()
+        .trim();
+    };
+    
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
       
-      // Use same logic as analyzeProductsForConfirmation - first try Stok Adı, then fallback to specs
+      // Use same logic as analyzeProductsForConfirmation - first try exact Stok Adı
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      
+      // Try normalized Stok Adı if exact match not found
+      if (!existingProduct) {
+        const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
+        existingProduct = savedProducts.mm.find(p => {
+          const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
+          return normalizedDbStokAdi === normalizedProductStokAdi;
+        });
+      }
       
       // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
       if (!existingProduct) {
@@ -974,13 +1029,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ntel: savedProducts.ntel?.length || 0
     });
     
+    // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
+    const normalizeStokAdiForComparison = (stokAdi) => {
+      if (!stokAdi) return '';
+      
+      return stokAdi
+        // Replace all decimal variations with a standard format
+        .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
+        .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
+        .replace(/\s+/g, ' ')                  // Normalize spaces
+        .toLowerCase()
+        .trim();
+    };
+    
     for (const product of validProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
-      // Find existing product by Stok Adı
+      // Find existing product by exact Stok Adı
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      
+      // Try normalized Stok Adı if exact match not found
+      if (!existingProduct) {
+        const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
+        existingProduct = savedProducts.mm.find(p => {
+          const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
+          return normalizedDbStokAdi === normalizedProductStokAdi;
+        });
+        
+        if (existingProduct) {
+          console.log(`DEBUG: Found match via normalized Stok Adı: "${productStokAdi}" matched "${existingProduct.stok_adi}"`);
+        }
+      }
       
       // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
       if (!existingProduct) {
