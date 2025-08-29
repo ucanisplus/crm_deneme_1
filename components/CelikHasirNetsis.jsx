@@ -1723,11 +1723,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // CH STOK sheet oluştur
     const chSheet = workbook.addWorksheet('CH STOK');
     const chHeaders = [
-      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
+      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Grup İsmi', 'Kod-1', 'Kod-2', 'İngilizce İsim',
       'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
-      'Ölçü Br-1', 'Ölçü Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1',
-      'Ölçü Br-3', 'Pay-2', 'Payda-2', 'Çevrim Değeri-2', 'Türü',
-      'Mamul Grup', 'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
+      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1',
+      'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2',
+      'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
       'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
       'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)',
       'Özel Saha 2 (Alf.)', 'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi',
@@ -1737,7 +1737,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
       'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
       'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
-      'Yapılandırma Kodu', 'Yap. Açıklama', 'Girişlerde Seri Numarası Takibi Yapılsın',
+      'Yapılandırma Kodu', 'Yap. Açıklama',
+      // Extra columns from our app format (not in CSV template)
+      'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
       'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
     chSheet.addRow(chHeaders);
@@ -1757,54 +1759,75 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                            (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
         
         chSheet.addRow([
-          stokKodu, stokAdi, 'MM', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
-          '20', '20', '31', '36', 'KG', 'AD', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
-          '1', '1', '1', 'M', stokKodu, 'MM', product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)),
-          toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0),
-          gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), parseInt(product.cubukSayisiBoy || 0),
-          parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '', '0', '2', '0', '0', '0',
-          '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '',
-          'H', 'H', '', '', ''
+          // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
+          stokKodu, stokAdi, 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
+          // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
+          '20', '20', '31', '36',
+          // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
+          'KG', 'AD', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
+          '', '1', '1', '1',
+          // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
+          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
+          // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
+          parseInt(product.cubukSayisiBoy || 0), parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '',
+          // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
+          '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+          // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+          '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+          // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
+          '', '', '', '', '', 'H', 'H', '', '', '',
+          // 66-69: Extra columns from our app format (not in CSV template)
+          stokKodu, 'MM', 'E', 'E'
         ]);
     }
 
     // YM NCBK STOK sheet oluştur
     const ncbkSheet = workbook.addWorksheet('YM NCBK STOK');
     const ncbkHeaders = [
-      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
+      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Grup İsmi', 'Kod-1', 'Kod-2', 'İngilizce İsim',
       'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
-      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3',
-      'Pay-2', 'Payda-2', 'Çevrim Değeri-2', 'Türü', 'Mamul Grup',
+      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1',
+      'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2',
       'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
       'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
-      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)', 'Özel Saha 2 (Alf.)',
-      'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1', 'Satış Fiyatı-2',
-      'Satış Fiyatı-3', 'Satış Fiyatı-4', 'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti',
+      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)',
+      'Özel Saha 2 (Alf.)', 'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi',
+      'Satış Fiyatı-1', 'Satış Fiyatı-2', 'Satış Fiyatı-3', 'Satış Fiyatı-4',
+      'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti',
       'Döviz Satış Fiyatı', 'Azami Stok', 'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi',
       'Alış Döviz Tipi', 'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
-      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4', 'Kod-5',
-      'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu', 'Yapılandırma Kodu',
-      'Yap. Açıklama', 'Girişlerde Seri Numarası Takibi Yapılsın', 'Çıkışlarda Seri Numarası Takibi Yapılsın'
+      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
+      'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
+      'Yapılandırma Kodu', 'Yap. Açıklama',
+      // Extra columns from our app format (not in CSV template)
+      'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
+      'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
     ncbkSheet.addRow(ncbkHeaders);
 
     // YM NTEL STOK sheet oluştur
     const ntelSheet = workbook.addWorksheet('YM NTEL STOK');
     const ntelHeaders = [
-      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'İngilizce İsim',
+      'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Grup İsmi', 'Kod-1', 'Kod-2', 'İngilizce İsim',
       'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
-      ' Br-1', ' Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3',
-      'Pay-2', 'Payda-2', 'Çevrim Değeri-2', 'Türü', 'Mamul Grup',
+      'Br-1', 'Br-2', 'Pay-1', 'Payda-1', 'Çevrim Değeri-1',
+      'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2', 'Çevrim Değeri-2',
       'Hasır Tipi', 'Çap', 'Çap2', 'Ebat(Boy)', 'Ebat(En)', 'Göz Aralığı', 'KG',
       'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Özel Saha 2 (Say.)',
-      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)', 'Özel Saha 2 (Alf.)',
-      'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1', 'Satış Fiyatı-2',
-      'Satış Fiyatı-3', 'Satış Fiyatı-4', 'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti',
-      'Döviz Satış Fiyatı', 'Azami Stok', 'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi',
-      'Alış Döviz Tipi', 'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
-      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4', 'Kod-5',
-      'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu', 'Yapılandırma Kodu',
-      'Yap. Açıklama', 'Girişlerde Seri Numarası Takibi Yapılsın', 'Çıkışlarda Seri Numarası Takibi Yapılsın'
+      'Özel Saha 3 (Say.)', 'Özel Saha 4 (Say.)', 'Özel Saha 1 (Alf.)',
+      'Özel Saha 2 (Alf.)', 'Özel Saha 3 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi',
+      'Satış Fiyatı-1', 'Satış Fiyatı-2', 'Satış Fiyatı-3', 'Satış Fiyatı-4',
+      'Döviz Tip', 'Döviz Alış', 'Döviz Maliyeti', 'Döviz Satış Fiyatı',
+      'Azami Stok', 'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi', 'Alış Döviz Tipi',
+      'Bekleme Süresi', 'Temin Süresi', 'Birim Ağırlık', 'Nakliye Tutar',
+      'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
+      'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
+      'Yapılandırma Kodu', 'Yap. Açıklama',
+      // Extra columns from our app format (not in CSV template)
+      'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
+      'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
     ntelSheet.addRow(ntelHeaders);
 
@@ -1831,9 +1854,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkSheet.addRow([
             stokKodu, stokAdi, 'YM', 'NCBK', '', ingilizceIsim, '20', '20', '20', '35',
-            'AD', 'KG', toExcelDecimal(ncbkWeight), '1', '', '1', '1', '1', 'Y', stokKodu,
-            'YM', '', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', uzunlukBoy, '', '', toExcelDecimal(ncbkWeight), '0', '0',
-            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            'AD', 'KG', toExcelDecimal(ncbkWeight), '1', '', '', '1', '1', '1', stokKodu,
+            'YM', 'YM', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', uzunlukBoy, '', '', toExcelDecimal(ncbkWeight), '0', '0',
+            '0', '0', '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
           ]);
@@ -1851,9 +1874,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelSheet.addRow([
             ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
-            'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '', '', 'Y', ntelStokKodu,
-            'YM', '', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '0', '0',
-            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '1', '1', '1', ntelStokKodu,
+            'YM', 'YM', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '0', '0',
+            '0', '0', '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
           ]);
@@ -1873,12 +1896,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ncbkWeight = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
           
           ncbkSheet.addRow([
-            stokKodu, stokAdi, 'YM', 'NCBK', '', ingilizceIsim, '20', '20', '20', '35',
-            'AD', 'KG', toExcelDecimal(ncbkWeight), '1', '', '1', '1', '1', 'Y', stokKodu,
-            'YM', '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', uzunlukEn, '', '', toExcelDecimal(ncbkWeight), '0', '0',
-            '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-            '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-            '', '', '', 'E', 'E'
+            // 1-7: Basic info
+            stokKodu, stokAdi, 'YM', '', 'NCBK', '', ingilizceIsim,
+            // 8-11: KDV and codes
+            '20', '20', '20', '35',
+            // 12-20: Units and conversions
+            'AD', 'KG', '1', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '',
+            '', '1', '1', '1',
+            // 21-27: Product specifications
+            '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', uzunlukEn, '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
+            // 28-35: Counts and custom fields
+            '1', '', '0', '0', '0', '', '', '',
+            // 36-55: Price and financial fields
+            '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+            // 56-65: Final fields from CSV template
+            '', '', '', '', '', 'H', 'H', '', '', '',
+            // Extra columns from our app format (66-69)
+            stokKodu, 'YM', 'E', 'E'
           ]);
         }
         
@@ -1894,12 +1928,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelWeight = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
             
             ntelSheet.addRow([
-              ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
-              'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '', '', 'Y', ntelStokKodu,
-              'YM', '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '0', '0',
-              '', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-              '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-              '', '', '', 'E', 'E'
+              // 1-7: Basic info
+              ntelStokKodu, ntelStokAdi, 'YM', '', 'NTEL', '', ntelIngilizceIsim,
+              // 8-11: KDV and codes
+              '20', '20', '20', '35',
+              // 12-20: Units and conversions
+              'MT', 'KG', '1', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)), '',
+              '', '1', '1', '1',
+              // 21-27: Product specifications
+              '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
+              // 28-35: Counts and custom fields
+              '', '', '0', '0', '0', '', '', '',
+              // 36-55: Price and financial fields
+              '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+              // 56-65: Final fields from CSV template
+              '', '', '', '', '', 'H', 'H', '', '', '',
+              // Extra columns from our app format (66-69)
+              ntelStokKodu, 'YM', 'E', 'E'
             ]);
           }
         }
