@@ -839,26 +839,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Initialize batch counter only once per batch operation
       if (!batchSequenceInitialized) {
-        const existingOzelProducts = savedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.startsWith('CHOZL'));
-        let maxSequence = 2443; // Start from known max
+        let maxSequence = 2443; // Default fallback
         
-        existingOzelProducts.forEach(p => {
-          const match = p.stok_kodu.match(/CHOZL(\d+)/);
-          if (match) {
-            const sequenceNum = parseInt(match[1]);
-            if (sequenceNum > maxSequence) {
-              maxSequence = sequenceNum;
+        // First check sequence table for OZL products
+        const ozlSequenceKey = 'CH_OZL_';
+        if (sequences[ozlSequenceKey]) {
+          maxSequence = sequences[ozlSequenceKey];
+          console.log('*** Using sequence from sequence table:', maxSequence);
+        } else {
+          // Fallback: scan existing products if sequence table not available
+          console.log('*** Sequence table not available, scanning existing products');
+          const existingOzelProducts = savedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.startsWith('CHOZL'));
+          
+          existingOzelProducts.forEach(p => {
+            const match = p.stok_kodu.match(/CHOZL(\d+)/);
+            if (match) {
+              const sequenceNum = parseInt(match[1]);
+              if (sequenceNum > maxSequence) {
+                maxSequence = sequenceNum;
+              }
             }
-          }
-        });
+          });
+          console.log('Existing CHOZL products scanned:', existingOzelProducts.length);
+        }
         
         batchSequenceCounter = maxSequence;
         batchSequenceInitialized = true;
         
         console.log('*** BATCH STOK KODU INITIALIZED FOR NEW PRODUCTS ***');
-        console.log('Total savedProducts.mm:', savedProducts.mm.length);
-        console.log('Existing CHOZL products:', existingOzelProducts.length);
-        console.log('Max sequence in database:', maxSequence);
+        console.log('Max sequence determined:', maxSequence);
         console.log('Batch counter initialized at:', batchSequenceCounter);
       }
       
