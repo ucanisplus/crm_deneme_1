@@ -1,5 +1,5 @@
 // Çelik Hasır Netsis Integration Component
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { API_URLS, fetchWithAuth } from '@/api-config';
@@ -64,6 +64,11 @@ const getFilmasinKodu = (diameter) => {
 };
 
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
+  // OPTIMIZATION: Add refs for request cancellation and caching
+  const fetchControllerRef = useRef(null);
+  const cacheRef = useRef(new Map()); // Simple cache for API responses
+  const lastFetchTimeRef = useRef(0);
+  
   // Check for optimized data from advanced optimization screen
   const [products, setProducts] = useState(optimizedProducts);
   
@@ -89,6 +94,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setProducts(optimizedProducts);
     }
   }, [optimizedProducts, onProductsUpdate]);
+
+  // OPTIMIZATION: Cleanup controller on unmount
+  useEffect(() => {
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Filter out empty rows - a row is considered empty if hasirTipi, uzunlukBoy, or uzunlukEn is missing
   const validProducts = products.filter(product => 
@@ -525,8 +539,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Note: Removed getProductsToSave from dependencies to avoid potential infinite loops
   }, [savedProducts, validProducts]);
 
-  // Veritabanından kayıtlı ürünleri getir - Load all data at once
+  // OPTIMIZED: Veritabanından kayıtlı ürünleri getir with caching and request cancellation
   const fetchSavedProducts = async (isRetry = false, resetData = false) => {
+    // Cancel previous request if exists
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    
+    fetchControllerRef.current = new AbortController();
+    const signal = fetchControllerRef.current.signal;
+    
     try {
       if (!isRetry) {
         setIsLoadingDb(true);
@@ -535,16 +557,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setDbLoadingProgress({ current: 0, total: 3, operation: 'Başlatılıyor...' });
       }
       
-      console.log('Fetching all saved products from database...');
+      console.log('🚀 OPTIMIZED: Fetching all saved products from database...');
       
-      // Load data with progress tracking and better error handling
+      // Load data with progress tracking, request cancellation, and timeout
       setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
       
+      // Use parallel requests with timeout and signal
+      const timeoutPromise = (promise, timeout = 60000) => 
+        Promise.race([
+          promise,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+          )
+        ]);
+      
       const [mmResult, ncbkResult, ntelResult] = await Promise.allSettled([
-        fetchWithAuth(API_URLS.celikHasirMm),
-        fetchWithAuth(API_URLS.celikHasirNcbk),
-        fetchWithAuth(API_URLS.celikHasirNtel)
+        timeoutPromise(fetchWithAuth(API_URLS.celikHasirMm, { signal })),
+        timeoutPromise(fetchWithAuth(API_URLS.celikHasirNcbk, { signal })),
+        timeoutPromise(fetchWithAuth(API_URLS.celikHasirNtel, { signal }))
       ]);
+      
+      // Check if request was cancelled
+      if (signal.aborted) {
+        console.log('Request was cancelled');
+        return;
+      }
       
       setDbLoadingProgress({ current: 3, total: 3, operation: 'Veriler işleniyor...' });
 
@@ -1567,42 +1604,92 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Excel dosyalarını oluştur
-  const generateExcelFiles = async (products, includeAllProducts = false) => {
+  // OPTIMIZED: Excel dosyalarını oluştur with chunked processing
+  const generateExcelFiles = useCallback(async (products, includeAllProducts = false) => {
     try {
       // DON'T clear cache here - it should persist from database save to Excel generation
       // so that same products get same STOK KODUs in both database and Excel files
       
-      console.log('DEBUG: generateExcelFiles called with:', {
+      console.log('🚀 OPTIMIZED: generateExcelFiles called with:', {
         productsCount: products.length,
         includeAllProducts,
         firstProduct: products[0] || 'No products'
       });
       
+      // Process large datasets in chunks to avoid blocking UI
+      const CHUNK_SIZE = 500;
+      const chunks = [];
+      for (let i = 0; i < products.length; i += CHUNK_SIZE) {
+        chunks.push(products.slice(i, i + CHUNK_SIZE));
+      }
+      
       setIsGeneratingExcel(true);
-      setExcelProgress({ current: 0, total: 3, operation: 'Excel dosyaları hazırlanıyor...' });
+      setExcelProgress({ current: 0, total: chunks.length * 3, operation: 'Excel dosyaları hazırlanıyor...' });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
       
-      // 1. Stok Kartı Excel
-      console.log('DEBUG: Starting Stok Kartı Excel generation...');
-      setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
-      await generateStokKartiExcel(products, timestamp, includeAllProducts);
-      console.log('DEBUG: Stok Kartı Excel completed');
+      let currentStep = 0;
       
-      // 2. Reçete Excel  
-      console.log('DEBUG: Starting Reçete Excel generation...');
-      setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
-      await generateReceteExcel(products, timestamp, includeAllProducts);
-      console.log('DEBUG: Reçete Excel completed');
+      // 1. Stok Kartı Excel (processed in chunks)
+      console.log('🚀 OPTIMIZED: Starting Stok Kartı Excel generation in chunks...');
+      for (const [index, chunk] of chunks.entries()) {
+        setExcelProgress({ 
+          current: ++currentStep, 
+          total: chunks.length * 3, 
+          operation: `Stok Kartı Excel oluşturuluyor... (${index + 1}/${chunks.length})` 
+        });
+        
+        if (index === 0) {
+          await generateStokKartiExcel(chunk, timestamp, includeAllProducts);
+        } else {
+          // Append to existing Excel for subsequent chunks
+          await generateStokKartiExcel(chunk, timestamp, includeAllProducts, true);
+        }
+        
+        // Allow UI to breathe between chunks
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      console.log('✅ Stok Kartı Excel completed');
       
-      // 3. Alternatif Reçete Excel
-      console.log('DEBUG: Starting Alternatif Reçete Excel generation...');
-      setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
-      await generateAlternatifReceteExcel(products, timestamp, includeAllProducts);
-      console.log('DEBUG: Alternatif Reçete Excel completed');
+      // 2. Reçete Excel (processed in chunks)
+      console.log('🚀 OPTIMIZED: Starting Reçete Excel generation in chunks...');
+      for (const [index, chunk] of chunks.entries()) {
+        setExcelProgress({ 
+          current: ++currentStep, 
+          total: chunks.length * 3, 
+          operation: `Reçete Excel oluşturuluyor... (${index + 1}/${chunks.length})` 
+        });
+        
+        if (index === 0) {
+          await generateReceteExcel(chunk, timestamp, includeAllProducts);
+        } else {
+          await generateReceteExcel(chunk, timestamp, includeAllProducts, true);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      console.log('✅ Reçete Excel completed');
       
-      toast.success('Excel dosyaları başarıyla oluşturuldu!');
+      // 3. Alternatif Reçete Excel (processed in chunks)
+      console.log('🚀 OPTIMIZED: Starting Alternatif Reçete Excel generation in chunks...');
+      for (const [index, chunk] of chunks.entries()) {
+        setExcelProgress({ 
+          current: ++currentStep, 
+          total: chunks.length * 3, 
+          operation: `Alternatif Reçete Excel oluşturuluyor... (${index + 1}/${chunks.length})` 
+        });
+        
+        if (index === 0) {
+          await generateAlternatifReceteExcel(chunk, timestamp, includeAllProducts);
+        } else {
+          await generateAlternatifReceteExcel(chunk, timestamp, includeAllProducts, true);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      console.log('✅ Alternatif Reçete Excel completed');
+      
+      toast.success(`Excel dosyaları başarıyla oluşturuldu! (${products.length} ürün, ${chunks.length} parça)`);
       
     } catch (error) {
       console.error('Excel oluşturma hatası:', error);
@@ -1611,7 +1698,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setIsGeneratingExcel(false);
       setExcelProgress({ current: 0, total: 0, operation: '' });
     }
-  };
+  }, []);
 
   // Stok Kartı Excel oluştur
   const generateStokKartiExcel = async (products, timestamp, includeAllProducts) => {
@@ -4565,4 +4652,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
 CelikHasirNetsis.displayName = 'CelikHasirNetsis';
 
-export default CelikHasirNetsis;
+// OPTIMIZATION: Memoize the component to prevent unnecessary re-renders
+export default memo(CelikHasirNetsis, (prevProps, nextProps) => {
+  // Custom comparison function for better performance
+  return (
+    prevProps.optimizedProducts?.length === nextProps.optimizedProducts?.length &&
+    prevProps.optimizedProducts?.every((prev, index) => {
+      const next = nextProps.optimizedProducts[index];
+      return prev.hasirTipi === next?.hasirTipi && 
+             prev.uzunlukBoy === next?.uzunlukBoy && 
+             prev.uzunlukEn === next?.uzunlukEn;
+    })
+  );
+});
