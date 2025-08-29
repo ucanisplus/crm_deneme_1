@@ -4391,7 +4391,54 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <button
                 onClick={async () => {
                   setShowExcelOptionsModal(false);
-                  await generateExcelFiles(validProducts, true);
+                  
+                  // Combine both approaches: planned codes for new, highest codes for existing
+                  const allProductsWithCodes = [];
+                  
+                  // Create stokAdi mapping for existing products
+                  const stokAdiToStokKodusMap = new Map();
+                  savedProducts.mm.forEach(product => {
+                    const productStokAdi = product.stok_adi;
+                    if (productStokAdi) {
+                      if (!stokAdiToStokKodusMap.has(productStokAdi)) {
+                        stokAdiToStokKodusMap.set(productStokAdi, []);
+                      }
+                      stokAdiToStokKodusMap.get(productStokAdi).push(product.stok_kodu);
+                    }
+                  });
+                  
+                  // Reset batch counter for planned stok_kodu generation
+                  resetBatchSequenceCounter();
+                  let plannedIndex = 0;
+                  
+                  validProducts.forEach(product => {
+                    const productStokAdi = generateStokAdi(product, 'CH');
+                    const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
+                    
+                    if (existingStokKodus.length > 0) {
+                      // Existing product - use highest stok_kodu
+                      const sortedCodes = existingStokKodus.sort((a, b) => {
+                        const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
+                        const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
+                        return numB - numA; // Descending order 
+                      });
+                      const highestStokKodu = sortedCodes[0];
+                      
+                      allProductsWithCodes.push({
+                        ...product,
+                        existingStokKodu: highestStokKodu
+                      });
+                    } else {
+                      // New product - use planned stok_kodu
+                      allProductsWithCodes.push({
+                        ...product,
+                        existingStokKodu: generateStokKodu(product, 'CH', plannedIndex)
+                      });
+                      plannedIndex++;
+                    }
+                  });
+                  
+                  await generateExcelFiles(allProductsWithCodes, true);
                 }}
                 disabled={isGeneratingExcel}
                 className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors text-left flex items-center gap-2"
@@ -4399,7 +4446,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 {isGeneratingExcel && <Loader className="w-5 h-5 animate-spin" />}
                 <div>
                   <div className="font-medium">Tüm Ürünler ({validProducts.length} adet)</div>
-                  <div className="text-sm opacity-90 mt-1">Listede bulunan tüm ürünler için Excel oluştur</div>
+                  <div className="text-sm opacity-90 mt-1">Yeniler için planlanan, mevcutlar için en yüksek stok kodu</div>
                 </div>
               </button>
               
@@ -4411,35 +4458,81 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     toast.info('Kaydedilmemiş ürün bulunamadı.');
                     return;
                   }
-                  await generateExcelFiles(newProducts, false);
+                  
+                  // Reset batch counter for new planned stok_kodu generation
+                  resetBatchSequenceCounter();
+                  
+                  // Add planned stok_kodu to new products for Excel generation 
+                  const newProductsWithPlannedCodes = newProducts.map((product, index) => ({
+                    ...product,
+                    existingStokKodu: generateStokKodu(product, 'CH', index)
+                  }));
+                  
+                  await generateExcelFiles(newProductsWithPlannedCodes, false);
                 }}
                 disabled={isGeneratingExcel}
                 className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-left flex items-center gap-2"
               >
                 {isGeneratingExcel && <Loader className="w-5 h-5 animate-spin" />}
                 <div>
-                  <div className="font-medium">Sadece Kaydedilmemiş Ürünler ({getProductsToSave().length} adet)</div>
-                  <div className="text-sm opacity-90 mt-1">Veritabanında bulunmayan ürünler için Excel oluştur</div>
+                  <div className="font-medium">Sadece Yeni Ürünler ({getProductsToSave().length} adet)</div>
+                  <div className="text-sm opacity-90 mt-1">Planlanan stok kodları ile Excel oluştur (Kaydetmez)</div>
                 </div>
               </button>
               
               <button
                 onClick={async () => {
                   setShowExcelOptionsModal(false);
-                  const savedProductsList = getSavedProductsList();
-                  if (savedProductsList.length === 0) {
+                  
+                  // Find existing products using the same duplicate finder logic
+                  const existingProductsWithHighestCodes = [];
+                  
+                  // Use the same stokAdi mapping logic from saveToDatabase
+                  const stokAdiToStokKodusMap = new Map();
+                  savedProducts.mm.forEach(product => {
+                    const productStokAdi = product.stok_adi;
+                    if (productStokAdi) {
+                      if (!stokAdiToStokKodusMap.has(productStokAdi)) {
+                        stokAdiToStokKodusMap.set(productStokAdi, []);
+                      }
+                      stokAdiToStokKodusMap.get(productStokAdi).push(product.stok_kodu);
+                    }
+                  });
+                  
+                  validProducts.forEach(product => {
+                    const productStokAdi = generateStokAdi(product, 'CH');
+                    const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
+                    
+                    if (existingStokKodus.length > 0) {
+                      // Find the highest stok_kodu (CHOZL1500 > CHOZL1000)
+                      const sortedCodes = existingStokKodus.sort((a, b) => {
+                        const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
+                        const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
+                        return numB - numA; // Descending order 
+                      });
+                      const highestStokKodu = sortedCodes[0];
+                      
+                      existingProductsWithHighestCodes.push({
+                        ...product,
+                        existingStokKodu: highestStokKodu
+                      });
+                    }
+                  });
+                  
+                  if (existingProductsWithHighestCodes.length === 0) {
                     toast.info('Kaydedilmiş ürün bulunamadı.');
                     return;
                   }
-                  await generateExcelFiles(savedProductsList, false);
+                  
+                  await generateExcelFiles(existingProductsWithHighestCodes, false);
                 }}
                 disabled={isGeneratingExcel}
                 className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors text-left flex items-center gap-2"
               >
                 {isGeneratingExcel && <Loader className="w-5 h-5 animate-spin" />}
                 <div>
-                  <div className="font-medium">Sadece Kaydedilmiş Ürünler ({getSavedProductsList().length} adet)</div>
-                  <div className="text-sm opacity-90 mt-1">Veritabanında zaten kayıtlı olan ürünler için Excel oluştur</div>
+                  <div className="font-medium">Sadece Mevcut Ürünler</div>
+                  <div className="text-sm opacity-90 mt-1">En yüksek stok kodlu kayıtlı ürünler için Excel oluştur</div>
                 </div>
               </button>
             </div>
