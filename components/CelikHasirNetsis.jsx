@@ -1896,22 +1896,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ncbkWeight = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
           
           ncbkSheet.addRow([
-            // 1-7: Basic info
+            // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
             stokKodu, stokAdi, 'YM', '', 'NCBK', '', ingilizceIsim,
-            // 8-11: KDV and codes
+            // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
             '20', '20', '20', '35',
-            // 12-20: Units and conversions
+            // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
             'AD', 'KG', '1', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '',
+            // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
-            // 21-27: Product specifications
-            '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', uzunlukEn, '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
-            // 28-35: Counts and custom fields
+            // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+            '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', uzunlukEn, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
+            // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
             '1', '', '0', '0', '0', '', '', '',
-            // 36-55: Price and financial fields
-            '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
-            // 56-65: Final fields from CSV template
+            // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
+            '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+            // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+            '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+            // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
             '', '', '', '', '', 'H', 'H', '', '', '',
-            // Extra columns from our app format (66-69)
+            // 66-69: Extra columns from our app format (not in CSV template)
             stokKodu, 'YM', 'E', 'E'
           ]);
         }
@@ -1928,22 +1931,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelWeight = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
             
             ntelSheet.addRow([
-              // 1-7: Basic info
+              // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
               ntelStokKodu, ntelStokAdi, 'YM', '', 'NTEL', '', ntelIngilizceIsim,
-              // 8-11: KDV and codes
+              // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
               '20', '20', '20', '35',
-              // 12-20: Units and conversions
+              // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
               'MT', 'KG', '1', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)), '',
+              // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
               '', '1', '1', '1',
-              // 21-27: Product specifications
+              // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
               '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
-              // 28-35: Counts and custom fields
+              // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
               '', '', '0', '0', '0', '', '', '',
-              // 36-55: Price and financial fields
-              '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
-              // 56-65: Final fields from CSV template
+              // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
+              '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+              // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+              '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+              // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
               '', '', '', '', '', 'H', 'H', '', '', '',
-              // Extra columns from our app format (66-69)
+              // 66-69: Extra columns from our app format (not in CSV template)
               ntelStokKodu, 'YM', 'E', 'E'
             ]);
           }
@@ -2106,7 +2112,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
-            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -2193,7 +2199,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen', ntelFlmKodu,
-            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -2294,7 +2300,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
-            'MT', enNtelMiktar, 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+            'MT', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
@@ -2333,7 +2339,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
-            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -2363,7 +2369,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ncbkReceteSheet.addRow([
             ncbkStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
-            'KG', parseFloat(ncbkFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -2391,7 +2397,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
-            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
@@ -2419,7 +2425,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', '', '1', 'Bileşen',
             flmInfo.code,
-            'KG', parseFloat(ntelFlmTuketimi).toFixed(5), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+            'KG', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
