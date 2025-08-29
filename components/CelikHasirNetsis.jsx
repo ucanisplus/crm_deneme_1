@@ -2687,7 +2687,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelExists,
             reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
           });
-          newProducts.push(product);
+          // Store the generated stok_kodu for Excel generation later
+          newProducts.push({
+            ...product,
+            existingStokKodu: generatedStokKodu
+          });
         }
       }
       
@@ -3082,12 +3086,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               willCreateRecipes: Object.keys(newNcbkResults).length > 0 || newNtelResult
             });
 
-            if (Object.keys(newNcbkResults).length > 0 || newNtelResult) {
-              await saveRecipeData(product, chResult, newNcbkResults, newNtelResult);
-              console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
-            } else {
-              console.log(`⏭️  Recipe kayıtları atlandı - tüm NCBK/NTEL zaten mevcut: ${product.hasirTipi}`);
-            }
+            // Always create CH recipes when CH is new, even if NCBK/NTEL exist
+            // Use existing NCBK/NTEL if no new ones were created
+            const ncbkForRecipe = Object.keys(newNcbkResults).length > 0 ? newNcbkResults : ncbkResults;
+            const ntelForRecipe = newNtelResult || ntelResult;
+            
+            await saveRecipeData(product, chResult, ncbkForRecipe, ntelForRecipe);
+            console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             
             // Sequence güncelle (sadece yeni ürünler için)
             if (chResponse && chResponse.status !== 409) {
