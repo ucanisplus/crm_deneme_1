@@ -270,6 +270,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntel: []
   });
   
+  // Store total counts from X-Total-Count header for pagination display
+  const [totalCounts, setTotalCounts] = useState({
+    mm: 0,
+    ncbk: 0,
+    ntel: 0
+  });
+  
   // Excel generation durumu
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
@@ -660,11 +667,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         throw new Error(`Critical MM API failed: ${mmResult.reason}`);
       }
 
+      // Extract data and total counts from responses
+      const mmData = mmResponse?.ok ? await mmResponse.json() : [];
+      const mmTotal = mmResponse?.ok ? parseInt(mmResponse.headers.get('X-Total-Count') || mmData.length) : (savedProducts.mm?.length || 0);
+      
+      const ncbkData = ncbkResponse?.ok ? await ncbkResponse.json() : savedProducts.ncbk || [];
+      const ncbkTotal = ncbkResponse?.ok ? parseInt(ncbkResponse.headers.get('X-Total-Count') || ncbkData.length) : (savedProducts.ncbk?.length || 0);
+      
+      const ntelData = ntelResponse?.ok ? await ntelResponse.json() : savedProducts.ntel || [];
+      const ntelTotal = ntelResponse?.ok ? parseInt(ntelResponse.headers.get('X-Total-Count') || ntelData.length) : (savedProducts.ntel?.length || 0);
+
       const allData = {
-        mm: mmResponse?.ok ? await mmResponse.json() : [],
-        ncbk: ncbkResponse?.ok ? await ncbkResponse.json() : savedProducts.ncbk || [],
-        ntel: ntelResponse?.ok ? await ntelResponse.json() : savedProducts.ntel || []
+        mm: mmData,
+        ncbk: ncbkData,
+        ntel: ntelData
       };
+      
+      // Store total counts for pagination display
+      setTotalCounts({
+        mm: mmTotal,
+        ncbk: ncbkTotal,
+        ntel: ntelTotal
+      });
 
       // Warn user about partial failures
       if (failedAPIs.length > 0) {
@@ -679,7 +703,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setBackendError(null);
       setRetryCount(0);
       
-      console.log(`✅ Başarıyla yüklendi - Toplam: MM(${allData.mm?.length || 0}), NCBK(${allData.ncbk?.length || 0}), NTEL(${allData.ntel?.length || 0}) ürün`);
+      // Display current page vs total for pagination
+      const mmDisplay = mmTotal === mmData.length ? `MM(${mmTotal})` : `MM(${mmData.length}/${mmTotal})`;
+      const ncbkDisplay = ncbkTotal === ncbkData.length ? `NCBK(${ncbkTotal})` : `NCBK(${ncbkData.length}/${ncbkTotal})`;
+      const ntelDisplay = ntelTotal === ntelData.length ? `NTEL(${ntelTotal})` : `NTEL(${ntelData.length}/${ntelTotal})`;
+      
+      console.log(`✅ Başarıyla yüklendi - Toplam: ${mmDisplay}, ${ncbkDisplay}, ${ntelDisplay} ürün`);
       
     } catch (error) {
       console.error('❌ Veritabanı bağlantı hatası:', error);
@@ -842,10 +871,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let maxSequence = 2443; // Default fallback
         
         // First check sequence table for OZL products
-        const ozlSequenceKey = 'CH_OZL_';
-        if (sequences[ozlSequenceKey]) {
+        // Look for any sequence key that starts with CH_OZL_
+        const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
+        if (ozlSequenceKey && sequences[ozlSequenceKey]) {
           maxSequence = sequences[ozlSequenceKey];
-          console.log('*** Using sequence from sequence table:', maxSequence);
+          console.log('*** Using sequence from sequence table with key:', ozlSequenceKey, 'value:', maxSequence);
         } else {
           // Fallback: scan existing products if sequence table not available
           console.log('*** Sequence table not available, scanning existing products');
