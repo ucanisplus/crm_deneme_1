@@ -1934,23 +1934,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const isQType = product.hasirTipi && product.hasirTipi.includes('Q');
         const isRType = product.hasirTipi && product.hasirTipi.includes('R');
         
-        // Set quantities based on reference pattern
-        const enCubukMiktar = isRType ? '20' : '32'; // R-type: 20, Q-type: 32
-        const boyCubukMiktar = '15'; // Always 15 for BOY ÇUBUĞU
+        // FIXED: Calculate correct quantities based on actual product dimensions
+        const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
+        const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
         const operationTime = isRType ? '0.1667' : '0.2667'; // R-type: 0.1667, Q-type: 0.2667
         
-        // EN ÇUBUĞU (215cm)
+        // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '1', 'Bileşen',
-          `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.215`, 
+          `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${Math.round(parseFloat(product.uzunlukEn) || 0)}`, 
           'AD', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
-        // BOY ÇUBUĞU (500cm)  
+        // BOY ÇUBUĞU (actual boy length)  
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '2', 'Bileşen',
-          `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.500`,
+          `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${Math.round(parseFloat(product.uzunlukBoy) || 0)}`,
           'AD', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
