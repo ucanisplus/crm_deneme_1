@@ -405,6 +405,52 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     );
   };
 
+  // Retry helper function for 504/500 errors
+  const fetchWithRetry = async (url, options, maxRetries = 3, baseDelay = 2000, progressCallback = null) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetchWithAuth(url, options);
+        
+        // If successful, return response
+        if (response.ok) {
+          return response;
+        }
+        
+        // If it's a 504 or 500 error, retry
+        if ((response.status === 504 || response.status === 500) && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          console.log(`⏳ Request failed with ${response.status}, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
+          
+          // Update progress indicator if callback provided
+          if (progressCallback) {
+            progressCallback(`⏳ Sunucu zaman aşımı, tekrar denenecek... (${attempt}/${maxRetries})`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a retryable error or max retries reached, return the response
+        return response;
+        
+      } catch (error) {
+        if (attempt < maxRetries && (error.name === 'TypeError' || error.message.includes('fetch'))) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          console.log(`⏳ Network error, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
+          
+          // Update progress indicator if callback provided
+          if (progressCallback) {
+            progressCallback(`⏳ Ağ hatası, tekrar denenecek... (${attempt}/${maxRetries})`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+  };
+
   // Bulk delete function for selected items
   const handleBulkDeleteSelected = async () => {
     if (selectedDbItems.length === 0) {
@@ -429,11 +475,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Delete products in parallel for speed - let backend handle recipe cascading
       const deletePromises = selectedDbItems.map(async (itemId) => {
         try {
-          const response = await fetch(`${tabEndpoints[activeDbTab]}/${itemId}`, {
+          const response = await fetchWithRetry(`${tabEndpoints[activeDbTab]}/${itemId}`, {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
             }
+          }, 3, 2000, (retryMessage) => {
+            // Show retry progress to user
+            toast.info(`${itemId}: ${retryMessage}`, { autoClose: 3000 });
           });
 
           if (!response.ok) {
@@ -2408,7 +2458,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             bilesen_kodu: 'NDK01',
             olcu_br_bilesen: 'DK',
             miktar: 1,
-            aciklama: 'Nervürlü Çubuk Kesme Operasyonu',
+            aciklama: '',
             uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: length })
           }
         ];
@@ -2472,22 +2522,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Sequence güncelleme
-  const updateSequences = async (product) => {
+  const updateSequences = async (product, actualSequenceNumber = null) => {
     try {
-      // CH sequence güncelle
+      // CH sequence güncelle with UPSERT operation
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
       const kod2 = isStandard ? 'STD' : 'OZL';
       const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
       
+      // For OZL products, use the actual generated sequence number
+      const sequenceData = {
+        product_type: 'CH',
+        kod_2: kod2,
+        cap_code: capCode,
+        last_sequence: actualSequenceNumber || 0, // Use actual sequence number for OZL
+        upsert: true // Signal backend to use UPSERT instead of INSERT
+      };
+      
       await fetchWithAuth(API_URLS.celikHasirSequence, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_type: 'CH',
-          kod_2: kod2,
-          cap_code: capCode
-        })
+        body: JSON.stringify(sequenceData)
       });
       
     } catch (error) {
@@ -2693,8 +2748,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const kgValue = parseFloat(product.adetKg || product.totalKg || 0);
         
         
+        // Generate stok_kodu and capture it for sequence tracking
+        const generatedStokKodu = generateStokKodu(product, 'CH', i);
         const chData = {
-          stok_kodu: generateStokKodu(product, 'CH', i),
+          stok_kodu: generatedStokKodu,
           stok_adi: generateStokAdi(product, 'CH'),
           grup_kodu: 'MM',
           kod_1: 'HSR',
@@ -2816,8 +2873,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               depo_kodu: 36,
               br_1: 'AD',
               br_2: 'KG',
-              pay_1: 1,
-              payda_1: parseFloat(ncbkWeight.toFixed(5)),
+              pay_1: parseFloat(ncbkWeight.toFixed(5)),
+              payda_1: 1,
               cevrim_degeri_1: 0,
               olcu_br_3: null,
               cevrim_pay_2: 1,
@@ -2832,7 +2889,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               kg: parseFloat(ncbkWeight.toFixed(5)),
               length_cm: length,
               // Defaults
-              hasir_tipi: '',
+              hasir_tipi: 'YM',
               ic_cap_boy_cubuk_ad: 0,
               dis_cap_en_cubuk_ad: 0,
               ozel_saha_2_say: 0,
@@ -2912,8 +2969,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             depo_kodu: 36,
             br_1: 'MT',
             br_2: 'KG',
-            pay_1: 1,
-            payda_1: parseFloat(ntelWeight.toFixed(5)),
+            pay_1: parseFloat(ntelWeight.toFixed(5)),
+            payda_1: 1,
             cevrim_degeri_1: 0,
             olcu_br_3: null,
             cevrim_pay_2: 1,
@@ -2927,7 +2984,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             goz_araligi: '',
             kg: parseFloat(ntelWeight.toFixed(5)),
             // Defaults
-            hasir_tipi: '',
+            hasir_tipi: 'YM',
             ic_cap_boy_cubuk_ad: 0,
             dis_cap_en_cubuk_ad: 0,
             ozel_saha_2_say: 0,
@@ -3018,7 +3075,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             // Sequence güncelle (sadece yeni ürünler için)
             if (chResponse && chResponse.status !== 409) {
-              await updateSequences(product);
+              // Extract sequence number from generated stok_kodu for OZL products
+              let actualSequenceNumber = null;
+              if (generatedStokKodu && generatedStokKodu.startsWith('CHOZL')) {
+                const match = generatedStokKodu.match(/CHOZL(\d+)/);
+                if (match) {
+                  actualSequenceNumber = parseInt(match[1]);
+                }
+              }
+              await updateSequences(product, actualSequenceNumber);
             }
           } catch (error) {
             console.error(`Recipe kaydı hatası (${product.hasirTipi}):`, error);
@@ -3111,7 +3176,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               for (const recipe of recipesToDelete) {
                 if (recipe.id) {
                   try {
-                    const deleteRecipeResponse = await fetchWithAuth(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' });
+                    const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
+                      toast.info(`Reçete siliniyor: ${retryMessage}`, { autoClose: 2000 });
+                    });
                     if (!deleteRecipeResponse.ok) {
                       console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
                     }
@@ -3134,7 +3201,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       else if (productType === 'ncbk') apiUrl = `${API_URLS.celikHasirNcbk}/${productId}`;
       else if (productType === 'ntel') apiUrl = `${API_URLS.celikHasirNtel}/${productId}`;
 
-      const response = await fetchWithAuth(apiUrl, { method: 'DELETE' });
+      const response = await fetchWithRetry(apiUrl, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
+        toast.info(`Ürün siliniyor: ${retryMessage}`, { autoClose: 2000 });
+      });
       
       if (response?.ok) {
         toast.success('Ürün ve reçeteleri başarıyla silindi');
@@ -3210,7 +3279,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               for (const recipe of recipes) {
                 if (recipe.id) {
                   try {
-                    const deleteRecipeResponse = await fetchWithAuth(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' });
+                    const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
+                      setBulkDeleteProgress(prev => ({
+                        ...prev,
+                        operation: `${prev.operation} ${retryMessage}`
+                      }));
+                    });
                     if (deleteRecipeResponse.ok) {
                       recipeDeleteCount++;
                     }
@@ -3237,7 +3311,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           currentItem: product.stok_kodu || `Ürün ${processedCount}` 
         });
         
-        await fetchWithAuth(`${apiUrl}/${product.id}`, { method: 'DELETE' });
+        await fetchWithRetry(`${apiUrl}/${product.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
+          setBulkDeleteProgress(prev => ({
+            ...prev,
+            operation: `Ürün kayıtları siliniyor... ${retryMessage}`
+          }));
+        });
       }
       
       // Eğer CH (mm) siliyorsak, sequence tablosunu da temizle
@@ -3250,7 +3329,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         // OZL sequence'ı sıfırla
-        await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
+        await fetchWithRetry(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
           method: 'DELETE' 
         }).catch(() => {}); // Hata olsa bile devam et
       }
