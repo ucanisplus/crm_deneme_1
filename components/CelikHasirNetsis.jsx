@@ -547,9 +547,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       hasirTipi: product.hasir_tipi || '',
       uzunlukBoy: product.ebat_boy || 0,
       uzunlukEn: product.ebat_en || 0,
-      boyAraligi: product.goz_araligi ? product.goz_araligi.split('*')[0] : '15',
-      enAraligi: product.goz_araligi ? product.goz_araligi.split('*')[1] || product.goz_araligi.split('*')[0] : '15',
-      gozAraligi: product.goz_araligi || '15*15',
+      boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+      enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+      gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
       totalKg: product.kg || 0,
       adetKg: product.kg || 0,
       cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
@@ -773,7 +773,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       if (productType === 'CH') {
         const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                           (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
+                           (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
         const diameter = parseFloat(product.boyCap || product.enCap || 0);
         const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
         
@@ -893,7 +893,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   function generateStokKodu(product, productType, batchIndex = 0) {
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                         (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
+                         (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
       const diameter = parseFloat(product.boyCap || product.enCap || 0);
       const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
       
@@ -978,7 +978,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Format göz aralığı
       let gozAraligi = '';
       if (boyAraligi && enAraligi) {
-        gozAraligi = `${boyAraligi}*${enAraligi}`;
+        gozAraligi = `${boyAraligi}x${enAraligi}`;
       } else if (product.gozAraligi) {
         gozAraligi = product.gozAraligi;
       } else if (product.goz_araligi) {
@@ -1342,18 +1342,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 const first = normalized.substring(0, 2);
                 const second = normalized.substring(2, 4);
                 if (first === second) {
-                  return `${first}*${second}`;
+                  return `${first}x${second}`;
                 }
               }
               // Check if it's a double number like "3015" → "30*15" 
               if (normalized.length === 4 && /^\d{4}$/.test(normalized)) {
                 const first = normalized.substring(0, 2);
                 const second = normalized.substring(2, 4);
-                return `${first}*${second}`;
+                return `${first}x${second}`;
               }
               // Single value: "15" → "15*15"
               if (/^\d{1,2}$/.test(normalized)) {
-                return `${normalized}*${normalized}`;
+                return `${normalized}x${normalized}`;
               }
             }
             
@@ -1610,16 +1610,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const formatGozAraligi = (product) => {
     // Check multiple possible field names
     if (product.boyAraligi && product.enAraligi) {
-      return `${product.boyAraligi}*${product.enAraligi}`;
+      return `${product.boyAraligi}x${product.enAraligi}`;
     } else if (product.boyAralik && product.enAralik) {
-      return `${product.boyAralik}*${product.enAralik}`;
+      return `${product.boyAralik}x${product.enAralik}`;
     } else if (product.gozAraligi) {
       // Ensure it's in "X*Y" format, if it's just a single number, duplicate it
       const gozValue = product.gozAraligi.toString();
       if (gozValue.includes('*')) {
         return gozValue;
       } else {
-        return `${gozValue}*${gozValue}`;
+        return `${gozValue}x${gozValue}`;
       }
     } else if (product.goz_araligi) {
       // Ensure it's in "X*Y" format, if it's just a single number, duplicate it
@@ -1627,7 +1627,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (gozValue.includes('*')) {
         return gozValue;
       } else {
-        return `${gozValue}*${gozValue}`;
+        return `${gozValue}x${gozValue}`;
       }
     } else {
       // Default fallback - return default mesh spacing
@@ -1756,7 +1756,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         excelBatchIndex++;
         
         const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                           (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
+                           (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
         
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
@@ -1853,12 +1853,26 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ncbkWeight = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
           
           ncbkSheet.addRow([
-            stokKodu, stokAdi, 'YM', 'NCBK', '', ingilizceIsim, '20', '20', '20', '35',
-            'AD', 'KG', toExcelDecimal(ncbkWeight), '1', '', '', '1', '1', '1', stokKodu,
-            'YM', 'YM', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', uzunlukBoy, '', '', toExcelDecimal(ncbkWeight), '0', '0',
-            '0', '0', '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-            '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-            '', '', '', 'E', 'E'
+            // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
+            stokKodu, stokAdi, 'YM', 'YM', 'NCBK', '', ingilizceIsim,
+            // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
+            '20', '20', '20', '35',
+            // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
+            'AD', 'KG', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '1', '',
+            // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
+            '', '1', '1', '1',
+            // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+            '', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', uzunlukBoy, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
+            // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
+            '0', '0', '0', '0', '0', '', '', '',
+            // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
+            '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+            // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+            '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+            // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
+            '', '', '', '', '', 'H', 'H', '', '', '',
+            // 66-69: Extra columns from our app format (not in CSV template)
+            stokKodu, 'YM', 'E', 'E'
           ]);
         }
         
@@ -1897,7 +1911,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkSheet.addRow([
             // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-            stokKodu, stokAdi, 'YM', '', 'NCBK', '', ingilizceIsim,
+            stokKodu, stokAdi, 'YM', 'YM', 'NCBK', '', ingilizceIsim,
             // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
             '20', '20', '20', '35',
             // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
@@ -2593,7 +2607,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       // CH sequence güncelle with UPSERT operation
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                         (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25');
+                         (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
       const kod2 = isStandard ? 'STD' : 'OZL';
       const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
       
@@ -2830,7 +2844,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           grup_kodu: 'MM',
           kod_1: 'HSR',
           kod_2: (product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                  (formatGozAraligi(product) === '15*15' || formatGozAraligi(product) === '15*25')) ? 'STD' : 'OZL',
+                  (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25')) ? 'STD' : 'OZL',
           ingilizce_isim: generateIngilizceIsim(product, 'CH'),
           // Standard columns from SQL
           alis_kdv_orani: 20,
