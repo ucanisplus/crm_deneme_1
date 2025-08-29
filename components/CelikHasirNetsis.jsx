@@ -1888,7 +1888,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
             '20', '20', '20', '35',
             // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
-            'AD', 'KG', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '1', '',
+            'AD', 'KG', '1', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '',
             // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
             // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
@@ -1917,9 +1917,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           ntelSheet.addRow([
-            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
-            'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '1', '1', '1', ntelStokKodu,
-            'YM', 'YM', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '0', '0',
+            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', ntelIngilizceIsim, '20', '20', '20', '35',
+            'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '1', '1', '1', '',
+            toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
             '0', '0', '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             '', '', '', 'E', 'E'
@@ -2598,7 +2598,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)).code,
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
-            aciklama: 'FLM tüketimi - metre başına',
+            aciklama: 'FLM tüketimi',
           },
           // Operasyon - Tam Otomatik İşlem
           {
