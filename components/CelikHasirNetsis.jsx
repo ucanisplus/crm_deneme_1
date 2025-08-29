@@ -2687,10 +2687,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelExists,
             reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
           });
+          // Generate stok_kodu for this new product
+          const plannedStokKodu = generateStokKodu(product, 'CH', newProducts.length);
+          
           // Store the generated stok_kodu for Excel generation later
           newProducts.push({
             ...product,
-            existingStokKodu: generatedStokKodu
+            existingStokKodu: plannedStokKodu
           });
         }
       }
