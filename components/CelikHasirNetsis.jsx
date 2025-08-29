@@ -2854,11 +2854,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg: chData.kg
           });
 
-          chResponse = await fetchWithAuth(API_URLS.celikHasirMm, {
+          chResponse = await fetchWithRetry(API_URLS.celikHasirMm, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chData)
-          });
+          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
           
           if (chResponse.status === 409) {
             // Bu OLMAMALI - duplicate checking başarısız olmuş
@@ -2949,11 +2949,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               kg: ncbkData.payda_1
             });
 
-            const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk, {
+            const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(ncbkData)
-            });
+            }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
             
             if (ncbkResponse.status === 409) {
               // NCBK already exists - this is normal, just use existing
@@ -3043,11 +3043,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg_per_meter: ntelData.payda_1
           });
 
-          const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel, {
+          const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(ntelData)
-          });
+          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NTEL` })));
           
           if (ntelResponse.status === 409) {
             // NTEL already exists - this is normal, just use existing
