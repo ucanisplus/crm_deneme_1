@@ -365,7 +365,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Bulk delete function for selected items
+  // Fallback function for recipe deletion if bulk endpoint doesn't exist
+  const deleteRecipesFallback = async (recipeApiUrl, encodedStokKodu) => {
+    const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
+    if (getRecipeResponse.ok) {
+      const recipes = await getRecipeResponse.json();
+      console.log(`🔄 Fallback: Found ${recipes.length} recipes to delete individually`);
+      
+      // Delete recipes one by one (old method)
+      const deletionResults = await Promise.allSettled(
+        recipes.filter(recipe => recipe.id).map(async (recipe) => {
+          try {
+            await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 1, 1000);
+            return { success: true, id: recipe.id };
+          } catch (error) {
+            return { success: false, id: recipe.id, error: error.message };
+          }
+        })
+      );
+      
+      const successful = deletionResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      console.log(`🔄 Fallback: Deleted ${successful}/${recipes.length} recipes individually`);
+    }
+  };
+
+  // Bulk delete function for selected items - OPTIMIZED VERSION
   const handleBulkDeleteSelected = async () => {
     if (selectedDbItems.length === 0) {
       toast.error('Silinecek ürün seçiniz');
@@ -378,101 +402,171 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     setIsDeletingBulkDb(true);
     let deletedCount = 0;
+    const failedDeletions = [];
 
     try {
-      const tabEndpoints = {
-        mm: API_URLS.celikHasirMm,
-        ncbk: API_URLS.celikHasirNcbk,
-        ntel: API_URLS.celikHasirNtel
-      };
+      // Get the selected products with their stok_kodu
+      const selectedProducts = selectedDbItems.map(itemId => {
+        const product = savedProducts[activeDbTab].find(p => p.id === itemId);
+        return { id: itemId, stok_kodu: product?.stok_kodu, product };
+      }).filter(item => item.stok_kodu); // Only process items with valid stok_kodu
 
-      // Delete products with proper recipe deletion
-      const deletePromises = selectedDbItems.map(async (itemId) => {
+      if (selectedProducts.length === 0) {
+        toast.error('Seçilen ürünlerde stok kodu bulunamadı');
+        return;
+      }
+
+      console.log(`🗑️ Starting bulk deletion of ${selectedProducts.length} products for ${activeDbTab}`);
+
+      // Process deletions sequentially to avoid overwhelming the backend
+      for (const { id, stok_kodu, product } of selectedProducts) {
         try {
-          // First delete recipes, then delete product (same logic as single deleteProduct function)
-          const product = savedProducts[activeDbTab].find(p => p.id === itemId);
-          if (product && product.stok_kodu) {
-            // Delete recipes first
-            let recipeApiUrl = '';
-            if (activeDbTab === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
-            else if (activeDbTab === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
-            else if (activeDbTab === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
-            
-            if (recipeApiUrl) {
-              const encodedStokKodu = encodeURIComponent(product.stok_kodu);
-              const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
-              
-              if (getRecipeResponse.ok) {
-                const recipes = await getRecipeResponse.json();
-                console.log(`🗑️ Found ${recipes.length} recipes to delete for ${product.stok_kodu}`);
-                
-                // Delete all recipes in parallel
-                const recipeDeletionPromises = recipes.filter(recipe => recipe.id).map(async (recipe) => {
-                  try {
-                    await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000);
-                    return { success: true, id: recipe.id };
-                  } catch (error) {
-                    console.warn(`Recipe deletion failed for ${recipe.id}:`, error);
-                    return { success: false, id: recipe.id, error: error.message };
+          console.log(`🗑️ Deleting product: ${stok_kodu}`);
+
+          // Step 1: Delete recipes using bulk deletion by mamul_kodu
+          let recipeApiUrl = '';
+          if (activeDbTab === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
+          else if (activeDbTab === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
+          else if (activeDbTab === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
+          
+          if (recipeApiUrl) {
+            try {
+              const encodedStokKodu = encodeURIComponent(stok_kodu);
+              const deleteRecipesResponse = await fetchWithRetry(
+                `${recipeApiUrl}/bulk-delete-by-mamul?mamul_kodu=${encodedStokKodu}`, 
+                { 
+                  method: 'DELETE',
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
                   }
-                });
-                
-                const recipeResults = await Promise.allSettled(recipeDeletionPromises);
-                const successfulRecipes = recipeResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-                console.log(`🗑️ Deleted ${successfulRecipes}/${recipes.length} recipes for ${product.stok_kodu}`);
+                }, 
+                2, 1500
+              );
+              
+              if (deleteRecipesResponse.ok) {
+                const result = await deleteRecipesResponse.json();
+                console.log(`✅ Deleted ${result.deletedCount || 'N/A'} recipes for ${stok_kodu}`);
+              } else if (deleteRecipesResponse.status === 404) {
+                // Fallback: Use old method if bulk endpoint doesn't exist
+                console.log(`ℹ️ Bulk endpoint not found, using fallback for recipes: ${stok_kodu}`);
+                await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
+              } else {
+                console.warn(`⚠️ Recipe deletion failed for ${stok_kodu}: ${deleteRecipesResponse.status}`);
+              }
+            } catch (recipeError) {
+              console.warn(`⚠️ Recipe deletion error for ${stok_kodu}:`, recipeError.message);
+              // Try fallback method
+              try {
+                const encodedStokKodu = encodeURIComponent(stok_kodu);
+                await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
+              } catch (fallbackError) {
+                console.warn(`⚠️ Recipe deletion fallback also failed for ${stok_kodu}:`, fallbackError.message);
               }
             }
           }
-          
-          // Now delete the product
-          const response = await fetchWithRetry(`${tabEndpoints[activeDbTab]}/${itemId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
+
+          // Step 2: Delete the main product record by stok_kodu
+          const tabEndpoints = {
+            mm: API_URLS.celikHasirMm,
+            ncbk: API_URLS.celikHasirNcbk,
+            ntel: API_URLS.celikHasirNtel
+          };
+
+          const encodedStokKodu = encodeURIComponent(stok_kodu);
+          const deleteProductResponse = await fetchWithRetry(
+            `${tabEndpoints[activeDbTab]}/bulk-delete-by-stok?stok_kodu=${encodedStokKodu}`, 
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            }, 
+            3, 2000
+          );
+
+          if (deleteProductResponse.ok) {
+            const result = await deleteProductResponse.json();
+            console.log(`✅ Successfully deleted product ${stok_kodu}`);
+            deletedCount++;
+            
+            // Update UI state immediately
+            setSavedProducts(prev => ({
+              ...prev,
+              [activeDbTab]: prev[activeDbTab].filter(p => p.id !== id)
+            }));
+          } else if (deleteProductResponse.status === 404) {
+            // Fallback: Use old method if bulk endpoint doesn't exist
+            console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${stok_kodu}`);
+            const fallbackResponse = await fetchWithRetry(`${tabEndpoints[activeDbTab]}/${id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            }, 3, 2000);
+            
+            if (fallbackResponse.ok) {
+              console.log(`✅ Fallback: Successfully deleted product ${stok_kodu}`);
+              deletedCount++;
+              setSavedProducts(prev => ({
+                ...prev,
+                [activeDbTab]: prev[activeDbTab].filter(p => p.id !== id)
+              }));
+            } else {
+              throw new Error(`Fallback product deletion failed: ${fallbackResponse.status}`);
             }
-          }, 3, 2000, (retryMessage) => {
-            // Show retry progress to user
-            toast.info(`${itemId}: ${retryMessage}`, { autoClose: 3000 });
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+          } else {
+            throw new Error(`Product deletion failed: ${deleteProductResponse.status} ${deleteProductResponse.statusText}`);
           }
-          
-          deletedCount++;
-          return { success: true, itemId };
-        } catch (error) {
-          console.error(`Failed to delete item ${itemId}:`, error);
-          return { success: false, itemId, error: error.message };
-        }
-      });
 
-      const results = await Promise.all(deletePromises);
-      
-      // Check for any failures
-      const failures = results.filter(result => !result.success);
-      
-      if (failures.length > 0) {
-        failures.forEach(failure => {
-          toast.error(`Ürün ${failure.itemId} silinemedi: ${failure.error}`);
-        });
+          // Small delay to avoid overwhelming backend
+          await new Promise(resolve => setTimeout(resolve, 300));
+
+        } catch (error) {
+          console.error(`❌ Failed to delete ${stok_kodu}:`, error);
+          failedDeletions.push({ stok_kodu, error: error.message });
+        }
       }
 
+      // Show results to user
       if (deletedCount > 0) {
-        toast.success(`${deletedCount} ürün başarıyla silindi`);
+        toast.success(`✅ ${deletedCount} ürün başarıyla silindi`);
         setSelectedDbItems([]);
         
         // Update sequence table if we deleted CH products
-        await updateSequenceAfterDeletion(activeDbTab);
+        if (activeDbTab === 'mm') {
+          try {
+            await updateSequenceAfterDeletion(activeDbTab);
+          } catch (seqError) {
+            console.warn('Sequence update failed:', seqError);
+            toast.warning('Ürünler silindi ancak sıra numarası güncellenemedi');
+          }
+        }
         
-        // Force clear cache and refresh data to ensure immediate UI update
+        // Force refresh data
         cacheRef.current.clear();
-        await fetchSavedProducts(false, true); // resetData=true for immediate refresh
+        await fetchSavedProducts(false, true);
       }
+
+      if (failedDeletions.length > 0) {
+        failedDeletions.forEach(failure => {
+          toast.error(`❌ ${failure.stok_kodu} silinemedi: ${failure.error}`, { autoClose: 8000 });
+        });
+      }
+
+      if (deletedCount === 0) {
+        toast.error('Hiçbir ürün silinemedi');
+      }
+
     } catch (error) {
-      console.error('Bulk delete error:', error);
-      toast.error('Toplu silme işlemi sırasında hata oluştu');
+      console.error('❌ Bulk delete error:', error);
+      if (error.message.includes('504') || error.message.includes('timeout')) {
+        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen daha az ürün seçerek tekrar deneyin.');
+      } else {
+        toast.error(`Toplu silme hatası: ${error.message}`);
+      }
     } finally {
       setIsDeletingBulkDb(false);
     }
@@ -3887,7 +3981,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Ürün sil
+  // Ürün sil - OPTIMIZED VERSION
   const deleteProduct = async (productId, productType) => {
     if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
       return;
@@ -3895,110 +3989,151 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     try {
       setIsLoading(true);
-      setDeletingProductId(productId); // Track which product is being deleted
+      setDeletingProductId(productId);
       
-      // Önce reçete kayıtlarını sil
       const product = savedProducts[productType].find(p => p.id === productId);
-      if (product && product.stok_kodu) {
+      if (!product || !product.stok_kodu) {
+        toast.error('Ürün bilgisi bulunamadı');
+        return;
+      }
+
+      console.log(`🗑️ Deleting single product: ${product.stok_kodu}`);
+
+      // Step 1: Delete recipes using bulk deletion by mamul_kodu
+      let recipeApiUrl = '';
+      if (productType === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
+      else if (productType === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
+      else if (productType === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
+      
+      if (recipeApiUrl) {
         try {
-          let recipeApiUrl = '';
-          if (productType === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
-          else if (productType === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
-          else if (productType === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
+          const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+          const deleteRecipesResponse = await fetchWithRetry(
+            `${recipeApiUrl}/bulk-delete-by-mamul?mamul_kodu=${encodedStokKodu}`, 
+            { 
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            }, 
+            2, 1500
+          );
           
-          if (recipeApiUrl) {
-            // Önce bu mamul_kodu ile reçete kayıtlarını getir (URL encode için)
-            const encodedStokKodu = encodeURIComponent(product.stok_kodu);
-            console.log(`*** Fetching recipes for stok_kodu: ${product.stok_kodu} (encoded: ${encodedStokKodu})`);
-            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
-            console.log(`*** Recipe fetch response status: ${getRecipeResponse.status}`);
-            
-            if (getRecipeResponse.ok) {
-              const recipes = await getRecipeResponse.json();
-              console.log(`Found ${recipes.length} recipes for mamul_kodu: ${product.stok_kodu}`);
-              
-              // Debug: Check what the actual data looks like
-              if (recipes.length > 0) {
-                console.log('*** Recipe deletion debug ***');
-                console.log('product.stok_kodu:', product.stok_kodu, 'type:', typeof product.stok_kodu);
-                console.log('First recipe mamul_kodu:', recipes[0].mamul_kodu, 'type:', typeof recipes[0].mamul_kodu);
-                console.log('Sample recipe:', recipes[0]);
-              }
-              
-              // Since API already filtered by mamul_kodu, all returned recipes belong to this product
-              // No need for additional filtering - just delete all returned recipes
-              const recipesToDelete = recipes; // All recipes returned should be deleted
-              console.log(`All ${recipesToDelete.length} recipes will be deleted (API pre-filtered by mamul_kodu)`);
-              
-              // Her reçete kaydını paralel olarak sil (performans iyileştirmesi)
-              const recipeDeletionPromises = recipesToDelete.filter(recipe => recipe.id).map(async (recipe) => {
-                try {
-                  const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000); // Reduced retries for faster overall operation
-                  if (!deleteRecipeResponse.ok) {
-                    console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
-                    return { success: false, id: recipe.id, error: `Status ${deleteRecipeResponse.status}` };
-                  }
-                  return { success: true, id: recipe.id };
-                } catch (deleteError) {
-                  console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
-                  return { success: false, id: recipe.id, error: deleteError.message };
-                }
-              });
-              
-              // Tüm reçete silme işlemlerini paralel çalıştır
-              const recipeResults = await Promise.all(recipeDeletionPromises);
-              const successfulDeletes = recipeResults.filter(r => r.success).length;
-              const failedDeletes = recipeResults.filter(r => !r.success);
-              
-              console.log(`Recipe deletion results: ${successfulDeletes} successful, ${failedDeletes.length} failed`);
-              if (failedDeletes.length > 0) {
-                console.warn('Failed recipe deletions:', failedDeletes);
-                toast.warning(`${failedDeletes.length} reçete silinemedi, ${successfulDeletes} reçete silindi`);
-              } else {
-                console.log(`All ${successfulDeletes} recipes deleted successfully`);
-              }
-            }
+          if (deleteRecipesResponse.ok) {
+            const result = await deleteRecipesResponse.json();
+            console.log(`✅ Deleted ${result.deletedCount || 'N/A'} recipes for ${product.stok_kodu}`);
+          } else if (deleteRecipesResponse.status === 404) {
+            // Fallback: Use old method if bulk endpoint doesn't exist
+            console.log(`ℹ️ Bulk endpoint not found, using fallback for recipes: ${product.stok_kodu}`);
+            await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
+          } else {
+            console.warn(`⚠️ Recipe deletion failed for ${product.stok_kodu}: ${deleteRecipesResponse.status}`);
           }
         } catch (recipeError) {
-          console.warn('Reçete silme uyarısı:', recipeError);
-          // Reçete silme hatası durumunda devam et
+          console.warn(`⚠️ Recipe deletion error for ${product.stok_kodu}:`, recipeError.message);
+          // Try fallback method
+          try {
+            const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+            await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
+          } catch (fallbackError) {
+            console.warn(`⚠️ Recipe deletion fallback also failed for ${product.stok_kodu}:`, fallbackError.message);
+          }
         }
       }
-      
-      // Sonra ana ürün kaydını sil
-      let apiUrl = '';
-      if (productType === 'mm') apiUrl = `${API_URLS.celikHasirMm}/${productId}`;
-      else if (productType === 'ncbk') apiUrl = `${API_URLS.celikHasirNcbk}/${productId}`;
-      else if (productType === 'ntel') apiUrl = `${API_URLS.celikHasirNtel}/${productId}`;
 
-      const response = await fetchWithRetry(apiUrl, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
-        toast.info(`Ürün siliniyor: ${retryMessage}`, { autoClose: 2000 });
-      });
-      
-      if (response?.ok) {
-        toast.success('Ürün ve reçeteleri başarıyla silindi');
+      // Step 2: Delete the main product record by stok_kodu
+      const tabEndpoints = {
+        mm: API_URLS.celikHasirMm,
+        ncbk: API_URLS.celikHasirNcbk,
+        ntel: API_URLS.celikHasirNtel
+      };
+
+      const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+      const deleteProductResponse = await fetchWithRetry(
+        `${tabEndpoints[productType]}/bulk-delete-by-stok?stok_kodu=${encodedStokKodu}`, 
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }, 
+        3, 2000
+      );
+
+      if (deleteProductResponse.ok) {
+        const result = await deleteProductResponse.json();
+        console.log(`✅ Successfully deleted product ${product.stok_kodu}`);
+        toast.success('✅ Ürün ve reçeteleri başarıyla silindi');
         
-        // State'i hemen güncelle - fetch bekleme
+        // Update UI state immediately
         setSavedProducts(prev => ({
           ...prev,
           [productType]: prev[productType].filter(p => p.id !== productId)
         }));
         
-        // Update sequence table if we deleted a CH product
-        await updateSequenceAfterDeletion(productType);
+        // Update sequence table if we deleted CH product
+        if (productType === 'mm') {
+          try {
+            await updateSequenceAfterDeletion(productType);
+          } catch (seqError) {
+            console.warn('Sequence update failed:', seqError);
+            toast.warning('Ürün silindi ancak sıra numarası güncellenemedi');
+          }
+        }
         
-        // Force clear cache and refresh data to ensure immediate UI update
+        // Force refresh data
         cacheRef.current.clear();
-        await fetchSavedProducts(false, true); // resetData=true for immediate refresh
+        await fetchSavedProducts(false, true);
+      } else if (deleteProductResponse.status === 404) {
+        // Fallback: Use old method if bulk endpoint doesn't exist
+        console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${product.stok_kodu}`);
+        const fallbackResponse = await fetchWithRetry(`${tabEndpoints[productType]}/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }, 3, 2000);
+        
+        if (fallbackResponse.ok) {
+          console.log(`✅ Fallback: Successfully deleted product ${product.stok_kodu}`);
+          toast.success('✅ Ürün ve reçeteleri başarıyla silindi');
+          
+          setSavedProducts(prev => ({
+            ...prev,
+            [productType]: prev[productType].filter(p => p.id !== productId)
+          }));
+          
+          if (productType === 'mm') {
+            try {
+              await updateSequenceAfterDeletion(productType);
+            } catch (seqError) {
+              console.warn('Sequence update failed:', seqError);
+              toast.warning('Ürün silindi ancak sıra numarası güncellenemedi');
+            }
+          }
+          
+          cacheRef.current.clear();
+          await fetchSavedProducts(false, true);
+        } else {
+          throw new Error(`Fallback product deletion failed: ${fallbackResponse.status}`);
+        }
       } else {
-        toast.error('Ürün silinirken hata oluştu');
+        throw new Error(`Product deletion failed: ${deleteProductResponse.status} ${deleteProductResponse.statusText}`);
       }
+
     } catch (error) {
-      console.error('Silme hatası:', error);
-      toast.error('Ürün silinirken hata oluştu');
+      console.error('❌ Delete error:', error);
+      if (error.message.includes('504') || error.message.includes('timeout')) {
+        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.');
+      } else {
+        toast.error(`❌ Ürün silinirken hata: ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
-      setDeletingProductId(null); // Clear deletion tracking
+      setDeletingProductId(null);
     }
   };
 
@@ -4090,7 +4225,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Tümünü sil
+  // Tümünü sil - OPTIMIZED VERSION  
   const bulkDeleteAll = async () => {
     try {
       setIsLoading(true);
@@ -4098,135 +4233,139 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setShowBulkDeleteModal(false);
       setBulkDeleteText('');
       
-      const apiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMm :
-                     activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
-                     API_URLS.celikHasirNtel;
+      const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
+      const totalProducts = savedProducts[activeDbTab].length;
       
+      if (totalProducts === 0) {
+        toast.info('Silinecek ürün bulunamadı');
+        return;
+      }
+
+      console.log(`🗑️ Starting bulk delete all ${totalProducts} ${tabName} products`);
+      
+      setBulkDeleteProgress({ 
+        current: 0, 
+        total: 3, 
+        operation: 'Tüm reçeteler siliniyor...', 
+        currentItem: `${tabName} reçeteleri` 
+      });
+      
+      // Step 1: Delete ALL recipes for this product type using bulk endpoint
       const recipeApiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMmRecete :
                           activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbkRecete :
                           API_URLS.celikHasirNtelRecete;
       
-      const tabName = activeDbTab === 'mm' ? 'CH' : activeDbTab === 'ncbk' ? 'NCBK' : 'NTEL';
-      const totalProducts = savedProducts[activeDbTab].length;
+      try {
+        const deleteAllRecipesResponse = await fetchWithRetry(
+          `${recipeApiUrl}/bulk-delete-all-by-type?product_type=${activeDbTab.toUpperCase()}`, 
+          { 
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          }, 
+          3, 3000
+        );
+        
+        if (deleteAllRecipesResponse.ok) {
+          const recipeResult = await deleteAllRecipesResponse.json();
+          console.log(`✅ Deleted ${recipeResult.deletedCount || 'all'} recipes for ${tabName}`);
+        } else {
+          console.warn(`⚠️ Bulk recipe deletion failed: ${deleteAllRecipesResponse.status}`);
+        }
+      } catch (recipeError) {
+        console.warn(`⚠️ Bulk recipe deletion error:`, recipeError.message);
+        // Continue with product deletion even if recipe deletion fails
+      }
       
+      // Step 2: Delete ALL products for this type using bulk endpoint
       setBulkDeleteProgress({ 
-        current: 0, 
-        total: totalProducts, 
-        operation: 'Reçete kayıtları siliniyor...', 
-        currentItem: '' 
+        current: 1, 
+        total: 3, 
+        operation: 'Tüm ürünler siliniyor...', 
+        currentItem: `${tabName} ürünleri` 
       });
       
-      // İlk önce reçete kayıtlarını sil - her ürün için ayrı ayrı
-      let recipeDeleteCount = 0;
-      let processedCount = 0;
+      const apiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMm :
+                     activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
+                     API_URLS.celikHasirNtel;
       
-      for (const product of savedProducts[activeDbTab]) {
-        processedCount++;
-        setBulkDeleteProgress({ 
-          current: processedCount, 
-          total: totalProducts, 
-          operation: 'Reçete kayıtları siliniyor...', 
-          currentItem: product.stok_kodu || `Ürün ${processedCount}` 
-        });
-        
-        if (product.stok_kodu) {
-          try {
-            // Önce bu mamul_kodu ile reçete kayıtlarını getir (URL encode için)
-            const encodedStokKodu = encodeURIComponent(product.stok_kodu);
-            console.log(`*** Fetching recipes for stok_kodu: ${product.stok_kodu} (encoded: ${encodedStokKodu})`);
-            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
-            console.log(`*** Recipe fetch response status: ${getRecipeResponse.status}`);
-            
-            if (getRecipeResponse.ok) {
-              const recipes = await getRecipeResponse.json();
-              
-              // Her reçete kaydını paralel olarak sil (performans iyileştirmesi)
-              const bulkRecipeDeletionPromises = recipes.filter(recipe => recipe.id).map(async (recipe) => {
-                try {
-                  const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000); // Reduced retries for faster bulk operation
-                  if (deleteRecipeResponse.ok) {
-                    return { success: true, id: recipe.id };
-                  } else {
-                    console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
-                    return { success: false, id: recipe.id, error: `Status ${deleteRecipeResponse.status}` };
-                  }
-                } catch (deleteError) {
-                  console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
-                  return { success: false, id: recipe.id, error: deleteError.message };
-                }
-              });
-              
-              // Tüm reçete silme işlemlerini paralel çalıştır ve sonuçları bekle
-              const bulkRecipeResults = await Promise.all(bulkRecipeDeletionPromises);
-              const successfulBulkDeletes = bulkRecipeResults.filter(r => r.success).length;
-              recipeDeleteCount += successfulBulkDeletes;
-              
-              const failedBulkDeletes = bulkRecipeResults.filter(r => !r.success);
-              if (failedBulkDeletes.length > 0) {
-                console.warn(`${failedBulkDeletes.length} recipes failed to delete for product ${product.stok_kodu}`);
-              }
+      try {
+        const deleteAllProductsResponse = await fetchWithRetry(
+          `${apiUrl}/bulk-delete-all`, 
+          { 
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
             }
-          } catch (recipeError) {
-            console.warn(`Reçete alma hatası (${product.stok_kodu}):`, recipeError);
-          }
+          }, 
+          3, 3000
+        );
+        
+        if (deleteAllProductsResponse.ok) {
+          const productResult = await deleteAllProductsResponse.json();
+          console.log(`✅ Deleted ${productResult.deletedCount || totalProducts} ${tabName} products`);
+        } else {
+          throw new Error(`Bulk product deletion failed: ${deleteAllProductsResponse.status}`);
+        }
+      } catch (productError) {
+        console.error(`❌ Bulk product deletion error:`, productError.message);
+        throw productError; // Re-throw to trigger error handling below
+      }
+      
+      // Step 3: Clear sequence table if CH products were deleted
+      setBulkDeleteProgress({ 
+        current: 2, 
+        total: 3, 
+        operation: 'Sequence kayıtları temizleniyor...', 
+        currentItem: 'CH Sequence' 
+      });
+      
+      if (activeDbTab === 'mm') {
+        try {
+          // Reset OZL and OZL_BACKUP sequences to 0
+          await fetchWithRetry(`${API_URLS.celikHasirSequence}/reset-ch-sequences`, { 
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          }, 2, 2000);
+          console.log('✅ CH sequences reset successfully');
+        } catch (seqError) {
+          console.warn('⚠️ Sequence reset failed:', seqError.message);
+          // Continue anyway - this is not critical
         }
       }
       
-      // Sonra ana ürün kayıtlarını sil
-      processedCount = 0;
-      for (const product of savedProducts[activeDbTab]) {
-        processedCount++;
-        setBulkDeleteProgress({ 
-          current: processedCount, 
-          total: totalProducts, 
-          operation: 'Ürün kayıtları siliniyor...', 
-          currentItem: product.stok_kodu || `Ürün ${processedCount}` 
-        });
-        
-        await fetchWithRetry(`${apiUrl}/${product.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
-          setBulkDeleteProgress(prev => ({
-            ...prev,
-            operation: `Ürün kayıtları siliniyor... ${retryMessage}`
-          }));
-        });
-      }
-      
-      // Eğer CH (mm) siliyorsak, sequence tablosunu da temizle
-      if (activeDbTab === 'mm' && savedProducts.mm.length > 0) {
-        setBulkDeleteProgress({ 
-          current: totalProducts, 
-          total: totalProducts, 
-          operation: 'Sequence kayıtları temizleniyor...', 
-          currentItem: 'CH Sequence' 
-        });
-        
-        // OZL sequence'ı sıfırla
-        await fetchWithRetry(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`, { 
-          method: 'DELETE' 
-        }).catch(() => {}); // Hata olsa bile devam et
-      }
-      
       setBulkDeleteProgress({ 
-        current: totalProducts, 
-        total: totalProducts, 
+        current: 3, 
+        total: 3, 
         operation: 'Tamamlandı!', 
-        currentItem: `${totalProducts} ürün silindi` 
+        currentItem: `${totalProducts} ${tabName} ürün silindi` 
       });
       
-      toast.success(`Tüm ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
+      toast.success(`✅ Tüm ${totalProducts} ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
       
-      // State'i hemen güncelle - fetch bekleme
+      // Update UI state immediately
       setSavedProducts(prev => ({
         ...prev,
         [activeDbTab]: []
       }));
       
-      // Sonra fetch ile doğrula
-      await fetchSavedProducts();
+      // Force refresh data
+      cacheRef.current.clear();
+      await fetchSavedProducts(false, true);
       
     } catch (error) {
-      console.error('Toplu silme hatası:', error);
-      toast.error('Toplu silme sırasında hata oluştu');
+      console.error('❌ Bulk delete all error:', error);
+      if (error.message.includes('504') || error.message.includes('timeout')) {
+        toast.error('⏱️ İşlem zaman aşımına uğradı. Backend yoğun olabilir, lütfen birkaç dakika sonra tekrar deneyin.');
+      } else {
+        toast.error(`❌ Toplu silme hatası: ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
       setIsBulkDeleting(false);
@@ -4698,14 +4837,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     <RefreshCw className={`w-4 h-4 ${isLoadingDb ? 'animate-spin' : ''}`} />
                     Yenile
                   </button>
-                  <button
-                    onClick={() => setShowBulkDeleteModal(true)}
-                    disabled={isLoading}
-                    className="px-3 py-1 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
-                  </button>
                   
                   {/* Selection-based action buttons */}
                   {selectedDbItems.length > 0 && (
@@ -4761,6 +4892,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     {tab.label} ({tab.count})
                   </button>
                 ))}
+              </div>
+              
+              {/* Danger Zone - Separate from other buttons to prevent accidental clicks */}
+              <div className="mt-6 pt-4 border-t border-red-200 bg-red-50 rounded-lg mx-4">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-red-700 font-medium text-sm">TEHLİKELİ İŞLEM</span>
+                  </div>
+                  <button
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400 border-2 border-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
+                  </button>
+                </div>
+                <p className="text-xs text-red-600 px-3 pb-2">
+                  ⚠️ Bu işlem seçili sekmedeki tüm kayıtları kalıcı olarak siler. Bu işlem geri alınamaz!
+                </p>
               </div>
             </div>
             
