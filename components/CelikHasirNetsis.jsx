@@ -2127,64 +2127,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log('DEBUG: generateKaynakProgramiExcel started');
       
-      // Create combined data array with stock codes from save summary
+      // First analyze products to get proper stock codes like the save process does
+      await analyzeProductsForConfirmation();
+      
+      // Use the analyzed data from preSaveConfirmData which has calculated stock codes
       const allProductsData = [];
       
       // Add existing products with their highest stock codes
-      preSaveConfirmData.existingProducts.forEach((item, index) => {
-        console.log(`DEBUG: Processing existing product ${index}:`, item);
-        
-        if (!item || !item.product) {
-          console.warn(`Skipping existing product ${index}: invalid item structure`, item);
-          return;
-        }
-        
-        // Find the corresponding product in validProducts with all calculated values
-        const mainTableProduct = validProducts.find(vp => 
-          vp.hasirTipi === item.product.hasirTipi &&
-          Math.abs(parseFloat(vp.uzunlukBoy || 0) - parseFloat(item.product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(vp.uzunlukEn || 0) - parseFloat(item.product.uzunlukEn || 0)) < 0.01
-        );
-        
-        if (mainTableProduct) {
-          allProductsData.push({
-            ...mainTableProduct, // Use optimized/calculated values from main table
-            stokKodu: item.highestStokKodu, // Use highest stock code for existing
-            isExisting: true
-          });
-        } else {
-          console.warn(`Could not find main table product for existing:`, item.product);
-        }
-      });
+      if (preSaveConfirmData.existingProducts) {
+        preSaveConfirmData.existingProducts.forEach((item) => {
+          if (item && item.product) {
+            allProductsData.push({
+              ...item.product,
+              stokKodu: item.highestStokKodu,
+              isExisting: true
+            });
+          }
+        });
+      }
       
-      // Add new products with their planned stock codes
-      preSaveConfirmData.newProducts.forEach((item, index) => {
-        console.log(`DEBUG: Processing new product ${index}:`, item);
-        
-        if (!item || !item.product) {
-          console.warn(`Skipping new product ${index}: invalid item structure`, item);
-          return;
-        }
-        
-        // Find the corresponding product in validProducts with all calculated values
-        const mainTableProduct = validProducts.find(vp => 
-          vp.hasirTipi === item.product.hasirTipi &&
-          Math.abs(parseFloat(vp.uzunlukBoy || 0) - parseFloat(item.product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(vp.uzunlukEn || 0) - parseFloat(item.product.uzunlukEn || 0)) < 0.01
-        );
-        
-        if (mainTableProduct) {
-          allProductsData.push({
-            ...mainTableProduct, // Use optimized/calculated values from main table
-            stokKodu: item.plannedStokKodu, // Use planned stock code for new
-            isExisting: false
-          });
-        } else {
-          console.warn(`Could not find main table product for new:`, item.product);
-        }
-      });
+      // Add new products with their calculated stock codes
+      if (preSaveConfirmData.newProducts) {
+        preSaveConfirmData.newProducts.forEach((item) => {
+          if (item && item.newStokKodu) {
+            allProductsData.push({
+              ...item,
+              stokKodu: item.newStokKodu,
+              isExisting: false
+            });
+          }
+        });
+      }
       
-      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated values');
+      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated stock codes');
       
       // Create workbook and worksheet
       const workbook = new ExcelJS.Workbook();
