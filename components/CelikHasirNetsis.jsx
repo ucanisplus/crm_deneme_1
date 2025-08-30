@@ -507,6 +507,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   useEffect(() => {
     fetchSavedProducts(); // Load all data automatically on component mount
     fetchSequences();
+    ensureBackupSequenceAndSync(); // Create backup sequence and sync with database
   }, []);
   
   // Refetch data when filters change (server-side filtering)
@@ -742,6 +743,129 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
+  // Create backup sequence row and sync sequences with database
+  const ensureBackupSequenceAndSync = async () => {
+    try {
+      console.log('*** Starting backup sequence creation and sync process');
+      
+      // First, get current sequences from the table
+      await fetchSequences();
+      
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check if backup sequence exists
+      const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
+      const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
+      
+      let actualSequence = 2443; // Default fallback
+      let backupSequence = 2443; // Default fallback
+      
+      if (ozlSequenceKey && sequences[ozlSequenceKey]) {
+        actualSequence = sequences[ozlSequenceKey];
+        console.log('*** Found actual sequence:', ozlSequenceKey, 'value:', actualSequence);
+      }
+      
+      if (ozlBackupKey && sequences[ozlBackupKey]) {
+        backupSequence = sequences[ozlBackupKey];
+        console.log('*** Found backup sequence:', ozlBackupKey, 'value:', backupSequence);
+      } else {
+        // Create backup sequence row if it doesn't exist
+        console.log('*** Creating backup sequence row for CHOZL');
+        try {
+          const backupSequenceData = {
+            product_type: 'CH',
+            kod_2: 'OZL_BACKUP',
+            cap_code: '',
+            last_sequence: actualSequence, // Start with same value as actual
+            upsert: true
+          };
+          
+          const backupResponse = await fetchWithAuth(API_URLS.celikHasirSequence, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backupSequenceData)
+          });
+          
+          if (backupResponse?.ok) {
+            console.log('*** Backup sequence row created successfully');
+            backupSequence = actualSequence;
+          }
+        } catch (error) {
+          console.error('*** Error creating backup sequence row:', error);
+        }
+      }
+      
+      // Now check the actual database for highest CHOZL sequence
+      console.log('*** Checking database for actual highest CHOZL sequence');
+      try {
+        const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasir}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
+        if (dbCheckResponse?.ok) {
+          const dbData = await dbCheckResponse.json();
+          if (dbData.data && dbData.data.length > 0) {
+            const highestProduct = dbData.data[0];
+            const match = highestProduct.stok_kodu.match(/CHOZL(\d+)/);
+            if (match) {
+              const dbHighestSequence = parseInt(match[1]);
+              console.log('*** Database highest CHOZL sequence:', dbHighestSequence);
+              
+              const currentMaxSequence = Math.max(actualSequence, backupSequence);
+              console.log('*** Current sequence table max:', currentMaxSequence, 'vs DB highest:', dbHighestSequence);
+              
+              // If database has higher sequence, update both actual and backup
+              if (dbHighestSequence > currentMaxSequence) {
+                console.log('*** Database sequence is higher! Updating sequence table to:', dbHighestSequence);
+                
+                // Update actual sequence
+                const actualUpdateData = {
+                  product_type: 'CH',
+                  kod_2: 'OZL',
+                  cap_code: '',
+                  last_sequence: dbHighestSequence,
+                  upsert: true
+                };
+                
+                await fetchWithAuth(API_URLS.celikHasirSequence, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(actualUpdateData)
+                });
+                
+                // Update backup sequence
+                const backupUpdateData = {
+                  product_type: 'CH',
+                  kod_2: 'OZL_BACKUP',
+                  cap_code: '',
+                  last_sequence: dbHighestSequence,
+                  upsert: true
+                };
+                
+                await fetchWithAuth(API_URLS.celikHasirSequence, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(backupUpdateData)
+                });
+                
+                console.log('*** Both sequences updated to match database');
+                
+                // Refresh sequences state
+                await fetchSequences();
+              } else {
+                console.log('*** Sequence table is up to date');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('*** Error checking database for sequence sync:', error);
+      }
+      
+      console.log('*** Backup sequence creation and sync completed');
+    } catch (error) {
+      console.error('*** Error in backup sequence management:', error);
+    }
+  };
+
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
     // Check if optimization has been run by checking if the product has the isOptimized flag
@@ -840,28 +964,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (!batchSequenceInitialized) {
         let maxSequence = 2443; // Default fallback
         
-        // First check sequence table for OZL products
-        // Look for any sequence key that starts with CH_OZL_
+        // Use ONLY sequence table as the source of truth
+        console.log('*** Using sequence table as source of truth');
+        
+        // Check both actual and backup sequence rows
         const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
+        const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
+        
+        let actualSequence = 2443;
+        let backupSequence = 2443;
+        
         if (ozlSequenceKey && sequences[ozlSequenceKey]) {
-          maxSequence = sequences[ozlSequenceKey];
-          console.log('*** Using sequence from sequence table with key:', ozlSequenceKey, 'value:', maxSequence);
-        } else {
-          // Fallback: scan existing products if sequence table not available
-          console.log('*** Sequence table not available, scanning existing products');
-          const existingOzelProducts = savedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.startsWith('CHOZL'));
-          
-          existingOzelProducts.forEach(p => {
-            const match = p.stok_kodu.match(/CHOZL(\d+)/);
-            if (match) {
-              const sequenceNum = parseInt(match[1]);
-              if (sequenceNum > maxSequence) {
-                maxSequence = sequenceNum;
-              }
-            }
-          });
-          console.log('Existing CHOZL products scanned:', existingOzelProducts.length);
+          actualSequence = sequences[ozlSequenceKey];
+          console.log('*** Actual sequence from table:', ozlSequenceKey, 'value:', actualSequence);
         }
+        
+        if (ozlBackupKey && sequences[ozlBackupKey]) {
+          backupSequence = sequences[ozlBackupKey];
+          console.log('*** Backup sequence from table:', ozlBackupKey, 'value:', backupSequence);
+        }
+        
+        // Use the higher of actual or backup sequence
+        maxSequence = Math.max(actualSequence, backupSequence);
+        console.log('*** Final max sequence determined:', maxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
         
         batchSequenceCounter = maxSequence;
         batchSequenceInitialized = true;
@@ -2622,29 +2747,92 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Sequence güncelleme
+  // Sequence güncelleme with dual backup system
   const updateSequences = async (product, actualSequenceNumber = null) => {
     try {
+      console.log('*** Updating sequences with dual backup system');
+      
       // CH sequence güncelle with UPSERT operation
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
       const kod2 = isStandard ? 'STD' : 'OZL';
       const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
       
-      // For OZL products, use the actual generated sequence number
-      const sequenceData = {
-        product_type: 'CH',
-        kod_2: kod2,
-        cap_code: capCode,
-        last_sequence: actualSequenceNumber || 0, // Use actual sequence number for OZL
-        upsert: true // Signal backend to use UPSERT instead of INSERT
-      };
-      
-      await fetchWithAuth(API_URLS.celikHasirSequence, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sequenceData)
-      });
+      // For OZL products, implement dual sequence check and update
+      if (kod2 === 'OZL' && actualSequenceNumber) {
+        console.log('*** OZL product - checking both backup and actual sequences');
+        
+        // Get current sequences from state
+        const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_')) || 'CH_OZL_';
+        const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP')) || 'CH_OZL_BACKUP_';
+        
+        let currentActual = sequences[ozlSequenceKey] || 2443;
+        let currentBackup = sequences[ozlBackupKey] || 2443;
+        
+        console.log('*** Current sequences - Actual:', currentActual, 'Backup:', currentBackup, 'New:', actualSequenceNumber);
+        
+        // Take the bigger sequence number and update both if needed
+        const maxSequence = Math.max(currentActual, currentBackup, actualSequenceNumber);
+        
+        // Update actual sequence if it's stale
+        if (maxSequence > currentActual) {
+          console.log('*** Updating stale actual sequence from', currentActual, 'to', maxSequence);
+          const actualSequenceData = {
+            product_type: 'CH',
+            kod_2: 'OZL',
+            cap_code: '',
+            last_sequence: maxSequence,
+            upsert: true
+          };
+          
+          await fetchWithAuth(API_URLS.celikHasirSequence, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(actualSequenceData)
+          });
+        }
+        
+        // Update backup sequence if it's stale
+        if (maxSequence > currentBackup) {
+          console.log('*** Updating stale backup sequence from', currentBackup, 'to', maxSequence);
+          const backupSequenceData = {
+            product_type: 'CH',
+            kod_2: 'OZL_BACKUP',
+            cap_code: '',
+            last_sequence: maxSequence,
+            upsert: true
+          };
+          
+          await fetchWithAuth(API_URLS.celikHasirSequence, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backupSequenceData)
+          });
+        }
+        
+        // Update local sequences state to reflect the changes
+        const updatedSequences = { ...sequences };
+        updatedSequences[ozlSequenceKey] = maxSequence;
+        updatedSequences[ozlBackupKey] = maxSequence;
+        setSequences(updatedSequences);
+        
+        console.log('*** Dual sequence update completed. Both sequences now at:', maxSequence);
+      } else {
+        // For STD products or when no actualSequenceNumber provided, use original logic
+        const sequenceData = {
+          product_type: 'CH',
+          kod_2: kod2,
+          cap_code: capCode,
+          last_sequence: actualSequenceNumber || 0,
+          upsert: true
+        };
+        
+        await fetchWithAuth(API_URLS.celikHasirSequence, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sequenceData)
+        });
+      }
       
     } catch (error) {
       console.error('Sequence güncelleme hatası:', error);
