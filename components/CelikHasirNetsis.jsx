@@ -3172,7 +3172,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         
         // Generate stok_kodu and capture it for sequence tracking
-        const generatedStokKodu = generateStokKodu(product, 'CH', i);
+        let generatedStokKodu = generateStokKodu(product, 'CH', i);
         const chData = {
           stok_kodu: generatedStokKodu,
           stok_adi: generateStokAdi(product, 'CH'),
