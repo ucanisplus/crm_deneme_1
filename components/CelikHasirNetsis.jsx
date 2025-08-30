@@ -2122,6 +2122,102 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return String(value).replace('.', ',');
   };
 
+  // Generate Kaynak Programı Excel following CSV structure
+  const generateKaynakProgramiExcel = async () => {
+    try {
+      console.log('DEBUG: generateKaynakProgramiExcel started');
+      
+      // Use the data from preSaveConfirmData which has existing and new products with stock codes
+      const allProductsData = [
+        ...preSaveConfirmData.existingProducts.map(item => ({
+          ...item.product,
+          stokKodu: item.highestStokKodu, // Use highest stock code for existing
+          isExisting: true
+        })),
+        ...preSaveConfirmData.newProducts.map(item => ({
+          ...item.product,
+          stokKodu: item.plannedStokKodu, // Use planned stock code for new
+          isExisting: false
+        }))
+      ];
+      
+      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel');
+      
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Kaynak Programı');
+      
+      // Add headers (rows 1-2) following CSV structure
+      worksheet.addRow([
+        '', 'Stok kodu', 'FİRMA', 'Stok Kartı', 'HASIR', 'BOY', 'EN', 'HASIR', 'BOY', 'EN', 'Açıklama', 'UZUNLUK', '', 'ÇUBUK SAYISI', '', 'ARA', '', 'HASIR', 'SOL', 'SAĞ', 'ÖN', 'ARKA', 'ADET', 'TOPLAM', ''
+      ]);
+      worksheet.addRow([
+        '', '', 'ADI', '', 'CİNSİ', '', '', 'SAYISI', 'ÇAP', 'ÇAP', '', 'BOY', 'EN', 'BOY', 'EN', 'BOY', 'EN', 'SAYISI', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'KG.', 'KG.', ''
+      ]);
+      
+      // Add data rows starting from row 3
+      allProductsData.forEach((product, index) => {
+        const hasirTipi = standardizeHasirTipi(product.hasirTipi || '');
+        const boyCap = parseFloat(product.boyCap || 0);
+        const enCap = parseFloat(product.enCap || 0);
+        const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
+        const uzunlukEn = parseInt(product.uzunlukEn || 0);
+        const cubukSayisiBoy = parseInt(product.cubukSayisiBoy || 0);
+        const cubukSayisiEn = parseInt(product.cubukSayisiEn || 0);
+        const gozAraligiBoy = parseFloat(product.gozAraligiBoy || 0);
+        const gozAraligiEn = parseFloat(product.gozAraligiEn || 0);
+        const hasirSayisi = parseInt(product.hasirSayisi || 1);
+        const adet = parseInt(product.adet || 1);
+        const toplamAgirlik = parseFloat(product.toplamAgirlik || 0);
+        
+        worksheet.addRow([
+          index + 1, // Row number
+          product.stokKodu || '', // Stok kodu
+          '', // FİRMA ADI (empty)
+          '', // Stok Kartı (empty)
+          hasirTipi, // HASIR CİNSİ
+          '', // BOY (empty)
+          '', // EN (empty)  
+          hasirSayisi, // HASIR SAYISI
+          boyCap.toString().replace('.', ','), // BOY ÇAP
+          enCap.toString().replace('.', ','), // EN ÇAP
+          '', // Açıklama (empty)
+          uzunlukBoy, // UZUNLUK BOY
+          uzunlukEn, // UZUNLUK EN
+          cubukSayisiBoy, // ÇUBUK SAYISI BOY
+          cubukSayisiEn, // ÇUBUK SAYISI EN
+          gozAraligiBoy.toString().replace('.', ','), // ARA BOY
+          gozAraligiEn.toString().replace('.', ','), // ARA EN
+          '', // HASIR (empty)
+          '2.5', // SOL FİLİZ (default)
+          '2.5', // SAĞ FİLİZ (default)
+          '22.5', // ÖN FİLİZ (default) 
+          '22.5', // ARKA FİLİZ (default)
+          adet, // ADET
+          toplamAgirlik.toString().replace('.', ','), // TOPLAM KG
+          '' // Empty last column
+        ]);
+      });
+      
+      // Save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Kaynak_Programi_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Kaynak Programı Excel dosyası oluşturuldu!`);
+      console.log('DEBUG: Kaynak Programı Excel generation completed');
+      
+    } catch (error) {
+      console.error('Error generating Kaynak Programı Excel:', error);
+      toast.error('Kaynak Programı Excel oluşturulurken hata oluştu');
+    }
+  };
+
   // Excel dosyalarını oluştur
   const generateExcelFiles = useCallback(async (products, includeAllProducts = false) => {
     try {
@@ -5989,25 +6085,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 İptal
               </button>
               
-              {preSaveConfirmData.newProducts.length > 0 ? (
+              <div className="flex gap-2">
                 <button
                   onClick={async () => {
                     setShowPreSaveConfirmModal(false);
-                    const newProducts = await saveToDatabase(validProducts);
-                    if (newProducts && newProducts.length > 0) {
-                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
-                      await generateExcelFiles(newProducts, false);
-                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
-                    } else {
-                      toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
-                    }
+                    await generateKaynakProgramiExcel();
                   }}
                   disabled={isSavingToDatabase || isGeneratingExcel}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 justify-center"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 justify-center"
                 >
-                  {(isSavingToDatabase || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
-                  {preSaveConfirmData.newProducts.length} Yeni Ürün Kaydet ve Excel Oluştur
+                  📊 Kaynak Programı Oluştur
                 </button>
+                
+                {preSaveConfirmData.newProducts.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      setShowPreSaveConfirmModal(false);
+                      const newProducts = await saveToDatabase(validProducts);
+                      if (newProducts && newProducts.length > 0) {
+                        console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
+                        await generateExcelFiles(newProducts, false);
+                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                      } else {
+                        toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                      }
+                    }}
+                    disabled={isSavingToDatabase || isGeneratingExcel}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 justify-center"
+                  >
+                    {(isSavingToDatabase || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
+                    {preSaveConfirmData.newProducts.length} Yeni Ürün Kaydet ve Excel Oluştur
+                  </button>
+                )}
+              </div>
               ) : (
                 <button
                   onClick={() => {
