@@ -293,105 +293,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Sequence tracking
   const [sequences, setSequences] = useState({});
 
-  // Filter and sort database products
+  // Server-side filtering and sorting - data already comes filtered from backend
   const getFilteredAndSortedProducts = useCallback(() => {
-    let filteredProducts = [...savedProducts[activeDbTab]];
-    
-    // Apply search filter
-    if (dbSearchText.trim()) {
-      const searchLower = dbSearchText.toLowerCase();
-      filteredProducts = filteredProducts.filter(product => 
-        (product.stok_kodu || '').toLowerCase().includes(searchLower) ||
-        (product.stok_adi || '').toLowerCase().includes(searchLower) ||
-        (product.grup_kodu || '').toLowerCase().includes(searchLower) ||
-        (product.kod_1 || '').toLowerCase().includes(searchLower) ||
-        (product.kod_2 || '').toLowerCase().includes(searchLower)
-      );
-    }
-    
-    // Apply hasır tipi filter - primarily check stok_adi where Q/R/TR codes are stored
-    if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
-      console.log(`🔍 Filtering for ${dbFilterHasirTipi}, total products before filter:`, filteredProducts.length);
-      
-      if (dbFilterHasirTipi === 'Q Tipleri') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('q')
-        );
-      } else if (dbFilterHasirTipi === 'R Tipleri') {
-        // Debug: Show sample products to understand the data structure
-        if (filteredProducts.length > 0) {
-          console.log('🔍 Sample products for R-type debugging:', filteredProducts.slice(0, 5).map(p => ({
-            stok_adi: p.stok_adi,
-            hasir_tipi: p.hasir_tipi, 
-            stok_kodu: p.stok_kodu
-          })));
-        }
-        
-        filteredProducts = filteredProducts.filter(product => {
-          const searchText = (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase();
-          
-          // More specific R-type detection - look for R followed by numbers (like R257, R131, etc.)
-          // This avoids false matches from words containing 'r' like "Ara", "Çap", etc.
-          const hasRCode = /\br\d+/i.test(searchText); // R followed by digits
-          const hasTR = searchText.includes('tr');
-          const match = hasRCode && !hasTR;
-          
-          // Debug individual matches
-          if (searchText.includes('r')) {
-            console.log(`🔍 R-type check: "${searchText}" -> hasRCode:${hasRCode}, hasTR:${hasTR}, match:${match}`);
-          }
-          
-          return match;
-        });
-      } else if (dbFilterHasirTipi === 'TR Tipleri') {
-        filteredProducts = filteredProducts.filter(product => 
-          (product.stok_adi || product.hasir_tipi || product.stok_kodu || '').toLowerCase().includes('tr')
-        );
-      }
-      
-      console.log(`🔍 After filtering for ${dbFilterHasirTipi}, remaining products:`, filteredProducts.length);
-    }
-    
-    // Apply hasır türü filter - check both hasir_turu and kod_2 columns
-    if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
-      if (dbFilterHasirTuru.toLowerCase() === 'standart') {
-        // For Standart, check kod_2 = 'STD'
-        filteredProducts = filteredProducts.filter(product => 
-          (product.kod_2 || '').toUpperCase() === 'STD'
-        );
-      } else {
-        // For other filters, use hasir_turu column
-        filteredProducts = filteredProducts.filter(product => 
-          (product.hasir_turu || '').toLowerCase() === dbFilterHasirTuru.toLowerCase()
-        );
-      }
-    }
-    
-    
-    // Apply sorting
-    filteredProducts.sort((a, b) => {
-      let aValue = a[dbSortBy];
-      let bValue = b[dbSortBy];
-      
-      // Handle numeric fields
-      if (dbSortBy === 'cap' || dbSortBy === 'length_cm') {
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
-      } else if (dbSortBy === 'created_at') {
-        aValue = new Date(aValue || 0);
-        bValue = new Date(bValue || 0);
-      } else {
-        // Handle text fields
-        aValue = (aValue || '').toString().toLowerCase();
-        bValue = (bValue || '').toString().toLowerCase();
-      }
-      
-      if (aValue < bValue) return dbSortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return dbSortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-    
-    return filteredProducts;
+    // Data is already filtered and sorted by the server
+    // Just return it as-is
+    return savedProducts[activeDbTab] || [];
   }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
   // Database multi-select functions
@@ -585,6 +491,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     fetchSavedProducts(); // Load all data automatically on component mount
     fetchSequences();
   }, []);
+  
+  // Refetch data when filters change (server-side filtering)
+  useEffect(() => {
+    // Only fetch if database modal is open to avoid unnecessary requests
+    if (showDatabaseModal) {
+      const debounceTimer = setTimeout(() => {
+        fetchSavedProducts();
+      }, 500); // Debounce by 500ms to avoid too many requests while typing
+      
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
   // Force update when savedProducts or validProducts change to ensure counts are accurate
   useEffect(() => {
@@ -616,6 +534,41 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('🚀 OPTIMIZED: Fetching all saved products from database...');
       
+      // Build query parameters for filters
+      const buildQueryParams = () => {
+        const params = new URLSearchParams();
+        
+        // Add search filter
+        if (dbSearchText.trim()) {
+          params.append('search', dbSearchText.trim());
+        }
+        
+        // Add hasır tipi filter
+        if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
+          params.append('hasir_tipi_filter', dbFilterHasirTipi);
+        }
+        
+        // Add hasır türü filter
+        if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
+          params.append('hasir_turu_filter', dbFilterHasirTuru);
+        }
+        
+        // Add sorting
+        if (dbSortBy) {
+          params.append('sort_by', dbSortBy);
+          params.append('sort_order', dbSortOrder);
+        }
+        
+        // Add pagination params (fetch all for now)
+        params.append('limit', '10000'); // Large limit to get all filtered results
+        params.append('page', '1');
+        
+        return params.toString();
+      };
+      
+      const queryString = buildQueryParams();
+      const urlSuffix = queryString ? `?${queryString}` : '';
+      
       // Load data with progress tracking, request cancellation, and timeout
       setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
       
@@ -629,9 +582,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       
       const [mmResult, ncbkResult, ntelResult] = await Promise.allSettled([
-        timeoutPromise(fetchWithAuth(API_URLS.celikHasirMm, { signal })),
-        timeoutPromise(fetchWithAuth(API_URLS.celikHasirNcbk, { signal })),
-        timeoutPromise(fetchWithAuth(API_URLS.celikHasirNtel, { signal }))
+        timeoutPromise(fetchWithAuth(`${API_URLS.celikHasirMm}${urlSuffix}`, { signal })),
+        timeoutPromise(fetchWithAuth(`${API_URLS.celikHasirNcbk}${urlSuffix}`, { signal })),
+        timeoutPromise(fetchWithAuth(`${API_URLS.celikHasirNtel}${urlSuffix}`, { signal }))
       ]);
       
       // Check if request was cancelled
