@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { API_URLS, fetchWithAuth } from '@/api-config';
 import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { getCombinationQConfig } from '@/mesh-config-service';
 import { 
@@ -2122,147 +2123,99 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return String(value).replace('.', ',');
   };
 
-  // Generate Kaynak Programı Excel following CSV structure
+  // Generate Kaynak Programı Excel (copied from exportToExcel approach)
   const generateKaynakProgramiExcel = async () => {
     try {
-      console.log('DEBUG: generateKaynakProgramiExcel started');
+      if (validProducts.length === 0) {
+        toast.warn('Kaynak Programı oluşturmak için önce ürün listesini doldurun.');
+        return;
+      }
       
       // Get stock codes from save confirmation analysis
       await analyzeProductsForConfirmation();
       
-      // Create mapping of products to their stock codes
-      const stockCodeMap = new Map();
-      
-      // Add existing products with highest stock codes
-      preSaveConfirmData.existingProducts?.forEach((item) => {
-        if (item && item.product && item.highestStokKodu) {
-          const key = `${item.product.hasirTipi}-${item.product.uzunlukBoy}-${item.product.uzunlukEn}`;
-          stockCodeMap.set(key, item.highestStokKodu);
-        }
-      });
-      
-      // Add new products with calculated stock codes  
-      preSaveConfirmData.newProducts?.forEach((item) => {
-        if (item && item.newStokKodu) {
-          const key = `${item.hasirTipi}-${item.uzunlukBoy}-${item.uzunlukEn}`;
-          stockCodeMap.set(key, item.newStokKodu);
-        }
-      });
-      
-      // Use validProducts in main table order with their calculated weights
-      const allProductsData = validProducts.map((product) => {
-        const key = `${product.hasirTipi}-${product.uzunlukBoy}-${product.uzunlukEn}`;
-        const stokKodu = stockCodeMap.get(key) || 'UNKNOWN';
-        
-        return {
-          ...product, // Keep all calculated values from main table
-          stokKodu: stokKodu
-        };
-      });
-      
-      console.log('DEBUG: Processing', allProductsData.length, 'products with stock codes from summary screen');
-      
-      // Create workbook and worksheet
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Kaynak Programı');
-      
-      // Add headers (rows 1-2) following CSV structure
-      worksheet.addRow([
+      // CSV structure headers from your template
+      const headers = [
         '', 'Stok kodu', 'FİRMA', 'Stok Kartı', 'HASIR', 'BOY', 'EN', 'HASIR', 'BOY', 'EN', 'Açıklama', 'UZUNLUK', '', 'ÇUBUK SAYISI', '', 'ARA', '', 'HASIR', 'SOL', 'SAĞ', 'ÖN', 'ARKA', 'ADET', 'TOPLAM', ''
-      ]);
-      worksheet.addRow([
+      ];
+      const subHeaders = [
         '', '', 'ADI', '', 'CİNSİ', '', '', 'SAYISI', 'ÇAP', 'ÇAP', '', 'BOY', 'EN', 'BOY', 'EN', 'BOY', 'EN', 'SAYISI', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'KG.', 'KG.', ''
-      ]);
+      ];
       
-      // Add data rows starting from row 3
-      allProductsData.forEach((product, index) => {
-        const hasirTipi = normalizeHasirTipi(product.hasirTipi || '');
-        const boyCap = parseFloat(product.boyCap || 0);
-        const enCap = parseFloat(product.enCap || 0);
-        const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
-        const uzunlukEn = parseInt(product.uzunlukEn || 0);
-        const cubukSayisiBoy = parseInt(product.cubukSayisiBoy || 0);
-        const cubukSayisiEn = parseInt(product.cubukSayisiEn || 0);
-        const gozAraligiBoy = parseFloat(product.gozAraligiBoy || 0);
-        const gozAraligiEn = parseFloat(product.gozAraligiEn || 0);
-        const hasirSayisi = parseInt(product.hasirSayisi || 1);
-        const adet = parseInt(product.adet || 1);
-        const toplamAgirlik = parseFloat(product.toplamAgirlik || 0);
+      // Prepare data array
+      const data = [headers, subHeaders];
+      
+      validProducts.forEach((product, index) => {
+        // Find stock code from preSaveConfirmData by matching product details
+        let stokKodu = '';
         
-        // Calculate proper FİLİZ values based on CSV examples
-        // Default values from CSV analysis: sol=2.5, sag=2.5, on varies (22.5, 17.5, 20.0, 25.0, 10.0), arka varies
-        let solFiliz = '2.5';
-        let sagFiliz = '2.5'; 
-        let onFiliz = '22.5';
-        let arkaFiliz = '22.5';
+        // Check existing products first (with highest stock codes like CHOZL2343)
+        const existingMatch = preSaveConfirmData.existingProducts?.find(existing => {
+          if (!existing.product) return false;
+          const stokAdiMatch = generateStokAdi(product, 'CH') === generateStokAdi(existing.product, 'CH');
+          return stokAdiMatch;
+        });
         
-        // Adjust FİLİZ values based on hasirTipi patterns from CSV
-        if (hasirTipi.startsWith('Q257')) {
-          onFiliz = '22.5'; arkaFiliz = '22.5';
-        } else if (hasirTipi.startsWith('Q317')) {
-          onFiliz = '17.5'; arkaFiliz = '17.5';
-        } else if (hasirTipi.startsWith('R257')) {
-          onFiliz = '17.5'; arkaFiliz = '17.5';
-        } else if (hasirTipi.startsWith('R295')) {
-          onFiliz = '20.0'; arkaFiliz = '20.0';
-        } else if (hasirTipi.startsWith('R317')) {
-          onFiliz = '25.0'; arkaFiliz = '25.0';
-        } else if (hasirTipi.startsWith('TR')) {
-          onFiliz = '10.0'; arkaFiliz = '10.0';
-          // Some TR types have different sol/sag values
-          if (uzunlukEn >= 230) {
-            solFiliz = '10.0'; sagFiliz = '10.0';
-          } else if (uzunlukEn >= 160) {
-            solFiliz = '5.0'; sagFiliz = '5.0';
-          } else {
-            solFiliz = '15.0'; sagFiliz = '15.0';
+        if (existingMatch && existingMatch.highestStokKodu) {
+          stokKodu = existingMatch.highestStokKodu;
+        } else {
+          // Check new products (with calculated CHOZL codes like CHOZL2448)
+          const newMatch = preSaveConfirmData.newProducts?.find(newProd => {
+            const stokAdiMatch = generateStokAdi(product, 'CH') === generateStokAdi(newProd, 'CH');
+            return stokAdiMatch;
+          });
+          
+          if (newMatch && newMatch.newStokKodu) {
+            stokKodu = newMatch.newStokKodu;
           }
-        } else if (hasirTipi.startsWith('Q221')) {
-          onFiliz = uzunlukBoy >= 330 ? '11.0' : '18.0';
-          arkaFiliz = uzunlukBoy >= 330 ? '70.0' : '18.0';
         }
         
-        worksheet.addRow([
+        // Map validProducts data to CSV structure
+        data.push([
           index + 1, // Row number
-          product.stokKodu || '', // Stok kodu
-          '', // FİRMA ADI (empty)
-          '', // Stok Kartı (empty)
-          hasirTipi, // HASIR CİNSİ
-          '', // BOY (empty)
-          '', // EN (empty)  
-          hasirSayisi, // HASIR SAYISI
-          boyCap.toString().replace('.', ','), // BOY ÇAP
-          enCap.toString().replace('.', ','), // EN ÇAP
-          '', // Açıklama (empty)
-          uzunlukBoy, // UZUNLUK BOY
-          uzunlukEn, // UZUNLUK EN
-          cubukSayisiBoy, // ÇUBUK SAYISI BOY
-          cubukSayisiEn, // ÇUBUK SAYISI EN
-          gozAraligiBoy.toString().replace('.', ','), // ARA BOY
-          gozAraligiEn.toString().replace('.', ','), // ARA EN
-          '', // HASIR (empty)
-          solFiliz, // SOL FİLİZ (calculated)
-          sagFiliz, // SAĞ FİLİZ (calculated)
-          onFiliz, // ÖN FİLİZ (calculated)
-          arkaFiliz, // ARKA FİLİZ (calculated)
-          adet, // ADET
-          toplamAgirlik.toString().replace('.', ','), // TOPLAM KG
+          stokKodu, // Stock code from analysis
+          '', // FİRMA ADI - empty
+          '', // Stok Kartı - empty  
+          normalizeHasirTipi(product.hasirTipi || ''), // HASIR CİNSİ
+          parseFloat(product.boyCap || 0), // BOY ÇAP
+          parseFloat(product.enCap || 0), // EN ÇAP
+          parseInt(product.hasirSayisi || 1), // HASIR SAYISI
+          parseFloat(product.boyCap || 0), // BOY ÇAP (repeat)
+          parseFloat(product.enCap || 0), // EN ÇAP (repeat)
+          '', // Açıklama - empty
+          parseInt(product.uzunlukBoy || 0), // UZUNLUK BOY
+          parseInt(product.uzunlukEn || 0), // UZUNLUK EN
+          parseInt(product.cubukSayisiBoy || 0), // ÇUBUK SAYISI BOY
+          parseInt(product.cubukSayisiEn || 0), // ÇUBUK SAYISI EN
+          parseFloat(product.gozAraligiBoy || 0), // ARA BOY
+          parseFloat(product.gozAraligiEn || 0), // ARA EN
+          parseInt(product.hasirSayisi || 1), // HASIR SAYISI (repeat)
+          parseFloat(product.solFiliz || 0), // SOL FİLİZ
+          parseFloat(product.sagFiliz || 0), // SAĞ FİLİZ
+          parseFloat(product.onFiliz || 0), // ÖN FİLİZ
+          parseFloat(product.arkaFiliz || 0), // ARKA FİLİZ
+          parseInt(product.adet || 1), // ADET
+          parseFloat(product.toplamAgirlik || 0), // TOPLAM KG
           '' // Empty last column
         ]);
       });
       
-      // Save file
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Kaynak_Programi_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      // Create workbook using XLSX (same as exportToExcel)
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(data);
       
-      toast.success(`Kaynak Programı Excel dosyası oluşturuldu!`);
-      console.log('DEBUG: Kaynak Programı Excel generation completed');
+      // Column widths
+      const colWidths = headers.map(h => ({ wch: Math.max(String(h).length, 15) }));
+      ws['!cols'] = colWidths;
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Kaynak Programı");
+      
+      // Download the file
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+      XLSX.writeFile(wb, `Kaynak_Programi_${timestamp}.csv`);
+      
+      console.log('DEBUG: Kaynak Programı Excel created successfully');
       
     } catch (error) {
       console.error('Error generating Kaynak Programı Excel:', error);
