@@ -2749,34 +2749,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('*** saveRecipeData - ncbkResults keys:', Object.keys(ncbkResults));
       console.log('*** Product details - boyCap:', product.boyCap, 'enCap:', product.enCap, 'uzunlukBoy:', product.uzunlukBoy, 'uzunlukEn:', product.uzunlukEn);
       
-      // Try multiple lookup strategies for BOY ÇUBUĞU
-      const boyKey1 = `boy-${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`;
-      const boyKey2 = parseInt(product.uzunlukBoy || 0);
-      const boyKey3 = `${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`;
-      const boyBilesenKodu = ncbkResults[boyKey1]?.stok_kodu || ncbkResults[boyKey2]?.stok_kodu || ncbkResults[boyKey3]?.stok_kodu || '';
+      // GENERATE NCBK codes directly from product dimensions - don't lookup in ncbkResults
+      // MM recipe should always reference the required NCBKs regardless of whether they exist
+      const boyBilesenKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukBoy || 0)}`;
+      const enBilesenKodu = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukEn || 0)}`;
       
-      // Try multiple lookup strategies for EN ÇUBUĞU - FIXED to match storage keys  
-      const enKey1 = `en-${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
-      const enKey2 = parseInt(product.uzunlukEn || 0);
-      const enKey3 = `${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
-      let enBilesenKodu = ncbkResults[enKey1]?.stok_kodu || ncbkResults[enKey2]?.stok_kodu || ncbkResults[enKey3]?.stok_kodu || '';
-      
-      // Additional fallback: manually construct stok_kodu if lookup fails
-      if (!enBilesenKodu && product.enCap && product.uzunlukEn) {
-        const expectedEnStokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukEn)}`;
-        // Search all ncbkResults for this stok_kodu
-        for (const [key, result] of Object.entries(ncbkResults)) {
-          if (result?.stok_kodu === expectedEnStokKodu) {
-            enBilesenKodu = expectedEnStokKodu;
-            console.log(`🔍 Found EN NCBK via fallback search: ${expectedEnStokKodu} (key: ${key})`);
-            break;
-          }
-        }
-      }
-      
-      console.log('*** BOY lookup - trying keys:', [boyKey1, boyKey2, boyKey3], 'result:', boyBilesenKodu);
-      console.log('*** EN lookup - trying keys:', [enKey1, enKey2, enKey3], 'result:', enBilesenKodu);
-      console.log('*** All available NCBK keys:', Object.keys(ncbkResults));
+      console.log('*** Generated BOY ÇUBUĞU:', boyBilesenKodu);
+      console.log('*** Generated EN ÇUBUĞU:', enBilesenKodu);
       
       // CH Recipe kayıtları
       const chRecipes = [
@@ -3057,12 +3036,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // First, find the existing sequence ID
           const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`);
           if (existingSequenceResponse.ok) {
-            const existingSequences = await existingSequenceResponse.json();
-            console.log('🔍 CRITICAL DEBUG - OZL query returned:', existingSequences);
-            console.log('🔍 Number of rows returned:', existingSequences.length);
+            const allSequences = await existingSequenceResponse.json();
+            console.log('🔍 CRITICAL DEBUG - Backend returned:', allSequences.length, 'rows');
+            
+            // FRONTEND FILTERING - Backend query is buggy, filter here
+            const existingSequences = allSequences.filter(seq => 
+              seq.product_type === 'CH' && seq.kod_2 === 'OZL'
+            );
+            
+            console.log('🔍 After frontend filtering - OZL sequences:', existingSequences.length);
             if (existingSequences.length > 0) {
               existingSequences.forEach((seq, index) => {
-                console.log(`🔍 Row ${index}:`, {
+                console.log(`🔍 OZL Row ${index}:`, {
                   id: seq.id,
                   product_type: seq.product_type, 
                   kod_2: seq.kod_2,
@@ -3071,9 +3056,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 });
               });
               
-              // Update existing sequence using PUT - ALWAYS FIRST ROW [0]
+              // Update existing sequence using PUT - FIRST OZL ROW [0]
               const sequenceId = existingSequences[0].id;
-              console.log('🚨 UPDATING ROW ID:', sequenceId, 'with sequence:', maxSequence);
+              console.log('🚨 UPDATING OZL ROW ID:', sequenceId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -3104,12 +3089,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // First, find the existing backup sequence ID
           const existingBackupResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL_BACKUP`);
           if (existingBackupResponse.ok) {
-            const existingBackups = await existingBackupResponse.json();
-            console.log('🔍 CRITICAL DEBUG - OZL_BACKUP query returned:', existingBackups);
-            console.log('🔍 Number of backup rows returned:', existingBackups.length);
+            const allBackups = await existingBackupResponse.json();
+            console.log('🔍 CRITICAL DEBUG - Backend returned:', allBackups.length, 'backup rows');
+            
+            // FRONTEND FILTERING - Backend query is buggy, filter here
+            const existingBackups = allBackups.filter(seq => 
+              seq.product_type === 'CH' && seq.kod_2 === 'OZL_BACKUP'
+            );
+            
+            console.log('🔍 After frontend filtering - OZL_BACKUP sequences:', existingBackups.length);
             if (existingBackups.length > 0) {
               existingBackups.forEach((seq, index) => {
-                console.log(`🔍 Backup Row ${index}:`, {
+                console.log(`🔍 OZL_BACKUP Row ${index}:`, {
                   id: seq.id,
                   product_type: seq.product_type, 
                   kod_2: seq.kod_2,
@@ -3118,9 +3109,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 });
               });
               
-              // Update existing backup sequence using PUT - ALWAYS FIRST ROW [0]
+              // Update existing backup sequence using PUT - FIRST OZL_BACKUP ROW [0]
               const backupId = existingBackups[0].id;
-              console.log('🚨 UPDATING BACKUP ROW ID:', backupId, 'with sequence:', maxSequence);
+              console.log('🚨 UPDATING OZL_BACKUP ROW ID:', backupId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${backupId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -3659,8 +3650,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
               // Store a placeholder result to continue the process
               const specKey = `${spec.type}-${cap}-${length}`;
-              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409 };
-              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409 };
+              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
+              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
               continue; // Continue to next NCBK
             } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
