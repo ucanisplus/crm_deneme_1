@@ -2514,7 +2514,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ));
 
       // NCBK Recipe kayıtları
-      for (const [length, ncbkResult] of Object.entries(ncbkResults)) {
+      for (const [key, ncbkResult] of Object.entries(ncbkResults)) {
+        // Skip if not a valid result or already exists
+        if (!ncbkResult || !ncbkResult.stok_kodu || ncbkResult.message === 'existing') {
+          continue;
+        }
+        
+        // Extract cap and length from stok_kodu (e.g., YM.NCBK.0500.465 -> cap=5.0, length=465)
+        const stokParts = ncbkResult.stok_kodu.match(/YM\.NCBK\.(\d{4})\.(\d+)/);
+        if (!stokParts) {
+          console.warn('Invalid NCBK stok kodu format:', ncbkResult.stok_kodu);
+          continue;
+        }
+        
+        const ncbkCap = parseInt(stokParts[1]) / 100; // Convert from 0500 to 5.0
+        const ncbkLength = parseInt(stokParts[2]);
+        
         const ncbkRecipes = [
           // Bileşen - FLM tüketimi
           {
@@ -2524,9 +2539,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: getFilmasinKodu(parseFloat(ncbkResult.cap)).code,
+            bilesen_kodu: getFilmasinKodu(ncbkCap).code,
             olcu_br_bilesen: 'KG',
-            miktar: parseFloat((Math.PI * (parseFloat(ncbkResult.cap)/20) * (parseFloat(ncbkResult.cap)/20) * parseFloat(length) * 7.85 / 1000).toFixed(5)),
+            miktar: parseFloat((Math.PI * (ncbkCap/20) * (ncbkCap/20) * ncbkLength * 7.85 / 1000).toFixed(5)),
             aciklama: 'Filmaşin Tüketim Miktarı',
           },
           // Operasyon - Yarı Otomatik İşlem
@@ -2541,7 +2556,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br_bilesen: 'DK',
             miktar: 1,
             aciklama: '',
-            uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: length })
+            uretim_suresi: calculateOperationDuration('NCBK', { ...product, length: ncbkLength, boyCap: ncbkCap, enCap: ncbkCap })
           }
         ];
 
@@ -2556,7 +2571,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
 
       // NTEL Recipe kayıtları - only if ntelResult exists (newly created)
-      if (ntelResult && ntelResult.stok_kodu) {
+      if (ntelResult && ntelResult.stok_kodu && ntelResult.message !== 'existing') {
+        // Extract cap from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.5)
+        const ntelStokParts = ntelResult.stok_kodu.match(/YM\.NTEL\.(\d{4})/);
+        const ntelCap = ntelStokParts ? parseInt(ntelStokParts[1]) / 100 : parseFloat(product.boyCap || 0);
+        
         const ntelRecipes = [
           // Bileşen - FLM tüketimi
           {
@@ -2566,24 +2585,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'MT',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: getFilmasinKodu(parseFloat(ntelResult.cap)).code,
+            bilesen_kodu: getFilmasinKodu(ntelCap).code,
             olcu_br_bilesen: 'KG',
-            miktar: parseFloat((Math.PI * (parseFloat(ntelResult.cap)/20) * (parseFloat(ntelResult.cap)/20) * 100 * 7.85 / 1000).toFixed(5)),
-            aciklama: 'FLM tüketimi',
+            miktar: parseFloat((Math.PI * (ntelCap/20) * (ntelCap/20) * 100 * 7.85 / 1000).toFixed(5)),
+            aciklama: 'Filmaşin Tüketim Miktarı',
           },
-          // Operasyon - Tam Otomatik İşlem
+          // Operasyon - NTEL uses NTLC01 not OTOCH
           {
             mamul_kodu: ntelResult.stok_kodu,
             recete_top: 1,
             fire_orani: 0,
-            olcu_br: 'MT',
+            olcu_br: 'DK',
             sira_no: 2,
             operasyon_bilesen: 'Operasyon',
-            bilesen_kodu: 'OTOCH',
-            olcu_br_bilesen: 'MT',
+            bilesen_kodu: 'NTLC01',
+            olcu_br_bilesen: 'DK',
             miktar: 1,
-            aciklama: '',
-            uretim_suresi: calculateOperationDuration('NTEL', product)
+            aciklama: null,
+            uretim_suresi: calculateOperationDuration('NTEL', { ...product, boyCap: ntelCap })
           }
         ];
 
