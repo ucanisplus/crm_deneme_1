@@ -795,8 +795,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             product_type: 'CH',
             kod_2: 'OZL_BACKUP',
             cap_code: '',
-            last_sequence: actualSequence, // Start with same value as actual
-            upsert: true
+            last_sequence: actualSequence // Start with same value as actual
           };
           
           const backupResponse = await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -817,7 +816,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Now check the actual database for highest CHOZL sequence
       console.log('*** Checking database for actual highest CHOZL sequence');
       try {
-        const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasir}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
+        const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
         if (dbCheckResponse?.ok) {
           const dbData = await dbCheckResponse.json();
           if (dbData.data && dbData.data.length > 0) {
@@ -839,8 +838,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   product_type: 'CH',
                   kod_2: 'OZL',
                   cap_code: '',
-                  last_sequence: dbHighestSequence,
-                  upsert: true
+                  last_sequence: dbHighestSequence
                 };
                 
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -854,8 +852,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   product_type: 'CH',
                   kod_2: 'OZL_BACKUP',
                   cap_code: '',
-                  last_sequence: dbHighestSequence,
-                  upsert: true
+                  last_sequence: dbHighestSequence
                 };
                 
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -1006,8 +1003,62 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         
         // Use the higher of actual or backup sequence
-        maxSequence = Math.max(actualSequence, backupSequence);
-        console.log('*** Final max sequence determined:', maxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
+        let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
+        console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
+        
+        // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
+        try {
+          console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
+          const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5`);
+          if (dbCheckResponse?.ok) {
+            const dbData = await dbCheckResponse.json();
+            if (dbData.data && dbData.data.length > 0) {
+              let highestDbSequence = 0;
+              dbData.data.forEach(product => {
+                const match = product.stok_kodu.match(/CHOZL(\d+)/);
+                if (match) {
+                  const seqNum = parseInt(match[1]);
+                  if (seqNum > highestDbSequence) {
+                    highestDbSequence = seqNum;
+                  }
+                }
+              });
+              console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
+              
+              // Use the higher of sequence table or actual database
+              maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
+              console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
+              
+              // If database has higher, we should update the sequence table
+              if (highestDbSequence > preliminaryMaxSequence) {
+                console.log('*** Database is ahead! Updating sequence table to:', highestDbSequence);
+                try {
+                  await fetchWithAuth(API_URLS.celikHasirSequence, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      product_type: 'CH',
+                      kod_2: 'OZL',
+                      cap_code: '',
+                      last_sequence: highestDbSequence
+                    })
+                  });
+                } catch (updateError) {
+                  console.error('*** Error updating sequence table:', updateError);
+                }
+              }
+            } else {
+              maxSequence = preliminaryMaxSequence;
+              console.log('*** No CHOZL products found in database, using sequence table value:', maxSequence);
+            }
+          } else {
+            maxSequence = preliminaryMaxSequence;
+            console.log('*** Could not check database, using sequence table value:', maxSequence);
+          }
+        } catch (dbCheckError) {
+          console.error('*** Error checking database for duplicates:', dbCheckError);
+          maxSequence = preliminaryMaxSequence;
+        }
         
         batchSequenceCounter = maxSequence;
         batchSequenceInitialized = true;
@@ -2820,8 +2871,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             product_type: 'CH',
             kod_2: 'OZL',
             cap_code: '',
-            last_sequence: maxSequence,
-            upsert: true
+            last_sequence: maxSequence
           };
           
           await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -2838,8 +2888,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             product_type: 'CH',
             kod_2: 'OZL_BACKUP',
             cap_code: '',
-            last_sequence: maxSequence,
-            upsert: true
+            last_sequence: maxSequence
           };
           
           await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -2862,8 +2911,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           product_type: 'CH',
           kod_2: kod2,
           cap_code: capCode,
-          last_sequence: actualSequenceNumber || 0,
-          upsert: true
+          last_sequence: actualSequenceNumber || 0
         };
         
         await fetchWithAuth(API_URLS.celikHasirSequence, {
@@ -3173,10 +3221,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
           
           if (chResponse.status === 409) {
-            // Bu OLMAMALI - duplicate checking başarısız olmuş
-            console.error(`BEKLENMEYEN DUPLICATE: CH ürün zaten var: ${chData.stok_kodu}`);
-            toast.error(`Duplicate hatası: ${chData.stok_kodu}`);
-            continue; // Bu ürünü atla
+            // Duplicate detected - try with next sequence number
+            console.log(`*** DUPLICATE DETECTED: ${chData.stok_kodu} already exists, retrying with next sequence`);
+            
+            // Increment sequence counter and try again (max 3 attempts)
+            let retryAttempts = 0;
+            let retrySuccess = false;
+            
+            while (retryAttempts < 3 && !retrySuccess) {
+              retryAttempts++;
+              batchSequenceCounter++; // Increment to get next sequence number
+              const newStokKodu = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
+              console.log(`*** Retry attempt ${retryAttempts}: trying with ${newStokKodu}`);
+              
+              // Update the chData with new stok_kodu
+              chData.stok_kodu = newStokKodu;
+              
+              // Try saving again
+              const retryResponse = await fetchWithRetry(`${API_URLS.celikHasirMm}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chData)
+              }, 3, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
+              
+              if (retryResponse.ok) {
+                console.log(`*** Retry successful with ${newStokKodu}`);
+                chResult = await retryResponse.json();
+                generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
+                retrySuccess = true;
+              } else if (retryResponse.status === 409) {
+                console.log(`*** ${newStokKodu} also exists, trying next sequence`);
+                // Continue loop to try next number
+              } else {
+                throw new Error(`CH kaydı başarısız: ${retryResponse.status} (retry ${retryAttempts})`);
+              }
+            }
+            
+            if (!retrySuccess) {
+              console.error(`*** Failed to save CH after 3 retry attempts`);
+              toast.error(`Kayıt başarısız: 3 deneme sonucu duplicate hatası`);
+              continue; // Skip this product
+            }
           } else if (!chResponse.ok) {
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
           } else {
