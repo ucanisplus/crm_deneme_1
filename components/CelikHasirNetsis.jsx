@@ -1160,23 +1160,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // If database has higher, we should update the sequence table
           if (highestDbSequence > preliminaryMaxSequence) {
-            console.log('*** Database is ahead! Updating sequence table to:', highestDbSequence);
-            try {
-              // NOTE: Using POST for now as backend may handle UPSERT logic
-              // This should ideally be PUT/PATCH to avoid creating duplicates
-              await fetchWithAuth(API_URLS.celikHasirSequence, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  product_type: 'CH',
-                  kod_2: 'OZL',
-                  cap_code: '',
-                  last_sequence: highestDbSequence
-                })
-              });
-            } catch (updateError) {
-              console.error('*** Error updating sequence table:', updateError);
-            }
+            console.log('*** Database is ahead! Need to update sequence table to:', highestDbSequence);
+            console.log('*** SKIPPING POST operation to prevent duplicate sequence rows');
+            console.log('*** The existing PUT operations in updateSequences() will handle the sync');
+            // REMOVED: The POST operation here was creating duplicate rows
+            // The actual sequence updates are properly handled by updateSequences() 
+            // using PUT operations with specific row IDs
           }
         } else {
           maxSequence = preliminaryMaxSequence;
