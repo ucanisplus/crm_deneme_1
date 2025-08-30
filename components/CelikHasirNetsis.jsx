@@ -701,7 +701,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setDbLoadingProgress({ current: 0, total: 3, operation: 'Başlatılıyor...' });
       }
       
-      console.log('🚀 OPTIMIZED: Fetching all saved products from database...');
+      console.log('🚀 OPTIMIZED: Fetching all saved products from database...', { isRetry, resetData });
+      
+      // Add timestamp for debugging
+      const fetchStartTime = Date.now();
       
       // Build query parameters for filters
       const buildQueryParams = () => {
@@ -736,7 +739,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       };
       
       const queryString = buildQueryParams();
-      const urlSuffix = queryString ? `?${queryString}` : '';
+      
+      // Add timestamp to force fresh data when resetData is true
+      const timestampParam = resetData ? `&_t=${Date.now()}` : '';
+      const urlSuffix = queryString ? `?${queryString}${timestampParam}` : (resetData ? `?_t=${Date.now()}` : '');
       
       // Load data with progress tracking, request cancellation, and timeout
       setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
@@ -819,7 +825,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       // Store all data - no pagination
-      setSavedProducts(allData);
+      // Force state update by creating new object reference if resetData is true
+      if (resetData) {
+        console.log('🔄 Forcing complete data refresh due to resetData=true');
+        setSavedProducts({
+          mm: [...mmData],
+          ncbk: [...ncbkData], 
+          ntel: [...ntelData]
+        });
+      } else {
+        setSavedProducts(allData);
+      }
       
       // Reset error states on successful fetch
       setBackendError(null);
@@ -830,7 +846,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const ncbkDisplay = ncbkTotal === ncbkData.length ? `NCBK(${ncbkTotal})` : `NCBK(${ncbkData.length}/${ncbkTotal})`;
       const ntelDisplay = ntelTotal === ntelData.length ? `NTEL(${ntelTotal})` : `NTEL(${ntelData.length}/${ntelTotal})`;
       
-      console.log(`✅ Başarıyla yüklendi - Toplam: ${mmDisplay}, ${ncbkDisplay}, ${ntelDisplay} ürün`);
+      const fetchEndTime = Date.now();
+      console.log(`✅ Başarıyla yüklendi - Toplam: ${mmDisplay}, ${ncbkDisplay}, ${ntelDisplay} ürün (${fetchEndTime - fetchStartTime}ms)`);
+      
+      // Log state update for debugging
+      if (resetData) {
+        console.log('🔄 State forced to update with resetData=true');
+      }
       
     } catch (error) {
       console.error('❌ Veritabanı bağlantı hatası:', error);
