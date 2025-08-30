@@ -677,11 +677,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Only fetch if database modal is open to avoid unnecessary requests
     if (showDatabaseModal) {
       setIsFilteringDb(true); // Show filter loading indicator immediately
-      const debounceTimer = setTimeout(() => {
-        fetchSavedProducts().finally(() => {
+      const debounceTimer = setTimeout(async () => {
+        try {
+          await fetchSavedProducts();
+          // Add 3 seconds delay to show "Veriler getiriliyor..." message longer
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } finally {
           setIsFilteringDb(false); // Hide filter loading indicator when done
-        });
-      }, 300); // Reduced debounce time from 500ms to 300ms for faster response
+        }
+      }, 300); // Keep the 300ms debounce for input responsiveness
       
       return () => {
         clearTimeout(debounceTimer);
@@ -1123,12 +1127,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
     try {
       console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
-      const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5`);
+      // Add timestamp to bypass any caching
+      const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5&_t=${Date.now()}`);
       if (dbCheckResponse?.ok) {
         const dbData = await dbCheckResponse.json();
-        if (dbData.data && dbData.data.length > 0) {
+        console.log('*** initializeBatchSequence - DB check response structure:', dbData);
+        // Handle both possible response structures
+        const productList = dbData.data || dbData;
+        if (Array.isArray(productList) && productList.length > 0) {
           let highestDbSequence = 0;
-          dbData.data.forEach(product => {
+          productList.forEach(product => {
             const match = product.stok_kodu.match(/CHOZL(\d+)/);
             if (match) {
               const seqNum = parseInt(match[1]);
@@ -4115,11 +4123,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (deleteProductResponse.ok) {
         const result = await deleteProductResponse.json();
         console.log(`✅ Successfully deleted product ${product.stok_kodu}`);
+        console.log('🔔 CALLING SUCCESS TOAST FOR DELETION:', product.stok_kodu);
         toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false
         });
+        
+        // Also show browser alert as backup to ensure user sees the feedback
+        setTimeout(() => {
+          alert(`✅ Başarılı: ${product.stok_kodu} ürünü silindi`);
+        }, 100);
         
         // Update UI state immediately
         setSavedProducts(prev => ({
@@ -4153,7 +4167,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (fallbackResponse.ok) {
           console.log(`✅ Fallback: Successfully deleted product ${product.stok_kodu}`);
-          toast.success('✅ Ürün ve reçeteleri başarıyla silindi');
+          console.log('🔔 CALLING FALLBACK SUCCESS TOAST FOR DELETION:', product.stok_kodu);
+          toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false
+          });
+          
+          // Also show browser alert as backup to ensure user sees the feedback
+          setTimeout(() => {
+            alert(`✅ Başarılı: ${product.stok_kodu} ürünü silindi`);
+          }, 100);
           
           setSavedProducts(prev => ({
             ...prev,
@@ -4208,20 +4232,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('*** Updating sequence table after product deletion');
       
       // Get the highest sequence number from remaining CH products
-      const chResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
+      // Add timestamp to bypass any caching
+      const chResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1&_t=${Date.now()}`);
       if (chResponse.ok) {
         const chProducts = await chResponse.json();
+        console.log('*** updateSequenceAfterDeletion - API response structure:', chProducts);
         
         let newMaxSequence = 2443; // Default fallback
-        if (chProducts.length > 0) {
-          const highestProduct = chProducts[0];
+        // Check both possible response structures (direct array or data property)
+        const productList = chProducts.data || chProducts;
+        if (Array.isArray(productList) && productList.length > 0) {
+          const highestProduct = productList[0];
           const match = highestProduct.stok_kodu.match(/CHOZL(\d+)/);
           if (match) {
             newMaxSequence = parseInt(match[1]);
             console.log('*** Found new max sequence from remaining products:', newMaxSequence);
           }
         } else {
-          console.log('*** No remaining CHOZL products, using default sequence:', newMaxSequence);
+          console.log('*** No remaining CHOZL products found after deletion, resetting to default sequence:', newMaxSequence);
         }
         
         // Update both OZL and OZL_BACKUP sequences
