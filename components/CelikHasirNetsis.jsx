@@ -910,6 +910,98 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     productStokKoduCache.clear(); // Clear cache when resetting batch
   };
 
+  // Initialize batch sequence with database sync - MUST be called before any generateStokKodu calls
+  const initializeBatchSequence = async () => {
+    if (batchSequenceInitialized) {
+      return batchSequenceCounter; // Already initialized
+    }
+
+    let maxSequence = 2443; // Default fallback
+    
+    // Use the higher of actual or backup sequence
+    const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
+    const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
+    
+    let actualSequence = 2443;
+    let backupSequence = 2443;
+    
+    if (ozlSequenceKey && sequences[ozlSequenceKey]) {
+      actualSequence = sequences[ozlSequenceKey];
+      console.log('*** Actual sequence from table:', ozlSequenceKey, 'value:', actualSequence);
+    }
+    
+    if (ozlBackupKey && sequences[ozlBackupKey]) {
+      backupSequence = sequences[ozlBackupKey];
+      console.log('*** Backup sequence from table:', ozlBackupKey, 'value:', backupSequence);
+    }
+    
+    let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
+    console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
+    
+    // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
+    try {
+      console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
+      const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5`);
+      if (dbCheckResponse?.ok) {
+        const dbData = await dbCheckResponse.json();
+        if (dbData.data && dbData.data.length > 0) {
+          let highestDbSequence = 0;
+          dbData.data.forEach(product => {
+            const match = product.stok_kodu.match(/CHOZL(\d+)/);
+            if (match) {
+              const seqNum = parseInt(match[1]);
+              if (seqNum > highestDbSequence) {
+                highestDbSequence = seqNum;
+              }
+            }
+          });
+          console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
+          
+          // Use the higher of sequence table or actual database
+          maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
+          console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
+          
+          // If database has higher, we should update the sequence table
+          if (highestDbSequence > preliminaryMaxSequence) {
+            console.log('*** Database is ahead! Updating sequence table to:', highestDbSequence);
+            try {
+              await fetchWithAuth(API_URLS.celikHasirSequence, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  product_type: 'CH',
+                  kod_2: 'OZL',
+                  cap_code: '',
+                  last_sequence: highestDbSequence
+                })
+              });
+            } catch (updateError) {
+              console.error('*** Error updating sequence table:', updateError);
+            }
+          }
+        } else {
+          maxSequence = preliminaryMaxSequence;
+          console.log('*** No CHOZL products found in database, using sequence table value:', maxSequence);
+        }
+      } else {
+        maxSequence = preliminaryMaxSequence;
+        console.log('*** Could not check database, using sequence table value:', maxSequence);
+      }
+    } catch (dbCheckError) {
+      console.error('*** Error checking database for duplicates:', dbCheckError);
+      maxSequence = preliminaryMaxSequence;
+    }
+    
+    batchSequenceCounter = maxSequence;
+    batchSequenceInitialized = true;
+    
+    console.log('*** BATCH STOK KODU INITIALIZED FOR NEW PRODUCTS ***');
+    console.log('Max sequence determined:', maxSequence);
+    console.log('Batch counter initialized at:', batchSequenceCounter);
+    
+    return batchSequenceCounter;
+  };
+
   function checkForExistingProducts(product, productType, batchIndex = 0) {
     try {
       if (productType === 'CH') {
@@ -978,14 +1070,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return cachedCode;
       }
       
-      // Initialize batch counter only once per batch operation
+      // Batch should already be initialized by initializeBatchSequence()
       if (!batchSequenceInitialized) {
-        let maxSequence = 2443; // Default fallback
-        
-        // Use ONLY sequence table as the source of truth
-        console.log('*** Using sequence table as source of truth');
-        
-        // Check both actual and backup sequence rows
+        console.error('*** ERROR: Batch sequence not initialized! Call initializeBatchSequence() first.');
+        // Fallback - use basic sequence table lookup without database check
         const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
         const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
         
@@ -994,78 +1082,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (ozlSequenceKey && sequences[ozlSequenceKey]) {
           actualSequence = sequences[ozlSequenceKey];
-          console.log('*** Actual sequence from table:', ozlSequenceKey, 'value:', actualSequence);
         }
         
         if (ozlBackupKey && sequences[ozlBackupKey]) {
           backupSequence = sequences[ozlBackupKey];
-          console.log('*** Backup sequence from table:', ozlBackupKey, 'value:', backupSequence);
         }
         
-        // Use the higher of actual or backup sequence
-        let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
-        console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
-        
-        // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
-        try {
-          console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
-          const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5`);
-          if (dbCheckResponse?.ok) {
-            const dbData = await dbCheckResponse.json();
-            if (dbData.data && dbData.data.length > 0) {
-              let highestDbSequence = 0;
-              dbData.data.forEach(product => {
-                const match = product.stok_kodu.match(/CHOZL(\d+)/);
-                if (match) {
-                  const seqNum = parseInt(match[1]);
-                  if (seqNum > highestDbSequence) {
-                    highestDbSequence = seqNum;
-                  }
-                }
-              });
-              console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
-              
-              // Use the higher of sequence table or actual database
-              maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
-              console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
-              
-              // If database has higher, we should update the sequence table
-              if (highestDbSequence > preliminaryMaxSequence) {
-                console.log('*** Database is ahead! Updating sequence table to:', highestDbSequence);
-                try {
-                  await fetchWithAuth(API_URLS.celikHasirSequence, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      product_type: 'CH',
-                      kod_2: 'OZL',
-                      cap_code: '',
-                      last_sequence: highestDbSequence
-                    })
-                  });
-                } catch (updateError) {
-                  console.error('*** Error updating sequence table:', updateError);
-                }
-              }
-            } else {
-              maxSequence = preliminaryMaxSequence;
-              console.log('*** No CHOZL products found in database, using sequence table value:', maxSequence);
-            }
-          } else {
-            maxSequence = preliminaryMaxSequence;
-            console.log('*** Could not check database, using sequence table value:', maxSequence);
-          }
-        } catch (dbCheckError) {
-          console.error('*** Error checking database for duplicates:', dbCheckError);
-          maxSequence = preliminaryMaxSequence;
-        }
-        
-        batchSequenceCounter = maxSequence;
+        batchSequenceCounter = Math.max(actualSequence, backupSequence);
         batchSequenceInitialized = true;
-        
-        console.log('*** BATCH STOK KODU INITIALIZED FOR NEW PRODUCTS ***');
-        console.log('Max sequence determined:', maxSequence);
-        console.log('Batch counter initialized at:', batchSequenceCounter);
+        console.log('*** FALLBACK: Batch initialized with sequence table only:', batchSequenceCounter);
       }
       
       // Increment counter ONLY when creating NEW product (not cached)
@@ -1087,7 +1112,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   }
 
   // Stok kodu oluştur - Enhanced with database-aware incrementality  
-  async function generateStokKodu(product, productType, batchIndex = 0) {
+  function generateStokKodu(product, productType, batchIndex = 0) {
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
@@ -1376,6 +1401,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Analyze products and categorize them into new vs existing with full details
   const analyzeProductsForConfirmation = async () => {
     if (validProducts.length === 0) return { newProducts: [], existingProducts: [] };
+    
+    // Initialize batch sequence before any stok kodu generation
+    await initializeBatchSequence();
     
     const newProducts = [];
     const existingProducts = [];
@@ -1915,6 +1943,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Stok Kartı Excel oluştur
   const generateStokKartiExcel = async (products, timestamp, includeAllProducts) => {
+    // Initialize batch sequence before any stok kodu generation
+    await initializeBatchSequence();
+    
     const workbook = new ExcelJS.Workbook();
     
     // CH STOK sheet oluştur
@@ -1946,7 +1977,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
-        const stokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', excelBatchIndex);
+        const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
         // Use existing İngilizce İsim from database if available (already cleaned), otherwise generate
         const ingilizceIsim = product.existingIngilizceIsim || generateIngilizceIsim(product, 'CH');
@@ -2176,6 +2207,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Reçete Excel oluştur
   const generateReceteExcel = async (products, timestamp, includeAllProducts) => {
+    // Initialize batch sequence before any stok kodu generation
+    await initializeBatchSequence();
+    
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
@@ -2205,7 +2239,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let receteBatchIndex = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', receteBatchIndex);
+        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
@@ -2433,6 +2467,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Alternatif Reçete Excel oluştur
   const generateAlternatifReceteExcel = async (products, timestamp, includeAllProducts) => {
     console.log('DEBUG: generateAlternatifReceteExcel started with', products.length, 'products');
+    // Initialize batch sequence before any stok kodu generation
+    await initializeBatchSequence();
+    
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
@@ -2464,7 +2501,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let chRowCount = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', altReceteBatchIndex);
+        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
         console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
@@ -2932,6 +2969,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Reset batch sequence counter for new batch
       resetBatchSequenceCounter();
       
+      // Initialize batch sequence before any stok kodu generation
+      await initializeBatchSequence();
+      
       setIsLoading(true);
       setIsSavingToDatabase(true);
       setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
@@ -3048,7 +3088,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
           });
           // Generate stok_kodu for this new product
-          const plannedStokKodu = await generateStokKodu(product, 'CH', newProducts.length);
+          const plannedStokKodu = generateStokKodu(product, 'CH', newProducts.length);
           
           // Store the generated stok_kodu for Excel generation later
           newProducts.push({
@@ -3132,7 +3172,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         
         // Generate stok_kodu and capture it for sequence tracking
-        const generatedStokKodu = await generateStokKodu(product, 'CH', i);
+        const generatedStokKodu = generateStokKodu(product, 'CH', i);
         const chData = {
           stok_kodu: generatedStokKodu,
           stok_adi: generateStokAdi(product, 'CH'),
@@ -4801,6 +4841,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 onClick={async () => {
                   setShowExcelOptionsModal(false);
                   
+                  // Initialize batch sequence before any stok kodu generation
+                  await initializeBatchSequence();
+                  
                   // Combine both approaches: planned codes for new, highest codes for existing
                   const allProductsWithCodes = [];
                   
@@ -4841,7 +4884,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       // New product - use planned stok_kodu
                       allProductsWithCodes.push({
                         ...product,
-                        existingStokKodu: await generateStokKodu(product, 'CH', plannedIndex)
+                        existingStokKodu: generateStokKodu(product, 'CH', plannedIndex)
                       });
                       plannedIndex++;
                     }
@@ -4871,11 +4914,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   // Reset batch counter for new planned stok_kodu generation
                   resetBatchSequenceCounter();
                   
+                  // Initialize batch sequence before any stok kodu generation
+                  await initializeBatchSequence();
+                  
                   // Add planned stok_kodu to new products for Excel generation 
                   const newProductsWithPlannedCodes = [];
                   for (let index = 0; index < newProducts.length; index++) {
                     const product = newProducts[index];
-                    const stokKodu = await generateStokKodu(product, 'CH', index);
+                    const stokKodu = generateStokKodu(product, 'CH', index);
                     newProductsWithPlannedCodes.push({
                       ...product,
                       existingStokKodu: stokKodu
