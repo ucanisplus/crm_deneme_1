@@ -143,6 +143,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   
   // Loading states
   const [isLoadingDb, setIsLoadingDb] = useState(false);
+  const [isFilteringDb, setIsFilteringDb] = useState(false); // Loading state specifically for filter changes
   const [dbLoadingProgress, setDbLoadingProgress] = useState({ current: 0, total: 3, operation: '' });
   
   // Backend connection states
@@ -425,6 +426,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (deletedCount > 0) {
         toast.success(`${deletedCount} ürün başarıyla silindi`);
         setSelectedDbItems([]);
+        
+        // Update sequence table if we deleted CH products
+        await updateSequenceAfterDeletion(activeDbTab);
+        
         await fetchSavedProducts();
       }
     } catch (error) {
@@ -522,11 +527,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   useEffect(() => {
     // Only fetch if database modal is open to avoid unnecessary requests
     if (showDatabaseModal) {
+      setIsFilteringDb(true); // Show filter loading indicator
       const debounceTimer = setTimeout(() => {
-        fetchSavedProducts();
+        fetchSavedProducts().finally(() => {
+          setIsFilteringDb(false); // Hide filter loading indicator when done
+        });
       }, 500); // Debounce by 500ms to avoid too many requests while typing
       
-      return () => clearTimeout(debounceTimer);
+      return () => {
+        clearTimeout(debounceTimer);
+        setIsFilteringDb(false); // Clear loading state if component unmounts or effect cleanup
+      };
     }
   }, [dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
@@ -2904,35 +2915,69 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Update actual sequence if it's stale
         if (maxSequence > currentActual) {
           console.log('*** Updating stale actual sequence from', currentActual, 'to', maxSequence);
-          const actualSequenceData = {
-            product_type: 'CH',
-            kod_2: 'OZL',
-            cap_code: '',
-            last_sequence: maxSequence
-          };
           
-          await fetchWithAuth(API_URLS.celikHasirSequence, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(actualSequenceData)
-          });
+          // First, find the existing sequence ID
+          const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`);
+          if (existingSequenceResponse.ok) {
+            const existingSequences = await existingSequenceResponse.json();
+            if (existingSequences.length > 0) {
+              // Update existing sequence using PUT
+              const sequenceId = existingSequences[0].id;
+              await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ last_sequence: maxSequence })
+              });
+              console.log('*** Successfully updated existing OZL sequence');
+            } else {
+              console.log('*** No existing OZL sequence found, creating new one');
+              const actualSequenceData = {
+                product_type: 'CH',
+                kod_2: 'OZL',
+                cap_code: '',
+                last_sequence: maxSequence
+              };
+              await fetchWithAuth(API_URLS.celikHasirSequence, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(actualSequenceData)
+              });
+            }
+          }
         }
         
         // Update backup sequence if it's stale
         if (maxSequence > currentBackup) {
           console.log('*** Updating stale backup sequence from', currentBackup, 'to', maxSequence);
-          const backupSequenceData = {
-            product_type: 'CH',
-            kod_2: 'OZL_BACKUP',
-            cap_code: '',
-            last_sequence: maxSequence
-          };
           
-          await fetchWithAuth(API_URLS.celikHasirSequence, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(backupSequenceData)
-          });
+          // First, find the existing backup sequence ID
+          const existingBackupResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL_BACKUP`);
+          if (existingBackupResponse.ok) {
+            const existingBackups = await existingBackupResponse.json();
+            if (existingBackups.length > 0) {
+              // Update existing backup sequence using PUT
+              const backupId = existingBackups[0].id;
+              await fetchWithAuth(`${API_URLS.celikHasirSequence}/${backupId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ last_sequence: maxSequence })
+              });
+              console.log('*** Successfully updated existing OZL_BACKUP sequence');
+            } else {
+              console.log('*** No existing OZL_BACKUP sequence found, creating new one');
+              const backupSequenceData = {
+                product_type: 'CH',
+                kod_2: 'OZL_BACKUP',
+                cap_code: '',
+                last_sequence: maxSequence
+              };
+              await fetchWithAuth(API_URLS.celikHasirSequence, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(backupSequenceData)
+              });
+            }
+          }
         }
         
         // Update local sequences state to reflect the changes
@@ -3310,10 +3355,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
           // Database should create ALL NCBKs including duplicates for recipe accuracy
-          const ncbkSpecs = [
+          const allNcbkSpecs = [
             { cap: product.boyCap, length: parseInt(product.uzunlukBoy || 0), type: 'boy' },
             { cap: product.enCap, length: parseInt(product.uzunlukEn || 0), type: 'en' }
           ];
+          
+          // Deduplicate NCBK specs to prevent creating same product twice (and thus duplicate recipes)
+          const seenStokKodus = new Set();
+          const ncbkSpecs = allNcbkSpecs.filter(spec => {
+            const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(spec.cap) * 100)).padStart(4, '0')}.${spec.length}`;
+            if (seenStokKodus.has(stokKodu)) {
+              console.log(`⚠️ Skipping duplicate NCBK spec: ${stokKodu} (${spec.type})`);
+              return false;
+            }
+            seenStokKodus.add(stokKodu);
+            return true;
+          });
           
           for (const spec of ncbkSpecs) {
             const cap = spec.cap;
@@ -3325,11 +3382,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               grup_kodu: 'YM',
               kod_1: 'NCBK',
               kod_2: '',
-              ingilizce_isim: `Ribbed Rod ${formatDecimalForDisplay(cap, false)} mm ${length} cm`,
+              ingilizce_isim: `Ribbed Rebar ${formatDecimalForDisplay(cap, false)} mm ${length} cm`,
               // Standard columns
               alis_kdv_orani: 20,
               satis_kdv_orani: 20,
-              muh_detay: 35,
+              muh_detay: 20,
               depo_kodu: 36,
               br_1: 'AD',
               br_2: 'KG',
@@ -3640,20 +3697,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const recipesToDelete = recipes; // All recipes returned should be deleted
               console.log(`All ${recipesToDelete.length} recipes will be deleted (API pre-filtered by mamul_kodu)`);
               
-              // Her reçete kaydını ID ile sil
-              for (const recipe of recipesToDelete) {
-                if (recipe.id) {
-                  try {
-                    const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
-                      toast.info(`Reçete siliniyor: ${retryMessage}`, { autoClose: 2000 });
-                    });
-                    if (!deleteRecipeResponse.ok) {
-                      console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
-                    }
-                  } catch (deleteError) {
-                    console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+              // Her reçete kaydını paralel olarak sil (performans iyileştirmesi)
+              const recipeDeletionPromises = recipesToDelete.filter(recipe => recipe.id).map(async (recipe) => {
+                try {
+                  const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000); // Reduced retries for faster overall operation
+                  if (!deleteRecipeResponse.ok) {
+                    console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
+                    return { success: false, id: recipe.id, error: `Status ${deleteRecipeResponse.status}` };
                   }
+                  return { success: true, id: recipe.id };
+                } catch (deleteError) {
+                  console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+                  return { success: false, id: recipe.id, error: deleteError.message };
                 }
+              });
+              
+              // Tüm reçete silme işlemlerini paralel çalıştır
+              const recipeResults = await Promise.all(recipeDeletionPromises);
+              const successfulDeletes = recipeResults.filter(r => r.success).length;
+              const failedDeletes = recipeResults.filter(r => !r.success);
+              
+              console.log(`Recipe deletion results: ${successfulDeletes} successful, ${failedDeletes.length} failed`);
+              if (failedDeletes.length > 0) {
+                console.warn('Failed recipe deletions:', failedDeletes);
+                toast.warning(`${failedDeletes.length} reçete silinemedi, ${successfulDeletes} reçete silindi`);
+              } else {
+                console.log(`All ${successfulDeletes} recipes deleted successfully`);
               }
             }
           }
@@ -3682,6 +3751,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           [productType]: prev[productType].filter(p => p.id !== productId)
         }));
         
+        // Update sequence table if we deleted a CH product
+        await updateSequenceAfterDeletion(productType);
+        
         // Sonra fetch ile doğrula
         await fetchSavedProducts();
       } else {
@@ -3693,6 +3765,78 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } finally {
       setIsLoading(false);
       setDeletingProductId(null); // Clear deletion tracking
+    }
+  };
+
+  // Update sequence table after product deletion
+  const updateSequenceAfterDeletion = async (productType) => {
+    try {
+      // Only update sequence for CH (mm) products since they use sequence numbers
+      if (productType !== 'mm') return;
+      
+      console.log('*** Updating sequence table after product deletion');
+      
+      // Get the highest sequence number from remaining CH products
+      const chResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
+      if (chResponse.ok) {
+        const chProducts = await chResponse.json();
+        
+        let newMaxSequence = 2443; // Default fallback
+        if (chProducts.length > 0) {
+          const highestProduct = chProducts[0];
+          const match = highestProduct.stok_kodu.match(/CHOZL(\d+)/);
+          if (match) {
+            newMaxSequence = parseInt(match[1]);
+            console.log('*** Found new max sequence from remaining products:', newMaxSequence);
+          }
+        } else {
+          console.log('*** No remaining CHOZL products, using default sequence:', newMaxSequence);
+        }
+        
+        // Update both OZL and OZL_BACKUP sequences
+        const updateTasks = ['OZL', 'OZL_BACKUP'].map(async (kod2) => {
+          try {
+            const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=${kod2}`);
+            if (existingSequenceResponse.ok) {
+              const existingSequences = await existingSequenceResponse.json();
+              if (existingSequences.length > 0) {
+                const sequenceId = existingSequences[0].id;
+                const currentSequence = existingSequences[0].last_sequence;
+                
+                // Only update if current sequence is higher than the new max (meaning we deleted the highest)
+                if (currentSequence > newMaxSequence) {
+                  await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ last_sequence: newMaxSequence })
+                  });
+                  console.log(`*** Updated ${kod2} sequence from ${currentSequence} to ${newMaxSequence}`);
+                } else {
+                  console.log(`*** ${kod2} sequence (${currentSequence}) is already <= new max (${newMaxSequence}), no update needed`);
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`Error updating ${kod2} sequence:`, error);
+          }
+        });
+        
+        await Promise.all(updateTasks);
+        
+        // Update local sequence state
+        const updatedSequences = { ...sequences };
+        const ozlKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_')) || 'CH_OZL_';
+        const backupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP')) || 'CH_OZL_BACKUP_';
+        
+        if (sequences[ozlKey] > newMaxSequence) updatedSequences[ozlKey] = newMaxSequence;
+        if (sequences[backupKey] > newMaxSequence) updatedSequences[backupKey] = newMaxSequence;
+        
+        setSequences(updatedSequences);
+        
+        console.log('*** Sequence update after deletion completed');
+      }
+    } catch (error) {
+      console.warn('Error updating sequence after deletion:', error);
     }
   };
 
@@ -3743,23 +3887,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (getRecipeResponse.ok) {
               const recipes = await getRecipeResponse.json();
               
-              // Her reçete kaydını ID ile sil
-              for (const recipe of recipes) {
-                if (recipe.id) {
-                  try {
-                    const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 3, 2000, (retryMessage) => {
-                      setBulkDeleteProgress(prev => ({
-                        ...prev,
-                        operation: `${prev.operation} ${retryMessage}`
-                      }));
-                    });
-                    if (deleteRecipeResponse.ok) {
-                      recipeDeleteCount++;
-                    }
-                  } catch (deleteError) {
-                    console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+              // Her reçete kaydını paralel olarak sil (performans iyileştirmesi)
+              const bulkRecipeDeletionPromises = recipes.filter(recipe => recipe.id).map(async (recipe) => {
+                try {
+                  const deleteRecipeResponse = await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000); // Reduced retries for faster bulk operation
+                  if (deleteRecipeResponse.ok) {
+                    return { success: true, id: recipe.id };
+                  } else {
+                    console.warn(`Reçete silme uyarısı (ID: ${recipe.id}): ${deleteRecipeResponse.status}`);
+                    return { success: false, id: recipe.id, error: `Status ${deleteRecipeResponse.status}` };
                   }
+                } catch (deleteError) {
+                  console.warn(`Reçete silme hatası (ID: ${recipe.id}):`, deleteError);
+                  return { success: false, id: recipe.id, error: deleteError.message };
                 }
+              });
+              
+              // Tüm reçete silme işlemlerini paralel çalıştır ve sonuçları bekle
+              const bulkRecipeResults = await Promise.all(bulkRecipeDeletionPromises);
+              const successfulBulkDeletes = bulkRecipeResults.filter(r => r.success).length;
+              recipeDeleteCount += successfulBulkDeletes;
+              
+              const failedBulkDeletes = bulkRecipeResults.filter(r => !r.success);
+              if (failedBulkDeletes.length > 0) {
+                console.warn(`${failedBulkDeletes.length} recipes failed to delete for product ${product.stok_kodu}`);
               }
             }
           } catch (recipeError) {
@@ -4446,6 +4597,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           ></div>
                         </div>
                         {backendError?.type === 'retrying' ? backendError.message : (dbLoadingProgress.operation || 'Veriler yükleniyor...')}
+                      </span>
+                    ) : isFilteringDb ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                        Filtreler uygulanıyor...
                       </span>
                     ) : backendError ? (
                       <span className="flex items-center gap-2 text-red-600">
