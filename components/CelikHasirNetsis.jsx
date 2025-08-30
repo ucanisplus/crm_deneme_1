@@ -19,7 +19,9 @@ import {
   Upload,
   FileText,
   Loader,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 // Filmaşin selection function
@@ -127,6 +129,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [bulkDeleteText, setBulkDeleteText] = useState('');
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [showDangerZone, setShowDangerZone] = useState(false);
   
   // Bulk delete progress tracking
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -680,8 +683,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const debounceTimer = setTimeout(async () => {
         try {
           await fetchSavedProducts();
-          // Add 3 seconds delay to show "Veriler getiriliyor..." message longer
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Add 5 seconds delay to show "Veriler getiriliyor..." message longer
+          await new Promise(resolve => setTimeout(resolve, 5000));
         } finally {
           setIsFilteringDb(false); // Hide filter loading indicator when done
         }
@@ -1027,6 +1030,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   last_sequence: dbHighestSequence
                 };
                 
+                // NOTE: Using POST for now as backend may handle UPSERT logic
+                // This should ideally be PUT/PATCH to avoid creating duplicates
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1041,6 +1046,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   last_sequence: dbHighestSequence
                 };
                 
+                // NOTE: Using POST for now as backend may handle UPSERT logic
+                // This should ideally be PUT/PATCH to avoid creating duplicates
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1155,6 +1162,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (highestDbSequence > preliminaryMaxSequence) {
             console.log('*** Database is ahead! Updating sequence table to:', highestDbSequence);
             try {
+              // NOTE: Using POST for now as backend may handle UPSERT logic
+              // This should ideally be PUT/PATCH to avoid creating duplicates
               await fetchWithAuth(API_URLS.celikHasirSequence, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1599,11 +1608,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const existingProducts = [];
     let modalBatchIndex = 0;
     
-    // Debug: Log the savedProducts structure
-    console.log('DEBUG: savedProducts in analyzeProductsForConfirmation:', {
-      mm: savedProducts.mm?.length || 0,
-      ncbk: savedProducts.ncbk?.length || 0,
-      ntel: savedProducts.ntel?.length || 0
+    // CRITICAL FIX: Force fresh data fetch before analysis to avoid stale cache
+    // This prevents deleted products from appearing as "existing" when trying to re-add them
+    console.log('DEBUG: Fetching FRESH data for product analysis to avoid stale cache...');
+    await fetchSavedProducts(false, true); // Force fresh data with cache busting - updates savedProducts state
+    
+    // Use the freshly updated savedProducts state
+    const freshSavedProducts = savedProducts;
+    
+    // Debug: Log the fresh savedProducts structure
+    console.log('DEBUG: freshSavedProducts in analyzeProductsForConfirmation:', {
+      mm: freshSavedProducts.mm?.length || 0,
+      ncbk: freshSavedProducts.ncbk?.length || 0,
+      ntel: freshSavedProducts.ntel?.length || 0
     });
     
     // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
@@ -1626,13 +1643,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
-      // Find existing product by exact Stok Adı
-      let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      // Find existing product by exact Stok Adı using FRESH data
+      let existingProduct = freshSavedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
       // Try normalized Stok Adı if exact match not found
       if (!existingProduct) {
         const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
-        existingProduct = savedProducts.mm.find(p => {
+        existingProduct = freshSavedProducts.mm.find(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
           return normalizedDbStokAdi === normalizedProductStokAdi;
         });
@@ -1641,7 +1658,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log(`DEBUG: Found match via normalized Stok Adı: "${productStokAdi}" matched "${existingProduct.stok_adi}"`);
         } else {
           // If still not found, show some similar products for debugging
-          const similarProducts = savedProducts.mm.filter(p => {
+          const similarProducts = freshSavedProducts.mm.filter(p => {
             const normalized = normalizeStokAdiForComparison(p.stok_adi);
             return normalized.includes(productStokAdi.toLowerCase().substring(0, 8)); // First 8 chars
           }).slice(0, 2);
@@ -1667,7 +1684,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             .trim();
         };
 
-        existingProduct = savedProducts.mm.find(p => 
+        existingProduct = freshSavedProducts.mm.find(p => 
           normalizeHasirTipiForComparison(p.hasir_tipi) === normalizeHasirTipiForComparison(product.hasirTipi) &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
@@ -1684,7 +1701,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Using the component-level normalizeHasirTipi function for intelligent format handling
         
-        const allMatchingProducts = savedProducts.mm.filter(p => {
+        const allMatchingProducts = freshSavedProducts.mm.filter(p => {
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
@@ -1881,7 +1898,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         // Debug all hasır tipi variations in the database for this comparison
-        const allHasirTipiVariations = new Set(savedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
+        const allHasirTipiVariations = new Set(freshSavedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
         console.log('📋 ALL HASIR TIPI VARIATIONS IN DATABASE:', Array.from(allHasirTipiVariations).sort());
         
         console.log(`DEBUG: Found ${allMatchingProducts.length} products with IDENTICAL specifications:`, 
@@ -1898,7 +1915,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (allMatchingProducts.length === 0) {
           console.log('DEBUG: No smart matches found, trying fallback matching...');
           // Try with just hasir tipi and dimensions (less strict) with proper normalization
-          const fallbackMatches = savedProducts.mm.filter(p => {
+          const fallbackMatches = freshSavedProducts.mm.filter(p => {
             const normalizeForFallback = (hasirTipi) => {
               if (!hasirTipi) return '';
               return String(hasirTipi)
@@ -1936,7 +1953,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const stokAdiToStokKodusMap = new Map();
         
         // Map all existing products by Stok Adı
-        [...savedProducts.mm, ...savedProducts.ncbk, ...savedProducts.ntel].forEach(p => {
+        [...freshSavedProducts.mm, ...freshSavedProducts.ncbk, ...freshSavedProducts.ntel].forEach(p => {
           if (p.stok_adi) {
             if (!stokAdiToStokKodusMap.has(p.stok_adi)) {
               stokAdiToStokKodusMap.set(p.stok_adi, []);
@@ -5070,25 +5087,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 ))}
               </div>
               
-              {/* Danger Zone - Separate from other buttons to prevent accidental clicks */}
+              {/* Danger Zone - Hidden behind dropdown to prevent accidental clicks */}
               <div className="mt-6 pt-4 border-t border-red-200 bg-red-50 rounded-lg mx-4">
+                {/* Dropdown toggle */}
                 <div className="flex items-center justify-between px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-red-700 font-medium text-sm">TEHLİKELİ İŞLEM</span>
+                    <span className="text-red-700 font-medium text-sm">TEHLİKELİ İŞLEMLER</span>
                   </div>
                   <button
-                    onClick={() => setShowBulkDeleteModal(true)}
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400 border-2 border-red-700"
+                    onClick={() => setShowDangerZone(!showDangerZone)}
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-md flex items-center gap-2 hover:bg-red-200 transition-colors text-sm border border-red-300"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
+                    <span>Göster</span>
+                    {showDangerZone ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-red-600 px-3 pb-2">
-                  ⚠️ Bu işlem seçili sekmedeki tüm kayıtları kalıcı olarak siler. Bu işlem geri alınamaz!
-                </p>
+                
+                {/* Collapsible danger zone content */}
+                {showDangerZone && (
+                  <div className="px-3 pb-3 border-t border-red-300 mt-2 pt-3">
+                    <button
+                      onClick={() => setShowBulkDeleteModal(true)}
+                      disabled={isLoading}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-md flex items-center justify-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400 border-2 border-red-700 mb-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
+                    </button>
+                    <p className="text-xs text-red-600 text-center">
+                      ⚠️ Bu işlem seçili sekmedeki tüm kayıtları kalıcı olarak siler. Bu işlem geri alınamaz!
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             
