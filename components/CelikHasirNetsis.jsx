@@ -1602,7 +1602,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('DEBUG: Fetching FRESH data for product analysis to avoid stale cache...');
     await fetchSavedProducts(false, true); // Force fresh data with cache busting - updates savedProducts state
     
-    // Use the freshly updated savedProducts state
+    // CRITICAL: Wait a moment for React state to be updated after async fetch
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Use the freshly updated savedProducts state after timeout
     const freshSavedProducts = savedProducts;
     
     // Debug: Log the fresh savedProducts structure and check for CHOZL2448 specifically
@@ -1622,6 +1625,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         stok_adi: p.stok_adi,
         created_at: p.created_at
       })));
+      
+      // CRITICAL: If we find CHOZL2448 products, the backend deletion failed!
+      console.error('❌ BACKEND DELETION FAILED! CHOZL2448 products still exist in database after "successful" deletion');
+      console.error('❌ This indicates the DELETE API is not working properly or there are multiple products with same stok_kodu');
+      console.error('❌ Need to investigate backend DELETE endpoint: /api/celik_hasir_netsis_mm/bulk-delete-by-stok');
     }
     
     // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
