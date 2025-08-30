@@ -2131,7 +2131,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const allProductsData = [];
       
       // Add existing products with their highest stock codes
-      preSaveConfirmData.existingProducts.forEach(item => {
+      preSaveConfirmData.existingProducts.forEach((item, index) => {
+        console.log(`DEBUG: Processing existing product ${index}:`, item);
+        
+        if (!item || !item.product) {
+          console.warn(`Skipping existing product ${index}: invalid item structure`, item);
+          return;
+        }
+        
         // Find the corresponding product in validProducts with all calculated values
         const mainTableProduct = validProducts.find(vp => 
           vp.hasirTipi === item.product.hasirTipi &&
@@ -2145,11 +2152,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             stokKodu: item.highestStokKodu, // Use highest stock code for existing
             isExisting: true
           });
+        } else {
+          console.warn(`Could not find main table product for existing:`, item.product);
         }
       });
       
       // Add new products with their planned stock codes
-      preSaveConfirmData.newProducts.forEach(item => {
+      preSaveConfirmData.newProducts.forEach((item, index) => {
+        console.log(`DEBUG: Processing new product ${index}:`, item);
+        
+        if (!item || !item.product) {
+          console.warn(`Skipping new product ${index}: invalid item structure`, item);
+          return;
+        }
+        
         // Find the corresponding product in validProducts with all calculated values
         const mainTableProduct = validProducts.find(vp => 
           vp.hasirTipi === item.product.hasirTipi &&
@@ -2163,6 +2179,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             stokKodu: item.plannedStokKodu, // Use planned stock code for new
             isExisting: false
           });
+        } else {
+          console.warn(`Could not find main table product for new:`, item.product);
         }
       });
       
