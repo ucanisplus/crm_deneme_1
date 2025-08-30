@@ -662,13 +662,26 @@ const CelikHasirHesaplama = () => {
   };
 
   // Get mesh config from database, fallback to hardcoded, or trigger unknown popup
-  const getMeshConfig = (hasirTipi) => {
+  const getMeshConfig = async (hasirTipi) => {
     // First check database
     if (meshConfigs.has(hasirTipi)) {
       return meshConfigs.get(hasirTipi);
     }
     
-    // Check for Q-type combinations (Q106/106 -> Q106)
+    // Check for Q-type combinations using the mesh config service
+    if (hasirTipi.match(/^Q\d+\/\d+$/)) {
+      try {
+        const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
+        if (combinationConfig) {
+          console.log(`Found combination Q-type config for: ${hasirTipi}`, combinationConfig);
+          return combinationConfig;
+        }
+      } catch (error) {
+        console.error(`Error getting combination config for ${hasirTipi}:`, error);
+      }
+    }
+    
+    // Check for Q-type same-number combinations (Q106/106 -> Q106)
     if (hasirTipi.includes('/')) {
       const parts = hasirTipi.split('/');
       if (parts.length === 2) {
@@ -676,7 +689,7 @@ const CelikHasirHesaplama = () => {
         const firstType = first.match(/^[A-Z]+\d+/)?.[0];
         const secondType = second.match(/^\d+/)?.[0];
         
-        // Handle Q106/106 -> Q106 case
+        // Handle Q106/106 -> Q106 case (same number)
         if (firstType && secondType && first.includes(secondType)) {
           return getMeshConfig(firstType);
         }
@@ -1873,7 +1886,7 @@ if (row.modified && row.modified[field] &&
   };
 
 // Satırı Hasır Tipi'ne göre güncelleme - Düzeltilmiş Versiyon
-const updateRowFromHasirTipi = (rows, rowIndex) => {
+const updateRowFromHasirTipi = async (rows, rowIndex) => {
   const row = rows[rowIndex];
   const hasirTipi = row.hasirTipi;
 
@@ -1901,10 +1914,10 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
   // Boy ve en çap değerlerini ayarla - Karmaşık hasır tipleri için yeni işleme
   if (hasirTipi.includes('/')) {
     // Q257/131 gibi kombinasyonları işleme
-    processComplexHasirType(row, hasirTipi);
+    await processComplexHasirType(row, hasirTipi);
   } else {
     // Use database lookup with unknown mesh type detection
-    const meshConfig = getMeshConfig(hasirTipi);
+    const meshConfig = await getMeshConfig(hasirTipi);
     if (meshConfig) {
       row.boyCap = meshConfig.boyCap;
       row.enCap = meshConfig.enCap;
@@ -1929,7 +1942,7 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
 
 
   // Karmaşık hasır tiplerini işleme (örn: Q257/131)
-  const processComplexHasirType = (row, hasirTipi) => {
+  const processComplexHasirType = async (row, hasirTipi) => {
     // Boşlukları temizle
     const cleanHasirTipi = hasirTipi.replace(/\s+/g, '');
     
@@ -1958,7 +1971,7 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     // Kendisi / Kendisi formatını kontrol et (örn: Q257/257)
     if (firstNumStr === secondNumStr) {
       const selfReferenceFormat = firstType + "/" + firstType;
-      const meshConfig = getMeshConfig(firstType);
+      const meshConfig = await getMeshConfig(firstType);
       if (meshConfig) {
         row.boyCap = meshConfig.boyCap;
         row.enCap = meshConfig.enCap;
@@ -1970,8 +1983,8 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     
     // Q tipleri için doğrudan çap eşleştirme
     if (prefix === 'Q') {
-      const firstConfig = getMeshConfig(firstType);
-      const secondConfig = getMeshConfig(secondType);
+      const firstConfig = await getMeshConfig(firstType);
+      const secondConfig = await getMeshConfig(secondType);
       if (firstConfig && secondConfig) {
         row.boyCap = firstConfig.boyCap;
         row.enCap = secondConfig.enCap;
@@ -1988,8 +2001,8 @@ const updateRowFromHasirTipi = (rows, rowIndex) => {
     const secondMatch = findClosestMatch(secondType, prefix);
     
     if (firstMatch && secondMatch) {
-      const firstConfig = getMeshConfig(firstMatch);
-      const secondConfig = getMeshConfig(secondMatch);
+      const firstConfig = await getMeshConfig(firstMatch);
+      const secondConfig = await getMeshConfig(secondMatch);
       if (firstConfig && secondConfig) {
         // Boy ve en cap değerlerini ayarla
         row.boyCap = firstConfig.boyCap;
