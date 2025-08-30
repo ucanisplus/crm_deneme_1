@@ -2779,14 +2779,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ));
 
       // NCBK Recipe kayıtları - Only create recipes for NEWLY created NCBK products
+      console.log('🔍 NCBK Recipe Creation - ncbkResults:', ncbkResults);
+      
       for (const [key, ncbkResult] of Object.entries(ncbkResults)) {
-        // Skip if not a valid result or already exists
-        if (!ncbkResult || !ncbkResult.stok_kodu || ncbkResult.message === 'existing') {
-          console.log(`*** Skipping NCBK recipe creation for ${ncbkResult?.stok_kodu || 'unknown'}: ${ncbkResult?.message || 'invalid result'}`);
+        console.log(`📋 Processing NCBK recipe for key "${key}":`, {
+          stok_kodu: ncbkResult?.stok_kodu,
+          message: ncbkResult?.message,
+          status: ncbkResult?.status
+        });
+        
+        // Skip if not a valid result
+        if (!ncbkResult || !ncbkResult.stok_kodu) {
+          console.log(`⏭️ Skipping NCBK recipe - invalid result for key "${key}"`);
           continue;
         }
         
-        console.log(`*** Creating recipes for NEWLY created NCBK: ${ncbkResult.stok_kodu}`);
+        // Only create recipes for NCBKs that were NEWLY created in this save operation
+        if (!ncbkResult.isNewlyCreated) {
+          console.log(`⏭️ Skipping NCBK recipe - not newly created: ${ncbkResult.stok_kodu} (status: ${ncbkResult.status}, message: ${ncbkResult.message})`);
+          continue;
+        }
+        
+        console.log(`✅ Creating recipes for NEWLY created NCBK: ${ncbkResult.stok_kodu} (isNewlyCreated: true)`);
         
         // Extract cap and length from stok_kodu (e.g., YM.NCBK.0500.465 -> cap=5.0, length=465)
         const stokParts = ncbkResult.stok_kodu.match(/YM\.NCBK\.(\d{4})\.(\d+)/);
@@ -2855,8 +2869,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
 
       // NTEL Recipe kayıtları - Only create recipes for NEWLY created NTEL products
-      if (ntelResult && ntelResult.stok_kodu && ntelResult.message !== 'existing') {
-        console.log(`*** Creating recipes for NEWLY created NTEL: ${ntelResult.stok_kodu}`);
+      if (ntelResult && ntelResult.stok_kodu && ntelResult.isNewlyCreated) {
+        console.log(`✅ Creating recipes for NEWLY created NTEL: ${ntelResult.stok_kodu} (isNewlyCreated: true)`);
         // Extract cap from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.5)
         const ntelStokParts = ntelResult.stok_kodu.match(/YM\.NTEL\.(\d{4})/);
         const ntelCap = ntelStokParts ? parseInt(ntelStokParts[1]) / 100 : parseFloat(product.boyCap || 0);
@@ -2915,6 +2929,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const successfulNtelRecipes = ntelRecipeResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
         const failedNtelRecipes = ntelRecipeResults.filter(r => r.status === 'rejected' || !r.value?.success).length;
         console.log(`*** NTEL recipes: ${successfulNtelRecipes} successful, ${failedNtelRecipes} failed`);
+      } else if (ntelResult && ntelResult.stok_kodu) {
+        console.log(`⏭️ Skipping NTEL recipe - not newly created: ${ntelResult.stok_kodu} (isNewlyCreated: ${ntelResult.isNewlyCreated})`);
       }
 
     } catch (error) {
@@ -3321,6 +3337,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         };
 
         let chResult, ncbkResults = {}, ntelResult, chResponse;
+        const newlyCreatedNcbks = new Set(); // Track which NCBKs were actually created NEW in this save operation
         
         try {
           
@@ -3481,29 +3498,46 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               kg: ncbkData.payda_1
             });
 
+            console.log(`📤 NCBK POST Request for ${spec.type}:`, {
+              stok_kodu: ncbkData.stok_kodu,
+              cap: cap,
+              length: length,
+              type: spec.type
+            });
+            
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(ncbkData)
             }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
             
+            console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
+              status: ncbkResponse.status,
+              statusText: ncbkResponse.statusText
+            });
+            
             if (ncbkResponse.status === 409) {
               // NCBK already exists - this is normal, just use existing
-              console.log(`ℹ️ NCBK already exists, using existing: ${ncbkData.stok_kodu}`);
+              console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
               // Store a placeholder result to continue the process
               const specKey = `${spec.type}-${cap}-${length}`;
-              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing' };
-              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing' };
+              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409 };
+              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409 };
               continue; // Continue to next NCBK
             } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
               const ncbkResult = await ncbkResponse.json();
+              console.log(`✅ NCBK created successfully (${ncbkResponse.status}), WILL create recipe: ${ncbkData.stok_kodu}`);
+              
+              // Mark this NCBK as newly created in this session
+              newlyCreatedNcbks.add(ncbkData.stok_kodu);
+              
               // Store with spec type to handle boy/en separately even if same dimensions
               const specKey = `${spec.type}-${cap}-${length}`;
-              ncbkResults[specKey] = ncbkResult;
+              ncbkResults[specKey] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
               // Also store with just length for recipe lookup compatibility
-              ncbkResults[length] = ncbkResult;
+              ncbkResults[length] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
             }
           }
 
@@ -3584,12 +3618,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (ntelResponse.status === 409) {
             // NTEL already exists - this is normal, just use existing
             console.log(`ℹ️ NTEL already exists, using existing: ${ntelData.stok_kodu}`);
-            ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing' };
+            ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
             // Continue with existing NTEL
           } else if (!ntelResponse.ok) {
             throw new Error(`NTEL kaydı başarısız: ${ntelResponse.status}`);
           } else {
             ntelResult = await ntelResponse.json();
+            ntelResult.isNewlyCreated = true; // Mark as newly created in this session
+            console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
           }
         } catch (error) {
           console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
@@ -3603,13 +3639,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Only create recipes for NEWLY created NCBK/NTEL (not existing ones)
             const newNcbkResults = {};
             Object.entries(ncbkResults).forEach(([key, result]) => {
-              if (result && result.stok_kodu && result.message !== 'existing') {
+              if (result && result.stok_kodu && result.isNewlyCreated === true) {
                 newNcbkResults[key] = result;
+                console.log(`🆕 Found newly created NCBK for recipe: ${result.stok_kodu} (key: ${key})`);
+              } else if (result && result.stok_kodu) {
+                console.log(`🚫 Skipping existing NCBK for recipe: ${result.stok_kodu} (key: ${key}, isNewlyCreated: ${result.isNewlyCreated})`);
               }
             });
             
             // Check if NTEL is newly created (not existing)
-            const newNtelResult = (ntelResult && ntelResult.message !== 'existing') ? ntelResult : null;
+            const newNtelResult = (ntelResult && ntelResult.isNewlyCreated === true) ? ntelResult : null;
+            if (ntelResult && ntelResult.stok_kodu && !ntelResult.isNewlyCreated) {
+              console.log(`🚫 Skipping existing NTEL for recipe: ${ntelResult.stok_kodu} (isNewlyCreated: ${ntelResult.isNewlyCreated})`);
+            } else if (newNtelResult) {
+              console.log(`🆕 Found newly created NTEL for recipe: ${newNtelResult.stok_kodu}`);
+            }
             
             console.log('🔍 DEBUG - Recipe Creation Decision:', {
               productType: product.hasirTipi,
@@ -3637,6 +3681,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Use existing NCBK/NTEL if no new ones were created
             const ncbkForRecipe = Object.keys(newNcbkResults).length > 0 ? newNcbkResults : ncbkResults;
             const ntelForRecipe = newNtelResult || ntelResult;
+            
+            console.log('📤 Calling saveRecipeData with:', {
+              chResult: chResult?.stok_kodu,
+              ncbkResults: Object.keys(ncbkForRecipe).map(k => ({ key: k, stok_kodu: ncbkForRecipe[k]?.stok_kodu, isNewlyCreated: ncbkForRecipe[k]?.isNewlyCreated })),
+              ntelResult: ntelForRecipe?.stok_kodu,
+              ntelIsNewlyCreated: ntelForRecipe?.isNewlyCreated
+            });
             
             await saveRecipeData(product, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
