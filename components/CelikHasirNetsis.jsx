@@ -505,9 +505,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Component yüklendiğinde verileri getir
   useEffect(() => {
-    fetchSavedProducts(); // Load all data automatically on component mount
-    fetchSequences();
-    ensureBackupSequenceAndSync(); // Create backup sequence and sync with database
+    const initializeData = async () => {
+      try {
+        fetchSavedProducts(); // Load all data automatically on component mount
+        await fetchSequences(); // Wait for sequences to load
+        await ensureBackupSequenceAndSync(); // Then create backup sequence and sync with database
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
+    };
+    
+    initializeData();
   }, []);
   
   // Refetch data when filters change (server-side filtering)
@@ -748,26 +756,36 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log('*** Starting backup sequence creation and sync process');
       
-      // First, get current sequences from the table
-      await fetchSequences();
-      
-      // Wait a bit for state to update
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Get fresh sequences data directly from API instead of relying on state
+      let currentSequences = {};
+      try {
+        const response = await fetchWithAuth(API_URLS.celikHasirSequence);
+        if (response?.ok) {
+          const data = await response.json();
+          data.forEach(seq => {
+            const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
+            currentSequences[key] = seq.last_sequence;
+          });
+          console.log('*** Fresh sequences loaded:', Object.keys(currentSequences));
+        }
+      } catch (error) {
+        console.error('*** Error fetching fresh sequences:', error);
+      }
       
       // Check if backup sequence exists
-      const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
-      const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
+      const ozlSequenceKey = Object.keys(currentSequences).find(key => key.startsWith('CH_OZL_'));
+      const ozlBackupKey = Object.keys(currentSequences).find(key => key.startsWith('CH_OZL_BACKUP'));
       
       let actualSequence = 2443; // Default fallback
       let backupSequence = 2443; // Default fallback
       
-      if (ozlSequenceKey && sequences[ozlSequenceKey]) {
-        actualSequence = sequences[ozlSequenceKey];
+      if (ozlSequenceKey && currentSequences[ozlSequenceKey]) {
+        actualSequence = currentSequences[ozlSequenceKey];
         console.log('*** Found actual sequence:', ozlSequenceKey, 'value:', actualSequence);
       }
       
-      if (ozlBackupKey && sequences[ozlBackupKey]) {
-        backupSequence = sequences[ozlBackupKey];
+      if (ozlBackupKey && currentSequences[ozlBackupKey]) {
+        backupSequence = currentSequences[ozlBackupKey];
         console.log('*** Found backup sequence:', ozlBackupKey, 'value:', backupSequence);
       } else {
         // Create backup sequence row if it doesn't exist
@@ -861,6 +879,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       console.log('*** Backup sequence creation and sync completed');
+      
+      // Final refresh of sequences state to ensure it's up to date
+      await fetchSequences();
     } catch (error) {
       console.error('*** Error in backup sequence management:', error);
     }
@@ -2588,6 +2609,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Recipe kayıtlarını veritabanına kaydet
   const saveRecipeData = async (product, chResult, ncbkResults, ntelResult) => {
     try {
+      console.log('*** saveRecipeData - ncbkResults keys:', Object.keys(ncbkResults));
+      console.log('*** Product details - boyCap:', product.boyCap, 'enCap:', product.enCap, 'uzunlukBoy:', product.uzunlukBoy, 'uzunlukEn:', product.uzunlukEn);
+      
+      // Try multiple lookup strategies for BOY ÇUBUĞU
+      const boyKey1 = `boy-${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`;
+      const boyKey2 = parseInt(product.uzunlukBoy || 0);
+      const boyKey3 = `${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`;
+      const boyBilesenKodu = ncbkResults[boyKey1]?.stok_kodu || ncbkResults[boyKey2]?.stok_kodu || ncbkResults[boyKey3]?.stok_kodu || '';
+      
+      // Try multiple lookup strategies for EN ÇUBUĞU  
+      const enKey1 = `en-${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
+      const enKey2 = parseInt(product.uzunlukEn || 0);
+      const enKey3 = `${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
+      const enBilesenKodu = ncbkResults[enKey1]?.stok_kodu || ncbkResults[enKey2]?.stok_kodu || ncbkResults[enKey3]?.stok_kodu || '';
+      
+      console.log('*** BOY lookup - trying keys:', [boyKey1, boyKey2, boyKey3], 'result:', boyBilesenKodu);
+      console.log('*** EN lookup - trying keys:', [enKey1, enKey2, enKey3], 'result:', enBilesenKodu);
+      
       // CH Recipe kayıtları
       const chRecipes = [
         {
@@ -2597,7 +2636,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'AD',
           sira_no: 1,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: (ncbkResults[`${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`] || ncbkResults[parseInt(product.uzunlukBoy || 0)])?.stok_kodu || '',
+          bilesen_kodu: boyBilesenKodu,
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiBoy || 0,
           aciklama: 'BOY ÇUBUĞU',
@@ -2609,7 +2648,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           olcu_br: 'AD',
           sira_no: 2,
           operasyon_bilesen: 'Bileşen',
-          bilesen_kodu: (ncbkResults[`${product.enCap}-${parseInt(product.uzunlukEn || 0)}`] || ncbkResults[parseInt(product.uzunlukEn || 0)])?.stok_kodu || '',
+          bilesen_kodu: enBilesenKodu,
           olcu_br_bilesen: 'AD',
           miktar: product.cubukSayisiEn || 0,
           aciklama: 'EN ÇUBUĞU',
