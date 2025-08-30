@@ -453,27 +453,44 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     // Transform database products to expected Excel format
-    const transformedProducts = selectedProducts.map(product => ({
-      // Map database fields to expected Excel generation format
-      boyCap: product.cap || 0,
-      enCap: product.cap2 || 0,
-      hasirTipi: product.hasir_tipi || '',
-      uzunlukBoy: product.ebat_boy || 0,
-      uzunlukEn: product.ebat_en || 0,
-      boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
-      enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
-      gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
-      totalKg: product.kg || 0,
-      adetKg: product.kg || 0,
-      cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-      cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
-      hasirSayisi: product.hasir_sayisi || 1,
-      hasirTuru: product.hasir_turu || 'Standart',
-      // Add existing stok kodu for saved products
-      existingStokKodu: product.stok_kodu,
-      // CRITICAL: Mark as optimized so Excel generation processes them
-      isOptimized: true
-    }));
+    const transformedProducts = selectedProducts.map(product => {
+      // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect (shows 'MM' instead of actual type)
+      let actualHasirTipi = product.hasir_tipi || '';
+      if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+        // Try to extract from stok_adi (e.g., "TR317 Çap..." or "Q257 Çap...")
+        const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+        if (stokAdiMatch) {
+          actualHasirTipi = stokAdiMatch[1].toUpperCase();
+        }
+      }
+      
+      // Fix İngilizce İsim - remove extra dash at the beginning
+      const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+      
+      return {
+        // Map database fields to expected Excel generation format
+        boyCap: product.cap || 0,
+        enCap: product.cap2 || 0,
+        hasirTipi: actualHasirTipi,
+        uzunlukBoy: product.ebat_boy || 0,
+        uzunlukEn: product.ebat_en || 0,
+        boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+        enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+        gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
+        totalKg: product.kg || 0,
+        adetKg: product.kg || 0,
+        cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+        cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+        hasirSayisi: product.hasir_sayisi || 1,
+        hasirTuru: product.hasir_turu || 'Standart',
+        // Add existing stok kodu for saved products
+        existingStokKodu: product.stok_kodu,
+        // Store cleaned İngilizce İsim
+        existingIngilizceIsim: cleanIngilizceIsim,
+        // CRITICAL: Mark as optimized so Excel generation processes them
+        isOptimized: true
+      };
+    });
 
     console.log('DEBUG: Selected products for export:', transformedProducts);
 
@@ -1734,7 +1751,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // For saved products, use existing Stok Kodu; for new products, generate new one
         const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
-        const ingilizceIsim = generateIngilizceIsim(product, 'CH');
+        // Use existing İngilizce İsim from database if available (already cleaned), otherwise generate
+        const ingilizceIsim = product.existingIngilizceIsim || generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
         excelBatchIndex++;
         
@@ -1870,12 +1888,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           ntelSheet.addRow([
-            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', '', '', ntelIngilizceIsim, '20', '20', '20', '35',
-            'MT', 'KG', toExcelDecimal(ntelWeight), '1', '', '', '1', '1', '1', '',
+            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
+            'MT', 'KG', '1', toExcelDecimal(ntelWeight), '', '', '1', '1', 'Y', '',
             toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
-            '0', '0', '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+            '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-            '', '', '', 'E', 'E'
+            ntelStokKodu, 'YM', '', 'E', 'E'
           ]);
         }
       }
@@ -1904,7 +1922,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
             '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', uzunlukEn, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
             // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
-            '1', '', '0', '0', '0', '', '', '',
+            '0', '0', '0', '0', '0', '', '', '',
             // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
             '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
             // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
@@ -1929,13 +1947,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             ntelSheet.addRow([
               // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-              ntelStokKodu, ntelStokAdi, 'YM', '', 'NTEL', '', ntelIngilizceIsim,
+              ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', 'NTEL', '', ntelIngilizceIsim,
               // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
               '20', '20', '20', '35',
               // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
               'MT', 'KG', '1', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)), '',
               // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
-              '', '1', '1', '1',
+              '', '1', '1', 'Y',
               // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
               '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
               // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
@@ -1945,9 +1963,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
               '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
               // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
-              '', '', '', '', '', 'H', 'H', '', '', '',
+              '', '', '', '', '', 'H', 'H', ntelStokKodu, '', '',
               // 66-69: Extra columns from our app format (not in CSV template)
-              ntelStokKodu, 'YM', 'E', 'E'
+              'YM', '', 'E', 'E'
             ]);
           }
         }
@@ -2564,7 +2582,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             bilesen_kodu: 'OTOCH',
             olcu_br_bilesen: 'MT',
             miktar: 1,
-            aciklama: 'Yarı Otomatik Operasyon',
+            aciklama: '',
             uretim_suresi: calculateOperationDuration('NTEL', product)
           }
         ];
