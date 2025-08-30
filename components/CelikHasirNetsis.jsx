@@ -2132,7 +2132,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       // Get stock codes from save confirmation analysis
-      await analyzeProductsForConfirmation();
+      const analysisResult = await analyzeProductsForConfirmation();
+      
+      // CRITICAL DEBUG: Check what we actually got
+      console.log('DEBUG: Analysis result:', analysisResult);
+      console.log('DEBUG: Existing products count:', analysisResult?.existingProducts?.length || 0);
+      console.log('DEBUG: New products count:', analysisResult?.newProducts?.length || 0);
+      
+      // Use the returned result directly instead of relying on state
+      const existingProductsData = analysisResult?.existingProducts || [];
+      const newProductsData = analysisResult?.newProducts || [];
+      
+      console.log('DEBUG: First existing product structure:', existingProductsData[0]);
+      console.log('DEBUG: First new product structure:', newProductsData[0]);
       
       // CSV structure headers from your template
       const headers = [
@@ -2150,12 +2162,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let stokKodu = '';
         
         // Check existing products first (with highest stock codes like CHOZL2343)
-        const existingMatch = preSaveConfirmData.existingProducts?.find(existing => {
-          if (!existing.product) return false;
-          // More flexible matching - check multiple criteria
-          const hasirTipiMatch = existing.product.hasirTipi === product.hasirTipi;
-          const boyMatch = Math.abs(parseFloat(existing.product.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
-          const enMatch = Math.abs(parseFloat(existing.product.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
+        const existingMatch = existingProductsData.find(existing => {
+          // Match directly on the existing product (not existing.product)
+          const hasirTipiMatch = existing.hasirTipi === product.hasirTipi;
+          const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
+          const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
           return hasirTipiMatch && boyMatch && enMatch;
         });
         
@@ -2167,9 +2178,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             return numB - numA; // Descending order 
           });
           stokKodu = sortedCodes[0];
+          console.log(`DEBUG: Found existing stock code ${stokKodu} for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
         } else {
           // Check new products (with calculated CHOZL codes like CHOZL2448)
-          const newMatch = preSaveConfirmData.newProducts?.find(newProd => {
+          const newMatch = newProductsData.find(newProd => {
             const hasirTipiMatch = newProd.hasirTipi === product.hasirTipi;
             const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
             const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
@@ -2178,6 +2190,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           if (newMatch && newMatch.newStokKodu) {
             stokKodu = newMatch.newStokKodu;
+            console.log(`DEBUG: Found new stock code ${stokKodu} for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
+          } else {
+            console.log(`DEBUG: No stock code found for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
           }
         }
         
