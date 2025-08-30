@@ -2157,7 +2157,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Add data rows starting from row 3
       allProductsData.forEach((product, index) => {
-        const hasirTipi = standardizeHasirTipi(product.hasirTipi || '');
+        const hasirTipi = normalizeHasirTipi(product.hasirTipi || '');
         const boyCap = parseFloat(product.boyCap || 0);
         const enCap = parseFloat(product.enCap || 0);
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
