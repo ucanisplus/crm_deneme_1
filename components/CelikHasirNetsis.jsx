@@ -2127,21 +2127,46 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log('DEBUG: generateKaynakProgramiExcel started');
       
-      // Use the data from preSaveConfirmData which has existing and new products with stock codes
-      const allProductsData = [
-        ...preSaveConfirmData.existingProducts.map(item => ({
-          ...item.product,
-          stokKodu: item.highestStokKodu, // Use highest stock code for existing
-          isExisting: true
-        })),
-        ...preSaveConfirmData.newProducts.map(item => ({
-          ...item.product,
-          stokKodu: item.plannedStokKodu, // Use planned stock code for new
-          isExisting: false
-        }))
-      ];
+      // Create combined data array with stock codes from save summary
+      const allProductsData = [];
       
-      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel');
+      // Add existing products with their highest stock codes
+      preSaveConfirmData.existingProducts.forEach(item => {
+        // Find the corresponding product in validProducts with all calculated values
+        const mainTableProduct = validProducts.find(vp => 
+          vp.hasirTipi === item.product.hasirTipi &&
+          Math.abs(parseFloat(vp.uzunlukBoy || 0) - parseFloat(item.product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(vp.uzunlukEn || 0) - parseFloat(item.product.uzunlukEn || 0)) < 0.01
+        );
+        
+        if (mainTableProduct) {
+          allProductsData.push({
+            ...mainTableProduct, // Use optimized/calculated values from main table
+            stokKodu: item.highestStokKodu, // Use highest stock code for existing
+            isExisting: true
+          });
+        }
+      });
+      
+      // Add new products with their planned stock codes
+      preSaveConfirmData.newProducts.forEach(item => {
+        // Find the corresponding product in validProducts with all calculated values
+        const mainTableProduct = validProducts.find(vp => 
+          vp.hasirTipi === item.product.hasirTipi &&
+          Math.abs(parseFloat(vp.uzunlukBoy || 0) - parseFloat(item.product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(vp.uzunlukEn || 0) - parseFloat(item.product.uzunlukEn || 0)) < 0.01
+        );
+        
+        if (mainTableProduct) {
+          allProductsData.push({
+            ...mainTableProduct, // Use optimized/calculated values from main table
+            stokKodu: item.plannedStokKodu, // Use planned stock code for new
+            isExisting: false
+          });
+        }
+      });
+      
+      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated values');
       
       // Create workbook and worksheet
       const workbook = new ExcelJS.Workbook();
@@ -2170,6 +2195,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const adet = parseInt(product.adet || 1);
         const toplamAgirlik = parseFloat(product.toplamAgirlik || 0);
         
+        // Calculate proper FİLİZ values based on CSV examples
+        // Default values from CSV analysis: sol=2.5, sag=2.5, on varies (22.5, 17.5, 20.0, 25.0, 10.0), arka varies
+        let solFiliz = '2.5';
+        let sagFiliz = '2.5'; 
+        let onFiliz = '22.5';
+        let arkaFiliz = '22.5';
+        
+        // Adjust FİLİZ values based on hasirTipi patterns from CSV
+        if (hasirTipi.startsWith('Q257')) {
+          onFiliz = '22.5'; arkaFiliz = '22.5';
+        } else if (hasirTipi.startsWith('Q317')) {
+          onFiliz = '17.5'; arkaFiliz = '17.5';
+        } else if (hasirTipi.startsWith('R257')) {
+          onFiliz = '17.5'; arkaFiliz = '17.5';
+        } else if (hasirTipi.startsWith('R295')) {
+          onFiliz = '20.0'; arkaFiliz = '20.0';
+        } else if (hasirTipi.startsWith('R317')) {
+          onFiliz = '25.0'; arkaFiliz = '25.0';
+        } else if (hasirTipi.startsWith('TR')) {
+          onFiliz = '10.0'; arkaFiliz = '10.0';
+          // Some TR types have different sol/sag values
+          if (uzunlukEn >= 230) {
+            solFiliz = '10.0'; sagFiliz = '10.0';
+          } else if (uzunlukEn >= 160) {
+            solFiliz = '5.0'; sagFiliz = '5.0';
+          } else {
+            solFiliz = '15.0'; sagFiliz = '15.0';
+          }
+        } else if (hasirTipi.startsWith('Q221')) {
+          onFiliz = uzunlukBoy >= 330 ? '11.0' : '18.0';
+          arkaFiliz = uzunlukBoy >= 330 ? '70.0' : '18.0';
+        }
+        
         worksheet.addRow([
           index + 1, // Row number
           product.stokKodu || '', // Stok kodu
@@ -2189,10 +2247,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           gozAraligiBoy.toString().replace('.', ','), // ARA BOY
           gozAraligiEn.toString().replace('.', ','), // ARA EN
           '', // HASIR (empty)
-          '2.5', // SOL FİLİZ (default)
-          '2.5', // SAĞ FİLİZ (default)
-          '22.5', // ÖN FİLİZ (default) 
-          '22.5', // ARKA FİLİZ (default)
+          solFiliz, // SOL FİLİZ (calculated)
+          sagFiliz, // SAĞ FİLİZ (calculated)
+          onFiliz, // ÖN FİLİZ (calculated)
+          arkaFiliz, // ARKA FİLİZ (calculated)
           adet, // ADET
           toplamAgirlik.toString().replace('.', ','), // TOPLAM KG
           '' // Empty last column
