@@ -1963,9 +1963,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
               '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
               // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
-              '', '', '', '', '', 'H', 'H', ntelStokKodu, '', '',
-              // 66-69: Extra columns from our app format (not in CSV template)
-              'YM', '', 'E', 'E'
+              '', '', '', '', '', 'H', 'H', ntelStokKodu, 'YM', '',
+              // 66-69: Extra columns from our app format (not in CSV template)  
+              'E', 'E'
             ]);
           }
         }
@@ -2323,7 +2323,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-          'DK', '1', 'Tam Otomatik Operasyon', '', '', '', '', '', '', toExcelDecimal(calculateOperationDuration('OTOCH', product).toFixed(5)),
+          'DK', '1', '', '', '', '', '', '', '', toExcelDecimal(calculateOperationDuration('OTOCH', product).toFixed(5)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
@@ -3182,17 +3182,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             await saveRecipeData(product, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             
-            // Sequence güncelle (sadece yeni ürünler için)
-            if (chResponse && chResponse.status !== 409) {
-              // Extract sequence number from generated stok_kodu for OZL products
-              let actualSequenceNumber = null;
-              if (generatedStokKodu && generatedStokKodu.startsWith('CHOZL')) {
-                const match = generatedStokKodu.match(/CHOZL(\d+)/);
-                if (match) {
-                  actualSequenceNumber = parseInt(match[1]);
-                }
+            // Sequence güncelle - always update for new products, including when CH exists but we generated new NCBK/NTEL
+            // Extract sequence number from generated stok_kodu for OZL products
+            let actualSequenceNumber = null;
+            if (generatedStokKodu && generatedStokKodu.startsWith('CHOZL')) {
+              const match = generatedStokKodu.match(/CHOZL(\d+)/);
+              if (match) {
+                actualSequenceNumber = parseInt(match[1]);
+                await updateSequences(product, actualSequenceNumber);
               }
-              await updateSequences(product, actualSequenceNumber);
             }
           } catch (error) {
             console.error(`Recipe kaydı hatası (${product.hasirTipi}):`, error);
