@@ -2130,36 +2130,48 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // First analyze products to get proper stock codes like the save process does
       await analyzeProductsForConfirmation();
       
-      // Use the analyzed data from preSaveConfirmData which has calculated stock codes
-      const allProductsData = [];
+      // Map validProducts to include stock codes from analysis, maintaining main table order
+      const allProductsData = validProducts.map((product) => {
+        // Find matching product in existing products (with highest stock code)
+        const existingMatch = preSaveConfirmData.existingProducts?.find(existing => 
+          existing.product && 
+          existing.product.hasirTipi === product.hasirTipi &&
+          Math.abs(parseFloat(existing.product.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(existing.product.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01
+        );
+        
+        if (existingMatch) {
+          return {
+            ...product, // Use calculated values from validProducts
+            stokKodu: existingMatch.highestStokKodu,
+            isExisting: true
+          };
+        }
+        
+        // Find matching product in new products (with calculated stock code)
+        const newMatch = preSaveConfirmData.newProducts?.find(newProd => 
+          newProd.hasirTipi === product.hasirTipi &&
+          Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
+          Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01
+        );
+        
+        if (newMatch) {
+          return {
+            ...product, // Use calculated values from validProducts
+            stokKodu: newMatch.newStokKodu,
+            isExisting: false
+          };
+        }
+        
+        // Fallback: generate simple code if no match found
+        return {
+          ...product,
+          stokKodu: `CH${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`,
+          isExisting: false
+        };
+      });
       
-      // Add existing products with their highest stock codes
-      if (preSaveConfirmData.existingProducts) {
-        preSaveConfirmData.existingProducts.forEach((item) => {
-          if (item && item.product) {
-            allProductsData.push({
-              ...item.product,
-              stokKodu: item.highestStokKodu,
-              isExisting: true
-            });
-          }
-        });
-      }
-      
-      // Add new products with their calculated stock codes
-      if (preSaveConfirmData.newProducts) {
-        preSaveConfirmData.newProducts.forEach((item) => {
-          if (item && item.newStokKodu) {
-            allProductsData.push({
-              ...item,
-              stokKodu: item.newStokKodu,
-              isExisting: false
-            });
-          }
-        });
-      }
-      
-      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated stock codes');
+      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated stock codes and weights');
       
       // Create workbook and worksheet
       const workbook = new ExcelJS.Workbook();
