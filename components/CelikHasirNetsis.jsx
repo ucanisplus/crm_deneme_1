@@ -2195,7 +2195,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           parseFloat(product.onFiliz || 0), // ÖN FİLİZ
           parseFloat(product.arkaFiliz || 0), // ARKA FİLİZ
           parseInt(product.adet || 1), // ADET
-          parseFloat(product.toplamAgirlik || 0), // TOPLAM KG
+          parseFloat(product.toplamKg || product.toplamAgirlik || 0), // TOPLAM KG
           '' // Empty last column
         ]);
       });
@@ -2211,11 +2211,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, "Kaynak Programı");
       
-      // Download the file
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
-      XLSX.writeFile(wb, `Kaynak_Programi_${timestamp}.csv`);
+      // Download as Excel (.xlsx) file
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      XLSX.writeFile(wb, `Kaynak_Programi_${timestamp}.xlsx`);
       
       console.log('DEBUG: Kaynak Programı Excel created successfully');
+      toast.success('Kaynak Programı Excel dosyası oluşturuldu!');
       
     } catch (error) {
       console.error('Error generating Kaynak Programı Excel:', error);
