@@ -1087,7 +1087,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   }
 
   // Stok kodu oluştur - Enhanced with database-aware incrementality  
-  function generateStokKodu(product, productType, batchIndex = 0) {
+  async function generateStokKodu(product, productType, batchIndex = 0) {
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
@@ -1946,7 +1946,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
-        const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
+        const stokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', excelBatchIndex);
         const stokAdi = generateStokAdi(product, 'CH');
         // Use existing İngilizce İsim from database if available (already cleaned), otherwise generate
         const ingilizceIsim = product.existingIngilizceIsim || generateIngilizceIsim(product, 'CH');
@@ -2205,7 +2205,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let receteBatchIndex = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
+        const chStokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
@@ -2464,7 +2464,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let chRowCount = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
+        const chStokKodu = product.existingStokKodu || await generateStokKodu(product, 'CH', altReceteBatchIndex);
         console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
@@ -3048,7 +3048,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
           });
           // Generate stok_kodu for this new product
-          const plannedStokKodu = generateStokKodu(product, 'CH', newProducts.length);
+          const plannedStokKodu = await generateStokKodu(product, 'CH', newProducts.length);
           
           // Store the generated stok_kodu for Excel generation later
           newProducts.push({
@@ -3132,7 +3132,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         
         // Generate stok_kodu and capture it for sequence tracking
-        const generatedStokKodu = generateStokKodu(product, 'CH', i);
+        const generatedStokKodu = await generateStokKodu(product, 'CH', i);
         const chData = {
           stok_kodu: generatedStokKodu,
           stok_adi: generateStokAdi(product, 'CH'),
@@ -3587,9 +3587,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const recipes = await getRecipeResponse.json();
               console.log(`Found ${recipes.length} recipes for mamul_kodu: ${product.stok_kodu}`);
               
-              // Sadece bu mamul_kodu'na ait reçeteleri filtrele ve sil
-              const recipesToDelete = recipes.filter(r => r.mamul_kodu === product.stok_kodu);
-              console.log(`Filtered to ${recipesToDelete.length} recipes to delete`);
+              // Debug: Check what the actual data looks like
+              if (recipes.length > 0) {
+                console.log('*** Recipe deletion debug ***');
+                console.log('product.stok_kodu:', product.stok_kodu, 'type:', typeof product.stok_kodu);
+                console.log('First recipe mamul_kodu:', recipes[0].mamul_kodu, 'type:', typeof recipes[0].mamul_kodu);
+                console.log('Sample recipe:', recipes[0]);
+              }
+              
+              // Since API already filtered by mamul_kodu, all returned recipes belong to this product
+              // No need for additional filtering - just delete all returned recipes
+              const recipesToDelete = recipes; // All recipes returned should be deleted
+              console.log(`All ${recipesToDelete.length} recipes will be deleted (API pre-filtered by mamul_kodu)`);
               
               // Her reçete kaydını ID ile sil
               for (const recipe of recipesToDelete) {
@@ -4235,7 +4244,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
-                      fetchSavedProducts();
+                      // Force cache invalidation and full refresh
+                      cacheRef.current.clear();
+                      fetchSavedProducts(false, true); // isRetry=false, resetData=true
                     }}
                     disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
@@ -4809,7 +4820,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   resetBatchSequenceCounter();
                   let plannedIndex = 0;
                   
-                  validProducts.forEach(product => {
+                  for (const product of validProducts) {
                     const productStokAdi = generateStokAdi(product, 'CH');
                     const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
                     
@@ -4830,11 +4841,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       // New product - use planned stok_kodu
                       allProductsWithCodes.push({
                         ...product,
-                        existingStokKodu: generateStokKodu(product, 'CH', plannedIndex)
+                        existingStokKodu: await generateStokKodu(product, 'CH', plannedIndex)
                       });
                       plannedIndex++;
                     }
-                  });
+                  }
                   
                   await generateExcelFiles(allProductsWithCodes, true);
                 }}
@@ -4861,10 +4872,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   resetBatchSequenceCounter();
                   
                   // Add planned stok_kodu to new products for Excel generation 
-                  const newProductsWithPlannedCodes = newProducts.map((product, index) => ({
-                    ...product,
-                    existingStokKodu: generateStokKodu(product, 'CH', index)
-                  }));
+                  const newProductsWithPlannedCodes = [];
+                  for (let index = 0; index < newProducts.length; index++) {
+                    const product = newProducts[index];
+                    const stokKodu = await generateStokKodu(product, 'CH', index);
+                    newProductsWithPlannedCodes.push({
+                      ...product,
+                      existingStokKodu: stokKodu
+                    });
+                  }
                   
                   await generateExcelFiles(newProductsWithPlannedCodes, false);
                 }}
