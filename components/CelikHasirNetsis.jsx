@@ -2152,17 +2152,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Check existing products first (with highest stock codes like CHOZL2343)
         const existingMatch = preSaveConfirmData.existingProducts?.find(existing => {
           if (!existing.product) return false;
-          const stokAdiMatch = generateStokAdi(product, 'CH') === generateStokAdi(existing.product, 'CH');
-          return stokAdiMatch;
+          // More flexible matching - check multiple criteria
+          const hasirTipiMatch = existing.product.hasirTipi === product.hasirTipi;
+          const boyMatch = Math.abs(parseFloat(existing.product.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
+          const enMatch = Math.abs(parseFloat(existing.product.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
+          return hasirTipiMatch && boyMatch && enMatch;
         });
         
-        if (existingMatch && existingMatch.highestStokKodu) {
-          stokKodu = existingMatch.highestStokKodu;
+        if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
+          // Get the highest stock code from the array (same logic as in other parts of the code)
+          const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
+            const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
+            const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
+            return numB - numA; // Descending order 
+          });
+          stokKodu = sortedCodes[0];
         } else {
           // Check new products (with calculated CHOZL codes like CHOZL2448)
           const newMatch = preSaveConfirmData.newProducts?.find(newProd => {
-            const stokAdiMatch = generateStokAdi(product, 'CH') === generateStokAdi(newProd, 'CH');
-            return stokAdiMatch;
+            const hasirTipiMatch = newProd.hasirTipi === product.hasirTipi;
+            const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
+            const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
+            return hasirTipiMatch && boyMatch && enMatch;
           });
           
           if (newMatch && newMatch.newStokKodu) {
@@ -2187,8 +2198,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           parseInt(product.uzunlukEn || 0), // UZUNLUK EN
           parseInt(product.cubukSayisiBoy || 0), // ÇUBUK SAYISI BOY
           parseInt(product.cubukSayisiEn || 0), // ÇUBUK SAYISI EN
-          parseFloat(product.gozAraligiBoy || 0), // ARA BOY
-          parseFloat(product.gozAraligiEn || 0), // ARA EN
+          parseFloat(product.boyAraligi || product.gozAraligiBoy || 0), // ARA BOY from main table
+          parseFloat(product.enAraligi || product.gozAraligiEn || 0), // ARA EN from main table
           parseInt(product.hasirSayisi || 1), // HASIR SAYISI (repeat)
           parseFloat(product.solFiliz || 0), // SOL FİLİZ
           parseFloat(product.sagFiliz || 0), // SAĞ FİLİZ
