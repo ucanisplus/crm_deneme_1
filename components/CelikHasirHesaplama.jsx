@@ -1152,34 +1152,37 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Hasır tipini standartlaştırma - Updated to handle combination Q-types
   const standardizeHasirTipi = (value) => {
+    console.log(`[DEBUG] standardizeHasirTipi INPUT: "${value}"`);
     if (!value) return '';
     
     // Boşlukları kaldır ve büyük harfe çevir
     let standardized = value.toUpperCase().replace(/\s+/g, '');
+    console.log(`[DEBUG] standardizeHasirTipi AFTER CLEANING: "${standardized}"`);
     
     // Q, R veya TR ile başladığını kontrol et
-    if (!/^(Q|R|TR)/.test(standardized)) return value;
-    
-    // Handle combination Q-types (Q221/443) - preserve as-is if different numbers
-    const combinationMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
-    if (combinationMatch) {
-      const first = combinationMatch[1];
-      const second = combinationMatch[2];
-      // Return combination format as-is if numbers are different
-      if (first !== second) {
-        return `Q${first}/${second}`;
-      }
-      // If same numbers (Q257/257), simplify to Q257
-      return `Q${first}`;
+    if (!/^(Q|R|TR)/.test(standardized)) {
+      console.log(`[DEBUG] standardizeHasirTipi NOT Q/R/TR TYPE, RETURNING: "${value}"`);
+      return value;
     }
     
-    // Q106/106 -> Q106 (remove duplicate suffix for same numbers)
-    // Q257/257 -> Q257 (remove duplicate suffix for same numbers) 
-    const duplicateMatch = standardized.match(/^(Q|R|TR)(\d+)\/\2$/);
-    if (duplicateMatch) {
-      standardized = duplicateMatch[1] + duplicateMatch[2]; // Q + 257
+    // For Q-types with slash format, preserve exactly as-is (both Q221/443 and Q221/221)
+    const qTypeMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
+    if (qTypeMatch) {
+      const first = qTypeMatch[1];
+      const second = qTypeMatch[2];
+      const result = `Q${first}/${second}`;
+      console.log(`[DEBUG] standardizeHasirTipi Q-TYPE COMBINATION DETECTED: "${standardized}" -> "${result}"`);
+      return result;  // Always preserve full format
     }
     
+    // For R and TR types, still simplify duplicate suffixes: TR257/257 -> TR257
+    const nonQDuplicateMatch = standardized.match(/^(R|TR)(\d+)\/\2$/);
+    if (nonQDuplicateMatch) {
+      standardized = nonQDuplicateMatch[1] + nonQDuplicateMatch[2]; // R + 257
+      console.log(`[DEBUG] standardizeHasirTipi R/TR TYPE SIMPLIFIED: "${value}" -> "${standardized}"`);
+    }
+    
+    console.log(`[DEBUG] standardizeHasirTipi FINAL OUTPUT: "${standardized}"`);
     return standardized;
   };
   
@@ -1889,6 +1892,7 @@ if (row.modified && row.modified[field] &&
 const updateRowFromHasirTipi = async (rows, rowIndex) => {
   const row = rows[rowIndex];
   const hasirTipi = row.hasirTipi;
+  console.log(`[DEBUG] updateRowFromHasirTipi STARTING for row ${rowIndex}: hasirTipi="${hasirTipi}"`);
 
   // Yeni bir hasır tipi için modified bayraklarını sıfırla
   row.modified = {
@@ -5842,10 +5846,19 @@ const guessIfHasHeaders = (data) => {
 
 // Ön izleme verilerini işleyip ana tabloya ekleme
 const processPreviewData = async () => {
+  console.log(`[DEBUG] processPreviewData STARTING with ${previewData.length} preview rows`);
+  
   // Geçerli verileri filtrele
   const validPreviewData = previewData.filter(row => 
     row.hasirTipi && (row.uzunlukBoy || row.uzunlukEn)
   );
+  
+  console.log(`[DEBUG] processPreviewData AFTER FILTERING: ${validPreviewData.length} valid rows`);
+  
+  // Log each valid preview row
+  validPreviewData.forEach((row, index) => {
+    console.log(`[DEBUG] processPreviewData Valid Row ${index}: hasirTipi="${row.hasirTipi}"`);
+  });
   
   if (validPreviewData.length === 0) {
     alert('Aktarılacak geçerli veri bulunamadı. Lütfen en az Hasır Tipi, Uzunluk Boy veya Uzunluk En alanlarını doldurun.');
@@ -5854,6 +5867,7 @@ const processPreviewData = async () => {
   
   // Store preview data in sessionStorage for skip functionality  
   sessionStorage.setItem('pendingPreviewData', JSON.stringify(validPreviewData));
+  console.log(`[DEBUG] processPreviewData STORED in sessionStorage:`, JSON.stringify(validPreviewData.map(r => r.hasirTipi)));
   
   // Check for unknown mesh types and show modal if any found
   console.log('Checking for unknown mesh types in preview data...');
@@ -5863,7 +5877,7 @@ const processPreviewData = async () => {
   for (const row of validPreviewData) {
     const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
-    console.log(`Checking: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
+    console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
     
     // First check if it exists in regular mesh configs
     let configExists = meshConfigs.has(hasirTipi);
@@ -5871,9 +5885,10 @@ const processPreviewData = async () => {
     // If not found, check if it's a combination Q-type
     if (!configExists && hasirTipi.match(/^Q\d+\/\d+$/)) {
       try {
+        console.log(`[DEBUG] processPreviewData CHECKING COMBINATION Q-TYPE: "${hasirTipi}"`);
         const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
         configExists = combinationConfig !== null;
-        console.log(`Combination Q-type "${hasirTipi}" check result:`, !!combinationConfig);
+        console.log(`[DEBUG] processPreviewData Combination Q-type "${hasirTipi}" check result:`, !!combinationConfig);
       } catch (error) {
         console.error(`Error checking combination Q-type "${hasirTipi}":`, error);
       }
