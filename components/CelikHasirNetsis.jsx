@@ -2127,51 +2127,40 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log('DEBUG: generateKaynakProgramiExcel started');
       
-      // First analyze products to get proper stock codes like the save process does
+      // Get stock codes from save confirmation analysis
       await analyzeProductsForConfirmation();
       
-      // Map validProducts to include stock codes from analysis, maintaining main table order
+      // Create mapping of products to their stock codes
+      const stockCodeMap = new Map();
+      
+      // Add existing products with highest stock codes
+      preSaveConfirmData.existingProducts?.forEach((item) => {
+        if (item && item.product && item.highestStokKodu) {
+          const key = `${item.product.hasirTipi}-${item.product.uzunlukBoy}-${item.product.uzunlukEn}`;
+          stockCodeMap.set(key, item.highestStokKodu);
+        }
+      });
+      
+      // Add new products with calculated stock codes  
+      preSaveConfirmData.newProducts?.forEach((item) => {
+        if (item && item.newStokKodu) {
+          const key = `${item.hasirTipi}-${item.uzunlukBoy}-${item.uzunlukEn}`;
+          stockCodeMap.set(key, item.newStokKodu);
+        }
+      });
+      
+      // Use validProducts in main table order with their calculated weights
       const allProductsData = validProducts.map((product) => {
-        // Find matching product in existing products (with highest stock code)
-        const existingMatch = preSaveConfirmData.existingProducts?.find(existing => 
-          existing.product && 
-          existing.product.hasirTipi === product.hasirTipi &&
-          Math.abs(parseFloat(existing.product.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(existing.product.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01
-        );
+        const key = `${product.hasirTipi}-${product.uzunlukBoy}-${product.uzunlukEn}`;
+        const stokKodu = stockCodeMap.get(key) || 'UNKNOWN';
         
-        if (existingMatch) {
-          return {
-            ...product, // Use calculated values from validProducts
-            stokKodu: existingMatch.highestStokKodu,
-            isExisting: true
-          };
-        }
-        
-        // Find matching product in new products (with calculated stock code)
-        const newMatch = preSaveConfirmData.newProducts?.find(newProd => 
-          newProd.hasirTipi === product.hasirTipi &&
-          Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
-          Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01
-        );
-        
-        if (newMatch) {
-          return {
-            ...product, // Use calculated values from validProducts
-            stokKodu: newMatch.newStokKodu,
-            isExisting: false
-          };
-        }
-        
-        // Fallback: generate simple code if no match found
         return {
-          ...product,
-          stokKodu: `CH${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`,
-          isExisting: false
+          ...product, // Keep all calculated values from main table
+          stokKodu: stokKodu
         };
       });
       
-      console.log('DEBUG: Processing', allProductsData.length, 'products for Kaynak Programı Excel with calculated stock codes and weights');
+      console.log('DEBUG: Processing', allProductsData.length, 'products with stock codes from summary screen');
       
       // Create workbook and worksheet
       const workbook = new ExcelJS.Workbook();
