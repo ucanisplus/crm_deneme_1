@@ -4238,7 +4238,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const chProducts = await chResponse.json();
         console.log('*** updateSequenceAfterDeletion - API response structure:', chProducts);
         
-        let newMaxSequence = 2443; // Default fallback
+        let newMaxSequence = null;
         // Check both possible response structures (direct array or data property)
         const productList = chProducts.data || chProducts;
         if (Array.isArray(productList) && productList.length > 0) {
@@ -4249,7 +4249,69 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('*** Found new max sequence from remaining products:', newMaxSequence);
           }
         } else {
-          console.log('*** No remaining CHOZL products found after deletion, resetting to default sequence:', newMaxSequence);
+          console.log('*** No remaining CHOZL products found after deletion');
+          console.log('*** Last resort: Checking all CH products to determine proper sequence...');
+          
+          // Last resort: Check all CH products (both STD and OZL) to find the highest sequence
+          try {
+            const allChResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CH&sort_by=stok_kodu&sort_order=desc&limit=100&_t=${Date.now()}`);
+            if (allChResponse.ok) {
+              const allChProducts = await allChResponse.json();
+              const allProductList = allChProducts.data || allChProducts;
+              
+              let highestStdSequence = 0;
+              let highestOzlSequence = 0;
+              
+              if (Array.isArray(allProductList)) {
+                allProductList.forEach(product => {
+                  // Check for STD products (CH.STD.XXXX.XX)
+                  const stdMatch = product.stok_kodu.match(/CH\.STD\.(\d{4})\./);
+                  if (stdMatch) {
+                    const seqNum = parseInt(stdMatch[1]);
+                    if (seqNum > highestStdSequence) {
+                      highestStdSequence = seqNum;
+                    }
+                  }
+                  
+                  // Check for any remaining OZL products (shouldn't be any, but double-check)
+                  const ozlMatch = product.stok_kodu.match(/CHOZL(\d+)/);
+                  if (ozlMatch) {
+                    const seqNum = parseInt(ozlMatch[1]);
+                    if (seqNum > highestOzlSequence) {
+                      highestOzlSequence = seqNum;
+                    }
+                  }
+                });
+              }
+              
+              console.log(`*** Found highest STD sequence: ${highestStdSequence}, highest OZL sequence: ${highestOzlSequence}`);
+              
+              // Use the higher of the two, or a reasonable default if no products exist
+              if (highestOzlSequence > 0) {
+                newMaxSequence = highestOzlSequence;
+                console.log('*** Using remaining OZL sequence:', newMaxSequence);
+              } else if (highestStdSequence > 1200) {
+                // If STD sequences are above 1200, continue from there for OZL
+                newMaxSequence = highestStdSequence;
+                console.log('*** Using STD sequence as base for OZL:', newMaxSequence);
+              } else {
+                // No OZL products and STD is in normal range, start OZL from a safe number
+                newMaxSequence = 2443; // Starting point for OZL when no reference exists
+                console.log('*** No suitable reference found, using safe starting point:', newMaxSequence);
+              }
+            }
+          } catch (error) {
+            console.error('*** Error checking all CH products:', error);
+            // If all else fails, keep the current sequence value (don't update)
+            console.log('*** Error occurred, sequence will not be updated');
+            return;
+          }
+        }
+        
+        // Only proceed with update if we have a valid sequence
+        if (newMaxSequence === null) {
+          console.log('*** No valid sequence determined, skipping update');
+          return;
         }
         
         // Update both OZL and OZL_BACKUP sequences
