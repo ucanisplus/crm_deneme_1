@@ -1616,12 +1616,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Use the freshly updated savedProducts state
     const freshSavedProducts = savedProducts;
     
-    // Debug: Log the fresh savedProducts structure
+    // Debug: Log the fresh savedProducts structure and check for CHOZL2448 specifically
     console.log('DEBUG: freshSavedProducts in analyzeProductsForConfirmation:', {
       mm: freshSavedProducts.mm?.length || 0,
       ncbk: freshSavedProducts.ncbk?.length || 0,
       ntel: freshSavedProducts.ntel?.length || 0
     });
+    
+    // CRITICAL DEBUG: Check if CHOZL2448 still exists in fresh data after deletion
+    const chozl2448Products = freshSavedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.includes('CHOZL2448'));
+    console.log('🚨 CRITICAL DEBUG: CHOZL2448 products still in freshSavedProducts after deletion:', chozl2448Products.length);
+    if (chozl2448Products.length > 0) {
+      console.log('🚨 CHOZL2448 PRODUCTS FOUND:', chozl2448Products.map(p => ({
+        id: p.id,
+        stok_kodu: p.stok_kodu,
+        stok_adi: p.stok_adi,
+        created_at: p.created_at
+      })));
+    }
     
     // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
     const normalizeStokAdiForComparison = (stokAdi) => {
