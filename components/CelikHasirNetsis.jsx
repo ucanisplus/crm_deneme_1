@@ -6118,18 +6118,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </button>
                 )}
               </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowPreSaveConfirmModal(false);
-                    toast.info('Kaydedilecek yeni ürün bulunmamaktadır.');
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                  disabled
-                >
-                  Kaydedilecek Yeni Ürün Yok
-                </button>
-              )}
             </div>
           </div>
         </div>
