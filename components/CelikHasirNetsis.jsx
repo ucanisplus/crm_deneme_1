@@ -386,9 +386,45 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntel: API_URLS.celikHasirNtel
       };
 
-      // Delete products in parallel for speed - let backend handle recipe cascading
+      // Delete products with proper recipe deletion
       const deletePromises = selectedDbItems.map(async (itemId) => {
         try {
+          // First delete recipes, then delete product (same logic as single deleteProduct function)
+          const product = savedProducts[activeDbTab].find(p => p.id === itemId);
+          if (product && product.stok_kodu) {
+            // Delete recipes first
+            let recipeApiUrl = '';
+            if (activeDbTab === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
+            else if (activeDbTab === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
+            else if (activeDbTab === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
+            
+            if (recipeApiUrl) {
+              const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+              const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
+              
+              if (getRecipeResponse.ok) {
+                const recipes = await getRecipeResponse.json();
+                console.log(`🗑️ Found ${recipes.length} recipes to delete for ${product.stok_kodu}`);
+                
+                // Delete all recipes in parallel
+                const recipeDeletionPromises = recipes.filter(recipe => recipe.id).map(async (recipe) => {
+                  try {
+                    await fetchWithRetry(`${recipeApiUrl}/${recipe.id}`, { method: 'DELETE' }, 2, 1000);
+                    return { success: true, id: recipe.id };
+                  } catch (error) {
+                    console.warn(`Recipe deletion failed for ${recipe.id}:`, error);
+                    return { success: false, id: recipe.id, error: error.message };
+                  }
+                });
+                
+                const recipeResults = await Promise.allSettled(recipeDeletionPromises);
+                const successfulRecipes = recipeResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+                console.log(`🗑️ Deleted ${successfulRecipes}/${recipes.length} recipes for ${product.stok_kodu}`);
+              }
+            }
+          }
+          
+          // Now delete the product
           const response = await fetchWithRetry(`${tabEndpoints[activeDbTab]}/${itemId}`, {
             method: 'DELETE',
             headers: {
@@ -2719,14 +2755,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyKey3 = `${product.boyCap}-${parseInt(product.uzunlukBoy || 0)}`;
       const boyBilesenKodu = ncbkResults[boyKey1]?.stok_kodu || ncbkResults[boyKey2]?.stok_kodu || ncbkResults[boyKey3]?.stok_kodu || '';
       
-      // Try multiple lookup strategies for EN ÇUBUĞU  
+      // Try multiple lookup strategies for EN ÇUBUĞU - FIXED to match storage keys  
       const enKey1 = `en-${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
       const enKey2 = parseInt(product.uzunlukEn || 0);
       const enKey3 = `${product.enCap}-${parseInt(product.uzunlukEn || 0)}`;
-      const enBilesenKodu = ncbkResults[enKey1]?.stok_kodu || ncbkResults[enKey2]?.stok_kodu || ncbkResults[enKey3]?.stok_kodu || '';
+      let enBilesenKodu = ncbkResults[enKey1]?.stok_kodu || ncbkResults[enKey2]?.stok_kodu || ncbkResults[enKey3]?.stok_kodu || '';
+      
+      // Additional fallback: manually construct stok_kodu if lookup fails
+      if (!enBilesenKodu && product.enCap && product.uzunlukEn) {
+        const expectedEnStokKodu = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukEn)}`;
+        // Search all ncbkResults for this stok_kodu
+        for (const [key, result] of Object.entries(ncbkResults)) {
+          if (result?.stok_kodu === expectedEnStokKodu) {
+            enBilesenKodu = expectedEnStokKodu;
+            console.log(`🔍 Found EN NCBK via fallback search: ${expectedEnStokKodu} (key: ${key})`);
+            break;
+          }
+        }
+      }
       
       console.log('*** BOY lookup - trying keys:', [boyKey1, boyKey2, boyKey3], 'result:', boyBilesenKodu);
       console.log('*** EN lookup - trying keys:', [enKey1, enKey2, enKey3], 'result:', enBilesenKodu);
+      console.log('*** All available NCBK keys:', Object.keys(ncbkResults));
       
       // CH Recipe kayıtları
       const chRecipes = [
@@ -2781,6 +2831,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // NCBK Recipe kayıtları - Only create recipes for NEWLY created NCBK products
       console.log('🔍 NCBK Recipe Creation - ncbkResults:', ncbkResults);
       
+      // Deduplicate NCBKs by stok_kodu to prevent creating duplicate recipes
+      const processedNcbkStokKodus = new Set();
+      
       for (const [key, ncbkResult] of Object.entries(ncbkResults)) {
         console.log(`📋 Processing NCBK recipe for key "${key}":`, {
           stok_kodu: ncbkResult?.stok_kodu,
@@ -2794,11 +2847,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           continue;
         }
         
+        // Skip if we've already processed this stok_kodu to prevent duplicate recipes
+        if (processedNcbkStokKodus.has(ncbkResult.stok_kodu)) {
+          console.log(`⏭️ Skipping NCBK recipe - already processed: ${ncbkResult.stok_kodu} (key: ${key})`);
+          continue;
+        }
+        
         // Only create recipes for NCBKs that were NEWLY created in this save operation
         if (!ncbkResult.isNewlyCreated) {
           console.log(`⏭️ Skipping NCBK recipe - not newly created: ${ncbkResult.stok_kodu} (status: ${ncbkResult.status}, message: ${ncbkResult.message})`);
           continue;
         }
+        
+        // Mark this stok_kodu as processed
+        processedNcbkStokKodus.add(ncbkResult.stok_kodu);
         
         console.log(`✅ Creating recipes for NEWLY created NCBK: ${ncbkResult.stok_kodu} (isNewlyCreated: true)`);
         
@@ -3041,8 +3103,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setSequences(updatedSequences);
         
         console.log('*** Dual sequence update completed. Both sequences now at:', maxSequence);
-      } else {
-        // For STD products or when no actualSequenceNumber provided, use original logic
+      } else if (kod2 === 'STD') {
+        // For STD products only - do not update OZL products here!
+        console.log('*** STD product - updating specific cap code sequence');
         const sequenceData = {
           product_type: 'CH',
           kod_2: kod2,
@@ -3055,6 +3118,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(sequenceData)
         });
+      } else if (kod2 === 'OZL') {
+        // OZL product without actualSequenceNumber - do nothing, don't update any sequences
+        console.log('*** OZL product without sequence number - skipping sequence update');
       }
       
     } catch (error) {
@@ -3446,7 +3512,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               br_1: 'AD',
               br_2: 'KG',
               pay_1: parseFloat(ncbkWeight.toFixed(5)),
-              payda_1: 1,
+              payda_1: 2,
               cevrim_degeri_1: 0,
               olcu_br_3: null,
               cevrim_pay_2: 1,
@@ -3454,7 +3520,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cevrim_degeri_2: 1,
               // Product specific
               cap: parseFloat(parseFloat(cap || 0).toFixed(1)),
-              cap2: parseFloat(parseFloat(cap || 0).toFixed(1)),
+              cap2: 0,
               ebat_boy: length,
               ebat_en: 0,
               goz_araligi: '',
