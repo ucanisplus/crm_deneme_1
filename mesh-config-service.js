@@ -61,6 +61,38 @@ class MeshConfigService {
     return configs.get(hasirTipi) || null;
   }
 
+  // Get mesh configuration for combination Q-types (e.g., Q221/443)
+  async getCombinationQConfig(hasirTipi) {
+    // Check if it's a combination Q-type
+    const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (!combinationMatch) {
+      // Not a combination, use regular lookup
+      return await this.getMeshConfig(hasirTipi);
+    }
+
+    const firstQType = `Q${combinationMatch[1]}`;
+    const secondQType = `Q${combinationMatch[2]}`;
+    
+    const configs = await this.loadMeshConfigs();
+    const firstConfig = configs.get(firstQType);
+    const secondConfig = configs.get(secondQType);
+
+    if (!firstConfig || !secondConfig) {
+      console.warn(`Missing mesh config for combination ${hasirTipi}: Q${combinationMatch[1]}=${!!firstConfig}, Q${combinationMatch[2]}=${!!secondConfig}`);
+      return null;
+    }
+
+    // Combine configurations: boyCap from first, enCap from second
+    return {
+      boyCap: firstConfig.boyCap,
+      enCap: secondConfig.enCap,
+      boyAralik: firstConfig.boyAralik, // Use first Q-type's spacing
+      enAralik: firstConfig.enAralik,   // Use first Q-type's spacing
+      type: 'Q',
+      description: `Combination Q-type: ${firstQType} (${firstConfig.boyCap}mm) / ${secondQType} (${secondConfig.enCap}mm)`
+    };
+  }
+
   // Get mesh configurations by type
   async getMeshConfigsByType(type) {
     const configs = await this.loadMeshConfigs();
@@ -199,6 +231,7 @@ export default meshConfigService;
 
 // Also export utility functions for direct use
 export const getMeshConfig = (hasirTipi) => meshConfigService.getMeshConfig(hasirTipi);
+export const getCombinationQConfig = (hasirTipi) => meshConfigService.getCombinationQConfig(hasirTipi);
 export const saveMeshConfig = (meshConfig) => meshConfigService.saveMeshConfig(meshConfig);
 export const meshTypeExists = (hasirTipi) => meshConfigService.meshTypeExists(hasirTipi);
 export const loadMeshConfigs = () => meshConfigService.loadMeshConfigs();

@@ -6,6 +6,7 @@ import { API_URLS, fetchWithAuth } from '@/api-config';
 import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { getCombinationQConfig } from '@/mesh-config-service';
 import { 
   Database, 
   FileSpreadsheet, 
@@ -2035,6 +2036,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Remove any extra whitespace between letters and numbers
     cleanTipi = cleanTipi.replace(/\s+/g, '');
     
+    // Handle Q-type combinations (Q221/443) - preserve as-is
+    const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const first = combinationMatch[1];
+      const second = combinationMatch[2];
+      // Return combination format as-is if numbers are different
+      if (first !== second) {
+        return `Q${first}/${second}`;
+      }
+    }
+    
     // Extract the base pattern (Q257, R257, TR257, etc.)
     // Handle both Q257 and Q257/257 formats
     const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
@@ -2044,7 +2056,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const number = match[2];  // 257, 221, etc.
     
     // Normalize based on type rules from CSV analysis:
-    // Q types should have double format: Q257/257
+    // Q types should have double format: Q257/257 (only for single Q-types)
     // R and TR types should have single format: R257, TR257
     if (prefix === 'Q') {
       return `${prefix}${number}/${number}`;

@@ -1137,7 +1137,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       return stringValue;
   };
 
-  // Hasır tipini standartlaştırma
+  // Hasır tipini standartlaştırma - Updated to handle combination Q-types
   const standardizeHasirTipi = (value) => {
     if (!value) return '';
     
@@ -1147,11 +1147,24 @@ const processExcelWithMapping = (sheets, mapping) => {
     // Q, R veya TR ile başladığını kontrol et
     if (!/^(Q|R|TR)/.test(standardized)) return value;
     
-    // Q106/106 -> Q106 (remove duplicate suffix)
-    // Q257/257 -> Q257 (remove duplicate suffix) 
-    const match = standardized.match(/^(Q|R|TR)(\d+)\/\2$/);
-    if (match) {
-      standardized = match[1] + match[2]; // Q + 257
+    // Handle combination Q-types (Q221/443) - preserve as-is if different numbers
+    const combinationMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const first = combinationMatch[1];
+      const second = combinationMatch[2];
+      // Return combination format as-is if numbers are different
+      if (first !== second) {
+        return `Q${first}/${second}`;
+      }
+      // If same numbers (Q257/257), simplify to Q257
+      return `Q${first}`;
+    }
+    
+    // Q106/106 -> Q106 (remove duplicate suffix for same numbers)
+    // Q257/257 -> Q257 (remove duplicate suffix for same numbers) 
+    const duplicateMatch = standardized.match(/^(Q|R|TR)(\d+)\/\2$/);
+    if (duplicateMatch) {
+      standardized = duplicateMatch[1] + duplicateMatch[2]; // Q + 257
     }
     
     return standardized;
@@ -5815,7 +5828,7 @@ const guessIfHasHeaders = (data) => {
   };
 
 // Ön izleme verilerini işleyip ana tabloya ekleme
-const processPreviewData = () => {
+const processPreviewData = async () => {
   // Geçerli verileri filtrele
   const validPreviewData = previewData.filter(row => 
     row.hasirTipi && (row.uzunlukBoy || row.uzunlukEn)
@@ -5834,18 +5847,32 @@ const processPreviewData = () => {
   console.log('Current meshConfigs size:', meshConfigs.size);
   
   const unknownTypes = [];
-  validPreviewData.forEach(row => {
+  for (const row of validPreviewData) {
     const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
     console.log(`Checking: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
     
-    if (!meshConfigs.has(hasirTipi)) {
+    // First check if it exists in regular mesh configs
+    let configExists = meshConfigs.has(hasirTipi);
+    
+    // If not found, check if it's a combination Q-type
+    if (!configExists && hasirTipi.match(/^Q\d+\/\d+$/)) {
+      try {
+        const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
+        configExists = combinationConfig !== null;
+        console.log(`Combination Q-type "${hasirTipi}" check result:`, !!combinationConfig);
+      } catch (error) {
+        console.error(`Error checking combination Q-type "${hasirTipi}":`, error);
+      }
+    }
+    
+    if (!configExists) {
       if (!unknownTypes.includes(hasirTipi)) {
         unknownTypes.push(hasirTipi);
         console.log(`Unknown type found: ${hasirTipi}`);
       }
     }
-  });
+  }
   
   if (unknownTypes.length > 0) {
     console.log(`Found ${unknownTypes.length} unknown mesh types, showing modal:`, unknownTypes);
