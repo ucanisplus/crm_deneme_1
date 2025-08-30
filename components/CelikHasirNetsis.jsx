@@ -3007,9 +3007,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('*** Updating sequences with dual backup system');
       
       // CH sequence güncelle with UPSERT operation
-      const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
-                         (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
-      const kod2 = isStandard ? 'STD' : 'OZL';
+      // CRITICAL FIX: Check stok_kodu first to determine if it's OZL or STD
+      let isStandard = false;
+      let kod2 = 'OZL'; // Default to OZL
+      
+      // If product has a stok_kodu, use that to determine type
+      if (product.stok_kodu || product.existingStokKodu) {
+        const stokKodu = product.stok_kodu || product.existingStokKodu;
+        if (stokKodu.includes('CHOZL')) {
+          kod2 = 'OZL';
+          isStandard = false;
+          console.log('*** Product classified as OZL based on stok_kodu:', stokKodu);
+        } else if (stokKodu.includes('CHSTD')) {
+          kod2 = 'STD';
+          isStandard = true;
+          console.log('*** Product classified as STD based on stok_kodu:', stokKodu);
+        }
+      } else {
+        // Fallback to dimension-based classification only if no stok_kodu
+        isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
+                     (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
+        kod2 = isStandard ? 'STD' : 'OZL';
+        console.log('*** Product classified based on dimensions - isStandard:', isStandard, 'kod2:', kod2);
+      }
+      
+      console.log('*** Final classification - kod2:', kod2, 'isStandard:', isStandard);
       const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
       
       // For OZL products, implement dual sequence check and update
@@ -3036,9 +3058,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`);
           if (existingSequenceResponse.ok) {
             const existingSequences = await existingSequenceResponse.json();
+            console.log('🔍 CRITICAL DEBUG - OZL query returned:', existingSequences);
+            console.log('🔍 Number of rows returned:', existingSequences.length);
             if (existingSequences.length > 0) {
-              // Update existing sequence using PUT
+              existingSequences.forEach((seq, index) => {
+                console.log(`🔍 Row ${index}:`, {
+                  id: seq.id,
+                  product_type: seq.product_type, 
+                  kod_2: seq.kod_2,
+                  cap_code: seq.cap_code,
+                  last_sequence: seq.last_sequence
+                });
+              });
+              
+              // Update existing sequence using PUT - ALWAYS FIRST ROW [0]
               const sequenceId = existingSequences[0].id;
+              console.log('🚨 UPDATING ROW ID:', sequenceId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -3070,9 +3105,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const existingBackupResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL_BACKUP`);
           if (existingBackupResponse.ok) {
             const existingBackups = await existingBackupResponse.json();
+            console.log('🔍 CRITICAL DEBUG - OZL_BACKUP query returned:', existingBackups);
+            console.log('🔍 Number of backup rows returned:', existingBackups.length);
             if (existingBackups.length > 0) {
-              // Update existing backup sequence using PUT
+              existingBackups.forEach((seq, index) => {
+                console.log(`🔍 Backup Row ${index}:`, {
+                  id: seq.id,
+                  product_type: seq.product_type, 
+                  kod_2: seq.kod_2,
+                  cap_code: seq.cap_code,
+                  last_sequence: seq.last_sequence
+                });
+              });
+              
+              // Update existing backup sequence using PUT - ALWAYS FIRST ROW [0]
               const backupId = existingBackups[0].id;
+              console.log('🚨 UPDATING BACKUP ROW ID:', backupId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${backupId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -3104,20 +3152,44 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         console.log('*** Dual sequence update completed. Both sequences now at:', maxSequence);
       } else if (kod2 === 'STD') {
-        // For STD products only - do not update OZL products here!
-        console.log('*** STD product - updating specific cap code sequence');
-        const sequenceData = {
-          product_type: 'CH',
-          kod_2: kod2,
-          cap_code: capCode,
-          last_sequence: actualSequenceNumber || 0
-        };
+        // For STD products only - UPDATE existing sequence, don't create new ones!
+        console.log('*** STD product - updating specific cap code sequence for capCode:', capCode);
         
-        await fetchWithAuth(API_URLS.celikHasirSequence, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sequenceData)
-        });
+        // First, find the existing STD sequence for this cap_code
+        const existingStdResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=STD&cap_code=${capCode}`);
+        if (existingStdResponse.ok) {
+          const existingStdSequences = await existingStdResponse.json();
+          console.log('*** Found existing STD sequences for cap_code', capCode, ':', existingStdSequences);
+          
+          if (existingStdSequences.length > 0) {
+            // Update existing STD sequence using PUT
+            const stdSequenceId = existingStdSequences[0].id;
+            console.log('*** Updating existing STD sequence ID:', stdSequenceId, 'with new sequence:', actualSequenceNumber);
+            
+            await fetchWithAuth(`${API_URLS.celikHasirSequence}/${stdSequenceId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ last_sequence: actualSequenceNumber || 0 })
+            });
+            console.log('*** Successfully updated STD sequence for cap_code:', capCode);
+          } else {
+            console.log('*** No existing STD sequence found for cap_code:', capCode, '- creating new one');
+            const sequenceData = {
+              product_type: 'CH',
+              kod_2: kod2,
+              cap_code: capCode,
+              last_sequence: actualSequenceNumber || 0
+            };
+            
+            await fetchWithAuth(API_URLS.celikHasirSequence, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sequenceData)
+            });
+          }
+        } else {
+          console.error('*** Failed to fetch existing STD sequences for cap_code:', capCode);
+        }
       } else if (kod2 === 'OZL') {
         // OZL product without actualSequenceNumber - do nothing, don't update any sequences
         console.log('*** OZL product without sequence number - skipping sequence update');
