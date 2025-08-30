@@ -4123,17 +4123,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (deleteProductResponse.ok) {
         const result = await deleteProductResponse.json();
         console.log(`✅ Successfully deleted product ${product.stok_kodu}`);
-        console.log('🔔 CALLING SUCCESS TOAST FOR DELETION:', product.stok_kodu);
-        toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false
-        });
-        
-        // Also show browser alert as backup to ensure user sees the feedback
-        setTimeout(() => {
-          alert(`✅ Başarılı: ${product.stok_kodu} ürünü silindi`);
-        }, 100);
         
         // Update UI state immediately
         setSavedProducts(prev => ({
@@ -4151,9 +4140,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Force refresh data
+        // Aggressive cache clearing to prevent false "exists" detection
         cacheRef.current.clear();
+        
+        // Clear any existing product lookup cache that might contain deleted product
+        if (window.productLookupCache) {
+          window.productLookupCache.clear();
+        }
+        
+        // Force refresh data with cache-busting
         await fetchSavedProducts(false, true);
+        
+        // Show success toast AFTER cache is cleared
+        toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false
+        });
       } else if (deleteProductResponse.status === 404) {
         // Fallback: Use old method if bulk endpoint doesn't exist
         console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${product.stok_kodu}`);
@@ -4167,17 +4170,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (fallbackResponse.ok) {
           console.log(`✅ Fallback: Successfully deleted product ${product.stok_kodu}`);
-          console.log('🔔 CALLING FALLBACK SUCCESS TOAST FOR DELETION:', product.stok_kodu);
-          toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false
-          });
-          
-          // Also show browser alert as backup to ensure user sees the feedback
-          setTimeout(() => {
-            alert(`✅ Başarılı: ${product.stok_kodu} ürünü silindi`);
-          }, 100);
           
           setSavedProducts(prev => ({
             ...prev,
@@ -4193,8 +4185,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
           }
           
+          // Aggressive cache clearing to prevent false "exists" detection
           cacheRef.current.clear();
+          
+          // Clear any existing product lookup cache that might contain deleted product
+          if (window.productLookupCache) {
+            window.productLookupCache.clear();
+          }
+          
+          // Force refresh data with cache-busting
           await fetchSavedProducts(false, true);
+          
+          // Show success toast AFTER cache is cleared
+          toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false
+          });
         } else {
           throw new Error(`Fallback product deletion failed: ${fallbackResponse.status}`);
         }
