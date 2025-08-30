@@ -533,7 +533,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // Show results to user
       if (deletedCount > 0) {
-        toast.success(`✅ ${deletedCount} ürün başarıyla silindi`);
+        toast.success(`✅ Başarılı: ${deletedCount} ürün silindi`, {
+          position: "top-right",
+          autoClose: 4000,
+          hideProgressBar: false
+        });
         setSelectedDbItems([]);
         
         // Update sequence table if we deleted CH products
@@ -558,15 +562,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
 
       if (deletedCount === 0) {
-        toast.error('Hiçbir ürün silinemedi');
+        toast.error('❌ Hiçbir ürün silinemedi', {
+          position: "top-right",
+          autoClose: 4000,
+          hideProgressBar: false
+        });
       }
 
     } catch (error) {
       console.error('❌ Bulk delete error:', error);
       if (error.message.includes('504') || error.message.includes('timeout')) {
-        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen daha az ürün seçerek tekrar deneyin.');
+        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen daha az ürün seçerek tekrar deneyin.', {
+          position: "top-right",
+          autoClose: 6000,
+          hideProgressBar: false
+        });
       } else {
-        toast.error(`Toplu silme hatası: ${error.message}`);
+        toast.error(`❌ Toplu silme hatası: ${error.message}`, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false
+        });
       }
     } finally {
       setIsDeletingBulkDb(false);
@@ -660,12 +676,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   useEffect(() => {
     // Only fetch if database modal is open to avoid unnecessary requests
     if (showDatabaseModal) {
-      setIsFilteringDb(true); // Show filter loading indicator
+      setIsFilteringDb(true); // Show filter loading indicator immediately
       const debounceTimer = setTimeout(() => {
         fetchSavedProducts().finally(() => {
           setIsFilteringDb(false); // Hide filter loading indicator when done
         });
-      }, 500); // Debounce by 500ms to avoid too many requests while typing
+      }, 300); // Reduced debounce time from 500ms to 300ms for faster response
       
       return () => {
         clearTimeout(debounceTimer);
@@ -4099,7 +4115,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (deleteProductResponse.ok) {
         const result = await deleteProductResponse.json();
         console.log(`✅ Successfully deleted product ${product.stok_kodu}`);
-        toast.success('✅ Ürün ve reçeteleri başarıyla silindi');
+        toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false
+        });
         
         // Update UI state immediately
         setSavedProducts(prev => ({
@@ -4161,9 +4181,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } catch (error) {
       console.error('❌ Delete error:', error);
       if (error.message.includes('504') || error.message.includes('timeout')) {
-        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.');
+        toast.error('⏱️ İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.', {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false
+        });
       } else {
-        toast.error(`❌ Ürün silinirken hata: ${error.message}`);
+        toast.error(`❌ Ürün silinirken hata: ${error.message}`, {
+          position: "top-right", 
+          autoClose: 5000,
+          hideProgressBar: false
+        });
       }
     } finally {
       setIsLoading(false);
@@ -4447,7 +4475,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               if (validProducts.length === 0) {
                 setShowDatabaseModal(true);
               } else {
-                // Analyze products and show pre-save confirmation - skip optimization check
+                // Check for unoptimized products and show warning for Netsis operations only
+                const hasUnoptimized = hasUnoptimizedProducts();
+                
+                if (hasUnoptimized) {
+                  const shouldContinue = window.confirm(
+                    `UYARI: Bazı ürünler henüz optimize edilmedi!\n\n` +
+                    `Netsis operasyonlarında daha iyi sonuçlar için ürünleri optimize etmeniz önerilir.\n\n` +
+                    `DEVAM: Optimize edilmemiş tablo ile devam et\n` +
+                    `IPTAL: İşlemi iptal et`
+                  );
+                  
+                  if (!shouldContinue) {
+                    setIsLoading(false);
+                    return;
+                  }
+                }
+                
+                // Analyze products and show pre-save confirmation
                 const analysisData = await analyzeProductsForConfirmation();
                 setPreSaveConfirmData(analysisData);
                 setShowPreSaveConfirmModal(true);
