@@ -430,7 +430,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Update sequence table if we deleted CH products
         await updateSequenceAfterDeletion(activeDbTab);
         
-        await fetchSavedProducts();
+        // Force clear cache and refresh data to ensure immediate UI update
+        cacheRef.current.clear();
+        await fetchSavedProducts(false, true); // resetData=true for immediate refresh
       }
     } catch (error) {
       console.error('Bulk delete error:', error);
@@ -2776,12 +2778,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         })
       ));
 
-      // NCBK Recipe kayıtları
+      // NCBK Recipe kayıtları - Only create recipes for NEWLY created NCBK products
       for (const [key, ncbkResult] of Object.entries(ncbkResults)) {
         // Skip if not a valid result or already exists
         if (!ncbkResult || !ncbkResult.stok_kodu || ncbkResult.message === 'existing') {
+          console.log(`*** Skipping NCBK recipe creation for ${ncbkResult?.stok_kodu || 'unknown'}: ${ncbkResult?.message || 'invalid result'}`);
           continue;
         }
+        
+        console.log(`*** Creating recipes for NEWLY created NCBK: ${ncbkResult.stok_kodu}`);
         
         // Extract cap and length from stok_kodu (e.g., YM.NCBK.0500.465 -> cap=5.0, length=465)
         const stokParts = ncbkResult.stok_kodu.match(/YM\.NCBK\.(\d{4})\.(\d+)/);
@@ -2823,18 +2828,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         ];
 
-        // NCBK recipes kaydet - paralel işlem
-        await Promise.all(ncbkRecipes.map(recipe =>
-          fetchWithAuth(API_URLS.celikHasirNcbkRecete, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(recipe)
-          })
-        ));
+        // NCBK recipes kaydet - paralel işlem with error handling
+        const ncbkRecipeResults = await Promise.allSettled(ncbkRecipes.map(async (recipe) => {
+          try {
+            const response = await fetchWithAuth(API_URLS.celikHasirNcbkRecete, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(recipe)
+            });
+            if (response.status === 409) {
+              console.log(`*** NCBK recipe already exists for ${recipe.mamul_kodu} - ${recipe.operasyon_bilesen}`);
+              return { success: true, status: 'existing' };
+            } else if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return { success: true, status: 'created' };
+          } catch (error) {
+            console.warn(`NCBK recipe creation failed for ${recipe.mamul_kodu}:`, error);
+            return { success: false, error: error.message };
+          }
+        }));
+        
+        const successfulNcbkRecipes = ncbkRecipeResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failedNcbkRecipes = ncbkRecipeResults.filter(r => r.status === 'rejected' || !r.value?.success).length;
+        console.log(`*** NCBK recipes: ${successfulNcbkRecipes} successful, ${failedNcbkRecipes} failed`);
       }
 
-      // NTEL Recipe kayıtları - only if ntelResult exists (newly created)
+      // NTEL Recipe kayıtları - Only create recipes for NEWLY created NTEL products
       if (ntelResult && ntelResult.stok_kodu && ntelResult.message !== 'existing') {
+        console.log(`*** Creating recipes for NEWLY created NTEL: ${ntelResult.stok_kodu}`);
         // Extract cap from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.5)
         const ntelStokParts = ntelResult.stok_kodu.match(/YM\.NTEL\.(\d{4})/);
         const ntelCap = ntelStokParts ? parseInt(ntelStokParts[1]) / 100 : parseFloat(product.boyCap || 0);
@@ -2869,14 +2891,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         ];
 
-        // NTEL recipes kaydet - paralel işlem
-        await Promise.all(ntelRecipes.map(recipe =>
-          fetchWithAuth(API_URLS.celikHasirNtelRecete, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(recipe)
-          })
-        ));
+        // NTEL recipes kaydet - paralel işlem with error handling
+        const ntelRecipeResults = await Promise.allSettled(ntelRecipes.map(async (recipe) => {
+          try {
+            const response = await fetchWithAuth(API_URLS.celikHasirNtelRecete, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(recipe)
+            });
+            if (response.status === 409) {
+              console.log(`*** NTEL recipe already exists for ${recipe.mamul_kodu} - ${recipe.operasyon_bilesen}`);
+              return { success: true, status: 'existing' };
+            } else if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            return { success: true, status: 'created' };
+          } catch (error) {
+            console.warn(`NTEL recipe creation failed for ${recipe.mamul_kodu}:`, error);
+            return { success: false, error: error.message };
+          }
+        }));
+        
+        const successfulNtelRecipes = ntelRecipeResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failedNtelRecipes = ntelRecipeResults.filter(r => r.status === 'rejected' || !r.value?.success).length;
+        console.log(`*** NTEL recipes: ${successfulNtelRecipes} successful, ${failedNtelRecipes} failed`);
       }
 
     } catch (error) {
@@ -3582,6 +3620,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               newNtelResult: !!newNtelResult,
               willCreateRecipes: Object.keys(newNcbkResults).length > 0 || newNtelResult
             });
+            
+            // DEBUG: Log detailed NCBK results for troubleshooting
+            console.log('🔍 DEBUG - All NCBK Results:', ncbkResults);
+            console.log('🔍 DEBUG - Filtered New NCBK Results:', newNcbkResults);
+            Object.entries(ncbkResults).forEach(([key, result]) => {
+              console.log(`🔍 DEBUG - NCBK ${key}:`, {
+                hasStokKodu: !!result?.stok_kodu,
+                message: result?.message,
+                messageNotExisting: result?.message !== 'existing',
+                willBeIncluded: result && result.stok_kodu && result.message !== 'existing'
+              });
+            });
 
             // Always create CH recipes when CH is new, even if NCBK/NTEL exist
             // Use existing NCBK/NTEL if no new ones were created
@@ -3677,8 +3727,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           else if (productType === 'ntel') recipeApiUrl = API_URLS.celikHasirNtelRecete;
           
           if (recipeApiUrl) {
-            // Önce bu mamul_kodu ile reçete kayıtlarını getir
-            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`);
+            // Önce bu mamul_kodu ile reçete kayıtlarını getir (URL encode için)
+            const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+            console.log(`*** Fetching recipes for stok_kodu: ${product.stok_kodu} (encoded: ${encodedStokKodu})`);
+            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
+            console.log(`*** Recipe fetch response status: ${getRecipeResponse.status}`);
             
             if (getRecipeResponse.ok) {
               const recipes = await getRecipeResponse.json();
@@ -3754,8 +3807,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Update sequence table if we deleted a CH product
         await updateSequenceAfterDeletion(productType);
         
-        // Sonra fetch ile doğrula
-        await fetchSavedProducts();
+        // Force clear cache and refresh data to ensure immediate UI update
+        cacheRef.current.clear();
+        await fetchSavedProducts(false, true); // resetData=true for immediate refresh
       } else {
         toast.error('Ürün silinirken hata oluştu');
       }
@@ -3796,12 +3850,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Update both OZL and OZL_BACKUP sequences
         const updateTasks = ['OZL', 'OZL_BACKUP'].map(async (kod2) => {
           try {
+            console.log(`*** Searching for sequence with product_type=CH and kod_2=${kod2}`);
             const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=${kod2}`);
             if (existingSequenceResponse.ok) {
               const existingSequences = await existingSequenceResponse.json();
-              if (existingSequences.length > 0) {
-                const sequenceId = existingSequences[0].id;
-                const currentSequence = existingSequences[0].last_sequence;
+              console.log(`*** Found ${existingSequences.length} sequences for kod_2=${kod2}:`, existingSequences);
+              
+              // Filter to ensure we get the exact match (in case API filtering is not working)
+              const exactMatches = existingSequences.filter(seq => 
+                seq.product_type === 'CH' && seq.kod_2 === kod2
+              );
+              console.log(`*** Exact matches for kod_2=${kod2}:`, exactMatches);
+              
+              if (exactMatches.length > 0) {
+                const sequenceRecord = exactMatches[0];
+                const sequenceId = sequenceRecord.id;
+                const currentSequence = sequenceRecord.last_sequence;
+                
+                console.log(`*** Processing sequence update for ${kod2}: ID=${sequenceId}, current=${currentSequence}, newMax=${newMaxSequence}`);
                 
                 // Only update if current sequence is higher than the new max (meaning we deleted the highest)
                 if (currentSequence > newMaxSequence) {
@@ -3814,7 +3880,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 } else {
                   console.log(`*** ${kod2} sequence (${currentSequence}) is already <= new max (${newMaxSequence}), no update needed`);
                 }
+              } else {
+                console.warn(`*** No exact matches found for kod_2=${kod2}. Available sequences:`, existingSequences.map(s => ({ id: s.id, product_type: s.product_type, kod_2: s.kod_2 })));
               }
+            } else {
+              console.warn(`*** Failed to fetch sequences for kod_2=${kod2}: ${existingSequenceResponse.status}`);
             }
           } catch (error) {
             console.warn(`Error updating ${kod2} sequence:`, error);
@@ -3881,8 +3951,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (product.stok_kodu) {
           try {
-            // Önce bu mamul_kodu ile reçete kayıtlarını getir
-            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${product.stok_kodu}`);
+            // Önce bu mamul_kodu ile reçete kayıtlarını getir (URL encode için)
+            const encodedStokKodu = encodeURIComponent(product.stok_kodu);
+            console.log(`*** Fetching recipes for stok_kodu: ${product.stok_kodu} (encoded: ${encodedStokKodu})`);
+            const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
+            console.log(`*** Recipe fetch response status: ${getRecipeResponse.status}`);
             
             if (getRecipeResponse.ok) {
               const recipes = await getRecipeResponse.json();
@@ -4635,7 +4708,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               
               {/* Ürün Listesi */}
               <div className="space-y-3">
-                {getFilteredAndSortedProducts().map(product => (
+                {!isFilteringDb && getFilteredAndSortedProducts().map(product => (
                   <div key={product.id} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-3 flex-1">
@@ -4720,8 +4793,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   </div>
                 )}
                 
+                {/* Filter Loading Overlay */}
+                {isFilteringDb && (
+                  <div className="text-center py-12">
+                    <div className="flex flex-col items-center gap-4 text-gray-500">
+                      <div className="w-8 h-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+                      <div className="text-sm">Veriler getiriliyor...</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Empty State */}
-                {!backendError && getFilteredAndSortedProducts().length === 0 && !isLoadingDb && (
+                {!backendError && getFilteredAndSortedProducts().length === 0 && !isLoadingDb && !isFilteringDb && (
                   <div className="text-center py-8 text-gray-500">
                     {savedProducts[activeDbTab].length === 0 
                       ? "Bu kategoride kayıtlı ürün bulunmamaktadır."
