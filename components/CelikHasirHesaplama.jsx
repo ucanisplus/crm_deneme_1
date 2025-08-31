@@ -26,7 +26,8 @@ import {
   ArrowUpToLine,
   ArrowDownToLine,
   StickyNote,
-  Zap
+  Zap,
+  X
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -980,6 +981,14 @@ const processExcelWithMapping = (sheets, mapping) => {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrProvider, setOcrProvider] = useState('ocr.space');
   
+  // Kaynak Programı states
+  const [showKaynakProgrami, setShowKaynakProgrami] = useState(false);
+  const [kaynakProgramiData, setKaynakProgramiData] = useState([]);
+  const [isLoadingKaynakProgrami, setIsLoadingKaynakProgrami] = useState(false);
+  const [kaynakProgramiFile, setKaynakProgramiFile] = useState(null);
+  const [kaynakProgramiRawData, setKaynakProgramiRawData] = useState([]);
+  const [kaynakProgramiMapping, setKaynakProgramiMapping] = useState(null);
+  const [showKaynakProgramiMapping, setShowKaynakProgramiMapping] = useState(false);
 
   // İyileştirme işlemi durumu
   const [processingRowIndex, setProcessingRowIndex] = useState(null);
@@ -1016,6 +1025,7 @@ const processExcelWithMapping = (sheets, mapping) => {
   const mainTableRef = useRef(null);
   const tableHeaderRef = useRef(null);
   const celikHasirNetsisRef = useRef(null);
+  const kaynakProgramiFileInputRef = useRef(null);
   
   // Kolon genişlikleri için referans
   const resizingColumnRef = useRef(null);
@@ -1299,6 +1309,217 @@ const processExcelWithMapping = (sheets, mapping) => {
     });
     
     setRows(updatedRows);
+  };
+
+  // ============== KAYNAK PROGRAMI FUNCTIONS ==============
+  
+  // Kaynak Programı Excel file handler
+  const handleKaynakProgramiFile = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    setKaynakProgramiFile(file);
+    setIsLoadingKaynakProgrami(true);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = XLSX.read(e.target.result, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        
+        // Store raw data and detect columns automatically
+        setKaynakProgramiRawData(data);
+        const autoMapping = autoDetectKaynakProgramiColumns(data);
+        setKaynakProgramiMapping(autoMapping);
+        setShowKaynakProgramiMapping(true);
+        setIsLoadingKaynakProgrami(false);
+      } catch (error) {
+        console.error('Kaynak Programı dosyası okuma hatası:', error);
+        alert('Dosya okunurken hata oluştu. Lütfen geçerli bir Excel dosyası seçin.');
+        setIsLoadingKaynakProgrami(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
+  // Auto-detect Kaynak Programı columns based on expected structure
+  const autoDetectKaynakProgramiColumns = (data) => {
+    if (!data || data.length < 3) return {};
+    
+    // Get headers from first two rows
+    const headers1 = data[0] || [];
+    const headers2 = data[1] || [];
+    
+    const mapping = {};
+    
+    // Expected column positions based on deneme1.csv structure
+    const expectedMapping = {
+      sira: 0, // Row number
+      stokKodu: 1, // Stok kodu
+      firmaAdi: 2, // FİRMA ADI
+      stokKarti: 3, // Stok Kartı
+      hasirTipi: 4, // HASIR CİNSİ
+      hasirBoy: 5, // BOY
+      hasirEn: 6, // EN
+      hasirSayisi: 7, // HASIR SAYISI
+      boyCap: 8, // BOY ÇAP
+      enCap: 9, // EN ÇAP
+      aciklama: 10, // Açıklama
+      uzunlukBoy: 11, // UZUNLUK BOY
+      uzunlukEn: 12, // UZUNLUK EN
+      cubukSayisiBoy: 13, // ÇUBUK SAYISI BOY
+      cubukSayisiEn: 14, // ÇUBUK SAYISI EN
+      boyAraligi: 15, // ARA BOY
+      enAraligi: 16, // ARA EN
+      hasirSayisiTotal: 17, // HASIR SAYISI
+      solFiliz: 18, // SOL FİLİZ
+      sagFiliz: 19, // SAĞ FİLİZ
+      onFiliz: 20, // ÖN FİLİZ
+      arkaFiliz: 21, // ARKA FİLİZ
+      adet: 22, // ADET
+      toplamKg: 23 // TOPLAM KG
+    };
+    
+    // Try to auto-detect based on header content or use expected positions
+    for (const [field, expectedIndex] of Object.entries(expectedMapping)) {
+      mapping[field] = expectedIndex;
+    }
+    
+    return mapping;
+  };
+  
+  // Handle Kaynak Programı mapping confirmation
+  const handleKaynakProgramiMappingConfirm = (finalMapping) => {
+    if (!kaynakProgramiRawData.length) return;
+    
+    const parsedData = parseKaynakProgramiDataWithMapping(kaynakProgramiRawData, finalMapping);
+    setKaynakProgramiData(parsedData);
+    setShowKaynakProgramiMapping(false);
+  };
+  
+  // Parse Kaynak Programı data with custom column mapping
+  const parseKaynakProgramiDataWithMapping = (data, mapping) => {
+    if (!data || data.length < 3 || !mapping) return [];
+    
+    const parsedProducts = [];
+    
+    // Start from row 3 (index 2), skip headers
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (!row || row.length === 0) continue;
+      
+      // Skip empty rows - check key fields
+      const hasirTipi = row[mapping.hasirTipi] || '';
+      const uzunlukBoy = row[mapping.uzunlukBoy] || '';
+      const hasirSayisiTotal = row[mapping.hasirSayisiTotal] || '';
+      
+      if (!hasirTipi && !uzunlukBoy && !hasirSayisiTotal) continue;
+      
+      try {
+        const product = {
+          id: Date.now() + i,
+          sira: row[mapping.sira] || i - 1,
+          stokKodu: row[mapping.stokKodu] || '',
+          firmaAdi: row[mapping.firmaAdi] || '',
+          stokKarti: row[mapping.stokKarti] || '',
+          hasirTipi: hasirTipi,
+          hasirBoy: parseFloat(row[mapping.hasirBoy]) || 0,
+          hasirEn: parseFloat(row[mapping.hasirEn]) || 0,
+          hasirSayisi: parseInt(row[mapping.hasirSayisi]) || 0,
+          boyCap: parseFloat(row[mapping.boyCap]) || 0,
+          enCap: parseFloat(row[mapping.enCap]) || 0,
+          aciklama: row[mapping.aciklama] || '',
+          uzunlukBoy: parseInt(row[mapping.uzunlukBoy]) || 0,
+          uzunlukEn: parseInt(row[mapping.uzunlukEn]) || 0,
+          cubukSayisiBoy: parseInt(row[mapping.cubukSayisiBoy]) || 0,
+          cubukSayisiEn: parseInt(row[mapping.cubukSayisiEn]) || 0,
+          boyAraligi: parseInt(row[mapping.boyAraligi]) || 0,
+          enAraligi: parseInt(row[mapping.enAraligi]) || 0,
+          hasirSayisiTotal: parseInt(row[mapping.hasirSayisiTotal]) || 0,
+          solFiliz: parseFloat(row[mapping.solFiliz]) || 0,
+          sagFiliz: parseFloat(row[mapping.sagFiliz]) || 0,
+          onFiliz: parseFloat(row[mapping.onFiliz]) || 0,
+          arkaFiliz: parseFloat(row[mapping.arkaFiliz]) || 0,
+          adet: parseInt(row[mapping.adet]) || 0,
+          toplamKg: parseFloat(row[mapping.toplamKg]) || 0
+        };
+        
+        parsedProducts.push(product);
+      } catch (error) {
+        console.error(`Row ${i} parsing error:`, error);
+        continue;
+      }
+    }
+    
+    return parsedProducts;
+  };
+  
+  // Legacy parsing function for backward compatibility
+  const parseKaynakProgramiData = (data) => {
+    const defaultMapping = {
+      sira: 0, stokKodu: 1, firmaAdi: 2, stokKarti: 3, hasirTipi: 4,
+      hasirBoy: 5, hasirEn: 6, hasirSayisi: 7, boyCap: 8, enCap: 9,
+      aciklama: 10, uzunlukBoy: 11, uzunlukEn: 12, cubukSayisiBoy: 13,
+      cubukSayisiEn: 14, boyAraligi: 15, enAraligi: 16, hasirSayisiTotal: 17,
+      solFiliz: 18, sagFiliz: 19, onFiliz: 20, arkaFiliz: 21, adet: 22, toplamKg: 23
+    };
+    return parseKaynakProgramiDataWithMapping(data, defaultMapping);
+  };
+  
+  // Calculate total wire counts for Kaynak Programı
+  const calculateKaynakProgramiTotals = () => {
+    if (kaynakProgramiData.length === 0) {
+      alert('Önce Kaynak Programı verilerini yükleyin.');
+      return;
+    }
+    
+    let totalBoyCubuk = 0;
+    let totalEnCubuk = 0;
+    let totalWeight = 0;
+    
+    kaynakProgramiData.forEach(item => {
+      totalBoyCubuk += (item.cubukSayisiBoy || 0) * (item.hasirSayisi || item.hasirSayisiTotal || 0);
+      totalEnCubuk += (item.cubukSayisiEn || 0) * (item.hasirSayisi || item.hasirSayisiTotal || 0);
+      totalWeight += item.toplamKg || 0;
+    });
+    
+    const message = `
+Toplam Çubuk Sayıları (Kaynak Programı):
+
+Boy Çubukları: ${totalBoyCubuk.toLocaleString('tr-TR')} adet
+En Çubukları: ${totalEnCubuk.toLocaleString('tr-TR')} adet
+Toplam Ağırlık: ${totalWeight.toLocaleString('tr-TR')} kg
+
+Toplam Çubuk: ${(totalBoyCubuk + totalEnCubuk).toLocaleString('tr-TR')} adet`;
+    
+    alert(message);
+  };
+  
+  // Convert Kaynak Programı data to standard product format for Netsis operations
+  const convertKaynakProgramiToProducts = () => {
+    return kaynakProgramiData.map(item => ({
+      id: item.id,
+      hasirTipi: item.hasirTipi,
+      uzunlukBoy: item.uzunlukBoy,
+      uzunlukEn: item.uzunlukEn,
+      hasirSayisi: item.hasirSayisi || item.hasirSayisiTotal,
+      boyCap: item.boyCap,
+      enCap: item.enCap,
+      cubukSayisiBoy: item.cubukSayisiBoy,
+      cubukSayisiEn: item.cubukSayisiEn,
+      boyAraligi: item.boyAraligi,
+      enAraligi: item.enAraligi,
+      solFiliz: item.solFiliz,
+      sagFiliz: item.sagFiliz,
+      onFiliz: item.onFiliz,
+      arkaFiliz: item.arkaFiliz,
+      toplamKg: item.toplamKg,
+      adetKg: item.toplamKg / (item.hasirSayisi || item.hasirSayisiTotal || 1),
+      stokKodu: item.stokKodu,
+      isOptimized: true // Treat as already optimized since it comes from Kaynak Programı
+    }));
   };
 
   // Eşleşen sütunları bulmak için geliştirilmiş algoritma - Hasır Sayısı için iyileştirildi
@@ -6743,6 +6964,14 @@ useEffect(() => {
                   <CircleX size={16} />
                   Tümünü Sil
                 </button>
+                
+                <button 
+                  onClick={() => setShowKaynakProgrami(true)}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                >
+                  <Database size={16} />
+                  Hazır Kaynak Programı Yükle
+                </button>
               </div>
               
               {/* OCR İşlemi Göstergesi */}
@@ -7369,6 +7598,298 @@ useEffect(() => {
       onRemove={handleRemoveUnknownType}
       customTitle={currentUnknownType ? `Lütfen ${currentUnknownType} için teknik özellikleri giriniz veya listeden kaldırınız.` : undefined}
     />
+
+    {/* Kaynak Programı Modal */}
+    {showKaynakProgrami && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-7xl h-5/6 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Database size={24} />
+              Hazır Kaynak Programı Yükle
+            </h2>
+            <button
+              onClick={() => setShowKaynakProgrami(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {kaynakProgramiData.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <Database size={64} className="mx-auto mb-4 text-gray-400" />
+                <p className="text-gray-600 mb-4">
+                  Kaynak Programı Excel dosyası yükleyin.
+                  <br />
+                  Dosya deneme1.csv formatında olmalıdır.
+                </p>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleKaynakProgramiFile}
+                  className="hidden"
+                  ref={kaynakProgramiFileInputRef}
+                />
+                <button
+                  onClick={() => kaynakProgramiFileInputRef.current?.click()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 mx-auto hover:bg-blue-700"
+                  disabled={isLoadingKaynakProgrami}
+                >
+                  {isLoadingKaynakProgrami ? (
+                    <Loader size={16} className="animate-spin" />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  {isLoadingKaynakProgrami ? 'Yükleniyor...' : 'Excel Dosyası Yükle'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Kaynak Programı Table */}
+              <div className="flex-1 overflow-auto border border-gray-300 rounded-md">
+                <table className="w-full border-collapse bg-white text-xs">
+                  <thead className="sticky top-0 bg-gray-200">
+                    <tr>
+                      <th className="border border-gray-300 p-1 text-center">Sıra</th>
+                      <th className="border border-gray-300 p-1">Stok Kodu</th>
+                      <th className="border border-gray-300 p-1">Hasır Tipi</th>
+                      <th className="border border-gray-300 p-1">Uzunluk Boy</th>
+                      <th className="border border-gray-300 p-1">Uzunluk En</th>
+                      <th className="border border-gray-300 p-1">Hasır Sayısı</th>
+                      <th className="border border-gray-300 p-1">Boy Çap</th>
+                      <th className="border border-gray-300 p-1">En Çap</th>
+                      <th className="border border-gray-300 p-1">Çubuk Boy</th>
+                      <th className="border border-gray-300 p-1">Çubuk En</th>
+                      <th className="border border-gray-300 p-1">Boy Aralığı</th>
+                      <th className="border border-gray-300 p-1">En Aralığı</th>
+                      <th className="border border-gray-300 p-1">Sol Filiz</th>
+                      <th className="border border-gray-300 p-1">Sağ Filiz</th>
+                      <th className="border border-gray-300 p-1">Ön Filiz</th>
+                      <th className="border border-gray-300 p-1">Arka Filiz</th>
+                      <th className="border border-gray-300 p-1">Toplam Kg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kaynakProgramiData.map((item, index) => (
+                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="border border-gray-300 p-1 text-center">{item.sira}</td>
+                        <td className="border border-gray-300 p-1">{item.stokKodu}</td>
+                        <td className="border border-gray-300 p-1">{item.hasirTipi}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.uzunlukBoy}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.uzunlukEn}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.hasirSayisiTotal}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.boyCap}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.enCap}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.cubukSayisiBoy}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.cubukSayisiEn}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.boyAraligi}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.enAraligi}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.solFiliz}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.sagFiliz}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.onFiliz}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.arkaFiliz}</td>
+                        <td className="border border-gray-300 p-1 text-center">{item.toplamKg}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  onClick={() => setShowKaynakProgramiMapping(true)}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-md flex items-center gap-2 hover:bg-yellow-700"
+                >
+                  <Edit3 size={16} />
+                  Sütun Eşleştirmesini Değiştir
+                </button>
+                
+                <button
+                  onClick={calculateKaynakProgramiTotals}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md flex items-center gap-2 hover:bg-green-700"
+                >
+                  <Calculator size={16} />
+                  Toplam Çubuk Sayıları
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const convertedProducts = convertKaynakProgramiToProducts();
+                    celikHasirNetsisRef.current?.handleKaydetVeExcelOlustur(convertedProducts);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700"
+                >
+                  <Database size={16} />
+                  Kaydet ve Excel Oluştur
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const convertedProducts = convertKaynakProgramiToProducts();
+                    celikHasirNetsisRef.current?.handleSadeceExcelOlustur(convertedProducts);
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md flex items-center gap-2 hover:bg-purple-700"
+                >
+                  <FileSpreadsheet size={16} />
+                  Sadece Excel Oluştur
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const convertedProducts = convertKaynakProgramiToProducts();
+                    celikHasirNetsisRef.current?.handleVeritabaniIslemleri(convertedProducts);
+                  }}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-md flex items-center gap-2 hover:bg-orange-700"
+                >
+                  <Database size={16} />
+                  Veritabanı İşlemleri
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setKaynakProgramiData([]);
+                    setKaynakProgramiFile(null);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 hover:bg-red-700"
+                >
+                  <Trash2 size={16} />
+                  Temizle
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Kaynak Programı Column Mapping Modal */}
+    {showKaynakProgramiMapping && kaynakProgramiMapping && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="bg-white rounded-lg p-6 w-full max-w-6xl h-5/6 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Kaynak Programı Sütun Eşleştirmesi</h2>
+            <button
+              onClick={() => setShowKaynakProgramiMapping(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          <p className="text-sm text-gray-600 mb-4">
+            Excel dosyanızdaki sütunları doğru alanlara eşleştirin. Otomatik tespit edildi, gerekirse değiştirebilirsiniz.
+          </p>
+          
+          <div className="flex-1 overflow-auto">
+            <div className="grid grid-cols-2 gap-6">
+              {/* Left side - Field mapping */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Alan Eşleştirmesi</h3>
+                <div className="space-y-3 max-h-96 overflow-auto">
+                  {Object.entries({
+                    'Sıra': 'sira',
+                    'Stok Kodu': 'stokKodu', 
+                    'Firma Adı': 'firmaAdi',
+                    'Stok Kartı': 'stokKarti',
+                    'Hasır Tipi': 'hasirTipi',
+                    'Hasır Boy': 'hasirBoy',
+                    'Hasır En': 'hasirEn', 
+                    'Hasır Sayısı': 'hasirSayisi',
+                    'Boy Çap': 'boyCap',
+                    'En Çap': 'enCap',
+                    'Açıklama': 'aciklama',
+                    'Uzunluk Boy': 'uzunlukBoy',
+                    'Uzunluk En': 'uzunlukEn',
+                    'Çubuk Sayısı Boy': 'cubukSayisiBoy',
+                    'Çubuk Sayısı En': 'cubukSayisiEn',
+                    'Boy Aralığı': 'boyAraligi',
+                    'En Aralığı': 'enAraligi',
+                    'Hasır Sayısı (Total)': 'hasirSayisiTotal',
+                    'Sol Filiz': 'solFiliz',
+                    'Sağ Filiz': 'sagFiliz',
+                    'Ön Filiz': 'onFiliz',
+                    'Arka Filiz': 'arkaFiliz',
+                    'Adet': 'adet',
+                    'Toplam Kg': 'toplamKg'
+                  }).map(([label, field]) => (
+                    <div key={field} className="flex items-center gap-3">
+                      <label className="w-40 text-sm font-medium">{label}:</label>
+                      <select
+                        value={kaynakProgramiMapping[field] || ''}
+                        onChange={(e) => {
+                          const newMapping = { ...kaynakProgramiMapping };
+                          newMapping[field] = parseInt(e.target.value);
+                          setKaynakProgramiMapping(newMapping);
+                        }}
+                        className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
+                      >
+                        <option value="">Seçilmedi</option>
+                        {kaynakProgramiRawData[0] && kaynakProgramiRawData[0].map((header, index) => (
+                          <option key={index} value={index}>
+                            Sütun {index + 1}: {header || `(Boş - ${kaynakProgramiRawData[1]?.[index] || 'Veri yok'})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Right side - Data preview */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">Veri Önizlemesi (İlk 3 Satır)</h3>
+                <div className="overflow-auto max-h-96 border border-gray-300 rounded-md">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        {kaynakProgramiRawData[0] && kaynakProgramiRawData[0].map((header, index) => (
+                          <th key={index} className="border border-gray-300 p-2 text-center min-w-20">
+                            Sütun {index + 1}<br/>
+                            <span className="font-normal text-gray-600">
+                              {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kaynakProgramiRawData.slice(2, 5).map((row, rowIndex) => (
+                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          {row.map((cell, cellIndex) => (
+                            <td key={cellIndex} className="border border-gray-300 p-2 text-center">
+                              {cell || '-'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 flex justify-end gap-3">
+            <button
+              onClick={() => setShowKaynakProgramiMapping(false)}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+            >
+              İptal
+            </button>
+            <button
+              onClick={() => handleKaynakProgramiMappingConfirm(kaynakProgramiMapping)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Onay ve Devam Et
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     </div>
   );

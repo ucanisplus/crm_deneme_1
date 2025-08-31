@@ -6177,7 +6177,77 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Expose fetchSavedProducts to parent component
   React.useImperativeHandle(ref, () => ({
-    fetchSavedProducts
+    fetchSavedProducts,
+    
+    // Functions for Kaynak Programı integration
+    handleKaydetVeExcelOlustur: async (customProducts) => {
+      if (!customProducts || customProducts.length === 0) {
+        toast.warn('Excel oluşturmak için ürün listesi gerekli.');
+        return;
+      }
+      
+      setIsLoading(true);
+      try {
+        // Temporarily replace validProducts for this operation
+        const originalProducts = validProducts;
+        setProducts(customProducts); // This will update validProducts through useEffect
+        
+        // Wait for state update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Analyze products and show pre-save confirmation
+        const analysisData = await analyzeProductsForConfirmation();
+        setPreSaveConfirmData(analysisData);
+        setShowPreSaveConfirmModal(true);
+        
+      } catch (error) {
+        console.error('Kaynak Programı Kaydet ve Excel Oluştur hatası:', error);
+        toast.error('İşlem sırasında hata oluştu.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    
+    handleSadeceExcelOlustur: async (customProducts) => {
+      if (!customProducts || customProducts.length === 0) {
+        toast.warn('Excel oluşturmak için ürün listesi gerekli.');
+        return;
+      }
+      
+      setIsLoading(true);
+      try {
+        // Temporarily replace validProducts for this operation
+        const originalProducts = validProducts;
+        setProducts(customProducts);
+        
+        // Wait for state update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Show Excel options modal
+        setShowExcelOptionsModal(true);
+        
+      } catch (error) {
+        console.error('Kaynak Programı Sadece Excel Oluştur hatası:', error);
+        toast.error('İşlem sırasında hata oluştu.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    
+    handleVeritabaniIslemleri: (customProducts) => {
+      if (!customProducts || customProducts.length === 0) {
+        toast.warn('Veritabanı işlemi için ürün listesi gerekli.');
+        return;
+      }
+      
+      // Temporarily replace validProducts for this operation
+      setProducts(customProducts);
+      
+      // Wait for state update then show database modal
+      setTimeout(() => {
+        setShowDatabaseModal(true);
+      }, 100);
+    }
   }));
 
   return (
