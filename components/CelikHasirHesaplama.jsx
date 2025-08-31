@@ -354,26 +354,26 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   const sampleRows = sampleSheet?.data.slice(0, 20) || [];  // Show 20 samples
   const totalProductCount = sampleSheet?.data.length || 0;
   
-  // Auto-detect columns for Kaynak Programı using fixed column positions
+  // Auto-detect columns for Kaynak Programı using exact column positions
   const autoDetectKaynakProgramiColumns = () => {
-    // Use the corrected user-specified column positions (1-based converted to 0-based)
+    // Use exact user-specified column positions (1-based converted to 0-based)
     return {
-      hasirTipi: 4,          // Column 5: HASIR CİNSİ
-      boyCap: 8,             // Column 9: BOY ÇAP  
-      enCap: 9,              // Column 10: EN ÇAP
-      uzunlukBoy: 11,        // Column 12: UZUNLUK BOY
-      uzunlukEn: 12,         // Column 13: UZUNLUK EN
-      cubukSayisiBoy: 13,    // Column 14: ÇUBUK SAYISI BOY
-      cubukSayisiEn: 14,     // Column 15: ÇUBUK SAYISI EN
-      boyAraligi: 15,        // Column 16: Göz ARAlığı BOY  
-      enAraligi: 16,         // Column 17: Göz ARAlığı EN
-      hasirSayisi: 17,       // Column 18: HASIR SAYISI (Hasır Adedi)
-      solFiliz: 18,          // Column 19: SOL FİLİZ
-      sagFiliz: 19,          // Column 20: SAĞ FİLİZ
-      onFiliz: 20,           // Column 21: ÖN FİLİZ
-      arkaFiliz: 21,         // Column 22: ARKA FİLİZ
-      adetKg: 22,            // Column 23: ADET KG (Unit weight)
-      toplamKg: 23,          // Column 24: TOPLAM KG (total weight = unit weight * hasır sayısı)
+      hasirTipi: 4,          // Column 5: Hasır Tipi
+      boyCap: 8,             // Column 9: Boy Çap (mm)
+      enCap: 9,              // Column 10: En Çap (mm)
+      uzunlukBoy: 11,        // Column 12: Uzunluk Boy (cm)
+      uzunlukEn: 12,         // Column 13: Uzunluk En (cm)
+      cubukSayisiBoy: 13,    // Column 14: Boy Çubuk Sayısı
+      cubukSayisiEn: 14,     // Column 15: En Çubuk Sayısı
+      boyAraligi: 15,        // Column 16: Boy Aralığı (cm)
+      enAraligi: 16,         // Column 17: En Aralığı (cm)
+      hasirSayisi: 17,       // Column 18: Hasır Sayısı
+      solFiliz: 18,          // Column 19: Sol Filiz (cm)
+      sagFiliz: 19,          // Column 20: Sağ Filiz (cm)
+      onFiliz: 20,           // Column 21: Ön Filiz (cm)
+      arkaFiliz: 21,         // Column 22: Arka Filiz (cm)
+      adetKg: 22,            // Column 23: Adet Kg
+      toplamKg: 23,          // Column 24: Toplam Kg
       hasirTuru: -1          // No fixed column - usually calculated from hasirTipi + uzunlukBoy
     };
   };
@@ -4836,8 +4836,31 @@ const processExtractedTextFromOCR = (extractedText) => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
       // İlk 2 satırı başlık olarak al, geri kalanını veri olarak
-      const headers = jsonData[0] || [];
+      const row1 = jsonData[0] || []; // First header row
+      const row2 = jsonData[1] || []; // Second header row
       const dataRows = jsonData.slice(2); // Skip first 2 rows
+      
+      // Combine headers from both rows to create proper column titles
+      const headers = row1.map((header1, index) => {
+        const header2 = row2[index] || '';
+        
+        // If first row has content and second row has content, combine them
+        if (header1 && header2) {
+          return `${header1} ${header2}`;
+        }
+        // If only first row has content, use it
+        else if (header1) {
+          return header1;
+        }
+        // If only second row has content, use it
+        else if (header2) {
+          return header2;
+        }
+        // If neither has content, show column index
+        else {
+          return `Sütun ${index + 1}`;
+        }
+      });
       
       // Prepare sheet data for modal
       const sheetData = [{
@@ -4875,9 +4898,32 @@ const processExtractedTextFromOCR = (extractedText) => {
         return;
       }
       
-      // İlk satırı başlık olarak al, 3. satırdan başlayarak veri al
-      const headers = allRows[0] || [];
+      // İlk 2 satırı başlık olarak al, 3. satırdan başlayarak veri al
+      const row1 = allRows[0] || []; // First header row
+      const row2 = allRows[1] || []; // Second header row
       const dataRows = allRows.slice(2); // Skip first 2 rows
+      
+      // Combine headers from both rows to create proper column titles
+      const headers = row1.map((header1, index) => {
+        const header2 = row2[index] || '';
+        
+        // If first row has content and second row has content, combine them
+        if (header1 && header2) {
+          return `${header1} ${header2}`;
+        }
+        // If only first row has content, use it
+        else if (header1) {
+          return header1;
+        }
+        // If only second row has content, use it
+        else if (header2) {
+          return header2;
+        }
+        // If neither has content, show column index
+        else {
+          return `Sütun ${index + 1}`;
+        }
+      });
       
       // Prepare sheet data for modal
       const sheetData = [{
