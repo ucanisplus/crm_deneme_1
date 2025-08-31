@@ -1344,50 +1344,36 @@ const processExcelWithMapping = (sheets, mapping) => {
     reader.readAsArrayBuffer(file);
   };
   
-  // Auto-detect Kaynak Programı columns based on expected structure
+  // Auto-detect essential Kaynak Programı columns (only fields needed for calculations)
   const autoDetectKaynakProgramiColumns = (data) => {
     if (!data || data.length < 3) return {};
     
-    // Get headers from first two rows
-    const headers1 = data[0] || [];
-    const headers2 = data[1] || [];
+    // Get headers from first two rows for better detection
+    const headers1 = (data[0] || []).map(h => String(h).toLowerCase());
+    const headers2 = (data[1] || []).map(h => String(h).toLowerCase());
     
-    const mapping = {};
-    
-    // Expected column positions based on deneme1.csv structure
-    const expectedMapping = {
-      sira: 0, // Row number
-      stokKodu: 1, // Stok kodu
-      firmaAdi: 2, // FİRMA ADI
-      stokKarti: 3, // Stok Kartı
-      hasirTipi: 4, // HASIR CİNSİ
-      hasirBoy: 5, // BOY
-      hasirEn: 6, // EN
-      hasirSayisi: 7, // HASIR SAYISI
-      boyCap: 8, // BOY ÇAP
-      enCap: 9, // EN ÇAP
-      aciklama: 10, // Açıklama
-      uzunlukBoy: 11, // UZUNLUK BOY
-      uzunlukEn: 12, // UZUNLUK EN
-      cubukSayisiBoy: 13, // ÇUBUK SAYISI BOY
-      cubukSayisiEn: 14, // ÇUBUK SAYISI EN
-      boyAraligi: 15, // ARA BOY
-      enAraligi: 16, // ARA EN
-      hasirSayisiTotal: 17, // HASIR SAYISI
-      solFiliz: 18, // SOL FİLİZ
-      sagFiliz: 19, // SAĞ FİLİZ
-      onFiliz: 20, // ÖN FİLİZ
-      arkaFiliz: 21, // ARKA FİLİZ
-      adet: 22, // ADET
-      toplamKg: 23 // TOPLAM KG
+    const findColumn = (keywords) => {
+      for (let i = 0; i < Math.max(headers1.length, headers2.length); i++) {
+        const h1 = headers1[i] || '';
+        const h2 = headers2[i] || '';
+        const combined = (h1 + ' ' + h2).toLowerCase();
+        
+        if (keywords.some(keyword => combined.includes(keyword))) {
+          return i;
+        }
+      }
+      return -1;
     };
     
-    // Try to auto-detect based on header content or use expected positions
-    for (const [field, expectedIndex] of Object.entries(expectedMapping)) {
-      mapping[field] = expectedIndex;
-    }
-    
-    return mapping;
+    return {
+      hasirTipi: findColumn(['hasır', 'cinsi', 'tipi']) !== -1 ? findColumn(['hasır', 'cinsi', 'tipi']) : 4,
+      uzunlukBoy: findColumn(['uzunluk', 'boy']) !== -1 ? findColumn(['uzunluk', 'boy']) : 11,
+      uzunlukEn: findColumn(['uzunluk', 'en']) !== -1 ? findColumn(['uzunluk', 'en']) : 12,
+      hasirSayisi: findColumn(['hasır', 'sayisi', 'adet']) !== -1 ? findColumn(['hasır', 'sayisi', 'adet']) : 17,
+      boyCap: findColumn(['boy', 'çap', 'cap']) !== -1 ? findColumn(['boy', 'çap', 'cap']) : 8,
+      enCap: findColumn(['en', 'çap', 'cap']) !== -1 ? findColumn(['en', 'çap', 'cap']) : 9,
+      stokKodu: findColumn(['stok', 'kodu', 'kod']) !== -1 ? findColumn(['stok', 'kodu', 'kod']) : 1
+    };
   };
   
   // Handle Kaynak Programı mapping confirmation
@@ -1399,51 +1385,53 @@ const processExcelWithMapping = (sheets, mapping) => {
     setShowKaynakProgramiMapping(false);
   };
   
-  // Parse Kaynak Programı data with custom column mapping
+  // Parse Kaynak Programı data with essential fields only (auto-calculate the rest)
   const parseKaynakProgramiDataWithMapping = (data, mapping) => {
     if (!data || data.length < 3 || !mapping) return [];
     
     const parsedProducts = [];
     
-    // Start from row 3 (index 2), skip headers
+    // Start from row 3 (index 2), skip headers - auto-detect row numbering
     for (let i = 2; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
       
-      // Skip empty rows - check key fields
+      // Get essential fields only
       const hasirTipi = row[mapping.hasirTipi] || '';
-      const uzunlukBoy = row[mapping.uzunlukBoy] || '';
-      const hasirSayisiTotal = row[mapping.hasirSayisiTotal] || '';
+      const uzunlukBoy = parseInt(row[mapping.uzunlukBoy]) || 0;
+      const uzunlukEn = parseInt(row[mapping.uzunlukEn]) || 0;
+      const hasirSayisi = parseInt(row[mapping.hasirSayisi]) || 0;
       
-      if (!hasirTipi && !uzunlukBoy && !hasirSayisiTotal) continue;
+      // Skip empty rows - check essential fields
+      if (!hasirTipi && !uzunlukBoy && !uzunlukEn && !hasirSayisi) continue;
       
       try {
         const product = {
           id: Date.now() + i,
-          sira: row[mapping.sira] || i - 1,
-          stokKodu: row[mapping.stokKodu] || '',
-          firmaAdi: row[mapping.firmaAdi] || '',
-          stokKarti: row[mapping.stokKarti] || '',
+          sira: i - 1, // Auto-generated row number starting from 1
+          stokKodu: row[mapping.stokKodu] || '', // Optional - can be empty for new products
           hasirTipi: hasirTipi,
-          hasirBoy: parseFloat(row[mapping.hasirBoy]) || 0,
-          hasirEn: parseFloat(row[mapping.hasirEn]) || 0,
-          hasirSayisi: parseInt(row[mapping.hasirSayisi]) || 0,
+          uzunlukBoy: uzunlukBoy,
+          uzunlukEn: uzunlukEn, 
+          hasirSayisi: hasirSayisi,
           boyCap: parseFloat(row[mapping.boyCap]) || 0,
           enCap: parseFloat(row[mapping.enCap]) || 0,
-          aciklama: row[mapping.aciklama] || '',
-          uzunlukBoy: parseInt(row[mapping.uzunlukBoy]) || 0,
-          uzunlukEn: parseInt(row[mapping.uzunlukEn]) || 0,
-          cubukSayisiBoy: parseInt(row[mapping.cubukSayisiBoy]) || 0,
-          cubukSayisiEn: parseInt(row[mapping.cubukSayisiEn]) || 0,
-          boyAraligi: parseInt(row[mapping.boyAraligi]) || 0,
-          enAraligi: parseInt(row[mapping.enAraligi]) || 0,
-          hasirSayisiTotal: parseInt(row[mapping.hasirSayisiTotal]) || 0,
-          solFiliz: parseFloat(row[mapping.solFiliz]) || 0,
-          sagFiliz: parseFloat(row[mapping.sagFiliz]) || 0,
-          onFiliz: parseFloat(row[mapping.onFiliz]) || 0,
-          arkaFiliz: parseFloat(row[mapping.arkaFiliz]) || 0,
-          adet: parseInt(row[mapping.adet]) || 0,
-          toplamKg: parseFloat(row[mapping.toplamKg]) || 0
+          
+          // These will be calculated by existing formulas - set defaults
+          cubukSayisiBoy: 0,
+          cubukSayisiEn: 0, 
+          boyAraligi: 0,
+          enAraligi: 0,
+          solFiliz: 2.5, // Default filiz values
+          sagFiliz: 2.5,
+          onFiliz: 17.5,
+          arkaFiliz: 17.5,
+          toplamKg: 0, // Will be calculated
+          adetKg: 0, // Will be calculated
+          isOptimized: false, // Mark as needing optimization
+          
+          // Additional fields for display
+          hasirSayisiTotal: hasirSayisi // Same as hasirSayisi for compatibility
         };
         
         parsedProducts.push(product);
@@ -1504,21 +1492,21 @@ Toplam Çubuk: ${(totalBoyCubuk + totalEnCubuk).toLocaleString('tr-TR')} adet`;
       hasirTipi: item.hasirTipi,
       uzunlukBoy: item.uzunlukBoy,
       uzunlukEn: item.uzunlukEn,
-      hasirSayisi: item.hasirSayisi || item.hasirSayisiTotal,
-      boyCap: item.boyCap,
-      enCap: item.enCap,
-      cubukSayisiBoy: item.cubukSayisiBoy,
-      cubukSayisiEn: item.cubukSayisiEn,
-      boyAraligi: item.boyAraligi,
-      enAraligi: item.enAraligi,
-      solFiliz: item.solFiliz,
-      sagFiliz: item.sagFiliz,
-      onFiliz: item.onFiliz,
-      arkaFiliz: item.arkaFiliz,
-      toplamKg: item.toplamKg,
-      adetKg: item.toplamKg / (item.hasirSayisi || item.hasirSayisiTotal || 1),
-      stokKodu: item.stokKodu,
-      isOptimized: true // Treat as already optimized since it comes from Kaynak Programı
+      hasirSayisi: item.hasirSayisi,
+      boyCap: item.boyCap || 0,
+      enCap: item.enCap || 0,
+      cubukSayisiBoy: item.cubukSayisiBoy || 0,
+      cubukSayisiEn: item.cubukSayisiEn || 0, 
+      boyAraligi: item.boyAraligi || 0,
+      enAraligi: item.enAraligi || 0,
+      solFiliz: item.solFiliz || 2.5,
+      sagFiliz: item.sagFiliz || 2.5,
+      onFiliz: item.onFiliz || 17.5,
+      arkaFiliz: item.arkaFiliz || 17.5,
+      toplamKg: item.toplamKg || 0,
+      adetKg: item.adetKg || 0,
+      stokKodu: item.stokKodu || '',
+      isOptimized: item.isOptimized || false // Let formulas calculate if not optimized
     }));
   };
 
@@ -7766,114 +7754,212 @@ useEffect(() => {
       </div>
     )}
 
-    {/* Kaynak Programı Column Mapping Modal */}
-    {showKaynakProgramiMapping && kaynakProgramiMapping && (
+    {/* Kaynak Programı Column Mapping Modal - Simple Design like Main */}
+    {showKaynakProgramiMapping && kaynakProgramiMapping && kaynakProgramiRawData.length > 0 && (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-        <div className="bg-white rounded-lg p-6 w-full max-w-6xl h-5/6 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Kaynak Programı Sütun Eşleştirmesi</h2>
-            <button
-              onClick={() => setShowKaynakProgramiMapping(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X size={24} />
-            </button>
+        <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Kaynak Programı Sütunlarını Eşleştir</h2>
+            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+              {kaynakProgramiRawData.length - 2} ürün tespit edildi
+            </span>
           </div>
           
-          <p className="text-sm text-gray-600 mb-4">
-            Excel dosyanızdaki sütunları doğru alanlara eşleştirin. Otomatik tespit edildi, gerekirse değiştirebilirsiniz.
-          </p>
-          
-          <div className="flex-1 overflow-auto">
-            <div className="grid grid-cols-2 gap-6">
-              {/* Left side - Field mapping */}
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 mb-4">
+              Sadece gerekli sütunları seçin. Diğer değerler formüllerle hesaplanacak:
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <div>
-                <h3 className="text-lg font-semibold mb-3">Alan Eşleştirmesi</h3>
-                <div className="space-y-3 max-h-96 overflow-auto">
-                  {Object.entries({
-                    'Sıra': 'sira',
-                    'Stok Kodu': 'stokKodu', 
-                    'Firma Adı': 'firmaAdi',
-                    'Stok Kartı': 'stokKarti',
-                    'Hasır Tipi': 'hasirTipi',
-                    'Hasır Boy': 'hasirBoy',
-                    'Hasır En': 'hasirEn', 
-                    'Hasır Sayısı': 'hasirSayisi',
-                    'Boy Çap': 'boyCap',
-                    'En Çap': 'enCap',
-                    'Açıklama': 'aciklama',
-                    'Uzunluk Boy': 'uzunlukBoy',
-                    'Uzunluk En': 'uzunlukEn',
-                    'Çubuk Sayısı Boy': 'cubukSayisiBoy',
-                    'Çubuk Sayısı En': 'cubukSayisiEn',
-                    'Boy Aralığı': 'boyAraligi',
-                    'En Aralığı': 'enAraligi',
-                    'Hasır Sayısı (Total)': 'hasirSayisiTotal',
-                    'Sol Filiz': 'solFiliz',
-                    'Sağ Filiz': 'sagFiliz',
-                    'Ön Filiz': 'onFiliz',
-                    'Arka Filiz': 'arkaFiliz',
-                    'Adet': 'adet',
-                    'Toplam Kg': 'toplamKg'
-                  }).map(([label, field]) => (
-                    <div key={field} className="flex items-center gap-3">
-                      <label className="w-40 text-sm font-medium">{label}:</label>
-                      <select
-                        value={kaynakProgramiMapping[field] || ''}
-                        onChange={(e) => {
-                          const newMapping = { ...kaynakProgramiMapping };
-                          newMapping[field] = parseInt(e.target.value);
-                          setKaynakProgramiMapping(newMapping);
-                        }}
-                        className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
-                      >
-                        <option value="">Seçilmedi</option>
-                        {kaynakProgramiRawData[0] && kaynakProgramiRawData[0].map((header, index) => (
-                          <option key={index} value={index}>
-                            Sütun {index + 1}: {header || `(Boş - ${kaynakProgramiRawData[1]?.[index] || 'Veri yok'})`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hasır Tipi (Zorunlu) {kaynakProgramiMapping.hasirTipi !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.hasirTipi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.hasirTipi}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.hasirTipi = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
               
-              {/* Right side - Data preview */}
               <div>
-                <h3 className="text-lg font-semibold mb-3">Veri Önizlemesi (İlk 3 Satır)</h3>
-                <div className="overflow-auto max-h-96 border border-gray-300 rounded-md">
-                  <table className="w-full text-xs border-collapse">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        {kaynakProgramiRawData[0] && kaynakProgramiRawData[0].map((header, index) => (
-                          <th key={index} className="border border-gray-300 p-2 text-center min-w-20">
-                            Sütun {index + 1}<br/>
-                            <span className="font-normal text-gray-600">
-                              {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kaynakProgramiRawData.slice(2, 5).map((row, rowIndex) => (
-                        <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          {row.map((cell, cellIndex) => (
-                            <td key={cellIndex} className="border border-gray-300 p-2 text-center">
-                              {cell || '-'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Uzunluk Boy (Zorunlu) {kaynakProgramiMapping.uzunlukBoy !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.uzunlukBoy !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.uzunlukBoy}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.uzunlukBoy = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Uzunluk En (Zorunlu) {kaynakProgramiMapping.uzunlukEn !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.uzunlukEn !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.uzunlukEn}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.uzunlukEn = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hasır Sayısı (Zorunlu) {kaynakProgramiMapping.hasirSayisi !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.hasirSayisi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.hasirSayisi}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.hasirSayisi = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Boy Çap (İsteğe bağlı) {kaynakProgramiMapping.boyCap !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.boyCap !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.boyCap}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.boyCap = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  En Çap (İsteğe bağlı) {kaynakProgramiMapping.enCap !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.enCap !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.enCap}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.enCap = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stok Kodu (İsteğe bağlı) {kaynakProgramiMapping.stokKodu !== -1 && <span className="text-green-600 text-xs">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select 
+                  className={`w-full border rounded-md p-2 ${kaynakProgramiMapping.stokKodu !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={kaynakProgramiMapping.stokKodu}
+                  onChange={(e) => {
+                    const newMapping = { ...kaynakProgramiMapping };
+                    newMapping.stokKodu = parseInt(e.target.value);
+                    setKaynakProgramiMapping(newMapping);
+                  }}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {(kaynakProgramiRawData[0] || []).map((header, index) => (
+                    <option key={index} value={index}>
+                      Sütun {index + 1}: {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
           
-          <div className="mt-4 flex justify-end gap-3">
+          {/* Preview Table */}
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold mb-2">Veri Önizlemesi (İlk 5 Satır)</h3>
+            <div className="overflow-x-auto border border-gray-300 rounded-md max-h-60">
+              <table className="w-full border-collapse text-xs">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    {(kaynakProgramiRawData[0] || []).slice(0, 15).map((header, index) => (
+                      <th key={index} className="border border-gray-300 p-1 text-center min-w-16">
+                        {index + 1}<br/>
+                        <span className="font-normal text-gray-600 text-xs">
+                          {header || kaynakProgramiRawData[1]?.[index] || '(Boş)'}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {kaynakProgramiRawData.slice(2, 7).map((row, rowIndex) => (
+                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {row.slice(0, 15).map((cell, cellIndex) => (
+                        <td key={cellIndex} className="border border-gray-300 p-1 text-center">
+                          {cell || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3">
             <button
               onClick={() => setShowKaynakProgramiMapping(false)}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
@@ -7881,7 +7967,14 @@ useEffect(() => {
               İptal
             </button>
             <button
-              onClick={() => handleKaynakProgramiMappingConfirm(kaynakProgramiMapping)}
+              onClick={() => {
+                if (kaynakProgramiMapping.hasirTipi === -1 || kaynakProgramiMapping.uzunlukBoy === -1 || 
+                    kaynakProgramiMapping.uzunlukEn === -1 || kaynakProgramiMapping.hasirSayisi === -1) {
+                  alert('Lütfen tüm zorunlu sütunları seçin.');
+                  return;
+                }
+                handleKaynakProgramiMappingConfirm(kaynakProgramiMapping);
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Onay ve Devam Et
