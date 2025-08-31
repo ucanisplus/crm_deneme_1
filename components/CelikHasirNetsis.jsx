@@ -6182,17 +6182,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       <strong>{preSaveConfirmData.batchDuplicates.length} duplike ürün</strong> tespit edildi. 
                       Bu ürünler listede birden fazla kez bulunuyor ve sadece bir kez kaydedilecek:
                     </div>
-                    <div className="max-h-32 overflow-y-auto">
-                      {preSaveConfirmData.batchDuplicates.map((duplicate, index) => (
-                        <div key={index} className="mb-2 p-2 bg-white rounded border border-orange-200">
-                          <div className="font-medium text-orange-800">
-                            {duplicate.stokAdi}
+                    <div className="max-h-40 overflow-y-auto">
+                      {preSaveConfirmData.batchDuplicates.map((duplicate, index) => {
+                        // Extract Göz Aralığı from stok adı
+                        const gozMatch = duplicate.stokAdi.match(/Göz Ara\(([^)]+)\)/);
+                        const gozAraligi = gozMatch ? gozMatch[1] : 'N/A';
+                        
+                        // Check if this product already exists in database
+                        const existingProduct = [...(savedProducts.mm || [])].find(p => 
+                          p.stok_adi === duplicate.stokAdi
+                        );
+                        
+                        const isExisting = !!existingProduct;
+                        const assignedStokKodu = isExisting 
+                          ? existingProduct.stok_kodu 
+                          : `CHOZL${sequences.CHOZL || '2400'}+ (yeni)`;
+                        
+                        return (
+                          <div key={index} className="mb-2 p-2 bg-white rounded border border-orange-200">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="font-medium text-orange-800 flex-1">
+                                {duplicate.stokAdi}
+                              </div>
+                              <div className={`text-xs px-2 py-1 rounded ml-2 ${
+                                isExisting 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {isExisting ? 'Mevcut' : 'Yeni'}
+                              </div>
+                            </div>
+                            <div className="text-xs text-orange-600 mb-1">
+                              Specs: {duplicate.hasirTipi} - {duplicate.uzunlukBoy}x{duplicate.uzunlukEn}cm - Göz: {gozAraligi}
+                            </div>
+                            <div className="text-xs font-mono text-gray-600">
+                              Stok Kodu: <span className={isExisting ? 'text-blue-600' : 'text-green-600'}>
+                                {assignedStokKodu}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-xs text-orange-600 mt-1">
-                            Duplike: {duplicate.hasirTipi} - {duplicate.uzunlukBoy}x{duplicate.uzunlukEn}cm - Göz: {duplicate.gozAraligi || 'N/A'}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="mt-2 text-xs text-orange-700 bg-orange-100 p-2 rounded">
                       💡 Bu duplike ürünler otomatik olarak filtrelenecek ve sadece bir kez veritabanına kaydedilecek.
