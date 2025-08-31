@@ -1589,14 +1589,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Analyze products and categorize them into new vs existing with full details
   const analyzeProductsForConfirmation = async () => {
-    if (validProducts.length === 0) return { newProducts: [], existingProducts: [] };
+    if (validProducts.length === 0) return { newProducts: [], existingProducts: [], batchDuplicates: [] };
     
     // Initialize batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
     const newProducts = [];
     const existingProducts = [];
+    const batchDuplicates = []; // Track duplicates within current batch
     let modalBatchIndex = 0;
+    
+    // First pass: identify duplicates within the batch itself
+    const batchStokAdiMap = new Map(); // Map Stok Adı to first occurrence index
+    const batchUniqueProducts = []; // Products after removing batch duplicates
+    
+    for (let i = 0; i < validProducts.length; i++) {
+      const product = validProducts[i];
+      const productStokAdi = generateStokAdi(product, 'CH');
+      
+      if (batchStokAdiMap.has(productStokAdi)) {
+        // This is a duplicate within the batch
+        const firstOccurrenceIndex = batchStokAdiMap.get(productStokAdi);
+        batchDuplicates.push({
+          ...product,
+          duplicateOfIndex: firstOccurrenceIndex,
+          stokAdi: productStokAdi
+        });
+      } else {
+        // First occurrence of this Stok Adı in the batch
+        batchStokAdiMap.set(productStokAdi, i);
+        batchUniqueProducts.push(product);
+      }
+    }
     
     // CRITICAL FIX: Force fresh data fetch before analysis to avoid stale cache
     // This prevents deleted products from appearing as "existing" when trying to re-add them
@@ -1648,7 +1672,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         .trim();
     };
     
-    for (const product of validProducts) {
+    // Second pass: check unique products against database
+    for (const product of batchUniqueProducts) {
       // Generate the Stok Adı for this product
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
@@ -2021,7 +2046,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       existingProductsData: existingProducts
     });
     
-    return { newProducts, existingProducts };
+    return { newProducts, existingProducts, batchDuplicates };
   };
 
 
@@ -3573,8 +3598,33 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
       const newProducts = [];
       const skippedProducts = [];
+      const batchDuplicates = []; // Track duplicates within current batch
       
-      for (const product of productsToSave) {
+      // First pass: identify duplicates within the batch itself
+      const batchStokAdiMap = new Map(); // Map Stok Adı to first occurrence index
+      const batchUniqueProducts = []; // Products after removing batch duplicates
+      
+      for (let i = 0; i < productsToSave.length; i++) {
+        const product = productsToSave[i];
+        const productStokAdi = generateStokAdi(product, 'CH');
+        
+        if (batchStokAdiMap.has(productStokAdi)) {
+          // This is a duplicate within the batch
+          const firstOccurrenceIndex = batchStokAdiMap.get(productStokAdi);
+          batchDuplicates.push({
+            ...product,
+            duplicateOfIndex: firstOccurrenceIndex,
+            stokAdi: productStokAdi
+          });
+        } else {
+          // First occurrence of this Stok Adı in the batch
+          batchStokAdiMap.set(productStokAdi, i);
+          batchUniqueProducts.push(product);
+        }
+      }
+      
+      // Second pass: check unique products against database
+      for (const product of batchUniqueProducts) {
         // Generate Stok Adı for identification
         const productStokAdi = generateStokAdi(product, 'CH');
         
@@ -3681,10 +3731,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Show a more detailed modal with all Stok Kodus
         console.log('*** SETTING MODAL DATA FOR SKIPPED PRODUCTS ***');
         console.log('skippedProducts:', skippedProducts);
+        console.log('batchDuplicates:', batchDuplicates);
         console.log('allSkippedStokKodusList:', skippedStokKodusList);
         setPreSaveConfirmData({
           newProducts: [],
           skippedProducts: skippedProducts,
+          batchDuplicates: batchDuplicates,
           allSkippedStokKodus: skippedStokKodusList
         });
         setShowPreSaveConfirmModal(true);
@@ -3701,10 +3753,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // İlerleme tracking
       let processedCount = 0;
       const totalCount = newProducts.length;
+      const duplicateMessage = batchDuplicates.length > 0 ? `, ${batchDuplicates.length} duplike ürün` : '';
       setDatabaseProgress({ 
         current: 0, 
         total: totalCount, 
-        operation: `${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor...`,
+        operation: `${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor${duplicateMessage}...`,
         currentProduct: unoptimizedCount > 0 ? `(${unoptimizedCount} optimize edilmemiş)` : ''
       });
       
@@ -5963,6 +6016,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <div className="text-2xl font-bold text-blue-600">{preSaveConfirmData.existingProducts?.length || preSaveConfirmData.skippedProducts?.length || 0}</div>
                   <div className="text-sm text-blue-600">Zaten kayıtlı</div>
                 </div>
+                
+                {preSaveConfirmData.batchDuplicates && preSaveConfirmData.batchDuplicates.length > 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex-1">
+                    <div className="font-medium text-orange-800">Duplike Ürünler</div>
+                    <div className="text-2xl font-bold text-orange-600">{preSaveConfirmData.batchDuplicates.length}</div>
+                    <div className="text-sm text-orange-600">Listede tekrarlanan</div>
+                  </div>
+                )}
               </div>
               
               {preSaveConfirmData.newProducts.length > 0 && (
@@ -6106,6 +6167,36 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+              
+              {preSaveConfirmData.batchDuplicates && preSaveConfirmData.batchDuplicates.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-800 mb-2 flex items-center gap-2">
+                    <span className="text-orange-600">⚠️</span> 
+                    Duplike Ürünler:
+                  </h4>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                    <div className="mb-2 text-orange-800">
+                      <strong>{preSaveConfirmData.batchDuplicates.length} duplike ürün</strong> tespit edildi. 
+                      Bu ürünler listede birden fazla kez bulunuyor ve sadece bir kez kaydedilecek:
+                    </div>
+                    <div className="max-h-32 overflow-y-auto">
+                      {preSaveConfirmData.batchDuplicates.map((duplicate, index) => (
+                        <div key={index} className="mb-2 p-2 bg-white rounded border border-orange-200">
+                          <div className="font-medium text-orange-800">
+                            {duplicate.stokAdi}
+                          </div>
+                          <div className="text-xs text-orange-600 mt-1">
+                            Duplike: {duplicate.hasirTipi} - {duplicate.uzunlukBoy}x{duplicate.uzunlukEn}cm - Göz: {duplicate.gozAraligi || 'N/A'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-xs text-orange-700 bg-orange-100 p-2 rounded">
+                      💡 Bu duplike ürünler otomatik olarak filtrelenecek ve sadece bir kez veritabanına kaydedilecek.
+                    </div>
                   </div>
                 </div>
               )}
