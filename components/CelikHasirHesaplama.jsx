@@ -356,25 +356,19 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   
   // Auto-detect columns for Kaynak Programı using fixed column positions
   const autoDetectKaynakProgramiColumns = () => {
-    // Use the corrected user-specified column positions (1-based converted to 0-based)
+    // Only import essential columns - let system calculate others like toggle ON mode
     return {
-      stokKodu: 1,           // Column 2: Stok kodu (optional)
       hasirTipi: 4,          // Column 5: HASIR CİNSİ
-      boyCap: 8,             // Column 9: BOY ÇAP  
-      enCap: 9,              // Column 10: EN ÇAP
       uzunlukBoy: 11,        // Column 12: UZUNLUK BOY
       uzunlukEn: 12,         // Column 13: UZUNLUK EN
+      hasirSayisi: 17,       // Column 18: HASIR SAYISI (Hasır Adedi)
       cubukSayisiBoy: 13,    // Column 14: ÇUBUK SAYISI BOY
       cubukSayisiEn: 14,     // Column 15: ÇUBUK SAYISI EN
-      boyAraligi: 15,        // Column 16: Göz ARAlığı BOY  
-      enAraligi: 16,         // Column 17: Göz ARAlığı EN
-      hasirSayisi: 17,       // Column 18: HASIR SAYISI (Hasır Adedi)
       solFiliz: 18,          // Column 19: SOL FİLİZ
       sagFiliz: 19,          // Column 20: SAĞ FİLİZ
       onFiliz: 20,           // Column 21: ÖN FİLİZ
       arkaFiliz: 21,         // Column 22: ARKA FİLİZ
-      adetKg: 22,            // Column 23: ADET KG (Unit weight)
-      toplamKg: 23           // Column 24: TOPLAM KG (total weight = unit weight * hasır sayısı)
+      adetKg: 22             // Column 23: ADET KG (Unit weight)
     };
   };
   
@@ -397,8 +391,8 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   
   const handleConfirm = () => {
     // Check required fields
-    if (mapping.hasirTipi === -1 || mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1) {
-      alert('Lütfen en az Hasır Tipi, Uzunluk Boy, Uzunluk En ve Hasır Sayısı sütunlarını seçin.');
+    if (mapping.hasirTipi === -1 || mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1 || mapping.adetKg === -1) {
+      alert('Lütfen Hasır Tipi, Uzunluk Boy, Uzunluk En, Hasır Sayısı ve Adet Kg sütunlarını seçin.');
       return;
     }
     
@@ -429,7 +423,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
           </p>
           
           <div className="grid grid-cols-3 gap-4 mb-6">
-            {/* Required Fields */}
+            {/* Required Main Fields */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Hasır Tipi (Q/R/TR) <span className="text-red-500">*</span>
@@ -506,7 +500,26 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
               </select>
             </div>
 
-            {/* Wire Count Fields */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Adet Kg (Birim Ağırlık) <span className="text-red-500">*</span>
+                {isAutoSelected('adetKg', mapping.adetKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.adetKg !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.adetKg}
+                onChange={(e) => handleMappingChange('adetKg', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pre-calculated Values to Import */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Boy Çubuk Sayısı
@@ -545,7 +558,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
               </select>
             </div>
 
-            {/* Filiz Fields */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Sol Filiz (cm)
@@ -621,64 +633,12 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                 ))}
               </select>
             </div>
-
-            {/* Additional Optional Fields */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Stok Kodu (İsteğe bağlı)
-                {isAutoSelected('stokKodu', mapping.stokKodu) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
-              </label>
-              <select 
-                className={`w-full border rounded-md p-2 ${mapping.stokKodu !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.stokKodu}
-                onChange={(e) => handleMappingChange('stokKodu', e.target.value)}
-              >
-                <option value="-1">Seçiniz</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={index}>
-                    {header || `Sütun ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Adet Kg (Birim Ağırlık)
-                {isAutoSelected('adetKg', mapping.adetKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
-              </label>
-              <select 
-                className={`w-full border rounded-md p-2 ${mapping.adetKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.adetKg}
-                onChange={(e) => handleMappingChange('adetKg', e.target.value)}
-              >
-                <option value="-1">Seçiniz</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={index}>
-                    {header || `Sütun ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Toplam Kg (Toplam Ağırlık)
-                {isAutoSelected('toplamKg', mapping.toplamKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
-              </label>
-              <select 
-                className={`w-full border rounded-md p-2 ${mapping.toplamKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.toplamKg}
-                onChange={(e) => handleMappingChange('toplamKg', e.target.value)}
-              >
-                <option value="-1">Seçiniz</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={index}>
-                    {header || `Sütun ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
+          
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">
+              <strong>Not:</strong> Hasır Türü, Boy Çap, En Çap, Boy Aralığı, En Aralığı ve Toplam Kg değerleri sistem tarafından otomatik hesaplanacaktır (normal mod gibi).
+            </p>
           </div>
           
           <div className="overflow-x-auto mb-4 border border-gray-200 rounded-md max-h-96">
@@ -694,9 +654,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                         <span className="truncate max-w-[120px]" title={header || `Sütun ${index + 1}`}>
                           {header || `Sütun ${index + 1}`}
                         </span>
-                        {mapping.stokKodu === index && (
-                          <span className="text-orange-600 text-[10px]">(Stok Kodu)</span>
-                        )}
                         {mapping.hasirTipi === index && (
                           <span className="text-green-600 text-[10px]">(Hasır Tipi)</span>
                         )}
@@ -708,6 +665,9 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                         )}
                         {mapping.hasirSayisi === index && (
                           <span className="text-green-600 text-[10px]">(Sayı)</span>
+                        )}
+                        {mapping.adetKg === index && (
+                          <span className="text-green-600 text-[10px]">(Adet Kg)</span>
                         )}
                         {mapping.cubukSayisiBoy === index && (
                           <span className="text-blue-600 text-[10px]">(Boy Çubuk)</span>
@@ -726,12 +686,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                         )}
                         {mapping.arkaFiliz === index && (
                           <span className="text-purple-600 text-[10px]">(Arka Filiz)</span>
-                        )}
-                        {mapping.adetKg === index && (
-                          <span className="text-orange-600 text-[10px]">(Adet Kg)</span>
-                        )}
-                        {mapping.toplamKg === index && (
-                          <span className="text-orange-600 text-[10px]">(Toplam Kg)</span>
                         )}
                       </div>
                     </th>
@@ -4821,18 +4775,9 @@ const processExtractedTextFromOCR = (extractedText) => {
         
         const newRow = createEmptyRow(newRows.length);
         
-        // Map data based on user-selected columns
-        if (mapping.stokKodu >= 0 && row[mapping.stokKodu] !== undefined) {
-          newRow.stokKodu = String(row[mapping.stokKodu] || '');
-        }
+        // Map only essential data from Excel - let system calculate the rest
         if (mapping.hasirTipi >= 0 && row[mapping.hasirTipi] !== undefined) {
           newRow.hasirTipi = String(row[mapping.hasirTipi] || '');
-        }
-        if (mapping.boyCap >= 0 && row[mapping.boyCap] !== undefined) {
-          newRow.boyCap = parseFloat(row[mapping.boyCap]) || 0;
-        }
-        if (mapping.enCap >= 0 && row[mapping.enCap] !== undefined) {
-          newRow.enCap = parseFloat(row[mapping.enCap]) || 0;
         }
         if (mapping.uzunlukBoy >= 0 && row[mapping.uzunlukBoy] !== undefined) {
           newRow.uzunlukBoy = parseFloat(row[mapping.uzunlukBoy]) || 0;
@@ -4840,20 +4785,19 @@ const processExtractedTextFromOCR = (extractedText) => {
         if (mapping.uzunlukEn >= 0 && row[mapping.uzunlukEn] !== undefined) {
           newRow.uzunlukEn = parseFloat(row[mapping.uzunlukEn]) || 0;
         }
+        if (mapping.hasirSayisi >= 0 && row[mapping.hasirSayisi] !== undefined) {
+          newRow.hasirSayisi = parseInt(row[mapping.hasirSayisi]) || 0;
+        }
+        if (mapping.adetKg >= 0 && row[mapping.adetKg] !== undefined) {
+          newRow.adetKg = parseFloat(row[mapping.adetKg]) || 0;
+        }
+        
+        // Import pre-calculated values if available
         if (mapping.cubukSayisiBoy >= 0 && row[mapping.cubukSayisiBoy] !== undefined) {
           newRow.cubukSayisiBoy = parseInt(row[mapping.cubukSayisiBoy]) || 0;
         }
         if (mapping.cubukSayisiEn >= 0 && row[mapping.cubukSayisiEn] !== undefined) {
           newRow.cubukSayisiEn = parseInt(row[mapping.cubukSayisiEn]) || 0;
-        }
-        if (mapping.boyAraligi >= 0 && row[mapping.boyAraligi] !== undefined) {
-          newRow.boyAraligi = parseFloat(row[mapping.boyAraligi]) || 0;
-        }
-        if (mapping.enAraligi >= 0 && row[mapping.enAraligi] !== undefined) {
-          newRow.enAraligi = parseFloat(row[mapping.enAraligi]) || 0;
-        }
-        if (mapping.hasirSayisi >= 0 && row[mapping.hasirSayisi] !== undefined) {
-          newRow.hasirSayisi = parseInt(row[mapping.hasirSayisi]) || 0;
         }
         if (mapping.solFiliz >= 0 && row[mapping.solFiliz] !== undefined) {
           newRow.solFiliz = parseFloat(row[mapping.solFiliz]) || 0;
@@ -4867,26 +4811,50 @@ const processExtractedTextFromOCR = (extractedText) => {
         if (mapping.arkaFiliz >= 0 && row[mapping.arkaFiliz] !== undefined) {
           newRow.arkaFiliz = parseFloat(row[mapping.arkaFiliz]) || 0;
         }
-        if (mapping.adetKg >= 0 && row[mapping.adetKg] !== undefined) {
-          newRow.adetKg = parseFloat(row[mapping.adetKg]) || 0;
-        }
-        if (mapping.toplamKg >= 0 && row[mapping.toplamKg] !== undefined) {
-          newRow.toplamKg = parseFloat(row[mapping.toplamKg]) || 0;
-        }
         
-        // Calculate adetKg if toplamKg and hasirSayisi are available
-        if (newRow.toplamKg > 0 && newRow.hasirSayisi > 0) {
-          newRow.adetKg = parseFloat((newRow.toplamKg / newRow.hasirSayisi).toFixed(3));
-        }
-        
-        // Determine hasirTuru if possible
-        if (newRow.hasirTipi && newRow.uzunlukBoy) {
+        // Skip validation and let the system calculate missing values like toggle ON mode
+        if (newRow.hasirTipi && newRow.uzunlukBoy > 0 && newRow.uzunlukEn > 0) {
+          // Calculate hasirTuru like normal mode
           newRow.hasirTuru = determineHasirTuru(newRow.hasirTipi, newRow.uzunlukBoy);
+          
+          // Calculate caps and spacing like normal mode
+          const capInfo = getWireCapByHasirTipi(newRow.hasirTipi);
+          if (capInfo) {
+            newRow.boyCap = capInfo.boyCap;
+            newRow.enCap = capInfo.enCap;
+          }
+          
+          // Calculate spacing like normal mode
+          const spacingInfo = getSpacingByHasirTuru(newRow.hasirTuru);
+          if (spacingInfo) {
+            newRow.boyAraligi = spacingInfo.boy;
+            newRow.enAraligi = spacingInfo.en;
+          }
+          
+          // If rod counts weren't imported, calculate them like normal mode
+          if (!newRow.cubukSayisiBoy || newRow.cubukSayisiBoy === 0) {
+            initializeCubukSayisi(newRow);
+          }
+          
+          // If filiz values weren't imported, calculate them like normal mode
+          if (!newRow.solFiliz || !newRow.sagFiliz || !newRow.onFiliz || !newRow.arkaFiliz) {
+            calculateFilizValues(newRow);
+          }
+          
+          // Calculate weight like normal mode
+          if (newRow.adetKg === 0 || !newRow.adetKg) {
+            calculateWeight(newRow);
+          }
+          
+          // Calculate total kg
+          if (newRow.hasirSayisi > 0 && newRow.adetKg > 0) {
+            newRow.toplamKg = parseFloat((newRow.hasirSayisi * newRow.adetKg).toFixed(3));
+          }
         }
         
         // Add import note
         const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
-        newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}`;
+        newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}. Sistem tarafından hesaplanmış değerlerle tamamlandı.`;
         
         newRows.push(newRow);
       });
@@ -4900,7 +4868,7 @@ const processExtractedTextFromOCR = (extractedText) => {
       setRows(newRows);
       
       // Show success message
-      alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nİnteraktif mod kapalı - veriler Excel'den alındığı gibi kullanılacak.`);
+      alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nSistem eksik değerleri normal mod gibi hesapladı.`);
       
       console.log(`Kaynak Programı imported: ${newRows.length} rows from ${fileName}`);
       
