@@ -6188,15 +6188,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const gozMatch = duplicate.stokAdi.match(/Göz Ara\(([^)]+)\)/);
                         const gozAraligi = gozMatch ? gozMatch[1] : 'N/A';
                         
-                        // Check if this product already exists in database
-                        const existingProduct = [...(savedProducts.mm || [])].find(p => 
-                          p.stok_adi === duplicate.stokAdi
+                        // Use the main analysis results instead of re-analyzing
+                        // Check if this duplicate's stokAdi is in the newProducts list
+                        const isInNewProducts = preSaveConfirmData.newProducts.some(p => 
+                          p.stokAdi === duplicate.stokAdi
                         );
                         
-                        const isExisting = !!existingProduct;
+                        // Check if this duplicate's stokAdi is in the existingProducts list
+                        const existingProduct = preSaveConfirmData.existingProducts?.find(p => 
+                          p.stokAdi === duplicate.stokAdi
+                        ) || preSaveConfirmData.skippedProducts?.find(p => 
+                          p.stok_adi === duplicate.stokAdi || 
+                          (p.existingStokKodus && p.existingStokKodus.length > 0)
+                        );
+                        
+                        const isExisting = !!existingProduct && !isInNewProducts;
                         const assignedStokKodu = isExisting 
-                          ? existingProduct.stok_kodu 
-                          : `CHOZL${sequences.CHOZL || '2400'}+ (yeni)`;
+                          ? (existingProduct.stok_kodu || existingProduct.existingStokKodus?.[0] || 'Unknown')
+                          : (preSaveConfirmData.newProducts.find(p => p.stokAdi === duplicate.stokAdi)?.newStokKodu || `CHOZL${sequences.CHOZL || '2400'}+ (yeni)`);
                         
                         return (
                           <div key={index} className="mb-2 p-2 bg-white rounded border border-orange-200">
