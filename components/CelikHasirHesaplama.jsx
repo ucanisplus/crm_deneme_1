@@ -26,7 +26,9 @@ import {
   ArrowUpToLine,
   ArrowDownToLine,
   StickyNote,
-  Zap
+  Zap,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -996,6 +998,9 @@ const processExcelWithMapping = (sheets, mapping) => {
   // Sticky header için durum - Geliştirildi
   const [stickyHeaderOffset, setStickyHeaderOffset] = useState(0);
 
+  // Interactive rows mode toggle - for Kaynak Programı feature
+  const [isInteractiveMode, setIsInteractiveMode] = useState(true);
+
   // Set referrer based on current page context
   useEffect(() => {
     // Check current URL to determine if we're on maliyet or ürün page
@@ -1012,6 +1017,7 @@ const processExcelWithMapping = (sheets, mapping) => {
   // Referanslar
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
+  const kaynakProgramiInputRef = useRef(null);
   const previewTableRef = useRef(null);
   const mainTableRef = useRef(null);
   const tableHeaderRef = useRef(null);
@@ -1760,8 +1766,8 @@ const handleCellChange = (rowIndex, field, value) => {
     // Parse the value for calculations
     const numericValue = value === '' ? 0 : parseFloat(value);
     
-    // Only recalculate filiz if we have a valid complete number
-    if (!isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
+    // Only recalculate filiz if interactive mode is enabled AND we have a valid complete number
+    if (isInteractiveMode && !isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
         // Create a temporary copy to calculate filiz without modifying cubuk values
         const tempRow = { ...row };
         
@@ -1840,34 +1846,48 @@ if (row.modified && row.modified[field] &&
     }
   }
   
-  // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
-  if (field === 'hasirTipi') {
-    updateRowFromHasirTipi(updatedRows, rowIndex);
-  }
-  
-  // ÖNEMLİ: En değerini otomatik düzeltmeyi kaldırıyoruz
-  // Bu ayarlama artık iyileştir işlemi sırasında yapılacak
-  
-  // Uzunluk Boy değiştiğinde hasır türünü güncelle
-  if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
-    const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-    row.hasirTuru = hasirTuru;
-  }
-  
-  // Herhangi bir alan değiştiyse, eğer temel alanlar doluysa yeniden hesaplama yap
-  if (isRowFilled(row) && 
-      field !== 'solFiliz' && field !== 'sagFiliz' && field !== 'onFiliz' && field !== 'arkaFiliz') {
-    // Hesaplama fonksiyonlarını çağır (filiz değerleri hariç)
-    calculateBasicValues(updatedRows, rowIndex);
-  } else if (isRowFilled(row) && 
-             (field === 'uzunlukBoy' || field === 'uzunlukEn' || 
-              field === 'cubukSayisiBoy' || field === 'cubukSayisiEn' || 
-              field === 'boyAraligi' || field === 'enAraligi')) {
-    // Temel değerler değiştiyse filiz değerlerini yeniden hesapla - Manuel değiştirilenler hariç
-    calculateFilizValues(row);
+  // Only perform automatic calculations if interactive mode is enabled
+  if (isInteractiveMode) {
+    // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
+    if (field === 'hasirTipi') {
+      updateRowFromHasirTipi(updatedRows, rowIndex);
+    }
     
-    // Ağırlık hesapla
-    calculateWeight(row);
+    // ÖNEMLİ: En değerini otomatik düzeltmeyi kaldırıyoruz
+    // Bu ayarlama artık iyileştir işlemi sırasında yapılacak
+    
+    // Uzunluk Boy değiştiğinde hasır türünü güncelle
+    if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
+      const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      row.hasirTuru = hasirTuru;
+    }
+    
+    // Herhangi bir alan değiştiyse, eğer temel alanlar doluysa yeniden hesaplama yap
+    if (isRowFilled(row) && 
+        field !== 'solFiliz' && field !== 'sagFiliz' && field !== 'onFiliz' && field !== 'arkaFiliz') {
+      // Hesaplama fonksiyonlarını çağır (filiz değerleri hariç)
+      calculateBasicValues(updatedRows, rowIndex);
+    } else if (isRowFilled(row) && 
+               (field === 'uzunlukBoy' || field === 'uzunlukEn' || 
+                field === 'cubukSayisiBoy' || field === 'cubukSayisiEn' || 
+                field === 'boyAraligi' || field === 'enAraligi')) {
+      // Temel değerler değiştiyse filiz değerlerini yeniden hesapla - Manuel değiştirilenler hariç
+      calculateFilizValues(row);
+      
+      // Ağırlık hesapla
+      calculateWeight(row);
+    }
+  } else {
+    // In non-interactive mode, still update hasirTuru if hasirTipi or uzunlukBoy changes
+    if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
+      const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+      row.hasirTuru = hasirTuru;
+    }
+    
+    // Only calculate weight if adetKg field changes in non-interactive mode
+    if (field === 'adetKg' && row.hasirSayisi && row.adetKg) {
+      row.toplamKg = parseFloat((parseFloat(row.hasirSayisi) * parseFloat(row.adetKg)).toFixed(3));
+    }
   }
   
   setRows(updatedRows);
@@ -4243,6 +4263,159 @@ const processExtractedTextFromOCR = (extractedText) => {
     event.target.value = '';
   };
 
+  // Kaynak Programı dosya yükleme işlemi
+  const handleKaynakProgramiUpload = (event) => {
+    const uploadedFile = event.target.files[0];
+    if (uploadedFile) {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          if (uploadedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+              uploadedFile.type === 'application/vnd.ms-excel') {
+            // Excel dosyalarını işle
+            parseKaynakProgramiExcel(e.target.result, uploadedFile.name);
+          } else if (uploadedFile.type === 'text/csv') {
+            // CSV dosyalarını işle
+            parseKaynakProgramiCSV(e.target.result);
+          } else {
+            alert('Sadece Excel (.xlsx, .xls) ve CSV dosyaları desteklenir.');
+          }
+        } catch (error) {
+          console.error('Kaynak Programı dosya işleme hatası:', error);
+          alert('Dosya okuma hatası: ' + error.message);
+        }
+      };
+      
+      if (uploadedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          uploadedFile.type === 'application/vnd.ms-excel') {
+        reader.readAsArrayBuffer(uploadedFile);
+      } else {
+        reader.readAsText(uploadedFile);
+      }
+    }
+    
+    // Dosya seçimi sıfırla (aynı dosyayı tekrar seçebilmek için)
+    event.target.value = '';
+  };
+
+  // Kaynak Programı Excel dosyasını işleme
+  const parseKaynakProgramiExcel = (arrayBuffer, fileName) => {
+    try {
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Excel verisini JSON'a çevir
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // İlk 2 satırı başlık olarak atla, satır 3'ten başla
+      const dataRows = jsonData.slice(2);
+      
+      processKaynakProgramiData(dataRows, fileName);
+    } catch (error) {
+      console.error('Excel parsing error:', error);
+      alert('Excel dosyası işlenemedi: ' + error.message);
+    }
+  };
+
+  // Kaynak Programı CSV dosyasını işleme
+  const parseKaynakProgramiCSV = (csvText) => {
+    try {
+      const lines = csvText.split('\n');
+      const dataRows = [];
+      
+      // İlk 2 satırı atla, satır 3'ten başla
+      for (let i = 2; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line) {
+          // Virgül veya noktalı virgül ile ayır
+          const row = line.split(/[,;]/).map(cell => cell.trim().replace(/^"|"$/g, ''));
+          if (row.length > 5) { // En az 6 sütun olmalı
+            dataRows.push(row);
+          }
+        }
+      }
+      
+      processKaynakProgramiData(dataRows, 'CSV File');
+    } catch (error) {
+      console.error('CSV parsing error:', error);
+      alert('CSV dosyası işlenemedi: ' + error.message);
+    }
+  };
+
+  // Kaynak Programı verilerini işleyip tabloya aktarma
+  const processKaynakProgramiData = (dataRows, fileName) => {
+    try {
+      const newRows = [];
+      
+      dataRows.forEach((row, index) => {
+        if (row.length < 24) return; // Yeterli sütun yoksa atla
+        
+        // CSV structure based on user's specification:
+        // Column 1: Row number, Column 2: Stok kodu, Column 5: HASIR CİNSİ
+        // Column 9-10: BOY/EN ÇAP, Column 12-13: UZUNLUK BOY/EN
+        // Column 14-15: ÇUBUK SAYISI BOY/EN, Column 16-17: ARA BOY/EN
+        // Column 18: HASIR SAYISI, Column 19-22: FİLİZ values
+        // Column 23: ADET, Column 24: TOPLAM KG
+        
+        const newRow = createEmptyRow(newRows.length);
+        
+        // Map data from specific columns
+        newRow.stokKodu = row[1] || ''; // Column 2: Stok kodu
+        newRow.hasirTipi = row[4] || ''; // Column 5: HASIR CİNSİ
+        newRow.boyCap = parseFloat(row[8]) || 0; // Column 9: BOY ÇAP
+        newRow.enCap = parseFloat(row[9]) || 0; // Column 10: EN ÇAP
+        newRow.uzunlukBoy = parseFloat(row[11]) || 0; // Column 12: UZUNLUK BOY
+        newRow.uzunlukEn = parseFloat(row[12]) || 0; // Column 13: UZUNLUK EN
+        newRow.cubukSayisiBoy = parseInt(row[13]) || 0; // Column 14: ÇUBUK SAYISI BOY
+        newRow.cubukSayisiEn = parseInt(row[14]) || 0; // Column 15: ÇUBUK SAYISI EN
+        newRow.boyAraligi = parseFloat(row[15]) || 0; // Column 16: ARA BOY
+        newRow.enAraligi = parseFloat(row[16]) || 0; // Column 17: ARA EN
+        newRow.hasirSayisi = parseInt(row[17]) || 0; // Column 18: HASIR SAYISI
+        newRow.solFiliz = parseFloat(row[18]) || 0; // Column 19: SOL FİLİZ
+        newRow.sagFiliz = parseFloat(row[19]) || 0; // Column 20: SAĞ FİLİZ
+        newRow.onFiliz = parseFloat(row[20]) || 0; // Column 21: ÖN FİLİZ
+        newRow.arkaFiliz = parseFloat(row[21]) || 0; // Column 22: ARKA FİLİZ
+        newRow.hasirSayisi = parseInt(row[22]) || newRow.hasirSayisi; // Column 23: ADET (backup)
+        newRow.toplamKg = parseFloat(row[23]) || 0; // Column 24: TOPLAM KG
+        
+        // Calculate adetKg if toplamKg and hasirSayisi are available
+        if (newRow.toplamKg > 0 && newRow.hasirSayisi > 0) {
+          newRow.adetKg = parseFloat((newRow.toplamKg / newRow.hasirSayisi).toFixed(3));
+        }
+        
+        // Determine hasirTuru if possible
+        if (newRow.hasirTipi && newRow.uzunlukBoy) {
+          newRow.hasirTuru = determineHasirTuru(newRow.hasirTipi, newRow.uzunlukBoy);
+        }
+        
+        // Add import note
+        const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+        newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}`;
+        
+        newRows.push(newRow);
+      });
+      
+      if (newRows.length === 0) {
+        alert('Dosyada geçerli veri bulunamadı.');
+        return;
+      }
+      
+      // Replace existing rows with imported data
+      setRows(newRows);
+      
+      // Show success message
+      alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nİnteraktif mod kapalı - veriler Excel'den alındığı gibi kullanılacak.`);
+      
+      console.log(`Kaynak Programı imported: ${newRows.length} rows from ${fileName}`);
+      
+    } catch (error) {
+      console.error('Data processing error:', error);
+      alert('Veri işleme hatası: ' + error.message);
+    }
+  };
+
   // Metin verilerini işleme
   const parseTextData = (text) => {
     try {
@@ -6611,6 +6784,14 @@ useEffect(() => {
             style={{ display: 'none' }} 
           />
           
+          <input 
+            type="file" 
+            ref={kaynakProgramiInputRef} 
+            onChange={handleKaynakProgramiUpload} 
+            accept=".xlsx,.xls,.csv" 
+            style={{ display: 'none' }} 
+          />
+          
           
         </div>
         
@@ -6710,13 +6891,59 @@ useEffect(() => {
                 </table>
               </div>
               
+              {/* Interactive Mode Toggle */}
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-blue-800">
+                      İnteraktif Satır Hesaplamaları:
+                    </span>
+                    <button
+                      onClick={() => setIsInteractiveMode(!isInteractiveMode)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                        isInteractiveMode 
+                          ? 'bg-green-500 text-white hover:bg-green-600' 
+                          : 'bg-gray-400 text-white hover:bg-gray-500'
+                      }`}
+                    >
+                      {isInteractiveMode ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                      {isInteractiveMode ? 'Açık' : 'Kapalı'}
+                    </button>
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    {isInteractiveMode 
+                      ? 'Tabloya girilen değerlerle otomatik hesaplama yapılır' 
+                      : 'Hesaplamalar Excel/CSV\'den alınır'
+                    }
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-3 mb-3">
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-2 bg-gray-600 text-white rounded-md flex items-center gap-2 hover:bg-gray-700 transition-colors"
+                  className={`px-3 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                    isInteractiveMode 
+                      ? 'bg-gray-600 text-white hover:bg-gray-700' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  disabled={!isInteractiveMode && false} // Always enabled for now
                 >
                   <Upload size={16} />
                   Excel/CSV Yükle
+                </button>
+                
+                <button 
+                  onClick={() => kaynakProgramiInputRef.current?.click()}
+                  className={`px-3 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                    !isInteractiveMode 
+                      ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  }`}
+                  disabled={isInteractiveMode}
+                >
+                  <Database size={16} />
+                  Hazır Kaynak Programı Ekle
                 </button>
                 
                 <button 
