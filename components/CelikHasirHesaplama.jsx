@@ -2201,8 +2201,8 @@ const handleCellChange = (rowIndex, field, value) => {
     // Parse the value for calculations
     const numericValue = value === '' ? 0 : parseFloat(value);
     
-    // Only recalculate filiz if interactive mode is enabled AND we have a valid complete number
-    if (isInteractiveMode && !isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
+    // Only recalculate filiz if we have a valid complete number
+    if (!isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
         // Create a temporary copy to calculate filiz without modifying cubuk values
         const tempRow = { ...row };
         
@@ -2281,22 +2281,22 @@ if (row.modified && row.modified[field] &&
     }
   }
   
-  // Only perform automatic calculations if interactive mode is enabled
+  // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle (only in interactive mode)
+  if (field === 'hasirTipi' && isInteractiveMode) {
+    updateRowFromHasirTipi(updatedRows, rowIndex);
+  }
+  
+  // ÖNEMLİ: En değerini otomatik düzeltmeyi kaldırıyoruz
+  // Bu ayarlama artık iyileştir işlemi sırasında yapılacak
+  
+  // Uzunluk Boy değiştiğinde hasır türünü güncelle
+  if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
+    const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+    row.hasirTuru = hasirTuru;
+  }
+  
+  // Perform automatic calculations only in interactive mode
   if (isInteractiveMode) {
-    // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
-    if (field === 'hasirTipi') {
-      updateRowFromHasirTipi(updatedRows, rowIndex);
-    }
-    
-    // ÖNEMLİ: En değerini otomatik düzeltmeyi kaldırıyoruz
-    // Bu ayarlama artık iyileştir işlemi sırasında yapılacak
-    
-    // Uzunluk Boy değiştiğinde hasır türünü güncelle
-    if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
-      const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      row.hasirTuru = hasirTuru;
-    }
-    
     // Herhangi bir alan değiştiyse, eğer temel alanlar doluysa yeniden hesaplama yap
     if (isRowFilled(row) && 
         field !== 'solFiliz' && field !== 'sagFiliz' && field !== 'onFiliz' && field !== 'arkaFiliz') {
@@ -2313,14 +2313,10 @@ if (row.modified && row.modified[field] &&
       calculateWeight(row);
     }
   } else {
-    // In non-interactive mode, still update hasirTuru if hasirTipi or uzunlukBoy changes
-    if ((field === 'hasirTipi' || field === 'uzunlukBoy') && row.hasirTipi) {
-      const hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-      row.hasirTuru = hasirTuru;
-    }
-    
-    // Only calculate weight if adetKg field changes in non-interactive mode
+    // In non-interactive mode, only basic weight calculation
     if (field === 'adetKg' && row.hasirSayisi && row.adetKg) {
+      row.toplamKg = parseFloat((parseFloat(row.hasirSayisi) * parseFloat(row.adetKg)).toFixed(3));
+    } else if (field === 'hasirSayisi' && row.hasirSayisi && row.adetKg) {
       row.toplamKg = parseFloat((parseFloat(row.hasirSayisi) * parseFloat(row.adetKg)).toFixed(3));
     }
   }
