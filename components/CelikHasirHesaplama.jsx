@@ -4812,49 +4812,26 @@ const processExtractedTextFromOCR = (extractedText) => {
           newRow.arkaFiliz = parseFloat(row[mapping.arkaFiliz]) || 0;
         }
         
-        // Skip validation and let the system calculate missing values like toggle ON mode
-        if (newRow.hasirTipi && newRow.uzunlukBoy > 0 && newRow.uzunlukEn > 0) {
-          // Calculate hasirTuru like normal mode
+        // Basic calculations only - don't interfere with toggle ON functions
+        
+        // Calculate adetKg if toplamKg and hasirSayisi are available
+        if (newRow.toplamKg > 0 && newRow.hasirSayisi > 0) {
+          newRow.adetKg = parseFloat((newRow.toplamKg / newRow.hasirSayisi).toFixed(3));
+        }
+        
+        // Determine hasirTuru if possible
+        if (newRow.hasirTipi && newRow.uzunlukBoy) {
           newRow.hasirTuru = determineHasirTuru(newRow.hasirTipi, newRow.uzunlukBoy);
-          
-          // Calculate caps and spacing like normal mode
-          const capInfo = getWireCapByHasirTipi(newRow.hasirTipi);
-          if (capInfo) {
-            newRow.boyCap = capInfo.boyCap;
-            newRow.enCap = capInfo.enCap;
-          }
-          
-          // Calculate spacing like normal mode
-          const spacingInfo = getSpacingByHasirTuru(newRow.hasirTuru);
-          if (spacingInfo) {
-            newRow.boyAraligi = spacingInfo.boy;
-            newRow.enAraligi = spacingInfo.en;
-          }
-          
-          // If rod counts weren't imported, calculate them like normal mode
-          if (!newRow.cubukSayisiBoy || newRow.cubukSayisiBoy === 0) {
-            initializeCubukSayisi(newRow);
-          }
-          
-          // If filiz values weren't imported, calculate them like normal mode
-          if (!newRow.solFiliz || !newRow.sagFiliz || !newRow.onFiliz || !newRow.arkaFiliz) {
-            calculateFilizValues(newRow);
-          }
-          
-          // Calculate weight like normal mode
-          if (newRow.adetKg === 0 || !newRow.adetKg) {
-            calculateWeight(newRow);
-          }
-          
-          // Calculate total kg
-          if (newRow.hasirSayisi > 0 && newRow.adetKg > 0) {
-            newRow.toplamKg = parseFloat((newRow.hasirSayisi * newRow.adetKg).toFixed(3));
-          }
+        }
+        
+        // Calculate total kg if needed
+        if (newRow.hasirSayisi > 0 && newRow.adetKg > 0 && newRow.toplamKg === 0) {
+          newRow.toplamKg = parseFloat((newRow.hasirSayisi * newRow.adetKg).toFixed(3));
         }
         
         // Add import note
         const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
-        newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}. Sistem tarafından hesaplanmış değerlerle tamamlandı.`;
+        newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}`;
         
         newRows.push(newRow);
       });
@@ -4868,7 +4845,7 @@ const processExtractedTextFromOCR = (extractedText) => {
       setRows(newRows);
       
       // Show success message
-      alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nSistem eksik değerleri normal mod gibi hesapladı.`);
+      alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nİnteraktif mod kapalı - veriler Excel'den alındığı gibi kullanılacak.`);
       
       console.log(`Kaynak Programı imported: ${newRows.length} rows from ${fileName}`);
       
