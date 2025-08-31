@@ -347,6 +347,436 @@ const findColumnsByHeaderText = (headers, sheetData) => {
   return result;
 };
 
+// Kaynak Programı sütun eşleştirme modalı
+const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
+  const sampleSheet = sheetData.length > 0 ? sheetData[0] : null;
+  const headers = sampleSheet?.headers || [];
+  const sampleRows = sampleSheet?.data.slice(0, 20) || [];  // Show 20 samples
+  const totalProductCount = sampleSheet?.data.length || 0;
+  
+  // Auto-detect columns for Kaynak Programı using fixed column positions
+  const autoDetectKaynakProgramiColumns = () => {
+    // Use the corrected user-specified column positions (1-based converted to 0-based)
+    return {
+      stokKodu: 1,           // Column 2: Stok kodu (optional)
+      hasirTipi: 4,          // Column 5: HASIR CİNSİ
+      boyCap: 8,             // Column 9: BOY ÇAP  
+      enCap: 9,              // Column 10: EN ÇAP
+      uzunlukBoy: 11,        // Column 12: UZUNLUK BOY
+      uzunlukEn: 12,         // Column 13: UZUNLUK EN
+      cubukSayisiBoy: 13,    // Column 14: ÇUBUK SAYISI BOY
+      cubukSayisiEn: 14,     // Column 15: ÇUBUK SAYISI EN
+      boyAraligi: 15,        // Column 16: Göz ARAlığı BOY  
+      enAraligi: 16,         // Column 17: Göz ARAlığı EN
+      hasirSayisi: 17,       // Column 18: HASIR SAYISI (Hasır Adedi)
+      solFiliz: 18,          // Column 19: SOL FİLİZ
+      sagFiliz: 19,          // Column 20: SAĞ FİLİZ
+      onFiliz: 20,           // Column 21: ÖN FİLİZ
+      arkaFiliz: 21,         // Column 22: ARKA FİLİZ
+      adetKg: 22,            // Column 23: ADET KG (Unit weight)
+      toplamKg: 23           // Column 24: TOPLAM KG (total weight = unit weight * hasır sayısı)
+    };
+  };
+  
+  const [mapping, setMapping] = useState(() => autoDetectKaynakProgramiColumns());
+  
+  // Reset mapping when sheet data changes
+  useEffect(() => {
+    if (isOpen && sampleSheet) {
+      const newMapping = autoDetectKaynakProgramiColumns();
+      setMapping(newMapping);
+    }
+  }, [isOpen, sampleSheet, headers]);
+  
+  const handleMappingChange = (field, columnIndex) => {
+    setMapping({
+      ...mapping,
+      [field]: parseInt(columnIndex)
+    });
+  };
+  
+  const handleConfirm = () => {
+    // Check required fields
+    if (mapping.hasirTipi === -1 || mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1) {
+      alert('Lütfen en az Hasır Tipi, Uzunluk Boy, Uzunluk En ve Hasır Sayısı sütunlarını seçin.');
+      return;
+    }
+    
+    onConfirmMapping(mapping);
+  };
+  
+  if (!isOpen || !sampleSheet) return null;
+  
+  // Helper function to check if column is automatically selected
+  const isAutoSelected = (field, index) => {
+    const autoMapping = autoDetectKaynakProgramiColumns();
+    return autoMapping[field] === index;
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Kaynak Programı Sütunları Eşleştir</h2>
+          <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+            {totalProductCount} satır tespit edildi
+          </span>
+        </div>
+        
+        <div className="mb-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Sütunlar standart Kaynak Programı formatına göre otomatik olarak seçildi. Gerekirse değiştirebilirsiniz:
+          </p>
+          
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {/* Required Fields */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hasır Tipi (Q/R/TR) <span className="text-red-500">*</span>
+                {isAutoSelected('hasirTipi', mapping.hasirTipi) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.hasirTipi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.hasirTipi}
+                onChange={(e) => handleMappingChange('hasirTipi', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Uzunluk Boy (cm) <span className="text-red-500">*</span>
+                {isAutoSelected('uzunlukBoy', mapping.uzunlukBoy) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.uzunlukBoy !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.uzunlukBoy}
+                onChange={(e) => handleMappingChange('uzunlukBoy', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Uzunluk En (cm) <span className="text-red-500">*</span>
+                {isAutoSelected('uzunlukEn', mapping.uzunlukEn) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.uzunlukEn !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.uzunlukEn}
+                onChange={(e) => handleMappingChange('uzunlukEn', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hasır Sayısı <span className="text-red-500">*</span>
+                {isAutoSelected('hasirSayisi', mapping.hasirSayisi) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.hasirSayisi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.hasirSayisi}
+                onChange={(e) => handleMappingChange('hasirSayisi', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Wire Count Fields */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Boy Çubuk Sayısı
+                {isAutoSelected('cubukSayisiBoy', mapping.cubukSayisiBoy) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.cubukSayisiBoy !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.cubukSayisiBoy}
+                onChange={(e) => handleMappingChange('cubukSayisiBoy', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                En Çubuk Sayısı
+                {isAutoSelected('cubukSayisiEn', mapping.cubukSayisiEn) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.cubukSayisiEn !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.cubukSayisiEn}
+                onChange={(e) => handleMappingChange('cubukSayisiEn', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filiz Fields */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Sol Filiz (cm)
+                {isAutoSelected('solFiliz', mapping.solFiliz) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.solFiliz !== -1 ? 'border-purple-300 bg-purple-50' : 'border-gray-300'}`}
+                value={mapping.solFiliz}
+                onChange={(e) => handleMappingChange('solFiliz', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Sağ Filiz (cm)
+                {isAutoSelected('sagFiliz', mapping.sagFiliz) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.sagFiliz !== -1 ? 'border-purple-300 bg-purple-50' : 'border-gray-300'}`}
+                value={mapping.sagFiliz}
+                onChange={(e) => handleMappingChange('sagFiliz', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ön Filiz (cm)
+                {isAutoSelected('onFiliz', mapping.onFiliz) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.onFiliz !== -1 ? 'border-purple-300 bg-purple-50' : 'border-gray-300'}`}
+                value={mapping.onFiliz}
+                onChange={(e) => handleMappingChange('onFiliz', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Arka Filiz (cm)
+                {isAutoSelected('arkaFiliz', mapping.arkaFiliz) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.arkaFiliz !== -1 ? 'border-purple-300 bg-purple-50' : 'border-gray-300'}`}
+                value={mapping.arkaFiliz}
+                onChange={(e) => handleMappingChange('arkaFiliz', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Additional Optional Fields */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stok Kodu (İsteğe bağlı)
+                {isAutoSelected('stokKodu', mapping.stokKodu) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.stokKodu !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
+                value={mapping.stokKodu}
+                onChange={(e) => handleMappingChange('stokKodu', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Adet Kg (Birim Ağırlık)
+                {isAutoSelected('adetKg', mapping.adetKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.adetKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
+                value={mapping.adetKg}
+                onChange={(e) => handleMappingChange('adetKg', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Toplam Kg (Toplam Ağırlık)
+                {isAutoSelected('toplamKg', mapping.toplamKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.toplamKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
+                value={mapping.toplamKg}
+                onChange={(e) => handleMappingChange('toplamKg', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto mb-4 border border-gray-200 rounded-md max-h-96">
+            <table className="min-w-full bg-white text-xs">
+              <thead className="sticky top-0 bg-gray-100 z-10">
+                <tr>
+                  <th className="py-1 px-2 border-b text-left font-medium text-gray-500 uppercase tracking-wider">
+                    #
+                  </th>
+                  {headers.map((header, index) => (
+                    <th key={index} className="py-1 px-2 border-b text-left font-medium text-gray-500 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="truncate max-w-[120px]" title={header || `Sütun ${index + 1}`}>
+                          {header || `Sütun ${index + 1}`}
+                        </span>
+                        {mapping.stokKodu === index && (
+                          <span className="text-orange-600 text-[10px]">(Stok Kodu)</span>
+                        )}
+                        {mapping.hasirTipi === index && (
+                          <span className="text-green-600 text-[10px]">(Hasır Tipi)</span>
+                        )}
+                        {mapping.uzunlukBoy === index && (
+                          <span className="text-green-600 text-[10px]">(Boy)</span>
+                        )}
+                        {mapping.uzunlukEn === index && (
+                          <span className="text-green-600 text-[10px]">(En)</span>
+                        )}
+                        {mapping.hasirSayisi === index && (
+                          <span className="text-green-600 text-[10px]">(Sayı)</span>
+                        )}
+                        {mapping.cubukSayisiBoy === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy Çubuk)</span>
+                        )}
+                        {mapping.cubukSayisiEn === index && (
+                          <span className="text-blue-600 text-[10px]">(En Çubuk)</span>
+                        )}
+                        {mapping.solFiliz === index && (
+                          <span className="text-purple-600 text-[10px]">(Sol Filiz)</span>
+                        )}
+                        {mapping.sagFiliz === index && (
+                          <span className="text-purple-600 text-[10px]">(Sağ Filiz)</span>
+                        )}
+                        {mapping.onFiliz === index && (
+                          <span className="text-purple-600 text-[10px]">(Ön Filiz)</span>
+                        )}
+                        {mapping.arkaFiliz === index && (
+                          <span className="text-purple-600 text-[10px]">(Arka Filiz)</span>
+                        )}
+                        {mapping.adetKg === index && (
+                          <span className="text-orange-600 text-[10px]">(Adet Kg)</span>
+                        )}
+                        {mapping.toplamKg === index && (
+                          <span className="text-orange-600 text-[10px]">(Toplam Kg)</span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sampleRows.map((row, rowIndex) => (
+                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="py-1 px-2 border-b font-medium text-gray-600">
+                      {rowIndex + 1}
+                    </td>
+                    {headers.map((_, colIndex) => (
+                      <td key={colIndex} className="py-1 px-2 border-b text-gray-700 whitespace-nowrap">
+                        <span className="truncate block max-w-[120px]" title={row[colIndex] || ''}>
+                          {row[colIndex] || ''}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div className="flex justify-end space-x-3">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+          >
+            İptal
+          </button>
+          <button 
+            onClick={handleConfirm}
+            className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+          >
+            Kaynak Programını İçe Aktar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Sütun eşleştirme modalı
 const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) => {
   const sampleSheet = sheetData.length > 0 ? sheetData[0] : null;
@@ -566,6 +996,11 @@ const CelikHasirHesaplama = () => {
   const [sheetData, setSheetData] = useState([]);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [columnMapping, setColumnMapping] = useState(null);
+  
+  // Kaynak Programı modal states
+  const [showKaynakProgramiModal, setShowKaynakProgramiModal] = useState(false);
+  const [kaynakProgramiSheetData, setKaynakProgramiSheetData] = useState([]);
+  const [kaynakProgramiColumnMapping, setKaynakProgramiColumnMapping] = useState(null);
   
   // Unknown mesh type modal states
   const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
@@ -4299,7 +4734,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     event.target.value = '';
   };
 
-  // Kaynak Programı Excel dosyasını işleme
+  // Kaynak Programı Excel dosyasını işleme - Modal için hazırla
   const parseKaynakProgramiExcel = (arrayBuffer, fileName) => {
     try {
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -4309,76 +4744,139 @@ const processExtractedTextFromOCR = (extractedText) => {
       // Excel verisini JSON'a çevir
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
       
-      // İlk 2 satırı başlık olarak atla, satır 3'ten başla
-      const dataRows = jsonData.slice(2);
+      // İlk 2 satırı başlık olarak al, geri kalanını veri olarak
+      const headers = jsonData[0] || [];
+      const dataRows = jsonData.slice(2); // Skip first 2 rows
       
-      processKaynakProgramiData(dataRows, fileName);
+      // Prepare sheet data for modal
+      const sheetData = [{
+        headers: headers,
+        data: dataRows,
+        fileName: fileName
+      }];
+      
+      setKaynakProgramiSheetData(sheetData);
+      setShowKaynakProgramiModal(true);
     } catch (error) {
       console.error('Excel parsing error:', error);
       alert('Excel dosyası işlenemedi: ' + error.message);
     }
   };
 
-  // Kaynak Programı CSV dosyasını işleme
+  // Kaynak Programı CSV dosyasını işleme - Modal için hazırla
   const parseKaynakProgramiCSV = (csvText) => {
     try {
       const lines = csvText.split('\n');
-      const dataRows = [];
+      const allRows = [];
       
-      // İlk 2 satırı atla, satır 3'ten başla
-      for (let i = 2; i < lines.length; i++) {
+      // Tüm satırları parse et
+      for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line) {
           // Virgül veya noktalı virgül ile ayır
           const row = line.split(/[,;]/).map(cell => cell.trim().replace(/^"|"$/g, ''));
-          if (row.length > 5) { // En az 6 sütun olmalı
-            dataRows.push(row);
-          }
+          allRows.push(row);
         }
       }
       
-      processKaynakProgramiData(dataRows, 'CSV File');
+      if (allRows.length < 3) {
+        alert('CSV dosyasında yeterli veri bulunamadı.');
+        return;
+      }
+      
+      // İlk satırı başlık olarak al, 3. satırdan başlayarak veri al
+      const headers = allRows[0] || [];
+      const dataRows = allRows.slice(2); // Skip first 2 rows
+      
+      // Prepare sheet data for modal
+      const sheetData = [{
+        headers: headers,
+        data: dataRows,
+        fileName: 'CSV File'
+      }];
+      
+      setKaynakProgramiSheetData(sheetData);
+      setShowKaynakProgramiModal(true);
     } catch (error) {
       console.error('CSV parsing error:', error);
       alert('CSV dosyası işlenemedi: ' + error.message);
     }
   };
 
-  // Kaynak Programı verilerini işleyip tabloya aktarma
-  const processKaynakProgramiData = (dataRows, fileName) => {
+  // Kaynak Programı sütun eşleştirmesi onaylandığında çağrılır
+  const handleKaynakProgramiConfirmMapping = (mapping) => {
+    setKaynakProgramiColumnMapping(mapping);
+    setShowKaynakProgramiModal(false);
+    
+    // Process the data with the confirmed mapping
+    const sampleSheet = kaynakProgramiSheetData[0];
+    if (sampleSheet) {
+      processKaynakProgramiDataWithMapping(sampleSheet.data, sampleSheet.fileName, mapping);
+    }
+  };
+
+  // Kaynak Programı verilerini sütun eşleştirmesiyle işleyip tabloya aktarma
+  const processKaynakProgramiDataWithMapping = (dataRows, fileName, mapping) => {
     try {
       const newRows = [];
       
       dataRows.forEach((row, index) => {
-        if (row.length < 24) return; // Yeterli sütun yoksa atla
-        
-        // CSV structure based on user's specification:
-        // Column 1: Row number, Column 2: Stok kodu, Column 5: HASIR CİNSİ
-        // Column 9-10: BOY/EN ÇAP, Column 12-13: UZUNLUK BOY/EN
-        // Column 14-15: ÇUBUK SAYISI BOY/EN, Column 16-17: ARA BOY/EN
-        // Column 18: HASIR SAYISI, Column 19-22: FİLİZ values
-        // Column 23: ADET, Column 24: TOPLAM KG
+        if (row.length < 5) return; // En az bazı sütunlar olmalı
         
         const newRow = createEmptyRow(newRows.length);
         
-        // Map data from specific columns
-        newRow.stokKodu = row[1] || ''; // Column 2: Stok kodu
-        newRow.hasirTipi = row[4] || ''; // Column 5: HASIR CİNSİ
-        newRow.boyCap = parseFloat(row[8]) || 0; // Column 9: BOY ÇAP
-        newRow.enCap = parseFloat(row[9]) || 0; // Column 10: EN ÇAP
-        newRow.uzunlukBoy = parseFloat(row[11]) || 0; // Column 12: UZUNLUK BOY
-        newRow.uzunlukEn = parseFloat(row[12]) || 0; // Column 13: UZUNLUK EN
-        newRow.cubukSayisiBoy = parseInt(row[13]) || 0; // Column 14: ÇUBUK SAYISI BOY
-        newRow.cubukSayisiEn = parseInt(row[14]) || 0; // Column 15: ÇUBUK SAYISI EN
-        newRow.boyAraligi = parseFloat(row[15]) || 0; // Column 16: ARA BOY
-        newRow.enAraligi = parseFloat(row[16]) || 0; // Column 17: ARA EN
-        newRow.hasirSayisi = parseInt(row[17]) || 0; // Column 18: HASIR SAYISI
-        newRow.solFiliz = parseFloat(row[18]) || 0; // Column 19: SOL FİLİZ
-        newRow.sagFiliz = parseFloat(row[19]) || 0; // Column 20: SAĞ FİLİZ
-        newRow.onFiliz = parseFloat(row[20]) || 0; // Column 21: ÖN FİLİZ
-        newRow.arkaFiliz = parseFloat(row[21]) || 0; // Column 22: ARKA FİLİZ
-        newRow.hasirSayisi = parseInt(row[22]) || newRow.hasirSayisi; // Column 23: ADET (backup)
-        newRow.toplamKg = parseFloat(row[23]) || 0; // Column 24: TOPLAM KG
+        // Map data based on user-selected columns
+        if (mapping.stokKodu >= 0 && row[mapping.stokKodu] !== undefined) {
+          newRow.stokKodu = String(row[mapping.stokKodu] || '');
+        }
+        if (mapping.hasirTipi >= 0 && row[mapping.hasirTipi] !== undefined) {
+          newRow.hasirTipi = String(row[mapping.hasirTipi] || '');
+        }
+        if (mapping.boyCap >= 0 && row[mapping.boyCap] !== undefined) {
+          newRow.boyCap = parseFloat(row[mapping.boyCap]) || 0;
+        }
+        if (mapping.enCap >= 0 && row[mapping.enCap] !== undefined) {
+          newRow.enCap = parseFloat(row[mapping.enCap]) || 0;
+        }
+        if (mapping.uzunlukBoy >= 0 && row[mapping.uzunlukBoy] !== undefined) {
+          newRow.uzunlukBoy = parseFloat(row[mapping.uzunlukBoy]) || 0;
+        }
+        if (mapping.uzunlukEn >= 0 && row[mapping.uzunlukEn] !== undefined) {
+          newRow.uzunlukEn = parseFloat(row[mapping.uzunlukEn]) || 0;
+        }
+        if (mapping.cubukSayisiBoy >= 0 && row[mapping.cubukSayisiBoy] !== undefined) {
+          newRow.cubukSayisiBoy = parseInt(row[mapping.cubukSayisiBoy]) || 0;
+        }
+        if (mapping.cubukSayisiEn >= 0 && row[mapping.cubukSayisiEn] !== undefined) {
+          newRow.cubukSayisiEn = parseInt(row[mapping.cubukSayisiEn]) || 0;
+        }
+        if (mapping.boyAraligi >= 0 && row[mapping.boyAraligi] !== undefined) {
+          newRow.boyAraligi = parseFloat(row[mapping.boyAraligi]) || 0;
+        }
+        if (mapping.enAraligi >= 0 && row[mapping.enAraligi] !== undefined) {
+          newRow.enAraligi = parseFloat(row[mapping.enAraligi]) || 0;
+        }
+        if (mapping.hasirSayisi >= 0 && row[mapping.hasirSayisi] !== undefined) {
+          newRow.hasirSayisi = parseInt(row[mapping.hasirSayisi]) || 0;
+        }
+        if (mapping.solFiliz >= 0 && row[mapping.solFiliz] !== undefined) {
+          newRow.solFiliz = parseFloat(row[mapping.solFiliz]) || 0;
+        }
+        if (mapping.sagFiliz >= 0 && row[mapping.sagFiliz] !== undefined) {
+          newRow.sagFiliz = parseFloat(row[mapping.sagFiliz]) || 0;
+        }
+        if (mapping.onFiliz >= 0 && row[mapping.onFiliz] !== undefined) {
+          newRow.onFiliz = parseFloat(row[mapping.onFiliz]) || 0;
+        }
+        if (mapping.arkaFiliz >= 0 && row[mapping.arkaFiliz] !== undefined) {
+          newRow.arkaFiliz = parseFloat(row[mapping.arkaFiliz]) || 0;
+        }
+        if (mapping.adetKg >= 0 && row[mapping.adetKg] !== undefined) {
+          newRow.adetKg = parseFloat(row[mapping.adetKg]) || 0;
+        }
+        if (mapping.toplamKg >= 0 && row[mapping.toplamKg] !== undefined) {
+          newRow.toplamKg = parseFloat(row[mapping.toplamKg]) || 0;
+        }
         
         // Calculate adetKg if toplamKg and hasirSayisi are available
         if (newRow.toplamKg > 0 && newRow.hasirSayisi > 0) {
@@ -6014,7 +6512,34 @@ const guessIfHasHeaders = (data) => {
   // Ön izleme tablosuna boş satır ekleme
   const addPreviewRow = () => {
     const newRowId = previewData.length > 0 ? Math.max(...previewData.map(row => row.id)) + 1 : 0;
-    setPreviewData([...previewData, createEmptyPreviewRow(newRowId)]);
+    
+    // İnteraktif mod kapalıysa tüm gerekli alanları içeren satır oluştur
+    if (!isInteractiveMode) {
+      const extendedRow = {
+        id: newRowId,
+        stokKodu: '',
+        hasirTipi: '',
+        boyCap: '',
+        enCap: '',
+        uzunlukBoy: '',
+        uzunlukEn: '',
+        cubukSayisiBoy: '',
+        cubukSayisiEn: '',
+        boyAraligi: '',
+        enAraligi: '',
+        hasirSayisi: '',
+        solFiliz: '',
+        sagFiliz: '',
+        onFiliz: '',
+        arkaFiliz: '',
+        adetKg: '',
+        toplamKg: ''
+      };
+      setPreviewData([...previewData, extendedRow]);
+    } else {
+      // İnteraktif modda normal 4 sütunlu satır ekle
+      setPreviewData([...previewData, createEmptyPreviewRow(newRowId)]);
+    }
   };
 
 // Ön izleme verilerini işleyip ana tabloya ekleme
@@ -6925,9 +7450,9 @@ useEffect(() => {
                   className={`px-3 py-2 rounded-md flex items-center gap-2 transition-colors ${
                     isInteractiveMode 
                       ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                   }`}
-                  disabled={!isInteractiveMode && false} // Always enabled for now
+                  disabled={!isInteractiveMode}
                 >
                   <Upload size={16} />
                   Excel/CSV Yükle
@@ -7579,6 +8104,14 @@ useEffect(() => {
       onClose={() => setShowMappingModal(false)}
       sheetData={sheetData}
       onConfirmMapping={handleConfirmMapping}
+    />
+    
+    {/* Kaynak Programı sütun eşleştirme modalı */}
+    <KaynakProgramiColumnMappingModal
+      isOpen={showKaynakProgramiModal}
+      onClose={() => setShowKaynakProgramiModal(false)}
+      sheetData={kaynakProgramiSheetData}
+      onConfirmMapping={handleKaynakProgramiConfirmMapping}
     />
     
     <CubukUretimCizelgesi
