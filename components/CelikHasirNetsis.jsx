@@ -2131,6 +2131,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
       
+      // Start progress indicator
+      setIsGeneratingExcel(true);
+      setExcelProgress({ current: 0, total: 3, operation: 'Veritabanı analizi yapılıyor...' });
+      
       // Get stock codes from save confirmation analysis
       const analysisResult = await analyzeProductsForConfirmation();
       
@@ -2145,6 +2149,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('DEBUG: First existing product structure:', existingProductsData[0]);
       console.log('DEBUG: First new product structure:', newProductsData[0]);
+      
+      // Update progress
+      setExcelProgress({ current: 1, total: 3, operation: 'Stok kodları eşleştiriliyor...' });
       
       // CSV structure headers from your template
       const headers = [
@@ -2226,6 +2233,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       });
       
+      // Update progress
+      setExcelProgress({ current: 2, total: 3, operation: 'Excel dosyası oluşturuluyor...' });
+      
       // Create workbook using XLSX (same as exportToExcel)
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(data);
@@ -2237,6 +2247,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, "Kaynak Programı");
       
+      // Update final progress
+      setExcelProgress({ current: 3, total: 3, operation: 'Dosya indiriliyor...' });
+      
       // Download as Excel (.xlsx) file
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
       XLSX.writeFile(wb, `Kaynak_Programi_${timestamp}.xlsx`);
@@ -2247,6 +2260,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } catch (error) {
       console.error('Error generating Kaynak Programı Excel:', error);
       toast.error('Kaynak Programı Excel oluşturulurken hata oluştu');
+    } finally {
+      // Always reset loading state
+      setIsGeneratingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '' });
     }
   };
 
