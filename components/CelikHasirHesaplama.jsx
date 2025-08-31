@@ -373,8 +373,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
       onFiliz: 20,           // Column 21: Ön Filiz (cm)
       arkaFiliz: 21,         // Column 22: Arka Filiz (cm)
       adetKg: 22,            // Column 23: Adet Kg
-      toplamKg: 23,          // Column 24: Toplam Kg
-      hasirTuru: -1          // No fixed column - usually calculated from hasirTipi + uzunlukBoy
+      toplamKg: 23           // Column 24: Toplam Kg
     };
   };
   
@@ -717,26 +716,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
               </select>
             </div>
 
-            {/* Additional Optional Fields */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Stok Kodu (İsteğe bağlı)
-                {isAutoSelected('stokKodu', mapping.stokKodu) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
-              </label>
-              <select 
-                className={`w-full border rounded-md p-2 ${mapping.stokKodu !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.stokKodu}
-                onChange={(e) => handleMappingChange('stokKodu', e.target.value)}
-              >
-                <option value="-1">Seçiniz</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={index}>
-                    {header || `Sütun ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Toplam Kg (Toplam Ağırlık)
@@ -746,25 +725,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                 className={`w-full border rounded-md p-2 ${mapping.toplamKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
                 value={mapping.toplamKg}
                 onChange={(e) => handleMappingChange('toplamKg', e.target.value)}
-              >
-                <option value="-1">Seçiniz</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={index}>
-                    {header || `Sütun ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasır Türü
-                {isAutoSelected('hasirTuru', mapping.hasirTuru) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
-              </label>
-              <select 
-                className={`w-full border rounded-md p-2 ${mapping.hasirTuru !== -1 ? 'border-yellow-300 bg-yellow-50' : 'border-gray-300'}`}
-                value={mapping.hasirTuru}
-                onChange={(e) => handleMappingChange('hasirTuru', e.target.value)}
               >
                 <option value="-1">Seçiniz</option>
                 {headers.map((header, index) => (
@@ -789,9 +749,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                         <span className="truncate max-w-[120px]" title={header || `Sütun ${index + 1}`}>
                           {header || `Sütun ${index + 1}`}
                         </span>
-                        {mapping.stokKodu === index && (
-                          <span className="text-orange-600 text-[10px]">(Stok Kodu)</span>
-                        )}
                         {mapping.hasirTipi === index && (
                           <span className="text-green-600 text-[10px]">(Hasır Tipi)</span>
                         )}
@@ -4840,27 +4797,42 @@ const processExtractedTextFromOCR = (extractedText) => {
       const row2 = jsonData[1] || []; // Second header row
       const dataRows = jsonData.slice(2); // Skip first 2 rows
       
-      // Combine headers from both rows to create proper column titles
-      const headers = row1.map((header1, index) => {
-        const header2 = row2[index] || '';
+      // Create proper headers based on reference table - show ALL columns
+      const getColumnDisplayName = (index) => {
+        const columnNames = {
+          4: "Hasır Tipi",                    // Column 5
+          8: "Boy Çap (mm)",                  // Column 9  
+          9: "En Çap (mm)",                   // Column 10
+          11: "Uzunluk Boy (cm)",             // Column 12
+          12: "Uzunluk En (cm)",              // Column 13
+          13: "Boy Çubuk Sayısı",             // Column 14
+          14: "En Çubuk Sayısı",              // Column 15
+          15: "Boy Aralığı (cm)",             // Column 16
+          16: "En Aralığı (cm)",              // Column 17
+          17: "Hasır Sayısı",                 // Column 18
+          18: "Sol Filiz (cm)",               // Column 19
+          19: "Sağ Filiz (cm)",               // Column 20
+          20: "Ön Filiz (cm)",                // Column 21
+          21: "Arka Filiz (cm)",              // Column 22
+          22: "Adet Kg",                      // Column 23
+          23: "Toplam Kg"                     // Column 24
+        };
         
-        // If first row has content and second row has content, combine them
-        if (header1 && header2) {
-          return `${header1} ${header2}`;
-        }
-        // If only first row has content, use it
-        else if (header1) {
-          return header1;
-        }
-        // If only second row has content, use it
-        else if (header2) {
-          return header2;
-        }
-        // If neither has content, show column index
-        else {
-          return `Sütun ${index + 1}`;
-        }
-      });
+        return columnNames[index] || `Sütun ${index + 1}`;
+      };
+      
+      // Determine the maximum number of columns from the data
+      const maxColumns = Math.max(
+        row1.length,
+        row2.length,
+        ...dataRows.map(row => row.length)
+      );
+      
+      // Create headers for ALL columns (up to max columns found)
+      const headers = [];
+      for (let i = 0; i < maxColumns; i++) {
+        headers.push(getColumnDisplayName(i));
+      }
       
       // Prepare sheet data for modal
       const sheetData = [{
@@ -4903,27 +4875,42 @@ const processExtractedTextFromOCR = (extractedText) => {
       const row2 = allRows[1] || []; // Second header row
       const dataRows = allRows.slice(2); // Skip first 2 rows
       
-      // Combine headers from both rows to create proper column titles
-      const headers = row1.map((header1, index) => {
-        const header2 = row2[index] || '';
+      // Create proper headers based on reference table - show ALL columns
+      const getColumnDisplayName = (index) => {
+        const columnNames = {
+          4: "Hasır Tipi",                    // Column 5
+          8: "Boy Çap (mm)",                  // Column 9  
+          9: "En Çap (mm)",                   // Column 10
+          11: "Uzunluk Boy (cm)",             // Column 12
+          12: "Uzunluk En (cm)",              // Column 13
+          13: "Boy Çubuk Sayısı",             // Column 14
+          14: "En Çubuk Sayısı",              // Column 15
+          15: "Boy Aralığı (cm)",             // Column 16
+          16: "En Aralığı (cm)",              // Column 17
+          17: "Hasır Sayısı",                 // Column 18
+          18: "Sol Filiz (cm)",               // Column 19
+          19: "Sağ Filiz (cm)",               // Column 20
+          20: "Ön Filiz (cm)",                // Column 21
+          21: "Arka Filiz (cm)",              // Column 22
+          22: "Adet Kg",                      // Column 23
+          23: "Toplam Kg"                     // Column 24
+        };
         
-        // If first row has content and second row has content, combine them
-        if (header1 && header2) {
-          return `${header1} ${header2}`;
-        }
-        // If only first row has content, use it
-        else if (header1) {
-          return header1;
-        }
-        // If only second row has content, use it
-        else if (header2) {
-          return header2;
-        }
-        // If neither has content, show column index
-        else {
-          return `Sütun ${index + 1}`;
-        }
-      });
+        return columnNames[index] || `Sütun ${index + 1}`;
+      };
+      
+      // Determine the maximum number of columns from the data
+      const maxColumns = Math.max(
+        row1.length,
+        row2.length,
+        ...dataRows.map(row => row.length)
+      );
+      
+      // Create headers for ALL columns (up to max columns found)
+      const headers = [];
+      for (let i = 0; i < maxColumns; i++) {
+        headers.push(getColumnDisplayName(i));
+      }
       
       // Prepare sheet data for modal
       const sheetData = [{
