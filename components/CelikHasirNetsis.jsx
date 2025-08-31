@@ -2220,7 +2220,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           parseFloat(product.sagFiliz || 0), // SAĞ FİLİZ
           parseFloat(product.onFiliz || 0), // ÖN FİLİZ
           parseFloat(product.arkaFiliz || 0), // ARKA FİLİZ
-          parseInt(product.adet || 1), // ADET
+          parseFloat(product.adetKg || (parseFloat(product.toplamKg || product.toplamAgirlik || 0) / parseInt(product.hasirSayisi || 1)).toFixed(4)), // ADET KG
           parseFloat(product.toplamKg || product.toplamAgirlik || 0), // TOPLAM KG
           '' // Empty last column
         ]);
