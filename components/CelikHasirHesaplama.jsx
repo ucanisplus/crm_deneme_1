@@ -761,6 +761,18 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                         {mapping.hasirSayisi === index && (
                           <span className="text-green-600 text-[10px]">(Sayı)</span>
                         )}
+                        {mapping.boyCap === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy Çap)</span>
+                        )}
+                        {mapping.enCap === index && (
+                          <span className="text-blue-600 text-[10px]">(En Çap)</span>
+                        )}
+                        {mapping.boyAraligi === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy Aralığı)</span>
+                        )}
+                        {mapping.enAraligi === index && (
+                          <span className="text-blue-600 text-[10px]">(En Aralığı)</span>
+                        )}
                         {mapping.cubukSayisiBoy === index && (
                           <span className="text-blue-600 text-[10px]">(Boy Çubuk)</span>
                         )}
@@ -780,7 +792,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                           <span className="text-purple-600 text-[10px]">(Arka Filiz)</span>
                         )}
                         {mapping.adetKg === index && (
-                          <span className="text-orange-600 text-[10px]">(Adet Kg)</span>
+                          <span className="text-green-600 text-[10px]">(Adet Kg)</span>
                         )}
                         {mapping.toplamKg === index && (
                           <span className="text-orange-600 text-[10px]">(Toplam Kg)</span>
