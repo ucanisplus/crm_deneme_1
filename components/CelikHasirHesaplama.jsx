@@ -2281,8 +2281,8 @@ if (row.modified && row.modified[field] &&
     }
   }
   
-  // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle
-  if (field === 'hasirTipi') {
+  // Eğer hasirTipi değiştiyse, cap ve aralik değerlerini güncelle (only in interactive mode)
+  if (field === 'hasirTipi' && isInteractiveMode) {
     updateRowFromHasirTipi(updatedRows, rowIndex);
   }
   
