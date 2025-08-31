@@ -358,7 +358,6 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   const autoDetectKaynakProgramiColumns = () => {
     // Use the corrected user-specified column positions (1-based converted to 0-based)
     return {
-      stokKodu: 1,           // Column 2: Stok kodu (optional)
       hasirTipi: 4,          // Column 5: HASIR CİNSİ
       boyCap: 8,             // Column 9: BOY ÇAP  
       enCap: 9,              // Column 10: EN ÇAP
@@ -374,7 +373,8 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
       onFiliz: 20,           // Column 21: ÖN FİLİZ
       arkaFiliz: 21,         // Column 22: ARKA FİLİZ
       adetKg: 22,            // Column 23: ADET KG (Unit weight)
-      toplamKg: 23           // Column 24: TOPLAM KG (total weight = unit weight * hasır sayısı)
+      toplamKg: 23,          // Column 24: TOPLAM KG (total weight = unit weight * hasır sayısı)
+      hasirTuru: -1          // No fixed column - usually calculated from hasirTipi + uzunlukBoy
     };
   };
   
@@ -415,7 +415,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Kaynak Programı Sütunları Eşleştir</h2>
           <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
@@ -428,7 +428,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
             Sütunlar standart Kaynak Programı formatına göre otomatik olarak seçildi. Gerekirse değiştirebilirsiniz:
           </p>
           
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-4 gap-4 mb-6">
             {/* Required Fields */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -496,6 +496,101 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
                 className={`w-full border rounded-md p-2 ${mapping.hasirSayisi !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
                 value={mapping.hasirSayisi}
                 onChange={(e) => handleMappingChange('hasirSayisi', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Adet Kg (Birim Ağırlık) <span className="text-red-500">*</span>
+                {isAutoSelected('adetKg', mapping.adetKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.adetKg !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                value={mapping.adetKg}
+                onChange={(e) => handleMappingChange('adetKg', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Boy Çap (mm)
+                {isAutoSelected('boyCap', mapping.boyCap) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.boyCap !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.boyCap}
+                onChange={(e) => handleMappingChange('boyCap', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                En Çap (mm)
+                {isAutoSelected('enCap', mapping.enCap) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.enCap !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.enCap}
+                onChange={(e) => handleMappingChange('enCap', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Boy Aralığı (cm)
+                {isAutoSelected('boyAraligi', mapping.boyAraligi) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.boyAraligi !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.boyAraligi}
+                onChange={(e) => handleMappingChange('boyAraligi', e.target.value)}
+              >
+                <option value="-1">Seçiniz</option>
+                {headers.map((header, index) => (
+                  <option key={index} value={index}>
+                    {header || `Sütun ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                En Aralığı (cm)
+                {isAutoSelected('enAraligi', mapping.enAraligi) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+              </label>
+              <select 
+                className={`w-full border rounded-md p-2 ${mapping.enAraligi !== -1 ? 'border-blue-300 bg-blue-50' : 'border-gray-300'}`}
+                value={mapping.enAraligi}
+                onChange={(e) => handleMappingChange('enAraligi', e.target.value)}
               >
                 <option value="-1">Seçiniz</option>
                 {headers.map((header, index) => (
@@ -644,13 +739,13 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Adet Kg (Birim Ağırlık)
-                {isAutoSelected('adetKg', mapping.adetKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+                Toplam Kg (Toplam Ağırlık)
+                {isAutoSelected('toplamKg', mapping.toplamKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
               </label>
               <select 
-                className={`w-full border rounded-md p-2 ${mapping.adetKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.adetKg}
-                onChange={(e) => handleMappingChange('adetKg', e.target.value)}
+                className={`w-full border rounded-md p-2 ${mapping.toplamKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
+                value={mapping.toplamKg}
+                onChange={(e) => handleMappingChange('toplamKg', e.target.value)}
               >
                 <option value="-1">Seçiniz</option>
                 {headers.map((header, index) => (
@@ -663,13 +758,13 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Toplam Kg (Toplam Ağırlık)
-                {isAutoSelected('toplamKg', mapping.toplamKg) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
+                Hasır Türü
+                {isAutoSelected('hasirTuru', mapping.hasirTuru) && <span className="text-green-600 text-xs">✓ Otomatik</span>}
               </label>
               <select 
-                className={`w-full border rounded-md p-2 ${mapping.toplamKg !== -1 ? 'border-orange-300 bg-orange-50' : 'border-gray-300'}`}
-                value={mapping.toplamKg}
-                onChange={(e) => handleMappingChange('toplamKg', e.target.value)}
+                className={`w-full border rounded-md p-2 ${mapping.hasirTuru !== -1 ? 'border-yellow-300 bg-yellow-50' : 'border-gray-300'}`}
+                value={mapping.hasirTuru}
+                onChange={(e) => handleMappingChange('hasirTuru', e.target.value)}
               >
                 <option value="-1">Seçiniz</option>
                 {headers.map((header, index) => (
