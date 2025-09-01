@@ -230,17 +230,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Example: 2.15m piece at 200m/min speed = 2.15/200 = 0.01075 min per piece
     const duration_minutes = length_m / speed_m_per_min;
     
-    // But this seems too small. Let me add a realistic cutting/setup time
-    // Real-world cutting involves setup, positioning, etc.
-    const realistic_duration_minutes = duration_minutes + 0.5; // Add 0.5 min setup time
-    
-    // Convert to hours and return  
-    return parseFloat((realistic_duration_minutes / 60).toFixed(5));
+    // Pure cutting time + 0.05 seconds buffer
+    const duration_seconds = duration_minutes * 60 + 0.05; // Add 0.05 seconds
+    return parseFloat((duration_seconds / 3600).toFixed(5)); // Convert back to hours
   };
 
-  // NTEL duration calculation per meter (Reliability: 91.3%)
+  // NTEL duration calculation with variable speed 8-11m/s based on diameter
   const calculateNTELDuration = (diameter_mm) => {
-    return parseFloat((0.001 + (diameter_mm * 0.000185)).toFixed(5));
+    // Machine speed varies between 8-11 m/s based on diameter and filmasin
+    let speed_m_per_s;
+    if (diameter_mm <= 5.0) {
+      speed_m_per_s = 11; // Smaller diameters = faster speed
+    } else if (diameter_mm <= 7.0) {
+      speed_m_per_s = 10;
+    } else if (diameter_mm <= 9.0) {
+      speed_m_per_s = 9;
+    } else {
+      speed_m_per_s = 8; // Larger diameters = slower speed
+    }
+    
+    // For 1 meter: 1m ÷ speed m/s = time in seconds + 0.05 buffer
+    const duration_seconds = (1 / speed_m_per_s) + 0.05; // Add 0.05 seconds buffer
+    const duration_hours = duration_seconds / 3600; // Convert to hours
+    return parseFloat(duration_hours.toFixed(5));
   };
 
   // YOTOCH duration calculation (Reliability: 98.7%)
@@ -256,17 +268,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
            (densityFactor * 0.02)).toFixed(5));
   };
 
-  // OTOCH duration calculation (Estimated Reliability: 85.2%)
+  // OTOCH duration calculation (60% of YOTOCH - 40% faster)
   const calculateOTOCHDuration = (boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn) => {
     const area = boy_mm * en_mm;
     const totalRods = cubukSayisiBoy + cubukSayisiEn;
     const wireFactor = Math.pow(diameter_mm, 1.1);
     const densityFactor = totalRods / (area / 10000);
     
-    return parseFloat((0.05 + 
-           (area * 0.0000008) + 
-           (wireFactor * 0.01) + 
-           (densityFactor * 0.015)).toFixed(5));
+    return parseFloat((0.048 + 
+           (area * 0.00000072) + 
+           (wireFactor * 0.009) + 
+           (densityFactor * 0.012)).toFixed(5));
   };
 
   // Database verileri
