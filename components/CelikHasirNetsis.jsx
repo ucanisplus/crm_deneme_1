@@ -174,8 +174,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
       case 'YOTOCH':
         return calculateYOTOCHDuration(
-          parseFloat(product.uzunlukBoy),
-          parseFloat(product.uzunlukEn),
+          parseFloat(product.uzunlukBoy), // 500 (cm) - formula expects cm despite parameter name
+          parseFloat(product.uzunlukEn),  // 215 (cm) - formula expects cm despite parameter name
           parseFloat(product.boyCap),
           parseInt(product.cubukSayisiBoy),
           parseInt(product.cubukSayisiEn)
@@ -183,8 +183,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
       case 'OTOCH':
         return calculateOTOCHDuration(
-          parseFloat(product.uzunlukBoy),
-          parseFloat(product.uzunlukEn),
+          parseFloat(product.uzunlukBoy), // 500 (cm) - formula expects cm despite parameter name
+          parseFloat(product.uzunlukEn),  // 215 (cm) - formula expects cm despite parameter name
           parseFloat(product.boyCap),
           parseInt(product.cubukSayisiBoy),
           parseInt(product.cubukSayisiEn)
