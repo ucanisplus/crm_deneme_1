@@ -611,45 +611,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
-    // Transform database products to expected Excel format
-    const transformedProducts = selectedProducts.map(product => {
-      // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect (shows 'MM' instead of actual type)
-      let actualHasirTipi = product.hasir_tipi || '';
-      if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
-        // Try to extract from stok_adi (e.g., "TR317 Çap..." or "Q257 Çap...")
-        const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
-        if (stokAdiMatch) {
-          actualHasirTipi = stokAdiMatch[1].toUpperCase();
-        }
-      }
-      
-      // Fix İngilizce İsim - remove extra dash at the beginning
-      const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
-      
-      return {
-        // Map database fields to expected Excel generation format
-        boyCap: product.cap || 0,
-        enCap: product.cap2 || 0,
-        hasirTipi: actualHasirTipi,
-        uzunlukBoy: product.ebat_boy || 0,
-        uzunlukEn: product.ebat_en || 0,
-        boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
-        enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
-        gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
-        totalKg: product.kg || 0,
-        adetKg: product.kg || 0,
-        cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-        cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
-        hasirSayisi: product.hasir_sayisi || 1,
-        hasirTuru: product.hasir_turu || 'Standart',
-        // Add existing stok kodu for saved products
-        existingStokKodu: product.stok_kodu,
-        // Store cleaned İngilizce İsim
-        existingIngilizceIsim: cleanIngilizceIsim,
-        // CRITICAL: Mark as optimized so Excel generation processes them
-        isOptimized: true
-      };
-    });
+    // Transform database products to match Excel function format
+    const transformedProducts = selectedProducts.map(product => ({
+      // Use primary database columns (the ones we actually save to)
+      boyCap: product.cap || 0,
+      enCap: product.cap2 || 0, 
+      hasirTipi: product.hasir_tipi || '',
+      uzunlukBoy: product.ebat_boy || 0,
+      uzunlukEn: product.ebat_en || 0,
+      gozAraligiBoy: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+      gozAraligiEn: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+      totalKg: product.kg || 0,
+      adetKg: product.kg || 0,
+      // Use primary cubuk sayısı columns (the main ones Excel functions expect)
+      cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+      cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+      // Keep existing stock code so Excel functions use database recipe values
+      existingStokKodu: product.stok_kodu
+    }));
 
     console.log('DEBUG: Selected products for export:', transformedProducts);
 
