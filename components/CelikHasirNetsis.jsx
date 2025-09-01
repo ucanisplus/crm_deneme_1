@@ -2602,10 +2602,70 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     saveAs(new Blob([buffer]), `Celik_Hasir_Stok_${timestamp}.xlsx`);
   };
 
+  // Function to fetch recipe data from database
+  const fetchRecipeData = async () => {
+    try {
+      const [mmRecipes, ncbkRecipes, ntelRecipes] = await Promise.all([
+        fetchWithAuth(API_URLS.celikHasirMmRecete),
+        fetchWithAuth(API_URLS.celikHasirNcbkRecete),
+        fetchWithAuth(API_URLS.celikHasirNtelRecete)
+      ]);
+      
+      const mmRecipeData = await mmRecipes.json();
+      const ncbkRecipeData = await ncbkRecipes.json();
+      const ntelRecipeData = await ntelRecipes.json();
+      
+      // Create maps for quick lookup by mamul_kodu
+      const recipeMap = {
+        mm: new Map(),
+        ncbk: new Map(),
+        ntel: new Map()
+      };
+      
+      // Group MM recipes by mamul_kodu
+      (mmRecipeData.data || mmRecipeData || []).forEach(recipe => {
+        if (!recipeMap.mm.has(recipe.mamul_kodu)) {
+          recipeMap.mm.set(recipe.mamul_kodu, []);
+        }
+        recipeMap.mm.get(recipe.mamul_kodu).push(recipe);
+      });
+      
+      // Group NCBK recipes by mamul_kodu
+      (ncbkRecipeData.data || ncbkRecipeData || []).forEach(recipe => {
+        if (!recipeMap.ncbk.has(recipe.mamul_kodu)) {
+          recipeMap.ncbk.set(recipe.mamul_kodu, []);
+        }
+        recipeMap.ncbk.get(recipe.mamul_kodu).push(recipe);
+      });
+      
+      // Group NTEL recipes by mamul_kodu
+      (ntelRecipeData.data || ntelRecipeData || []).forEach(recipe => {
+        if (!recipeMap.ntel.has(recipe.mamul_kodu)) {
+          recipeMap.ntel.set(recipe.mamul_kodu, []);
+        }
+        recipeMap.ntel.get(recipe.mamul_kodu).push(recipe);
+      });
+      
+      console.log('Fetched recipe data:', {
+        mmRecipes: recipeMap.mm.size,
+        ncbkRecipes: recipeMap.ncbk.size,
+        ntelRecipes: recipeMap.ntel.size
+      });
+      
+      return recipeMap;
+    } catch (error) {
+      console.error('Error fetching recipe data:', error);
+      return { mm: new Map(), ncbk: new Map(), ntel: new Map() };
+    }
+  };
+
   // Reçete Excel oluştur
   const generateReceteExcel = async (products, timestamp, includeAllProducts) => {
     // Initialize batch sequence before any stok kodu generation
     await initializeBatchSequence();
+    
+    // Fetch recipe data from database
+    const recipeData = await fetchRecipeData();
     
     const workbook = new ExcelJS.Workbook();
     
@@ -2647,7 +2707,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // FIXED: Calculate correct quantities based on actual product dimensions
         const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
         const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
-        const operationTime = isRType ? '0,1667' : '0,2667'; // R-type: 0.1667, Q-type: 0.2667
+        // Get operation time from database ONLY - no fallback
+        let operationTime = ''; // Start with empty - will only use database value
+        const recipeEntries = recipeData.mm.get(chStokKodu) || [];
+        const yotochEntry = recipeEntries.find(r => r.bilesen_kodu === 'YOTOCH' && r.operasyon_bilesen === 'Operasyon');
+        if (yotochEntry && yotochEntry.uretim_suresi !== null && yotochEntry.uretim_suresi !== undefined) {
+          // Use exact database value, maintain decimal precision
+          operationTime = toExcelDecimal(yotochEntry.uretim_suresi);
+        } else {
+          console.error(`WARNING: No YOTOCH uretim_suresi found in database for ${chStokKodu}`);
+          // Leave empty - no fallback to calculated values
+        }
         
         // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
@@ -2867,6 +2937,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Initialize batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
+    // Fetch recipe data from database
+    const recipeData = await fetchRecipeData();
+    
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
@@ -2951,10 +3024,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
         }
         
+        // Get operation time from database ONLY - no fallback
+        let otochDuration = ''; // Start with empty - will only use database value
+        const altRecipeEntries = recipeData.mm.get(chStokKodu) || [];
+        const otochEntry = altRecipeEntries.find(r => r.bilesen_kodu === 'OTOCH' && r.operasyon_bilesen === 'Operasyon');
+        if (otochEntry && otochEntry.uretim_suresi !== null && otochEntry.uretim_suresi !== undefined) {
+          // Use exact database value, maintain decimal precision
+          otochDuration = otochEntry.uretim_suresi;
+        } else {
+          console.error(`WARNING: No OTOCH uretim_suresi found in database for ${chStokKodu}`);
+          // Leave empty - no fallback to calculated values
+        }
+        
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-          'DK', '1', '', '', '', '', '', '', '', toExcelDecimal(calculateOperationDuration('OTOCH', product).toFixed(5)),
+          'DK', '1', '', '', '', '', '', '', '', toExcelDecimal(otochDuration),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
