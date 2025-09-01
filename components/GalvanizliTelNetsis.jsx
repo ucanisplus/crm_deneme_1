@@ -959,7 +959,8 @@ const GalvanizliTelNetsis = () => {
       return;
     }
 
-    if (!window.confirm(`${selectedDbItems.length} ürünü silmek istediğinizden emin misiniz?`)) {
+    const warningMessage = `UYARI: Bu işlem geri alınamaz!\n\n${selectedDbItems.length} ürün ve bunlara ait tüm reçete bilgileri kalıcı olarak silinecek.\n\nBu işlemi gerçekleştirmek istediğinizden emin misiniz?`;
+    if (!window.confirm(warningMessage)) {
       return;
     }
 

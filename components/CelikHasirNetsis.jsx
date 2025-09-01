@@ -401,7 +401,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
-    if (!window.confirm(`${selectedDbItems.length} ürünü silmek istediğinizden emin misiniz?`)) {
+    const warningMessage = `UYARI: Bu işlem geri alınamaz!\n\n${selectedDbItems.length} ürün ve bunlara ait tüm reçete bilgileri kalıcı olarak silinecek.\n\nBu işlemi gerçekleştirmek istediğinizden emin misiniz?`;
+    if (!window.confirm(warningMessage)) {
       return;
     }
 
@@ -2707,16 +2708,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // FIXED: Calculate correct quantities based on actual product dimensions
         const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
         const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
-        // Get operation time from database ONLY - no fallback
-        let operationTime = ''; // Start with empty - will only use database value
+        // Get operation time from database, fallback to calculated value
+        let operationTime = '';
         const recipeEntries = recipeData.mm.get(chStokKodu) || [];
         const yotochEntry = recipeEntries.find(r => r.bilesen_kodu === 'YOTOCH' && r.operasyon_bilesen === 'Operasyon');
         if (yotochEntry && yotochEntry.uretim_suresi !== null && yotochEntry.uretim_suresi !== undefined) {
           // Use exact database value, maintain decimal precision
           operationTime = toExcelDecimal(yotochEntry.uretim_suresi);
         } else {
-          console.error(`WARNING: No YOTOCH uretim_suresi found in database for ${chStokKodu}`);
-          // Leave empty - no fallback to calculated values
+          // Fallback to calculated value for main recipe
+          operationTime = toExcelDecimal(calculateOperationDuration('YOTOCH', product).toFixed(5));
         }
         
         // EN ÇUBUĞU (actual en length)
@@ -3024,17 +3025,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
         }
         
-        // Get operation time from database ONLY - no fallback
-        let otochDuration = ''; // Start with empty - will only use database value
-        const altRecipeEntries = recipeData.mm.get(chStokKodu) || [];
-        const otochEntry = altRecipeEntries.find(r => r.bilesen_kodu === 'OTOCH' && r.operasyon_bilesen === 'Operasyon');
-        if (otochEntry && otochEntry.uretim_suresi !== null && otochEntry.uretim_suresi !== undefined) {
-          // Use exact database value, maintain decimal precision
-          otochDuration = otochEntry.uretim_suresi;
-        } else {
-          console.error(`WARNING: No OTOCH uretim_suresi found in database for ${chStokKodu}`);
-          // Leave empty - no fallback to calculated values
-        }
+        // For alternatif recipe OTOCH, use calculated value directly (no database lookup needed)
+        const otochDuration = calculateOperationDuration('OTOCH', product).toFixed(5);
         
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
@@ -4350,7 +4342,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Ürün sil - OPTIMIZED VERSION
   const deleteProduct = async (productId, productType) => {
-    if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
+    const warningMessage = `UYARI: Bu işlem geri alınamaz!\n\nBu ürün ve ona ait tüm reçete bilgileri kalıcı olarak silinecek.\n\nBu işlemi gerçekleştirmek istediğinizden emin misiniz?`;
+    if (!window.confirm(warningMessage)) {
       return;
     }
 
