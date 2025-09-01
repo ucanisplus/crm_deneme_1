@@ -230,9 +230,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Example: 2.15m piece at 200m/min speed = 2.15/200 = 0.01075 min per piece
     const duration_minutes = length_m / speed_m_per_min;
     
-    // Pure cutting time + 0.05 seconds buffer
+    // Pure cutting time + 0.05 seconds buffer, return in minutes for proper scale
     const duration_seconds = duration_minutes * 60 + 0.05; // Add 0.05 seconds
-    return parseFloat((duration_seconds / 3600).toFixed(5)); // Convert back to hours
+    return parseFloat((duration_seconds / 60).toFixed(5)); // Convert to minutes for proper scale
   };
 
   // NTEL duration calculation with variable speed 8-11m/s based on diameter
@@ -249,10 +249,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       speed_m_per_s = 8; // Larger diameters = slower speed
     }
     
-    // For 1 meter: 1m ÷ speed m/s = time in seconds + 0.05 buffer
+    // For 1 meter: 1m ÷ speed m/s = time in seconds + 0.05 buffer, return in minutes for proper scale
     const duration_seconds = (1 / speed_m_per_s) + 0.05; // Add 0.05 seconds buffer
-    const duration_hours = duration_seconds / 3600; // Convert to hours
-    return parseFloat(duration_hours.toFixed(5));
+    const duration_minutes = duration_seconds / 60; // Convert to minutes for proper scale
+    return parseFloat(duration_minutes.toFixed(5));
   };
 
   // YOTOCH duration calculation (Reliability: 98.7%)
