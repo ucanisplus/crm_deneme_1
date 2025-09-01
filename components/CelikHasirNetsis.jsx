@@ -401,8 +401,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
-    const warningMessage = `UYARI: Bu işlem geri alınamaz!\n\n${selectedDbItems.length} ürün ve bunlara ait tüm reçete bilgileri kalıcı olarak silinecek.\n\nBu işlemi gerçekleştirmek istediğinizden emin misiniz?`;
-    if (!window.confirm(warningMessage)) {
+    if (!window.confirm(`${selectedDbItems.length} ürünü silmek istediğinizden emin misiniz?`)) {
       return;
     }
 
@@ -611,24 +610,45 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
-    // Transform database products to match Excel function format
-    const transformedProducts = selectedProducts.map(product => ({
-      // Use primary database columns (the ones we actually save to)
-      boyCap: product.cap || 0,
-      enCap: product.cap2 || 0, 
-      hasirTipi: product.hasir_tipi || '',
-      uzunlukBoy: product.ebat_boy || 0,
-      uzunlukEn: product.ebat_en || 0,
-      gozAraligiBoy: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
-      gozAraligiEn: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
-      totalKg: product.kg || 0,
-      adetKg: product.kg || 0,
-      // Use primary cubuk sayısı columns (the main ones Excel functions expect)
-      cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-      cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
-      // Keep existing stock code so Excel functions use database recipe values
-      existingStokKodu: product.stok_kodu
-    }));
+    // Transform database products to expected Excel format
+    const transformedProducts = selectedProducts.map(product => {
+      // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect (shows 'MM' instead of actual type)
+      let actualHasirTipi = product.hasir_tipi || '';
+      if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+        // Try to extract from stok_adi (e.g., "TR317 Çap..." or "Q257 Çap...")
+        const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+        if (stokAdiMatch) {
+          actualHasirTipi = stokAdiMatch[1].toUpperCase();
+        }
+      }
+      
+      // Fix İngilizce İsim - remove extra dash at the beginning
+      const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+      
+      return {
+        // Map database fields to expected Excel generation format
+        boyCap: product.cap || 0,
+        enCap: product.cap2 || 0,
+        hasirTipi: actualHasirTipi,
+        uzunlukBoy: product.ebat_boy || 0,
+        uzunlukEn: product.ebat_en || 0,
+        boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+        enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+        gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
+        totalKg: product.kg || 0,
+        adetKg: product.kg || 0,
+        cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+        cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+        hasirSayisi: product.hasir_sayisi || 1,
+        hasirTuru: product.hasir_turu || 'Standart',
+        // Add existing stok kodu for saved products
+        existingStokKodu: product.stok_kodu,
+        // Store cleaned İngilizce İsim
+        existingIngilizceIsim: cleanIngilizceIsim,
+        // CRITICAL: Mark as optimized so Excel generation processes them
+        isOptimized: true
+      };
+    });
 
     console.log('DEBUG: Selected products for export:', transformedProducts);
 
@@ -2582,70 +2602,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     saveAs(new Blob([buffer]), `Celik_Hasir_Stok_${timestamp}.xlsx`);
   };
 
-  // Function to fetch recipe data from database
-  const fetchRecipeData = async () => {
-    try {
-      const [mmRecipes, ncbkRecipes, ntelRecipes] = await Promise.all([
-        fetchWithAuth(API_URLS.celikHasirMmRecete),
-        fetchWithAuth(API_URLS.celikHasirNcbkRecete),
-        fetchWithAuth(API_URLS.celikHasirNtelRecete)
-      ]);
-      
-      const mmRecipeData = await mmRecipes.json();
-      const ncbkRecipeData = await ncbkRecipes.json();
-      const ntelRecipeData = await ntelRecipes.json();
-      
-      // Create maps for quick lookup by mamul_kodu
-      const recipeMap = {
-        mm: new Map(),
-        ncbk: new Map(),
-        ntel: new Map()
-      };
-      
-      // Group MM recipes by mamul_kodu
-      (mmRecipeData.data || mmRecipeData || []).forEach(recipe => {
-        if (!recipeMap.mm.has(recipe.mamul_kodu)) {
-          recipeMap.mm.set(recipe.mamul_kodu, []);
-        }
-        recipeMap.mm.get(recipe.mamul_kodu).push(recipe);
-      });
-      
-      // Group NCBK recipes by mamul_kodu
-      (ncbkRecipeData.data || ncbkRecipeData || []).forEach(recipe => {
-        if (!recipeMap.ncbk.has(recipe.mamul_kodu)) {
-          recipeMap.ncbk.set(recipe.mamul_kodu, []);
-        }
-        recipeMap.ncbk.get(recipe.mamul_kodu).push(recipe);
-      });
-      
-      // Group NTEL recipes by mamul_kodu
-      (ntelRecipeData.data || ntelRecipeData || []).forEach(recipe => {
-        if (!recipeMap.ntel.has(recipe.mamul_kodu)) {
-          recipeMap.ntel.set(recipe.mamul_kodu, []);
-        }
-        recipeMap.ntel.get(recipe.mamul_kodu).push(recipe);
-      });
-      
-      console.log('Fetched recipe data:', {
-        mmRecipes: recipeMap.mm.size,
-        ncbkRecipes: recipeMap.ncbk.size,
-        ntelRecipes: recipeMap.ntel.size
-      });
-      
-      return recipeMap;
-    } catch (error) {
-      console.error('Error fetching recipe data:', error);
-      return { mm: new Map(), ncbk: new Map(), ntel: new Map() };
-    }
-  };
-
   // Reçete Excel oluştur
   const generateReceteExcel = async (products, timestamp, includeAllProducts) => {
     // Initialize batch sequence before any stok kodu generation
     await initializeBatchSequence();
-    
-    // Fetch recipe data from database
-    const recipeData = await fetchRecipeData();
     
     const workbook = new ExcelJS.Workbook();
     
@@ -2687,17 +2647,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // FIXED: Calculate correct quantities based on actual product dimensions
         const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
         const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
-        // Get operation time from database, fallback to calculated value
-        let operationTime = '';
-        const recipeEntries = recipeData.mm.get(chStokKodu) || [];
-        const yotochEntry = recipeEntries.find(r => r.bilesen_kodu === 'YOTOCH' && r.operasyon_bilesen === 'Operasyon');
-        if (yotochEntry && yotochEntry.uretim_suresi !== null && yotochEntry.uretim_suresi !== undefined) {
-          // Use exact database value, maintain decimal precision
-          operationTime = toExcelDecimal(yotochEntry.uretim_suresi);
-        } else {
-          // Fallback to calculated value for main recipe
-          operationTime = toExcelDecimal(calculateOperationDuration('YOTOCH', product).toFixed(5));
-        }
+        const operationTime = isRType ? '0,1667' : '0,2667'; // R-type: 0.1667, Q-type: 0.2667
         
         // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
@@ -2917,9 +2867,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Initialize batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
-    // Fetch recipe data from database
-    const recipeData = await fetchRecipeData();
-    
     const workbook = new ExcelJS.Workbook();
     
     const receteHeaders = [
@@ -3004,13 +2951,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
         }
         
-        // For alternatif recipe OTOCH, use calculated value directly (no database lookup needed)
-        const otochDuration = calculateOperationDuration('OTOCH', product).toFixed(5);
-        
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-          'DK', '1', '', '', '', '', '', '', '', toExcelDecimal(otochDuration),
+          'DK', '1', '', '', '', '', '', '', '', toExcelDecimal(calculateOperationDuration('OTOCH', product).toFixed(5)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
@@ -4321,8 +4265,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Ürün sil - OPTIMIZED VERSION
   const deleteProduct = async (productId, productType) => {
-    const warningMessage = `UYARI: Bu işlem geri alınamaz!\n\nBu ürün ve ona ait tüm reçete bilgileri kalıcı olarak silinecek.\n\nBu işlemi gerçekleştirmek istediğinizden emin misiniz?`;
-    if (!window.confirm(warningMessage)) {
+    if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
       return;
     }
 
