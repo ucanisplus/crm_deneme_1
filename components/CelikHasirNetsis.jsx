@@ -2647,7 +2647,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // FIXED: Calculate correct quantities based on actual product dimensions
         const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
         const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
-        const operationTime = isRType ? '0,1667' : '0,2667'; // R-type: 0.1667, Q-type: 0.2667
+        // Calculate YOTOCH operation time using our formula
+        const operationTime = toExcelDecimal(calculateOperationDuration('YOTOCH', product).toFixed(5));
         
         // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
