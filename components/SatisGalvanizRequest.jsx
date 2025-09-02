@@ -142,11 +142,13 @@ const SatisGalvanizRequest = () => {
     }
   }, [toleransMinSign]);
 
-  // Fetch existing requests on component mount
+  // Fetch existing requests when user is loaded
   useEffect(() => {
-    fetchRequests();
-    fetchExistingProducts();
-  }, []);
+    if (user && user.id) {
+      fetchRequests();
+      fetchExistingProducts();
+    }
+  }, [user]);
   
   // Reset to first page when filters change
   useEffect(() => {
@@ -158,10 +160,16 @@ const SatisGalvanizRequest = () => {
   // Fetch requests from API
   const fetchRequests = async () => {
     try {
+      // Don't fetch if user is not loaded
+      if (!user || !user.id) {
+        console.log('User not loaded yet, skipping fetchRequests');
+        return;
+      }
+      
       setIsLoadingRequests(true);
       
       // Get only user's requests
-      let url = `${API_URLS.galSalRequests}?created_by=${user?.id}`;
+      let url = `${API_URLS.galSalRequests}?created_by=${user.id}`;
       
       const response = await fetchWithAuth(url);
       
@@ -986,6 +994,12 @@ const SatisGalvanizRequest = () => {
   const submitRequest = async (e) => {
     e.preventDefault();
     
+    // Check if user is loaded
+    if (!user || !user.id) {
+      toast.error('Kullanıcı bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
+      return;
+    }
+    
     // Validate request data
     const validationErrors = validateRequestData();
     if (validationErrors.length > 0) {
@@ -1034,7 +1048,7 @@ const SatisGalvanizRequest = () => {
         helix_kont: requestData.helix_kont || null,       // Helix kontrol
         elongation: requestData.elongation || null,       // Elongation
         status: 'pending',                // Initial status: pending
-        created_by: user?.id || null,     // Track who created the request
+        created_by: user.id,               // Track who created the request (already validated)
         stok_kodu: stokKodu,              // Generated stok kodu
         stok_adi: stokAdi                 // Generated stok adi
       };
