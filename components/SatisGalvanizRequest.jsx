@@ -174,11 +174,22 @@ const SatisGalvanizRequest = () => {
       const response = await fetchWithAuth(url);
       
       if (!response || !response.ok) {
-        throw new Error('Talep listesi alınamadı');
+        // Try fetching without created_by filter if it fails
+        console.log('Failed with created_by filter, trying without...');
+        const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
+        
+        if (!allRequestsResponse || !allRequestsResponse.ok) {
+          throw new Error('Talep listesi alınamadı');
+        }
+        
+        const allRequestsData = await allRequestsResponse.json();
+        // Filter on client side
+        const requestsData = allRequestsData.filter(req => req.created_by === user.id);
+        setRequests(requestsData || []);
+      } else {
+        const requestsData = await response.json();
+        setRequests(requestsData || []);
       }
-      
-      const requestsData = await response.json();
-      setRequests(requestsData || []);
       
       // Update selectedRequest if it's currently open to refresh the modal with latest data
       if (selectedRequest && showDetailsModal) {
