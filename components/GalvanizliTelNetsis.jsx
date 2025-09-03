@@ -8348,7 +8348,25 @@ const GalvanizliTelNetsis = () => {
             mmGtMap.set(mmGt.stok_kodu, mmGt);
             
             // Find relationships created specifically for this request's MM GT
-            const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            let relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+            
+            // If relation fetch fails due to parameter error, fetch all and filter client-side
+            if (!relationResponse || !relationResponse.ok) {
+              console.log(`🔗 Relation fetch failed for mm_gt_id=${mmGt.id}, fetching all relations and filtering...`);
+              const allRelationsResponse = await fetchWithAuth(API_URLS.galMmGtYmSt);
+              if (allRelationsResponse && allRelationsResponse.ok) {
+                const allRelations = await allRelationsResponse.json();
+                const filteredRelations = allRelations.filter(r => r.mm_gt_id === mmGt.id);
+                console.log(`🔗 Found ${filteredRelations.length} relations for MM GT ${mmGt.stok_kodu}`);
+                
+                // Create mock response
+                relationResponse = {
+                  ok: true,
+                  json: async () => filteredRelations
+                };
+              }
+            }
+            
             if (relationResponse && relationResponse.ok) {
               const relations = await relationResponse.json();
               
@@ -8427,7 +8445,25 @@ const GalvanizliTelNetsis = () => {
             }
             
             // Add MM GT recipes for this specific MM GT
-            const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+            let mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+            
+            // If recipe fetch fails due to parameter error, fetch all and filter client-side
+            if (!mmGtRecipeResponse || !mmGtRecipeResponse.ok) {
+              console.log(`📖 Recipe fetch failed for mm_gt_id=${mmGt.id}, fetching all recipes and filtering...`);
+              const allRecipesResponse = await fetchWithAuth(API_URLS.galMmGtRecete);
+              if (allRecipesResponse && allRecipesResponse.ok) {
+                const allRecipes = await allRecipesResponse.json();
+                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id === mmGt.id);
+                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
+                
+                // Create mock response
+                mmGtRecipeResponse = {
+                  ok: true,
+                  json: async () => filteredRecipes
+                };
+              }
+            }
+            
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
               const mmGtRecipes = await mmGtRecipeResponse.json();
               mmGtRecipes.forEach(r => {
