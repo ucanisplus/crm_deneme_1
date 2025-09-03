@@ -1236,7 +1236,22 @@ const GalvanizliTelNetsis = () => {
       
       // YM GT recetesini getir
       if (ymGtId) {
-        const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+        console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
+        const allYmGtRecipesResponse = await fetchWithAuth(API_URLS.galYmGtRecete);
+        let ymGtRecipeResponse = null;
+        
+        if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+          const allYmGtRecipes = await allYmGtRecipesResponse.json();
+          const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
+          console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+          
+          // Create mock response
+          ymGtRecipeResponse = {
+            ok: true,
+            json: async () => filteredYmGtRecipes
+          };
+        }
+        
         if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
           const ymGtRecipeData = await ymGtRecipeResponse.json();
           const parsedYmGtRecipe = {};
@@ -1255,7 +1270,22 @@ const GalvanizliTelNetsis = () => {
       if (ymStIds.length > 0) {
         for (let i = 0; i < ymStIds.length; i++) {
           const ymStId = ymStIds[i];
-          const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+          console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStId}...`);
+          const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+          let ymStRecipeResponse = null;
+          
+          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+            const allYmStRecipes = await allYmStRecipesResponse.json();
+            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStId); // Use == for type coercion
+            console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStId}`);
+            
+            // Create mock response
+            ymStRecipeResponse = {
+              ok: true,
+              json: async () => filteredYmStRecipes
+            };
+          }
+          
           if (ymStRecipeResponse && ymStRecipeResponse.ok) {
             const ymStRecipeData = await ymStRecipeResponse.json();
             const parsedYmStRecipe = {};
@@ -1354,7 +1384,22 @@ const GalvanizliTelNetsis = () => {
               
               // 🆕 YENI: Iliski kullanarak YM GT recetelerini yukle
               if (ymGtId) {
-                const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
+                const allYmGtRecipesResponse = await fetchWithAuth(API_URLS.galYmGtRecete);
+                let ymGtRecipeResponse = null;
+                
+                if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+                  const allYmGtRecipes = await allYmGtRecipesResponse.json();
+                  const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
+                  console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+                  
+                  // Create mock response
+                  ymGtRecipeResponse = {
+                    ok: true,
+                    json: async () => filteredYmGtRecipes
+                  };
+                }
+                
                 if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
                   const ymGtRecipeData = await ymGtRecipeResponse.json();
                   if (ymGtRecipeData.length > 0) {
@@ -1396,7 +1441,22 @@ const GalvanizliTelNetsis = () => {
                 
                 // Ilk once YM ST urunun kendisini yukle
                 try {
-                  const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${ymStId}`);
+                  console.log(`📖 Fetching all YM ST products and filtering for id=${ymStId}...`);
+                  const allYmStResponse = await fetchWithAuth(API_URLS.galYmSt);
+                  let ymStResponse = null;
+                  
+                  if (allYmStResponse && allYmStResponse.ok) {
+                    const allYmSt = await allYmStResponse.json();
+                    const filteredYmSt = allYmSt.filter(r => r.id == ymStId); // Use == for type coercion
+                    console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${ymStId}`);
+                    
+                    // Create mock response - return first match or empty array
+                    ymStResponse = {
+                      ok: true,
+                      json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
+                    };
+                  }
+                  
                   if (ymStResponse && ymStResponse.ok) {
                     const ymStData = await ymStResponse.json();
                     const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
@@ -1414,7 +1474,22 @@ const GalvanizliTelNetsis = () => {
                 }
                 
                 // Sonra YM ST recetesini getir
-                const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
+                console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStId}...`);
+                const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+                let ymStRecipeResponse = null;
+                
+                if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                  const allYmStRecipes = await allYmStRecipesResponse.json();
+                  const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStId); // Use == for type coercion
+                  console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStId}`);
+                  
+                  // Create mock response
+                  ymStRecipeResponse = {
+                    ok: true,
+                    json: async () => filteredYmStRecipes
+                  };
+                }
+                
                 if (ymStRecipeResponse && ymStRecipeResponse.ok) {
                   const ymStRecipeData = await ymStRecipeResponse.json();
                   if (ymStRecipeData.length > 0) {
@@ -1476,7 +1551,22 @@ const GalvanizliTelNetsis = () => {
             
             if (ymStData && ymStData.id) {
               // YM ST recetesini getir
-              const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStData.id}`);
+              console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStData.id}...`);
+              const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+              let ymStRecipeResponse = null;
+              
+              if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                const allYmStRecipes = await allYmStRecipesResponse.json();
+                const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStData.id); // Use == for type coercion
+                console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStData.id}`);
+                
+                // Create mock response
+                ymStRecipeResponse = {
+                  ok: true,
+                  json: async () => filteredYmStRecipes
+                };
+              }
+              
               if (ymStRecipeResponse && ymStRecipeResponse.ok) {
                 const ymStRecipeData = await ymStRecipeResponse.json();
                 if (ymStRecipeData.length > 0) {
@@ -2453,7 +2543,22 @@ const GalvanizliTelNetsis = () => {
           for (let i = 0; i < sortedRelations.length; i++) {
             const relation = sortedRelations[i];
             try {
-              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
+              console.log(`📖 Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
+              const allYmStResponse = await fetchWithAuth(API_URLS.galYmSt);
+              let ymStResponse = null;
+              
+              if (allYmStResponse && allYmStResponse.ok) {
+                const allYmSt = await allYmStResponse.json();
+                const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
+                console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
+                
+                // Create mock response - return first match or empty array
+                ymStResponse = {
+                  ok: true,
+                  json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
+                };
+              }
+              
               if (ymStResponse && ymStResponse.ok) {
                 const ymStData = await ymStResponse.json();
                 const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
@@ -2548,7 +2653,22 @@ const GalvanizliTelNetsis = () => {
         try {
           
           // 🆕 NEW: Use the YM GT ID from the relationship instead of searching by stok_kodu
-          const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${relatedYmGtId}`);
+          console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relatedYmGtId}...`);
+          const allYmGtRecipesResponse = await fetchWithAuth(API_URLS.galYmGtRecete);
+          let ymGtRecipeResponse = null;
+          
+          if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+            const allYmGtRecipes = await allYmGtRecipesResponse.json();
+            const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == relatedYmGtId); // Use == for type coercion
+            console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${relatedYmGtId}`);
+            
+            // Create mock response
+            ymGtRecipeResponse = {
+              ok: true,
+              json: async () => filteredYmGtRecipes
+            };
+          }
+          
           if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
             const ymGtRecipes = await ymGtRecipeResponse.json();
             
@@ -2601,7 +2721,22 @@ const GalvanizliTelNetsis = () => {
       for (let i = 0; i < loadedYmSts.length; i++) {
         const ymSt = loadedYmSts[i];
         try {
-          const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+          console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
+          const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+          let ymStRecipeResponse = null;
+          
+          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+            const allYmStRecipes = await allYmStRecipesResponse.json();
+            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
+            console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
+            
+            // Create mock response
+            ymStRecipeResponse = {
+              ok: true,
+              json: async () => filteredYmStRecipes
+            };
+          }
+          
           if (ymStRecipeResponse && ymStRecipeResponse.ok) {
             const ymStRecipes = await ymStRecipeResponse.json();
             
@@ -3166,7 +3301,22 @@ const GalvanizliTelNetsis = () => {
           if (ymSt.id) {
             try {
               // Fetch existing recipes for this YM ST
-              const recipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+              console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
+              const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+              let recipeResponse = null;
+              
+              if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                const allYmStRecipes = await allYmStRecipesResponse.json();
+                const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
+                console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
+                
+                // Create mock response
+                recipeResponse = {
+                  ok: true,
+                  json: async () => filteredYmStRecipes
+                };
+              }
+              
               if (recipeResponse && recipeResponse.ok) {
                 const recipes = await recipeResponse.json();
                 
@@ -3237,7 +3387,22 @@ const GalvanizliTelNetsis = () => {
                     
                     // Load YM GT recipes if relation has ym_gt_id
                     if (relation.ym_gt_id) {
-                      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${relation.ym_gt_id}`);
+                      console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relation.ym_gt_id}...`);
+                      const allYmGtRecipesResponse = await fetchWithAuth(API_URLS.galYmGtRecete);
+                      let ymGtRecipeResponse = null;
+                      
+                      if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+                        const allYmGtRecipes = await allYmGtRecipesResponse.json();
+                        const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == relation.ym_gt_id); // Use == for type coercion
+                        console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${relation.ym_gt_id}`);
+                        
+                        // Create mock response
+                        ymGtRecipeResponse = {
+                          ok: true,
+                          json: async () => filteredYmGtRecipes
+                        };
+                      }
+                      
                       if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
                         const ymGtRecipes = await ymGtRecipeResponse.json();
                         
@@ -3316,7 +3481,22 @@ const GalvanizliTelNetsis = () => {
         
         if (ymSt.id && ymStIndex !== -1) {
           // Fetch existing recipes for this YM ST
-          const recipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+          console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
+          const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+          let recipeResponse = null;
+          
+          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+            const allYmStRecipes = await allYmStRecipesResponse.json();
+            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
+            console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
+            
+            // Create mock response
+            recipeResponse = {
+              ok: true,
+              json: async () => filteredYmStRecipes
+            };
+          }
+          
           if (recipeResponse && recipeResponse.ok) {
             const recipes = await recipeResponse.json();
             
