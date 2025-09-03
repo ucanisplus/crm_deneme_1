@@ -8297,17 +8297,23 @@ const GalvanizliTelNetsis = () => {
         console.log(`🔍 [${request.id}] Searching for MM GT with stok_kodu: "${request.stok_kodu}"`);
         
         totalApiCalls++;
-        const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
+        let mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
-        // If exact match fails, try searching with base code pattern
-        if (!mmGtResponse || !mmGtResponse.ok || (await mmGtResponse.clone().json()).length === 0) {
-          console.log(`🔍 [${request.id}] Exact match failed, trying pattern search...`);
-          const basePattern = request.stok_kodu.substring(0, request.stok_kodu.lastIndexOf('.'));
-          console.log(`🔍 [${request.id}] Searching with base pattern: "${basePattern}"`);
-          const patternResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(basePattern)}`);
-          if (patternResponse && patternResponse.ok) {
-            const patternResults = await patternResponse.json();
-            console.log(`🔍 [${request.id}] Pattern search found ${patternResults.length} products:`, patternResults.map(p => p.stok_kodu));
+        // If exact match fails due to parameter error, fetch all and filter client-side
+        if (!mmGtResponse || !mmGtResponse.ok) {
+          console.log(`🔍 [${request.id}] Exact match failed, fetching all MM GT and filtering client-side...`);
+          const allMmGtResponse = await fetchWithAuth(API_URLS.galMmGt);
+          if (allMmGtResponse && allMmGtResponse.ok) {
+            const allMmGtProducts = await allMmGtResponse.json();
+            const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
+            
+            // Create a mock response with filtered data
+            mmGtResponse = {
+              ok: true,
+              json: async () => filteredProducts
+            };
+            
+            console.log(`🔍 [${request.id}] Client-side filtering found ${filteredProducts.length} products with stok_kodu: "${request.stok_kodu}"`);
           }
         }
         
