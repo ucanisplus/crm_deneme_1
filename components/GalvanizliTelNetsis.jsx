@@ -8445,23 +8445,20 @@ const GalvanizliTelNetsis = () => {
             }
             
             // Add MM GT recipes for this specific MM GT
-            let mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+            console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
+            const allRecipesResponse = await fetchWithAuth(API_URLS.galMmGtRecete);
+            let mmGtRecipeResponse = null;
             
-            // If recipe fetch fails due to parameter error, fetch all and filter client-side
-            if (!mmGtRecipeResponse || !mmGtRecipeResponse.ok) {
-              console.log(`📖 Recipe fetch failed for mm_gt_id=${mmGt.id}, fetching all recipes and filtering...`);
-              const allRecipesResponse = await fetchWithAuth(API_URLS.galMmGtRecete);
-              if (allRecipesResponse && allRecipesResponse.ok) {
-                const allRecipes = await allRecipesResponse.json();
-                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id === mmGt.id);
-                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
-                
-                // Create mock response
-                mmGtRecipeResponse = {
-                  ok: true,
-                  json: async () => filteredRecipes
-                };
-              }
+            if (allRecipesResponse && allRecipesResponse.ok) {
+              const allRecipes = await allRecipesResponse.json();
+              const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
+              console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+              
+              // Create mock response
+              mmGtRecipeResponse = {
+                ok: true,
+                json: async () => filteredRecipes
+              };
             }
             
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
