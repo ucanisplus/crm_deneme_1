@@ -8557,7 +8557,22 @@ const GalvanizliTelNetsis = () => {
                 // Add YM GT data if it exists
                 if (ymGtId) {
                   try {
-                    const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${ymGtId}`);
+                    console.log(`📖 Excel: Fetching all YM GT products and filtering for id=${ymGtId}...`);
+                    const allYmGtResponse = await fetchWithAuth(API_URLS.galYmGt);
+                    let ymGtResponse = null;
+                    
+                    if (allYmGtResponse && allYmGtResponse.ok) {
+                      const allYmGt = await allYmGtResponse.json();
+                      const filteredYmGt = allYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
+                      console.log(`📖 Excel: Found ${filteredYmGt.length} YM GT products for id=${ymGtId}`);
+                      
+                      // Create mock response - return first match or empty array
+                      ymGtResponse = {
+                        ok: true,
+                        json: async () => filteredYmGt.length > 0 ? filteredYmGt[0] : []
+                      };
+                    }
+                    
                     if (ymGtResponse && ymGtResponse.ok) {
                       const ymGtData = await ymGtResponse.json();
                       console.log(`YM GT data received:`, ymGtData);
@@ -8566,7 +8581,22 @@ const GalvanizliTelNetsis = () => {
                         ymGtMap.set(ymGt.stok_kodu, ymGt);
                         
                         // Add YM GT recipes
-                        const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${ymGtId}`);
+                        console.log(`📖 Excel: Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
+                        const allYmGtRecipesResponse = await fetchWithAuth(API_URLS.galYmGtRecete);
+                        let ymGtRecipeResponse = null;
+                        
+                        if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+                          const allYmGtRecipes = await allYmGtRecipesResponse.json();
+                          const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
+                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+                          
+                          // Create mock response
+                          ymGtRecipeResponse = {
+                            ok: true,
+                            json: async () => filteredYmGtRecipes
+                          };
+                        }
+                        
                         if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
                           const ymGtRecipes = await ymGtRecipeResponse.json();
                           ymGtRecipes.forEach(r => {
@@ -8592,7 +8622,22 @@ const GalvanizliTelNetsis = () => {
                 // Filter by checking if they were part of the approved calculation for this MM GT
                 for (const relation of relations) {
                   try {
-                    const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?id=${relation.ym_st_id}`);
+                    console.log(`📖 Excel: Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
+                    const allYmStResponse = await fetchWithAuth(API_URLS.galYmSt);
+                    let ymStResponse = null;
+                    
+                    if (allYmStResponse && allYmStResponse.ok) {
+                      const allYmSt = await allYmStResponse.json();
+                      const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
+                      console.log(`📖 Excel: Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
+                      
+                      // Create mock response - return first match or empty array
+                      ymStResponse = {
+                        ok: true,
+                        json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
+                      };
+                    }
+                    
                     if (ymStResponse && ymStResponse.ok) {
                       const ymStData = await ymStResponse.json();
                       const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
@@ -8602,7 +8647,22 @@ const GalvanizliTelNetsis = () => {
                           ymStMap.set(ymSt.stok_kodu, ymSt);
                           
                           // Add YM ST recipes
-                          const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${relation.ym_st_id}`);
+                          console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
+                          const allYmStRecipesResponse = await fetchWithAuth(API_URLS.galYmStRecete);
+                          let ymStRecipeResponse = null;
+                          
+                          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                            const allYmStRecipes = await allYmStRecipesResponse.json();
+                            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id); // Use == for type coercion
+                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id}`);
+                            
+                            // Create mock response
+                            ymStRecipeResponse = {
+                              ok: true,
+                              json: async () => filteredYmStRecipes
+                            };
+                          }
+                          
                           if (ymStRecipeResponse && ymStRecipeResponse.ok) {
                             const ymStRecipes = await ymStRecipeResponse.json();
                             ymStRecipes.forEach(r => {
