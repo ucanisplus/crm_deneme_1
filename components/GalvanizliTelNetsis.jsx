@@ -8466,6 +8466,11 @@ const GalvanizliTelNetsis = () => {
             
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
               const mmGtRecipes = await mmGtRecipeResponse.json();
+              console.log(`📖 Raw MM GT recipes for ID ${mmGt.id}:`, mmGtRecipes);
+              console.log(`📖 Recipe count: ${mmGtRecipes.length}`);
+              if (mmGtRecipes.length > 0) {
+                console.log(`📖 First recipe sample:`, mmGtRecipes[0]);
+              }
               mmGtRecipes.forEach(r => {
                 // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
                 let updatedBilesenKodu = r.bilesen_kodu;
@@ -8700,6 +8705,7 @@ const GalvanizliTelNetsis = () => {
     const sortedMmGtStokCodes = sortedMmGtData.map(product => product.stok_kodu);
     console.log('🔍 DEBUG: Sorted MM GT product order by cap:', sortedMmGtData.map(p => ({ stok_kodu: p.stok_kodu, cap: p.cap })));
     console.log('🔍 DEBUG: Available MM GT recipe stok codes:', Object.keys(mmGtByProduct));
+    console.log('🔍 DEBUG: Full mmGtByProduct structure:', mmGtByProduct);
     
     sortedMmGtStokCodes.forEach((stokKodu, index) => {
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
