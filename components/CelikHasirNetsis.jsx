@@ -1034,93 +1034,58 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     try {
-      console.log(`Trying to fetch ${selectedDbItems.length} selected products from database first`);
+      console.log(`Exporting ${selectedDbItems.length} selected products from ${activeDbTab} table`);
       
-      // STEP 1: Try to fetch selected products from database first
-      const databaseProducts = await fetchDatabaseDataWithFallback(selectedDbItems);
-      
-      if (databaseProducts.length === 0) {
-        toast.error('Seçili ürünler için veri bulunamadı');
+      // Get selected products from already loaded data
+      const selectedProducts = savedProducts[activeDbTab].filter(product => 
+        selectedDbItems.includes(product.id)
+      );
+
+      if (selectedProducts.length === 0) {
+        toast.error('Seçili ürünler bulunamadı');
         return;
       }
 
-      console.log(`Successfully fetched ${databaseProducts.length} products from database`);
+      console.log(`Found ${selectedProducts.length} selected products in loaded data`);
       
-      // Mark all as optimized for Excel processing
-      const processedProducts = databaseProducts.map(product => ({
-        ...product,
-        isOptimized: true
-      }));
+      // Transform database products for Excel generation (same format as database response)
+      const transformedProducts = selectedProducts.map(product => {
+        // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
+        let actualHasirTipi = product.hasir_tipi || '';
+        if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+          const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+          if (stokAdiMatch) {
+            actualHasirTipi = stokAdiMatch[1].toUpperCase();
+          }
+        }
+        
+        const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+        
+        return {
+          ...product,
+          hasirTipi: actualHasirTipi,
+          uzunlukBoy: product.ebat_boy || product.uzunluk_boy || 0,
+          uzunlukEn: product.ebat_en || product.uzunluk_en || 0,
+          boyCap: product.cap || product.boy_cap || 0,
+          enCap: product.cap2 || product.en_cap || 0,
+          totalKg: product.kg || product.total_kg || 0,
+          adetKg: product.kg || product.adet_kg || 0,
+          boyAraligi: calculateGozAraligi(actualHasirTipi, 'boy'),
+          enAraligi: calculateGozAraligi(actualHasirTipi, 'en'),
+          gozAraligi: `${calculateGozAraligi(actualHasirTipi, 'boy')}x${calculateGozAraligi(actualHasirTipi, 'en')}`,
+          existingStokKodu: product.stok_kodu,
+          existingIngilizceIsim: cleanIngilizceIsim,
+          isOptimized: true,
+          source: 'database'
+        };
+      });
 
-      await generateExcelFiles(processedProducts, true);
-      toast.success(`${databaseProducts.length} ürün için Excel dosyaları oluşturuldu! (Database)`);
+      await generateExcelFiles(transformedProducts, true);
+      toast.success(`${transformedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
       
     } catch (error) {
-      console.error('Database fetch failed, trying fallback:', error);
-      
-      // STEP 2: If database fetch fails, use fallback formula
-      try {
-        console.log('Database fetch failed - applying fallback formula to selected products');
-        
-        const filteredProducts = getFilteredAndSortedProducts();
-        const selectedProducts = filteredProducts.filter(product => 
-          selectedDbItems.includes(product.id)
-        );
-
-        if (selectedProducts.length === 0) {
-          toast.error('Seçili ürünler bulunamadı');
-          return;
-        }
-
-        // Transform database products and apply fallback formula for optimized cubuk values
-        const transformedProducts = await Promise.all(selectedProducts.map(async product => {
-          // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
-          let actualHasirTipi = product.hasir_tipi || '';
-          if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
-            const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
-            if (stokAdiMatch) {
-              actualHasirTipi = stokAdiMatch[1].toUpperCase();
-            }
-          }
-          
-          const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
-          
-          // Apply fallback formula to get optimized cubuk values
-          const fallbackResult = await calculateFallbackCubukSayisi(
-            actualHasirTipi,
-            parseFloat(product.ebat_boy || 0),
-            parseFloat(product.ebat_en || 0)
-          );
-          
-          return {
-            boyCap: product.cap || 0,
-            enCap: product.cap2 || 0,
-            hasirTipi: actualHasirTipi,
-            uzunlukBoy: product.ebat_boy || 0,
-            uzunlukEn: product.ebat_en || 0,
-            boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
-            enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
-            gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
-            totalKg: product.kg || 0,
-            adetKg: product.kg || 0,
-            cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-            cubukSayisiEn: fallbackResult.cubukSayisiEn,
-            hasirSayisi: product.hasir_sayisi || 1,
-            hasirTuru: product.hasir_turu || 'Standart',
-            existingStokKodu: product.stok_kodu,
-            existingIngilizceIsim: cleanIngilizceIsim,
-            isOptimized: true,
-            source: 'fallback-formula'
-          };
-        }));
-
-        await generateExcelFiles(transformedProducts, true);
-        toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
-        
-      } catch (fallbackError) {
-        console.error('Both database and fallback methods failed:', fallbackError);
-        toast.error('Excel dosyaları oluşturulurken hata oluştu');
-      }
+      console.error('Selected Excel export failed:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu');
     }
   };
 
@@ -2982,9 +2947,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
         ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
         dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        // Calculate göz aralıkları from hasir tipi
-        gozAraligiEn: calculateGozAraligi(dbProduct.hasir_tipi, 'en'),
-        gozAraligiBoy: calculateGozAraligi(dbProduct.hasir_tipi, 'boy'),
+        // Calculate göz aralıkları from hasir tipi - USE CORRECT FIELD NAMES
+        boyAraligi: calculateGozAraligi(dbProduct.hasir_tipi, 'boy'),
+        enAraligi: calculateGozAraligi(dbProduct.hasir_tipi, 'en'),
+        gozAraligi: `${calculateGozAraligi(dbProduct.hasir_tipi, 'boy')}x${calculateGozAraligi(dbProduct.hasir_tipi, 'en')}`,
         source: 'database',
         productType: 'MM',
         // Store all database properties for recipe generation
