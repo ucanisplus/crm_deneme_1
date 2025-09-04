@@ -2925,19 +2925,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
-        console.log(`🔧 EXCEL GENERATION DEBUG - Product ${stokKodu}:`, {
-          originalCubukSayisiBoy: product.cubukSayisiBoy,
-          originalCubukSayisiEn: product.cubukSayisiEn,
-          databaseBoyCubuk: product.ic_cap_boy_cubuk_ad,
-          databaseEnCubuk: product.dis_cap_en_cubuk_ad,
-          finalCubukSayisiBoy,
-          finalCubukSayisiEn,
-          hasirTipi: product.hasirTipi,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn,
-          isFromDatabase: !!product.existingStokKodu,
-          source: product.source || 'unknown'
-        });
+        console.log(`🔧 EXCEL GENERATION DEBUG - Product ${stokKodu}:`);
+        console.log('  originalCubukSayisiBoy:', product.cubukSayisiBoy);
+        console.log('  originalCubukSayisiEn:', product.cubukSayisiEn);
+        console.log('  databaseBoyCubuk:', product.ic_cap_boy_cubuk_ad);
+        console.log('  databaseEnCubuk:', product.dis_cap_en_cubuk_ad);
+        console.log('  finalCubukSayisiBoy:', finalCubukSayisiBoy);
+        console.log('  finalCubukSayisiEn:', finalCubukSayisiEn);
+        console.log('  hasirTipi:', product.hasirTipi);
+        console.log('  uzunlukBoy:', product.uzunlukBoy);
+        console.log('  uzunlukEn:', product.uzunlukEn);
+        console.log('  isFromDatabase:', !!product.existingStokKodu);
+        console.log('  source:', product.source || 'unknown');
         
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
