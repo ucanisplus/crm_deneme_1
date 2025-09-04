@@ -254,11 +254,15 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
               const recipeData = await recipeResponse.json();
               console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
               
-              // Extract NCBK and NTEL codes from recipe data
+              // Filter recipe data to only this specific product's recipe
+              const thisProductRecipe = recipeData.filter(recipe => recipe.mamul_kodu === mmProduct.stok_kodu);
+              console.log(`Filtered to ${thisProductRecipe.length} recipe entries specifically for ${mmProduct.stok_kodu}`);
+              
+              // Extract NCBK and NTEL codes from this product's recipe only
               const ncbkCodes = new Set();
               const ntelCodes = new Set();
               
-              recipeData.forEach(recipe => {
+              thisProductRecipe.forEach(recipe => {
                 if (recipe.bilesen_kodu) {
                   if (recipe.bilesen_kodu.startsWith('YM.NCBK.')) {
                     ncbkCodes.add(recipe.bilesen_kodu);
