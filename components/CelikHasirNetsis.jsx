@@ -218,7 +218,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     // Fetch products from database based on IDs or stok_kodu
     const allProducts = [];
     
-    // When searching by productIds, search all tables
+    // When searching by productIds, use backend IDs parameter to fetch only specific products
     if (productIds.length > 0) {
       const tableTypes = ['mm', 'ncbk', 'ntel'];
       
@@ -228,11 +228,13 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           if (tableType === 'ncbk') url = `${API_URLS.celikHasirNcbk}`;
           else if (tableType === 'ntel') url = `${API_URLS.celikHasirNtel}`;
           
-          const response = await fetchWithAuth(url);
+          // Use backend 'ids' parameter to fetch only the specific IDs we need
+          const idsParam = productIds.join(',');
+          const response = await fetchWithAuth(`${url}?ids=${encodeURIComponent(idsParam)}`);
           if (response.ok) {
             const products = await response.json();
-            const filteredProducts = products.filter(p => productIds.includes(p.id));
-            allProducts.push(...filteredProducts);
+            console.log(`✅ Found ${products.length} products from ${tableType} table using ID search`);
+            allProducts.push(...products);
           }
         } catch (error) {
           console.warn(`Failed to fetch from ${tableType} table:`, error);
@@ -3951,21 +3953,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                          (gozAraligi === '15x15' || gozAraligi === '15x25');
 
       if (product.productType === 'MM') {
-        // Generate CH STOK row
+        // Generate CH STOK row - USE EXACT SAME LOGIC AS WORKING SINGLE PRODUCT EXCEL
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
+        // Use the exact same variable names and logic as working Excel
+        const excelCubukBoy = parseInt(finalCubukSayisiBoy);
+        const excelCubukEn = parseInt(finalCubukSayisiEn);
+        
         chSheet.addRow([
+          // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
           product.existingStokKodu, generateStokAdi(product, 'CH'), 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', product.existingIngilizceIsim,
+          // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
           '20', '20', '31', '36',
+          // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
           'KG', 'AD', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
+          // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
-          parseInt(finalCubukSayisiBoy), parseInt(finalCubukSayisiEn), '0', '0', '0', '', '', '',
+          // 🔧 CRITICAL FIX: Use the same variables as working Excel
+          excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
+          // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+          // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
+          // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
           '', '', '', '', '', 'H', 'H', '', '', '',
+          // 66-69: Extra columns from our app format (not in CSV template)
           product.existingStokKodu, 'MM', 'E', 'E'
         ]);
       } else if (product.productType === 'NCBK') {
