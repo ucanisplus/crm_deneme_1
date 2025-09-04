@@ -67,6 +67,293 @@ const getFilmasinKodu = (diameter) => {
   };
 };
 
+// Fallback formula function for missing database values
+const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
+  try {
+    // First, try to get mesh configuration from mesh_type_configs table
+    let meshConfig = null;
+    try {
+      const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
+      if (response.ok) {
+        meshConfig = await response.json();
+      }
+    } catch (error) {
+      console.warn('Could not fetch mesh config from database:', error);
+    }
+    
+    // Use database config or fallback to hardcoded values
+    const boyAralik = meshConfig?.boy_aralik || getDefaultSpacing(hasirTipi, 'boy');
+    const enAralik = meshConfig?.en_aralik || getDefaultSpacing(hasirTipi, 'en');
+    
+    // Determine hasırTuru based on dimensions
+    let hasirTuru = 'Standart';
+    if (hasirTipi.startsWith('Q')) {
+      if (uzunlukBoy >= 490 && uzunlukBoy <= 510) {
+        hasirTuru = 'Döşeme';
+      } else if (uzunlukBoy <= 350) {
+        hasirTuru = 'Perde';
+      } else {
+        hasirTuru = 'Döşeme';
+      }
+    }
+    
+    // Initialize with base calculation
+    let cubukSayisiBoy = Math.floor((uzunlukEn / boyAralik) + 1);
+    let cubukSayisiEn = Math.floor((uzunlukBoy / enAralik) + 1);
+    
+    // Apply type-specific rules
+    const isStandardSize = (uzunlukBoy >= 490 && uzunlukBoy <= 510) && 
+                          (uzunlukEn >= 210 && uzunlukEn <= 220);
+    
+    if (hasirTipi.startsWith('R')) {
+      if (isStandardSize) {
+        cubukSayisiBoy = 15;
+        cubukSayisiEn = 20;
+      }
+    } else if (hasirTipi.startsWith('TR')) {
+      if (isStandardSize) {
+        cubukSayisiBoy = 8;
+        cubukSayisiEn = 33;
+      }
+    } else if (hasirTipi.startsWith('Q')) {
+      if (hasirTuru === 'Perde') {
+        cubukSayisiEn = 18;
+      } else if (hasirTuru === 'DK Perde') {
+        cubukSayisiEn = 21;
+      } else if (isStandardSize && hasirTuru === 'Döşeme') {
+        cubukSayisiBoy = 15;
+        cubukSayisiEn = 32;
+      }
+    }
+    
+    // Apply optimization logic (simplified version)
+    const optimized = applyFilizOptimization(hasirTipi, uzunlukBoy, uzunlukEn, cubukSayisiBoy, cubukSayisiEn, boyAralik, enAralik, hasirTuru);
+    
+    return optimized;
+  } catch (error) {
+    console.error('Fallback formula calculation error:', error);
+    // Return basic calculation if everything fails
+    return {
+      cubukSayisiBoy: Math.floor((uzunlukEn / 15) + 1),
+      cubukSayisiEn: Math.floor((uzunlukBoy / 15) + 1)
+    };
+  }
+};
+
+// Helper function to get default spacing when mesh_type_configs is not available
+const getDefaultSpacing = (hasirTipi, direction) => {
+  if (hasirTipi.startsWith('R')) {
+    return direction === 'boy' ? 15 : 25;
+  } else if (hasirTipi.startsWith('TR')) {
+    return direction === 'boy' ? 30 : 15;
+  } else if (hasirTipi.startsWith('Q')) {
+    return 15;
+  }
+  return 15; // Default fallback
+};
+
+// Simplified optimization logic for fallback
+const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, initialEn, boyAralik, enAralik, hasirTuru) => {
+  // Q Perde: Fixed EN at 18, optimize BOY
+  if (hasirTipi.startsWith('Q') && hasirTuru === 'Perde') {
+    const targetSolFiliz = 2.5;
+    let bestBoy = initialBoy;
+    let bestDiff = 999;
+    
+    for (let boy = Math.max(2, initialBoy - 5); boy <= initialBoy + 5; boy++) {
+      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
+      if (solFiliz >= 2 && solFiliz <= 9) {
+        const diff = Math.abs(solFiliz - targetSolFiliz);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestBoy = boy;
+        }
+      }
+    }
+    return { cubukSayisiBoy: bestBoy, cubukSayisiEn: 18 };
+  }
+  
+  // For other types, try basic optimization within ±3 range
+  let bestCombination = { cubukSayisiBoy: initialBoy, cubukSayisiEn: initialEn };
+  let bestScore = -999;
+  
+  for (let boy = Math.max(2, initialBoy - 3); boy <= initialBoy + 3; boy++) {
+    for (let en = Math.max(2, initialEn - 3); en <= initialEn + 3; en++) {
+      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
+      const onFiliz = (uzunlukBoy - ((en - 1) * enAralik)) / 2;
+      
+      if (solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
+        let score = 0;
+        if (Math.abs(solFiliz - 2.5) < 0.5) score += 10;
+        if (hasirTipi.startsWith('R') && onFiliz >= 15 && onFiliz <= 27) score += 10;
+        else if (hasirTipi.startsWith('TR') && onFiliz >= 10 && onFiliz <= 17) score += 10;
+        else if (hasirTipi.startsWith('Q') && onFiliz >= 15 && onFiliz <= 22) score += 10;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestCombination = { cubukSayisiBoy: boy, cubukSayisiEn: en };
+        }
+      }
+    }
+  }
+  
+  return bestCombination;
+};
+
+// Unified function to fetch database data with fallback formula
+const fetchDatabaseDataWithFallback = async (productIds = []) => {
+  try {
+    // Fetch products from database based on IDs
+    const allProducts = [];
+    
+    // Fetch from all relevant tables
+    const tableTypes = ['mm', 'ncbk', 'ntel'];
+    
+    for (const tableType of tableTypes) {
+      try {
+        let url = `${API_URLS.celikHasirMm}`;
+        if (tableType === 'ncbk') url = `${API_URLS.celikHasirNcbk}`;
+        else if (tableType === 'ntel') url = `${API_URLS.celikHasirNtel}`;
+        
+        const response = await fetchWithAuth(url);
+        if (response.ok) {
+          const products = await response.json();
+          // Filter by IDs if provided, otherwise get all
+          const filteredProducts = productIds.length > 0 
+            ? products.filter(p => productIds.includes(p.id))
+            : products;
+          allProducts.push(...filteredProducts);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch from ${tableType} table:`, error);
+      }
+    }
+    
+    // Now enhance each product with recipe data and apply fallback when needed
+    const enhancedProducts = await Promise.all(
+      allProducts.map(async (product) => {
+        try {
+          // Fetch recipe data
+          const recipeData = await fetchProductRecipeData(product.stok_kodu, product.id);
+          
+          // Extract hasir_tipi from stok_adi if needed
+          let actualHasirTipi = product.hasir_tipi || '';
+          if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+            const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+            if (stokAdiMatch) {
+              actualHasirTipi = stokAdiMatch[1].toUpperCase();
+            }
+          }
+          
+          // Clean İngilizce İsim
+          const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+          
+          // Check if we have cubuk sayisi values from recipe data
+          let cubukSayisiBoy = recipeData?.boyCount || product.ic_cap_boy_cubuk_ad || 0;
+          let cubukSayisiEn = recipeData?.enCount || product.dis_cap_en_cubuk_ad || 0;
+          
+          // Apply fallback formula if cubuk sayisi values are missing or invalid
+          if (!cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0) {
+            console.log(`Applying fallback formula for product ${product.stok_kodu} - missing cubuk sayısı`);
+            
+            const fallbackResult = await calculateFallbackCubukSayisi(
+              actualHasirTipi,
+              parseFloat(product.ebat_boy || 0),
+              parseFloat(product.ebat_en || 0)
+            );
+            
+            cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
+            cubukSayisiEn = fallbackResult.cubukSayisiEn;
+          }
+          
+          // Calculate duration if missing (you can add duration fallback calculation here)
+          let duration = recipeData?.duration || 0;
+          if (!duration || duration <= 0) {
+            // Apply duration calculation fallback if needed
+            // duration = calculateFallbackDuration(...);
+          }
+          
+          // Transform to Excel format
+          return {
+            // Map database fields to expected Excel generation format
+            boyCap: product.cap || 0,
+            enCap: product.cap2 || 0,
+            hasirTipi: actualHasirTipi,
+            uzunlukBoy: product.ebat_boy || 0,
+            uzunlukEn: product.ebat_en || 0,
+            boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+            enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+            gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
+            totalKg: product.kg || 0,
+            adetKg: product.kg || 0,
+            cubukSayisiBoy,
+            cubukSayisiEn,
+            hasirSayisi: product.hasir_sayisi || 1,
+            hasirTuru: product.hasir_turu || 'Standart',
+            // Add existing stok kodu for saved products
+            existingStokKodu: product.stok_kodu,
+            // Store cleaned İngilizce İsim
+            existingIngilizceIsim: cleanIngilizceIsim,
+            // Store original database ID for reference
+            databaseId: product.id,
+            // Recipe data
+            recipeData
+          };
+        } catch (error) {
+          console.error(`Error processing product ${product.stok_kodu}:`, error);
+          // Return basic product data even if enhancement fails
+          return {
+            hasirTipi: product.hasir_tipi || '',
+            uzunlukBoy: product.ebat_boy || 0,
+            uzunlukEn: product.ebat_en || 0,
+            cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+            cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+            existingStokKodu: product.stok_kodu,
+            databaseId: product.id
+          };
+        }
+      })
+    );
+    
+    return enhancedProducts;
+  } catch (error) {
+    console.error('Error in fetchDatabaseDataWithFallback:', error);
+    throw error;
+  }
+};
+
+// Helper function to fetch recipe data for a product
+const fetchProductRecipeData = async (stokKodu, productId) => {
+  try {
+    // Fetch from recipe table
+    const response = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(stokKodu)}`);
+    if (response.ok) {
+      const recipeData = await response.json();
+      
+      // Parse recipe data to extract boy and en cubuk counts
+      let boyCount = 0;
+      let enCount = 0;
+      let duration = 0;
+      
+      recipeData.forEach(item => {
+        if (item.aciklama && item.aciklama.includes('BOY ÇUBUĞU')) {
+          boyCount = parseFloat(item.miktar) || 0;
+        } else if (item.aciklama && item.aciklama.includes('EN ÇUBUĞU')) {
+          enCount = parseFloat(item.miktar) || 0;
+        } else if (item.uretim_suresi) {
+          duration += parseFloat(item.uretim_suresi) || 0;
+        }
+      });
+      
+      return { boyCount, enCount, duration, rawData: recipeData };
+    }
+  } catch (error) {
+    console.warn(`Could not fetch recipe data for ${stokKodu}:`, error);
+  }
+  
+  return null;
+};
+
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
   // OPTIMIZATION: Add refs for request cancellation and caching
   const fetchControllerRef = useRef(null);
@@ -612,64 +899,86 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return;
     }
 
-    const filteredProducts = getFilteredAndSortedProducts();
-    const selectedProducts = filteredProducts.filter(product => 
-      selectedDbItems.includes(product.id)
-    );
-
-    if (selectedProducts.length === 0) {
-      toast.error('Seçili ürünler bulunamadı');
-      return;
-    }
-
-    // Transform database products to expected Excel format
-    const transformedProducts = selectedProducts.map(product => {
-      // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect (shows 'MM' instead of actual type)
-      let actualHasirTipi = product.hasir_tipi || '';
-      if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
-        // Try to extract from stok_adi (e.g., "TR317 Çap..." or "Q257 Çap...")
-        const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
-        if (stokAdiMatch) {
-          actualHasirTipi = stokAdiMatch[1].toUpperCase();
-        }
-      }
-      
-      // Fix İngilizce İsim - remove extra dash at the beginning
-      const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
-      
-      return {
-        // Map database fields to expected Excel generation format
-        boyCap: product.cap || 0,
-        enCap: product.cap2 || 0,
-        hasirTipi: actualHasirTipi,
-        uzunlukBoy: product.ebat_boy || 0,
-        uzunlukEn: product.ebat_en || 0,
-        boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
-        enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
-        gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
-        totalKg: product.kg || 0,
-        adetKg: product.kg || 0,
-        cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-        cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
-        hasirSayisi: product.hasir_sayisi || 1,
-        hasirTuru: product.hasir_turu || 'Standart',
-        // Add existing stok kodu for saved products
-        existingStokKodu: product.stok_kodu,
-        // Store cleaned İngilizce İsim
-        existingIngilizceIsim: cleanIngilizceIsim,
-        // CRITICAL: Mark as optimized so Excel generation processes them
-        isOptimized: true
-      };
-    });
-
-    console.log('DEBUG: Selected products for export:', transformedProducts);
-
     try {
-      await generateExcelFiles(transformedProducts, true); // Set includeAllProducts to true for saved products
-      toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
+      console.log('DEBUG: Using unified database fetch for batch Excel export');
+      
+      // Use unified database fetch with fallback for selected products
+      const databaseProducts = await fetchDatabaseDataWithFallback(selectedDbItems);
+      
+      if (databaseProducts.length === 0) {
+        toast.error('Seçili ürünler için veri bulunamadı');
+        return;
+      }
+
+      console.log(`DEBUG: Fetched ${databaseProducts.length} products with database + fallback`);
+      
+      // Mark all as optimized for Excel processing
+      const processedProducts = databaseProducts.map(product => ({
+        ...product,
+        isOptimized: true
+      }));
+
+      await generateExcelFiles(processedProducts, true);
+      toast.success(`${databaseProducts.length} ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+      
     } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Excel dosyaları oluşturulurken hata oluştu');
+      console.error('Unified export error:', error);
+      
+      // Fallback to original method if unified approach fails
+      try {
+        console.warn('Falling back to original batch export method');
+        
+        const filteredProducts = getFilteredAndSortedProducts();
+        const selectedProducts = filteredProducts.filter(product => 
+          selectedDbItems.includes(product.id)
+        );
+
+        if (selectedProducts.length === 0) {
+          toast.error('Seçili ürünler bulunamadı');
+          return;
+        }
+
+        // Transform database products to expected Excel format (original method)
+        const transformedProducts = selectedProducts.map(product => {
+          // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
+          let actualHasirTipi = product.hasir_tipi || '';
+          if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+            const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+            if (stokAdiMatch) {
+              actualHasirTipi = stokAdiMatch[1].toUpperCase();
+            }
+          }
+          
+          const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+          
+          return {
+            boyCap: product.cap || 0,
+            enCap: product.cap2 || 0,
+            hasirTipi: actualHasirTipi,
+            uzunlukBoy: product.ebat_boy || 0,
+            uzunlukEn: product.ebat_en || 0,
+            boyAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[0] : '15',
+            enAraligi: product.goz_araligi ? product.goz_araligi.split(/[*x]/)[1] || product.goz_araligi.split(/[*x]/)[0] : '15',
+            gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
+            totalKg: product.kg || 0,
+            adetKg: product.kg || 0,
+            cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+            cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+            hasirSayisi: product.hasir_sayisi || 1,
+            hasirTuru: product.hasir_turu || 'Standart',
+            existingStokKodu: product.stok_kodu,
+            existingIngilizceIsim: cleanIngilizceIsim,
+            isOptimized: true
+          };
+        });
+
+        await generateExcelFiles(transformedProducts, true);
+        toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu! (Original method)`);
+        
+      } catch (fallbackError) {
+        console.error('Both unified and fallback methods failed:', fallbackError);
+        toast.error('Excel dosyaları oluşturulurken hata oluştu');
+      }
     }
   };
 
@@ -4934,9 +5243,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   setShowDatabaseWarning(false);
                   const newProducts = await saveToDatabase(validProducts);
                   if (newProducts && newProducts.length > 0) {
-                    console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
-                    await generateExcelFiles(newProducts, false);
-                    toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                    console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                    
+                    // Unified approach: Fetch saved products from database with fallback
+                    try {
+                      // Collect the stok_kodu values from saved products
+                      const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                      
+                      // Refresh database data to get the newly saved products
+                      await fetchSavedProducts();
+                      
+                      // Find the saved products in database by stok_kodu
+                      const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                      const savedProductIds = allSavedProducts
+                        .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
+                        .map(dbProduct => dbProduct.id);
+                      
+                      if (savedProductIds.length > 0) {
+                        // Use unified database fetch with fallback
+                        const databaseProducts = await fetchDatabaseDataWithFallback(savedProductIds);
+                        await generateExcelFiles(databaseProducts, false);
+                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                      } else {
+                        // Fallback to original method if database fetch fails
+                        console.warn('Could not find saved products in database, using original data');
+                        await generateExcelFiles(newProducts, false);
+                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                      }
+                    } catch (error) {
+                      console.error('Unified fetch failed, falling back to original method:', error);
+                      await generateExcelFiles(newProducts, false);
+                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                    }
                   } else {
                     toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                   }
@@ -4991,9 +5329,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   try {
                     const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
-                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
-                      await generateExcelFiles(newProducts);
-                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                      
+                      // Unified approach: Fetch saved products from database with fallback
+                      try {
+                        // Collect the stok_kodu values from saved products
+                        const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                        
+                        // Refresh database data to get the newly saved products
+                        await fetchSavedProducts();
+                        
+                        // Find the saved products in database by stok_kodu
+                        const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                        const savedProductIds = allSavedProducts
+                          .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
+                          .map(dbProduct => dbProduct.id);
+                        
+                        if (savedProductIds.length > 0) {
+                          // Use unified database fetch with fallback
+                          const databaseProducts = await fetchDatabaseDataWithFallback(savedProductIds);
+                          await generateExcelFiles(databaseProducts);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                        } else {
+                          // Fallback to original method if database fetch fails
+                          console.warn('Could not find saved products in database, using original data');
+                          await generateExcelFiles(newProducts);
+                          toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                        }
+                      } catch (innerError) {
+                        console.error('Unified fetch failed, falling back to original method:', innerError);
+                        await generateExcelFiles(newProducts);
+                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                      }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                     }
@@ -5644,9 +6011,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   try {
                     const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
-                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
-                      await generateExcelFiles(newProducts);
-                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                      
+                      // Unified approach: Fetch saved products from database with fallback
+                      try {
+                        // Collect the stok_kodu values from saved products
+                        const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                        
+                        // Refresh database data to get the newly saved products
+                        await fetchSavedProducts();
+                        
+                        // Find the saved products in database by stok_kodu
+                        const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                        const savedProductIds = allSavedProducts
+                          .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
+                          .map(dbProduct => dbProduct.id);
+                        
+                        if (savedProductIds.length > 0) {
+                          // Use unified database fetch with fallback
+                          const databaseProducts = await fetchDatabaseDataWithFallback(savedProductIds);
+                          await generateExcelFiles(databaseProducts);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                        } else {
+                          // Fallback to original method if database fetch fails
+                          console.warn('Could not find saved products in database, using original data');
+                          await generateExcelFiles(newProducts);
+                          toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                        }
+                      } catch (innerError) {
+                        console.error('Unified fetch failed, falling back to original method:', innerError);
+                        await generateExcelFiles(newProducts);
+                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                      }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                     }
@@ -6295,9 +6691,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       setShowPreSaveConfirmModal(false);
                       const newProducts = await saveToDatabase(validProducts);
                       if (newProducts && newProducts.length > 0) {
-                        console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için`);
-                        await generateExcelFiles(newProducts, false);
-                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                        console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                        
+                        // Unified approach: Fetch saved products from database with fallback
+                        try {
+                          // Collect the stok_kodu values from saved products
+                          const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                          
+                          // Refresh database data to get the newly saved products
+                          await fetchSavedProducts();
+                          
+                          // Find the saved products in database by stok_kodu
+                          const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                          const savedProductIds = allSavedProducts
+                            .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
+                            .map(dbProduct => dbProduct.id);
+                          
+                          if (savedProductIds.length > 0) {
+                            // Use unified database fetch with fallback
+                            const databaseProducts = await fetchDatabaseDataWithFallback(savedProductIds);
+                            await generateExcelFiles(databaseProducts, false);
+                            toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                          } else {
+                            // Fallback to original method if database fetch fails
+                            console.warn('Could not find saved products in database, using original data');
+                            await generateExcelFiles(newProducts, false);
+                            toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                          }
+                        } catch (innerError) {
+                          console.error('Unified fetch failed, falling back to original method:', innerError);
+                          await generateExcelFiles(newProducts, false);
+                          toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                        }
                       } else {
                         toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                       }
