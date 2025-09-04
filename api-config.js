@@ -38,6 +38,14 @@ export const API_URLS = {
   celikHasirNtelRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
   celikHasirSequence: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_sequence',
   
+  // Bulk endpoints for Excel generation
+  getAllMM: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm',
+  getAllNCBK: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ncbk',
+  getAllNTEL: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ntel',
+  getAllMMRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm_recete',
+  getAllNCBKRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
+  getAllNTELRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
+  
   // Mesh Type Configurations - NEW
   meshTypeConfigs: 'https://crm-deneme-backend.vercel.app/api/mesh-configs',
 
