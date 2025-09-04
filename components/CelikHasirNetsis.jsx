@@ -3224,9 +3224,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const isQType = product.hasirTipi && product.hasirTipi.includes('Q');
         const isRType = product.hasirTipi && product.hasirTipi.includes('R');
         
-        // FIXED: Calculate correct quantities based on actual product dimensions
-        const enCubukMiktar = Math.round((parseFloat(product.uzunlukEn) || 0) / (parseFloat(product.gozAraligiEn) || 15) + 1);
-        const boyCubukMiktar = Math.round((parseFloat(product.uzunlukBoy) || 0) / (parseFloat(product.gozAraligiBoy) || 15) + 1);
+        // 🔧 CRITICAL FIX: Use already-calculated fallback/database cubuk values instead of recalculating
+        // These values have already been processed through fallback formula and database fetch
+        const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
+        const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
+        
+        console.log(`🔧 RECIPE GENERATION - Product ${chStokKodu}:`);
+        console.log('  Using cubuk values - enCubukMiktar:', enCubukMiktar, 'boyCubukMiktar:', boyCubukMiktar);
+        console.log('  Source: cubukSayisiEn:', product.cubukSayisiEn, 'cubukSayisiBoy:', product.cubukSayisiBoy);
         // Calculate YOTOCH operation time using our formula
         const operationTime = toExcelDecimal(calculateOperationDuration('YOTOCH', product).toFixed(5));
         
