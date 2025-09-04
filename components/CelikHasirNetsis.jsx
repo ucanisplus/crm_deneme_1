@@ -2802,6 +2802,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // 1. Stok Kartı Excel
       console.log('DEBUG: Starting Stok Kartı Excel generation...');
+      console.log('🔧 PRODUCTS PASSED TO generateStokKartiExcel:', products.map(p => ({
+        hasirTipi: p.hasirTipi,
+        uzunlukBoy: p.uzunlukBoy,
+        uzunlukEn: p.uzunlukEn,
+        cubukSayisiBoy: p.cubukSayisiBoy,
+        cubukSayisiEn: p.cubukSayisiEn,
+        existingStokKodu: p.existingStokKodu,
+        source: p.source || 'unknown'
+      })));
       setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
       await generateStokKartiExcel(products, timestamp, includeAllProducts);
       console.log('DEBUG: Stok Kartı Excel completed');
@@ -2875,6 +2884,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                            (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
         
+        // 🔧 CRITICAL DEBUG: Log the exact cubuk values being used in Excel generation
+        console.log(`🔧 EXCEL GENERATION DEBUG - Product ${stokKodu}:`, {
+          cubukSayisiBoy: product.cubukSayisiBoy,
+          cubukSayisiEn: product.cubukSayisiEn,
+          hasirTipi: product.hasirTipi,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn,
+          isFromDatabase: !!product.existingStokKodu,
+          source: product.source || 'unknown'
+        });
+        
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
           stokKodu, stokAdi, 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
@@ -2887,7 +2907,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
-          // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
+          // 🔧 CRITICAL FIX: Use the exact same values that were logged for debugging
           parseInt(product.cubukSayisiBoy || 0), parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
