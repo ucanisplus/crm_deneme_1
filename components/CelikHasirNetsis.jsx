@@ -2784,33 +2784,70 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Excel dosyalarını oluştur
-  const generateExcelFiles = useCallback(async (products, includeAllProducts = false) => {
+  const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false) => {
     try {
-      // DON'T clear cache here - it should persist from database save to Excel generation
-      // so that same products get same STOK KODUs in both database and Excel files
-      
-      console.log('DEBUG: generateExcelFiles called with:', {
-        productsCount: products.length,
-        includeAllProducts,
-        firstProduct: products[0] || 'No products'
-      });
-      
       setIsGeneratingExcel(true);
-      setExcelProgress({ current: 0, total: 3, operation: 'Excel dosyaları hazırlanıyor...' });
+      setExcelProgress({ current: 0, total: 4, operation: 'Excel verisi hazırlanıyor...' });
+
+      // CRITICAL FIX: Always ensure we have the correct database-first + fallback values
+      let products = inputProducts;
+      
+      // If we have existing stok codes, fetch fresh data from database with fallback
+      const existingStokKodes = inputProducts
+        .filter(p => p.existingStokKodu)
+        .map(p => p.existingStokKodu);
+      
+      if (existingStokKodes.length > 0) {
+        console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
+        const freshDatabaseProducts = await fetchDatabaseDataWithFallback([], existingStokKodes);
+        
+        if (freshDatabaseProducts && freshDatabaseProducts.length > 0) {
+          // Use fresh database data
+          products = freshDatabaseProducts;
+          console.log('Excel generation: Using fresh database data');
+        } else {
+          // Fallback: Apply fallback formula to input products
+          console.log('Excel generation: Database fetch failed, applying fallback formula');
+          products = await Promise.all(
+            inputProducts.map(async (product) => {
+              const fallbackResult = await calculateFallbackCubukSayisi(
+                product.hasirTipi,
+                parseFloat(product.uzunlukBoy || 0),
+                parseFloat(product.uzunlukEn || 0)
+              );
+              return {
+                ...product,
+                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                cubukSayisiEn: fallbackResult.cubukSayisiEn,
+                source: 'fallback'
+              };
+            })
+          );
+        }
+      } else {
+        // No existing products - apply fallback formula to all
+        console.log('Excel generation: No existing products, applying fallback formula to all');
+        products = await Promise.all(
+          inputProducts.map(async (product) => {
+            const fallbackResult = await calculateFallbackCubukSayisi(
+              product.hasirTipi,
+              parseFloat(product.uzunlukBoy || 0),
+              parseFloat(product.uzunlukEn || 0)
+            );
+            return {
+              ...product,
+              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+              cubukSayisiEn: fallbackResult.cubukSayisiEn,
+              source: 'fallback'
+            };
+          })
+        );
+      }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
       
       // 1. Stok Kartı Excel
-      console.log('DEBUG: Starting Stok Kartı Excel generation...');
-      console.log('🔧 PRODUCTS PASSED TO generateStokKartiExcel:', products.map(p => ({
-        hasirTipi: p.hasirTipi,
-        uzunlukBoy: p.uzunlukBoy,
-        uzunlukEn: p.uzunlukEn,
-        cubukSayisiBoy: p.cubukSayisiBoy,
-        cubukSayisiEn: p.cubukSayisiEn,
-        existingStokKodu: p.existingStokKodu,
-        source: p.source || 'unknown'
-      })));
+      console.log('DEBUG: Starting Stok Kartı Excel generation with corrected data...');
       setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
       await generateStokKartiExcel(products, timestamp, includeAllProducts);
       console.log('DEBUG: Stok Kartı Excel completed');
