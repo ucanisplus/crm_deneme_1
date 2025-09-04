@@ -206,35 +206,89 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     // Fetch products from database based on IDs or stok_kodu
     const allProducts = [];
     
-    // When searching by stok_kodu, only search MM table (main products)
-    // NCBK and NTEL have different stok_kodu patterns (YM.NCBK.*, YM.NTEL.*)
-    const tableTypes = stokKodular.length > 0 ? ['mm'] : ['mm', 'ncbk', 'ntel'];
-    
-    for (const tableType of tableTypes) {
+    // When searching by productIds, search all tables
+    if (productIds.length > 0) {
+      const tableTypes = ['mm', 'ncbk', 'ntel'];
+      
+      for (const tableType of tableTypes) {
+        try {
+          let url = `${API_URLS.celikHasirMm}`;
+          if (tableType === 'ncbk') url = `${API_URLS.celikHasirNcbk}`;
+          else if (tableType === 'ntel') url = `${API_URLS.celikHasirNtel}`;
+          
+          const response = await fetchWithAuth(url);
+          if (response.ok) {
+            const products = await response.json();
+            const filteredProducts = products.filter(p => productIds.includes(p.id));
+            allProducts.push(...filteredProducts);
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch from ${tableType} table:`, error);
+        }
+      }
+    }
+    // When searching by stok_kodu, get MM product + related NCBK/NTEL records
+    else if (stokKodular.length > 0) {
+      // First get MM products
       try {
-        let url = `${API_URLS.celikHasirMm}`;
-        if (tableType === 'ncbk') url = `${API_URLS.celikHasirNcbk}`;
-        else if (tableType === 'ntel') url = `${API_URLS.celikHasirNtel}`;
-        
-        const response = await fetchWithAuth(url);
-        if (response.ok) {
-          const products = await response.json();
+        const mmResponse = await fetchWithAuth(API_URLS.celikHasirMm);
+        if (mmResponse.ok) {
+          const mmProducts = await mmResponse.json();
+          const filteredMmProducts = mmProducts.filter(p => stokKodular.includes(p.stok_kodu));
+          console.log(`Found ${filteredMmProducts.length} products in MM table matching stok_kodu:`, filteredMmProducts.map(p => p.stok_kodu));
+          allProducts.push(...filteredMmProducts);
           
-          // Filter by IDs if provided
-          let filteredProducts = products;
-          if (productIds.length > 0) {
-            filteredProducts = products.filter(p => productIds.includes(p.id));
+          // For each MM product, find related NCBK and NTEL records via recipe data
+          for (const mmProduct of filteredMmProducts) {
+            try {
+              const recipeResponse = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(mmProduct.stok_kodu)}`);
+              if (recipeResponse.ok) {
+                const recipeData = await recipeResponse.json();
+                console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
+                
+                // Extract NCBK and NTEL codes from recipe data
+                const ncbkCodes = new Set();
+                const ntelCodes = new Set();
+                
+                recipeData.forEach(recipe => {
+                  if (recipe.bilesen_kodu) {
+                    if (recipe.bilesen_kodu.startsWith('YM.NCBK.')) {
+                      ncbkCodes.add(recipe.bilesen_kodu);
+                    } else if (recipe.bilesen_kodu.startsWith('YM.NTEL.')) {
+                      ntelCodes.add(recipe.bilesen_kodu);
+                    }
+                  }
+                });
+                
+                // Fetch NCBK records
+                if (ncbkCodes.size > 0) {
+                  const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk);
+                  if (ncbkResponse.ok) {
+                    const ncbkProducts = await ncbkResponse.json();
+                    const relatedNcbk = ncbkProducts.filter(p => ncbkCodes.has(p.stok_kodu));
+                    console.log(`Found ${relatedNcbk.length} related NCBK records:`, relatedNcbk.map(p => p.stok_kodu));
+                    allProducts.push(...relatedNcbk);
+                  }
+                }
+                
+                // Fetch NTEL records
+                if (ntelCodes.size > 0) {
+                  const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel);
+                  if (ntelResponse.ok) {
+                    const ntelProducts = await ntelResponse.json();
+                    const relatedNtel = ntelProducts.filter(p => ntelCodes.has(p.stok_kodu));
+                    console.log(`Found ${relatedNtel.length} related NTEL records:`, relatedNtel.map(p => p.stok_kodu));
+                    allProducts.push(...relatedNtel);
+                  }
+                }
+              }
+            } catch (error) {
+              console.warn(`Failed to fetch recipe data for ${mmProduct.stok_kodu}:`, error);
+            }
           }
-          // Filter by stok_kodu if provided (only for MM table)
-          else if (stokKodular.length > 0) {
-            filteredProducts = products.filter(p => stokKodular.includes(p.stok_kodu));
-            console.log(`Found ${filteredProducts.length} products in ${tableType} table matching stok_kodu:`, filteredProducts.map(p => p.stok_kodu));
-          }
-          
-          allProducts.push(...filteredProducts);
         }
       } catch (error) {
-        console.warn(`Failed to fetch from ${tableType} table:`, error);
+        console.warn('Failed to fetch from MM table:', error);
       }
     }
     
@@ -5265,6 +5319,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       
                       // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                       const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                      console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
+                      console.log('Database products breakdown:', {
+                        total: databaseProducts?.length || 0,
+                        mm: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).length || 0,
+                        ncbk: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NCBK')).length || 0,
+                        ntel: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NTEL')).length || 0
+                      });
+                      console.log('First MM product data:', databaseProducts?.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')) ? {
+                        stok_kodu: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).existingStokKodu,
+                        cubukSayisiBoy: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).cubukSayisiBoy,
+                        cubukSayisiEn: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).cubukSayisiEn,
+                        hasRecipeData: !!databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).recipeData
+                      } : 'none');
                       
                       if (databaseProducts && databaseProducts.length > 0) {
                         await generateExcelFiles(databaseProducts, false);
@@ -5350,6 +5417,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                        console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
+                        console.log('First database product data:', databaseProducts?.[0] ? {
+                          stok_kodu: databaseProducts[0].existingStokKodu,
+                          cubukSayisiBoy: databaseProducts[0].cubukSayisiBoy,
+                          cubukSayisiEn: databaseProducts[0].cubukSayisiEn,
+                          hasRecipeData: !!databaseProducts[0].recipeData
+                        } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
                           await generateExcelFiles(databaseProducts);
@@ -6031,6 +6105,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                        console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
+                        console.log('First database product data:', databaseProducts?.[0] ? {
+                          stok_kodu: databaseProducts[0].existingStokKodu,
+                          cubukSayisiBoy: databaseProducts[0].cubukSayisiBoy,
+                          cubukSayisiEn: databaseProducts[0].cubukSayisiEn,
+                          hasRecipeData: !!databaseProducts[0].recipeData
+                        } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
                           await generateExcelFiles(databaseProducts);
