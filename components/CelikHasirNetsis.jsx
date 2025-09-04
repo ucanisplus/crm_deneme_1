@@ -369,6 +369,15 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           let cubukSayisiBoy = recipeData?.boyCount || product.ic_cap_boy_cubuk_ad || 0;
           let cubukSayisiEn = recipeData?.enCount || product.dis_cap_en_cubuk_ad || 0;
           
+          console.log(`🔧 FETCH DEBUG - Product ${product.stok_kodu} BEFORE fallback:`, {
+            recipeDataBoyCount: recipeData?.boyCount,
+            recipeDataEnCount: recipeData?.enCount,
+            databaseBoyCubuk: product.ic_cap_boy_cubuk_ad,
+            databaseEnCubuk: product.dis_cap_en_cubuk_ad,
+            initialCubukSayisiBoy: cubukSayisiBoy,
+            initialCubukSayisiEn: cubukSayisiEn
+          });
+          
           // Apply fallback formula if cubuk sayisi values are missing or invalid
           // OR if recipe data couldn't be fetched (no NCBK/NTEL components found)
           const shouldApplyFallback = !cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0 || !recipeData?.boyCount || !recipeData?.enCount;
@@ -384,7 +393,9 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             
             cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
             cubukSayisiEn = fallbackResult.cubukSayisiEn;
-            console.log(`Fallback applied: ${actualHasirTipi} ${product.ebat_boy}x${product.ebat_en} => boy:${cubukSayisiBoy}, en:${cubukSayisiEn}`);
+            console.log(`🔧 FETCH DEBUG - Fallback applied: ${actualHasirTipi} ${product.ebat_boy}x${product.ebat_en} => boy:${cubukSayisiBoy}, en:${cubukSayisiEn}`);
+          } else {
+            console.log(`🔧 FETCH DEBUG - Using database/recipe values: boy:${cubukSayisiBoy}, en:${cubukSayisiEn}`);
           }
           
           // Calculate duration if missing (you can add duration fallback calculation here)
@@ -2805,6 +2816,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Use fresh database data
           products = freshDatabaseProducts;
           console.log('Excel generation: Using fresh database data');
+          console.log('🔧 EXCEL INPUT DEBUG - Products received from database fetch:', products.map(p => ({
+            stokKodu: p.existingStokKodu,
+            cubukSayisiBoy: p.cubukSayisiBoy,
+            cubukSayisiEn: p.cubukSayisiEn,
+            hasirTipi: p.hasirTipi,
+            source: p.source || 'unknown'
+          })));
         } else {
           // Fallback: Apply fallback formula to input products
           console.log('Excel generation: Database fetch failed, applying fallback formula');
@@ -2938,6 +2956,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('  isFromDatabase:', !!product.existingStokKodu);
         console.log('  source:', product.source || 'unknown');
         
+        // 🔧 MASSIVE DEBUG - Log the EXACT values going into Excel row
+        const excelCubukBoy = parseInt(finalCubukSayisiBoy);
+        const excelCubukEn = parseInt(finalCubukSayisiEn);
+        console.log(`🔧 EXCEL ROW VALUES - Product ${stokKodu}:`);
+        console.log('  Excel Boy Cubuk (position 28):', excelCubukBoy);
+        console.log('  Excel En Cubuk (position 29):', excelCubukEn);
+        console.log('  These are the EXACT values being written to Excel!');
+        
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
           stokKodu, stokAdi, 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', ingilizceIsim,
@@ -2951,7 +2977,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the final calculated values (database OR fallback)
-          parseInt(finalCubukSayisiBoy), parseInt(finalCubukSayisiEn), '0', '0', '0', '', '', '',
+          excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
