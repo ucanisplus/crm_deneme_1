@@ -2569,25 +2569,55 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Start progress indicator
       setIsGeneratingExcel(true);
-      setExcelProgress({ current: 0, total: 3, operation: 'Veritabanı analizi yapılıyor...' });
+      setExcelProgress({ current: 0, total: 4, operation: 'Veritabanı analizi yapılıyor...' });
       
       // Get stock codes from save confirmation analysis
       const analysisResult = await analyzeProductsForConfirmation();
-      
-      // CRITICAL DEBUG: Check what we actually got
-      console.log('DEBUG: Analysis result:', analysisResult);
-      console.log('DEBUG: Existing products count:', analysisResult?.existingProducts?.length || 0);
-      console.log('DEBUG: New products count:', analysisResult?.newProducts?.length || 0);
       
       // Use the returned result directly instead of relying on state
       const existingProductsData = analysisResult?.existingProducts || [];
       const newProductsData = analysisResult?.newProducts || [];
       
-      console.log('DEBUG: First existing product structure:', existingProductsData[0]);
-      console.log('DEBUG: First new product structure:', newProductsData[0]);
+      // Update progress
+      setExcelProgress({ current: 1, total: 4, operation: 'Database verisi alınıyor...' });
+      
+      // Use unified database fetch with fallback to get optimized values
+      console.log('KAYNAK PROGRAMI: Using unified database fetch with fallback...');
+      const enhancedProducts = await fetchDatabaseDataWithFallback([], 
+        validProducts.map(p => {
+          // For existing products, find their stock code
+          const existingMatch = existingProductsData.find(existing => {
+            const hasirTipiMatch = existing.hasirTipi === p.hasirTipi;
+            const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(p.uzunlukBoy || 0)) < 0.1;
+            const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(p.uzunlukEn || 0)) < 0.1;
+            return hasirTipiMatch && boyMatch && enMatch;
+          });
+          
+          if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
+            const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
+              const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
+              const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
+              return numB - numA;
+            });
+            return sortedCodes[0];
+          }
+          
+          // For new products, find their calculated stock code
+          const newMatch = newProductsData.find(newProd => {
+            const hasirTipiMatch = newProd.hasirTipi === p.hasirTipi;
+            const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(p.uzunlukBoy || 0)) < 0.1;
+            const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(p.uzunlukEn || 0)) < 0.1;
+            return hasirTipiMatch && boyMatch && enMatch;
+          });
+          
+          return newMatch?.newStokKodu || `TEMP_${p.hasirTipi}_${p.uzunlukBoy}_${p.uzunlukEn}`;
+        }).filter(code => !code.startsWith('TEMP_')) // Only fetch for products with real stock codes
+      );
+      
+      console.log(`KAYNAK PROGRAMI: Enhanced ${enhancedProducts.length} products with database+fallback data`);
       
       // Update progress
-      setExcelProgress({ current: 1, total: 3, operation: 'Stok kodları eşleştiriliyor...' });
+      setExcelProgress({ current: 2, total: 4, operation: 'Stok kodları eşleştiriliyor...' });
       
       // CSV structure headers from your template
       const headers = [
@@ -2601,12 +2631,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const data = [headers, subHeaders];
       
       validProducts.forEach((product, index) => {
-        // Find stock code from preSaveConfirmData by matching product details
+        // Find enhanced product with fallback-corrected cubuk sayısı values
+        let enhancedProduct = enhancedProducts.find(enhanced => {
+          if (enhanced.existingStokKodu) {
+            // For existing products, match by stock code
+            return enhanced.existingStokKodu && (
+              enhanced.hasirTipi === product.hasirTipi &&
+              Math.abs(parseFloat(enhanced.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1 &&
+              Math.abs(parseFloat(enhanced.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1
+            );
+          }
+          return false;
+        });
+        
+        // If no enhanced product found, use original but apply fallback
+        if (!enhancedProduct) {
+          console.warn(`KAYNAK PROGRAMI: No enhanced product found for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}, applying fallback directly`);
+          enhancedProduct = { ...product }; // Use original as base
+        }
+        
+        // Find stock code from analysis
         let stokKodu = '';
         
-        // Check existing products first (with highest stock codes like CHOZL2343)
+        // Check existing products first
         const existingMatch = existingProductsData.find(existing => {
-          // Match directly on the existing product (not existing.product)
           const hasirTipiMatch = existing.hasirTipi === product.hasirTipi;
           const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
           const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
@@ -2614,16 +2662,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
-          // Get the highest stock code from the array (same logic as in other parts of the code)
           const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
             const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
             const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
-            return numB - numA; // Descending order 
+            return numB - numA;
           });
           stokKodu = sortedCodes[0];
-          console.log(`DEBUG: Found existing stock code ${stokKodu} for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
         } else {
-          // Check new products (with calculated CHOZL codes like CHOZL2448)
+          // Check new products
           const newMatch = newProductsData.find(newProd => {
             const hasirTipiMatch = newProd.hasirTipi === product.hasirTipi;
             const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
@@ -2633,31 +2679,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           if (newMatch && newMatch.newStokKodu) {
             stokKodu = newMatch.newStokKodu;
-            console.log(`DEBUG: Found new stock code ${stokKodu} for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
-          } else {
-            console.log(`DEBUG: No stock code found for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}`);
           }
         }
         
-        // Map validProducts data to CSV structure
+        // Use enhanced product values (with fallback-corrected cubuk sayısı)
+        const finalCubukSayisiBoy = enhancedProduct.cubukSayisiBoy || product.cubukSayisiBoy || 0;
+        const finalCubukSayisiEn = enhancedProduct.cubukSayisiEn || product.cubukSayisiEn || 0;
+        
+        console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn}`);
+        
+        // Map enhanced product data to CSV structure
         data.push([
           index + 1, // Row number
           stokKodu, // Stock code from analysis
           '', // FİRMA ADI - empty
           '', // Stok Kartı - empty  
           normalizeHasirTipi(product.hasirTipi || ''), // HASIR CİNSİ
-          parseFloat(product.boyCap || 0), // BOY ÇAP
-          parseFloat(product.enCap || 0), // EN ÇAP
+          parseFloat(enhancedProduct.boyCap || product.boyCap || 0), // BOY ÇAP
+          parseFloat(enhancedProduct.enCap || product.enCap || 0), // EN ÇAP
           parseInt(product.hasirSayisi || 1), // HASIR SAYISI
-          parseFloat(product.boyCap || 0), // BOY ÇAP (repeat)
-          parseFloat(product.enCap || 0), // EN ÇAP (repeat)
+          parseFloat(enhancedProduct.boyCap || product.boyCap || 0), // BOY ÇAP (repeat)
+          parseFloat(enhancedProduct.enCap || product.enCap || 0), // EN ÇAP (repeat)
           '', // Açıklama - empty
           parseInt(product.uzunlukBoy || 0), // UZUNLUK BOY
           parseInt(product.uzunlukEn || 0), // UZUNLUK EN
-          parseInt(product.cubukSayisiBoy || 0), // ÇUBUK SAYISI BOY
-          parseInt(product.cubukSayisiEn || 0), // ÇUBUK SAYISI EN
-          parseFloat(product.boyAraligi || product.gozAraligiBoy || 0), // ARA BOY from main table
-          parseFloat(product.enAraligi || product.gozAraligiEn || 0), // ARA EN from main table
+          parseInt(finalCubukSayisiBoy), // ÇUBUK SAYISI BOY - USE ENHANCED/FALLBACK VALUE
+          parseInt(finalCubukSayisiEn), // ÇUBUK SAYISI EN - USE ENHANCED/FALLBACK VALUE
+          parseFloat(enhancedProduct.boyAraligi || product.boyAraligi || product.gozAraligiBoy || 0), // ARA BOY
+          parseFloat(enhancedProduct.enAraligi || product.enAraligi || product.gozAraligiEn || 0), // ARA EN
           parseInt(product.hasirSayisi || 1), // HASIR SAYISI (repeat)
           parseFloat(product.solFiliz || 0), // SOL FİLİZ
           parseFloat(product.sagFiliz || 0), // SAĞ FİLİZ
@@ -2670,7 +2719,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       // Update progress
-      setExcelProgress({ current: 2, total: 3, operation: 'Excel dosyası oluşturuluyor...' });
+      setExcelProgress({ current: 3, total: 4, operation: 'Excel dosyası oluşturuluyor...' });
       
       // Create workbook using XLSX (same as exportToExcel)
       const wb = XLSX.utils.book_new();
@@ -2684,7 +2733,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       XLSX.utils.book_append_sheet(wb, ws, "Kaynak Programı");
       
       // Update final progress
-      setExcelProgress({ current: 3, total: 3, operation: 'Dosya indiriliyor...' });
+      setExcelProgress({ current: 4, total: 4, operation: 'Dosya indiriliyor...' });
       
       // Download as Excel (.xlsx) file
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
