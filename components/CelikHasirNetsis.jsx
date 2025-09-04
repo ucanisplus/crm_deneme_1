@@ -126,8 +126,14 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
       }
     }
     
+    console.log(`FALLBACK DEBUG - Input: ${hasirTipi} ${uzunlukBoy}x${uzunlukEn}`);
+    console.log(`FALLBACK DEBUG - hasirTuru: ${hasirTuru}, boyAralik: ${boyAralik}, enAralik: ${enAralik}`);
+    console.log(`FALLBACK DEBUG - Base calculation: boy=${cubukSayisiBoy}, en=${cubukSayisiEn}`);
+    
     // Apply optimization logic (simplified version)
     const optimized = applyFilizOptimization(hasirTipi, uzunlukBoy, uzunlukEn, cubukSayisiBoy, cubukSayisiEn, boyAralik, enAralik, hasirTuru);
+    
+    console.log(`FALLBACK DEBUG - Final optimized result: boy=${optimized.cubukSayisiBoy}, en=${optimized.cubukSayisiEn}`);
     
     return optimized;
   } catch (error) {
@@ -253,6 +259,11 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             if (recipeResponse.ok) {
               const recipeData = await recipeResponse.json();
               console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
+              
+              // Debug: Check what mamul_kodu values we actually have
+              const uniqueMamulKodus = [...new Set(recipeData.map(r => r.mamul_kodu))];
+              console.log(`DEBUG: Unique mamul_kodu values in recipe data:`, uniqueMamulKodus.slice(0, 10));
+              console.log(`DEBUG: Looking for mamul_kodu === "${mmProduct.stok_kodu}"`);
               
               // Filter recipe data to only this specific product's recipe
               const thisProductRecipe = recipeData.filter(recipe => recipe.mamul_kodu === mmProduct.stok_kodu);
@@ -4590,7 +4601,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ntelIsNewlyCreated: ntelForRecipe?.isNewlyCreated
             });
             
-            await saveRecipeData(product, chResult, ncbkForRecipe, ntelForRecipe);
+            // Apply fallback formula to get correct cubuk sayısı values for recipe
+            const fallbackResult = await calculateFallbackCubukSayisi(
+              product.hasirTipi,
+              parseFloat(product.uzunlukBoy || 0),
+              parseFloat(product.uzunlukEn || 0)
+            );
+            
+            // Update product with correct optimized values for recipe generation
+            const enhancedProduct = {
+              ...product,
+              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+              cubukSayisiEn: fallbackResult.cubukSayisiEn
+            };
+            
+            console.log(`Applied fallback for recipe: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} => boy:${fallbackResult.cubukSayisiBoy}, en:${fallbackResult.cubukSayisiEn}`);
+            
+            await saveRecipeData(enhancedProduct, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             
             // Sequence güncelle - always update for new products, including when CH exists but we generated new NCBK/NTEL
