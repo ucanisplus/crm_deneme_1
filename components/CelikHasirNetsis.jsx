@@ -3557,6 +3557,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log('*** saveRecipeData - ncbkResults keys:', Object.keys(ncbkResults));
       console.log('*** Product details - boyCap:', product.boyCap, 'enCap:', product.enCap, 'uzunlukBoy:', product.uzunlukBoy, 'uzunlukEn:', product.uzunlukEn);
+      console.log('🚨 CRITICAL DEBUG - RECEIVED CUBUK VALUES:', {
+        cubukSayisiBoy: product.cubukSayisiBoy,
+        cubukSayisiEn: product.cubukSayisiEn,
+        productType: typeof product.cubukSayisiEn,
+        isNumber: !isNaN(product.cubukSayisiEn)
+      });
+      
+      // DEFENSIVE CHECK: Ensure we have valid numbers
+      const boyCubukValue = parseInt(product.cubukSayisiBoy) || 0;
+      const enCubukValue = parseInt(product.cubukSayisiEn) || 0;
+      
+      console.log('🔒 FINAL VALUES BEING SAVED TO DATABASE:', {
+        boyCubukValue,
+        enCubukValue,
+        hasirTipi: product.hasirTipi,
+        uzunlukBoy: product.uzunlukBoy,
+        uzunlukEn: product.uzunlukEn
+      });
       
       // GENERATE NCBK codes directly from product dimensions - don't lookup in ncbkResults
       // MM recipe should always reference the required NCBKs regardless of whether they exist
@@ -3577,7 +3595,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: boyBilesenKodu,
           olcu_br_bilesen: 'AD',
-          miktar: product.cubukSayisiBoy || 0,
+          miktar: boyCubukValue,  // USE VALIDATED VALUE
           aciklama: 'BOY ÇUBUĞU',
         },
         {
@@ -3589,7 +3607,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           operasyon_bilesen: 'Bileşen',
           bilesen_kodu: enBilesenKodu,
           olcu_br_bilesen: 'AD',
-          miktar: product.cubukSayisiEn || 0,
+          miktar: enCubukValue,  // USE VALIDATED VALUE
           aciklama: 'EN ÇUBUĞU',
         },
         {
@@ -4656,18 +4674,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             });
             
             // Apply fallback formula to get correct cubuk sayısı values for recipe
+            console.log('🔍 ORIGINAL PRODUCT VALUES BEFORE FALLBACK:', {
+              cubukSayisiBoy: product.cubukSayisiBoy,
+              cubukSayisiEn: product.cubukSayisiEn,
+              hasirTipi: product.hasirTipi
+            });
+            
             const fallbackResult = await calculateFallbackCubukSayisi(
               product.hasirTipi,
               parseFloat(product.uzunlukBoy || 0),
               parseFloat(product.uzunlukEn || 0)
             );
             
+            console.log('🔍 FALLBACK CALCULATION RESULT:', {
+              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+              cubukSayisiEn: fallbackResult.cubukSayisiEn
+            });
+            
             // Update product with correct optimized values for recipe generation
+            // CRITICAL FIX: Force override any existing values that might be wrong
             const enhancedProduct = {
               ...product,
               cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
               cubukSayisiEn: fallbackResult.cubukSayisiEn
             };
+            
+            // ADDITIONAL SAFETY: Ensure the values are actually set correctly
+            enhancedProduct.cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
+            enhancedProduct.cubukSayisiEn = fallbackResult.cubukSayisiEn;
+            
+            console.log('🔍 ENHANCED PRODUCT VALUES AFTER MERGE:', {
+              cubukSayisiBoy: enhancedProduct.cubukSayisiBoy,
+              cubukSayisiEn: enhancedProduct.cubukSayisiEn
+            });
             
             console.log(`Applied fallback for recipe: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} => boy:${fallbackResult.cubukSayisiBoy}, en:${fallbackResult.cubukSayisiEn}`);
             
