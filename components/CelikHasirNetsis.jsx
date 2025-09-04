@@ -209,6 +209,12 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
 // Unified function to fetch database data with fallback formula
 const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) => {
   try {
+    // Small delay to allow database transaction to commit if this is called right after save
+    if (stokKodular.length > 0) {
+      console.log('⏳ Adding 1 second delay to allow database transaction to commit...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
     // Fetch products from database based on IDs or stok_kodu
     const allProducts = [];
     
@@ -241,11 +247,36 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
         
         // Fetch each product individually to avoid large API responses
         for (const stokKodu of stokKodular) {
-          const mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
+          // First try: Direct search by stok_kodu
+          let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
+          let mmProducts = [];
+          
           if (mmResponse.ok) {
-            const mmProducts = await mmResponse.json();
+            mmProducts = await mmResponse.json();
             const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
-            filteredMmProducts.push(...exactMatch);
+            if (exactMatch.length > 0) {
+              console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
+              filteredMmProducts.push(...exactMatch);
+              continue; // Found it, move to next
+            }
+          }
+          
+          // Second try: If search failed, try fetching recent records (newly saved might not be indexed)
+          console.warn(`⚠️ Search for ${stokKodu} returned 0 results, trying recent records fetch...`);
+          try {
+            mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?sort_by=created_at&sort_order=desc&limit=50`);
+            if (mmResponse.ok) {
+              const recentProducts = await mmResponse.json();
+              const exactMatch = recentProducts.filter(p => p.stok_kodu === stokKodu);
+              if (exactMatch.length > 0) {
+                console.log(`✅ Found ${exactMatch.length} products via recent fetch for ${stokKodu}`);
+                filteredMmProducts.push(...exactMatch);
+              } else {
+                console.error(`❌ Product ${stokKodu} not found even in recent records!`);
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Recent fetch failed for ${stokKodu}:`, error);
           }
         }
         
