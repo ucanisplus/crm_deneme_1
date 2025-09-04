@@ -1032,9 +1032,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     try {
-      console.log('DEBUG: Using unified database fetch for batch Excel export');
+      console.log(`Trying to fetch ${selectedDbItems.length} selected products from database first`);
       
-      // Use unified database fetch with fallback for selected products
+      // STEP 1: Try to fetch selected products from database first
       const databaseProducts = await fetchDatabaseDataWithFallback(selectedDbItems);
       
       if (databaseProducts.length === 0) {
@@ -1042,7 +1042,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      console.log(`DEBUG: Fetched ${databaseProducts.length} products with database + fallback`);
+      console.log(`Successfully fetched ${databaseProducts.length} products from database`);
       
       // Mark all as optimized for Excel processing
       const processedProducts = databaseProducts.map(product => ({
@@ -1051,14 +1051,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }));
 
       await generateExcelFiles(processedProducts, true);
-      toast.success(`${databaseProducts.length} ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+      toast.success(`${databaseProducts.length} ürün için Excel dosyaları oluşturuldu! (Database)`);
       
     } catch (error) {
-      console.error('Unified export error:', error);
+      console.error('Database fetch failed, trying fallback:', error);
       
-      // Fallback to original method if unified approach fails
+      // STEP 2: If database fetch fails, use fallback formula
       try {
-        console.warn('Falling back to original batch export method');
+        console.log('Database fetch failed - applying fallback formula to selected products');
         
         const filteredProducts = getFilteredAndSortedProducts();
         const selectedProducts = filteredProducts.filter(product => 
@@ -1070,8 +1070,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return;
         }
 
-        // Transform database products to expected Excel format (original method)
-        const transformedProducts = selectedProducts.map(product => {
+        // Transform database products and apply fallback formula for optimized cubuk values
+        const transformedProducts = await Promise.all(selectedProducts.map(async product => {
           // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
           let actualHasirTipi = product.hasir_tipi || '';
           if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
@@ -1082,6 +1082,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
           
           const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+          
+          // Apply fallback formula to get optimized cubuk values
+          const fallbackResult = await calculateFallbackCubukSayisi(
+            actualHasirTipi,
+            parseFloat(product.ebat_boy || 0),
+            parseFloat(product.ebat_en || 0)
+          );
           
           return {
             boyCap: product.cap || 0,
@@ -1094,21 +1101,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             gozAraligi: product.goz_araligi ? product.goz_araligi.replace('*', 'x') : '15x15',
             totalKg: product.kg || 0,
             adetKg: product.kg || 0,
-            cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-            cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+            cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+            cubukSayisiEn: fallbackResult.cubukSayisiEn,
             hasirSayisi: product.hasir_sayisi || 1,
             hasirTuru: product.hasir_turu || 'Standart',
             existingStokKodu: product.stok_kodu,
             existingIngilizceIsim: cleanIngilizceIsim,
-            isOptimized: true
+            isOptimized: true,
+            source: 'fallback-formula'
           };
-        });
+        }));
 
         await generateExcelFiles(transformedProducts, true);
-        toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu! (Original method)`);
+        toast.success(`${selectedProducts.length} ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
         
       } catch (fallbackError) {
-        console.error('Both unified and fallback methods failed:', fallbackError);
+        console.error('Both database and fallback methods failed:', fallbackError);
         toast.error('Excel dosyaları oluşturulurken hata oluştu');
       }
     }
@@ -6577,6 +6585,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     <RefreshCw className={`w-4 h-4 ${isLoadingDb ? 'animate-spin' : ''}`} />
                     Yenile
                   </button>
+
+                  <button
+                    onClick={() => generateBulkExcelFromDatabase()}
+                    disabled={isGeneratingExcel}
+                    className="px-3 py-1 bg-teal-600 text-white rounded-md flex items-center gap-2 hover:bg-teal-700 transition-colors text-sm disabled:bg-gray-400"
+                  >
+                    <FileSpreadsheet className={`w-4 h-4 ${isGeneratingExcel ? 'animate-spin' : ''}`} />
+                    Tüm Ürünler Excel
+                  </button>
                   
                   {/* Selection-based action buttons */}
                   {selectedDbItems.length > 0 && (
@@ -7371,20 +7388,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 </div>
               </button>
 
-              <button
-                onClick={async () => {
-                  setShowExcelOptionsModal(false);
-                  await generateBulkExcelFromDatabase();
-                }}
-                disabled={isGeneratingExcel}
-                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-left flex items-center gap-2"
-              >
-                {isGeneratingExcel && <Loader className="w-5 h-5 animate-spin" />}
-                <div>
-                  <div className="font-medium">Tüm Ürünler Excel (Toplu)</div>
-                  <div className="text-sm opacity-90 mt-1">Veritabanından toplu indirme ile hızlı Excel oluştur</div>
-                </div>
-              </button>
             </div>
             
             <div className="mt-4 pt-3 border-t border-gray-200">
