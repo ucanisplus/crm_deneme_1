@@ -248,51 +248,50 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
         
         // For each MM product, find related NCBK and NTEL records via recipe data
         for (const mmProduct of filteredMmProducts) {
-            try {
-              const recipeResponse = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(mmProduct.stok_kodu)}`);
-              if (recipeResponse.ok) {
-                const recipeData = await recipeResponse.json();
-                console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
-                
-                // Extract NCBK and NTEL codes from recipe data
-                const ncbkCodes = new Set();
-                const ntelCodes = new Set();
-                
-                recipeData.forEach(recipe => {
-                  if (recipe.bilesen_kodu) {
-                    if (recipe.bilesen_kodu.startsWith('YM.NCBK.')) {
-                      ncbkCodes.add(recipe.bilesen_kodu);
-                    } else if (recipe.bilesen_kodu.startsWith('YM.NTEL.')) {
-                      ntelCodes.add(recipe.bilesen_kodu);
-                    }
-                  }
-                });
-                
-                // Fetch NCBK records
-                if (ncbkCodes.size > 0) {
-                  const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk);
-                  if (ncbkResponse.ok) {
-                    const ncbkProducts = await ncbkResponse.json();
-                    const relatedNcbk = ncbkProducts.filter(p => ncbkCodes.has(p.stok_kodu));
-                    console.log(`Found ${relatedNcbk.length} related NCBK records:`, relatedNcbk.map(p => p.stok_kodu));
-                    allProducts.push(...relatedNcbk);
+          try {
+            const recipeResponse = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(mmProduct.stok_kodu)}`);
+            if (recipeResponse.ok) {
+              const recipeData = await recipeResponse.json();
+              console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
+              
+              // Extract NCBK and NTEL codes from recipe data
+              const ncbkCodes = new Set();
+              const ntelCodes = new Set();
+              
+              recipeData.forEach(recipe => {
+                if (recipe.bilesen_kodu) {
+                  if (recipe.bilesen_kodu.startsWith('YM.NCBK.')) {
+                    ncbkCodes.add(recipe.bilesen_kodu);
+                  } else if (recipe.bilesen_kodu.startsWith('YM.NTEL.')) {
+                    ntelCodes.add(recipe.bilesen_kodu);
                   }
                 }
-                
-                // Fetch NTEL records
-                if (ntelCodes.size > 0) {
-                  const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel);
-                  if (ntelResponse.ok) {
-                    const ntelProducts = await ntelResponse.json();
-                    const relatedNtel = ntelProducts.filter(p => ntelCodes.has(p.stok_kodu));
-                    console.log(`Found ${relatedNtel.length} related NTEL records:`, relatedNtel.map(p => p.stok_kodu));
-                    allProducts.push(...relatedNtel);
-                  }
+              });
+              
+              // Fetch NCBK records
+              if (ncbkCodes.size > 0) {
+                const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk);
+                if (ncbkResponse.ok) {
+                  const ncbkProducts = await ncbkResponse.json();
+                  const relatedNcbk = ncbkProducts.filter(p => ncbkCodes.has(p.stok_kodu));
+                  console.log(`Found ${relatedNcbk.length} related NCBK records:`, relatedNcbk.map(p => p.stok_kodu));
+                  allProducts.push(...relatedNcbk);
                 }
               }
-            } catch (error) {
-              console.warn(`Failed to fetch recipe data for ${mmProduct.stok_kodu}:`, error);
+              
+              // Fetch NTEL records
+              if (ntelCodes.size > 0) {
+                const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel);
+                if (ntelResponse.ok) {
+                  const ntelProducts = await ntelResponse.json();
+                  const relatedNtel = ntelProducts.filter(p => ntelCodes.has(p.stok_kodu));
+                  console.log(`Found ${relatedNtel.length} related NTEL records:`, relatedNtel.map(p => p.stok_kodu));
+                  allProducts.push(...relatedNtel);
+                }
+              }
             }
+          } catch (error) {
+            console.warn(`Failed to fetch recipe data for ${mmProduct.stok_kodu}:`, error);
           }
         }
       } catch (error) {
