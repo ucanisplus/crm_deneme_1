@@ -2921,10 +2921,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                            (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
         
-        // 🔧 CRITICAL DEBUG: Log the exact cubuk values being used in Excel generation
+        // 🔧 CRITICAL FIX: Ensure we use database columns OR fallback values correctly
+        const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
+        const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
+        
         console.log(`🔧 EXCEL GENERATION DEBUG - Product ${stokKodu}:`, {
-          cubukSayisiBoy: product.cubukSayisiBoy,
-          cubukSayisiEn: product.cubukSayisiEn,
+          originalCubukSayisiBoy: product.cubukSayisiBoy,
+          originalCubukSayisiEn: product.cubukSayisiEn,
+          databaseBoyCubuk: product.ic_cap_boy_cubuk_ad,
+          databaseEnCubuk: product.dis_cap_en_cubuk_ad,
+          finalCubukSayisiBoy,
+          finalCubukSayisiEn,
           hasirTipi: product.hasirTipi,
           uzunlukBoy: product.uzunlukBoy,
           uzunlukEn: product.uzunlukEn,
@@ -2944,8 +2951,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
-          // 🔧 CRITICAL FIX: Use the exact same values that were logged for debugging
-          parseInt(product.cubukSayisiBoy || 0), parseInt(product.cubukSayisiEn || 0), '0', '0', '0', '', '', '',
+          // 🔧 CRITICAL FIX: Use the final calculated values (database OR fallback)
+          parseInt(finalCubukSayisiBoy), parseInt(finalCubukSayisiEn), '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)

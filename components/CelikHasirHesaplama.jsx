@@ -2504,6 +2504,16 @@ const updateRowFromHasirTipi = async (rows, rowIndex) => {
     const boyAraligi = parseFloat(row.boyAraligi) || 15; // Varsayılan değerler
     const enAraligi = parseFloat(row.enAraligi) || 15;   // Varsayılan değerler
     
+    console.log(`🔧 HESAPLAMA DEBUG - initializeCubukSayisi BEFORE:`, {
+      hasirTipi: row.hasirTipi,
+      uzunlukBoy,
+      uzunlukEn,
+      boyAraligi,
+      enAraligi,
+      oldCubukSayisiBoy: row.cubukSayisiBoy,
+      oldCubukSayisiEn: row.cubukSayisiEn
+    });
+    
     // Başlangıç değerlerini hesapla
     let cubukSayisiBoy = Math.floor((uzunlukEn / boyAraligi) + 1);
     let cubukSayisiEn = Math.floor((uzunlukBoy / enAraligi) + 1);
@@ -2541,6 +2551,14 @@ const updateRowFromHasirTipi = async (rows, rowIndex) => {
     // Negatif veya 0 değerleri engelle
     cubukSayisiBoy = cubukSayisiBoy > 0 ? cubukSayisiBoy : 2;
     cubukSayisiEn = cubukSayisiEn > 0 ? cubukSayisiEn : 2;
+    
+    console.log(`🔧 HESAPLAMA DEBUG - initializeCubukSayisi AFTER:`, {
+      hasirTipi: row.hasirTipi,
+      finalCubukSayisiBoy: cubukSayisiBoy,
+      finalCubukSayisiEn: cubukSayisiEn,
+      uzunlukBoy: row.uzunlukBoy,
+      uzunlukEn: row.uzunlukEn
+    });
     
     row.cubukSayisiBoy = cubukSayisiBoy;
     row.cubukSayisiEn = cubukSayisiEn;
