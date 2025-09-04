@@ -262,8 +262,9 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
               
               // Debug: Check what mamul_kodu values we actually have
               const uniqueMamulKodus = [...new Set(recipeData.map(r => r.mamul_kodu))];
-              console.log(`DEBUG: Unique mamul_kodu values in recipe data:`, uniqueMamulKodus.slice(0, 10));
+              console.log(`DEBUG: Unique mamul_kodu values in recipe data:`, uniqueMamulKodus);
               console.log(`DEBUG: Looking for mamul_kodu === "${mmProduct.stok_kodu}"`);
+              console.log(`DEBUG: First few recipe entries:`, recipeData.slice(0, 3).map(r => ({ mamul_kodu: r.mamul_kodu, bilesen_kodu: r.bilesen_kodu })));
               
               // Filter recipe data to only this specific product's recipe
               const thisProductRecipe = recipeData.filter(recipe => recipe.mamul_kodu === mmProduct.stok_kodu);
@@ -338,8 +339,11 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           let cubukSayisiEn = recipeData?.enCount || product.dis_cap_en_cubuk_ad || 0;
           
           // Apply fallback formula if cubuk sayisi values are missing or invalid
-          if (!cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0) {
-            console.log(`Applying fallback formula for product ${product.stok_kodu} - missing cubuk sayısı`);
+          // OR if recipe data couldn't be fetched (no NCBK/NTEL components found)
+          const shouldApplyFallback = !cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0 || !recipeData?.boyCount || !recipeData?.enCount;
+          
+          if (shouldApplyFallback) {
+            console.log(`Applying fallback formula for product ${product.stok_kodu} - missing cubuk sayısı or recipe data`);
             
             const fallbackResult = await calculateFallbackCubukSayisi(
               actualHasirTipi,
@@ -349,6 +353,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             
             cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
             cubukSayisiEn = fallbackResult.cubukSayisiEn;
+            console.log(`Fallback applied: ${actualHasirTipi} ${product.ebat_boy}x${product.ebat_en} => boy:${cubukSayisiBoy}, en:${cubukSayisiEn}`);
           }
           
           // Calculate duration if missing (you can add duration fallback calculation here)
