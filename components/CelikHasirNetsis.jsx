@@ -1076,7 +1076,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           existingStokKodu: product.stok_kodu,
           existingIngilizceIsim: cleanIngilizceIsim,
           isOptimized: true,
-          source: 'database'
+          source: 'database',
+          skipDatabaseRefresh: true  // Flag to prevent generateExcelFiles from re-fetching
         };
       });
 
@@ -2576,6 +2577,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return String(value).replace('.', ',');
   };
 
+
   // Generate Kaynak Programı Excel (copied from exportToExcel approach)
   const generateKaynakProgramiExcel = async () => {
     try {
@@ -2783,7 +2785,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         .filter(p => p.existingStokKodu)
         .map(p => p.existingStokKodu);
       
-      if (existingStokKodes.length > 0) {
+      if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
         console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
         const freshDatabaseProducts = await fetchDatabaseDataWithFallback([], existingStokKodes);
         
@@ -2817,6 +2819,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             })
           );
         }
+      } else if (inputProducts.some(p => p.skipDatabaseRefresh)) {
+        // Skip database refresh - use input products as-is
+        console.log('Excel generation: Skip database refresh flag detected, using input products directly');
+        products = inputProducts;
+        console.log('🔧 EXCEL INPUT DEBUG - Products received from skip refresh:', products.map(p => ({
+          stokKodu: p.existingStokKodu,
+          cubukSayisiBoy: p.cubukSayisiBoy,
+          cubukSayisiEn: p.cubukSayisiEn,
+          hasirTipi: p.hasirTipi,
+          source: p.source || 'loaded-data'
+        })));
       } else {
         // No existing products - apply fallback formula to all
         console.log('Excel generation: No existing products, applying fallback formula to all');
@@ -3573,12 +3586,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             };
             
             const flmKodu = getFilmasinKodu(enCap).code;
-            const flmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
+            const flmTuketimi = Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000;
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
-              'KG', toExcelDecimal(parseFloat(flmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              'KG', toExcelDecimalSmart(flmTuketimi), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
             
@@ -3725,13 +3738,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         } else if (enCap > 0 && enCap === boyCap) {
           // Same diameter for both directions
           const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-          const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5);
+          const enNtelMiktar = parseFloat(product.cubukSayisiEn || 0) * 2.15;
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
-            'MT', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+            'MT', toExcelDecimalSmart(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
@@ -4108,11 +4121,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Boy direction NTEL consumption
       if (boyCap > 0) {
         const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
-        const boyNtelMiktar = (parseFloat(product.cubukSayisiBoy || 0) * 5).toFixed(5);
+        const boyNtelMiktar = parseFloat(product.cubukSayisiBoy || 0) * 5;
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '1', 'Bileşen',
-          boyNtelKodu, 'MT', toExcelDecimal(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+          boyNtelKodu, 'MT', toExcelDecimalSmart(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
@@ -4120,11 +4133,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // En direction NTEL consumption
       if (enCap > 0) {
         const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-        const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5);
+        const enNtelMiktar = parseFloat(product.cubukSayisiEn || 0) * 2.15;
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '2', 'Bileşen',
-          enNtelKodu, 'MT', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          enNtelKodu, 'MT', toExcelDecimalSmart(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
