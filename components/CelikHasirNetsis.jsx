@@ -206,8 +206,9 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     // Fetch products from database based on IDs or stok_kodu
     const allProducts = [];
     
-    // Fetch from all relevant tables
-    const tableTypes = ['mm', 'ncbk', 'ntel'];
+    // When searching by stok_kodu, only search MM table (main products)
+    // NCBK and NTEL have different stok_kodu patterns (YM.NCBK.*, YM.NTEL.*)
+    const tableTypes = stokKodular.length > 0 ? ['mm'] : ['mm', 'ncbk', 'ntel'];
     
     for (const tableType of tableTypes) {
       try {
@@ -224,7 +225,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           if (productIds.length > 0) {
             filteredProducts = products.filter(p => productIds.includes(p.id));
           }
-          // Filter by stok_kodu if provided
+          // Filter by stok_kodu if provided (only for MM table)
           else if (stokKodular.length > 0) {
             filteredProducts = products.filter(p => stokKodular.includes(p.stok_kodu));
             console.log(`Found ${filteredProducts.length} products in ${tableType} table matching stok_kodu:`, filteredProducts.map(p => p.stok_kodu));
