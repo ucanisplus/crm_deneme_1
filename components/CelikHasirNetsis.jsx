@@ -5313,6 +5313,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       // Direct unified fetch approach - use the stok_kodu from saved products
                       const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                       console.log('Looking for these stok_kodu values:', stokKodular);
+                      console.log('newProducts structure:', newProducts.map(p => ({
+                        hasirTipi: p.hasirTipi,
+                        uzunlukBoy: p.uzunlukBoy,
+                        uzunlukEn: p.uzunlukEn,
+                        existingStokKodu: p.existingStokKodu,
+                        cubukSayisiBoy: p.cubukSayisiBoy,
+                        cubukSayisiEn: p.cubukSayisiEn
+                      })));
                       
                       // Add small delay to ensure database consistency
                       await new Promise(resolve => setTimeout(resolve, 800));
@@ -5337,15 +5345,51 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         await generateExcelFiles(databaseProducts, false);
                         toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                       } else {
-                        // Fallback to original method if unified fetch fails
-                        console.warn('Unified fetch returned no data, using original data');
-                        await generateExcelFiles(newProducts, false);
-                        toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                        // Database fetch failed - apply fallback formula to newProducts
+                        console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                        const fallbackProducts = await Promise.all(
+                          newProducts.map(async (product) => {
+                            const fallbackResult = await calculateFallbackCubukSayisi(
+                              product.hasirTipi,
+                              parseFloat(product.uzunlukBoy || 0),
+                              parseFloat(product.uzunlukEn || 0)
+                            );
+                            return {
+                              ...product,
+                              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                              cubukSayisiEn: fallbackResult.cubukSayisiEn
+                            };
+                          })
+                        );
+                        console.log('Applied fallback formula to', fallbackProducts.length, 'products');
+                        console.log('First fallback product çubuk sayısı:', fallbackProducts[0] ? {
+                          stok_kodu: fallbackProducts[0].existingStokKodu,
+                          cubukSayisiBoy: fallbackProducts[0].cubukSayisiBoy,
+                          cubukSayisiEn: fallbackProducts[0].cubukSayisiEn
+                        } : 'none');
+                        await generateExcelFiles(fallbackProducts, false);
+                        toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
                       }
                     } catch (error) {
-                      console.error('Unified fetch failed, falling back to original method:', error);
-                      await generateExcelFiles(newProducts, false);
-                      toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                      console.error('Unified fetch failed, applying fallback formula:', error);
+                      // Apply fallback formula even when fetch fails
+                      const fallbackProducts = await Promise.all(
+                        newProducts.map(async (product) => {
+                          const fallbackResult = await calculateFallbackCubukSayisi(
+                            product.hasirTipi,
+                            parseFloat(product.uzunlukBoy || 0),
+                            parseFloat(product.uzunlukEn || 0)
+                          );
+                          return {
+                            ...product,
+                            cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                            cubukSayisiEn: fallbackResult.cubukSayisiEn
+                          };
+                        })
+                      );
+                      console.log('Applied fallback formula after error to', fallbackProducts.length, 'products');
+                      await generateExcelFiles(fallbackProducts, false);
+                      toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula - After Error)`);
                     }
                   } else {
                     toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
@@ -5429,10 +5473,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(databaseProducts);
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
-                          // Fallback to original method if unified fetch fails
-                          console.warn('Unified fetch returned no data, using original data');
-                          await generateExcelFiles(newProducts);
-                          toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                          // Database fetch failed - apply fallback formula to newProducts
+                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          const fallbackProducts = await Promise.all(
+                            newProducts.map(async (product) => {
+                              const fallbackResult = await calculateFallbackCubukSayisi(
+                                product.hasirTipi,
+                                parseFloat(product.uzunlukBoy || 0),
+                                parseFloat(product.uzunlukEn || 0)
+                              );
+                              return {
+                                ...product,
+                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                cubukSayisiEn: fallbackResult.cubukSayisiEn
+                              };
+                            })
+                          );
+                          console.log('Applied fallback formula to', fallbackProducts.length, 'products');
+                          await generateExcelFiles(fallbackProducts);
+                          toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
                         }
                       } catch (innerError) {
                         console.error('Unified fetch failed, falling back to original method:', innerError);
@@ -6117,10 +6176,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(databaseProducts);
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
-                          // Fallback to original method if unified fetch fails
-                          console.warn('Unified fetch returned no data, using original data');
-                          await generateExcelFiles(newProducts);
-                          toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
+                          // Database fetch failed - apply fallback formula to newProducts
+                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          const fallbackProducts = await Promise.all(
+                            newProducts.map(async (product) => {
+                              const fallbackResult = await calculateFallbackCubukSayisi(
+                                product.hasirTipi,
+                                parseFloat(product.uzunlukBoy || 0),
+                                parseFloat(product.uzunlukEn || 0)
+                              );
+                              return {
+                                ...product,
+                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                cubukSayisiEn: fallbackResult.cubukSayisiEn
+                              };
+                            })
+                          );
+                          console.log('Applied fallback formula to', fallbackProducts.length, 'products');
+                          await generateExcelFiles(fallbackProducts);
+                          toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
                         }
                       } catch (innerError) {
                         console.error('Unified fetch failed, falling back to original method:', innerError);
