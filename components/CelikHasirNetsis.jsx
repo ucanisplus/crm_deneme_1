@@ -229,17 +229,25 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     }
     // When searching by stok_kodu, get MM product + related NCBK/NTEL records
     else if (stokKodular.length > 0) {
-      // First get MM products
+      // First get MM products - search directly by stok_kodu to avoid large API calls
       try {
-        const mmResponse = await fetchWithAuth(API_URLS.celikHasirMm);
-        if (mmResponse.ok) {
-          const mmProducts = await mmResponse.json();
-          const filteredMmProducts = mmProducts.filter(p => stokKodular.includes(p.stok_kodu));
-          console.log(`Found ${filteredMmProducts.length} products in MM table matching stok_kodu:`, filteredMmProducts.map(p => p.stok_kodu));
-          allProducts.push(...filteredMmProducts);
-          
-          // For each MM product, find related NCBK and NTEL records via recipe data
-          for (const mmProduct of filteredMmProducts) {
+        const filteredMmProducts = [];
+        
+        // Fetch each product individually to avoid large API responses
+        for (const stokKodu of stokKodular) {
+          const mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
+          if (mmResponse.ok) {
+            const mmProducts = await mmResponse.json();
+            const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
+            filteredMmProducts.push(...exactMatch);
+          }
+        }
+        
+        console.log(`Found ${filteredMmProducts.length} products in MM table matching stok_kodu:`, filteredMmProducts.map(p => p.stok_kodu));
+        allProducts.push(...filteredMmProducts);
+        
+        // For each MM product, find related NCBK and NTEL records via recipe data
+        for (const mmProduct of filteredMmProducts) {
             try {
               const recipeResponse = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(mmProduct.stok_kodu)}`);
               if (recipeResponse.ok) {
