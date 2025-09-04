@@ -3591,7 +3591,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', '', '1', 'Bileşen', flmKodu,
-              'KG', toExcelDecimalSmart(flmTuketimi), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              'KG', toExcelDecimal(parseFloat(flmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
             
@@ -3744,7 +3744,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '', '2', 'Bileşen',
             enNtelKodu,
-            'MT', toExcelDecimalSmart(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+            'MT', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
@@ -4125,7 +4125,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '1', 'Bileşen',
-          boyNtelKodu, 'MT', toExcelDecimalSmart(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+          boyNtelKodu, 'MT', toExcelDecimal(parseFloat(boyNtelMiktar).toFixed(5)), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
@@ -4137,7 +4137,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '2', 'Bileşen',
-          enNtelKodu, 'MT', toExcelDecimalSmart(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          enNtelKodu, 'MT', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
