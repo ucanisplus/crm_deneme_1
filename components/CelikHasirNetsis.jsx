@@ -5249,15 +5249,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     try {
                       // Collect the stok_kodu values from saved products
                       const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                      console.log('Looking for these stok_kodu values:', stokKodular);
                       
                       // Refresh database data to get the newly saved products
+                      // Add small delay to ensure database consistency
+                      await new Promise(resolve => setTimeout(resolve, 500));
                       await fetchSavedProducts();
                       
                       // Find the saved products in database by stok_kodu
                       const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                      console.log('Found saved products in database:', allSavedProducts.map(p => ({ stok_kodu: p.stok_kodu, id: p.id })));
+                      
                       const savedProductIds = allSavedProducts
                         .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
                         .map(dbProduct => dbProduct.id);
+                      console.log('Filtered savedProductIds:', savedProductIds);
                       
                       if (savedProductIds.length > 0) {
                         // Use unified database fetch with fallback
@@ -5330,20 +5336,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
                       console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                      console.log('newProducts returned from saveToDatabase:', newProducts.map(p => ({ 
+                        existingStokKodu: p.existingStokKodu, 
+                        hasirTipi: p.hasirTipi, 
+                        uzunlukBoy: p.uzunlukBoy, 
+                        uzunlukEn: p.uzunlukEn 
+                      })));
                       
                       // Unified approach: Fetch saved products from database with fallback
                       try {
                         // Collect the stok_kodu values from saved products
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                        console.log('Looking for these stok_kodu values:', stokKodular);
                         
                         // Refresh database data to get the newly saved products
+                        // Add small delay to ensure database consistency
+                        await new Promise(resolve => setTimeout(resolve, 500));
                         await fetchSavedProducts();
                         
                         // Find the saved products in database by stok_kodu
                         const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                        console.log('Found saved products in database:', allSavedProducts.map(p => ({ stok_kodu: p.stok_kodu, id: p.id })));
+                        
                         const savedProductIds = allSavedProducts
                           .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
                           .map(dbProduct => dbProduct.id);
+                        console.log('Filtered savedProductIds:', savedProductIds);
                         
                         if (savedProductIds.length > 0) {
                           // Use unified database fetch with fallback
@@ -6012,20 +6030,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     const newProducts = await saveToDatabase(validProducts);
                     if (newProducts && newProducts.length > 0) {
                       console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                      console.log('newProducts returned from saveToDatabase:', newProducts.map(p => ({ 
+                        existingStokKodu: p.existingStokKodu, 
+                        hasirTipi: p.hasirTipi, 
+                        uzunlukBoy: p.uzunlukBoy, 
+                        uzunlukEn: p.uzunlukEn 
+                      })));
                       
                       // Unified approach: Fetch saved products from database with fallback
                       try {
                         // Collect the stok_kodu values from saved products
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                        console.log('Looking for these stok_kodu values:', stokKodular);
                         
                         // Refresh database data to get the newly saved products
+                        // Add small delay to ensure database consistency
+                        await new Promise(resolve => setTimeout(resolve, 500));
                         await fetchSavedProducts();
                         
                         // Find the saved products in database by stok_kodu
                         const allSavedProducts = [...(savedProducts.mm || []), ...(savedProducts.ncbk || []), ...(savedProducts.ntel || [])];
+                        console.log('Found saved products in database:', allSavedProducts.map(p => ({ stok_kodu: p.stok_kodu, id: p.id })));
+                        
                         const savedProductIds = allSavedProducts
                           .filter(dbProduct => stokKodular.includes(dbProduct.stok_kodu))
                           .map(dbProduct => dbProduct.id);
+                        console.log('Filtered savedProductIds:', savedProductIds);
                         
                         if (savedProductIds.length > 0) {
                           // Use unified database fetch with fallback
@@ -6676,7 +6706,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <div className="flex gap-2">
                 <button
                   onClick={async () => {
-                    setShowPreSaveConfirmModal(false);
                     await generateKaynakProgramiExcel();
                   }}
                   disabled={isSavingToDatabase || isGeneratingExcel}
