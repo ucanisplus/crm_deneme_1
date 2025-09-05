@@ -2906,12 +2906,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const generateBulkExcelFromDatabase = useCallback(async () => {
     try {
       setIsGeneratingExcel(true);
-      setExcelProgress({ current: 0, total: 8, operation: 'Toplu veritabanı indirme başlıyor...' });
+      setExcelProgress({ current: 0, total: 6, operation: 'Toplu veritabanı indirme başlıyor...' });
 
-      console.log('🚀 BULK EXCEL: Starting bulk database download with all tables...');
+      console.log('🚀 BULK EXCEL: Starting bulk database download using unified fetch approach...');
 
-      // 1. Download all product tables in parallel
-      setExcelProgress({ current: 1, total: 8, operation: 'Ürün tabloları indiriliyor...' });
+      // 1. Get all product stock codes first
+      setExcelProgress({ current: 1, total: 6, operation: 'Ürün kodları alınıyor...' });
       
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
         fetch(`${API_URLS.getAllMM}`, {
@@ -2934,168 +2934,70 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntelResponse.json()
       ]);
 
-      console.log(`🚀 BULK EXCEL: Downloaded MM(${allMMProducts.length}), NCBK(${allNCBKProducts.length}), NTEL(${allNTELProducts.length}) products`);
+      console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts.length}), NTEL(${allNTELProducts.length}) products`);
 
-      // 2. Download all recipe tables in parallel
-      setExcelProgress({ current: 2, total: 8, operation: 'Reçete tabloları indiriliyor...' });
+      // 2. Extract all stock codes and use fetchDatabaseDataWithFallback for complete recipe integration
+      setExcelProgress({ current: 2, total: 6, operation: 'Veritabanından tam veri çekiliyor...' });
       
-      const [mmRecetesResponse, ncbkRecetesResponse, ntelRecetesResponse] = await Promise.all([
-        fetch(`${API_URLS.getAllMMRecetes}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        }),
-        fetch(`${API_URLS.getAllNCBKRecetes}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        }),
-        fetch(`${API_URLS.getAllNTELRecetes}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        })
-      ]);
+      const allStokKodular = [
+        ...allMMProducts.map(p => p.stok_kodu),
+        ...allNCBKProducts.map(p => p.stok_kodu), 
+        ...allNTELProducts.map(p => p.stok_kodu)
+      ].filter(Boolean);
 
-      const [allMMRecetes, allNCBKRecetes, allNTELRecetes] = await Promise.all([
-        mmRecetesResponse.json(),
-        ncbkRecetesResponse.json(),
-        ntelRecetesResponse.json()
-      ]);
-
-      console.log(`🚀 BULK EXCEL: Downloaded MM Recetes(${allMMRecetes.length}), NCBK Recetes(${allNCBKRecetes.length}), NTEL Recetes(${allNTELRecetes.length})`);
-
-      // 3. Process and transform database data to proper Excel format
-      setExcelProgress({ current: 3, total: 8, operation: 'MM ürünleri formatlanıyor...' });
+      console.log(`🚀 BULK EXCEL: Using fetchDatabaseDataWithFallback for ${allStokKodular.length} products`);
       
-      const processedMMProducts = allMMProducts.map(dbProduct => ({
-        // Map database columns to Excel format
-        existingStokKodu: dbProduct.stok_kodu,
-        existingIngilizceIsim: dbProduct.ingilizce_isim,
-        hasirTipi: dbProduct.hasir_tipi,
-        uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
-        uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        boyCap: dbProduct.cap?.toString() || '0',
-        enCap: dbProduct.cap2?.toString() || '0',
-        totalKg: dbProduct.kg?.toString() || '0',
-        adetKg: dbProduct.kg?.toString() || '0',
-        // CRITICAL: Use actual database cubuk values
-        cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
-        cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
-        ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        // Calculate göz aralıkları from hasir tipi - USE CORRECT FIELD NAMES
-        boyAraligi: calculateGozAraligi(dbProduct.hasir_tipi, 'boy'),
-        enAraligi: calculateGozAraligi(dbProduct.hasir_tipi, 'en'),
-        gozAraligi: `${calculateGozAraligi(dbProduct.hasir_tipi, 'boy')}x${calculateGozAraligi(dbProduct.hasir_tipi, 'en')}`,
-        source: 'database',
-        productType: 'MM',
-        // Store all database properties for recipe generation
-        ...dbProduct
+      // Use the same approach as individual Excel - this will fetch complete recipe data
+      const enhancedProducts = await fetchDatabaseDataWithFallback([], allStokKodular);
+      
+      if (!enhancedProducts || enhancedProducts.length === 0) {
+        throw new Error('fetchDatabaseDataWithFallback returned no data');
+      }
+
+      console.log(`🚀 BULK EXCEL: Enhanced products with recipes: ${enhancedProducts.length}`);
+      console.log('🚀 BULK EXCEL: Sample enhanced product:', enhancedProducts[0]);
+
+      // 3. Process enhanced data - no need for separate recipe processing since fetchDatabaseDataWithFallback handles it
+      setExcelProgress({ current: 3, total: 6, operation: 'Veriler formatlanıyor...' });
+      
+      // Transform to ensure consistent format for Excel generation
+      const processedProducts = enhancedProducts.map(product => ({
+        ...product,
+        // Ensure proper stok_adi preservation (don't corrupt it)
+        stokAdi: product.stok_adi || product.existingIngilizceIsim,
+        // Ensure proper hasirTipi extraction without corrupting stok_adi
+        hasirTipi: product.hasirTipi || product.hasir_tipi,
+        // Map fields for Excel compatibility
+        uzunlukBoy: product.uzunlukBoy || product.ebat_boy || 0,
+        uzunlukEn: product.uzunlukEn || product.ebat_en || 0,
+        boyCap: product.boyCap || product.cap || 0,
+        enCap: product.enCap || product.cap2 || 0,
+        totalKg: product.totalKg || product.kg || 0,
+        adetKg: product.adetKg || product.kg || 0,
+        // Recipe data should already be included from fetchDatabaseDataWithFallback
+        boyAraligi: product.boyAraligi || calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'boy'),
+        enAraligi: product.enAraligi || calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'en'),
+        gozAraligi: product.gozAraligi || `${calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'boy')}x${calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'en')}`,
+        source: 'database-enhanced',
+        skipDatabaseRefresh: true
       }));
 
-      setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
-      
-      const processedNCBKProducts = allNCBKProducts.map(dbProduct => ({
-        existingStokKodu: dbProduct.stok_kodu,
-        existingIngilizceIsim: dbProduct.ingilizce_isim,
-        hasirTipi: dbProduct.hasir_tipi || 'NCBK',
-        uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
-        uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        boyCap: dbProduct.cap?.toString() || '0',
-        enCap: dbProduct.cap2?.toString() || '0',
-        totalKg: dbProduct.kg?.toString() || '0',
-        adetKg: dbProduct.kg?.toString() || '0',
-        cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
-        cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
-        ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        gozAraligiEn: calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en'),
-        gozAraligiBoy: calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy'),
-        source: 'database',
-        productType: 'NCBK',
-        ...dbProduct
-      }));
+      console.log(`🚀 BULK EXCEL: Using processed products from fetchDatabaseDataWithFallback: ${processedProducts.length}`);
+      console.log('🚀 BULK EXCEL: Sample processed product with recipes:', processedProducts[0]);
 
-      setExcelProgress({ current: 5, total: 8, operation: 'NTEL ürünleri formatlanıyor...' });
-      
-      const processedNTELProducts = allNTELProducts.map(dbProduct => ({
-        existingStokKodu: dbProduct.stok_kodu,
-        existingIngilizceIsim: dbProduct.ingilizce_isim,
-        hasirTipi: dbProduct.hasir_tipi || 'NTEL',
-        uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
-        uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        boyCap: dbProduct.cap?.toString() || '0',
-        enCap: dbProduct.cap2?.toString() || '0',
-        totalKg: dbProduct.kg?.toString() || '0',
-        adetKg: dbProduct.kg?.toString() || '0',
-        cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
-        cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
-        ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        gozAraligiEn: calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en'),
-        gozAraligiBoy: calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy'),
-        source: 'database',
-        productType: 'NTEL',
-        ...dbProduct
-      }));
-
-      // Combine all products for Excel generation
-      const allProcessedProducts = [...processedMMProducts, ...processedNCBKProducts, ...processedNTELProducts];
-      console.log(`🚀 BULK EXCEL: Total processed products: ${allProcessedProducts.length}`);
-      console.log('🚀 BULK EXCEL: Sample MM product:', processedMMProducts[0]);
-      console.log('🚀 BULK EXCEL: Sample NCBK product:', processedNCBKProducts[0]);
-
-      // 4. Create recipe lookup maps for fast access
-      setExcelProgress({ current: 6, total: 8, operation: 'Reçete verileri indeksleniyor...' });
-      
-      const receteLookup = {
-        MM: new Map(),
-        NCBK: new Map(),
-        NTEL: new Map()
-      };
-
-      // Index all recipes by mamul_kodu for fast lookup
-      allMMRecetes.forEach(recipe => {
-        const key = recipe.mamul_kodu;
-        if (!receteLookup.MM.has(key)) {
-          receteLookup.MM.set(key, []);
-        }
-        receteLookup.MM.get(key).push(recipe);
-      });
-
-      allNCBKRecetes.forEach(recipe => {
-        const key = recipe.mamul_kodu;
-        if (!receteLookup.NCBK.has(key)) {
-          receteLookup.NCBK.set(key, []);
-        }
-        receteLookup.NCBK.get(key).push(recipe);
-      });
-
-      allNTELRecetes.forEach(recipe => {
-        const key = recipe.mamul_kodu;
-        if (!receteLookup.NTEL.has(key)) {
-          receteLookup.NTEL.set(key, []);
-        }
-        receteLookup.NTEL.get(key).push(recipe);
-      });
-
-      console.log(`🚀 BULK EXCEL: Indexed recipes - MM(${receteLookup.MM.size}), NCBK(${receteLookup.NCBK.size}), NTEL(${receteLookup.NTEL.size}) unique products`);
-
-      // 5. Generate Excel files with the bulk data and recipes
-      setExcelProgress({ current: 7, total: 8, operation: 'Excel dosyaları oluşturuluyor...' });
-      
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+      // 4. Generate Excel files using the same unified approach as individual Excel
+      setExcelProgress({ current: 4, total: 6, operation: 'Excel dosyaları oluşturuluyor (unified format)...' });
       
       // Initialize batch sequence
       await initializeBatchSequence();
       
-      // Generate Excel files with recipe data
-      await generateBulkStokKartiExcel(allProcessedProducts, timestamp);
-      await generateBulkReceteExcel(allProcessedProducts, receteLookup, timestamp);
-      await generateBulkAlternatifReceteExcel(allProcessedProducts, receteLookup, timestamp);
+      // Use the same generateExcelFiles function as individual Excel for consistent rigid format
+      await generateExcelFiles(processedProducts, false); // Use unified format with fetchDatabaseDataWithFallback data
       
-      setExcelProgress({ current: 8, total: 8, operation: 'Tamamlandı!' });
+      setExcelProgress({ current: 6, total: 6, operation: 'Tamamlandı!' });
       
-      toast.success(`Toplu Excel oluşturma tamamlandı! ${allProcessedProducts.length} ürün işlendi.`);
-      console.log(`🚀 BULK EXCEL: Successfully generated Excel files for ${allProcessedProducts.length} products`);
+      toast.success(`Toplu Excel oluşturma tamamlandı! ${processedProducts.length} ürün işlendi (unified format).`);
+      console.log(`🚀 BULK EXCEL: Successfully generated unified Excel files for ${processedProducts.length} products`);
       
     } catch (error) {
       console.error('🚀 BULK EXCEL ERROR:', error);
