@@ -583,15 +583,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const calculateOperationDuration = (operationType, product) => {
     switch(operationType) {
       case 'NCBK':
-        return calculateNCBKDuration(
-          parseFloat(product.length || 500), // default to 500mm if not specified
-          parseFloat(product.boyCap || product.enCap)
-        );
+        const ncbkLength = parseFloat(product.length || 500);
+        const ncbkDiameter = parseFloat(product.boyCap || product.enCap || 0);
+        if (isNaN(ncbkLength) || isNaN(ncbkDiameter) || ncbkDiameter <= 0) {
+          console.warn('Invalid NCBK parameters:', { length: product.length, diameter: ncbkDiameter });
+          return 0.01; // Return default small duration
+        }
+        return calculateNCBKDuration(ncbkLength, ncbkDiameter);
         
       case 'NTEL':
-        return calculateNTELDuration(
-          parseFloat(product.boyCap || product.enCap)
-        );
+        const ntelDiameter = parseFloat(product.boyCap || product.enCap || 0);
+        if (isNaN(ntelDiameter) || ntelDiameter <= 0) {
+          console.warn('Invalid NTEL diameter:', ntelDiameter);
+          return 0.01; // Return default small duration
+        }
+        return calculateNTELDuration(ntelDiameter);
         
       case 'YOTOCH':
         return calculateYOTOCHDuration(
@@ -658,13 +664,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // NTEL duration calculation with variable speed 8-11m/s based on diameter
   const calculateNTELDuration = (diameter_mm) => {
+    // Validate input parameter
+    const diameter = parseFloat(diameter_mm);
+    if (isNaN(diameter) || diameter <= 0) {
+      console.warn('Invalid diameter for NTEL duration calculation:', diameter_mm);
+      return 0.01; // Return default small duration instead of 0 or NaN
+    }
+    
     // Machine speed varies between 8-11 m/s based on diameter and filmasin
     let speed_m_per_s;
-    if (diameter_mm <= 5.0) {
+    if (diameter <= 5.0) {
       speed_m_per_s = 11; // Smaller diameters = faster speed
-    } else if (diameter_mm <= 7.0) {
+    } else if (diameter <= 7.0) {
       speed_m_per_s = 10;
-    } else if (diameter_mm <= 9.0) {
+    } else if (diameter <= 9.0) {
       speed_m_per_s = 9;
     } else {
       speed_m_per_s = 8; // Larger diameters = slower speed
@@ -3714,11 +3727,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // CORRECT: Use NTEL components for CH Alternatif Recipe instead of Filmaşin
         const boyCap = parseFloat(product.boyCap || 0);
         const enCap = parseFloat(product.enCap || 0);
+        const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || 0);
+        const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || 0);
+
+        // Validate all numeric values are valid
+        if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
+          console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
+          console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
+          // Continue with 0 values instead of NaN
+        }
         
         // Boy direction NTEL consumption
-        if (boyCap > 0) {
+        if (boyCap > 0 && cubukSayisiBoyValue > 0) {
           const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
-          const boyNtelMiktar = (parseFloat(product.cubukSayisiBoy || 0) * 5).toFixed(5); // 5 meters per cubuk
+          const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5); // 5 meters per cubuk
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
@@ -3732,9 +3754,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         
         // En direction NTEL consumption (if different from boy)
-        if (enCap > 0 && enCap !== boyCap) {
+        if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
           const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-          const enNtelMiktar = (parseFloat(product.cubukSayisiEn || 0) * 2.15).toFixed(5); // 2.15 meters per cubuk
+          const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
@@ -3743,10 +3765,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'MT', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
-        } else if (enCap > 0 && enCap === boyCap) {
+        } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
           // Same diameter for both directions
           const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-          const enNtelMiktar = Math.round(parseFloat(product.cubukSayisiEn || 0) * 2.15);
+          const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
@@ -4125,11 +4147,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const chStokKodu = product.existingStokKodu;
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
+      const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || 0);
+      const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || 0);
+
+      // Validate all numeric values are valid
+      if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
+        console.warn('Bulk Excel - Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
+        console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
+        return; // Skip this product
+      }
       
       // Boy direction NTEL consumption
-      if (boyCap > 0) {
+      if (boyCap > 0 && cubukSayisiBoyValue > 0) {
         const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
-        const boyNtelMiktar = Math.round(parseFloat(product.cubukSayisiBoy || 0) * 5);
+        const boyNtelMiktar = Math.round(cubukSayisiBoyValue * 5);
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '1', 'Bileşen',
@@ -4139,9 +4170,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       // En direction NTEL consumption
-      if (enCap > 0) {
+      if (enCap > 0 && cubukSayisiEnValue > 0) {
         const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
-        const enNtelMiktar = Math.round(parseFloat(product.cubukSayisiEn || 0) * 2.15);
+        const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
         
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '2', 'Bileşen',
