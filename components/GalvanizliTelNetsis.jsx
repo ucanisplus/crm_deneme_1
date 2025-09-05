@@ -692,7 +692,7 @@ const GalvanizliTelNetsis = () => {
   const checkForDeletedProducts = async (requestsData) => {
     try {
       // Get MM GT products to check against (limit to recent products for performance)
-      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=500&sort_by=created_at&sort_order=desc`);
+      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (!response || !response.ok) {
         console.warn('Could not fetch products to check for deleted items');
         return;
@@ -819,7 +819,7 @@ const GalvanizliTelNetsis = () => {
   // Mevcut MM GT'leri getir
   const fetchExistingMmGts = async () => {
     try {
-      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=500&sort_by=created_at&sort_order=desc`);
+      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (response && response.ok) {
         const data = await response.json();
         setExistingMmGts(Array.isArray(data) ? data : []);
@@ -833,7 +833,7 @@ const GalvanizliTelNetsis = () => {
   // Mevcut YM ST'leri getir
   const fetchExistingYmSts = async () => {
     try {
-      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=500&sort_by=created_at&sort_order=desc`);
+      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (response && response.ok) {
         const data = await response.json();
         setExistingYmSts(Array.isArray(data) ? data : []);
@@ -1113,7 +1113,7 @@ const GalvanizliTelNetsis = () => {
             const requestsToUpdate = [];
             
             // Get current MM GT products to see which ones are missing (deleted)
-            const currentProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=500`);
+            const currentProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000`);
             let currentProducts = [];
             if (currentProductsResponse && currentProductsResponse.ok) {
               currentProducts = await currentProductsResponse.json();
@@ -1237,7 +1237,7 @@ const GalvanizliTelNetsis = () => {
       // YM GT recetesini getir
       if (ymGtId) {
         console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
-        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=500`);
+        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
         let ymGtRecipeResponse = null;
         
         if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -1271,7 +1271,7 @@ const GalvanizliTelNetsis = () => {
         for (let i = 0; i < ymStIds.length; i++) {
           const ymStId = ymStIds[i];
           console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStId}...`);
-          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
           let ymStRecipeResponse = null;
           
           if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -1385,7 +1385,7 @@ const GalvanizliTelNetsis = () => {
               // 🆕 YENI: Iliski kullanarak YM GT recetelerini yukle
               if (ymGtId) {
                 console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
-                const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=500`);
+                const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
                 let ymGtRecipeResponse = null;
                 
                 if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -1475,7 +1475,7 @@ const GalvanizliTelNetsis = () => {
                 
                 // Sonra YM ST recetesini getir
                 console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStId}...`);
-                const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+                const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
                 let ymStRecipeResponse = null;
                 
                 if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -1552,7 +1552,7 @@ const GalvanizliTelNetsis = () => {
             if (ymStData && ymStData.id) {
               // YM ST recetesini getir
               console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStData.id}...`);
-              const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+              const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
               let ymStRecipeResponse = null;
               
               if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -2654,7 +2654,7 @@ const GalvanizliTelNetsis = () => {
           
           // 🆕 NEW: Use the YM GT ID from the relationship instead of searching by stok_kodu
           console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relatedYmGtId}...`);
-          const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=500`);
+          const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
           let ymGtRecipeResponse = null;
           
           if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -2722,7 +2722,7 @@ const GalvanizliTelNetsis = () => {
         const ymSt = loadedYmSts[i];
         try {
           console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
-          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
           let ymStRecipeResponse = null;
           
           if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -3302,7 +3302,7 @@ const GalvanizliTelNetsis = () => {
             try {
               // Fetch existing recipes for this YM ST
               console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
-              const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+              const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
               let recipeResponse = null;
               
               if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -3388,7 +3388,7 @@ const GalvanizliTelNetsis = () => {
                     // Load YM GT recipes if relation has ym_gt_id
                     if (relation.ym_gt_id) {
                       console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relation.ym_gt_id}...`);
-                      const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=500`);
+                      const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
                       let ymGtRecipeResponse = null;
                       
                       if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -3482,7 +3482,7 @@ const GalvanizliTelNetsis = () => {
         if (ymSt.id && ymStIndex !== -1) {
           // Fetch existing recipes for this YM ST
           console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
-          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
           let recipeResponse = null;
           
           if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -8608,7 +8608,7 @@ const GalvanizliTelNetsis = () => {
                         
                         // Add YM GT recipes
                         console.log(`📖 Excel: Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
-                        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=500`);
+                        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
                         let ymGtRecipeResponse = null;
                         
                         if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -8674,7 +8674,7 @@ const GalvanizliTelNetsis = () => {
                           
                           // Add YM ST recipes
                           console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
-                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=500`);
+                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
                           let ymStRecipeResponse = null;
                           
                           if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
@@ -8712,7 +8712,7 @@ const GalvanizliTelNetsis = () => {
             
             // Add MM GT recipes for this specific MM GT
             console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=500`);
+            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
             let mmGtRecipeResponse = null;
             
             if (allRecipesResponse && allRecipesResponse.ok) {

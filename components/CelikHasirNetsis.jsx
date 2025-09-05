@@ -358,7 +358,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           // Extract hasir_tipi from stok_adi if needed
           let actualHasirTipi = product.hasir_tipi || '';
           if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
-            const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+            const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
             if (stokAdiMatch) {
               actualHasirTipi = stokAdiMatch[1].toUpperCase();
             }
@@ -691,28 +691,56 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // YOTOCH duration calculation (Reliability: 98.7%)
   const calculateYOTOCHDuration = (boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn) => {
-    const area = boy_mm * en_mm;
-    const totalRods = cubukSayisiBoy + cubukSayisiEn;
-    const wireFactor = Math.pow(diameter_mm, 1.2);
+    // Validate inputs
+    const boyVal = parseFloat(boy_mm) || 0;
+    const enVal = parseFloat(en_mm) || 0;
+    const diameterVal = parseFloat(diameter_mm) || 0;
+    const cubukBoyVal = parseInt(cubukSayisiBoy) || 0;
+    const cubukEnVal = parseInt(cubukSayisiEn) || 0;
+    
+    if (boyVal <= 0 || enVal <= 0 || diameterVal <= 0) {
+      console.warn('Invalid YOTOCH parameters:', { boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn });
+      return 0.00001; // Return default small duration
+    }
+    
+    const area = boyVal * enVal;
+    const totalRods = cubukBoyVal + cubukEnVal;
+    const wireFactor = Math.pow(diameterVal, 1.2);
     const densityFactor = totalRods / (area / 10000); // rods per cm²
     
-    return parseFloat((0.08 + 
+    const result = 0.08 + 
            (area * 0.0000012) + 
            (wireFactor * 0.015) + 
-           (densityFactor * 0.02)).toFixed(5));
+           (densityFactor * 0.02);
+    
+    return parseFloat(result.toFixed(5));
   };
 
   // OTOCH duration calculation (60% of YOTOCH - 40% faster)
   const calculateOTOCHDuration = (boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn) => {
-    const area = boy_mm * en_mm;
-    const totalRods = cubukSayisiBoy + cubukSayisiEn;
-    const wireFactor = Math.pow(diameter_mm, 1.1);
+    // Validate inputs
+    const boyVal = parseFloat(boy_mm) || 0;
+    const enVal = parseFloat(en_mm) || 0;
+    const diameterVal = parseFloat(diameter_mm) || 0;
+    const cubukBoyVal = parseInt(cubukSayisiBoy) || 0;
+    const cubukEnVal = parseInt(cubukSayisiEn) || 0;
+    
+    if (boyVal <= 0 || enVal <= 0 || diameterVal <= 0) {
+      console.warn('Invalid OTOCH parameters:', { boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn });
+      return 0.00001; // Return default small duration
+    }
+    
+    const area = boyVal * enVal;
+    const totalRods = cubukBoyVal + cubukEnVal;
+    const wireFactor = Math.pow(diameterVal, 1.1);
     const densityFactor = totalRods / (area / 10000);
     
-    return parseFloat((0.048 + 
+    const result = 0.048 + 
            (area * 0.00000072) + 
            (wireFactor * 0.009) + 
-           (densityFactor * 0.012)).toFixed(5));
+           (densityFactor * 0.012);
+    
+    return parseFloat(result.toFixed(5));
   };
 
   // Database verileri
@@ -1160,7 +1188,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
         let actualHasirTipi = product.hasir_tipi || '';
         if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
-          const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+|R\d+|TR\d+)/i);
+          const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
           if (stokAdiMatch) {
             actualHasirTipi = stokAdiMatch[1].toUpperCase();
           }
@@ -2688,7 +2716,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     if (value === null || value === undefined || value === '') return '';
     // Convert to number to remove trailing zeros, then to string, then replace decimal point with comma
     const num = parseFloat(value);
-    return String(num).replace('.', ',');
+    if (isNaN(num)) return '0,00001'; // Return default 5 decimal format for NaN values
+    // Format to 5 decimal places and replace decimal point with comma
+    return String(num.toFixed(5)).replace('.', ',');
   };
 
   // Extract hasir_tipi from stok_adi field
@@ -3865,8 +3895,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // CORRECT: Use NTEL components for CH Alternatif Recipe instead of Filmaşin
         const boyCap = parseFloat(product.boyCap || 0);
         const enCap = parseFloat(product.enCap || 0);
-        const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || 0);
-        const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || 0);
+        const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
+        const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
         // Validate all numeric values are valid
         if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
@@ -4285,8 +4315,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const chStokKodu = product.existingStokKodu;
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
-      const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || 0);
-      const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || 0);
+      const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
+      const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
       // Validate all numeric values are valid
       if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
