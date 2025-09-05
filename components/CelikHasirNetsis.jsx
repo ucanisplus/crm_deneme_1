@@ -2617,24 +2617,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } else if (product.boyAralik && product.enAralik) {
       return `${product.boyAralik}x${product.enAralik}`;
     } else if (product.gozAraligi) {
-      // Ensure it's in "X*Y" format, if it's just a single number, duplicate it
       const gozValue = product.gozAraligi.toString();
-      if (gozValue.includes('*')) {
-        return gozValue;
+      // Check if already formatted (contains x or *)
+      if (gozValue.includes('x') || gozValue.includes('*')) {
+        return gozValue.replace('*', 'x'); // Normalize * to x
       } else {
         return `${gozValue}x${gozValue}`;
       }
     } else if (product.goz_araligi) {
-      // Ensure it's in "X*Y" format, if it's just a single number, duplicate it
       const gozValue = product.goz_araligi.toString();
-      if (gozValue.includes('*')) {
-        return gozValue;
+      // Check if already formatted (contains x or *)
+      if (gozValue.includes('x') || gozValue.includes('*')) {
+        return gozValue.replace('*', 'x'); // Normalize * to x
       } else {
         return `${gozValue}x${gozValue}`;
       }
     } else {
-      // Default fallback - return default mesh spacing
-      return '15*15';
+      return '15x15'; // Use x instead of * for consistency
     }
   };
 
@@ -2692,6 +2691,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return String(num).replace('.', ',');
   };
 
+  // Extract hasir_tipi from stok_adi field
+  const extractHasirTipiFromStokAdi = (stokAdi) => {
+    if (!stokAdi) return null;
+    
+    // Common patterns in stok_adi: "Q257/257", "R257", "TR257", "Q317/317", etc.
+    const patterns = [
+      /^(Q\d+\/\d+)/,     // Q257/257, Q317/317, Q443/443, etc.
+      /^(TR\d+)/,         // TR257, TR317, TR335, TR377, etc.
+      /^(R\s?\d+)/,       // R257, R 257, R295, R335, etc.
+      /^(Q\d+)/           // Q257, Q317, etc. (without slash)
+    ];
+    
+    for (const pattern of patterns) {
+      const match = stokAdi.match(pattern);
+      if (match) {
+        return match[1].replace(/\s+/g, ''); // Remove spaces like "R 257" -> "R257"
+      }
+    }
+    
+    return null;
+  };
 
   // Generate Kaynak Programı Excel (copied from exportToExcel approach)
   const generateKaynakProgramiExcel = async () => {
@@ -3079,11 +3099,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         });
         
+        // Extract actual hasir_tipi from stok_adi if hasir_tipi is missing or 'MM'
+        const extractedHasirTipi = extractHasirTipiFromStokAdi(product.stok_adi) || product.hasir_tipi || 'MM';
+        
         return {
           ...product,
           existingStokKodu: product.stok_kodu,
           existingIngilizceIsim: product.ingilizce_isim,
-          hasirTipi: product.hasir_tipi || 'MM',
+          hasirTipi: extractedHasirTipi,
           uzunlukBoy: product.ebat_boy?.toString() || '0',
           uzunlukEn: product.ebat_en?.toString() || '0',
           boyCap: product.cap?.toString() || '0',
@@ -3095,8 +3118,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: enCubukSayisi || product.dis_cap_en_cubuk_ad,
           ic_cap_boy_cubuk_ad: boyCubukSayisi || product.ic_cap_boy_cubuk_ad,
           dis_cap_en_cubuk_ad: enCubukSayisi || product.dis_cap_en_cubuk_ad,
-          gozAraligiEn: calculateGozAraligi(product.hasir_tipi || 'MM', 'en'),
-          gozAraligiBoy: calculateGozAraligi(product.hasir_tipi || 'MM', 'boy'),
+          gozAraligiEn: calculateGozAraligi(extractedHasirTipi, 'en'),
+          gozAraligiBoy: calculateGozAraligi(extractedHasirTipi, 'boy'),
           yotochDuration: yotochDuration,
           recipeData: productRecipes,
           source: 'database',
