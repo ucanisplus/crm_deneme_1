@@ -1442,7 +1442,7 @@ const GalvanizliTelNetsis = () => {
                 // Ilk once YM ST urunun kendisini yukle
                 try {
                   console.log(`📖 Fetching all YM ST products and filtering for id=${ymStId}...`);
-                  const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                  const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=300`);
                   let ymStResponse = null;
                   
                   if (allYmStResponse && allYmStResponse.ok) {
@@ -1779,7 +1779,7 @@ const GalvanizliTelNetsis = () => {
           // Method 2c: Brute force - get all YM GTs and find matches
           console.log('Method 2c: Performing brute force search of all YM GTs...');
           try {
-            const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+            const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=300`);
             if (allYmGtResponse && allYmGtResponse.ok) {
               const allYmGtData = await allYmGtResponse.json();
               if (Array.isArray(allYmGtData) && allYmGtData.length > 0) {
@@ -2544,7 +2544,7 @@ const GalvanizliTelNetsis = () => {
             const relation = sortedRelations[i];
             try {
               console.log(`📖 Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
-              const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+              const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=300`);
               let ymStResponse = null;
               
               if (allYmStResponse && allYmStResponse.ok) {
@@ -3007,7 +3007,7 @@ const GalvanizliTelNetsis = () => {
   const findSuitableYmSts = async () => {
     try {
       setIsLoading(true);
-      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000&sort_by=cap&sort_order=asc`);
+      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=300&sort_by=cap&sort_order=asc`);
       if (response && response.ok) {
         const allYmSts = await response.json();
         const cap = parseFloat(mmGtData.cap) || 0;
@@ -4435,7 +4435,7 @@ const GalvanizliTelNetsis = () => {
       
       
       // Search ALL MM GT products to find functional duplicates by stok_adi
-      const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
+      const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=300`);
       
       if (allProductsResponse && allProductsResponse.ok) {
         const allProducts = await allProductsResponse.json();
@@ -5925,7 +5925,7 @@ const GalvanizliTelNetsis = () => {
       const searchPattern = `GT.${mmGtData.kod_2}.${capFormatted}.`;
       
       // Tüm MM GT ürünlerini getir
-      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
+      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=300`);
       if (!mmGtResponse || !mmGtResponse.ok) {
         console.warn('MM GT ürünleri alınamadı, sequence "00" kullanılacak');
         return '00';
@@ -6188,7 +6188,7 @@ const GalvanizliTelNetsis = () => {
         
         try {
           // MMGT'yi tüm liste içinden bulma yaklaşımı - 404 hatasını önlemek için
-          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
+          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=300`);
           if (allMmGtResponse && allMmGtResponse.ok) {
             const allMmGt = await allMmGtResponse.json();
             // ID'ye göre ilgili ürünü bul
@@ -6229,7 +6229,7 @@ const GalvanizliTelNetsis = () => {
       if (ymGtId) {
         try {
           // YMGT'yi tüm liste içinden bulma yaklaşımı - 404 hatasını önlemek için
-          const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+          const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=300`);
           if (allYmGtResponse && allYmGtResponse.ok) {
             const allYmGt = await allYmGtResponse.json();
             // ID'ye göre ilgili ürünü bul
@@ -6609,7 +6609,7 @@ const GalvanizliTelNetsis = () => {
                     
                     // Tüm YMGT'leri getirip tam uyan var mı kontrol et
                     try {
-                      const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+                      const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=300`);
                       
                       if (allYmGtResponse && allYmGtResponse.ok) {
                         const allYmGts = await allYmGtResponse.json();
@@ -6877,7 +6877,7 @@ const GalvanizliTelNetsis = () => {
               
               // Son bir kez daha kontrol et - YMGT'nin stok_kodu ile tamamıyla aynı olmasını garantile
               // Liste yaklaşımını kullan - 404 hatasını önlemek için
-              const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+              const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=300`);
               if (allYmGtResponse && allYmGtResponse.ok) {
                 const allYmGt = await allYmGtResponse.json();
                 const doubleCheckYmGt = Array.isArray(allYmGt) ? allYmGt.find(item => item.id === existingYmGt.id) : null;
@@ -8482,7 +8482,7 @@ const GalvanizliTelNetsis = () => {
         // If exact match fails due to parameter error, fetch all and filter client-side
         if (!mmGtResponse || !mmGtResponse.ok) {
           console.log(`🔍 [${request.id}] Exact match failed, fetching all MM GT and filtering client-side...`);
-          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
+          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=300`);
           if (allMmGtResponse && allMmGtResponse.ok) {
             const allMmGtProducts = await allMmGtResponse.json();
             const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
@@ -8533,7 +8533,7 @@ const GalvanizliTelNetsis = () => {
             // If relation fetch fails due to parameter error, fetch all and filter client-side
             if (!relationResponse || !relationResponse.ok) {
               console.log(`🔗 Relation fetch failed for mm_gt_id=${mmGt.id}, fetching all relations and filtering...`);
-              const allRelationsResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=1000`);
+              const allRelationsResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=300`);
               if (allRelationsResponse && allRelationsResponse.ok) {
                 const allRelations = await allRelationsResponse.json();
                 const filteredRelations = allRelations.filter(r => r.mm_gt_id === mmGt.id);
@@ -8558,7 +8558,7 @@ const GalvanizliTelNetsis = () => {
                 if (ymGtId) {
                   try {
                     console.log(`📖 Excel: Fetching all YM GT products and filtering for id=${ymGtId}...`);
-                    const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+                    const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=300`);
                     let ymGtResponse = null;
                     
                     if (allYmGtResponse && allYmGtResponse.ok) {
@@ -8623,7 +8623,7 @@ const GalvanizliTelNetsis = () => {
                 for (const relation of relations) {
                   try {
                     console.log(`📖 Excel: Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
-                    const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                    const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=300`);
                     let ymStResponse = null;
                     
                     if (allYmStResponse && allYmStResponse.ok) {
@@ -11887,7 +11887,7 @@ const GalvanizliTelNetsis = () => {
                     setShowYmStSelectionModal(true);
                     // Load all YM STs for selection with auto-suggested ones on top
                     try {
-                      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=300`);
                       if (response && response.ok) {
                         const allYmSts = await response.json();
                         if (Array.isArray(allYmSts)) {
