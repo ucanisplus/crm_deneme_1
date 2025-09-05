@@ -9491,10 +9491,16 @@ const GalvanizliTelNetsis = () => {
       const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
       
       // Add MM GT
-      mmGtSheet.addRow(generateMmGtStokKartiData(excelData.sequence));
+      mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(excelData.mmGtData));
       
-      // Add YM GT (stok kartı fonksiyonu sequence bekliyor, stok kodu değil)
-      ymGtSheet.addRow(generateYmGtStokKartiData(excelData.sequence));
+      // Add YM GT - Create YM GT data from task-specific MM GT data
+      const taskYmGtData = {
+        stok_kodu: `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${excelData.sequence}`,
+        cap: excelData.mmGtData.cap,
+        kod_2: excelData.mmGtData.kod_2,
+        sequence: excelData.sequence
+      };
+      ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(taskYmGtData));
       
       // Add main YM ST first
       ymStSheet.addRow(generateYmStStokKartiData(mainYmSt));
