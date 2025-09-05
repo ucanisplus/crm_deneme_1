@@ -4435,7 +4435,7 @@ const GalvanizliTelNetsis = () => {
       
       
       // Search ALL MM GT products to find functional duplicates by stok_adi
-      const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}`);
+      const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
       
       if (allProductsResponse && allProductsResponse.ok) {
         const allProducts = await allProductsResponse.json();
@@ -8533,7 +8533,7 @@ const GalvanizliTelNetsis = () => {
             // If relation fetch fails due to parameter error, fetch all and filter client-side
             if (!relationResponse || !relationResponse.ok) {
               console.log(`🔗 Relation fetch failed for mm_gt_id=${mmGt.id}, fetching all relations and filtering...`);
-              const allRelationsResponse = await fetchWithAuth(API_URLS.galMmGtYmSt);
+              const allRelationsResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=1000`);
               if (allRelationsResponse && allRelationsResponse.ok) {
                 const allRelations = await allRelationsResponse.json();
                 const filteredRelations = allRelations.filter(r => r.mm_gt_id === mmGt.id);
@@ -8686,7 +8686,7 @@ const GalvanizliTelNetsis = () => {
             
             // Add MM GT recipes for this specific MM GT
             console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
-            const allRecipesResponse = await fetchWithAuth(API_URLS.galMmGtRecete);
+            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=500`);
             let mmGtRecipeResponse = null;
             
             if (allRecipesResponse && allRecipesResponse.ok) {
@@ -11887,7 +11887,7 @@ const GalvanizliTelNetsis = () => {
                     setShowYmStSelectionModal(true);
                     // Load all YM STs for selection with auto-suggested ones on top
                     try {
-                      const response = await fetchWithAuth(API_URLS.galYmSt);
+                      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
                       if (response && response.ok) {
                         const allYmSts = await response.json();
                         if (Array.isArray(allYmSts)) {
