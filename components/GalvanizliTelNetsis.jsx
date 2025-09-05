@@ -10627,18 +10627,28 @@ const GalvanizliTelNetsis = () => {
   };
 
   const generateYmGtStokKartiData = (sequence = '00') => {
-    if (!ymGtData) return [];
+    // If ymGtData is not populated, generate it from mmGtData and current form values
+    let currentYmGtData = ymGtData;
+    if (!currentYmGtData && mmGtData) {
+      console.log('⚠️ YMGT data missing, generating from MMGT data and current form values');
+      currentYmGtData = generateYmGtDatabaseData(sequence);
+    }
     
-    const cap = parseFloat(ymGtData.cap);
+    if (!currentYmGtData) {
+      console.error('❌ Cannot generate YMGT stok kartı data - both ymGtData and mmGtData are missing');
+      return [];
+    }
+    
+    const cap = parseFloat(currentYmGtData.cap);
     // Generate correct stock code using the passed sequence
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
-    const stokKodu = `YM.GT.${ymGtData.kod_2}.${capFormatted}.${sequence}`;
+    const stokKodu = `YM.GT.${currentYmGtData.kod_2}.${capFormatted}.${sequence}`;
     
     // Use YM GT tolerance data for proper calculation with mathematical correction
-    const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
-    const toleransMinus = parseFloat(ymGtData.tolerans_minus) || 0;
-    const actualPlusValue = ymGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
-    const actualMinusValue = ymGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
+    const toleransPlus = parseFloat(currentYmGtData.tolerans_plus) || 0;
+    const toleransMinus = parseFloat(currentYmGtData.tolerans_minus) || 0;
+    const actualPlusValue = currentYmGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
+    const actualMinusValue = currentYmGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
     
     // Apply mathematical correction if needed (same logic as getAdjustedToleranceValues)
     let adjustedPlus = actualPlusValue;
@@ -10656,14 +10666,14 @@ const GalvanizliTelNetsis = () => {
     
     return [
       stokKodu, // Stok Kodu - sequence eşleştirme!
-      generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
+      currentYmGtData.stok_adi || generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
       'YM', // Grup Kodu
       'GT', // Kod-1
-      ymGtData.kod_2, // Kod-2
-      generateYmGtCariadiKodu(), // Cari/Satıcı Kodu
+      currentYmGtData.kod_2, // Kod-2
+      currentYmGtData.cari_adi || generateYmGtCariadiKodu(), // Cari/Satıcı Kodu
       'Y', // Türü
       stokKodu, // Mamul Grup
-      generateYmGtInglizceIsim(), // İngilizce İsim
+      currentYmGtData.ingilizce_isim || generateYmGtInglizceIsim(), // İngilizce İsim
       '', // Satıcı İsmi
       '83', // Muh. Detay
       '35', // Depo Kodu
@@ -10677,14 +10687,14 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
       cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
-      ymGtData.kaplama, // Kaplama
-      ymGtData.min_mukavemet, // Min Mukavemet
-      ymGtData.max_mukavemet, // Max Mukavemet
-      ymGtData.kg, // KG
-      ymGtData.ic_cap, // İç Çap
-      ymGtData.dis_cap, // Dış Çap
+      currentYmGtData.kaplama || '0', // Kaplama
+      currentYmGtData.min_mukavemet || '0', // Min Mukavemet
+      currentYmGtData.max_mukavemet || '0', // Max Mukavemet
+      currentYmGtData.kg || '0', // KG
+      currentYmGtData.ic_cap || '45', // İç Çap
+      currentYmGtData.dis_cap || '75', // Dış Çap
       '', // Çap2
-      ymGtData.shrink, // Shrink
+      currentYmGtData.shrink || '', // Shrink
       formatDecimalForExcel(adjustedPlus), // Tolerans(+) - adjusted value with sign
       formatDecimalForExcel(adjustedMinus), // Tolerans(-) - adjusted value with sign
       '', // Ebat(En)
@@ -10729,7 +10739,7 @@ const GalvanizliTelNetsis = () => {
       '', // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '', // Menşei
-      getYmGtToleransAciklama(ymGtData) // Tolerans Açıklama - YM GT specific with math correction
+      getYmGtToleransAciklama(currentYmGtData) // Tolerans Açıklama - YM GT specific with math correction
     ];
   };
 
