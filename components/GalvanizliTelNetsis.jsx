@@ -8566,11 +8566,37 @@ const GalvanizliTelNetsis = () => {
                       const filteredYmGt = allYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
                       console.log(`📖 Excel: Found ${filteredYmGt.length} YM GT products for id=${ymGtId}`);
                       
-                      // Create mock response - return first match or empty array
-                      ymGtResponse = {
-                        ok: true,
-                        json: async () => filteredYmGt.length > 0 ? filteredYmGt[0] : []
-                      };
+                      // FALLBACK: If not found by ID, try searching by stok_kodu pattern
+                      if (filteredYmGt.length === 0) {
+                        console.log(`⚠️ YM GT not found by ID ${ymGtId}, trying stok_kodu fallback...`);
+                        
+                        // Construct expected YM GT stok_kodu from MM GT stok_kodu
+                        const mmGtStokKodu = mmGt.stok_kodu; // e.g., "GT.PAD.0120.01"
+                        const expectedYmGtStokKodu = mmGtStokKodu.replace('GT.', 'YM.GT.'); // e.g., "YM.GT.PAD.0120.01"
+                        
+                        console.log(`🔍 Searching for YM GT with stok_kodu: ${expectedYmGtStokKodu}`);
+                        
+                        const fallbackYmGt = allYmGt.filter(r => r.stok_kodu === expectedYmGtStokKodu);
+                        if (fallbackYmGt.length > 0) {
+                          console.log(`✅ Found YM GT by stok_kodu fallback: ${fallbackYmGt[0].stok_kodu} (ID: ${fallbackYmGt[0].id})`);
+                          ymGtResponse = {
+                            ok: true,
+                            json: async () => fallbackYmGt[0]
+                          };
+                        } else {
+                          console.log(`❌ YM GT not found by stok_kodu either: ${expectedYmGtStokKodu}`);
+                          ymGtResponse = {
+                            ok: true,
+                            json: async () => []
+                          };
+                        }
+                      } else {
+                        // Create mock response - return first match
+                        ymGtResponse = {
+                          ok: true,
+                          json: async () => filteredYmGt.length > 0 ? filteredYmGt[0] : []
+                        };
+                      }
                     }
                     
                     if (ymGtResponse && ymGtResponse.ok) {
