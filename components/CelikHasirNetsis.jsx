@@ -3056,51 +3056,55 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🚀 BULK EXCEL: Found MM Recipes(${allMMRecetes.length}), NCBK Recipes(${allNCBKRecetes.length}), NTEL Recipes(${allNTELRecetes.length})`);
 
-      // 3. Extract all stock codes and use fetchDatabaseDataWithFallback for MM products only
-      setExcelProgress({ current: 3, total: 8, operation: 'MM ürün verileri çekiliyor...' });
+      // 3. Process MM products with recipe data
+      setExcelProgress({ current: 3, total: 8, operation: 'MM ürünleri formatlanıyor...' });
       
-      const allStokKodular = [
-        ...allMMProducts.map(p => p.stok_kodu),
-        ...allNCBKProducts.map(p => p.stok_kodu), 
-        ...allNTELProducts.map(p => p.stok_kodu)
-      ].filter(Boolean);
-
-      console.log(`🚀 BULK EXCEL: Using fetchDatabaseDataWithFallback for ${allStokKodular.length} products`);
-      
-      // Use the same approach as individual Excel - this will fetch complete recipe data
-      const enhancedProducts = await fetchDatabaseDataWithFallback([], allStokKodular);
-      
-      if (!enhancedProducts || enhancedProducts.length === 0) {
-        throw new Error('fetchDatabaseDataWithFallback returned no data');
-      }
-
-      console.log(`🚀 BULK EXCEL: Enhanced products with recipes: ${enhancedProducts.length}`);
-      console.log('🚀 BULK EXCEL: Sample enhanced product:', enhancedProducts[0]);
-
-      // 3. Process enhanced data - no need for separate recipe processing since fetchDatabaseDataWithFallback handles it
-      setExcelProgress({ current: 3, total: 6, operation: 'Veriler formatlanıyor...' });
-      
-      // Transform to ensure consistent format for Excel generation
-      const processedProducts = enhancedProducts.map(product => ({
-        ...product,
-        // Ensure proper stok_adi preservation (don't corrupt it)
-        stokAdi: product.stok_adi || product.existingIngilizceIsim,
-        // Ensure proper hasirTipi extraction without corrupting stok_adi
-        hasirTipi: product.hasirTipi || product.hasir_tipi,
-        // Map fields for Excel compatibility
-        uzunlukBoy: product.uzunlukBoy || product.ebat_boy || 0,
-        uzunlukEn: product.uzunlukEn || product.ebat_en || 0,
-        boyCap: product.boyCap || product.cap || 0,
-        enCap: product.enCap || product.cap2 || 0,
-        totalKg: product.totalKg || product.kg || 0,
-        adetKg: product.adetKg || product.kg || 0,
-        // Recipe data should already be included from fetchDatabaseDataWithFallback
-        boyAraligi: product.boyAraligi || calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'boy'),
-        enAraligi: product.enAraligi || calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'en'),
-        gozAraligi: product.gozAraligi || `${calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'boy')}x${calculateGozAraligi(product.hasirTipi || product.hasir_tipi, 'en')}`,
-        source: 'database-enhanced',
-        skipDatabaseRefresh: true
-      }));
+      // Process MM products and enhance with recipe data
+      const processedProducts = allMMProducts.map(product => {
+        // Find recipe data for this product
+        const productRecipes = allMMRecetes.filter(r => r.mamul_kodu === product.stok_kodu);
+        
+        // Extract YOTOCH duration from recipes
+        let yotochDuration = 0;
+        let boyCubukSayisi = 0;
+        let enCubukSayisi = 0;
+        
+        productRecipes.forEach(recipe => {
+          if (recipe.aciklama && recipe.aciklama.includes('BOY ÇUBUĞU')) {
+            boyCubukSayisi = parseFloat(recipe.miktar) || 0;
+          } else if (recipe.aciklama && recipe.aciklama.includes('EN ÇUBUĞU')) {
+            enCubukSayisi = parseFloat(recipe.miktar) || 0;
+          } else if (recipe.bilesen_kodu === 'YOTOCH' && recipe.uretim_suresi) {
+            yotochDuration = parseFloat(recipe.uretim_suresi) || 0;
+          }
+        });
+        
+        return {
+          ...product,
+          existingStokKodu: product.stok_kodu,
+          existingIngilizceIsim: product.ingilizce_isim,
+          hasirTipi: product.hasir_tipi || 'MM',
+          uzunlukBoy: product.ebat_boy?.toString() || '0',
+          uzunlukEn: product.ebat_en?.toString() || '0',
+          boyCap: product.cap?.toString() || '0',
+          enCap: product.cap2?.toString() || '0',
+          totalKg: product.kg?.toString() || '0',
+          adetKg: product.kg?.toString() || '0',
+          // Use recipe data if available, otherwise use database values
+          cubukSayisiBoy: boyCubukSayisi || product.ic_cap_boy_cubuk_ad,
+          cubukSayisiEn: enCubukSayisi || product.dis_cap_en_cubuk_ad,
+          ic_cap_boy_cubuk_ad: boyCubukSayisi || product.ic_cap_boy_cubuk_ad,
+          dis_cap_en_cubuk_ad: enCubukSayisi || product.dis_cap_en_cubuk_ad,
+          gozAraligiEn: calculateGozAraligi(product.hasir_tipi || 'MM', 'en'),
+          gozAraligiBoy: calculateGozAraligi(product.hasir_tipi || 'MM', 'boy'),
+          yotochDuration: yotochDuration,
+          recipeData: productRecipes,
+          source: 'database',
+          productType: 'MM',
+          // Preserve stok_adi from database
+          stok_adi: product.stok_adi
+        };
+      });
 
       setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
       
@@ -3404,7 +3408,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkSheet.addRow([
             // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-            stokKodu, stokAdi, 'YM', 'YM', 'NCBK', '', ingilizceIsim,
+            stokKodu, stokAdi, 'YM', 'YARI MAMÜL', 'NCBK', '', ingilizceIsim,
             // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
             '20', '20', '20', '35',
             // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
@@ -3437,7 +3441,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           ntelSheet.addRow([
-            ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
+            ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
             'MT', 'KG', '1', toExcelDecimal(ntelWeight), '', '', '1', '1', 'Y', '',
             toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
             '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
@@ -3461,7 +3465,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ncbkSheet.addRow([
             // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-            stokKodu, stokAdi, 'YM', 'YM', 'NCBK', '', ingilizceIsim,
+            stokKodu, stokAdi, 'YM', 'YARI MAMÜL', 'NCBK', '', ingilizceIsim,
             // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
             '20', '20', '20', '35',
             // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
@@ -3496,7 +3500,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             ntelSheet.addRow([
               // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-              ntelStokKodu, ntelStokAdi, 'YM', 'NTEL', 'NTEL', '', ntelIngilizceIsim,
+              ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim,
               // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
               '20', '20', '20', '35',
               // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
@@ -4107,7 +4111,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } else if (product.productType === 'NCBK') {
         // Generate YM NCBK STOK row
         ncbkSheet.addRow([
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARDIMCI MALZEME', 'NCBK', '', product.existingIngilizceIsim,
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', product.existingIngilizceIsim,
           '20', '20', '31', '36',
           'AD', 'KG', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
           '', '1', '1', '1',
@@ -4122,7 +4126,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } else if (product.productType === 'NTEL') {
         // Generate YM NTEL STOK row
         ntelSheet.addRow([
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARDIMCI MALZEME', 'NTEL', '', product.existingIngilizceIsim,
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARI MAMÜL', 'NTEL', '', product.existingIngilizceIsim,
           '20', '20', '31', '36',
           'MT', 'KG', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
           '', '1', '1', '1',
