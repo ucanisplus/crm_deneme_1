@@ -8820,7 +8820,17 @@ const GalvanizliTelNetsis = () => {
                 }
               }
               
-              const filteredRecipes = cachedMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id);
+              let filteredRecipes = cachedMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id);
+              
+              // FALLBACK: If no recipes found by ID, try matching by mamul_kodu
+              if (filteredRecipes.length === 0) {
+                console.log(`⚠️ No recipes found by mm_gt_id=${mmGt.id}, trying mamul_kodu fallback...`);
+                filteredRecipes = cachedMmGtRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
+                if (filteredRecipes.length > 0) {
+                  console.log(`✅ Found ${filteredRecipes.length} recipes by mamul_kodu=${mmGt.stok_kodu}`);
+                }
+              }
+              
               console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) from cache`);
               
               mmGtRecipeResponse = {
@@ -8832,7 +8842,17 @@ const GalvanizliTelNetsis = () => {
               const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
               if (allRecipesResponse && allRecipesResponse.ok) {
                 const allRecipes = await allRecipesResponse.json();
-                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id);
+                let filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id);
+                
+                // FALLBACK: If no recipes found by ID, try matching by mamul_kodu
+                if (filteredRecipes.length === 0) {
+                  console.log(`⚠️ No recipes found by mm_gt_id=${mmGt.id}, trying mamul_kodu fallback...`);
+                  filteredRecipes = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
+                  if (filteredRecipes.length > 0) {
+                    console.log(`✅ Found ${filteredRecipes.length} recipes by mamul_kodu=${mmGt.stok_kodu}`);
+                  }
+                }
+                
                 console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
                 
                 mmGtRecipeResponse = {
