@@ -8806,6 +8806,20 @@ const GalvanizliTelNetsis = () => {
             
             // Use cached data if available
             if (cachedMmGtRecipes) {
+              // Debug: Check what mm_gt_ids exist in cached recipes
+              if (mmGt.stok_kodu.includes('PAD')) {
+                const uniqueMmGtIds = [...new Set(cachedMmGtRecipes.map(r => r.mm_gt_id))];
+                console.log(`🔍 DEBUG: Unique mm_gt_ids in cached recipes: ${uniqueMmGtIds.slice(0, 20).join(', ')}...`);
+                console.log(`🔍 DEBUG: Looking for mm_gt_id=${mmGt.id} for product ${mmGt.stok_kodu}`);
+                
+                // Also try to find recipes by mamul_kodu
+                const recipesByMamulKodu = cachedMmGtRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
+                console.log(`🔍 DEBUG: Found ${recipesByMamulKodu.length} recipes by mamul_kodu=${mmGt.stok_kodu}`);
+                if (recipesByMamulKodu.length > 0) {
+                  console.log(`🔍 DEBUG: Recipe mm_gt_id values:`, recipesByMamulKodu.map(r => r.mm_gt_id));
+                }
+              }
+              
               const filteredRecipes = cachedMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id);
               console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) from cache`);
               
