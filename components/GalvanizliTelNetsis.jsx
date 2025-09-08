@@ -8468,11 +8468,11 @@ const GalvanizliTelNetsis = () => {
       setExcelProgress({ current: 1, total: totalSteps, operation: 'Yaygın veri önbelleğe alınıyor...', currentProduct: '' });
       
       const [ymGtResponse, ymStResponse, ymGtRecipesResponse, ymStRecipesResponse, mmGtRecipesResponse] = await Promise.all([
-        fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`),
-        fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`),
-        fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`)
+        fetchWithAuth(`${API_URLS.galYmGt}?limit=500`),
+        fetchWithAuth(`${API_URLS.galYmSt}?limit=500`),
+        fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=1000`),
+        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=1000`),
+        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=1000`)
       ]);
       
       cachedYmGt = ymGtResponse?.ok ? await ymGtResponse.json() : null;
@@ -8490,7 +8490,13 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`📊 Pre-cached: YM GT: ${cachedYmGt?.length || 0}, YM ST: ${cachedYmSt?.length || 0}, YM GT Recipes: ${cachedYmGtRecipes?.length || 0}, YM ST Recipes: ${cachedYmStRecipes?.length || 0}, MM GT Recipes: ${cachedMmGtRecipes?.length || 0}`);
     } catch (error) {
-      console.warn('Pre-cache failed, will use individual calls:', error);
+      console.warn('⚠️ Pre-cache failed, falling back to individual calls:', error);
+      // Reset all cached data to null so individual requests will be used
+      cachedYmGt = null;
+      cachedYmSt = null;
+      cachedYmGtRecipes = null;
+      cachedYmStRecipes = null;
+      cachedMmGtRecipes = null;
       failedApiCalls++;
     }
 
