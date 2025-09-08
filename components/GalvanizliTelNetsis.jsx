@@ -8831,6 +8831,31 @@ const GalvanizliTelNetsis = () => {
                 }
               }
               
+              // DEBUG: Log comprehensive recipe data if no recipes found
+              if (filteredRecipes.length === 0) {
+                console.log(`🔍 COMPREHENSIVE DEBUG for product ${mmGt.stok_kodu} (ID: ${mmGt.id}):`);
+                console.log(`🔍 Total cached MM GT recipes: ${cachedMmGtRecipes.length}`);
+                
+                // Show all unique mamul_kodu values in recipes
+                const uniqueMamulKodus = [...new Set(cachedMmGtRecipes.map(r => r.mamul_kodu))];
+                console.log(`🔍 All mamul_kodu values in recipes:`, uniqueMamulKodus.slice(0, 10));
+                
+                // Show similar stock codes (partial matches)
+                const similarCodes = cachedMmGtRecipes.filter(r => 
+                  r.mamul_kodu && (
+                    r.mamul_kodu.includes('PAD') || 
+                    r.mamul_kodu.includes(mmGt.stok_kodu.slice(-6)) || // last 6 chars
+                    mmGt.stok_kodu.includes(r.mamul_kodu.slice(-6))
+                  )
+                ).map(r => r.mamul_kodu);
+                console.log(`🔍 Similar stock codes found:`, [...new Set(similarCodes)]);
+                
+                // Show a sample recipe structure
+                if (cachedMmGtRecipes.length > 0) {
+                  console.log(`🔍 Sample recipe structure:`, Object.keys(cachedMmGtRecipes[0]));
+                }
+              }
+              
               console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) from cache`);
               
               mmGtRecipeResponse = {
