@@ -8455,6 +8455,58 @@ const GalvanizliTelNetsis = () => {
     let failedApiCalls = 0;
     let processedRequests = 0;
 
+    // PERFORMANCE OPTIMIZATION: Batch fetch all data upfront to avoid repeated API calls
+    console.log('🚀 BATCH OPTIMIZATION: Pre-loading all required data...');
+    setExcelProgress({ current: 1, total: totalSteps, operation: 'Tüm ürün verileri getiriliyor...', currentProduct: '' });
+
+    let allMmGt = [];
+    let allYmGt = [];
+    let allYmSt = [];
+    let allMmGtRecipes = [];
+    let allYmGtRecipes = [];
+    let allYmStRecipes = [];
+
+    try {
+      // Fetch all data in parallel with reasonable batch sizes to avoid timeouts
+      const [
+        mmGtResponse,
+        ymGtResponse,
+        ymStResponse,
+        mmGtRecipesResponse,
+        ymGtRecipesResponse,
+        ymStRecipesResponse
+      ] = await Promise.all([
+        fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`),
+        fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`), 
+        fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`),
+        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
+      ]);
+
+      allMmGt = mmGtResponse?.ok ? await mmGtResponse.json() : [];
+      allYmGt = ymGtResponse?.ok ? await ymGtResponse.json() : [];
+      allYmSt = ymStResponse?.ok ? await ymStResponse.json() : [];
+      allMmGtRecipes = mmGtRecipesResponse?.ok ? await mmGtRecipesResponse.json() : [];
+      allYmGtRecipes = ymGtRecipesResponse?.ok ? await ymGtRecipesResponse.json() : [];
+      allYmStRecipes = ymStRecipesResponse?.ok ? await ymStRecipesResponse.json() : [];
+
+      console.log('✅ Batch data loaded:', {
+        mmGt: allMmGt.length,
+        ymGt: allYmGt.length, 
+        ymSt: allYmSt.length,
+        mmGtRecipes: allMmGtRecipes.length,
+        ymGtRecipes: allYmGtRecipes.length,
+        ymStRecipes: allYmStRecipes.length
+      });
+
+      totalApiCalls += 6;
+      successfulApiCalls += 6;
+    } catch (error) {
+      console.error('⚠️ Batch data loading failed, falling back to individual calls:', error);
+      failedApiCalls++;
+    }
+
     for (const request of requestsList) {
       try {
         processedRequests++;
@@ -8473,53 +8525,24 @@ const GalvanizliTelNetsis = () => {
           continue;
         }
         
-        // Find MM GT by stok_kodu
+        // Find MM GT by stok_kodu using batch-loaded data
         console.log(`🔍 [${request.id}] Searching for MM GT with stok_kodu: "${request.stok_kodu}"`);
         
-        totalApiCalls++;
-        let mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
+        // Use batch-loaded data instead of individual API calls
+        const mmGtArray = allMmGt.filter(p => p.stok_kodu === request.stok_kodu);
         
-        // If exact match fails due to parameter error, fetch all and filter client-side
-        if (!mmGtResponse || !mmGtResponse.ok) {
-          console.log(`🔍 [${request.id}] Exact match failed, fetching all MM GT and filtering client-side...`);
-          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
-          if (allMmGtResponse && allMmGtResponse.ok) {
-            const allMmGtProducts = await allMmGtResponse.json();
-            const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
-            
-            // Create a mock response with filtered data
-            mmGtResponse = {
-              ok: true,
-              json: async () => filteredProducts
-            };
-            
-            console.log(`🔍 [${request.id}] Client-side filtering found ${filteredProducts.length} products with stok_kodu: "${request.stok_kodu}"`);
-          }
+        console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s) in batch data:`, mmGtArray.map(p => ({ 
+          stok_kodu: p.stok_kodu, 
+          id: p.id, 
+          cap: p.cap,
+          kg: p.kg
+        })));
+        
+        if (mmGtArray.length === 0) {
+          console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
+          console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
+          continue;
         }
-        
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGtProducts = await mmGtResponse.json();
-          successfulApiCalls++;
-          
-          console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
-          
-          // The API returns an array even for single stok_kodu query
-          const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
-          
-          if (mmGtArray.length > 0) {
-            console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
-              stok_kodu: p.stok_kodu, 
-              id: p.id, 
-              cap: p.cap,
-              kg: p.kg
-            })));
-          }
-          
-          if (mmGtArray.length === 0) {
-            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
-            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
-            continue;
-          }
           
           // Process only the specific MM GT for this request
           for (const mmGt of mmGtArray) {
@@ -10421,7 +10444,7 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGt.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGt.kg, // COIL WEIGHT (KG) MAX - should match COIL WEIGHT value
       generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus, mmGt.tolerans_max_sign, mmGt.tolerans_min_sign) // Tolerans Açıklama
     ];
   };
@@ -10525,7 +10548,7 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGtData.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGtData.kg, // COIL WEIGHT (KG) MAX - should match COIL WEIGHT value
       getToleransAciklama() // Tolerans Açıklama
     ];
   };
@@ -10851,7 +10874,7 @@ const GalvanizliTelNetsis = () => {
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
-      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
+      '0', // Fire Oranı (%) - should be 0, not 0,00040
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
@@ -10954,7 +10977,7 @@ const GalvanizliTelNetsis = () => {
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
-      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
+      '0', // Fire Oranı (%) - should be 0, not 0,00040
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
