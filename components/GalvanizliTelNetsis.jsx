@@ -8439,8 +8439,8 @@ const GalvanizliTelNetsis = () => {
     })));
     
     // Initialize progress tracking
-    const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
-    setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
+    const totalSteps = 7; // Fetch all data (6 APIs) + generate Excel
+    setExcelProgress({ current: 0, total: totalSteps, operation: 'Veriler yükleniyor...', currentProduct: '' });
     
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
@@ -8455,11 +8455,57 @@ const GalvanizliTelNetsis = () => {
     let failedApiCalls = 0;
     let processedRequests = 0;
 
-    for (const request of requestsList) {
-      try {
+    try {
+      // OPTIMIZATION: Fetch all data at once in parallel
+      console.log('🚀 OPTIMIZED: Fetching all data in parallel...');
+      setExcelProgress({ current: 1, total: totalSteps, operation: 'Tüm veriler yükleniyor...', currentProduct: '' });
+      
+      const [
+        allMmGtResponse,
+        allYmGtResponse,
+        allYmStResponse,
+        allRelationsResponse,
+        allMmGtRecipesResponse,
+        allYmGtRecipesResponse,
+        allYmStRecipesResponse
+      ] = await Promise.all([
+        fetchWithAuth(`${API_URLS.galMmGt}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmGt}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmSt}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
+      ]);
+      
+      totalApiCalls += 7;
+      
+      // Parse all responses
+      const allMmGt = allMmGtResponse?.ok ? await allMmGtResponse.json() : [];
+      const allYmGt = allYmGtResponse?.ok ? await allYmGtResponse.json() : [];
+      const allYmSt = allYmStResponse?.ok ? await allYmStResponse.json() : [];
+      const allRelations = allRelationsResponse?.ok ? await allRelationsResponse.json() : [];
+      const allMmGtRecipes = allMmGtRecipesResponse?.ok ? await allMmGtRecipesResponse.json() : [];
+      const allYmGtRecipes = allYmGtRecipesResponse?.ok ? await allYmGtRecipesResponse.json() : [];
+      const allYmStRecipes = allYmStRecipesResponse?.ok ? await allYmStRecipesResponse.json() : [];
+      
+      successfulApiCalls += 7;
+      
+      console.log(`📊 Data fetched - MM GT: ${allMmGt.length}, YM GT: ${allYmGt.length}, YM ST: ${allYmSt.length}`);
+      console.log(`📊 Recipes fetched - MM GT: ${allMmGtRecipes.length}, YM GT: ${allYmGtRecipes.length}, YM ST: ${allYmStRecipes.length}`);
+      
+      setExcelProgress({ current: 2, total: totalSteps, operation: 'Veriler işleniyor...', currentProduct: '' });
+      
+      // Create lookup maps for quick access
+      const mmGtById = new Map(allMmGt.map(item => [item.id, item]));
+      const ymGtById = new Map(allYmGt.map(item => [item.id, item]));
+      const ymStById = new Map(allYmSt.map(item => [item.id, item]));
+      
+      // Process each request and collect relevant data
+      for (const request of requestsList) {
         processedRequests++;
         setExcelProgress({ 
-          current: processedRequests, 
+          current: 2 + (processedRequests / requestsList.length), 
           total: totalSteps, 
           operation: `Talep verisi işleniyor... (${processedRequests}/${requestsList.length})`,
           currentProduct: request.stok_kodu || `ID: ${request.id}`
@@ -8473,59 +8519,29 @@ const GalvanizliTelNetsis = () => {
           continue;
         }
         
-        // Find MM GT by stok_kodu
+        // Find MM GT by stok_kodu from already fetched data
         console.log(`🔍 [${request.id}] Searching for MM GT with stok_kodu: "${request.stok_kodu}"`);
         
-        totalApiCalls++;
-        let mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
+        const mmGtArray = allMmGt.filter(p => p.stok_kodu === request.stok_kodu);
         
-        // If exact match fails due to parameter error, fetch all and filter client-side
-        if (!mmGtResponse || !mmGtResponse.ok) {
-          console.log(`🔍 [${request.id}] Exact match failed, fetching all MM GT and filtering client-side...`);
-          const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
-          if (allMmGtResponse && allMmGtResponse.ok) {
-            const allMmGtProducts = await allMmGtResponse.json();
-            const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
-            
-            // Create a mock response with filtered data
-            mmGtResponse = {
-              ok: true,
-              json: async () => filteredProducts
-            };
-            
-            console.log(`🔍 [${request.id}] Client-side filtering found ${filteredProducts.length} products with stok_kodu: "${request.stok_kodu}"`);
-          }
+        if (mmGtArray.length === 0) {
+          console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
+          console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
+          continue;
         }
         
-        if (mmGtResponse && mmGtResponse.ok) {
-          const mmGtProducts = await mmGtResponse.json();
-          successfulApiCalls++;
-          
-          console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
-          
-          // The API returns an array even for single stok_kodu query
-          const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
-          
-          if (mmGtArray.length > 0) {
-            console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
-              stok_kodu: p.stok_kodu, 
-              id: p.id, 
-              cap: p.cap,
-              kg: p.kg
-            })));
-          }
-          
-          if (mmGtArray.length === 0) {
-            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
-            console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
-            continue;
-          }
-          
-          // Process only the specific MM GT for this request
-          for (const mmGt of mmGtArray) {
-            // Add MM GT
-            console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
-            mmGtMap.set(mmGt.stok_kodu, mmGt);
+        console.log(`📦 [${request.id}] Found ${mmGtArray.length} MM GT product(s):`, mmGtArray.map(p => ({ 
+          stok_kodu: p.stok_kodu, 
+          id: p.id, 
+          cap: p.cap,
+          kg: p.kg
+        })));
+        
+        // Process only the specific MM GT for this request
+        for (const mmGt of mmGtArray) {
+          // Add MM GT
+          console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+          mmGtMap.set(mmGt.stok_kodu, mmGt);
             
             // Find relationships created specifically for this request's MM GT
             let relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
@@ -8710,66 +8726,46 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
-            // Add MM GT recipes for this specific MM GT
-            console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
-            let mmGtRecipeResponse = null;
+            // Add MM GT recipes for this specific MM GT from pre-fetched data
+            console.log(`📖 Finding MM GT recipes for mm_gt_id=${mmGt.id}...`);
+            const mmGtRecipes = allMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
+            console.log(`📖 Found ${mmGtRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
             
-            if (allRecipesResponse && allRecipesResponse.ok) {
-              const allRecipes = await allRecipesResponse.json();
-              const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
-              console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
-              
-              // Create mock response
-              mmGtRecipeResponse = {
-                ok: true,
-                json: async () => filteredRecipes
-              };
+            if (mmGtRecipes.length > 0) {
+              console.log(`📖 First recipe sample:`, mmGtRecipes[0]);
             }
             
-            if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
-              const mmGtRecipes = await mmGtRecipeResponse.json();
-              console.log(`📖 Raw MM GT recipes for ID ${mmGt.id}:`, mmGtRecipes);
-              console.log(`📖 Recipe count: ${mmGtRecipes.length}`);
-              if (mmGtRecipes.length > 0) {
-                console.log(`📖 First recipe sample:`, mmGtRecipes[0]);
-              }
-              mmGtRecipes.forEach(r => {
-                // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
-                let updatedBilesenKodu = r.bilesen_kodu;
-                if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
-                  // MM GT stok kodundan sequence'i al
-                  const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
-                  // YM.GT bileşen kodundaki sequence'i değiştir
-                  const bilesenParts = r.bilesen_kodu.split('.');
-                  if (bilesenParts.length >= 5) {
-                    // Örnek: YM.GT.PAD.0150.00 -> YM.GT.PAD.0150.02
-                    bilesenParts[bilesenParts.length - 1] = mmGtSequence;
-                    updatedBilesenKodu = bilesenParts.join('.');
-                  }
+            mmGtRecipes.forEach(r => {
+              // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
+              let updatedBilesenKodu = r.bilesen_kodu;
+              if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
+                // MM GT stok kodundan sequence'i al
+                const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
+                // YM.GT bileşen kodundaki sequence'i değiştir
+                const bilesenParts = r.bilesen_kodu.split('.');
+                if (bilesenParts.length >= 5) {
+                  // Örnek: YM.GT.PAD.0150.00 -> YM.GT.PAD.0150.02
+                  bilesenParts[bilesenParts.length - 1] = mmGtSequence;
+                  updatedBilesenKodu = bilesenParts.join('.');
                 }
-                
-                const key = `${mmGt.stok_kodu}-${updatedBilesenKodu}`;
-                mmGtRecipeMap.set(key, {
-                  ...r,
-                  bilesen_kodu: updatedBilesenKodu, // Güncellenmiş bileşen kodunu kullan
-                  mm_gt_stok_kodu: mmGt.stok_kodu,
-                  sequence: mmGt.stok_kodu?.split('.').pop() || '00'
-                });
+              }
+              
+              const key = `${mmGt.stok_kodu}-${updatedBilesenKodu}`;
+              mmGtRecipeMap.set(key, {
+                ...r,
+                bilesen_kodu: updatedBilesenKodu, // Güncellenmiş bileşen kodunu kullan
+                mm_gt_stok_kodu: mmGt.stok_kodu,
+                sequence: mmGt.stok_kodu?.split('.').pop() || '00'
               });
-            }
-          }
-        } else {
-          failedApiCalls++;
-          console.error('[' + request.id + '] MM GT API failed - Response status: ' + (mmGtResponse?.status || 'undefined'));
-          console.error('[' + request.id + '] Response text:', await mmGtResponse?.text().catch(() => 'Unable to read response'));
+            });
         }
-      } catch (error) {
-        failedApiCalls++;
-        console.error('[' + request.id + '] Exception during data loading:', error);
-        console.error('[' + request.id + '] Error details:', error.message);
       }
-    } // End of outer for loop
+    } // End of for loop processing each request
+    
+    } catch (error) {
+      console.error('Fatal error during batch Excel generation:', error);
+      throw error;
+    }
 
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
@@ -8870,7 +8866,7 @@ const GalvanizliTelNetsis = () => {
     // Create two separate Excel files with EXACT same format as individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
     setExcelProgress({ 
-      current: requestsList.length + 1, 
+      current: 5, 
       total: totalSteps, 
       operation: 'Stok Kartı Excel oluşturuluyor...',
       currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST`
@@ -8879,7 +8875,7 @@ const GalvanizliTelNetsis = () => {
     
     console.log('📄 Starting Reçete Excel generation...');
     setExcelProgress({ 
-      current: requestsList.length + 2, 
+      current: 6, 
       total: totalSteps, 
       operation: 'Reçete Excel oluşturuluyor...',
       currentProduct: `${allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length} reçete`
