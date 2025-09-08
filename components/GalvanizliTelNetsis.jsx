@@ -8455,146 +8455,43 @@ const GalvanizliTelNetsis = () => {
     let failedApiCalls = 0;
     let processedRequests = 0;
 
-    // BULK FETCH OPTIMIZATION: Fetch all data upfront like CelikHasir
+    // SMART OPTIMIZATION: Pre-fetch the data that gets called repeatedly
+    console.log('🚀 SMART FETCH: Pre-loading commonly requested data...');
+    let cachedYmGt = null;
+    let cachedYmSt = null;
+    let cachedYmGtRecipes = null;
+    let cachedYmStRecipes = null;
+    
     try {
-      console.log('🚀 BULK FETCH: Starting bulk data fetch for optimization...');
-      setExcelProgress({ current: 1, total: totalSteps, operation: 'Tüm veriler yükleniyor...', currentProduct: '' });
+      // Only pre-fetch the data that was being fetched repeatedly with limit=1000/2000
+      setExcelProgress({ current: 1, total: totalSteps, operation: 'Yaygın veri önbelleğe alınıyor...', currentProduct: '' });
       
-      const [
-        allMmGtResponse,
-        allYmGtResponse,
-        allYmStResponse,
-        allRelationsResponse,
-        allMmGtRecipesResponse,
-        allYmGtRecipesResponse,
-        allYmStRecipesResponse
-      ] = await Promise.all([
-        fetchWithAuth(`${API_URLS.galMmGt}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galYmGt}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galYmSt}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`),
+      const [ymGtResponse, ymStResponse, ymGtRecipesResponse, ymStRecipesResponse] = await Promise.all([
+        fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`),
+        fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`),
         fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`),
         fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
       ]);
       
-      totalApiCalls += 7;
+      cachedYmGt = ymGtResponse?.ok ? await ymGtResponse.json() : null;
+      cachedYmSt = ymStResponse?.ok ? await ymStResponse.json() : null;
+      cachedYmGtRecipes = ymGtRecipesResponse?.ok ? await ymGtRecipesResponse.json() : null;
+      cachedYmStRecipes = ymStRecipesResponse?.ok ? await ymStRecipesResponse.json() : null;
       
-      // Parse all responses
-      const allMmGt = allMmGtResponse?.ok ? await allMmGtResponse.json() : [];
-      const allYmGt = allYmGtResponse?.ok ? await allYmGtResponse.json() : [];
-      const allYmSt = allYmStResponse?.ok ? await allYmStResponse.json() : [];
-      const allRelations = allRelationsResponse?.ok ? await allRelationsResponse.json() : [];
-      const allMmGtRecipes = allMmGtRecipesResponse?.ok ? await allMmGtRecipesResponse.json() : [];
-      const allYmGtRecipes = allYmGtRecipesResponse?.ok ? await allYmGtRecipesResponse.json() : [];
-      const allYmStRecipes = allYmStRecipesResponse?.ok ? await allYmStRecipesResponse.json() : [];
+      totalApiCalls += 4;
+      if (cachedYmGt) successfulApiCalls++;
+      if (cachedYmSt) successfulApiCalls++;
+      if (cachedYmGtRecipes) successfulApiCalls++;
+      if (cachedYmStRecipes) successfulApiCalls++;
       
-      successfulApiCalls += 7;
-      
-      console.log(`📊 Data fetched - MM GT: ${allMmGt.length}, YM GT: ${allYmGt.length}, YM ST: ${allYmSt.length}`);
-      console.log(`📊 Recipes fetched - MM GT: ${allMmGtRecipes.length}, YM GT: ${allYmGtRecipes.length}, YM ST: ${allYmStRecipes.length}`);
-      
-      // Process requests using pre-fetched data
-      for (const request of requestsList) {
-        try {
-          processedRequests++;
-          setExcelProgress({ 
-            current: processedRequests + 1, 
-            total: totalSteps, 
-            operation: `Talep verisi işleniyor... (${processedRequests}/${requestsList.length})`,
-            currentProduct: request.stok_kodu || `ID: ${request.id}`
-          });
-          
-          console.log(`🔄 [${request.id}] Processing request with stok_kodu: "${request.stok_kodu}"`);
-          
-          if (!request.stok_kodu) {
-            console.warn(`⚠️ [${request.id}] Request has no stok_kodu - skipping`);
-            continue;
-          }
-          
-          // Find MM GT from pre-fetched data
-          const mmGt = allMmGt.find(p => p.stok_kodu === request.stok_kodu);
-          if (!mmGt) {
-            console.warn(`⚠️ [${request.id}] No MM GT product found with stok_kodu: "${request.stok_kodu}"`);
-            continue;
-          }
-          
-          console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
-          mmGtMap.set(mmGt.stok_kodu, mmGt);
-          
-          // Add MM GT recipes using pre-fetched data
-          const mmGtRecipes = allMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id);
-          console.log(`🍳 Found ${mmGtRecipes.length} MM GT recipes for ${mmGt.stok_kodu}`);
-          mmGtRecipes.forEach(r => {
-            const key = `${mmGt.stok_kodu}-${r.bilesen_kodu}`;
-            mmGtRecipeMap.set(key, {
-              ...r,
-              mm_gt_stok_kodu: mmGt.stok_kodu,
-              sequence: mmGt.stok_kodu?.split('.').pop() || '00'
-            });
-          });
-
-          // Find relationships from pre-fetched data
-          const relations = allRelations.filter(r => r.mm_gt_id === mmGt.id);
-          if (relations.length > 0) {
-            console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
-            
-            // Add YM GT data if it exists
-            const ymGtId = relations[0].ym_gt_id;
-            if (ymGtId) {
-              const ymGt = allYmGt.find(r => r.id == ymGtId);
-              if (ymGt) {
-                ymGtMap.set(ymGt.stok_kodu, ymGt);
-                
-                // Add YM GT recipes using pre-fetched data
-                const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
-                console.log(`🍳 Found ${ymGtRecipes.length} YM GT recipes for ${ymGt.stok_kodu}`);
-                ymGtRecipes.forEach(r => {
-                  const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
-                  ymGtRecipeMap.set(key, {
-                    ...r,
-                    mm_gt_stok_kodu: mmGt.stok_kodu,
-                    sequence: mmGt.stok_kodu?.split('.').pop() || '00',
-                    ym_gt_stok_kodu: ymGt.stok_kodu
-                  });
-                });
-              }
-            }
-            
-            // Add YM ST data from pre-fetched data
-            for (const relation of relations) {
-              if (relation.ym_st_id) {
-                const ymSt = allYmSt.find(r => r.id == relation.ym_st_id);
-                if (ymSt && (relation.is_main === true || relation.is_main === 1)) {
-                  ymStMap.set(ymSt.stok_kodu, ymSt);
-                  
-                  // Add YM ST recipes using pre-fetched data
-                  const ymStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id);
-                  console.log(`🍳 Found ${ymStRecipes.length} YM ST recipes for ${ymSt.stok_kodu}`);
-                  ymStRecipes.forEach(r => {
-                    const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                    ymStRecipeMap.set(key, {
-                      ...r,
-                      ym_st_stok_kodu: ymSt.stok_kodu
-                    });
-                  });
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error processing request ${request.id}:`, error);
-          failedApiCalls++;
-        }
-      }
-
+      console.log(`📊 Pre-cached: YM GT: ${cachedYmGt?.length || 0}, YM ST: ${cachedYmSt?.length || 0}, YM GT Recipes: ${cachedYmGtRecipes?.length || 0}, YM ST Recipes: ${cachedYmStRecipes?.length || 0}`);
     } catch (error) {
-      console.error('Bulk fetch failed, falling back to original method:', error);
+      console.warn('Pre-cache failed, will use individual calls:', error);
       failedApiCalls++;
-      
-      // FALLBACK: Use original for loop if bulk fetch fails
-      for (const request of requestsList) {
-        try {
+    }
+
+    for (const request of requestsList) {
+      try {
         processedRequests++;
         setExcelProgress({ 
           current: processedRequests, 
@@ -8695,13 +8592,31 @@ const GalvanizliTelNetsis = () => {
                 // Add YM GT data if it exists
                 if (ymGtId) {
                   try {
-                    console.log(`📖 Excel: Fetching all YM GT products and filtering for id=${ymGtId}...`);
-                    const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+                    console.log(`📖 Excel: Using cached YM GT data and filtering for id=${ymGtId}...`);
                     let ymGtResponse = null;
                     
-                    if (allYmGtResponse && allYmGtResponse.ok) {
-                      const allYmGt = await allYmGtResponse.json();
-                      const filteredYmGt = allYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
+                    // Use cached data if available, otherwise fetch
+                    if (cachedYmGt) {
+                      const filteredYmGt = cachedYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
+                      ymGtResponse = {
+                        ok: true,
+                        json: async () => filteredYmGt
+                      };
+                    } else {
+                      const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+                      if (allYmGtResponse && allYmGtResponse.ok) {
+                        const allYmGt = await allYmGtResponse.json();
+                        const filteredYmGt = allYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
+                        ymGtResponse = {
+                          ok: true,
+                          json: async () => filteredYmGt
+                        };
+                        totalApiCalls++;
+                      }
+                    }
+                    
+                    if (ymGtResponse && ymGtResponse.ok) {
+                      const filteredYmGt = await ymGtResponse.json();
                       console.log(`📖 Excel: Found ${filteredYmGt.length} YM GT products for id=${ymGtId}`);
                       
                       // FALLBACK: If not found by ID, try searching by stok_kodu pattern
@@ -8744,21 +8659,32 @@ const GalvanizliTelNetsis = () => {
                       if (ymGt) {
                         ymGtMap.set(ymGt.stok_kodu, ymGt);
                         
-                        // Add YM GT recipes
-                        console.log(`📖 Excel: Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
-                        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+                        // Add YM GT recipes  
+                        console.log(`📖 Excel: Using cached YM GT recipes for ym_gt_id=${ymGtId}...`);
                         let ymGtRecipeResponse = null;
                         
-                        if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
-                          const allYmGtRecipes = await allYmGtRecipesResponse.json();
-                          const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
-                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+                        // Use cached data if available
+                        if (cachedYmGtRecipes) {
+                          const filteredYmGtRecipes = cachedYmGtRecipes.filter(r => r.ym_gt_id == ymGtId);
+                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId} from cache`);
                           
-                          // Create mock response
                           ymGtRecipeResponse = {
                             ok: true,
                             json: async () => filteredYmGtRecipes
                           };
+                        } else {
+                          // Fallback to individual call
+                          const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+                          if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+                            const allYmGtRecipes = await allYmGtRecipesResponse.json();
+                            const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId);
+                            console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+                            
+                            ymGtRecipeResponse = {
+                              ok: true,
+                              json: async () => filteredYmGtRecipes
+                            };
+                          }
                         }
                         
                         if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
@@ -8786,20 +8712,31 @@ const GalvanizliTelNetsis = () => {
                 // Filter by checking if they were part of the approved calculation for this MM GT
                 for (const relation of relations) {
                   try {
-                    console.log(`📖 Excel: Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
-                    const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                    console.log(`📖 Excel: Using cached YM ST data for id=${relation.ym_st_id}...`);
                     let ymStResponse = null;
                     
-                    if (allYmStResponse && allYmStResponse.ok) {
-                      const allYmSt = await allYmStResponse.json();
-                      const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
-                      console.log(`📖 Excel: Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
+                    // Use cached data if available
+                    if (cachedYmSt) {
+                      const filteredYmSt = cachedYmSt.filter(r => r.id == relation.ym_st_id);
+                      console.log(`📖 Excel: Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id} from cache`);
                       
-                      // Create mock response - return first match or empty array
                       ymStResponse = {
                         ok: true,
                         json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
                       };
+                    } else {
+                      // Fallback to individual call
+                      const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                      if (allYmStResponse && allYmStResponse.ok) {
+                        const allYmSt = await allYmStResponse.json();
+                        const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id);
+                        console.log(`📖 Excel: Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
+                        
+                        ymStResponse = {
+                          ok: true,
+                          json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
+                        };
+                      }
                     }
                     
                     if (ymStResponse && ymStResponse.ok) {
@@ -8811,20 +8748,31 @@ const GalvanizliTelNetsis = () => {
                           ymStMap.set(ymSt.stok_kodu, ymSt);
                           
                           // Add YM ST recipes
-                          console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
-                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
+                          console.log(`📖 Excel: Using cached YM ST recipes for ym_st_id=${relation.ym_st_id}...`);
                           let ymStRecipeResponse = null;
                           
-                          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                            const allYmStRecipes = await allYmStRecipesResponse.json();
-                            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id); // Use == for type coercion
-                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id}`);
+                          // Use cached data if available
+                          if (cachedYmStRecipes) {
+                            const filteredYmStRecipes = cachedYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id);
+                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id} from cache`);
                             
-                            // Create mock response
                             ymStRecipeResponse = {
                               ok: true,
                               json: async () => filteredYmStRecipes
                             };
+                          } else {
+                            // Fallback to individual call
+                            const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
+                            if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                              const allYmStRecipes = await allYmStRecipesResponse.json();
+                              const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id);
+                              console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id}`);
+                              
+                              ymStRecipeResponse = {
+                                ok: true,
+                                json: async () => filteredYmStRecipes
+                              };
+                            }
                           }
                           
                           if (ymStRecipeResponse && ymStRecipeResponse.ok) {
@@ -8907,8 +8855,7 @@ const GalvanizliTelNetsis = () => {
         console.error('[' + request.id + '] Exception during data loading:', error);
         console.error('[' + request.id + '] Error details:', error.message);
       }
-      } // End of fallback for loop
-    } // End of catch block for fallback
+    } // End of outer for loop
 
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
