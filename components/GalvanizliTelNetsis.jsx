@@ -8461,30 +8461,34 @@ const GalvanizliTelNetsis = () => {
     let cachedYmSt = null;
     let cachedYmGtRecipes = null;
     let cachedYmStRecipes = null;
+    let cachedMmGtRecipes = null;
     
     try {
       // Only pre-fetch the data that was being fetched repeatedly with limit=1000/2000
       setExcelProgress({ current: 1, total: totalSteps, operation: 'Yaygın veri önbelleğe alınıyor...', currentProduct: '' });
       
-      const [ymGtResponse, ymStResponse, ymGtRecipesResponse, ymStRecipesResponse] = await Promise.all([
+      const [ymGtResponse, ymStResponse, ymGtRecipesResponse, ymStRecipesResponse, mmGtRecipesResponse] = await Promise.all([
         fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`),
         fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`),
         fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`),
-        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
+        fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`),
+        fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`)
       ]);
       
       cachedYmGt = ymGtResponse?.ok ? await ymGtResponse.json() : null;
       cachedYmSt = ymStResponse?.ok ? await ymStResponse.json() : null;
       cachedYmGtRecipes = ymGtRecipesResponse?.ok ? await ymGtRecipesResponse.json() : null;
       cachedYmStRecipes = ymStRecipesResponse?.ok ? await ymStRecipesResponse.json() : null;
+      cachedMmGtRecipes = mmGtRecipesResponse?.ok ? await mmGtRecipesResponse.json() : null;
       
-      totalApiCalls += 4;
+      totalApiCalls += 5;
       if (cachedYmGt) successfulApiCalls++;
       if (cachedYmSt) successfulApiCalls++;
       if (cachedYmGtRecipes) successfulApiCalls++;
       if (cachedYmStRecipes) successfulApiCalls++;
+      if (cachedMmGtRecipes) successfulApiCalls++;
       
-      console.log(`📊 Pre-cached: YM GT: ${cachedYmGt?.length || 0}, YM ST: ${cachedYmSt?.length || 0}, YM GT Recipes: ${cachedYmGtRecipes?.length || 0}, YM ST Recipes: ${cachedYmStRecipes?.length || 0}`);
+      console.log(`📊 Pre-cached: YM GT: ${cachedYmGt?.length || 0}, YM ST: ${cachedYmSt?.length || 0}, YM GT Recipes: ${cachedYmGtRecipes?.length || 0}, YM ST Recipes: ${cachedYmStRecipes?.length || 0}, MM GT Recipes: ${cachedMmGtRecipes?.length || 0}`);
     } catch (error) {
       console.warn('Pre-cache failed, will use individual calls:', error);
       failedApiCalls++;
@@ -8797,20 +8801,31 @@ const GalvanizliTelNetsis = () => {
             }
             
             // Add MM GT recipes for this specific MM GT
-            console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
+            console.log(`📖 Using cached MM GT recipes for mm_gt_id=${mmGt.id}...`);
             let mmGtRecipeResponse = null;
             
-            if (allRecipesResponse && allRecipesResponse.ok) {
-              const allRecipes = await allRecipesResponse.json();
-              const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
-              console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+            // Use cached data if available
+            if (cachedMmGtRecipes) {
+              const filteredRecipes = cachedMmGtRecipes.filter(r => r.mm_gt_id == mmGt.id);
+              console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) from cache`);
               
-              // Create mock response
               mmGtRecipeResponse = {
                 ok: true,
                 json: async () => filteredRecipes
               };
+            } else {
+              // Fallback to individual call
+              const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
+              if (allRecipesResponse && allRecipesResponse.ok) {
+                const allRecipes = await allRecipesResponse.json();
+                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id);
+                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+                
+                mmGtRecipeResponse = {
+                  ok: true,
+                  json: async () => filteredRecipes
+                };
+              }
             }
             
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
