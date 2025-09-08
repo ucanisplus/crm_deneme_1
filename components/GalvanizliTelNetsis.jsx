@@ -8660,13 +8660,13 @@ const GalvanizliTelNetsis = () => {
                         ymGtMap.set(ymGt.stok_kodu, ymGt);
                         
                         // Add YM GT recipes  
-                        console.log(`📖 Excel: Using cached YM GT recipes for ym_gt_id=${ymGtId}...`);
+                        console.log(`📖 Excel: Using cached YM GT recipes for ym_gt_id=${ymGt.id}...`);
                         let ymGtRecipeResponse = null;
                         
                         // Use cached data if available
                         if (cachedYmGtRecipes) {
-                          const filteredYmGtRecipes = cachedYmGtRecipes.filter(r => r.ym_gt_id == ymGtId);
-                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId} from cache`);
+                          const filteredYmGtRecipes = cachedYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
+                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGt.id} from cache`);
                           
                           ymGtRecipeResponse = {
                             ok: true,
@@ -8677,8 +8677,8 @@ const GalvanizliTelNetsis = () => {
                           const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
                           if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
                             const allYmGtRecipes = await allYmGtRecipesResponse.json();
-                            const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId);
-                            console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
+                            const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
+                            console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGt.id}`);
                             
                             ymGtRecipeResponse = {
                               ok: true,
@@ -8748,13 +8748,13 @@ const GalvanizliTelNetsis = () => {
                           ymStMap.set(ymSt.stok_kodu, ymSt);
                           
                           // Add YM ST recipes
-                          console.log(`📖 Excel: Using cached YM ST recipes for ym_st_id=${relation.ym_st_id}...`);
+                          console.log(`📖 Excel: Using cached YM ST recipes for ym_st_id=${ymSt.id}...`);
                           let ymStRecipeResponse = null;
                           
                           // Use cached data if available
                           if (cachedYmStRecipes) {
-                            const filteredYmStRecipes = cachedYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id);
-                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id} from cache`);
+                            const filteredYmStRecipes = cachedYmStRecipes.filter(r => r.ym_st_id == ymSt.id);
+                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id} from cache`);
                             
                             ymStRecipeResponse = {
                               ok: true,
@@ -8765,8 +8765,8 @@ const GalvanizliTelNetsis = () => {
                             const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
                             if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
                               const allYmStRecipes = await allYmStRecipesResponse.json();
-                              const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id);
-                              console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id}`);
+                              const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id);
+                              console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
                               
                               ymStRecipeResponse = {
                                 ok: true,
