@@ -9078,11 +9078,6 @@ const GalvanizliTelNetsis = () => {
       operation: 'Tamamlandı!',
       currentProduct: 'Excel dosyaları başarıyla oluşturuldu'
     });
-    
-    } catch (error) {
-      console.error('Fatal error during batch Excel generation:', error);
-      throw error;
-    }
   };
 
   // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
