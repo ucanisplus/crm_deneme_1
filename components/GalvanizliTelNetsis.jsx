@@ -10421,7 +10421,7 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGt.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGt.kg, // COIL WEIGHT (KG) MAX - should match COIL WEIGHT (KG)
       generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus, mmGt.tolerans_max_sign, mmGt.tolerans_min_sign) // Tolerans Açıklama
     ];
   };
@@ -10525,7 +10525,7 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGtData.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGtData.kg, // COIL WEIGHT (KG) MAX - should match COIL WEIGHT (KG)
       getToleransAciklama() // Tolerans Açıklama
     ];
   };
@@ -10851,7 +10851,7 @@ const GalvanizliTelNetsis = () => {
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
-      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
+      '0', // Fire Oranı (%) - should be 0 not 0,00040
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
@@ -10954,7 +10954,7 @@ const GalvanizliTelNetsis = () => {
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
-      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
+      '0', // Fire Oranı (%) - should be 0 not 0,00040
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
