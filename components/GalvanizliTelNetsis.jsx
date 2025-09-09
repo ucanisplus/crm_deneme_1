@@ -11018,7 +11018,7 @@ const GalvanizliTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(5).replace('.', ','), // Çap
+      cap.toFixed(2).replace('.', ','), // Çap
       kaplama, // Kaplama - YM GT HAS these values from database
       minMukavemet, // Min Mukavemet
       maxMukavemet, // Max Mukavemet
