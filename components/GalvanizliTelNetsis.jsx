@@ -8586,49 +8586,51 @@ const GalvanizliTelNetsis = () => {
       const { mmgt, ymgt, ymst, mmgtRecetes, ymgtRecetes, ymstRecetes } = productData;
       
       // Add MM GT to Stok sheet
-      const mmgtStokRow = generateStokKartiRow(mmgt, 'MM GT');
+      const mmgtStokRow = generateMmGtStokKartiDataForBatch(mmgt);
       stokSheet.addRow(mmgtStokRow);
       stokRowCount++;
       
       // Add YM GT to Stok sheet
-      const ymgtStokRow = generateStokKartiRow(ymgt, 'YM GT');
+      const ymgtStokRow = generateYmGtStokKartiDataForBatch(ymgt);
       stokSheet.addRow(ymgtStokRow);
       stokRowCount++;
       
       // Add YM ST to Stok sheet (if exists)
       if (ymst) {
-        const ymstStokRow = generateStokKartiRow(ymst, 'YM ST');
+        const ymstStokRow = generateYmStStokKartiData(ymst);
         stokSheet.addRow(ymstStokRow);
         stokRowCount++;
       }
       
       // Add MM GT recipes
+      let mmgtSiraNo = 1;
       mmgtRecetes.forEach(recipe => {
-        const receteRow = generateReceteRow(recipe, mmgt, 'MM GT');
+        const receteRow = generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, mmgtSiraNo, recipe.sequence, mmgt.stok_kodu);
         receteSheet.addRow(receteRow);
         receteRowCount++;
+        mmgtSiraNo++;
       });
       
       // Add YM GT recipes  
+      let ymgtSiraNo = 1;
       ymgtRecetes.forEach(recipe => {
-        const receteRow = generateReceteRow(recipe, ymgt, 'YM GT');
+        const receteRow = generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, ymgtSiraNo, recipe.sequence, ymgt.stok_kodu);
         receteSheet.addRow(receteRow);
         receteRowCount++;
+        ymgtSiraNo++;
       });
       
       // Add YM ST recipes (if exists)
       if (ymst) {
+        let ymstSiraNo = 1;
         ymstRecetes.forEach(recipe => {
-          const receteRow = generateReceteRow(recipe, ymst, 'YM ST');
+          const receteRow = generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, ymstSiraNo, recipe.sequence, ymst.stok_kodu);
           receteSheet.addRow(receteRow);
           receteRowCount++;
+          ymstSiraNo++;
         });
       }
     });
-
-    // Apply formatting using existing functions
-    applyStokKartiFormatting(stokSheet, stokRowCount - 1);
-    applyReceteFormatting(receteSheet, receteRowCount - 1);
 
     // Save the combined Excel file
     const buffer = await workbook.xlsx.writeBuffer();
