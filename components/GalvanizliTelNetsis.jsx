@@ -11467,6 +11467,9 @@ const GalvanizliTelNetsis = () => {
   const generateMmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
+    // Determine if this is an Operation row
+    const isOperation = bilesenKodu === 'GTPKT01';
+    
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
@@ -11474,10 +11477,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu === 'GTPKT01' ? 'O' : 'B', // GTPKT01 should be marked as O (Operasyon) per Excel format
+      isOperation ? 'O' : 'B', // GTPKT01 should be marked as O (Operasyon) per Excel format
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - virgül formatında Excel için, 5 ondalık basamak, trailing zeros kaldırılmış
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11485,9 +11488,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'GTPKT01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - only for GTPKT01, 5 ondalık basamak, trailing zeros kaldırılmış
-      bilesenKodu === 'GTPKT01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      bilesenKodu === 'GTPKT01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
@@ -11501,6 +11504,9 @@ const GalvanizliTelNetsis = () => {
   const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
+    // Determine if this is an Operation row
+    const isOperation = bilesenKodu === 'GLV01';
+    
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
@@ -11508,10 +11514,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu === 'GLV01' ? 'O' : 'B', // According to Excel format, only GLV01 is O (Operasyon), all others are B (Bileşen)
+      isOperation ? 'O' : 'B', // According to Excel format, only GLV01 is O (Operasyon), all others are B (Bileşen)
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - virgül formatında Excel için, 5 ondalık basamak, trailing zeros kaldırılmış
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11519,9 +11525,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'GLV01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - only for GLV01, 5 ondalık basamak, trailing zeros kaldırılmış
-      bilesenKodu === 'GLV01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      bilesenKodu === 'GLV01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
@@ -11534,6 +11540,9 @@ const GalvanizliTelNetsis = () => {
 
 
   const generateYmStReceteRow = (bilesenKodu, miktar, siraNo, ymSt) => {
+    // Determine if this is an Operation row
+    const isOperation = bilesenKodu === 'TLC01';
+    
     return [
       ymSt.stok_kodu || '', // Mamul Kodu
       '1', // Reçete Top.
@@ -11541,10 +11550,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('FLM.') ? 'B' : (bilesenKodu === 'TLC01' ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
+      bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - virgül formatında Excel için, 5 ondalık basamak, trailing zeros kaldırılmış
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11552,9 +11561,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'TLC01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - Sadece TLC01 için, 5 ondalık basamak
-      bilesenKodu === 'TLC01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      bilesenKodu === 'TLC01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
@@ -11570,6 +11579,9 @@ const GalvanizliTelNetsis = () => {
     // FIXED: MM GT recipe should use MM GT stok kodu, not YM GT format
     // The mmGtStokKodu is already in correct format (GT.PAD.0087.00)
     
+    // Determine if this is an Operation row
+    const isOperation = bilesenKodu === 'GTPKT01';
+    
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
@@ -11577,10 +11589,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
-      bilesenKodu.includes('FLM.') ? 'B' : (bilesenKodu === 'GTPKT01' ? 'O' : 'B'), // Bileşen/Operasyon
+      bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // Bileşen/Operasyon
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - 5 ondalık basamak, trailing zeros removed
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11588,9 +11600,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'GTPKT01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - only for GTPKT01, 5 ondalık basamak
-      bilesenKodu === 'GTPKT01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      bilesenKodu === 'GTPKT01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
@@ -11606,6 +11618,9 @@ const GalvanizliTelNetsis = () => {
     // Fix: Convert "150" to "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
     
+    // Determine if this is an Operation row
+    const isOperation = fixedBilesenKodu === 'GLV01';
+    
     return [
       ymGtStokKodu, // Mamul Kodu - YM GT stok kodu from parameter
       '1', // Reçete Top.
@@ -11613,10 +11628,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(fixedBilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental
-      fixedBilesenKodu === 'GLV01' ? 'O' : 'B', // GLV01 is O (Operasyon), others are B (Bileşen)
+      isOperation ? 'O' : 'B', // GLV01 is O (Operasyon), others are B (Bileşen)
       fixedBilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - 5 ondalık basamak, trailing zeros removed
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(fixedBilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11624,9 +11639,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      fixedBilesenKodu === 'GLV01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - only for GLV01, 5 ondalık basamak
-      fixedBilesenKodu === 'GLV01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      fixedBilesenKodu === 'GLV01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
@@ -11639,6 +11654,9 @@ const GalvanizliTelNetsis = () => {
 
   // Batch Excel için YM ST recipe row generator (stok_kodu parametreli)
   const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu) => {
+    // Determine if this is an Operation row
+    const isOperation = bilesenKodu === 'TLC01';
+    
     return [
       stokKodu, // Mamul Kodu - batch'de parametre olarak verilen stok kodu
       '1', // Reçete Top.
@@ -11646,10 +11664,10 @@ const GalvanizliTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
-      bilesenKodu.includes('FLM.') ? 'B' : (bilesenKodu === 'TLC01' ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
+      bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      formatDecimalForReceteExcel(miktar), // Miktar - virgül formatında Excel için, 5 ondalık basamak, trailing zeros kaldırılmış
+      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11657,9 +11675,9 @@ const GalvanizliTelNetsis = () => {
       '', // Sabit Fire Mik.
       '', // İstasyon Kodu
       '', // Hazırlık Süresi
-      bilesenKodu === 'TLC01' ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - only for TLC01, 5 ondalık basamak, trailing zeros kaldırılmış
-      bilesenKodu === 'TLC01' ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
-      bilesenKodu === 'TLC01' ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
+      isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
+      isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
+      isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       '', // Öncelik
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
