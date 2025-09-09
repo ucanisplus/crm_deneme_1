@@ -8712,11 +8712,12 @@ const GalvanizliTelNetsis = () => {
             
             // Add MM GT recipes for this specific MM GT
             console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id} (stok_kodu: ${mmGt.stok_kodu})...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
+            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=10000`);
             let mmGtRecipeResponse = null;
             
             if (allRecipesResponse && allRecipesResponse.ok) {
               const allRecipes = await allRecipesResponse.json();
+              console.log(`📊 Total MM GT recipes fetched from API: ${allRecipes.length}`);
               
               // First try ID matching
               const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
@@ -8727,6 +8728,13 @@ const GalvanizliTelNetsis = () => {
               console.log(`🔍 Recipe matching for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}):`);
               console.log(`  - By ID (mm_gt_id): ${recipesByIdFilter.length} recipes`);
               console.log(`  - By stok_kodu (mamul_kodu): ${recipesByStokKodu.length} recipes`);
+              
+              // Debug: Show what IDs and stok_kodlar actually exist in the recipe database
+              if (recipesByIdFilter.length === 0 && recipesByStokKodu.length === 0) {
+                console.log(`🔬 DEBUG: Available mm_gt_id values in recipes:`, [...new Set(allRecipes.map(r => r.mm_gt_id))].slice(0, 20));
+                console.log(`🔬 DEBUG: Available mamul_kodu values in recipes:`, [...new Set(allRecipes.map(r => r.mamul_kodu))].slice(0, 20));
+                console.log(`🔬 DEBUG: Looking for mm_gt_id=${mmGt.id} and mamul_kodu="${mmGt.stok_kodu}"`);
+              }
               
               let filteredRecipes;
               if (recipesByIdFilter.length > 0) {
