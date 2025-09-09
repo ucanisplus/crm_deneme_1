@@ -9566,21 +9566,33 @@ const GalvanizliTelNetsis = () => {
 
   // Helper function to generate combined reçete Excel from stored data
   const generateCombinedReceteExcelFromData = async (tasks) => {
-    const Excel = require('exceljs');
-    const { saveAs } = require('file-saver');
+    console.log('📋 === POST-SAVE COMBINED RECIPE EXCEL GENERATION STARTED ===');
     
-    const workbook = new Excel.Workbook();
-    const receteHeaders = getReceteHeaders();
+    // Convert tasks to request-like objects for the perfected batch generation
+    const taskRequests = tasks.map(task => ({
+      id: task.taskId || `task-${Math.random()}`,
+      stok_kodu: `GT.${task.excelData.mmGtData.kod_2}.${Math.round(parseFloat(task.excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${task.excelData.sequence}`,
+      status: 'approved',
+      created_at: new Date().toISOString()
+    }));
     
-    // Create separate sheets for each recipe type
-    const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
-    mmGtReceteSheet.addRow(receteHeaders);
+    console.log('📝 Converting post-save tasks to request format:', taskRequests.length, 'tasks');
+    taskRequests.forEach((req, index) => {
+      console.log(`Task ${index + 1}: ${req.stok_kodu}`);
+    });
     
-    const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
-    ymGtReceteSheet.addRow(receteHeaders);
+    // Use the perfected batch generation logic for recipe only
+    try {
+      console.log('📋 Calling generateBatchExcelFromRequests for post-save recipe generation...');
+      await generateBatchExcelFromRequests(taskRequests);
+      console.log('✅ Post-save recipe Excel generation completed successfully using perfected batch logic');
+      return; // Exit early since generateBatchExcelFromRequests handles everything
+    } catch (error) {
+      console.error('❌ Post-save recipe Excel generation failed:', error);
+      throw error;
+    }
     
-    const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
-    ymStReceteSheet.addRow(receteHeaders);
+    // OLD CODE BELOW - keeping as fallback (should not reach here)
     
     tasks.forEach(task => {
       const { excelData } = task;
