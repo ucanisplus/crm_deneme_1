@@ -208,8 +208,8 @@ const GalvanizliTelNetsis = () => {
       return String(value);
     }
     
-    // 5 ondalik basamak ile formatla ve noktalari virgul yap, sıfırları kaldır
-    return numValue.toFixed(5).replace(/\.?0+$/, '').replace('.', ',');
+    // 5 ondalik basamak ile formatla ve noktalari virgul yap (sıfırları KALDIR!!!)
+    return numValue.toFixed(5).replace('.', ',');
   };
   
   // Consistent database formatting function
