@@ -8718,30 +8718,36 @@ const GalvanizliTelNetsis = () => {
             if (allRecipesResponse && allRecipesResponse.ok) {
               const allRecipes = await allRecipesResponse.json();
               
-              // Debug: Check if there are any recipes with matching stok_kodu instead of ID
+              // First try ID matching
+              const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
+              
+              // Then try stok_kodu matching as fallback
               const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
-              if (recipesByStokKodu.length > 0 && recipesByStokKodu.length !== allRecipes.filter(r => r.mm_gt_id == mmGt.id).length) {
-                console.warn(`⚠️ ID MISMATCH: Found ${recipesByStokKodu.length} recipes by stok_kodu (${mmGt.stok_kodu}) but ${allRecipes.filter(r => r.mm_gt_id == mmGt.id).length} by mm_gt_id (${mmGt.id})`);
-                console.warn(`Using stok_kodu match instead of ID match for better results`);
-                // Use stok_kodu matching as fallback
-                const filteredRecipes = recipesByStokKodu;
-                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (using stok_kodu match)`);
-                
-                // Create mock response
-                mmGtRecipeResponse = {
-                  ok: true,
-                  json: async () => filteredRecipes
-                };
+              
+              console.log(`🔍 Recipe matching for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}):`);
+              console.log(`  - By ID (mm_gt_id): ${recipesByIdFilter.length} recipes`);
+              console.log(`  - By stok_kodu (mamul_kodu): ${recipesByStokKodu.length} recipes`);
+              
+              let filteredRecipes;
+              if (recipesByIdFilter.length > 0) {
+                // ID matching worked
+                filteredRecipes = recipesByIdFilter;
+                console.log(`✅ Using ID match: Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
+              } else if (recipesByStokKodu.length > 0) {
+                // Fallback to stok_kodu matching
+                filteredRecipes = recipesByStokKodu;
+                console.warn(`⚠️ ID match failed, using stok_kodu match: Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
               } else {
-                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
-                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
-                
-                // Create mock response
-                mmGtRecipeResponse = {
-                  ok: true,
-                  json: async () => filteredRecipes
-                };
+                // No recipes found by either method
+                filteredRecipes = [];
+                console.error(`❌ NO RECIPES found for MM GT ${mmGt.stok_kodu} by either ID (${mmGt.id}) or stok_kodu`);
               }
+              
+              // Create mock response
+              mmGtRecipeResponse = {
+                ok: true,
+                json: async () => filteredRecipes
+              };
             }
             
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
