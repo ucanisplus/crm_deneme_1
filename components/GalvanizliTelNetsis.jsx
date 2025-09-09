@@ -1,5 +1,5 @@
 // Galvanizli Tel Maliyet Hesaplama Componenti
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
 import { fetchWithCorsProxy, CORS_PROXY_API_URLS } from '@/lib/cors-proxy';
