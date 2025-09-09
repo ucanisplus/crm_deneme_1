@@ -8717,14 +8717,31 @@ const GalvanizliTelNetsis = () => {
             
             if (allRecipesResponse && allRecipesResponse.ok) {
               const allRecipes = await allRecipesResponse.json();
-              const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
-              console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
               
-              // Create mock response
-              mmGtRecipeResponse = {
-                ok: true,
-                json: async () => filteredRecipes
-              };
+              // Debug: Check if there are any recipes with matching stok_kodu instead of ID
+              const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
+              if (recipesByStokKodu.length > 0 && recipesByStokKodu.length !== allRecipes.filter(r => r.mm_gt_id == mmGt.id).length) {
+                console.warn(`⚠️ ID MISMATCH: Found ${recipesByStokKodu.length} recipes by stok_kodu (${mmGt.stok_kodu}) but ${allRecipes.filter(r => r.mm_gt_id == mmGt.id).length} by mm_gt_id (${mmGt.id})`);
+                console.warn(`Using stok_kodu match instead of ID match for better results`);
+                // Use stok_kodu matching as fallback
+                const filteredRecipes = recipesByStokKodu;
+                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (using stok_kodu match)`);
+                
+                // Create mock response
+                mmGtRecipeResponse = {
+                  ok: true,
+                  json: async () => filteredRecipes
+                };
+              } else {
+                const filteredRecipes = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
+                console.log(`📖 Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
+                
+                // Create mock response
+                mmGtRecipeResponse = {
+                  ok: true,
+                  json: async () => filteredRecipes
+                };
+              }
             }
             
             if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
@@ -10325,27 +10342,18 @@ const GalvanizliTelNetsis = () => {
       ? `/${mmGt.cast_kont}` 
       : '';
     
-    // Format tolerance values with correct signs from database
-    const toleransPlusSign = mmGt.tolerans_max_sign === '-' ? '-' : '+';
-    const toleransMinusSign = mmGt.tolerans_min_sign === '-' ? '-' : '+';
+    // Use stok_adi from database if available, otherwise generate it
+    let stokAdi = mmGt.stok_adi;
+    let englishName = mmGt.ingilizce_isim;
     
-    let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleransMinusSign}${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/${toleransPlusSign}${Math.abs(toleransPlus).toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
-    
-    // Add packaging suffixes if they exist in the original data
-    const suffixes = [];
-    if (existingPackaging.shrink) suffixes.push('Shrink');
-    if (existingPackaging.paletli) suffixes.push('Plt');
-    if (existingPackaging.sepetli) suffixes.push('Spt');
-    
-    if (suffixes.length > 0) {
-      stokAdi += '-' + suffixes.join('-');
+    // If stok_adi is not in database, generate it (shouldn't happen with proper data)
+    if (!stokAdi) {
+      stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     }
     
-    // Generate English name with same suffixes - use consistent "Galvanized Steel Wire" naming
-    let englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleransMinusSign}${Math.abs(toleransMinus).toFixed(2)}/${toleransPlusSign}${Math.abs(toleransPlus).toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
-    
-    if (suffixes.length > 0) {
-      englishName += '-' + suffixes.join('-');
+    // If English name is not in database, generate it
+    if (!englishName) {
+      englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     }
     
     return [
