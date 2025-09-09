@@ -8553,13 +8553,13 @@ const GalvanizliTelNetsis = () => {
     const receteHeaders = getReceteHeaders();
     mmGtReceteSheet.addRow(receteHeaders);
     
-    // Group MM GT recipes by stok_kodu for proper sequencing
+    // Group MM GT recipes by mamul_kodu for proper sequencing
     const mmGtByProduct = {};
     allMMGTRecetes.forEach(recipe => {
-      if (!mmGtByProduct[recipe.mm_gt_stok_kodu]) {
-        mmGtByProduct[recipe.mm_gt_stok_kodu] = [];
+      if (!mmGtByProduct[recipe.mamul_kodu]) {
+        mmGtByProduct[recipe.mamul_kodu] = [];
       }
-      mmGtByProduct[recipe.mm_gt_stok_kodu].push(recipe);
+      mmGtByProduct[recipe.mamul_kodu].push(recipe);
     });
     
     // Add MM GT recipes with proper sequencing per product
@@ -8568,7 +8568,7 @@ const GalvanizliTelNetsis = () => {
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         mmGtByProduct[stokKodu].forEach(recipe => {
-          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
+          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
           productSiraNo++;
         });
       }
@@ -8578,13 +8578,13 @@ const GalvanizliTelNetsis = () => {
     const ymGtReceteSheet = receteWorkbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
-    // Group YM GT recipes by stok_kodu for proper sequencing
+    // Group YM GT recipes by mamul_kodu for proper sequencing
     const ymGtByProduct = {};
     allYMGTRecetes.forEach(recipe => {
-      if (!ymGtByProduct[recipe.ym_gt_stok_kodu]) {
-        ymGtByProduct[recipe.ym_gt_stok_kodu] = [];
+      if (!ymGtByProduct[recipe.mamul_kodu]) {
+        ymGtByProduct[recipe.mamul_kodu] = [];
       }
-      ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
+      ymGtByProduct[recipe.mamul_kodu].push(recipe);
     });
     
     // Add YM GT recipes with proper sequencing per product
@@ -8595,7 +8595,7 @@ const GalvanizliTelNetsis = () => {
         ymGtByProduct[stokKodu].forEach(recipe => {
           // Apply the fix for 150 -> 150 03
           const finalMiktar = recipe.bilesen_kodu === '150' ? '150 03' : recipe.miktar;
-          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
           productSiraNo++;
         });
       }
@@ -8607,7 +8607,7 @@ const GalvanizliTelNetsis = () => {
     
     // Add all YM ST recipes (they don't need grouping by stok_kodu for sequence)
     allYMSTRecetes.forEach((recipe, index) => {
-      ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, index + 1, recipe.ym_st_stok_kodu));
+      ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, index + 1, recipe.mamul_kodu));
     });
     
     // Save Reçete Excel
