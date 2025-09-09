@@ -121,11 +121,6 @@ const GalvanizliTelNetsis = () => {
   
   // Bulk Excel Export için state'ler
   const [showBulkExcelMenu, setShowBulkExcelMenu] = useState(false);
-  const [bulkExcelDateRange, setBulkExcelDateRange] = useState({
-    startDate: '',
-    endDate: ''
-  });
-  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [dbSortDirection, setDbSortDirection] = useState('asc'); // Sıralama yönü (asc, desc)
   
   // Kopya onay diyalog durumlari
@@ -8206,57 +8201,6 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Export all approved requests to Excel
-  const exportAllApprovedToExcel = async () => {
-    try {
-      setIsExportingExcel(true);
-      //   id: r.id, 
-      //   status: r.status, 
-      //   raw_status: typeof r.status,
-      //   created_at: r.created_at 
-      // })));
-      
-      // Multiple validation approaches to catch edge cases
-      const approvedRequests = requests.filter(req => {
-        if (!req || !req.status) {
-          console.warn('⚠️ Request missing status:', req);
-          return false;
-        }
-        
-        const status = req.status.toString().toLowerCase().trim();
-        const isApproved = status === 'approved';
-        
-        if (isApproved) {
-          //   id: req.id, 
-          //   original_status: req.status, 
-          //   normalized_status: status 
-          // });
-        }
-        
-        return isApproved;
-      });
-      
-      //   id: r.id, 
-      //   status: r.status, 
-      //   created_at: r.created_at 
-      // })));
-      
-      if (approvedRequests.length === 0) {
-        toast.warning('Onaylanmış talep bulunamadı. Lütfen önce en az bir talebi onaylayın.');
-        return;
-      }
-      
-      await generateBatchExcelFromRequests(approvedRequests);
-      toast.success(`${approvedRequests.length} onaylanmış talep için Excel dosyaları başarıyla oluşturuldu!`);
-    } catch (error) {
-      console.error('BATCH EXCEL EXPORT FAILED:', error);
-      console.error('Error stack:', error.stack);
-      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
-    } finally {
-      setIsExportingExcel(false);
-      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
-    }
-  };
   
   // Download Today's Approved Excel
   const downloadTodaysApprovedExcel = async () => {
@@ -8327,47 +8271,6 @@ const GalvanizliTelNetsis = () => {
   };
   
   // Download Date Range Approved Excel
-  const downloadDateRangeApprovedExcel = async () => {
-    try {
-      setIsExportingExcel(true);
-      
-      if (!bulkExcelDateRange.startDate || !bulkExcelDateRange.endDate) {
-        toast.warning('Lütfen tarih aralığı seçin.');
-        return;
-      }
-      
-      const startDate = new Date(bulkExcelDateRange.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(bulkExcelDateRange.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      
-      const dateRangeApprovedRequests = requests.filter(req => {
-        if (!req || !req.status) return false;
-        
-        const status = req.status.toString().toLowerCase().trim();
-        const approvedAt = new Date(req.approved_at || req.updated_at);
-        
-        return status === 'approved' && 
-               approvedAt >= startDate && 
-               approvedAt <= endDate;
-      });
-      
-      if (dateRangeApprovedRequests.length === 0) {
-        toast.warning('Seçilen tarih aralığında onaylanmış talep bulunamadı.');
-        return;
-      }
-      
-      await generateBatchExcelFromRequests(dateRangeApprovedRequests);
-      toast.success(`Seçilen tarih aralığında ${dateRangeApprovedRequests.length} talep için Excel dosyaları oluşturuldu!`);
-    } catch (error) {
-      console.error('Date range Excel export error:', error);
-      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
-    } finally {
-      setIsExportingExcel(false);
-      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
-      setShowDateRangePicker(false);
-    }
-  };
 
   // Export selected approved requests to Excel
   const exportSelectedToExcel = async () => {
@@ -10307,13 +10210,10 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Tamamlanan görevler için Excel verileri bulunamadı');
       }
       
-      // Create combined Excel files
-      await Promise.all([
-        generateCombinedStokKartiExcelFromData(tasksWithData),
-        generateCombinedReceteExcelFromData(tasksWithData)
-      ]);
+      // Create ONLY combined recipe Excel (stock Excel already created post-save)
+      await generateCombinedReceteExcelFromData(tasksWithData);
       
-      toast.success(`${tasksWithData.length} ürün için birleştirilmiş Excel dosyaları oluşturuldu!`);
+      toast.success(`${tasksWithData.length} ürün için birleştirilmiş reçete Excel dosyası oluşturuldu!`);
       
     } catch (error) {
       console.error('Combined Excel generation error:', error);
@@ -13893,17 +13793,6 @@ const GalvanizliTelNetsis = () => {
                         <button
                           onClick={() => {
                             setShowBulkExcelMenu(false);
-                            exportAllApprovedToExcel();
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
-                        >
-                          <div className="font-medium">Tüm Onaylanmışları İndir</div>
-                          <div className="text-sm text-gray-500">Veritabanındaki tüm onaylı talepler</div>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setShowBulkExcelMenu(false);
                             downloadTodaysApprovedExcel();
                           }}
                           className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
@@ -13918,21 +13807,10 @@ const GalvanizliTelNetsis = () => {
                             setShowBulkExcelMenu(false);
                             downloadSessionApprovedExcel();
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100"
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50"
                         >
                           <div className="font-medium">Bu Oturumda Onaylananları İndir</div>
                           <div className="text-sm text-gray-500">{sessionApprovals.length} talep</div>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setShowBulkExcelMenu(false);
-                            setShowDateRangePicker(true);
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50"
-                        >
-                          <div className="font-medium">Tarih Aralığına Göre İndir</div>
-                          <div className="text-sm text-gray-500">Özel tarih aralığı seçin</div>
                         </button>
                       </div>
                     )}
@@ -16346,67 +16224,6 @@ const GalvanizliTelNetsis = () => {
                   </button>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Date Range Picker Modal */}
-      {showDateRangePicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDateRangePicker(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Tarih Aralığı Seçin</h3>
-              <button
-                onClick={() => setShowDateRangePicker(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Başlangıç Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={bulkExcelDateRange.startDate}
-                  onChange={(e) => setBulkExcelDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bitiş Tarihi
-                </label>
-                <input
-                  type="date"
-                  value={bulkExcelDateRange.endDate}
-                  onChange={(e) => setBulkExcelDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowDateRangePicker(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={downloadDateRangeApprovedExcel}
-                  disabled={!bulkExcelDateRange.startDate || !bulkExcelDateRange.endDate}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Excel Oluştur
-                </button>
-              </div>
             </div>
           </div>
         </div>
