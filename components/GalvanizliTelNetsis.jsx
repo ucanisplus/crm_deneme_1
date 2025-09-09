@@ -8711,7 +8711,7 @@ const GalvanizliTelNetsis = () => {
             }
             
             // Add MM GT recipes for this specific MM GT
-            console.log(`📖 Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id}...`);
+            console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id} (stok_kodu: ${mmGt.stok_kodu})...`);
             const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=2000`);
             let mmGtRecipeResponse = null;
             
@@ -8733,6 +8733,8 @@ const GalvanizliTelNetsis = () => {
               console.log(`📖 Recipe count: ${mmGtRecipes.length}`);
               if (mmGtRecipes.length > 0) {
                 console.log(`📖 First recipe sample:`, mmGtRecipes[0]);
+              } else {
+                console.warn(`⚠️ NO RECIPES found for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) - this product will be missing from recipe Excel`);
               }
               mmGtRecipes.forEach(r => {
                 // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
@@ -8786,6 +8788,14 @@ const GalvanizliTelNetsis = () => {
     const allMmGtRecipes = Array.from(mmGtRecipeMap.values());
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
+    
+    console.log('📊 === BATCH DATA COLLECTION SUMMARY ===');
+    console.log(`MM GT Products: ${allMmGtData.length}`);
+    console.log(`MM GT Recipes: ${allMmGtRecipes.length} (should be ~${allMmGtData.length * 8} for 8 components per product)`);
+    console.log(`YM GT Products: ${allYmGtData.length}`);
+    console.log(`YM GT Recipes: ${allYmGtRecipes.length}`);
+    console.log(`YM ST Products: ${allYmStData.length}`);
+    console.log(`YM ST Recipes: ${allYmStRecipes.length}`);
     
     // Sort all products by diameter (cap) in ascending order (low to high)
     console.log('🔢 Sorting products by diameter (Çap) - ascending order...');
@@ -8957,12 +8967,14 @@ const GalvanizliTelNetsis = () => {
     
     // FIXED: Add multiple MM GT recipe rows with per-product sequence numbering
     const mmGtByProduct = {};
+    console.log(`📊 Total MM GT recipes to process: ${mmGtRecipes.length}`);
     mmGtRecipes.forEach(recipe => {
       if (!mmGtByProduct[recipe.mm_gt_stok_kodu]) {
         mmGtByProduct[recipe.mm_gt_stok_kodu] = [];
       }
       mmGtByProduct[recipe.mm_gt_stok_kodu].push(recipe);
     });
+    console.log(`📊 Recipes grouped into ${Object.keys(mmGtByProduct).length} products`);
     
     // Get stok codes from sorted product data to maintain diameter order
     const sortedMmGtStokCodes = sortedMmGtData.map(product => product.stok_kodu);
@@ -8972,12 +8984,14 @@ const GalvanizliTelNetsis = () => {
     
     sortedMmGtStokCodes.forEach((stokKodu, index) => {
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
+        console.log(`✅ Adding ${mmGtByProduct[stokKodu].length} recipes for MM GT: ${stokKodu}`);
         let productSiraNo = 1; // Restart sequence for each product
         mmGtByProduct[stokKodu].forEach(recipe => {
           mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
           productSiraNo++;
         });
       } else {
+        console.warn(`⚠️ No recipes found for MM GT: ${stokKodu} - This product will have no recipe rows in Excel`);
       }
     });
     
@@ -10310,7 +10324,12 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
       : '';
-    let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    
+    // Format tolerance values with correct signs from database
+    const toleransPlusSign = mmGt.tolerans_max_sign === '-' ? '-' : '+';
+    const toleransMinusSign = mmGt.tolerans_min_sign === '-' ? '-' : '+';
+    
+    let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleransMinusSign}${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/${toleransPlusSign}${Math.abs(toleransPlus).toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     // Add packaging suffixes if they exist in the original data
     const suffixes = [];
@@ -10323,7 +10342,7 @@ const GalvanizliTelNetsis = () => {
     }
     
     // Generate English name with same suffixes - use consistent "Galvanized Steel Wire" naming
-    let englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+    let englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleransMinusSign}${Math.abs(toleransMinus).toFixed(2)}/${toleransPlusSign}${Math.abs(toleransPlus).toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     
     if (suffixes.length > 0) {
       englishName += '-' + suffixes.join('-');
@@ -10421,7 +10440,7 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGt.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGt.kg, // COIL WEIGHT (KG) MAX - Copy the same value from COIL WEIGHT
       generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus, mmGt.tolerans_max_sign, mmGt.tolerans_min_sign) // Tolerans Açıklama
     ];
   };
@@ -10525,7 +10544,7 @@ const GalvanizliTelNetsis = () => {
       mmGtData.dis_cap, // COIL DIMENSIONS (CM) OD
       mmGtData.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
-      '', // COIL WEIGHT (KG) MAX
+      mmGtData.kg, // COIL WEIGHT (KG) MAX - Copy the same value from COIL WEIGHT
       getToleransAciklama() // Tolerans Açıklama
     ];
   };
