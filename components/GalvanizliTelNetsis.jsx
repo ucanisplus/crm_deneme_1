@@ -9767,16 +9767,19 @@ const GalvanizliTelNetsis = () => {
     }
     
     async function generateDirectReceteExcelFromData(mmGtRecipeData, ymGtRecipeData, ymStRecipeData, tasks) {
-      console.log('📋 Generating direct recipe Excel...');
+      console.log('📋 Generating direct recipe Excel using PERFECTED format...');
       
-      // Create the exact same Excel structure as the batch function
+      // Create the exact same Excel structure as the perfected batch function
       const workbook = new ExcelJS.Workbook();
       
-      // MM GT REÇETE Sheet
-      const mmGtRecipeSheet = workbook.addWorksheet('MM GT REÇETE');
-      mmGtRecipeSheet.addRow(['STOK KODU', 'BİLEŞEN KODU', 'MİKTAR', 'BİRİM', 'KAYIP %']);
+      // Get the proper recipe headers (same as perfected function)
+      const receteHeaders = getReceteHeaders();
       
-      // Add MM GT recipes using the same logic as the batch function
+      // MM GT REÇETE Sheet - Use PERFECTED format
+      const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
+      mmGtReceteSheet.addRow(receteHeaders);
+      
+      // Add MM GT recipes using the PERFECTED logic
       for (const task of tasks) {
         const { excelData } = task;
         
@@ -9790,11 +9793,11 @@ const GalvanizliTelNetsis = () => {
         const mainYmStIndex = excelData.mainYmStIndex || 0;
         const sequence = excelData.sequence;
         
-        // Add MM GT recipes using the same fixed logic
-        const mmGtRecipe = excelData.allRecipes.mmGtRecipes[mainYmStIndex] || {};
+        // Use the SAME logic as the perfected individual Excel generation
+        const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex] } || {};
         const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
         
-        // Fix YM.GT key in recipe
+        // Fix YM.GT key in recipe (same as perfected)
         const fixedRecipe = {};
         Object.entries(mmGtRecipe).forEach(([key, value]) => {
           if (key.includes('YM.GT.')) {
@@ -9804,11 +9807,11 @@ const GalvanizliTelNetsis = () => {
           }
         });
         
-        // Process recipe entries in the same fixed order as the batch function
+        // Process recipe entries using the PERFECTED fixed order
         const processedMmGtRecipe = fixedRecipe;
         const mmGtRecipeEntries = Object.entries(processedMmGtRecipe);
         
-        // Maintain the same fixed order as the original
+        // PERFECTED fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
         const ymGtEntry = mmGtRecipeEntries.find(([key]) => key === correctStokKodu) || 
                           mmGtRecipeEntries.find(([key]) => key.includes('YM.GT.'));
         const gtpkt01Entry = mmGtRecipeEntries.find(([key]) => key === 'GTPKT01');
@@ -9819,61 +9822,79 @@ const GalvanizliTelNetsis = () => {
         const tokaEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
         const desiEntry = mmGtRecipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
         
-        // Add entries in the same order
+        // Add entries in the PERFECTED fixed order
         const orderedEntries = [ymGtEntry, gtpkt01Entry, kartonEntry, shrinkEntry, halkaEntry, cemberEntry, tokaEntry, desiEntry].filter(Boolean);
         
-        orderedEntries.forEach(([bilesenKodu, miktar]) => {
-          if (miktar && parseFloat(miktar) > 0) {
-            mmGtRecipeSheet.addRow([
-              excelData.mmGtData.stok_kodu, // Use MM GT stok_kodu as STOK KODU
-              bilesenKodu,
-              miktar,
-              'KG',
-              '0'
-            ]);
+        // Use the PERFECTED generateMmGtReceteRow function
+        let siraNo = 1;
+        orderedEntries.forEach(([key, value]) => {
+          if (value > 0) {
+            mmGtReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+            siraNo++;
           }
         });
       }
       
-      // YM GT REÇETE Sheet 
-      const ymGtRecipeSheet = workbook.addWorksheet('YM GT REÇETE');
-      ymGtRecipeSheet.addRow(['STOK KODU', 'BİLEŞEN KODU', 'MİKTAR', 'BİRİM', 'KAYIP %']);
+      // YM GT REÇETE Sheet - Use PERFECTED format
+      const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
+      ymGtReceteSheet.addRow(receteHeaders);
       
-      // Add YM GT recipes
+      // Add YM GT recipes using PERFECTED logic
       for (const task of tasks) {
         const { excelData } = task;
         
         // Validate excelData structure for YM GT recipes
-        if (!excelData || !excelData.allRecipes || !excelData.allRecipes.ymGtRecipes) {
+        if (!excelData || !excelData.allRecipes || !excelData.allRecipes.ymGtRecipe) {
           console.warn('⚠️ Missing YM GT recipe data in task, skipping YM GT recipes');
           continue;
         }
         
-        const allYmSts = [...(excelData.selectedYmSts || []), ...(excelData.autoGeneratedYmSts || [])];
-        const mainYmStIndex = excelData.mainYmStIndex || 0;
         const sequence = excelData.sequence;
-        const ymGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
         
-        const ymGtRecipe = excelData.allRecipes.ymGtRecipes[mainYmStIndex] || {};
+        // Use PERFECTED YM GT recipe logic
+        let siraNo2 = 1;
+        const ymGtRecipeEntries = Object.entries(excelData.allRecipes.ymGtRecipe);
         
-        Object.entries(ymGtRecipe).forEach(([bilesenKodu, miktar]) => {
-          if (miktar && parseFloat(miktar) > 0) {
-            ymGtRecipeSheet.addRow([
-              ymGtStokKodu,
-              bilesenKodu,
-              miktar,
-              'KG',
-              '0'
-            ]);
+        // PERFECTED fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
+        const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
+        const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
+        const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
+        const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
+        
+        const otherYmGtEntries = ymGtRecipeEntries.filter(([key]) => 
+          !key.includes('YM.ST.') && 
+          key !== 'GLV01' && 
+          key !== '150 03' && 
+          key !== 'SM.HİDROLİK.ASİT'
+        );
+        
+        // Add entries in PERFECTED order
+        const orderedYmGtEntries = [
+          ymStEntry, 
+          glv01Entry,
+          zincEntry,
+          asitEntry,
+          ...otherYmGtEntries
+        ].filter(Boolean);
+        
+        orderedYmGtEntries.forEach(([key, value]) => {
+          if (value > 0) {
+            // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+            let finalValue = value;
+            if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+              finalValue = 1 - parseFloat(zincEntry[1]);
+            }
+            ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence));
+            siraNo2++;
           }
         });
       }
       
-      // YM ST REÇETE Sheet
-      const ymStRecipeSheet = workbook.addWorksheet('YM ST REÇETE');
-      ymStRecipeSheet.addRow(['STOK KODU', 'BİLEŞEN KODU', 'MİKTAR', 'BİRİM', 'KAYIP %']);
+      // YM ST REÇETE Sheet - Use PERFECTED format
+      const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
+      ymStReceteSheet.addRow(receteHeaders);
       
-      // Add YM ST recipes
+      // Add YM ST recipes using PERFECTED logic
       for (const task of tasks) {
         const { excelData } = task;
         
@@ -9884,21 +9905,46 @@ const GalvanizliTelNetsis = () => {
         }
         
         const allYmSts = [...(excelData.selectedYmSts || []), ...(excelData.autoGeneratedYmSts || [])];
+        const mainYmStIndex = excelData.mainYmStIndex || 0;
         
-        allYmSts.forEach((ymSt, ymStIndex) => {
-          const ymStRecipe = excelData.allRecipes.ymStRecipes[ymStIndex] || {};
-          
-          Object.entries(ymStRecipe).forEach(([bilesenKodu, miktar]) => {
-            if (miktar && parseFloat(miktar) > 0) {
-              ymStRecipeSheet.addRow([
-                ymSt.stok_kodu,
-                bilesenKodu,
-                miktar,
-                'KG',
-                '0'
-              ]);
-            }
-          });
+        // Add main YM ST recipe first (PERFECTED logic)
+        let siraNoMain = 1;
+        const mainYmStRecipe = excelData.allRecipes.ymStRecipes[mainYmStIndex] || {};
+        const mainRecipeEntries = Object.entries(mainYmStRecipe);
+        
+        // PERFECTED fixed order: FLM.*.*, TLC01
+        const mainFlmEntry = mainRecipeEntries.find(([key]) => key.includes('FLM.'));
+        const mainTlcEntry = mainRecipeEntries.find(([key]) => key === 'TLC01');
+        
+        const mainOrderedEntries = [mainFlmEntry, mainTlcEntry].filter(Boolean);
+        
+        mainOrderedEntries.forEach(([key, value]) => {
+          if (value > 0) {
+            ymStReceteSheet.addRow(generateYmStReceteRow(key, value, siraNoMain));
+            siraNoMain++;
+          }
+        });
+        
+        // Add other YM ST recipes (PERFECTED logic)
+        allYmSts.forEach((ymSt, index) => {
+          if (index !== mainYmStIndex) { // Skip main YM ST (already added)
+            let siraNoOther = 1;
+            const otherYmStRecipe = excelData.allRecipes.ymStRecipes[index] || {};
+            const otherRecipeEntries = Object.entries(otherYmStRecipe);
+            
+            // Same PERFECTED fixed order for other YM STs
+            const otherFlmEntry = otherRecipeEntries.find(([key]) => key.includes('FLM.'));
+            const otherTlcEntry = otherRecipeEntries.find(([key]) => key === 'TLC01');
+            
+            const otherOrderedEntries = [otherFlmEntry, otherTlcEntry].filter(Boolean);
+            
+            otherOrderedEntries.forEach(([key, value]) => {
+              if (value > 0) {
+                ymStReceteSheet.addRow(generateYmStReceteRowForBatch(key, value, siraNoOther, ymSt.stok_kodu));
+                siraNoOther++;
+              }
+            });
+          }
         });
       }
       
@@ -9907,7 +9953,7 @@ const GalvanizliTelNetsis = () => {
       const filename = `Recete_PostSave_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
       saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
       
-      console.log('✅ Direct recipe Excel generated successfully');
+      console.log('✅ Direct recipe Excel generated successfully using PERFECTED format');
     }
     
     tasks.forEach(task => {
