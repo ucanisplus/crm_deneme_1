@@ -11480,7 +11480,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? 'O' : 'B', // GTPKT01 should be marked as O (Operasyon) per Excel format
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11517,7 +11517,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? 'O' : 'B', // According to Excel format, only GLV01 is O (Operasyon), all others are B (Bileşen)
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11553,7 +11553,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11592,7 +11592,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // Bileşen/Operasyon
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11631,7 +11631,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? 'O' : 'B', // GLV01 is O (Operasyon), others are B (Bileşen)
       fixedBilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(fixedBilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
@@ -11667,7 +11667,7 @@ const GalvanizliTelNetsis = () => {
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
       bilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
-      isOperation ? miktar : formatDecimalForReceteExcel(miktar), // Miktar - 5 decimals ONLY for non-O rows
+      formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
