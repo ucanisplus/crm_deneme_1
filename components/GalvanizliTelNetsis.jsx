@@ -8593,9 +8593,8 @@ const GalvanizliTelNetsis = () => {
       if (ymGtByProduct[stokKodu] && ymGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymGtByProduct[stokKodu].forEach(recipe => {
-          // Apply the fix for 150 -> 150 03
-          const finalMiktar = recipe.bilesen_kodu === '150' ? '150 03' : recipe.miktar;
-          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          // Use the actual miktar value from database - component code fix happens inside generateYmGtReceteRowForBatch
+          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
           productSiraNo++;
         });
       }
@@ -11504,21 +11503,24 @@ const GalvanizliTelNetsis = () => {
   const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     
+    // Fix: Convert "150" to "150 03"
+    const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
+    
     // Determine if this is an Operation row
-    const isOperation = bilesenKodu === 'GLV01';
+    const isOperation = fixedBilesenKodu === 'GLV01';
     
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
       '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
       '', // Oto.Reç.
-      getOlcuBr(bilesenKodu), // Ölçü Br.
+      getOlcuBr(fixedBilesenKodu), // Ölçü Br.
       siraNo, // Sıra No - incremental as requested
       isOperation ? 'O' : 'B', // According to Excel format, only GLV01 is O (Operasyon), all others are B (Bileşen)
-      bilesenKodu, // Bileşen Kodu
+      fixedBilesenKodu, // Bileşen Kodu
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
-      getReceteAciklama(bilesenKodu), // Açıklama
+      getReceteAciklama(fixedBilesenKodu), // Açıklama
       '', // Miktar Sabitle
       '', // Stok/Maliyet
       '', // Fire Mik.
