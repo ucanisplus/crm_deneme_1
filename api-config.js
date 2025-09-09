@@ -46,6 +46,14 @@ export const API_URLS = {
   getAllNCBKRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
   getAllNTELRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
   
+  // Galvanizli Tel Bulk endpoints for Excel generation - NEW
+  getAllMMGT: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt/bulk-all',
+  getAllYMGT: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_gt/bulk-all',
+  getAllYMST: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st/bulk-all',
+  getAllMMGTRecetes: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt_recete/bulk-all',
+  getAllYMGTRecetes: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_gt_recete/bulk-all',
+  getAllYMSTRecetes: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st_recete/bulk-all',
+  
   // Mesh Type Configurations - NEW
   meshTypeConfigs: 'https://crm-deneme-backend.vercel.app/api/mesh-configs',
 

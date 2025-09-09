@@ -8417,6 +8417,232 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Bulk Excel generation - download entire database and process locally (similar to Çelik Hasır pattern)
+  const generateBulkExcelFromDatabase = useCallback(async () => {
+    try {
+      setIsExportingExcel(true);
+      setExcelProgress({ current: 0, total: 6, operation: 'Toplu veritabanı indirme başlıyor...', currentProduct: '' });
+
+      console.log('🚀 BULK EXCEL GT: Starting bulk database download using unified fetch approach...');
+
+      // 1. Get all product data first
+      setExcelProgress({ current: 1, total: 6, operation: 'Ürün verileri alınıyor...', currentProduct: '' });
+      
+      const [mmgtResponse, ymgtResponse, ymstResponse] = await Promise.all([
+        fetch(`${API_URLS.getAllMMGT}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`${API_URLS.getAllYMGT}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`${API_URLS.getAllYMST}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+      ]);
+
+      const [allMMGTProducts, allYMGTProducts, allYMSTProducts] = await Promise.all([
+        mmgtResponse.json(),
+        ymgtResponse.json(),
+        ymstResponse.json()
+      ]);
+
+      console.log(`🚀 BULK EXCEL GT: Found MM GT(${allMMGTProducts.length}), YM GT(${allYMGTProducts.length}), YM ST(${allYMSTProducts.length}) products`);
+
+      // 2. Fetch all recipe data
+      setExcelProgress({ current: 2, total: 6, operation: 'Reçete verileri alınıyor...', currentProduct: '' });
+      
+      const [mmgtReceteResponse, ymgtReceteResponse, ymstReceteResponse] = await Promise.all([
+        fetch(`${API_URLS.getAllMMGTRecetes}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`${API_URLS.getAllYMGTRecetes}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`${API_URLS.getAllYMSTRecetes}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+      ]);
+
+      const [allMMGTRecetes, allYMGTRecetes, allYMSTRecetes] = await Promise.all([
+        mmgtReceteResponse.json(),
+        ymgtReceteResponse.json(),
+        ymstReceteResponse.json()
+      ]);
+
+      console.log(`🚀 BULK EXCEL GT: Found MM GT Recipes(${allMMGTRecetes.length}), YM GT Recipes(${allYMGTRecetes.length}), YM ST Recipes(${allYMSTRecetes.length})`);
+
+      // 3. Create lookup maps for fast relationship matching
+      setExcelProgress({ current: 3, total: 6, operation: 'Veri ilişkileri oluşturuluyor...', currentProduct: '' });
+      
+      const mmgtMap = new Map(allMMGTProducts.map(p => [p.id, p]));
+      const ymgtMap = new Map(allYMGTProducts.map(p => [p.id, p]));
+      const ymstMap = new Map(allYMSTProducts.map(p => [p.id, p]));
+      
+      const mmgtReceteMap = new Map();
+      allMMGTRecetes.forEach(recipe => {
+        if (!mmgtReceteMap.has(recipe.mm_gt_id)) {
+          mmgtReceteMap.set(recipe.mm_gt_id, []);
+        }
+        mmgtReceteMap.get(recipe.mm_gt_id).push(recipe);
+      });
+      
+      const ymgtReceteMap = new Map();
+      allYMGTRecetes.forEach(recipe => {
+        if (!ymgtReceteMap.has(recipe.ym_gt_id)) {
+          ymgtReceteMap.set(recipe.ym_gt_id, []);
+        }
+        ymgtReceteMap.get(recipe.ym_gt_id).push(recipe);
+      });
+      
+      const ymstReceteMap = new Map();
+      allYMSTRecetes.forEach(recipe => {
+        if (!ymstReceteMap.has(recipe.ym_st_id)) {
+          ymstReceteMap.set(recipe.ym_st_id, []);
+        }
+        ymstReceteMap.get(recipe.ym_st_id).push(recipe);
+      });
+
+      // 4. Build complete product data with relationships using ID sequence matching
+      setExcelProgress({ current: 4, total: 6, operation: 'Ürün ilişkileri kuruluyor...', currentProduct: '' });
+      
+      const completeProductsData = [];
+      
+      // Process each MM GT product and find related YM GT and YM ST products
+      allMMGTProducts.forEach(mmgtProduct => {
+        // Find YM GT using ID sequence (YM GT id = MM GT id + 1)
+        const ymgtProduct = ymgtMap.get(mmgtProduct.id + 1);
+        // Find YM ST using ID sequence (YM ST id = YM GT id + 1)
+        const ymstProduct = ymgtProduct ? ymstMap.get((mmgtProduct.id + 1) + 1) : null;
+        
+        if (ymgtProduct) {
+          const productData = {
+            mmgt: mmgtProduct,
+            ymgt: ymgtProduct, 
+            ymst: ymstProduct,
+            mmgtRecetes: mmgtReceteMap.get(mmgtProduct.id) || [],
+            ymgtRecetes: ymgtReceteMap.get(ymgtProduct.id) || [],
+            ymstRecetes: ymstProduct ? (ymstReceteMap.get(ymstProduct.id) || []) : []
+          };
+          
+          completeProductsData.push(productData);
+        }
+      });
+
+      console.log(`🚀 BULK EXCEL GT: Built ${completeProductsData.length} complete product relationships`);
+
+      // 5. Generate Excel using existing perfected functions
+      setExcelProgress({ current: 5, total: 6, operation: 'Excel dosyaları oluşturuluyor...', currentProduct: '' });
+      
+      if (completeProductsData.length === 0) {
+        toast.error('Hiç ürün bulunamadı!');
+        return;
+      }
+
+      // Use the same Excel generation logic as individual products but with bulk data
+      await generateBulkExcelFiles(completeProductsData);
+
+      setExcelProgress({ current: 6, total: 6, operation: 'Tamamlandı!', currentProduct: '' });
+      toast.success(`Toplu Excel başarıyla oluşturuldu! ${completeProductsData.length} ürün işlendi.`);
+
+    } catch (error) {
+      console.error('🚨 BULK EXCEL GT Error:', error);
+      toast.error('Toplu Excel oluştururken hata: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+    }
+  }, []);
+
+  // Helper function to generate Excel files from bulk data
+  const generateBulkExcelFiles = async (productsData) => {
+    const workbook = new ExcelJS.Workbook();
+    
+    // Create combined Stok Kartı sheet
+    const stokSheet = workbook.addWorksheet('Stok Kartı');
+    const stokHeaders = getStokKartiHeaders();
+    stokSheet.addRow(stokHeaders.map(header => header.header));
+    
+    // Create combined Recipe sheet  
+    const receteSheet = workbook.addWorksheet('Reçete');
+    const receteHeaders = getReceteHeaders();
+    receteSheet.addRow(receteHeaders.map(header => header.header));
+
+    // Process each product and add to combined sheets
+    let stokRowCount = 2; // Start from row 2 (after header)
+    let receteRowCount = 2; // Start from row 2 (after header)
+    
+    productsData.forEach((productData, index) => {
+      setExcelProgress(prev => ({ 
+        ...prev, 
+        currentProduct: `İşleniyor: ${productData.mmgt.stok_kodu || 'Unknown'} (${index + 1}/${productsData.length})` 
+      }));
+      
+      const { mmgt, ymgt, ymst, mmgtRecetes, ymgtRecetes, ymstRecetes } = productData;
+      
+      // Add MM GT to Stok sheet
+      const mmgtStokRow = generateStokKartiRow(mmgt, 'MM GT');
+      stokSheet.addRow(mmgtStokRow);
+      stokRowCount++;
+      
+      // Add YM GT to Stok sheet
+      const ymgtStokRow = generateStokKartiRow(ymgt, 'YM GT');
+      stokSheet.addRow(ymgtStokRow);
+      stokRowCount++;
+      
+      // Add YM ST to Stok sheet (if exists)
+      if (ymst) {
+        const ymstStokRow = generateStokKartiRow(ymst, 'YM ST');
+        stokSheet.addRow(ymstStokRow);
+        stokRowCount++;
+      }
+      
+      // Add MM GT recipes
+      mmgtRecetes.forEach(recipe => {
+        const receteRow = generateReceteRow(recipe, mmgt, 'MM GT');
+        receteSheet.addRow(receteRow);
+        receteRowCount++;
+      });
+      
+      // Add YM GT recipes  
+      ymgtRecetes.forEach(recipe => {
+        const receteRow = generateReceteRow(recipe, ymgt, 'YM GT');
+        receteSheet.addRow(receteRow);
+        receteRowCount++;
+      });
+      
+      // Add YM ST recipes (if exists)
+      if (ymst) {
+        ymstRecetes.forEach(recipe => {
+          const receteRow = generateReceteRow(recipe, ymst, 'YM ST');
+          receteSheet.addRow(receteRow);
+          receteRowCount++;
+        });
+      }
+    });
+
+    // Apply formatting using existing functions
+    applyStokKartiFormatting(stokSheet, stokRowCount - 1);
+    applyReceteFormatting(receteSheet, receteRowCount - 1);
+
+    // Save the combined Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('tr-TR').replace(/\./g, '_');
+    const filename = `GT_Toplu_Urunler_${dateStr}.xlsx`;
+    
+    saveAs(blob, filename);
+    
+    console.log(`✅ BULK EXCEL GT: Generated combined Excel with ${productsData.length} products`);
+  };
+
   // Generate Excel files from multiple requests (creates combined stok and recipe Excel files)
   const generateBatchExcelFromRequests = async (requestsList) => {
     console.log('📋 === BATCH EXCEL GENERATION STARTED ===');
@@ -14916,6 +15142,18 @@ const GalvanizliTelNetsis = () => {
                     </svg>
                     Yenile
                   </button>
+
+                  <button
+                    onClick={() => generateBulkExcelFromDatabase()}
+                    disabled={isExportingExcel}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg flex items-center gap-2 hover:bg-teal-700 transition-colors shadow-sm disabled:bg-gray-400"
+                  >
+                    <svg className={`w-4 h-4 ${isExportingExcel ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Tüm Ürünler Excel
+                  </button>
+                  
                   <button
                     onClick={() => setShowExistingMmGtModal(false)}
                     className="text-gray-500 hover:text-gray-700 transition-colors"
