@@ -9825,11 +9825,11 @@ const GalvanizliTelNetsis = () => {
         // Add entries in the PERFECTED fixed order
         const orderedEntries = [ymGtEntry, gtpkt01Entry, kartonEntry, shrinkEntry, halkaEntry, cemberEntry, tokaEntry, desiEntry].filter(Boolean);
         
-        // Use the PERFECTED generateMmGtReceteRow function
+        // Use the PERFECTED generateMmGtReceteRowForBatch function (which accepts parameters)
         let siraNo = 1;
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            mmGtReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+            mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(key, value, siraNo, sequence, excelData.mmGtData.stok_kodu));
             siraNo++;
           }
         });
@@ -9884,7 +9884,8 @@ const GalvanizliTelNetsis = () => {
             if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
               finalValue = 1 - parseFloat(zincEntry[1]);
             }
-            ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence));
+            const ymGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
+            ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(key, finalValue, siraNo2, sequence, ymGtStokKodu));
             siraNo2++;
           }
         });
@@ -9920,7 +9921,8 @@ const GalvanizliTelNetsis = () => {
         
         mainOrderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            ymStReceteSheet.addRow(generateYmStReceteRow(key, value, siraNoMain));
+            const mainYmSt = allYmSts[mainYmStIndex];
+            ymStReceteSheet.addRow(generateYmStReceteRowForBatch(key, value, siraNoMain, mainYmSt.stok_kodu));
             siraNoMain++;
           }
         });
