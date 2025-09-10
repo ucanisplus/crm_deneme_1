@@ -4175,8 +4175,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
-          '', '', '', '', '', 'H', 'E', '', '', '',
-          product.existingStokKodu, 'NCBK', 'E', 'E'
+          '', '', '', '', '', 'H', 'H', '', '', '',
+          product.existingStokKodu, 'NCBK', 'H', 'H'
         ]);
       } else if (product.productType === 'NTEL') {
         // Generate YM NTEL STOK row
@@ -4190,8 +4190,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
-          '', '', '', '', '', 'H', 'E', '', '', '',
-          product.existingStokKodu, 'NTEL', 'E', 'E'
+          '', '', '', '', '', 'H', 'H', '', '', '',
+          product.existingStokKodu, 'NTEL', 'H', 'H'
         ]);
       }
     });
