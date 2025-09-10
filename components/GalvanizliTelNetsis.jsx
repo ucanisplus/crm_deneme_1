@@ -108,8 +108,6 @@ const GalvanizliTelNetsis = () => {
   
   // Task Queue System için state'ler
   const [taskQueue, setTaskQueue] = useState([]); // {id, name, status: 'pending'|'processing'|'completed'|'failed', timestamp}
-  // Track requests that have been added to queue (for visual indicator)
-  const [requestsInQueue, setRequestsInQueue] = useState(new Set());
   const [showTaskQueuePopup, setShowTaskQueuePopup] = useState(false);
   const [showQueueCompletionPopup, setShowQueueCompletionPopup] = useState(false);
   const [completedQueueTasks, setCompletedQueueTasks] = useState([]);
@@ -2148,27 +2146,10 @@ const GalvanizliTelNetsis = () => {
   
   // Check if request is being processed in queue
   const isRequestInQueue = (requestId) => {
-    // Check if request is explicitly tracked as being in queue
-    const inQueueSet = requestsInQueue.has(parseInt(requestId));
-    
-    // Also check task queue as backup
-    const queueResult = taskQueue.some(task => 
-      (task.status === 'processing' || task.status === 'pending') && 
+    return taskQueue.some(task => 
+      task.status === 'processing' && 
       (task.name.includes(requestId) || task.name.includes('Düzenle'))
     );
-    
-    // Debug logging
-    if (requestId && (requestsInQueue.size > 0 || taskQueue.length > 0)) {
-      console.log('🔍 Queue check for request:', requestId, {
-        requestsInQueue: Array.from(requestsInQueue),
-        taskQueue: taskQueue.map(t => ({ name: t.name, status: t.status })),
-        inQueueSet: inQueueSet,
-        queueResult: queueResult,
-        finalResult: inQueueSet || queueResult
-      });
-    }
-    
-    return inQueueSet || queueResult;
   };
 
   // Durum metnini almak icin yardimci fonksiyon
@@ -6022,9 +6003,6 @@ const GalvanizliTelNetsis = () => {
     // Kuyruğa ekle
     setTaskQueue(prev => [...prev, newTask]);
     taskQueueRef.current = [...taskQueueRef.current, newTask];
-    
-    // Track this request as being in queue for visual indicator
-    setRequestsInQueue(prev => new Set([...prev, selectedRequest.id]));
     
     try {
       // Gerçek veritabanı kaydetme işlemi - bu normal sürede çalışacak
@@ -14133,12 +14111,7 @@ const GalvanizliTelNetsis = () => {
                               <span className={`px-1 py-0.5 text-xs font-medium rounded border ${getStatusBadgeColor(request.status, request.id)}`}>
                                 {getStatusText(request.status, request.id).slice(0, 6)}
                               </span>
-                              {isRequestInQueue(request.id) && (
-                                <div 
-                                  className="w-2 h-2 bg-red-500 rounded-full animate-pulse" 
-                                  title="Bu talep şu anda işleniyor"
-                                ></div>
-                              )}
+                              {/* Queue indicator removed for safety */}
                             </div>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
