@@ -2147,7 +2147,7 @@ const GalvanizliTelNetsis = () => {
   // Check if request is being processed in queue
   const isRequestInQueue = (requestId) => {
     return taskQueue.some(task => 
-      task.status === 'processing' && 
+      (task.status === 'processing' || task.status === 'pending') && 
       (task.name.includes(requestId) || task.name.includes('Düzenle'))
     );
   };
@@ -14111,7 +14111,7 @@ const GalvanizliTelNetsis = () => {
                               <span className={`px-1 py-0.5 text-xs font-medium rounded border ${getStatusBadgeColor(request.status, request.id)}`}>
                                 {getStatusText(request.status, request.id).slice(0, 6)}
                               </span>
-                              {(isRequestInQueue(request.id) || request.status === 'pending') && (
+                              {isRequestInQueue(request.id) && (
                                 <div 
                                   className="w-2 h-2 bg-red-500 rounded-full animate-pulse" 
                                   title="Bu talep şu anda işleniyor"
