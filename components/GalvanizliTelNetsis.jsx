@@ -661,7 +661,7 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       // UI'da filtreleme icin durumuna bakmaksizin tum talepleri getir
-      const response = await fetchWithAuth(`${API_URLS.galSalRequests}?_cache_bust=${Date.now()}`);
+      const response = await fetchWithAuth(`${API_URLS.galSalRequests}`);
       if (response && response.ok) {
         const data = await response.json();
         const requestsData = Array.isArray(data) ? data : [];
@@ -814,7 +814,7 @@ const GalvanizliTelNetsis = () => {
   // Mevcut MM GT'leri getir
   const fetchExistingMmGts = async () => {
     try {
-      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000&sort_by=created_at&sort_order=desc&_cache_bust=${Date.now()}`);
+      const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (response && response.ok) {
         const data = await response.json();
         setExistingMmGts(Array.isArray(data) ? data : []);
@@ -11970,12 +11970,7 @@ const GalvanizliTelNetsis = () => {
             Hesaplama Değerleri
           </button>
           <button
-            onClick={() => {
-              // Add cache-busting when opening database modal
-              fetchExistingMmGts();
-              fetchExistingYmSts();
-              setShowExistingMmGtModal(true);
-            }}
+            onClick={() => setShowExistingMmGtModal(true)}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -13237,12 +13232,7 @@ const GalvanizliTelNetsis = () => {
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {(() => {
                 const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && !isViewingExistingProduct;
-                console.log('Sadece Kaydet button visibility:', {
-                  shouldShow,
-                  isViewingExistingProduct,
-                  savedToDatabase,
-                  isEditingRequest
-                });
+                // Removed frequent console.log to reduce render noise
                 return shouldShow;
               })() && (
                 <button
