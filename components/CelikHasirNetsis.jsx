@@ -1705,91 +1705,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
     console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
     
-    // OPTIMIZED: Check local savedProducts data for highest existing CHOZL sequence
-    // This avoids additional API calls and uses the most up-to-date data the component has
-    try {
-      console.log('*** Checking local savedProducts data for highest existing CHOZL sequence');
-      let highestDbSequence = 0;
-      
-      const mmProducts = savedProducts?.mm || [];
-      const chozlProducts = mmProducts.filter(product => 
-        product.stok_kodu && product.stok_kodu.startsWith('CHOZL')
-      );
-      
-      console.log(`*** Found ${chozlProducts.length} CHOZL products in local data:`, 
-        chozlProducts.map(p => p.stok_kodu).slice(0, 5));
-      
-      chozlProducts.forEach(product => {
-        const match = product.stok_kodu.match(/CHOZL(\d+)/);
-        if (match) {
-          const seqNum = parseInt(match[1]);
-          console.log(`*** Found CHOZL sequence: ${seqNum} from ${product.stok_kodu}`);
-          if (seqNum > highestDbSequence) {
-            highestDbSequence = seqNum;
-          }
-        }
-      });
-      
-      console.log('*** Local data highest CHOZL sequence found:', highestDbSequence);
-      
-      // Use the higher of sequence table or actual database
-      maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
-      console.log('*** Final max sequence after local check:', maxSequence, 'table:', preliminaryMaxSequence, 'local:', highestDbSequence);
-      
-      // If local data has higher, we should update the sequence table
-      if (highestDbSequence > preliminaryMaxSequence) {
-        console.log('*** Local data is ahead! Sequence table will be updated to:', highestDbSequence);
-      } else if (highestDbSequence === 0 && preliminaryMaxSequence > 0) {
-        console.log('*** No CHOZL products in local data but sequence table shows:', preliminaryMaxSequence);
-        console.log('*** This suggests products were deleted. Refreshing data to verify...');
-        
-        // CACHE INVALIDATION: Force refresh data when there's a discrepancy
-        try {
-          console.log('*** Performing cache-busted API call to verify database state');
-          const freshDataResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=10&_cache_bust=${Date.now()}`);
-          if (freshDataResponse?.ok) {
-            const freshData = await freshDataResponse.json();
-            const freshProducts = freshData.data || freshData;
-            
-            if (Array.isArray(freshProducts) && freshProducts.length > 0) {
-              console.log('*** Fresh API data shows CHOZL products still exist:', freshProducts.map(p => p.stok_kodu));
-              
-              // Find highest from fresh API data
-              let freshHighest = 0;
-              freshProducts.forEach(product => {
-                const match = product.stok_kodu.match(/CHOZL(\d+)/);
-                if (match) {
-                  const seqNum = parseInt(match[1]);
-                  if (seqNum > freshHighest) {
-                    freshHighest = seqNum;
-                  }
-                }
-              });
-              
-              console.log('*** Fresh API highest sequence:', freshHighest);
-              maxSequence = Math.max(preliminaryMaxSequence, freshHighest);
-              console.log('*** Using fresh API data result:', maxSequence);
-              
-              // Force refresh local data to match reality
-              console.log('*** Forcing local data refresh to match API reality');
-              await fetchSavedProducts(false, true);
-            } else {
-              console.log('*** Fresh API confirms: No CHOZL products exist, using sequence table:', preliminaryMaxSequence);
-              maxSequence = preliminaryMaxSequence; // Use sequence table value as-is
-            }
-          }
-        } catch (apiError) {
-          console.error('*** Fresh API call failed:', apiError);
-          console.log('*** Fallback: Using sequence table minus 1 due to suspected deletion:', Math.max(0, preliminaryMaxSequence - 1));
-          maxSequence = Math.max(0, preliminaryMaxSequence - 1);
-        }
-      }
-      
-    } catch (localCheckError) {
-      console.error('*** Error checking local data for duplicates:', localCheckError);
-      maxSequence = preliminaryMaxSequence;
-      console.log('*** Using sequence table value as fallback after error:', maxSequence);
-    }
+    // Use the sequence table value directly - backend maintains this correctly
+    maxSequence = preliminaryMaxSequence;
+    console.log('*** Using sequence table value:', maxSequence);
     
     batchSequenceCounter = maxSequence;
     batchSequenceInitialized = true;
@@ -6347,37 +6265,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           Veritabanı İşlemleri
         </button>
         
-        <button
-          onClick={async () => {
-            console.log('🔄 Sequence refresh button clicked');
-            setIsLoading(true);
-            try {
-              // Reset batch sequence initialization to force fresh check
-              batchSequenceInitialized = false;
-              console.log('🔄 Reset batch sequence flag');
-              
-              // Force refresh saved products data
-              await fetchSavedProducts(false, true);
-              
-              // Force re-initialize batch sequence with fresh data
-              await initializeBatchSequence(true);
-              
-              toast.success('Sıra numaraları başarıyla yenilendi!');
-            } catch (error) {
-              console.error('Sequence refresh error:', error);
-              toast.error('Sıra numarası yenilemede hata oluştu');
-            } finally {
-              setIsLoading(false);
-            }
-          }}
-          disabled={isLoading}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm disabled:bg-gray-400 flex items-center gap-2"
-          title="Ürün silindiğinde sıra numaralarını zorla yenile"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Sıra Numarası Yenile
-        </button>
-        
       </div>
 
       {/* Optimizasyon Uyarı Modal */}
@@ -6872,7 +6759,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 <h3 className="text-xl font-semibold">Çelik Hasır Veritabanı</h3>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       // Force cache invalidation and full refresh
                       console.log('🔄 Manual refresh clicked - invalidating all caches');
                       cacheRef.current.clear();
@@ -6881,7 +6768,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       batchSequenceInitialized = false;
                       console.log('🔄 Reset batch sequence initialization flag');
                       
-                      fetchSavedProducts(false, true); // isRetry=false, resetData=true
+                      // Refresh saved products
+                      await fetchSavedProducts(false, true); // isRetry=false, resetData=true
+                      
+                      // Also refresh sequences data to get latest from sequence table
+                      try {
+                        const sequencesResponse = await fetchWithAuth(API_URLS.celikHasirSequence);
+                        if (sequencesResponse.ok) {
+                          const sequenceData = await sequencesResponse.json();
+                          const sequenceMap = {};
+                          sequenceData.forEach(seq => {
+                            const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
+                            sequenceMap[key] = seq.last_sequence || 0;
+                          });
+                          setSequences(sequenceMap);
+                          console.log('🔄 Sequences refreshed from table');
+                        }
+                      } catch (seqError) {
+                        console.warn('Failed to refresh sequences:', seqError);
+                      }
                     }}
                     disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
