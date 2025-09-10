@@ -1,5 +1,5 @@
 // SatisGalvanizRequest.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
 import { toast } from 'react-toastify';
@@ -11,6 +11,12 @@ import { toast } from 'react-toastify';
  */
 const SatisGalvanizRequest = () => {
   const { user, hasPermission } = useAuth();
+  
+  // Memoize permission check to prevent infinite loops in table rendering
+  const canManageRequests = useMemo(() => 
+    hasPermission('manage:galvanizli-tel-requests'), 
+    [hasPermission]
+  );
   
   // State variables
   const [isLoading, setIsLoading] = useState(false);
@@ -1511,7 +1517,7 @@ const SatisGalvanizRequest = () => {
                             {request.unwinding || 'Anti-Clockwise'}
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap">
-                            {hasPermission('manage:galvanizli-tel-requests') ? (
+                            {canManageRequests ? (
                               <select
                                 value={request.status}
                                 onChange={(e) => updateRequestStatus(request.id, e.target.value)}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
@@ -78,6 +78,12 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout, profilePicture, hasPermission } = useAuth();
+  
+  // Memoize permission checks to prevent loops in navigation rendering
+  const canAccessMaliyetHesaplama = useMemo(() => 
+    hasPermission('page:maliyet-hesaplama'),
+    [hasPermission]
+  );
   
   // Navigation states
   const [navExpanded, setNavExpanded] = useState(false);
@@ -352,7 +358,7 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                           {subCategory.subItems.map((item) => {
                             // Check permission for Maliyet Hesaplama
                             const handleClick = (e: React.MouseEvent) => {
-                              if (item.id === 'maliyet' && !hasPermission('page:maliyet-hesaplama')) {
+                              if (item.id === 'maliyet' && !canAccessMaliyetHesaplama) {
                                 e.preventDefault();
                                 setShowPermissionWarning(true);
                               }
