@@ -760,6 +760,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Excel generation durumu
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
   const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
+  const [cancelExcelGeneration, setCancelExcelGeneration] = useState(false);
   
   // Database save progress
   const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
@@ -2743,7 +2744,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return null;
   };
 
-  // Generate Kaynak Programı Excel (copied from exportToExcel approach)
+  // Generate Kaynak Programı Excel (optimized version)
   const generateKaynakProgramiExcel = async () => {
     try {
       if (validProducts.length === 0) {
@@ -2751,90 +2752,33 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
       
-      // Start progress indicator
+      // Reset cancellation flag and start progress indicator
+      setCancelExcelGeneration(false);
       setIsGeneratingExcel(true);
       setExcelProgress({ current: 0, total: 4, operation: 'Veritabanı analizi yapılıyor...' });
       
-      // Get stock codes from save confirmation analysis
+      // Get stock codes from save confirmation analysis (reuse existing analysis)
       const analysisResult = await analyzeProductsForConfirmation();
+      
+      // Check for cancellation
+      if (cancelExcelGeneration) {
+        console.log('Excel generation cancelled during analysis');
+        return;
+      }
       
       // Use the returned result directly instead of relying on state
       const existingProductsData = analysisResult?.existingProducts || [];
       const newProductsData = analysisResult?.newProducts || [];
       
       // Update progress
-      setExcelProgress({ current: 1, total: 4, operation: 'Database verisi alınıyor...' });
+      setExcelProgress({ current: 1, total: 4, operation: 'Mevcut veriler işleniyor...' });
       
-      // Use unified database fetch with fallback to get optimized values
-      console.log('KAYNAK PROGRAMI: Using unified database fetch with fallback...');
-      const enhancedProducts = await fetchDatabaseDataWithFallback([], 
-        validProducts.map(p => {
-          // For existing products, find their stock code
-          const existingMatch = existingProductsData.find(existing => {
-            const hasirTipiMatch = existing.hasirTipi === p.hasirTipi;
-            const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(p.uzunlukBoy || 0)) < 0.1;
-            const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(p.uzunlukEn || 0)) < 0.1;
-            return hasirTipiMatch && boyMatch && enMatch;
-          });
-          
-          if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
-            const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
-              const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
-              const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
-              return numB - numA;
-            });
-            return sortedCodes[0];
-          }
-          
-          // For new products, find their calculated stock code
-          const newMatch = newProductsData.find(newProd => {
-            const hasirTipiMatch = newProd.hasirTipi === p.hasirTipi;
-            const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(p.uzunlukBoy || 0)) < 0.1;
-            const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(p.uzunlukEn || 0)) < 0.1;
-            return hasirTipiMatch && boyMatch && enMatch;
-          });
-          
-          return newMatch?.newStokKodu || `TEMP_${p.hasirTipi}_${p.uzunlukBoy}_${p.uzunlukEn}`;
-        }).filter(code => !code.startsWith('TEMP_')) // Only fetch for products with real stock codes
-      );
+      // OPTIMIZATION: Instead of making hundreds of API calls, use existing savedProducts data
+      // combined with fallback calculations for missing cubuk sayisi values
+      console.log('KAYNAK PROGRAMI: Using optimized approach with existing data...');
       
-      console.log(`KAYNAK PROGRAMI: Enhanced ${enhancedProducts.length} products with database+fallback data`);
-      
-      // Update progress
-      setExcelProgress({ current: 2, total: 4, operation: 'Stok kodları eşleştiriliyor...' });
-      
-      // CSV structure headers from your template
-      const headers = [
-        '', 'Stok kodu', 'FİRMA', 'Stok Kartı', 'HASIR', 'BOY', 'EN', 'HASIR', 'BOY', 'EN', 'Açıklama', 'UZUNLUK', '', 'ÇUBUK SAYISI', '', 'ARA', '', 'HASIR', 'SOL', 'SAĞ', 'ÖN', 'ARKA', 'ADET', 'TOPLAM', ''
-      ];
-      const subHeaders = [
-        '', '', 'ADI', '', 'CİNSİ', '', '', 'SAYISI', 'ÇAP', 'ÇAP', '', 'BOY', 'EN', 'BOY', 'EN', 'BOY', 'EN', 'SAYISI', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'KG.', 'KG.', ''
-      ];
-      
-      // Prepare data array
-      const data = [headers, subHeaders];
-      
-      validProducts.forEach((product, index) => {
-        // Find enhanced product with fallback-corrected cubuk sayısı values
-        let enhancedProduct = enhancedProducts.find(enhanced => {
-          if (enhanced.existingStokKodu) {
-            // For existing products, match by stock code
-            return enhanced.existingStokKodu && (
-              enhanced.hasirTipi === product.hasirTipi &&
-              Math.abs(parseFloat(enhanced.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1 &&
-              Math.abs(parseFloat(enhanced.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1
-            );
-          }
-          return false;
-        });
-        
-        // If no enhanced product found, use original but apply fallback
-        if (!enhancedProduct) {
-          console.warn(`KAYNAK PROGRAMI: No enhanced product found for ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn}, applying fallback directly`);
-          enhancedProduct = { ...product }; // Use original as base
-        }
-        
-        // Find stock code from analysis
+      const enhancedProducts = await Promise.all(validProducts.map(async (product) => {
+        // Find matching stock code from analysis
         let stokKodu = '';
         
         // Check existing products first
@@ -2852,6 +2796,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             return numB - numA;
           });
           stokKodu = sortedCodes[0];
+          
+          // Try to find saved product data for cubuk sayisi values
+          const savedProduct = savedProducts.mm?.find(p => p.stok_kodu === stokKodu);
+          if (savedProduct && savedProduct.cubuk_sayisi_boy && savedProduct.cubuk_sayisi_en) {
+            return {
+              ...product,
+              existingStokKodu: stokKodu,
+              cubukSayisiBoy: savedProduct.cubuk_sayisi_boy,
+              cubukSayisiEn: savedProduct.cubuk_sayisi_en,
+              source: 'saved_data'
+            };
+          }
         } else {
           // Check new products
           const newMatch = newProductsData.find(newProd => {
@@ -2866,11 +2822,51 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Use enhanced product values (with fallback-corrected cubuk sayısı)
-        const finalCubukSayisiBoy = enhancedProduct.cubukSayisiBoy || product.cubukSayisiBoy || 0;
-        const finalCubukSayisiEn = enhancedProduct.cubukSayisiEn || product.cubukSayisiEn || 0;
+        // If no cubuk sayisi found in saved data, calculate using fallback
+        const fallbackResult = await calculateFallbackCubukSayisi(
+          product.hasirTipi,
+          parseFloat(product.uzunlukBoy || 0),
+          parseFloat(product.uzunlukEn || 0)
+        );
         
-        console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn}`);
+        return {
+          ...product,
+          existingStokKodu: stokKodu,
+          cubukSayisiBoy: fallbackResult?.cubukSayisiBoy || product.cubukSayisiBoy || 0,
+          cubukSayisiEn: fallbackResult?.cubukSayisiEn || product.cubukSayisiEn || 0,
+          source: 'fallback_calculation'
+        };
+      }));
+      
+      console.log(`KAYNAK PROGRAMI: Enhanced ${enhancedProducts.length} products with optimized data`);
+      
+      // Check for cancellation
+      if (cancelExcelGeneration) {
+        console.log('Excel generation cancelled during data processing');
+        return;
+      }
+      
+      // Update progress
+      setExcelProgress({ current: 2, total: 4, operation: 'Stok kodları eşleştiriliyor...' });
+      
+      // CSV structure headers from your template
+      const headers = [
+        '', 'Stok kodu', 'FİRMA', 'Stok Kartı', 'HASIR', 'BOY', 'EN', 'HASIR', 'BOY', 'EN', 'Açıklama', 'UZUNLUK', '', 'ÇUBUK SAYISI', '', 'ARA', '', 'HASIR', 'SOL', 'SAĞ', 'ÖN', 'ARKA', 'ADET', 'TOPLAM', ''
+      ];
+      const subHeaders = [
+        '', '', 'ADI', '', 'CİNSİ', '', '', 'SAYISI', 'ÇAP', 'ÇAP', '', 'BOY', 'EN', 'BOY', 'EN', 'BOY', 'EN', 'SAYISI', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'KG.', 'KG.', ''
+      ];
+      
+      // Prepare data array
+      const data = [headers, subHeaders];
+      
+      enhancedProducts.forEach((enhancedProduct, index) => {
+        // Use the enhanced product data directly
+        const stokKodu = enhancedProduct.existingStokKodu || '';
+        const finalCubukSayisiBoy = enhancedProduct.cubukSayisiBoy || 0;
+        const finalCubukSayisiEn = enhancedProduct.cubukSayisiEn || 0;
+        
+        console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn} (${enhancedProduct.source})`);
         
         // Map enhanced product data to CSV structure
         data.push([
@@ -2878,29 +2874,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           stokKodu, // Stock code from analysis
           '', // FİRMA ADI - empty
           '', // Stok Kartı - empty  
-          normalizeHasirTipi(product.hasirTipi || ''), // HASIR CİNSİ
-          parseFloat(enhancedProduct.boyCap || product.boyCap || 0), // BOY ÇAP
-          parseFloat(enhancedProduct.enCap || product.enCap || 0), // EN ÇAP
-          parseInt(product.hasirSayisi || 1), // HASIR SAYISI
-          parseFloat(enhancedProduct.boyCap || product.boyCap || 0), // BOY ÇAP (repeat)
-          parseFloat(enhancedProduct.enCap || product.enCap || 0), // EN ÇAP (repeat)
+          normalizeHasirTipi(enhancedProduct.hasirTipi || ''), // HASIR CİNSİ
+          parseFloat(enhancedProduct.boyCap || 0), // BOY ÇAP
+          parseFloat(enhancedProduct.enCap || 0), // EN ÇAP
+          parseInt(enhancedProduct.hasirSayisi || 1), // HASIR SAYISI
+          parseFloat(enhancedProduct.boyCap || 0), // BOY ÇAP (repeat)
+          parseFloat(enhancedProduct.enCap || 0), // EN ÇAP (repeat)
           '', // Açıklama - empty
-          parseInt(product.uzunlukBoy || 0), // UZUNLUK BOY
-          parseInt(product.uzunlukEn || 0), // UZUNLUK EN
+          parseInt(enhancedProduct.uzunlukBoy || 0), // UZUNLUK BOY
+          parseInt(enhancedProduct.uzunlukEn || 0), // UZUNLUK EN
           parseInt(finalCubukSayisiBoy), // ÇUBUK SAYISI BOY - USE ENHANCED/FALLBACK VALUE
           parseInt(finalCubukSayisiEn), // ÇUBUK SAYISI EN - USE ENHANCED/FALLBACK VALUE
-          parseFloat(enhancedProduct.boyAraligi || product.boyAraligi || product.gozAraligiBoy || 0), // ARA BOY
-          parseFloat(enhancedProduct.enAraligi || product.enAraligi || product.gozAraligiEn || 0), // ARA EN
-          parseInt(product.hasirSayisi || 1), // HASIR SAYISI (repeat)
-          parseFloat(product.solFiliz || 0), // SOL FİLİZ
-          parseFloat(product.sagFiliz || 0), // SAĞ FİLİZ
-          parseFloat(product.onFiliz || 0), // ÖN FİLİZ
-          parseFloat(product.arkaFiliz || 0), // ARKA FİLİZ
-          parseFloat(product.adetKg || (parseFloat(product.toplamKg || product.toplamAgirlik || 0) / parseInt(product.hasirSayisi || 1)).toFixed(4)), // ADET KG
-          parseFloat(product.toplamKg || product.toplamAgirlik || 0), // TOPLAM KG
+          parseFloat(enhancedProduct.boyAraligi || enhancedProduct.gozAraligiBoy || 0), // ARA BOY
+          parseFloat(enhancedProduct.enAraligi || enhancedProduct.gozAraligiEn || 0), // ARA EN
+          parseInt(enhancedProduct.hasirSayisi || 1), // HASIR SAYISI (repeat)
+          parseFloat(enhancedProduct.solFiliz || 0), // SOL FİLİZ
+          parseFloat(enhancedProduct.sagFiliz || 0), // SAĞ FİLİZ
+          parseFloat(enhancedProduct.onFiliz || 0), // ÖN FİLİZ
+          parseFloat(enhancedProduct.arkaFiliz || 0), // ARKA FİLİZ
+          parseFloat(enhancedProduct.adetKg || (parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0) / parseInt(enhancedProduct.hasirSayisi || 1)).toFixed(4)), // ADET KG
+          parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0), // TOPLAM KG
           '' // Empty last column
         ]);
       });
+      
+      // Check for cancellation before final Excel generation
+      if (cancelExcelGeneration) {
+        console.log('Excel generation cancelled before file creation');
+        return;
+      }
       
       // Update progress
       setExcelProgress({ current: 3, total: 4, operation: 'Excel dosyası oluşturuluyor...' });
@@ -7589,15 +7591,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <div className="text-sm opacity-90 mt-1">En yüksek stok kodlu kayıtlı ürünler için Excel oluştur</div>
                 </div>
               </button>
+              
+              <button
+                onClick={async () => {
+                  setShowExcelOptionsModal(false);
+                  await generateKaynakProgramiExcel();
+                }}
+                disabled={isGeneratingExcel}
+                className="w-full px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 transition-colors text-left flex items-center gap-2"
+              >
+                {isGeneratingExcel && <Loader className="w-5 h-5 animate-spin" />}
+                <div>
+                  <div className="font-medium">📊 Kaynak Programı Oluştur</div>
+                  <div className="text-sm opacity-90 mt-1">Mevcut ürünler için kaynak programı Excel dosyası oluştur</div>
+                </div>
+              </button>
 
             </div>
             
             <div className="mt-4 pt-3 border-t border-gray-200">
               <button
-                onClick={() => setShowExcelOptionsModal(false)}
+                onClick={() => {
+                  // Cancel any ongoing Excel generation
+                  if (isGeneratingExcel) {
+                    setCancelExcelGeneration(true);
+                    setIsGeneratingExcel(false);
+                    setExcelProgress({ current: 0, total: 0, operation: '' });
+                    toast.info('Excel oluşturma işlemi iptal edildi');
+                  }
+                  setShowExcelOptionsModal(false);
+                }}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
               >
-                İptal
+                {isGeneratingExcel ? 'İşlemi İptal Et' : 'İptal'}
               </button>
             </div>
           </div>
