@@ -1682,6 +1682,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Wait a bit for state to update
       await new Promise(resolve => setTimeout(resolve, 500));
     }
+    
+    // CRITICAL: Always fetch fresh sequences with cache-busting for accurate sequence detection
+    console.log('*** Fetching FRESH sequences from database with cache-busting');
+    try {
+      const freshSequencesResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?_cache_bust=${Date.now()}`);
+      if (freshSequencesResponse?.ok) {
+        const freshSequenceData = await freshSequencesResponse.json();
+        const freshSequenceMap = {};
+        freshSequenceData.forEach(seq => {
+          const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
+          freshSequenceMap[key] = seq.last_sequence || 0;
+        });
+        // Update sequences state with fresh data
+        setSequences(freshSequenceMap);
+        console.log('*** Fresh sequences loaded, updating local sequences state');
+      }
+    } catch (error) {
+      console.warn('*** Failed to fetch fresh sequences, using existing:', error);
+    }
 
     let maxSequence = 2443; // Default fallback
     
@@ -1810,8 +1829,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('*** FALLBACK: Batch initialized with sequence table only:', batchSequenceCounter);
       }
       
-      // Increment counter ONLY when creating NEW product (not cached)
-      batchSequenceCounter++;
+      // Sequence table contains the HIGHEST EXISTING sequence, so next product should be +1
+      batchSequenceCounter++; // Increment to get next available sequence
       const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
       
       // Cache the generated code for this product
@@ -1819,7 +1838,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('*** NEW STOK KODU GENERATION ***');
       console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
-      console.log('Sequence for this NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
+      console.log('Last existing sequence from table:', batchSequenceCounter - 1, 'Next sequence for NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
       console.log('Cached for future use with key:', productKey);
       
       return generatedCode;
