@@ -108,6 +108,8 @@ const GalvanizliTelNetsis = () => {
   
   // Task Queue System için state'ler
   const [taskQueue, setTaskQueue] = useState([]); // {id, name, status: 'pending'|'processing'|'completed'|'failed', timestamp}
+  // Track requests that have been added to queue (for visual indicator)
+  const [requestsInQueue, setRequestsInQueue] = useState(new Set());
   const [showTaskQueuePopup, setShowTaskQueuePopup] = useState(false);
   const [showQueueCompletionPopup, setShowQueueCompletionPopup] = useState(false);
   const [completedQueueTasks, setCompletedQueueTasks] = useState([]);
@@ -2146,10 +2148,27 @@ const GalvanizliTelNetsis = () => {
   
   // Check if request is being processed in queue
   const isRequestInQueue = (requestId) => {
-    return taskQueue.some(task => 
+    // Check if request is explicitly tracked as being in queue
+    const inQueueSet = requestsInQueue.has(parseInt(requestId));
+    
+    // Also check task queue as backup
+    const queueResult = taskQueue.some(task => 
       (task.status === 'processing' || task.status === 'pending') && 
       (task.name.includes(requestId) || task.name.includes('Düzenle'))
     );
+    
+    // Debug logging
+    if (requestId && (requestsInQueue.size > 0 || taskQueue.length > 0)) {
+      console.log('🔍 Queue check for request:', requestId, {
+        requestsInQueue: Array.from(requestsInQueue),
+        taskQueue: taskQueue.map(t => ({ name: t.name, status: t.status })),
+        inQueueSet: inQueueSet,
+        queueResult: queueResult,
+        finalResult: inQueueSet || queueResult
+      });
+    }
+    
+    return inQueueSet || queueResult;
   };
 
   // Durum metnini almak icin yardimci fonksiyon
@@ -6003,6 +6022,9 @@ const GalvanizliTelNetsis = () => {
     // Kuyruğa ekle
     setTaskQueue(prev => [...prev, newTask]);
     taskQueueRef.current = [...taskQueueRef.current, newTask];
+    
+    // Track this request as being in queue for visual indicator
+    setRequestsInQueue(prev => new Set([...prev, selectedRequest.id]));
     
     try {
       // Gerçek veritabanı kaydetme işlemi - bu normal sürede çalışacak
