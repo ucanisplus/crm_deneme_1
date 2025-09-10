@@ -1670,9 +1670,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Initialize batch sequence with database sync - MUST be called before any generateStokKodu calls
-  const initializeBatchSequence = async () => {
-    if (batchSequenceInitialized) {
+  const initializeBatchSequence = async (forceRefresh = false) => {
+    if (batchSequenceInitialized && !forceRefresh) {
       return batchSequenceCounter; // Already initialized
+    }
+    
+    // Force refresh the saved products data to get the latest state
+    if (forceRefresh || !savedProducts?.mm?.length) {
+      console.log('*** Force refreshing saved products data before sequence initialization');
+      await fetchSavedProducts(false, true); // Force refresh with resetData=true
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     let maxSequence = 2443; // Default fallback
@@ -1697,53 +1705,90 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
     console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
     
-    // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
+    // OPTIMIZED: Check local savedProducts data for highest existing CHOZL sequence
+    // This avoids additional API calls and uses the most up-to-date data the component has
     try {
-      console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
-      // Add timestamp to bypass any caching
-      const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5&_t=${Date.now()}`);
-      if (dbCheckResponse?.ok) {
-        const dbData = await dbCheckResponse.json();
-        console.log('*** initializeBatchSequence - DB check response structure:', dbData);
-        // Handle both possible response structures
-        const productList = dbData.data || dbData;
-        if (Array.isArray(productList) && productList.length > 0) {
-          let highestDbSequence = 0;
-          productList.forEach(product => {
-            const match = product.stok_kodu.match(/CHOZL(\d+)/);
-            if (match) {
-              const seqNum = parseInt(match[1]);
-              if (seqNum > highestDbSequence) {
-                highestDbSequence = seqNum;
-              }
-            }
-          });
-          console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
-          
-          // Use the higher of sequence table or actual database
-          maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
-          console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
-          
-          // If database has higher, we should update the sequence table
-          if (highestDbSequence > preliminaryMaxSequence) {
-            console.log('*** Database is ahead! Need to update sequence table to:', highestDbSequence);
-            console.log('*** SKIPPING POST operation to prevent duplicate sequence rows');
-            console.log('*** The existing PUT operations in updateSequences() will handle the sync');
-            // REMOVED: The POST operation here was creating duplicate rows
-            // The actual sequence updates are properly handled by updateSequences() 
-            // using PUT operations with specific row IDs
+      console.log('*** Checking local savedProducts data for highest existing CHOZL sequence');
+      let highestDbSequence = 0;
+      
+      const mmProducts = savedProducts?.mm || [];
+      const chozlProducts = mmProducts.filter(product => 
+        product.stok_kodu && product.stok_kodu.startsWith('CHOZL')
+      );
+      
+      console.log(`*** Found ${chozlProducts.length} CHOZL products in local data:`, 
+        chozlProducts.map(p => p.stok_kodu).slice(0, 5));
+      
+      chozlProducts.forEach(product => {
+        const match = product.stok_kodu.match(/CHOZL(\d+)/);
+        if (match) {
+          const seqNum = parseInt(match[1]);
+          console.log(`*** Found CHOZL sequence: ${seqNum} from ${product.stok_kodu}`);
+          if (seqNum > highestDbSequence) {
+            highestDbSequence = seqNum;
           }
-        } else {
-          maxSequence = preliminaryMaxSequence;
-          console.log('*** No CHOZL products found in database, using sequence table value:', maxSequence);
         }
-      } else {
-        maxSequence = preliminaryMaxSequence;
-        console.log('*** Could not check database, using sequence table value:', maxSequence);
+      });
+      
+      console.log('*** Local data highest CHOZL sequence found:', highestDbSequence);
+      
+      // Use the higher of sequence table or actual database
+      maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
+      console.log('*** Final max sequence after local check:', maxSequence, 'table:', preliminaryMaxSequence, 'local:', highestDbSequence);
+      
+      // If local data has higher, we should update the sequence table
+      if (highestDbSequence > preliminaryMaxSequence) {
+        console.log('*** Local data is ahead! Sequence table will be updated to:', highestDbSequence);
+      } else if (highestDbSequence === 0 && preliminaryMaxSequence > 0) {
+        console.log('*** No CHOZL products in local data but sequence table shows:', preliminaryMaxSequence);
+        console.log('*** This suggests products were deleted. Refreshing data to verify...');
+        
+        // CACHE INVALIDATION: Force refresh data when there's a discrepancy
+        try {
+          console.log('*** Performing cache-busted API call to verify database state');
+          const freshDataResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=10&_cache_bust=${Date.now()}`);
+          if (freshDataResponse?.ok) {
+            const freshData = await freshDataResponse.json();
+            const freshProducts = freshData.data || freshData;
+            
+            if (Array.isArray(freshProducts) && freshProducts.length > 0) {
+              console.log('*** Fresh API data shows CHOZL products still exist:', freshProducts.map(p => p.stok_kodu));
+              
+              // Find highest from fresh API data
+              let freshHighest = 0;
+              freshProducts.forEach(product => {
+                const match = product.stok_kodu.match(/CHOZL(\d+)/);
+                if (match) {
+                  const seqNum = parseInt(match[1]);
+                  if (seqNum > freshHighest) {
+                    freshHighest = seqNum;
+                  }
+                }
+              });
+              
+              console.log('*** Fresh API highest sequence:', freshHighest);
+              maxSequence = Math.max(preliminaryMaxSequence, freshHighest);
+              console.log('*** Using fresh API data result:', maxSequence);
+              
+              // Force refresh local data to match reality
+              console.log('*** Forcing local data refresh to match API reality');
+              await fetchSavedProducts(false, true);
+            } else {
+              console.log('*** Fresh API confirms: No CHOZL products exist, using sequence table:', preliminaryMaxSequence);
+              maxSequence = preliminaryMaxSequence; // Use sequence table value as-is
+            }
+          }
+        } catch (apiError) {
+          console.error('*** Fresh API call failed:', apiError);
+          console.log('*** Fallback: Using sequence table minus 1 due to suspected deletion:', Math.max(0, preliminaryMaxSequence - 1));
+          maxSequence = Math.max(0, preliminaryMaxSequence - 1);
+        }
       }
-    } catch (dbCheckError) {
-      console.error('*** Error checking database for duplicates:', dbCheckError);
+      
+    } catch (localCheckError) {
+      console.error('*** Error checking local data for duplicates:', localCheckError);
       maxSequence = preliminaryMaxSequence;
+      console.log('*** Using sequence table value as fallback after error:', maxSequence);
     }
     
     batchSequenceCounter = maxSequence;
@@ -6302,6 +6347,37 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           Veritabanı İşlemleri
         </button>
         
+        <button
+          onClick={async () => {
+            console.log('🔄 Sequence refresh button clicked');
+            setIsLoading(true);
+            try {
+              // Reset batch sequence initialization to force fresh check
+              batchSequenceInitialized = false;
+              console.log('🔄 Reset batch sequence flag');
+              
+              // Force refresh saved products data
+              await fetchSavedProducts(false, true);
+              
+              // Force re-initialize batch sequence with fresh data
+              await initializeBatchSequence(true);
+              
+              toast.success('Sıra numaraları başarıyla yenilendi!');
+            } catch (error) {
+              console.error('Sequence refresh error:', error);
+              toast.error('Sıra numarası yenilemede hata oluştu');
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          disabled={isLoading}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm disabled:bg-gray-400 flex items-center gap-2"
+          title="Ürün silindiğinde sıra numaralarını zorla yenile"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Sıra Numarası Yenile
+        </button>
+        
       </div>
 
       {/* Optimizasyon Uyarı Modal */}
@@ -6798,11 +6874,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <button
                     onClick={() => {
                       // Force cache invalidation and full refresh
+                      console.log('🔄 Manual refresh clicked - invalidating all caches');
                       cacheRef.current.clear();
+                      
+                      // Reset batch sequence initialization to force fresh sequence check
+                      batchSequenceInitialized = false;
+                      console.log('🔄 Reset batch sequence initialization flag');
+                      
                       fetchSavedProducts(false, true); // isRetry=false, resetData=true
                     }}
                     disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
+                    title="Veriyi yenile ve sıra numaralarını güncelle"
                   >
                     <RefreshCw className={`w-4 h-4 ${isLoadingDb ? 'animate-spin' : ''}`} />
                     Yenile
