@@ -5654,8 +5654,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
       });
       
-      // Force re-render for count updates
-      setIsSavingToDatabase(false);
+      // DON'T close database modal yet - transition to Excel generation phase
+      setDatabaseProgress({ current: totalCount, total: totalCount, operation: 'Excel dosyaları hazırlanıyor...', currentProduct: '' });
       setIsLoading(false);
       
       // Sadece yeni kaydedilen ürünleri döndür
@@ -6342,6 +6342,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   const newProducts = await saveToDatabase(validProducts);
                   if (newProducts && newProducts.length > 0) {
                     console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                    
+                    // SEAMLESS TRANSITION: Close database modal, start Excel generation immediately
+                    setIsSavingToDatabase(false);
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                     
                     // Unified approach: Fetch saved products from database with fallback
                     try {
@@ -7943,6 +7947,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       const newProducts = await saveToDatabase(validProducts);
                       if (newProducts && newProducts.length > 0) {
                         console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                        
+                        // SEAMLESS TRANSITION: Close database modal, start Excel generation immediately
+                        setIsSavingToDatabase(false);
+                        setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                         
                         // Unified approach: Fetch saved products from database with fallback
                         try {
