@@ -3327,9 +3327,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ];
     chSheet.addRow(chHeaders);
 
-    // CH ürünlerini ekle
+    // CH ürünlerini ekle - SADECE CH ürünleri işle
     let excelBatchIndex = 0;
-    for (const product of products) {
+    const chProducts = products.filter(product => {
+      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
+    });
+    
+    console.log(`🔧 FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
+    console.log('🔧 Product types:', products.map(p => ({ stokKodu: p.existingStokKodu, hasirTipi: p.hasirTipi })));
+    
+    for (const product of chProducts) {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
         const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
@@ -3615,9 +3622,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const ntelReceteSheet = workbook.addWorksheet('YM NTEL REÇETE');
     ntelReceteSheet.addRow(receteHeaders);
 
-    // Reçete verilerini ekle
+    // Reçete verilerini ekle - SADECE CH ürünleri için
     let receteBatchIndex = 0;
-    for (const product of products) {
+    const chProducts = products.filter(product => {
+      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
+    });
+    
+    console.log(`🔧 RECIPE FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
+    
+    for (const product of chProducts) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
@@ -3881,11 +3894,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const ntelReceteSheet = workbook.addWorksheet('YM NTEL REÇETE');
     ntelReceteSheet.addRow(receteHeaders);
 
-    // Alternatif reçete verilerini ekle (NTEL bazlı)
+    // Alternatif reçete verilerini ekle (NTEL bazlı) - SADECE CH ürünleri için
     let altReceteBatchIndex = 0;
-    console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
+    const chProducts = products.filter(product => {
+      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
+    });
+    
+    console.log(`🔧 ALT RECIPE FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
+    console.log('DEBUG: Starting CH reçete generation for', chProducts.length, 'products');
     let chRowCount = 0;
-    for (const product of products) {
+    for (const product of chProducts) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
         console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
