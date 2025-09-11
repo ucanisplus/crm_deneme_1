@@ -5247,15 +5247,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const successfulProducts = [];
       const failedProducts = [];
       
-      // Add initial delay before starting save operations to prevent immediate 504 timeouts
+      // Add SMALL initial delay before starting save operations
       if (newProducts.length > 0) {
-        const initialDelay = 3000; // 3 second initial delay
-        console.log(`⏳ Adding ${initialDelay}ms initial delay before first save to prevent server overload...`);
+        const initialDelay = 500; // Only 0.5 second initial delay
+        console.log(`⏳ Starting save operations for ${newProducts.length} products...`);
         setDatabaseProgress({ 
           current: 0, 
           total: newProducts.length, 
-          operation: `Sunucuya ${initialDelay/1000} saniye ara veriliyor...`,
-          currentProduct: 'Server overload önlemek için bekleniyor...'
+          operation: `${newProducts.length} ürün kaydedilecek...`,
+          currentProduct: 'İşlem başlatılıyor...'
         });
         
         await new Promise(resolve => setTimeout(resolve, initialDelay));
@@ -5272,11 +5272,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const product = newProducts[i];
         processedCount++;
         
-        // Add progressive delay between saves to prevent server overload
-        if (i > 0) {
-          const baseDelay = 2000; // Base 2 second delay
-          const progressiveDelay = Math.min(i * 500, 5000); // Up to 5 seconds max
-          const totalDelay = baseDelay + progressiveDelay;
+        // Add MINIMAL delay between saves - only for large batches
+        if (i > 0 && i % 5 === 0) { // Only delay every 5 products
+          const totalDelay = 1000; // Just 1 second delay every 5 products
           
           console.log(`⏳ Waiting ${totalDelay}ms before saving product ${i + 1}/${newProducts.length} to prevent server overload...`);
           setDatabaseProgress({ 
@@ -5549,9 +5547,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               type: spec.type
             });
             
-            // Add small delay between database operations to reduce server load
-            console.log('⏳ Micro delay before NCBK save to prevent server overload...');
-            await new Promise(resolve => setTimeout(resolve, 800));
+            // REMOVED: Micro delay - was causing extreme slowness
             
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
@@ -5665,9 +5661,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg_per_meter: ntelData.payda_1
           });
 
-          // Add small delay between database operations to reduce server load
-          console.log('⏳ Micro delay before NTEL save to prevent server overload...');
-          await new Promise(resolve => setTimeout(resolve, 800));
+          // REMOVED: Micro delay - was causing extreme slowness
 
           const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
             method: 'POST',
@@ -6956,7 +6950,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         let rollbackCount = 0;
                         for (const savedProduct of currentSessionSavedProducts.current) {
                           try {
-                            const response = await fetchWithAuth(`${savedProduct.api_url}/${savedProduct.id}`, {
+                            // Use stok_kodu for deletion as API expects this
+                            const deleteUrl = `${savedProduct.api_url}?stok_kodu=${encodeURIComponent(savedProduct.stok_kodu)}`;
+                            console.log(`🔄 Attempting to rollback ${savedProduct.type}: ${savedProduct.stok_kodu}`);
+                            
+                            const response = await fetchWithAuth(deleteUrl, {
                               method: 'DELETE'
                             });
                             
