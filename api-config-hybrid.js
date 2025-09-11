@@ -40,14 +40,14 @@ export const API_URLS = {
   galUserInputValues: `${SERVERS.VERCEL}/gal_cost_cal_user_input_values`,
   galTlcHizlar: `${SERVERS.VERCEL}/gal_cost_cal_user_tlc_hizlar`,
 
-  // Çelik Hasır Netsis (Keep on Vercel)
-  celikHasirMm: `${SERVERS.VERCEL}/celik_hasir_netsis_mm`,
-  celikHasirNcbk: `${SERVERS.VERCEL}/celik_hasir_netsis_ym_ncbk`,
-  celikHasirNtel: `${SERVERS.VERCEL}/celik_hasir_netsis_ym_ntel`,
-  celikHasirMmRecete: `${SERVERS.VERCEL}/celik_hasir_netsis_mm_recete`,
-  celikHasirNcbkRecete: `${SERVERS.VERCEL}/celik_hasir_netsis_ncbk_recete`,
-  celikHasirNtelRecete: `${SERVERS.VERCEL}/celik_hasir_netsis_ntel_recete`,
-  celikHasirSequence: `${SERVERS.VERCEL}/celik_hasir_netsis_sequence`,
+  // Çelik Hasır Netsis (MIGRATED TO RENDER for performance!)
+  celikHasirMm: `${SERVERS.RENDER}/celik_hasir_netsis_mm`,
+  celikHasirNcbk: `${SERVERS.RENDER}/celik_hasir_netsis_ym_ncbk`,
+  celikHasirNtel: `${SERVERS.RENDER}/celik_hasir_netsis_ym_ntel`,
+  celikHasirMmRecete: `${SERVERS.RENDER}/celik_hasir_netsis_mm_recete`,
+  celikHasirNcbkRecete: `${SERVERS.RENDER}/celik_hasir_netsis_ncbk_recete`,
+  celikHasirNtelRecete: `${SERVERS.RENDER}/celik_hasir_netsis_ntel_recete`,
+  celikHasirSequence: `${SERVERS.RENDER}/celik_hasir_netsis_sequence`,
 
   // Authentication Routes (Keep on Vercel - must be fast)
   signup: `${SERVERS.VERCEL}/signup`,

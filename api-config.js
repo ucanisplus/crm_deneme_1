@@ -29,22 +29,22 @@ export const API_URLS = {
   // TLC Hizlar data
   galTlcHizlar: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_tlc_hizlar',
 
-  // Çelik Hasır Netsis
-  celikHasirMm: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm',
-  celikHasirNcbk: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ncbk',
-  celikHasirNtel: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ntel',
-  celikHasirMmRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm_recete',
-  celikHasirNcbkRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
-  celikHasirNtelRecete: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
-  celikHasirSequence: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_sequence',
+  // Çelik Hasır Netsis (MIGRATED TO RENDER for performance!)
+  celikHasirMm: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm',
+  celikHasirNcbk: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ncbk',
+  celikHasirNtel: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ntel',
+  celikHasirMmRecete: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm_recete',
+  celikHasirNcbkRecete: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ncbk_recete',
+  celikHasirNtelRecete: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ntel_recete',
+  celikHasirSequence: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_sequence',
   
-  // Bulk endpoints for Excel generation
-  getAllMM: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm',
-  getAllNCBK: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ncbk',
-  getAllNTEL: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ym_ntel',
-  getAllMMRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_mm_recete',
-  getAllNCBKRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ncbk_recete',
-  getAllNTELRecetes: 'https://crm-deneme-backend.vercel.app/api/celik_hasir_netsis_ntel_recete',
+  // Bulk endpoints for Excel generation (MIGRATED TO RENDER)
+  getAllMM: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm',
+  getAllNCBK: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ncbk',
+  getAllNTEL: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ntel',
+  getAllMMRecetes: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm_recete',
+  getAllNCBKRecetes: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ncbk_recete',
+  getAllNTELRecetes: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ntel_recete',
   
   // Galvanizli Tel Bulk endpoints for Excel generation - NEW
   getAllMMGT: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_mm_gt/bulk-all',
@@ -55,7 +55,7 @@ export const API_URLS = {
   getAllYMSTRecetes: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_ym_st_recete/bulk-all',
   
   // Mesh Type Configurations - NEW
-  meshTypeConfigs: 'https://crm-deneme-backend.vercel.app/api/mesh-configs',
+  meshTypeConfigs: 'https://crm-factory-backend.onrender.com/api/mesh-configs',
 
   // Authentication Routes
   signup: 'https://crm-deneme-backend.vercel.app/api/signup',
