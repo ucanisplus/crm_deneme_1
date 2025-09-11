@@ -4980,17 +4980,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Veritabanına kaydet
   const saveToDatabase = async (products) => {
     try {
+      // IMMEDIATE UI FEEDBACK - Show progress modal immediately
+      setIsLoading(true);
+      setIsSavingToDatabase(true);
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Kaydetme işlemi başlatılıyor...', currentProduct: 'Sistem hazırlanıyor...' });
+      
       // Reset batch sequence counter for new batch
       resetBatchSequenceCounter();
+      
+      // Update progress during initialization
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Sıra numaraları hazırlanıyor...', currentProduct: 'Batch sequence başlatılıyor...' });
       
       // Initialize batch sequence before any stok kodu generation
       await initializeBatchSequence();
       
-      setIsLoading(true);
-      setIsSavingToDatabase(true);
-      setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
-      
-      // Optimization check removed - save products with or without optimization
+      // Update progress for product analysis
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Ürünler analiz ediliyor...', currentProduct: 'Kaydedilecek ürünler belirleniyor...' });
       
       // Sadece kaydedilmesi gereken ürünleri kaydet
       const productsToSave = getProductsToSave();
@@ -5039,12 +5044,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const batchDuplicates = []; // Track duplicates within current batch
       
       // First pass: identify duplicates within the batch itself
+      setDatabaseProgress({ current: 0, total: productsToSave.length, operation: 'Batch içi duplikatlar kontrol ediliyor...', currentProduct: `${productsToSave.length} ürün analiz ediliyor...` });
+      
       const batchStokAdiMap = new Map(); // Map Stok Adı to first occurrence index
       const batchUniqueProducts = []; // Products after removing batch duplicates
       
       for (let i = 0; i < productsToSave.length; i++) {
         const product = productsToSave[i];
         const productStokAdi = generateStokAdi(product, 'CH');
+        
+        // Update progress every 5 items to show progress during analysis
+        if (i % 5 === 0 || i === productsToSave.length - 1) {
+          setDatabaseProgress({ 
+            current: i + 1, 
+            total: productsToSave.length, 
+            operation: 'Batch içi duplikatlar kontrol ediliyor...', 
+            currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)` 
+          });
+        }
         
         if (batchStokAdiMap.has(productStokAdi)) {
           // This is a duplicate within the batch
@@ -5062,7 +5079,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       // Second pass: check unique products against database
+      setDatabaseProgress({ current: 0, total: batchUniqueProducts.length, operation: 'Veritabanı ile karşılaştırılıyor...', currentProduct: `${batchUniqueProducts.length} benzersiz ürün kontrol ediliyor...` });
+      
+      let dbCheckIndex = 0;
       for (const product of batchUniqueProducts) {
+        dbCheckIndex++;
+        
+        // Update progress every 3 items to show progress during database comparison
+        if (dbCheckIndex % 3 === 0 || dbCheckIndex === batchUniqueProducts.length) {
+          setDatabaseProgress({ 
+            current: dbCheckIndex, 
+            total: batchUniqueProducts.length, 
+            operation: 'Veritabanı ile karşılaştırılıyor...', 
+            currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)` 
+          });
+        }
+        
         // Generate Stok Adı for identification
         const productStokAdi = generateStokAdi(product, 'CH');
         
@@ -5202,6 +5234,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Track successfully saved products and errors
       const successfulProducts = [];
       const failedProducts = [];
+      
+      // Add initial delay before starting save operations to prevent immediate 504 timeouts
+      if (newProducts.length > 0) {
+        const initialDelay = 3000; // 3 second initial delay
+        console.log(`⏳ Adding ${initialDelay}ms initial delay before first save to prevent server overload...`);
+        setDatabaseProgress({ 
+          current: 0, 
+          total: newProducts.length, 
+          operation: `Sunucuya ${initialDelay/1000} saniye ara veriliyor...`,
+          currentProduct: 'Server overload önlemek için bekleniyor...'
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, initialDelay));
+      }
       
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
