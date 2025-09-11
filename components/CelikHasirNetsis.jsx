@@ -5918,54 +5918,104 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         );
       });
 
-      // Execute all batch requests in parallel
-      console.log(`🚀 Sending ${batchPromises.length} requests in parallel...`);
+      // CONTROLLED BATCH EXECUTION - Process in smaller chunks with delays
+      const BATCH_SIZE = 5; // Process 5 requests at a time
+      const BATCH_DELAY = 2000; // 2 seconds between batches
+      
+      console.log(`🚀 Sending ${batchPromises.length} requests in controlled batches of ${BATCH_SIZE}...`);
       const batchStartTime = Date.now();
       
-      const batchResults = await Promise.allSettled(batchPromises);
+      const batchSuccesses = [];
+      const batchFailures = [];
+      let completedCount = 0;
+      
+      // Process requests in smaller batches
+      for (let i = 0; i < batchPromises.length; i += BATCH_SIZE) {
+        // Check for cancellation
+        if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
+          console.log('🛑 Batch save cancelled by user');
+          break;
+        }
+        
+        const chunk = batchPromises.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(batchPromises.length / BATCH_SIZE);
+        
+        console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${chunk.length} requests)...`);
+        
+        setDatabaseProgress({ 
+          current: completedCount, 
+          total: batchPromises.length, 
+          operation: `Batch ${batchNumber}/${totalBatches} işleniyor...`,
+          currentProduct: `${chunk.length} istek paralel olarak gönderiliyor...`
+        });
+        
+        try {
+          const chunkResults = await Promise.allSettled(chunk);
+          
+          // Process chunk results
+          chunkResults.forEach((result) => {
+            completedCount++;
+            if (result.status === 'fulfilled' && result.value.success) {
+              batchSuccesses.push(result.value);
+              // Track successfully saved products for session management
+              currentSessionSavedProducts.current.push({
+                stok_kodu: result.value.stok_kodu,
+                type: result.value.type
+              });
+              // Add to successful products for Excel generation
+              if (result.value.type === 'CH') {
+                successfulProducts.push({
+                  ...result.value.originalProduct,
+                  stok_kodu: result.value.stok_kodu,
+                  hasirTipi: result.value.originalProduct.hasirTipi,
+                  uzunlukBoy: result.value.originalProduct.uzunlukBoy,
+                  uzunlukEn: result.value.originalProduct.uzunlukEn
+                });
+              }
+            } else {
+              const errorInfo = result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Unknown error' };
+              batchFailures.push(errorInfo);
+              if (errorInfo.originalProduct) {
+                failedProducts.push({
+                  product: errorInfo.originalProduct,
+                  error: errorInfo.error || 'Batch save failed'
+                });
+              }
+            }
+          });
+          
+          console.log(`✅ Batch ${batchNumber} completed: ${chunkResults.filter(r => r.status === 'fulfilled' && r.value.success).length}/${chunk.length} successful`);
+          
+          // Add delay between batches (except for the last batch)
+          if (i + BATCH_SIZE < batchPromises.length) {
+            console.log(`⏳ Waiting ${BATCH_DELAY/1000}s before next batch...`);
+            setDatabaseProgress({ 
+              current: completedCount, 
+              total: batchPromises.length, 
+              operation: `Sunucu dinleniyor...`,
+              currentProduct: `${BATCH_DELAY/1000}s bekleme (${batchNumber}/${totalBatches} tamamlandı)`
+            });
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+          }
+          
+        } catch (error) {
+          console.error(`❌ Batch ${batchNumber} failed:`, error);
+          // Mark all items in this batch as failed
+          chunk.forEach(() => {
+            completedCount++;
+            batchFailures.push({ error: error.message || 'Batch processing failed' });
+          });
+        }
+      }
       
       const batchEndTime = Date.now();
       const batchDuration = ((batchEndTime - batchStartTime) / 1000).toFixed(2);
-      console.log(`⚡ Batch save completed in ${batchDuration} seconds (was taking ${newProducts.length * 3} seconds before)`);
-
-      // Process batch results
-      const batchSuccesses = [];
-      const batchFailures = [];
-      
-      batchResults.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value.success) {
-          batchSuccesses.push(result.value);
-          // Track successfully saved products for session management
-          currentSessionSavedProducts.current.push({
-            stok_kodu: result.value.stok_kodu,
-            type: result.value.type
-          });
-          // Add to successful products for Excel generation
-          if (result.value.type === 'CH') {
-            successfulProducts.push({
-              ...result.value.originalProduct,
-              stok_kodu: result.value.stok_kodu,
-              hasirTipi: result.value.originalProduct.hasirTipi,
-              uzunlukBoy: result.value.originalProduct.uzunlukBoy,
-              uzunlukEn: result.value.originalProduct.uzunlukEn
-            });
-          }
-        } else {
-          const errorInfo = result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Unknown error' };
-          batchFailures.push(errorInfo);
-          if (errorInfo.originalProduct) {
-            failedProducts.push({
-              product: errorInfo.originalProduct,
-              error: errorInfo.error || 'Batch save failed'
-            });
-          }
-        }
-      });
-
-      console.log(`📊 Batch Results: ${batchSuccesses.length} successful, ${batchFailures.length} failed`);
+      console.log(`⚡ Controlled batch save completed in ${batchDuration} seconds`);
+      console.log(`📊 Final Results: ${batchSuccesses.length} successful, ${batchFailures.length} failed`);
       
       setDatabaseProgress({ 
-        current: batchSuccesses.length + batchFailures.length, 
+        current: completedCount, 
         total: batchPromises.length, 
         operation: `Batch save tamamlandı! ${batchDuration}s`,
         currentProduct: `${batchSuccesses.length}/${batchPromises.length} başarılı`
