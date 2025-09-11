@@ -243,24 +243,37 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     }
     // When searching by stok_kodu, get MM product + related NCBK/NTEL records
     else if (stokKodular.length > 0) {
-      // First get MM products - search directly by stok_kodu to avoid large API calls
+      // CRITICAL FIX: Batch fetch all products at once instead of individual API calls
       try {
         const filteredMmProducts = [];
         
-        // Fetch each product individually to avoid large API responses
-        for (const stokKodu of stokKodular) {
-          // First try: Direct search by stok_kodu
-          let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
-          let mmProducts = [];
+        // OPTIMIZATION: Fetch all products in batches to avoid server overload
+        const batchSize = 10; // Process in batches to avoid too long URLs
+        for (let i = 0; i < stokKodular.length; i += batchSize) {
+          const batch = stokKodular.slice(i, i + batchSize);
+          const searchParam = batch.join(',');
           
-          if (mmResponse.ok) {
-            mmProducts = await mmResponse.json();
-            const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
-            if (exactMatch.length > 0) {
-              console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
-              filteredMmProducts.push(...exactMatch);
-              continue; // Found it, move to next
+          // Use batch search parameter if backend supports it, otherwise fallback to individual searches
+          let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?stok_kodular=${encodeURIComponent(searchParam)}`);
+          
+          // If batch search is not supported (404 or 400), fallback to individual searches for this batch
+          if (!mmResponse.ok && (mmResponse.status === 404 || mmResponse.status === 400)) {
+            console.log('Batch search not supported, falling back to individual searches for this batch');
+            for (const stokKodu of batch) {
+              let individualResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
+              if (individualResponse.ok) {
+                const products = await individualResponse.json();
+                const exactMatch = products.filter(p => p.stok_kodu === stokKodu);
+                if (exactMatch.length > 0) {
+                  console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
+                  filteredMmProducts.push(...exactMatch);
+                }
+              }
             }
+          } else if (mmResponse.ok) {
+            const mmProducts = await mmResponse.json();
+            console.log(`✅ Found ${mmProducts.length} products in batch ${Math.floor(i/batchSize) + 1}`);
+            filteredMmProducts.push(...mmProducts);
           }
           
           // Second try: If search failed, try fetching recent records (newly saved might not be indexed)
@@ -5144,6 +5157,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: unoptimizedCount > 0 ? `(${unoptimizedCount} optimize edilmemiş)` : ''
       });
       
+      // Track successfully saved products and errors
+      const successfulProducts = [];
+      const failedProducts = [];
+      
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
         const product = newProducts[i];
@@ -5515,10 +5532,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelResult.isNewlyCreated = true; // Mark as newly created in this session
             console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
           }
+          // Mark as successfully saved
+          successfulProducts.push({
+            ...product,
+            existingStokKodu: generatedStokKodu
+          });
         } catch (error) {
           console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
-          toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
-          continue; // Bu ürünü atla, diğerlerine devam et
+          failedProducts.push({
+            product,
+            error: error.message
+          });
+          // Continue with next product but show warning at the end
+          continue;
         }
 
         // Recipe kayıtları oluştur (sadece yeni ürünler için)
@@ -5635,7 +5661,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      toast.success(`${processedCount} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
+      // Show appropriate message based on results
+      if (failedProducts.length === 0) {
+        toast.success(`${successfulProducts.length} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
+      } else if (successfulProducts.length > 0) {
+        toast.warning(`${successfulProducts.length} ürün kaydedildi, ${failedProducts.length} ürün başarısız oldu`);
+        console.error('Failed products:', failedProducts);
+      } else {
+        toast.error(`Hiçbir ürün kaydedilemedi! ${failedProducts.length} ürün başarısız oldu`);
+        console.error('All products failed:', failedProducts);
+      }
+      
       setDatabaseProgress({ 
         current: processedCount, 
         total: totalCount, 
@@ -5644,28 +5680,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       console.log('Veritabanı kaydetme tamamlandı. Excel için döndürülen ürünler:', {
-        count: newProducts.length,
-        products: newProducts.map(p => p.hasirTipi)
+        successful: successfulProducts.length,
+        failed: failedProducts.length,
+        products: successfulProducts.map(p => p.hasirTipi)
       });
       
       // Listeyi güncelle (don't await to avoid timeout)
-      fetchSavedProducts().catch(error => {
-        console.warn('Database refresh failed after save:', error);
-        toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
-      });
+      if (successfulProducts.length > 0) {
+        fetchSavedProducts().catch(error => {
+          console.warn('Database refresh failed after save:', error);
+          toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
+        });
+      }
       
       // DON'T close database modal yet - transition to Excel generation phase
       setDatabaseProgress({ current: totalCount, total: totalCount, operation: 'Excel dosyaları hazırlanıyor...', currentProduct: '' });
       setIsLoading(false);
       
-      // Sadece yeni kaydedilen ürünleri döndür
-      return newProducts;
+      // Sadece başarıyla kaydedilen ürünleri döndür
+      return successfulProducts;
       
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
       
       // Provide specific error messages based on error type
-      if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
+      if (error.message?.includes('504') || error.message?.includes('timeout')) {
+        toast.error('Sunucu zaman aşımına uğradı! Lütfen daha az ürünle tekrar deneyin.');
+      } else if (error.message?.includes('500')) {
+        toast.error('Sunucu hatası! Lütfen bir süre bekleyip tekrar deneyin.');
+      } else if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
         toast.error('Ağ bağlantısı hatası - Lütfen internet bağlantınızı kontrol edin');
       } else if (error.message?.includes('Backend responses failed')) {
         toast.error('Veritabanı sunucusuna erişilemiyor - Lütfen daha sonra tekrar deneyin');
@@ -6364,6 +6407,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       // Add small delay to ensure database consistency
                       await new Promise(resolve => setTimeout(resolve, 800));
                       
+                      // Update UI to show data fetching phase
+                      setDatabaseProgress({ 
+                        current: 0, 
+                        total: stokKodular.length, 
+                        operation: 'Kaydedilen ürünlerin detayları alınıyor...',
+                        currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
+                      });
+                      
                       // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                       const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
                       console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
@@ -6381,8 +6432,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       } : 'none');
                       
                       if (databaseProducts && databaseProducts.length > 0) {
+                        // Update UI before starting Excel generation
+                        setDatabaseProgress({ 
+                          current: databaseProducts.length, 
+                          total: databaseProducts.length, 
+                          operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
+                          currentProduct: ''
+                        });
                         await generateExcelFiles(databaseProducts, false);
-                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
                       } else {
                         // Database fetch failed - apply fallback formula to newProducts
                         console.warn('Unified fetch returned no data, applying fallback formula to original data');
@@ -6498,6 +6556,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                         console.log('Looking for these stok_kodu values:', stokKodular);
                         
+                        // Update UI to show data fetching phase
+                        setDatabaseProgress({ 
+                          current: 0, 
+                          total: stokKodular.length, 
+                          operation: 'Kaydedilen ürünlerin detayları alınıyor...',
+                          currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
+                        });
+                        
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
@@ -6509,8 +6575,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
+                          // Update UI before starting Excel generation
+                          setDatabaseProgress({ 
+                            current: databaseProducts.length, 
+                            total: databaseProducts.length, 
+                            operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
+                            currentProduct: ''
+                          });
                           await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
                         } else {
                           // Database fetch failed - apply fallback formula to newProducts
                           console.warn('Unified fetch returned no data, applying fallback formula to original data');
@@ -7235,6 +7308,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                         console.log('Looking for these stok_kodu values:', stokKodular);
                         
+                        // Update UI to show data fetching phase
+                        setDatabaseProgress({ 
+                          current: 0, 
+                          total: stokKodular.length, 
+                          operation: 'Kaydedilen ürünlerin detayları alınıyor...',
+                          currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
+                        });
+                        
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
@@ -7246,8 +7327,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
+                          // Update UI before starting Excel generation
+                          setDatabaseProgress({ 
+                            current: databaseProducts.length, 
+                            total: databaseProducts.length, 
+                            operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
+                            currentProduct: ''
+                          });
                           await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
                         } else {
                           // Database fetch failed - apply fallback formula to newProducts
                           console.warn('Unified fetch returned no data, applying fallback formula to original data');
