@@ -5207,6 +5207,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       for (let i = 0; i < newProducts.length; i++) {
         const product = newProducts[i];
         processedCount++;
+        
+        // Add progressive delay between saves to prevent server overload
+        if (i > 0) {
+          const baseDelay = 2000; // Base 2 second delay
+          const progressiveDelay = Math.min(i * 500, 5000); // Up to 5 seconds max
+          const totalDelay = baseDelay + progressiveDelay;
+          
+          console.log(`⏳ Waiting ${totalDelay}ms before saving product ${i + 1}/${newProducts.length} to prevent server overload...`);
+          setDatabaseProgress({ 
+            current: processedCount, 
+            total: totalCount, 
+            operation: `Sunucu yükünü önlemek için ${totalDelay}ms bekleniyor...`,
+            currentProduct: `Sıradaki: ${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, totalDelay));
+        }
+        
         setDatabaseProgress({ 
           current: processedCount, 
           total: totalCount, 
@@ -5305,7 +5323,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chData)
-          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
+          }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
           
           if (chResponse.status === 409) {
             // Duplicate detected - try with next sequence number
@@ -5329,7 +5347,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(chData)
-              }, 3, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
+              }, 3, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
               
               if (retryResponse.ok) {
                 console.log(`*** Retry successful with ${newStokKodu}`);
@@ -5452,11 +5470,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               type: spec.type
             });
             
+            // Add small delay between database operations to reduce server load
+            console.log('⏳ Micro delay before NCBK save to prevent server overload...');
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(ncbkData)
-            }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
+            }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
             
             console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
               status: ncbkResponse.status,
@@ -5556,11 +5578,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg_per_meter: ntelData.payda_1
           });
 
+          // Add small delay between database operations to reduce server load
+          console.log('⏳ Micro delay before NTEL save to prevent server overload...');
+          await new Promise(resolve => setTimeout(resolve, 800));
+
           const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(ntelData)
-          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NTEL` })));
+          }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NTEL` })));
           
           if (ntelResponse.status === 409) {
             // NTEL already exists - this is normal, just use existing
@@ -6951,8 +6977,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         disabled={isDeletingBulkDb}
                         className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
                       >
-                        <Trash2 className="w-4 h-4" />
-                        Seçilileri Sil ({selectedDbItems.length})
+                        {isDeletingBulkDb ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        {isDeletingBulkDb ? `Siliniyor... (${selectedDbItems.length})` : `Seçilileri Sil (${selectedDbItems.length})`}
                       </button>
                       {activeDbTab === 'mm' && (
                         <button
@@ -7024,8 +7054,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       disabled={isLoading}
                       className="w-full px-4 py-2 bg-red-600 text-white rounded-md flex items-center justify-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400 border-2 border-red-700 mb-2"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
+                      {isLoading ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      {isLoading ? 'Siliniyor...' : (activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil')}
                     </button>
                     <p className="text-xs text-red-600 text-center">
                       ⚠️ Bu işlem seçili sekmedeki tüm kayıtları kalıcı olarak siler. Bu işlem geri alınamaz!
@@ -7459,8 +7493,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <button
                 onClick={bulkDeleteAll}
                 disabled={bulkDeleteText !== 'Hepsini Sil' || isLoading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
+                {isLoading && <Loader className="w-4 h-4 animate-spin" />}
                 {isLoading ? 'Siliniyor...' : 'Sil'}
               </button>
             </div>
