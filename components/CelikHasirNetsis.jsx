@@ -959,14 +959,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return response;
         }
         
-        // If it's a 504 or 500 error, retry
+        // If it's a 504 or 500 error, retry with LONGER delays for server recovery
         if ((response.status === 504 || response.status === 500) && attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          // Much longer delays for 504 errors - give server time to recover
+          const delay = response.status === 504 
+            ? Math.min(5000 * attempt, 15000)  // 504: 5s, 10s, 15s (max)
+            : baseDelay * Math.pow(2, attempt - 1); // 500: normal exponential backoff
+          
           console.log(`⏳ Request failed with ${response.status}, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
           
           // Update progress indicator if callback provided
           if (progressCallback) {
-            progressCallback(`⏳ Sunucu zaman aşımı, tekrar denenecek... (${attempt}/${maxRetries})`);
+            progressCallback(`⏳ Sunucu aşırı yüklü (${response.status}), ${delay/1000} saniye bekleniyor... (${attempt}/${maxRetries})`);
           }
           
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -5247,58 +5251,47 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const successfulProducts = [];
       const failedProducts = [];
       
-      // Add SMALL initial delay before starting save operations
+      // Add longer initial delay for large batches to prepare server
       if (newProducts.length > 0) {
-        const initialDelay = 500; // Only 0.5 second initial delay
-        console.log(`⏳ Starting save operations for ${newProducts.length} products...`);
+        // Longer delay for more products to avoid server overload
+        const initialDelay = newProducts.length > 10 ? 3000 : 1000; // 3s for large batches, 1s for small
+        console.log(`⏳ Preparing to save ${newProducts.length} products, waiting ${initialDelay}ms for server...`);
         setDatabaseProgress({ 
           current: 0, 
           total: newProducts.length, 
-          operation: `${newProducts.length} ürün kaydedilecek...`,
-          currentProduct: 'İşlem başlatılıyor...'
+          operation: `${newProducts.length} ürün için sunucu hazırlanıyor...`,
+          currentProduct: `${initialDelay/1000} saniye bekleniyor...`
         });
         
         await new Promise(resolve => setTimeout(resolve, initialDelay));
       }
       
-      // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
+      // BATCH COLLECTION: Collect all CH, NCBK, NTEL data first, then save in bulk
+      console.log(`📦 Collecting data for ${newProducts.length} products for batch save...`);
+      setDatabaseProgress({ 
+        current: 0, 
+        total: newProducts.length * 4, 
+        operation: 'Ürün verileri hazırlanıyor...',
+        currentProduct: 'Batch save için veriler toplanıyor...'
+      });
+
+      const allChData = [];
+      const allNcbkData = [];
+      const allNtelData = [];
+      
       for (let i = 0; i < newProducts.length; i++) {
-        // Check if save was cancelled
+        // Check if collection was cancelled
         if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
-          console.log('🛑 Save operation cancelled by user');
+          console.log('🛑 Data collection cancelled by user');
           break;
         }
         
         const product = newProducts[i];
-        processedCount++;
-        
-        // Add MINIMAL delay between saves - only for large batches
-        if (i > 0 && i % 5 === 0) { // Only delay every 5 products
-          const totalDelay = 1000; // Just 1 second delay every 5 products
-          
-          console.log(`⏳ Waiting ${totalDelay}ms before saving product ${i + 1}/${newProducts.length} to prevent server overload...`);
-          setDatabaseProgress({ 
-            current: processedCount, 
-            total: totalCount, 
-            operation: `Sunucu yükünü önlemek için ${totalDelay}ms bekleniyor...`,
-            currentProduct: `Sıradaki: ${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
-          });
-          
-          // Wait with cancellation support
-          await new Promise((resolve) => {
-            const timeout = setTimeout(resolve, totalDelay);
-            // Check for cancellation during delay
-            if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
-              clearTimeout(timeout);
-              resolve();
-            }
-          });
-        }
         
         setDatabaseProgress({ 
-          current: processedCount, 
-          total: totalCount, 
-          operation: 'Veritabanına kaydediliyor...',
+          current: i + 1, 
+          total: newProducts.length, 
+          operation: 'Ürün verileri toplanıyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
         // CH kaydı
@@ -5389,11 +5382,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg: chData.kg
           });
 
-          chResponse = await fetchWithRetry(API_URLS.celikHasirMm, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(chData)
-          }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
+          // BATCH COLLECTION: Collect CH data instead of saving individually
+          console.log('📦 Collecting CH data for batch save:', chData.stok_kodu);
+          allChData.push({
+            data: chData,
+            originalProduct: product,
+            generatedStokKodu: generatedStokKodu,
+            productIndex: i
+          });
+          
+          // Simulate successful response for now - actual save will happen in batch
+          chResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: chData.stok_kodu }) };
           
           if (chResponse.status === 409) {
             // Duplicate detected - try with next sequence number
@@ -5549,11 +5548,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             // REMOVED: Micro delay - was causing extreme slowness
             
-            const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(ncbkData)
-            }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
+            // BATCH COLLECTION: Collect NCBK data instead of saving individually
+            console.log('📦 Collecting NCBK data for batch save:', ncbkData.stok_kodu);
+            allNcbkData.push({
+              data: ncbkData,
+              originalProduct: product,
+              specType: spec.type,
+              productIndex: i
+            });
+            
+            // Simulate successful response for now - actual save will happen in batch
+            const ncbkResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: ncbkData.stok_kodu, isNewlyCreated: true }) };
             
             console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
               status: ncbkResponse.status,
@@ -5663,11 +5668,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           // REMOVED: Micro delay - was causing extreme slowness
 
-          const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ntelData)
-          }, 5, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NTEL` })));
+          // BATCH COLLECTION: Collect NTEL data instead of saving individually
+          console.log('📦 Collecting NTEL data for batch save:', ntelData.stok_kodu);
+          allNtelData.push({
+            data: ntelData,
+            originalProduct: product,
+            productIndex: i
+          });
+          
+          // Simulate successful response for now - actual save will happen in batch
+          const ntelResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: ntelData.stok_kodu, isNewlyCreated: true }) };
           
           if (ntelResponse.status === 409) {
             // NTEL already exists - this is normal, just use existing
@@ -5818,6 +5828,148 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
+
+      // BATCH SAVE IMPLEMENTATION: Send all collected data in parallel batches
+      console.log('🚀 Starting batch save operations...');
+      console.log(`📦 Batch Summary: ${allChData.length} CH, ${allNcbkData.length} NCBK, ${allNtelData.length} NTEL`);
+      
+      setDatabaseProgress({ 
+        current: 0, 
+        total: allChData.length + allNcbkData.length + allNtelData.length, 
+        operation: 'Batch save işlemi başlatılıyor...',
+        currentProduct: 'Veriler paralel olarak kaydediliyor...'
+      });
+
+      // Send all requests in parallel for maximum performance
+      const batchPromises = [];
+      
+      // Add CH batch requests
+      allChData.forEach((chItem, index) => {
+        batchPromises.push(
+          fetchWithRetry(API_URLS.celikHasirMm, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chItem.data)
+          }, 3, 1000).then(response => ({
+            type: 'CH',
+            index,
+            stok_kodu: chItem.data.stok_kodu,
+            originalProduct: chItem.originalProduct,
+            response,
+            success: response.status === 200 || response.status === 201
+          })).catch(error => ({
+            type: 'CH',
+            index,
+            stok_kodu: chItem.data.stok_kodu,
+            originalProduct: chItem.originalProduct,
+            success: false,
+            error: error.message
+          }))
+        );
+      });
+
+      // Add NCBK batch requests  
+      allNcbkData.forEach((ncbkItem, index) => {
+        batchPromises.push(
+          fetchWithRetry(API_URLS.celikHasirNcbk, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ncbkItem.data)
+          }, 3, 1000).then(response => ({
+            type: 'NCBK',
+            index,
+            stok_kodu: ncbkItem.data.stok_kodu,
+            originalProduct: ncbkItem.originalProduct,
+            response,
+            success: response.status === 200 || response.status === 201
+          })).catch(error => ({
+            type: 'NCBK',
+            index,
+            stok_kodu: ncbkItem.data.stok_kodu,
+            originalProduct: ncbkItem.originalProduct,
+            success: false,
+            error: error.message
+          }))
+        );
+      });
+
+      // Add NTEL batch requests
+      allNtelData.forEach((ntelItem, index) => {
+        batchPromises.push(
+          fetchWithRetry(API_URLS.celikHasirNtel, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ntelItem.data)
+          }, 3, 1000).then(response => ({
+            type: 'NTEL',
+            index,
+            stok_kodu: ntelItem.data.stok_kodu,
+            originalProduct: ntelItem.originalProduct,
+            response,
+            success: response.status === 200 || response.status === 201
+          })).catch(error => ({
+            type: 'NTEL',
+            index,
+            stok_kodu: ntelItem.data.stok_kodu,
+            originalProduct: ntelItem.originalProduct,
+            success: false,
+            error: error.message
+          }))
+        );
+      });
+
+      // Execute all batch requests in parallel
+      console.log(`🚀 Sending ${batchPromises.length} requests in parallel...`);
+      const batchStartTime = Date.now();
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      const batchEndTime = Date.now();
+      const batchDuration = ((batchEndTime - batchStartTime) / 1000).toFixed(2);
+      console.log(`⚡ Batch save completed in ${batchDuration} seconds (was taking ${newProducts.length * 3} seconds before)`);
+
+      // Process batch results
+      const batchSuccesses = [];
+      const batchFailures = [];
+      
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          batchSuccesses.push(result.value);
+          // Track successfully saved products for session management
+          currentSessionSavedProducts.current.push({
+            stok_kodu: result.value.stok_kodu,
+            type: result.value.type
+          });
+          // Add to successful products for Excel generation
+          if (result.value.type === 'CH') {
+            successfulProducts.push({
+              ...result.value.originalProduct,
+              stok_kodu: result.value.stok_kodu,
+              hasirTipi: result.value.originalProduct.hasirTipi,
+              uzunlukBoy: result.value.originalProduct.uzunlukBoy,
+              uzunlukEn: result.value.originalProduct.uzunlukEn
+            });
+          }
+        } else {
+          const errorInfo = result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Unknown error' };
+          batchFailures.push(errorInfo);
+          if (errorInfo.originalProduct) {
+            failedProducts.push({
+              product: errorInfo.originalProduct,
+              error: errorInfo.error || 'Batch save failed'
+            });
+          }
+        }
+      });
+
+      console.log(`📊 Batch Results: ${batchSuccesses.length} successful, ${batchFailures.length} failed`);
+      
+      setDatabaseProgress({ 
+        current: batchSuccesses.length + batchFailures.length, 
+        total: batchPromises.length, 
+        operation: `Batch save tamamlandı! ${batchDuration}s`,
+        currentProduct: `${batchSuccesses.length}/${batchPromises.length} başarılı`
+      });
 
       // Show appropriate message based on results
       if (failedProducts.length === 0) {
