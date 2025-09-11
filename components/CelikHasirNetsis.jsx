@@ -544,6 +544,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const cacheRef = useRef(new Map()); // Simple cache for API responses
   const lastFetchTimeRef = useRef(0);
   
+  // Add refs for save operation cancellation and rollback
+  const saveAbortControllerRef = useRef(null);
+  const currentSessionSavedProducts = useRef([]); // Track products saved in current session for rollback
+  const isSaveCancelledRef = useRef(false); // Flag to check if save was cancelled
+  
   // Check for optimized data from advanced optimization screen
   const [products, setProducts] = useState(optimizedProducts);
   
@@ -4980,6 +4985,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Veritabanına kaydet
   const saveToDatabase = async (products) => {
     try {
+      // Reset cancellation flag and saved products tracker for new session
+      isSaveCancelledRef.current = false;
+      currentSessionSavedProducts.current = [];
+      
+      // Create new AbortController for this save session
+      saveAbortControllerRef.current = new AbortController();
+      
       // IMMEDIATE UI FEEDBACK - Show progress modal immediately
       setIsLoading(true);
       setIsSavingToDatabase(true);
@@ -5251,6 +5263,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
+        // Check if save was cancelled
+        if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
+          console.log('🛑 Save operation cancelled by user');
+          break;
+        }
+        
         const product = newProducts[i];
         processedCount++;
         
@@ -5268,7 +5286,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             currentProduct: `Sıradaki: ${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
           });
           
-          await new Promise(resolve => setTimeout(resolve, totalDelay));
+          // Wait with cancellation support
+          await new Promise((resolve) => {
+            const timeout = setTimeout(resolve, totalDelay);
+            // Check for cancellation during delay
+            if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
         }
         
         setDatabaseProgress({ 
@@ -5417,6 +5443,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
           } else {
             chResult = await chResponse.json();
+            // Track saved CH product for potential rollback
+            currentSessionSavedProducts.current.push({
+              type: 'CH',
+              id: chResult.id,
+              stok_kodu: chData.stok_kodu,
+              api_url: API_URLS.celikHasirMm
+            });
           }
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
@@ -5545,6 +5578,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const ncbkResult = await ncbkResponse.json();
               console.log(`✅ NCBK created successfully (${ncbkResponse.status}), WILL create recipe: ${ncbkData.stok_kodu}`);
               
+              // Track saved NCBK product for potential rollback
+              currentSessionSavedProducts.current.push({
+                type: 'NCBK',
+                id: ncbkResult.id,
+                stok_kodu: ncbkData.stok_kodu,
+                api_url: API_URLS.celikHasirNcbk
+              });
+              
               // Mark this NCBK as newly created in this session
               newlyCreatedNcbks.add(ncbkData.stok_kodu);
               
@@ -5644,6 +5685,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           } else {
             ntelResult = await ntelResponse.json();
             ntelResult.isNewlyCreated = true; // Mark as newly created in this session
+            
+            // Track saved NTEL product for potential rollback
+            currentSessionSavedProducts.current.push({
+              type: 'NTEL',
+              id: ntelResult.id,
+              stok_kodu: ntelData.stok_kodu,
+              api_url: API_URLS.celikHasirNtel
+            });
+            
             console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
           }
           // Mark as successfully saved
@@ -6879,8 +6929,66 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               </p>
               
               <button
-                onClick={() => {
-                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?')) {
+                onClick={async () => {
+                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?\n\nBu işlem şu ana kadar kaydedilen ürünleri geri alacaktır.')) {
+                    // Set cancellation flag
+                    isSaveCancelledRef.current = true;
+                    
+                    // Abort ongoing operations
+                    if (saveAbortControllerRef.current) {
+                      saveAbortControllerRef.current.abort();
+                    }
+                    
+                    // Check if there are products to rollback
+                    const savedCount = currentSessionSavedProducts.current.length;
+                    if (savedCount > 0) {
+                      const rollbackConfirm = window.confirm(`${savedCount} adet ürün bu oturumda kaydedildi.\n\nBu ürünleri silmek ister misiniz?`);
+                      
+                      if (rollbackConfirm) {
+                        setDatabaseProgress({ 
+                          current: 0, 
+                          total: savedCount, 
+                          operation: 'Kaydedilen ürünler geri alınıyor...', 
+                          currentProduct: 'Rollback işlemi başlatılıyor...' 
+                        });
+                        
+                        // Rollback saved products
+                        let rollbackCount = 0;
+                        for (const savedProduct of currentSessionSavedProducts.current) {
+                          try {
+                            const response = await fetchWithAuth(`${savedProduct.api_url}/${savedProduct.id}`, {
+                              method: 'DELETE'
+                            });
+                            
+                            if (response.ok) {
+                              rollbackCount++;
+                              console.log(`✅ Rolled back ${savedProduct.type} product: ${savedProduct.stok_kodu}`);
+                            } else {
+                              console.error(`❌ Failed to rollback ${savedProduct.type} product: ${savedProduct.stok_kodu}`);
+                            }
+                            
+                            setDatabaseProgress({ 
+                              current: rollbackCount, 
+                              total: savedCount, 
+                              operation: 'Kaydedilen ürünler geri alınıyor...', 
+                              currentProduct: `${savedProduct.stok_kodu} siliniyor...` 
+                            });
+                          } catch (error) {
+                            console.error(`Error rolling back ${savedProduct.stok_kodu}:`, error);
+                          }
+                        }
+                        
+                        toast.success(`${rollbackCount} ürün başarıyla geri alındı`);
+                        
+                        // Refresh database to show changes
+                        await fetchSavedProducts(false, true);
+                      }
+                    }
+                    
+                    // Clear session saved products
+                    currentSessionSavedProducts.current = [];
+                    
+                    // Close modal and reset states
                     setIsSavingToDatabase(false);
                     setIsLoading(false);
                     toast.warning('İşlem kullanıcı tarafından iptal edildi');
