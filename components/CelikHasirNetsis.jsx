@@ -68,17 +68,54 @@ const getFilmasinKodu = (diameter) => {
 };
 
 // Fallback formula function for missing database values
+// Global cache for mesh configurations to avoid repeated API calls
+const meshConfigCache = new Map();
+
+// Batch fetch mesh configurations to avoid individual API calls
+const batchFetchMeshConfigs = async (hasirTipis) => {
+  const uniqueHasirTipis = [...new Set(hasirTipis)];
+  const uncachedTypes = uniqueHasirTipis.filter(type => !meshConfigCache.has(type));
+  
+  if (uncachedTypes.length > 0) {
+    console.log(`📥 Batch fetching mesh configs for: ${uncachedTypes.join(', ')}`);
+    
+    // Fetch all uncached configs in parallel
+    const fetchPromises = uncachedTypes.map(async (hasirTipi) => {
+      try {
+        const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
+        if (response.ok) {
+          const config = await response.json();
+          meshConfigCache.set(hasirTipi, config);
+          return { hasirTipi, config };
+        } else {
+          meshConfigCache.set(hasirTipi, null); // Cache failure to avoid repeated calls
+          return { hasirTipi, config: null };
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch mesh config for ${hasirTipi}:`, error);
+        meshConfigCache.set(hasirTipi, null);
+        return { hasirTipi, config: null };
+      }
+    });
+    
+    await Promise.all(fetchPromises);
+  }
+  
+  return uniqueHasirTipis.map(type => ({
+    hasirTipi: type,
+    config: meshConfigCache.get(type)
+  }));
+};
+
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
-    // First, try to get mesh configuration from mesh_type_configs table
-    let meshConfig = null;
-    try {
-      const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
-      if (response.ok) {
-        meshConfig = await response.json();
-      }
-    } catch (error) {
-      console.warn('Could not fetch mesh config from database:', error);
+    // Use cached mesh configuration to avoid repeated API calls
+    let meshConfig = meshConfigCache.get(hasirTipi);
+    
+    if (meshConfig === undefined) {
+      // Not cached yet, fetch it
+      await batchFetchMeshConfigs([hasirTipi]);
+      meshConfig = meshConfigCache.get(hasirTipi);
     }
     
     // Use database config or fallback to hardcoded values
@@ -2771,6 +2808,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // OPTIMIZATION: Instead of making hundreds of API calls, use existing savedProducts data
       // combined with fallback calculations for missing cubuk sayisi values
       console.log('KAYNAK PROGRAMI: Using optimized approach with existing data...');
+      
+      // Pre-fetch all mesh configurations to avoid individual API calls during processing
+      const uniqueHasirTipis = [...new Set(validProducts.map(p => p.hasirTipi))];
+      console.log(`🔧 Pre-fetching mesh configurations for ${uniqueHasirTipis.length} unique hasir tipis...`);
+      await batchFetchMeshConfigs(uniqueHasirTipis);
       
       const enhancedProducts = await Promise.all(validProducts.map(async (product) => {
         // Find matching stock code from analysis
