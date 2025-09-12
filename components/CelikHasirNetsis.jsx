@@ -3092,9 +3092,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('Error generating Kaynak Programı Excel:', error);
       toast.error('Kaynak Programı Excel oluşturulurken hata oluştu');
     } finally {
-      // Always reset loading state
+      // UNIFIED MODAL: Reset all loading states to close unified modal
       setIsGeneratingExcel(false);
+      setIsSavingToDatabase(false); // Close unified modal
       setExcelProgress({ current: 0, total: 0, operation: '' });
+      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   };
 
@@ -3218,14 +3220,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('Excel oluşturma hatası:', error);
       toast.error('Excel dosyaları oluşturulurken hata oluştu');
     } finally {
-      // CONTINUITY FIX: Complete cleanup of all loading states
+      // UNIFIED MODAL: Complete cleanup of all loading states
       setIsGeneratingExcel(false);
-      setIsSavingToDatabase(false);
+      setIsSavingToDatabase(false); // Close unified modal
       setIsLoading(false);
       setExcelProgress({ current: 0, total: 0, operation: '' });
       setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
       
-      console.log('✅ COMPLETE: Save and Excel generation process finished');
+      console.log('✅ UNIFIED MODAL: Save and Excel generation process finished - modal closed');
     }
   }, []);
 
@@ -3452,8 +3454,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('🚀 BULK EXCEL ERROR:', error);
       toast.error('Toplu Excel oluşturma sırasında hata oluştu: ' + error.message);
     } finally {
+      // UNIFIED MODAL: Reset all states to close unified modal
       setIsGeneratingExcel(false);
+      setIsSavingToDatabase(false); // Close unified modal
       setExcelProgress({ current: 0, total: 0, operation: '' });
+      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
     }
   }, []);
 
@@ -6729,11 +6734,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     console.error('Save and Excel generation failed:', error);
                     toast.error('İşlem sırasında hata oluştu');
                   } finally {
-                    // SEAMLESS UI: Ensure all progress states are cleared
+                    // UNIFIED MODAL: Only clear Excel states here, database states cleared by Excel generation completion
                     setIsGeneratingExcel(false);
-                    setIsSavingToDatabase(false);
-                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                    // DON'T set isSavingToDatabase(false) here - let Excel generation handle the unified modal close
                     setExcelProgress({ current: 0, total: 0, operation: '' });
+                    // Keep database progress until Excel completely finishes
                   }
                 }}
                 disabled={isSavingToDatabase || isGeneratingExcel}
@@ -6959,52 +6964,105 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               </div>
             </div>
 
-      {/* Veritabanı Kayıt Progress Modal */}
-      {isSavingToDatabase && (
+      {/* UNIFIED Save+Excel Progress Modal - Never closes until both operations complete */}
+      {(isSavingToDatabase || isGeneratingExcel) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="text-center">
-              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-green-600" />
-              <h3 className="text-lg font-semibold mb-2">Veritabanı İşlemi Devam Ediyor</h3>
-              <p className="text-gray-600 mb-4">{databaseProgress.operation}</p>
+              {/* Dynamic icon and colors based on current operation */}
+              {isSavingToDatabase ? (
+                <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-green-600" />
+              ) : (
+                <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
+              )}
               
-              {databaseProgress.currentProduct && (
+              {/* Dynamic title based on current operation */}
+              <h3 className="text-lg font-semibold mb-2">
+                {isSavingToDatabase ? 'Veritabanı İşlemi Devam Ediyor' : 'Excel Dosyaları Oluşturuluyor'}
+              </h3>
+              
+              {/* Dynamic operation description */}
+              <p className="text-gray-600 mb-4">
+                {isSavingToDatabase ? databaseProgress.operation : excelProgress.operation}
+              </p>
+              
+              {/* Show current product only for database operations */}
+              {isSavingToDatabase && databaseProgress.currentProduct && (
                 <p className="text-sm text-gray-500 mb-4">
                   <span className="font-medium">Mevcut Ürün:</span> {databaseProgress.currentProduct}
                 </p>
               )}
               
-              {databaseProgress.total > 0 && (
-                <>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(databaseProgress.current / databaseProgress.total) * 100}%` }}
-                    />
-                  </div>
-                  
-                  <p className="text-sm text-gray-500">
-                    {databaseProgress.current} / {databaseProgress.total} ürün işlendi
-                  </p>
-                </>
-              )}
+              {/* Dynamic progress bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    isSavingToDatabase ? 'bg-green-600' : 'bg-blue-600'
+                  }`}
+                  style={{ 
+                    width: `${isSavingToDatabase 
+                      ? (databaseProgress.total > 0 ? (databaseProgress.current / databaseProgress.total * 100) : 0)
+                      : (excelProgress.total > 0 ? (excelProgress.current / excelProgress.total * 100) : 0)
+                    }%` 
+                  }}
+                />
+              </div>
               
+              {/* Dynamic progress counters */}
+              <div className="text-sm text-gray-500 mb-4">
+                {isSavingToDatabase ? (
+                  databaseProgress.total > 0 ? (
+                    `${databaseProgress.current} / ${databaseProgress.total} ürün işlendi`
+                  ) : (
+                    'İşlem başlatılıyor...'
+                  )
+                ) : (
+                  excelProgress.total > 0 ? (
+                    `${excelProgress.current} / ${excelProgress.total} dosya`
+                  ) : (
+                    'Excel üretimi başlatılıyor...'
+                  )
+                )}
+              </div>
+              
+              {/* Status message */}
               <p className="text-xs text-gray-400 mt-4 mb-4">
-                Lütfen bekleyiniz, işlem tamamlanıyor...
+                {isSavingToDatabase ? (
+                  'Veritabanı kaydetme tamamlandıktan sonra Excel üretimi başlayacak...'
+                ) : (
+                  'Excel dosyaları oluşturuluyor...'
+                )}
               </p>
               
-              <button
-                onClick={() => {
-                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?')) {
-                    setIsSavingToDatabase(false);
-                    setIsLoading(false);
-                    toast.warning('İşlem kullanıcı tarafından iptal edildi');
-                  }
-                }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
-              >
-                İptal
-              </button>
+              {/* Cancel buttons */}
+              {isSavingToDatabase ? (
+                <button
+                  onClick={() => {
+                    if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?')) {
+                      setIsSavingToDatabase(false);
+                      setIsLoading(false);
+                      toast.warning('İşlem kullanıcı tarafından iptal edildi');
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  İptal
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setCancelExcelGeneration(true);
+                    setIsGeneratingExcel(false);
+                    setIsSavingToDatabase(false); // Close unified modal
+                    setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                    toast.info('Excel oluşturma işlemi iptal edildi');
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  İptal
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -7048,29 +7106,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         </div>
       )}
 
-      {/* Excel Üretim Progress Modal */}
-      {isGeneratingExcel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
-              <h3 className="text-lg font-semibold mb-2">Excel Dosyaları Oluşturuluyor</h3>
-              <p className="text-gray-600 mb-4">{excelProgress.operation}</p>
-              
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(excelProgress.current / excelProgress.total) * 100}%` }}
-                />
-              </div>
-              
-              <p className="text-sm text-gray-500">
-                {excelProgress.current} / {excelProgress.total} dosya
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Delete Progress Modal - z-[60] to appear above database modal (z-50) */}
       {isBulkDeleting && (
@@ -7960,7 +7995,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   if (isGeneratingExcel) {
                     setCancelExcelGeneration(true);
                     setIsGeneratingExcel(false);
+                    setIsSavingToDatabase(false); // Close unified modal
                     setExcelProgress({ current: 0, total: 0, operation: '' });
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                     toast.info('Excel oluşturma işlemi iptal edildi');
                   }
                   setShowExcelOptionsModal(false);
