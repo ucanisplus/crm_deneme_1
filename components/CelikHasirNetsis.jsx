@@ -5266,19 +5266,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         await new Promise(resolve => setTimeout(resolve, initialDelay));
       }
       
-      // BATCH COLLECTION: Collect all CH, NCBK, NTEL data first, then save in bulk
-      console.log(`📦 Collecting data for ${newProducts.length} products for batch save...`);
-      setDatabaseProgress({ 
-        current: 0, 
-        total: newProducts.length * 4, 
-        operation: 'Ürün verileri hazırlanıyor...',
-        currentProduct: 'Batch save için veriler toplanıyor...'
-      });
-
-      // Individual save - no batch collection needed
-      
-      // RESTORED WORKING INDIVIDUAL SAVE LOGIC FROM VERCEL VERSION
-      let processedCount = 0;
+      // INDIVIDUAL SAVE LOGIC (restored from working Vercel version)
+      console.log(`🚀 Starting individual save operations for ${newProducts.length} products...`);
       for (let i = 0; i < newProducts.length; i++) {
         const product = newProducts[i];
         processedCount++;
@@ -5286,15 +5275,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           current: processedCount, 
           total: newProducts.length, 
           operation: 'Veritabanına kaydediliyor...',
-          currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
-        });
-        
-        const product = newProducts[i];
-        
-        setDatabaseProgress({ 
-          current: i + 1, 
-          total: newProducts.length, 
-          operation: 'Ürün verileri toplanıyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
         // CH kaydı
