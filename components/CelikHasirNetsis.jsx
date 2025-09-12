@@ -377,12 +377,14 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             databaseBoyCubuk: product.ic_cap_boy_cubuk_ad,
             databaseEnCubuk: product.dis_cap_en_cubuk_ad,
             initialCubukSayisiBoy: cubukSayisiBoy,
-            initialCubukSayisiEn: cubukSayisiEn
+            initialCubukSayisiEn: cubukSayisiEn,
+            recipeDataExists: !!recipeData,
+            recipeDataIsNull: recipeData === null
           });
           
           // Apply fallback formula if cubuk sayisi values are missing or invalid
-          // OR if recipe data couldn't be fetched (no NCBK/NTEL components found)
-          const shouldApplyFallback = !cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0 || !recipeData?.boyCount || !recipeData?.enCount;
+          // OR if recipe data couldn't be fetched (null means API failed or no recipe found)
+          const shouldApplyFallback = !cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0 || recipeData === null;
           
           if (shouldApplyFallback) {
             console.log(`Applying fallback formula for product ${product.stok_kodu} - missing cubuk sayısı or recipe data`);
@@ -459,10 +461,18 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
 // Helper function to fetch recipe data for a product
 const fetchProductRecipeData = async (stokKodu, productId) => {
   try {
+    console.log(`🔍 RECIPE DEBUG - Fetching recipe data for ${stokKodu} from ${API_URLS.celikHasirMmRecete}`);
     // Fetch from recipe table
     const response = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(stokKodu)}`);
+    console.log(`🔍 RECIPE DEBUG - Response status for ${stokKodu}:`, response.status);
+    
     if (response.ok) {
       const recipeData = await response.json();
+      console.log(`🔍 RECIPE DEBUG - Raw recipe data for ${stokKodu}:`, {
+        length: recipeData.length,
+        firstEntry: recipeData[0],
+        allEntries: recipeData.map(r => ({ mamul_kodu: r.mamul_kodu, bilesen_kodu: r.bilesen_kodu, aciklama: r.aciklama, miktar: r.miktar }))
+      });
       
       // Parse recipe data to extract boy and en cubuk counts
       let boyCount = 0;
@@ -472,19 +482,26 @@ const fetchProductRecipeData = async (stokKodu, productId) => {
       recipeData.forEach(item => {
         if (item.aciklama && item.aciklama.includes('BOY ÇUBUĞU')) {
           boyCount = parseFloat(item.miktar) || 0;
+          console.log(`🔍 RECIPE DEBUG - Found BOY ÇUBUĞU: ${boyCount} for ${stokKodu}`);
         } else if (item.aciklama && item.aciklama.includes('EN ÇUBUĞU')) {
           enCount = parseFloat(item.miktar) || 0;
+          console.log(`🔍 RECIPE DEBUG - Found EN ÇUBUĞU: ${enCount} for ${stokKodu}`);
         } else if (item.uretim_suresi) {
           duration += parseFloat(item.uretim_suresi) || 0;
         }
       });
       
-      return { boyCount, enCount, duration, rawData: recipeData };
+      const result = { boyCount, enCount, duration, rawData: recipeData };
+      console.log(`🔍 RECIPE DEBUG - Final result for ${stokKodu}:`, result);
+      return result;
+    } else {
+      console.error(`🔍 RECIPE DEBUG - Failed to fetch recipe data for ${stokKodu}, status: ${response.status}`);
     }
   } catch (error) {
-    console.warn(`Could not fetch recipe data for ${stokKodu}:`, error);
+    console.error(`🔍 RECIPE DEBUG - Error fetching recipe data for ${stokKodu}:`, error);
   }
   
+  console.log(`🔍 RECIPE DEBUG - Returning null for ${stokKodu}`);
   return null;
 };
 
@@ -4978,109 +4995,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('Stok Adı to Stok Kodus mapping:', Array.from(stokAdiToStokKodusMap.entries()));
       console.log('Sample database Stok Adı formats:', Array.from(stokAdiToStokKodusMap.keys()).slice(0, 3));
       
-      // Duplicates'leri ÖNCE filtrele - sadece yeni ürünleri kaydet
-      const newProducts = [];
-      const skippedProducts = [];
-      const batchDuplicates = []; // Track duplicates within current batch
+      // OPTIMIZATION: Skip redundant duplicate detection - getProductsToSave() already filtered
+      console.log('⚡ PERFORMANCE OPTIMIZATION: Skipping redundant duplicate detection, using pre-filtered products');
+      const newProducts = productsToSave; // Already filtered by getProductsToSave()
+      const skippedProducts = []; // No skipped products since getProductsToSave() already handled filtering
+      const batchDuplicates = []; // No batch duplicates since we're using pre-filtered data
       
-      // First pass: identify duplicates within the batch itself
-      const batchStokAdiMap = new Map(); // Map Stok Adı to first occurrence index
-      const batchUniqueProducts = []; // Products after removing batch duplicates
-      
-      for (let i = 0; i < productsToSave.length; i++) {
-        const product = productsToSave[i];
-        const productStokAdi = generateStokAdi(product, 'CH');
-        
-        if (batchStokAdiMap.has(productStokAdi)) {
-          // This is a duplicate within the batch
-          const firstOccurrenceIndex = batchStokAdiMap.get(productStokAdi);
-          batchDuplicates.push({
-            ...product,
-            duplicateOfIndex: firstOccurrenceIndex,
-            stokAdi: productStokAdi
-          });
-        } else {
-          // First occurrence of this Stok Adı in the batch
-          batchStokAdiMap.set(productStokAdi, i);
-          batchUniqueProducts.push(product);
-        }
-      }
-      
-      // Second pass: check unique products against database
-      for (const product of batchUniqueProducts) {
-        // Generate Stok Adı for identification
-        const productStokAdi = generateStokAdi(product, 'CH');
-        
-        // Debug: Log what we're comparing
-        console.log('*** STOK ADI COMPARISON DEBUG ***');
-        console.log('Generated Stok Adı:', JSON.stringify(productStokAdi));
-        console.log('Product data:', {
-          hasirTipi: product.hasirTipi,
-          boyCap: product.boyCap,
-          enCap: product.enCap,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn,
-          boyAraligi: product.boyAraligi,
-          enAraligi: product.enAraligi,
-          gozAraligi: product.gozAraligi
-        });
-        console.log('Exists in map?', stokAdiToStokKodusMap.has(productStokAdi));
-        
-        // Show a few database samples for comparison
-        const dbSamples = Array.from(stokAdiToStokKodusMap.entries()).slice(0, 2);
-        console.log('Database samples:', dbSamples.map(([key, codes]) => ({ stokAdi: key, codes })));
-        
-        // Check if product with same Stok Adı already exists
-        const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
-        const chExists = existingStokKodus.length > 0;
-        
-        // Also check for NCBK/NTEL variants
-        const ncbkStokAdi500 = `YM Nervürlü Çubuk ${product.boyCap} mm 500 cm`;
-        const ncbkStokAdi215 = `YM Nervürlü Çubuk ${product.enCap} mm 215 cm`;
-        const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
-        
-        const ncbkExists500 = stokAdiToStokKodusMap.has(ncbkStokAdi500);
-        const ncbkExists215 = stokAdiToStokKodusMap.has(ncbkStokAdi215);
-        const ntelExists = stokAdiToStokKodusMap.has(ntelStokAdi);
-        
-        if (chExists && ncbkExists500 && ncbkExists215 && ntelExists) {
-          console.log(`Ürün atlandı - zaten var: ${product.hasirTipi}`, {
-            stokAdi: productStokAdi,
-            existingStokKodus: existingStokKodus,
-            chExists,
-            ncbkExists500,
-            ncbkExists215,
-            ntelExists
-          });
-          skippedProducts.push({
-            ...product,
-            existingStokKodus: existingStokKodus,
-            existingStokAdiVariants: {
-              ch: existingStokKodus,
-              ncbk500: stokAdiToStokKodusMap.get(ncbkStokAdi500) || [],
-              ncbk215: stokAdiToStokKodusMap.get(ncbkStokAdi215) || [],
-              ntel: stokAdiToStokKodusMap.get(ntelStokAdi) || []
-            }
-          });
-        } else {
-          console.log(`Yeni ürün eklenecek: ${product.hasirTipi}`, {
-            stokAdi: productStokAdi,
-            chExists,
-            ncbkExists500,
-            ncbkExists215,
-            ntelExists,
-            reason: !chExists ? 'CH missing' : !ncbkExists500 ? 'NCBK 500 missing' : !ncbkExists215 ? 'NCBK 215 missing' : 'NTEL missing'
-          });
-          // Generate stok_kodu for this new product
-          const plannedStokKodu = generateStokKodu(product, 'CH', newProducts.length);
-          
-          // Store the generated stok_kodu for Excel generation later
-          newProducts.push({
-            ...product,
-            existingStokKodu: plannedStokKodu
-          });
-        }
-      }
+      // OPTIMIZATION COMPLETE: Removed redundant duplicate checking loop entirely
       
       console.log('Filtreleme sonuçları:', {
         totalProducts: productsToSave.length,
