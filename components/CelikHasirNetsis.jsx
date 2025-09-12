@@ -2080,8 +2080,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Format decimal values properly - use comma for Turkish format
       const formattedBoyCap = formatDecimalForDisplay(product.boyCap, true);
       const formattedEnCap = formatDecimalForDisplay(product.enCap, true);
-      const formattedBoy = parseInt(product.uzunlukBoy || 0);
-      const formattedEn = parseInt(product.uzunlukEn || 0);
+      const formattedBoy = parseInt(product.uzunlukBoy || 0) || 0;
+      const formattedEn = parseInt(product.uzunlukEn || 0) || 0;
       
       // Create the standard format used in database saves
       const stokAdi = `${normalizedHasirTipi} Çap(${formattedBoyCap}x${formattedEnCap} mm) Ebat(${formattedBoy}x${formattedEn} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
@@ -2089,7 +2089,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return stokAdi;
     } else if (productType === 'NCBK') {
       const formattedCap = formatDecimalForDisplay(product.cap, true);
-      const formattedLength = parseInt(product.length || 0);
+      const formattedLength = parseInt(product.length || 0) || 0;
       return `YM Nervürlü Çubuk ${formattedCap} mm ${formattedLength} cm`;
     } else if (productType === 'NTEL') {
       const formattedCap = formatDecimalForDisplay(product.cap, true);
@@ -3018,23 +3018,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           normalizeHasirTipi(enhancedProduct.hasirTipi || ''), // HASIR CİNSİ
           parseFloat(enhancedProduct.boyCap || 0), // BOY ÇAP
           parseFloat(enhancedProduct.enCap || 0), // EN ÇAP
-          parseInt(enhancedProduct.hasirSayisi || 1), // HASIR SAYISI
+          parseInt(enhancedProduct.hasirSayisi || 1) || 1, // HASIR SAYISI
           parseFloat(enhancedProduct.boyCap || 0), // BOY ÇAP (repeat)
           parseFloat(enhancedProduct.enCap || 0), // EN ÇAP (repeat)
           '', // Açıklama - empty
-          parseInt(enhancedProduct.uzunlukBoy || 0), // UZUNLUK BOY
-          parseInt(enhancedProduct.uzunlukEn || 0), // UZUNLUK EN
-          parseInt(finalCubukSayisiBoy), // ÇUBUK SAYISI BOY - USE ENHANCED/FALLBACK VALUE
-          parseInt(finalCubukSayisiEn), // ÇUBUK SAYISI EN - USE ENHANCED/FALLBACK VALUE
+          parseInt(enhancedProduct.uzunlukBoy || 0) || 0, // UZUNLUK BOY
+          parseInt(enhancedProduct.uzunlukEn || 0) || 0, // UZUNLUK EN
+          parseInt(finalCubukSayisiBoy) || 0, // ÇUBUK SAYISI BOY - USE ENHANCED/FALLBACK VALUE
+          parseInt(finalCubukSayisiEn) || 0, // ÇUBUK SAYISI EN - USE ENHANCED/FALLBACK VALUE
           parseFloat(enhancedProduct.boyAraligi || enhancedProduct.gozAraligiBoy || 0), // ARA BOY
           parseFloat(enhancedProduct.enAraligi || enhancedProduct.gozAraligiEn || 0), // ARA EN
-          parseInt(enhancedProduct.hasirSayisi || 1), // HASIR SAYISI (repeat)
+          parseInt(enhancedProduct.hasirSayisi || 1) || 1, // HASIR SAYISI (repeat)
           parseFloat(enhancedProduct.solFiliz || 0), // SOL FİLİZ
           parseFloat(enhancedProduct.sagFiliz || 0), // SAĞ FİLİZ
           parseFloat(enhancedProduct.onFiliz || 0), // ÖN FİLİZ
           parseFloat(enhancedProduct.arkaFiliz || 0), // ARKA FİLİZ
-          parseFloat(enhancedProduct.adetKg || (parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0) / parseInt(enhancedProduct.hasirSayisi || 1)).toFixed(4)), // ADET KG
-          parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0), // TOPLAM KG
+          parseFloat((enhancedProduct.adetKg || (getCleanKgValue(enhancedProduct) / (parseInt(enhancedProduct.hasirSayisi || 1) || 1)).toFixed(4))) || 0, // ADET KG
+          parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0) || 0, // TOPLAM KG
           '' // Empty last column
         ]);
       });
@@ -3160,8 +3160,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           inputProducts.map(async (product) => {
             const fallbackResult = await calculateFallbackCubukSayisi(
               product.hasirTipi,
-              parseFloat(product.uzunlukBoy || 0),
-              parseFloat(product.uzunlukEn || 0)
+              product.uzunlukBoy || 0,
+              product.uzunlukEn || 0
             );
             return {
               ...product,
@@ -3513,46 +3513,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
-        // EXTENSIVE DEBUG for Excel generation - log all products for now
-        console.log(`📊 EXCEL DEBUG [${excelBatchIndex+1}] - Product ${stokKodu}:`);
-        console.log('  Input data:', {
-          hasirTipi: product.hasirTipi,
-          boyCap: product.boyCap,
-          enCap: product.enCap,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn,
-          adetKg: product.adetKg,
-          totalKg: product.totalKg,
-          cubukSayisiBoy: product.cubukSayisiBoy,
-          cubukSayisiEn: product.cubukSayisiEn
-        });
-        console.log('  Database fields:', {
-          ic_cap_boy_cubuk_ad: product.ic_cap_boy_cubuk_ad,
-          dis_cap_en_cubuk_ad: product.dis_cap_en_cubuk_ad,
-          kg: product.kg,
-          ebat_boy: product.ebat_boy,
-          ebat_en: product.ebat_en
-        });
-        console.log('  Final values for Excel:', {
-          finalCubukSayisiBoy,
-          finalCubukSayisiEn,
-          excelCubukBoy,
-          excelCubukEn,
-          kgValue: toExcelDecimal(getCleanKgValue(product).toFixed(5))
-        });
-        
-        // Check for NaN in Excel values
-        if (isNaN(excelCubukBoy) || isNaN(excelCubukEn)) {
-          console.error(`❌ EXCEL NaN DETECTED: Product ${stokKodu} has NaN cubuk values!`);
+        // Reduced logging for performance - only log first 3 products or problematic ones
+        if (excelBatchIndex < 3 || finalCubukSayisiBoy <= 0 || finalCubukSayisiEn <= 0) {
+          console.log(`📊 EXCEL DEBUG [${excelBatchIndex+1}] - Product ${stokKodu}:`, {
+            finalCubukSayisiBoy, finalCubukSayisiEn, hasirTipi: product.hasirTipi
+          });
         }
         
-        // 🔧 MASSIVE DEBUG - Log the EXACT values going into Excel row
-        const excelCubukBoy = parseInt(finalCubukSayisiBoy);
-        const excelCubukEn = parseInt(finalCubukSayisiEn);
-        console.log(`🔧 EXCEL ROW VALUES - Product ${stokKodu}:`);
-        console.log('  Excel Boy Cubuk (position 28):', excelCubukBoy);
-        console.log('  Excel En Cubuk (position 29):', excelCubukEn);
-        console.log('  These are the EXACT values being written to Excel!');
+        // Define Excel cubuk values with NaN protection
+        const excelCubukBoy = parseInt(finalCubukSayisiBoy) || 0;
+        const excelCubukEn = parseInt(finalCubukSayisiEn) || 0;
+        
+        // Check for zero values that might indicate issues (reduced logging)
+        if (excelCubukBoy <= 0 || excelCubukEn <= 0) {
+          console.warn(`⚠️ Zero cubuk values for ${stokKodu}: Boy=${excelCubukBoy}, En=${excelCubukEn}`);
+        }
         
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
@@ -5787,8 +5762,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             const fallbackResult = await calculateFallbackCubukSayisi(
               product.hasirTipi,
-              parseFloat(product.uzunlukBoy || 0),
-              parseFloat(product.uzunlukEn || 0)
+              product.uzunlukBoy || 0,
+              product.uzunlukEn || 0
             );
             
             console.log('🔍 FALLBACK CALCULATION RESULT:', {
@@ -6671,8 +6646,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             newProducts.map(async (product) => {
                               const fallbackResult = await calculateFallbackCubukSayisi(
                                 product.hasirTipi,
-                                parseFloat(product.uzunlukBoy || 0),
-                                parseFloat(product.uzunlukEn || 0)
+                                product.uzunlukBoy || 0,
+                                product.uzunlukEn || 0
                               );
                               return {
                                 ...product,
@@ -6699,8 +6674,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           newProducts.map(async (product) => {
                             const fallbackResult = await calculateFallbackCubukSayisi(
                               product.hasirTipi,
-                              parseFloat(product.uzunlukBoy || 0),
-                              parseFloat(product.uzunlukEn || 0)
+                              product.uzunlukBoy || 0,
+                              product.uzunlukEn || 0
                             );
                             return {
                               ...product,
@@ -6811,8 +6786,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             newProducts.map(async (product) => {
                               const fallbackResult = await calculateFallbackCubukSayisi(
                                 product.hasirTipi,
-                                parseFloat(product.uzunlukBoy || 0),
-                                parseFloat(product.uzunlukEn || 0)
+                                product.uzunlukBoy || 0,
+                                product.uzunlukEn || 0
                               );
                               return {
                                 ...product,
@@ -7591,8 +7566,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             newProducts.map(async (product) => {
                               const fallbackResult = await calculateFallbackCubukSayisi(
                                 product.hasirTipi,
-                                parseFloat(product.uzunlukBoy || 0),
-                                parseFloat(product.uzunlukEn || 0)
+                                product.uzunlukBoy || 0,
+                                product.uzunlukEn || 0
                               );
                               return {
                                 ...product,
