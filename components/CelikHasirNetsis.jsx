@@ -70,6 +70,18 @@ const getFilmasinKodu = (diameter) => {
 // Fallback formula function for missing database values
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
+    // CRITICAL: Ensure input values are valid numbers
+    const validUzunlukBoy = parseFloat(uzunlukBoy) || 0;
+    const validUzunlukEn = parseFloat(uzunlukEn) || 0;
+    
+    if (validUzunlukBoy <= 0 || validUzunlukEn <= 0) {
+      console.warn('Invalid dimensions for fallback calculation:', { uzunlukBoy, uzunlukEn, validUzunlukBoy, validUzunlukEn });
+      return {
+        cubukSayisiBoy: 1,
+        cubukSayisiEn: 1
+      };
+    }
+    
     // First, try to get mesh configuration from mesh_type_configs table
     let meshConfig = null;
     try {
@@ -85,25 +97,39 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
     const boyAralik = meshConfig?.boy_aralik || getDefaultSpacing(hasirTipi, 'boy');
     const enAralik = meshConfig?.en_aralik || getDefaultSpacing(hasirTipi, 'en');
     
-    // Determine hasırTuru based on dimensions
+    // Determine hasırTuru based on dimensions (use validated values)
     let hasirTuru = 'Standart';
     if (hasirTipi.startsWith('Q')) {
-      if (uzunlukBoy >= 490 && uzunlukBoy <= 510) {
+      if (validUzunlukBoy >= 490 && validUzunlukBoy <= 510) {
         hasirTuru = 'Döşeme';
-      } else if (uzunlukBoy <= 350) {
+      } else if (validUzunlukBoy <= 350) {
         hasirTuru = 'Perde';
       } else {
         hasirTuru = 'Döşeme';
       }
     }
     
-    // Initialize with base calculation
-    let cubukSayisiBoy = Math.floor((uzunlukEn / boyAralik) + 1);
-    let cubukSayisiEn = Math.floor((uzunlukBoy / enAralik) + 1);
+    // CRITICAL: Ensure boyAralik and enAralik are valid numbers before division
+    const validBoyAralik = parseFloat(boyAralik) || 15; // Default 15mm spacing
+    const validEnAralik = parseFloat(enAralik) || 15;   // Default 15mm spacing
     
-    // Apply type-specific rules
-    const isStandardSize = (uzunlukBoy >= 490 && uzunlukBoy <= 510) && 
-                          (uzunlukEn >= 210 && uzunlukEn <= 220);
+    // Initialize with base calculation (use validated values)
+    let cubukSayisiBoy = Math.floor((validUzunlukEn / validBoyAralik) + 1);
+    let cubukSayisiEn = Math.floor((validUzunlukBoy / validEnAralik) + 1);
+    
+    // SAFETY: Ensure results are valid numbers
+    if (isNaN(cubukSayisiBoy) || cubukSayisiBoy <= 0) {
+      console.warn('Invalid cubukSayisiBoy calculated, using default:', cubukSayisiBoy);
+      cubukSayisiBoy = 1;
+    }
+    if (isNaN(cubukSayisiEn) || cubukSayisiEn <= 0) {
+      console.warn('Invalid cubukSayisiEn calculated, using default:', cubukSayisiEn);
+      cubukSayisiEn = 1;
+    }
+    
+    // Apply type-specific rules (use validated values)
+    const isStandardSize = (validUzunlukBoy >= 490 && validUzunlukBoy <= 510) && 
+                          (validUzunlukEn >= 210 && validUzunlukEn <= 220);
     
     if (hasirTipi.startsWith('R')) {
       if (isStandardSize) {
@@ -126,16 +152,28 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
       }
     }
     
-    console.log(`FALLBACK DEBUG - Input: ${hasirTipi} ${uzunlukBoy}x${uzunlukEn}`);
-    console.log(`FALLBACK DEBUG - hasirTuru: ${hasirTuru}, boyAralik: ${boyAralik}, enAralik: ${enAralik}`);
-    console.log(`FALLBACK DEBUG - Base calculation: boy=${cubukSayisiBoy}, en=${cubukSayisiEn}`);
+    // Apply optimization logic (simplified version) - use validated values
+    const optimized = applyFilizOptimization(hasirTipi, validUzunlukBoy, validUzunlukEn, cubukSayisiBoy, cubukSayisiEn, validBoyAralik, validEnAralik, hasirTuru);
     
-    // Apply optimization logic (simplified version)
-    const optimized = applyFilizOptimization(hasirTipi, uzunlukBoy, uzunlukEn, cubukSayisiBoy, cubukSayisiEn, boyAralik, enAralik, hasirTuru);
+    // FINAL SAFETY CHECK: Ensure optimized results are valid
+    const finalResult = {
+      cubukSayisiBoy: isNaN(optimized.cubukSayisiBoy) || optimized.cubukSayisiBoy <= 0 ? 1 : optimized.cubukSayisiBoy,
+      cubukSayisiEn: isNaN(optimized.cubukSayisiEn) || optimized.cubukSayisiEn <= 0 ? 1 : optimized.cubukSayisiEn
+    };
     
-    console.log(`FALLBACK DEBUG - Final optimized result: boy=${optimized.cubukSayisiBoy}, en=${optimized.cubukSayisiEn}`);
+    // EXTENSIVE DEBUG: Log all fallback calculations
+    console.log(`🔍 FALLBACK DEBUG - Input: ${hasirTipi} ${uzunlukBoy}x${uzunlukEn}`);
+    console.log(`🔍 FALLBACK DEBUG - Validated: ${validUzunlukBoy}x${validUzunlukEn}`);
+    console.log(`🔍 FALLBACK DEBUG - hasirTuru: ${hasirTuru}, boyAralik: ${validBoyAralik}, enAralik: ${validEnAralik}`);
+    console.log(`🔍 FALLBACK DEBUG - Base calculation: boy=${cubukSayisiBoy}, en=${cubukSayisiEn}`);
+    console.log(`🔍 FALLBACK DEBUG - Optimized: boy=${optimized.cubukSayisiBoy}, en=${optimized.cubukSayisiEn}`);
+    console.log(`🔍 FALLBACK DEBUG - Final result: boy=${finalResult.cubukSayisiBoy}, en=${finalResult.cubukSayisiEn}`);
     
-    return optimized;
+    if (finalResult.cubukSayisiBoy <= 0 || finalResult.cubukSayisiEn <= 0) {
+      console.error(`❌ FALLBACK ERROR - Invalid result for ${hasirTipi} ${validUzunlukBoy}x${validUzunlukEn}: boy=${finalResult.cubukSayisiBoy}, en=${finalResult.cubukSayisiEn}`);
+    }
+    
+    return finalResult;
   } catch (error) {
     console.error('Fallback formula calculation error:', error);
     // Return basic calculation if everything fails
@@ -160,15 +198,28 @@ const getDefaultSpacing = (hasirTipi, direction) => {
 
 // Simplified optimization logic for fallback
 const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, initialEn, boyAralik, enAralik, hasirTuru) => {
+  // CRITICAL: Validate all input parameters to prevent NaN
+  const validUzunlukBoy = parseFloat(uzunlukBoy) || 0;
+  const validUzunlukEn = parseFloat(uzunlukEn) || 0;
+  const validInitialBoy = parseInt(initialBoy) || 1;
+  const validInitialEn = parseInt(initialEn) || 1;
+  const validBoyAralik = parseFloat(boyAralik) || 15;
+  const validEnAralik = parseFloat(enAralik) || 15;
+  
+  if (validUzunlukBoy <= 0 || validUzunlukEn <= 0 || validBoyAralik <= 0 || validEnAralik <= 0) {
+    console.warn('Invalid parameters for filiz optimization:', { uzunlukBoy, uzunlukEn, boyAralik, enAralik });
+    return { cubukSayisiBoy: validInitialBoy, cubukSayisiEn: validInitialEn };
+  }
+  
   // Q Perde: Fixed EN at 18, optimize BOY
   if (hasirTipi.startsWith('Q') && hasirTuru === 'Perde') {
     const targetSolFiliz = 2.5;
-    let bestBoy = initialBoy;
+    let bestBoy = validInitialBoy;
     let bestDiff = 999;
     
-    for (let boy = Math.max(2, initialBoy - 5); boy <= initialBoy + 5; boy++) {
-      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
-      if (solFiliz >= 2 && solFiliz <= 9) {
+    for (let boy = Math.max(2, validInitialBoy - 5); boy <= validInitialBoy + 5; boy++) {
+      const solFiliz = (validUzunlukEn - ((boy - 1) * validBoyAralik)) / 2;
+      if (!isNaN(solFiliz) && solFiliz >= 2 && solFiliz <= 9) {
         const diff = Math.abs(solFiliz - targetSolFiliz);
         if (diff < bestDiff) {
           bestDiff = diff;
@@ -180,15 +231,16 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
   }
   
   // For other types, try basic optimization within ±3 range
-  let bestCombination = { cubukSayisiBoy: initialBoy, cubukSayisiEn: initialEn };
+  let bestCombination = { cubukSayisiBoy: validInitialBoy, cubukSayisiEn: validInitialEn };
   let bestScore = -999;
   
-  for (let boy = Math.max(2, initialBoy - 3); boy <= initialBoy + 3; boy++) {
-    for (let en = Math.max(2, initialEn - 3); en <= initialEn + 3; en++) {
-      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
-      const onFiliz = (uzunlukBoy - ((en - 1) * enAralik)) / 2;
+  for (let boy = Math.max(2, validInitialBoy - 3); boy <= validInitialBoy + 3; boy++) {
+    for (let en = Math.max(2, validInitialEn - 3); en <= validInitialEn + 3; en++) {
+      const solFiliz = (validUzunlukEn - ((boy - 1) * validBoyAralik)) / 2;
+      const onFiliz = (validUzunlukBoy - ((en - 1) * validEnAralik)) / 2;
       
-      if (solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
+      // CRITICAL: Check for NaN values before using them
+      if (!isNaN(solFiliz) && !isNaN(onFiliz) && solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
         let score = 0;
         if (Math.abs(solFiliz - 2.5) < 0.5) score += 10;
         if (hasirTipi.startsWith('R') && onFiliz >= 15 && onFiliz <= 27) score += 10;
@@ -208,6 +260,12 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
 
 // Unified function to fetch database data with fallback formula
 const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) => {
+  console.log(`🔍 FETCH DATABASE DEBUG - Starting with:`, {
+    productIds: productIds.length,
+    stokKodular: stokKodular.length,
+    stokKoduSamples: stokKodular.slice(0, 3)
+  });
+  
   try {
     // Small delay to allow database transaction to commit if this is called right after save
     if (stokKodular.length > 0) {
@@ -1197,9 +1255,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setIsDeletingBulkDb(false);
       setDeleteProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
       
+      // CRITICAL: Reset batch sequence counters after deletions
+      console.log('🔄 CRITICAL: Resetting batch sequence counters after deletions');
+      resetBatchSequenceCounter(); // Clear any cached sequence numbers
+      
       // CRITICAL: Force refresh database cache after deletions to update sequence tracking
       console.log('🔄 CRITICAL: Refreshing database cache after deletions to update sequences');
-      await loadSavedProducts(true); // Force refresh with resetData=true
+      await fetchSavedProducts(false, true); // Force fresh data with cache busting - resetData=true
+      
+      // CRITICAL: Re-initialize batch sequence with fresh database state
+      console.log('🔄 CRITICAL: Re-initializing batch sequence after deletion cache refresh');
+      await initializeBatchSequence();
     }
   };
 
@@ -1316,8 +1382,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // OPTIMIZED: Veritabanından kayıtlı ürünleri getir with caching and request cancellation
   const fetchSavedProducts = async (isRetry = false, resetData = false) => {
+    console.log(`🔄 FETCH SAVED PRODUCTS - Called with isRetry: ${isRetry}, resetData: ${resetData}`);
+    
     // Cancel previous request if exists
     if (fetchControllerRef.current) {
+      console.log(`🔄 FETCH SAVED PRODUCTS - Aborting previous request`);
       fetchControllerRef.current.abort();
     }
     
@@ -1694,7 +1763,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Optimize edilmemiş ürünleri kontrol et
   const hasUnoptimizedProducts = () => {
-    return validProducts.some(product => !isProductOptimized(product));
+    const unoptimized = validProducts.filter(product => !isProductOptimized(product));
+    console.log(`🔍 OPTIMIZATION CHECK - Found ${unoptimized.length} unoptimized products out of ${validProducts.length}:`, 
+      unoptimized.map(p => ({
+        hasirTipi: p.hasirTipi,
+        boyCap: p.boyCap,
+        enCap: p.enCap,
+        cubukSayisiBoy: p.cubukSayisiBoy,
+        cubukSayisiEn: p.cubukSayisiEn
+      }))
+    );
+    return unoptimized.length > 0;
   };
 
   // Check for existing products and determine next sequence number - Moved up to avoid hoisting issues
@@ -1712,7 +1791,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Initialize batch sequence with database sync - MUST be called before any generateStokKodu calls
   const initializeBatchSequence = async () => {
+    console.log(`🔢 SEQUENCE DEBUG - initializeBatchSequence called, initialized: ${batchSequenceInitialized}, counter: ${batchSequenceCounter}`);
+    
     if (batchSequenceInitialized) {
+      console.log(`🔢 SEQUENCE DEBUG - Already initialized with counter: ${batchSequenceCounter}`);
       return batchSequenceCounter; // Already initialized
     }
 
@@ -1908,6 +1990,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Stok kodu oluştur - Enhanced with database-aware incrementality  
   function generateStokKodu(product, productType, batchIndex = 0) {
+    console.log(`🔢 STOK KODU DEBUG - Generating for:`, {
+      productType,
+      hasirTipi: product.hasirTipi,
+      uzunlukBoy: product.uzunlukBoy,
+      uzunlukEn: product.uzunlukEn,
+      batchIndex,
+      batchSequenceCounter
+    });
+    
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
@@ -2030,7 +2121,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const getProductsToSave = useCallback(() => {
     if (validProducts.length === 0) return [];
     
-    console.log('DEBUG: getProductsToSave - checking', validProducts.length, 'products against', savedProducts?.mm?.length || 0, 'saved products');
+    console.log('📊 GET PRODUCTS TO SAVE - Starting analysis:', {
+      totalProducts: validProducts.length,
+      savedProductsCount: savedProducts?.mm?.length || 0,
+      firstProduct: validProducts[0] ? {
+        hasirTipi: validProducts[0].hasirTipi,
+        uzunlukBoy: validProducts[0].uzunlukBoy,
+        uzunlukEn: validProducts[0].uzunlukEn,
+        existingStokKodu: validProducts[0].existingStokKodu
+      } : null
+    });
     const newProducts = [];
     
     // Helper function to normalize Stok Adı for comparison
@@ -2748,9 +2848,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Helper function to convert decimal point to comma for Excel
   const toExcelDecimal = (value) => {
-    if (value === null || value === undefined || value === '') return '';
+    if (value === null || value === undefined || value === '') {
+      console.warn(`📊 EXCEL DECIMAL - Empty value detected, returning empty string`);
+      return '';
+    }
+    // CRITICAL: Check for NaN values before converting
+    const num = parseFloat(value);
+    if (isNaN(num)) {
+      console.error(`❌ EXCEL DECIMAL - NaN detected! Input value: "${value}", type: ${typeof value}`);
+      return '0,00001'; // Default safe value
+    }
     // Convert to string and replace decimal point with comma
-    return String(value).replace('.', ',');
+    const result = String(num).replace('.', ',');
+    
+    // Log if the value seems suspicious
+    if (num <= 0 || num > 1000000) {
+      console.warn(`⚠️ EXCEL DECIMAL - Suspicious value: ${num} -> "${result}"`);
+    }
+    
+    return result;
   };
 
   // Helper function to format numbers without trailing zeros for Excel
@@ -2907,7 +3023,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const finalCubukSayisiBoy = enhancedProduct.cubukSayisiBoy || 0;
         const finalCubukSayisiEn = enhancedProduct.cubukSayisiEn || 0;
         
-        console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn} (${enhancedProduct.source})`);
+        // Reduced logging: Only log for first few products or when there are issues
+        if (index < 3 || finalCubukSayisiBoy <= 0 || finalCubukSayisiEn <= 0) {
+          console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn} (${enhancedProduct.source})`);
+        }
         
         // Map enhanced product data to CSV structure
         data.push([
@@ -3408,18 +3527,38 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
-        console.log(`🔧 EXCEL GENERATION DEBUG - Product ${stokKodu}:`);
-        console.log('  originalCubukSayisiBoy:', product.cubukSayisiBoy);
-        console.log('  originalCubukSayisiEn:', product.cubukSayisiEn);
-        console.log('  databaseBoyCubuk:', product.ic_cap_boy_cubuk_ad);
-        console.log('  databaseEnCubuk:', product.dis_cap_en_cubuk_ad);
-        console.log('  finalCubukSayisiBoy:', finalCubukSayisiBoy);
-        console.log('  finalCubukSayisiEn:', finalCubukSayisiEn);
-        console.log('  hasirTipi:', product.hasirTipi);
-        console.log('  uzunlukBoy:', product.uzunlukBoy);
-        console.log('  uzunlukEn:', product.uzunlukEn);
-        console.log('  isFromDatabase:', !!product.existingStokKodu);
-        console.log('  source:', product.source || 'unknown');
+        // EXTENSIVE DEBUG for Excel generation - log all products for now
+        console.log(`📊 EXCEL DEBUG [${excelBatchIndex+1}] - Product ${stokKodu}:`);
+        console.log('  Input data:', {
+          hasirTipi: product.hasirTipi,
+          boyCap: product.boyCap,
+          enCap: product.enCap,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn,
+          adetKg: product.adetKg,
+          totalKg: product.totalKg,
+          cubukSayisiBoy: product.cubukSayisiBoy,
+          cubukSayisiEn: product.cubukSayisiEn
+        });
+        console.log('  Database fields:', {
+          ic_cap_boy_cubuk_ad: product.ic_cap_boy_cubuk_ad,
+          dis_cap_en_cubuk_ad: product.dis_cap_en_cubuk_ad,
+          kg: product.kg,
+          ebat_boy: product.ebat_boy,
+          ebat_en: product.ebat_en
+        });
+        console.log('  Final values for Excel:', {
+          finalCubukSayisiBoy,
+          finalCubukSayisiEn,
+          excelCubukBoy,
+          excelCubukEn,
+          kgValue: toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5))
+        });
+        
+        // Check for NaN in Excel values
+        if (isNaN(excelCubukBoy) || isNaN(excelCubukEn)) {
+          console.error(`❌ EXCEL NaN DETECTED: Product ${stokKodu} has NaN cubuk values!`);
+        }
         
         // 🔧 MASSIVE DEBUG - Log the EXACT values going into Excel row
         const excelCubukBoy = parseInt(finalCubukSayisiBoy);
@@ -4520,6 +4659,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Recipe kayıtlarını veritabanına kaydet
   const saveRecipeData = async (product, chResult, ncbkResults, ntelResult) => {
+    console.log(`🍳 RECIPE DEBUG - Starting recipe save for:`, {
+      chStokKodu: chResult?.stok_kodu,
+      ncbkCount: Object.keys(ncbkResults || {}).length,
+      ntelStokKodu: ntelResult?.stok_kodu,
+      hasirTipi: product.hasirTipi,
+      cubukSayisiBoy: product.cubukSayisiBoy,
+      cubukSayisiEn: product.cubukSayisiEn
+    });
+    
     try {
       console.log('*** saveRecipeData - ncbkResults keys:', Object.keys(ncbkResults));
       console.log('*** Product details - boyCap:', product.boyCap, 'enCap:', product.enCap, 'uzunlukBoy:', product.uzunlukBoy, 'uzunlukEn:', product.uzunlukEn);
@@ -4985,7 +5133,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Veritabanına kaydet
-  const saveToDatabase = async (products) => {
+  const saveToDatabase = async (products, keepProgressForExcel = false) => {
     try {
       // Reset batch sequence counter for new batch
       resetBatchSequenceCounter();
@@ -5113,6 +5261,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // OPTIMIZATION: Create batch-level cache to avoid redundant NCBK/NTEL operations
       const batchNcbkCache = new Map(); // stok_kodu -> result
       const batchNtelCache = new Map(); // stok_kodu -> result
+      let ncbkCacheHits = 0;
+      let ntelCacheHits = 0;
+      let ncbkApiCalls = 0;
+      let ntelApiCalls = 0;
       console.log('⚡ OPTIMIZATION: Using batch-level NCBK/NTEL cache to eliminate redundant operations');
 
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
@@ -5125,8 +5277,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           operation: 'Veritabanına kaydediliyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
-        // CH kaydı
-        const kgValue = parseFloat(product.adetKg || product.totalKg || 0);
+        // CH kaydı - CRITICAL: Ensure kgValue is never NaN
+        console.log(`📊 SAVE DEBUG [${i+1}/${newProducts.length}] - Product:`, {
+          hasirTipi: product.hasirTipi,
+          boyCap: product.boyCap,
+          enCap: product.enCap,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn,
+          cubukSayisiBoy: product.cubukSayisiBoy,
+          cubukSayisiEn: product.cubukSayisiEn,
+          adetKg: product.adetKg,
+          totalKg: product.totalKg
+        });
+        
+        let kgValue = parseFloat(product.adetKg || product.totalKg || 0);
+        if (isNaN(kgValue) || kgValue <= 0) {
+          console.error('❌ Invalid kgValue detected, using default 0.00001:', { 
+            productKg: product.adetKg, 
+            totalKg: product.totalKg, 
+            calculated: kgValue 
+          });
+          kgValue = 0.00001; // Small positive value for database
+        }
+        console.log(`📊 SAVE DEBUG - kgValue after validation: ${kgValue}`);
         
         
         // Generate stok_kodu and capture it for sequence tracking
@@ -5153,21 +5326,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_pay_2: 1,
           cevrim_payda_2: 1,
           cevrim_degeri_2: 1,
-          // Product specific columns
+          // Product specific columns - CRITICAL: Ensure all values are valid numbers
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)),
-          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)),
-          ebat_boy: parseFloat(product.uzunlukBoy || 0),
-          ebat_en: parseFloat(product.uzunlukEn || 0),
+          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)) || 0,
+          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)) || 0,
+          ebat_boy: parseFloat(product.uzunlukBoy || 0) || 0,
+          ebat_en: parseFloat(product.uzunlukEn || 0) || 0,
           goz_araligi: formatGozAraligi(product),
-          kg: parseFloat(kgValue.toFixed(5)),
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0),
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0),
+          kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
+          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0) || 0,
+          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0) || 0,
           hasir_sayisi: 1,
-          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0),
-          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0),
-          adet_kg: parseFloat(kgValue.toFixed(5)),
-          toplam_kg: parseFloat(kgValue.toFixed(5)),
+          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0) || 0,
+          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0) || 0,
+          adet_kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
+          toplam_kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
           hasir_turu: 'MM',
           // Default values from SQL
           ozel_saha_2_say: 0,
@@ -5210,14 +5383,37 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             cap2: chData.cap2,
             ebat_boy: chData.ebat_boy,
             ebat_en: chData.ebat_en,
-            kg: chData.kg
+            goz_araligi: chData.goz_araligi,
+            kg: chData.kg,
+            cubuk_sayisi_boy: chData.cubuk_sayisi_boy,
+            cubuk_sayisi_en: chData.cubuk_sayisi_en,
+            ic_cap_boy_cubuk_ad: chData.ic_cap_boy_cubuk_ad,
+            dis_cap_en_cubuk_ad: chData.dis_cap_en_cubuk_ad,
+            adet_kg: chData.adet_kg,
+            toplam_kg: chData.toplam_kg
           });
+          
+          // Check for any NaN or invalid values
+          const invalidFields = [];
+          if (isNaN(chData.cap) || chData.cap <= 0) invalidFields.push(`cap: ${chData.cap}`);
+          if (isNaN(chData.cap2) || chData.cap2 <= 0) invalidFields.push(`cap2: ${chData.cap2}`);
+          if (isNaN(chData.ebat_boy) || chData.ebat_boy <= 0) invalidFields.push(`ebat_boy: ${chData.ebat_boy}`);
+          if (isNaN(chData.ebat_en) || chData.ebat_en <= 0) invalidFields.push(`ebat_en: ${chData.ebat_en}`);
+          if (isNaN(chData.kg) || chData.kg <= 0) invalidFields.push(`kg: ${chData.kg}`);
+          if (isNaN(chData.cubuk_sayisi_boy) || chData.cubuk_sayisi_boy <= 0) invalidFields.push(`cubuk_sayisi_boy: ${chData.cubuk_sayisi_boy}`);
+          if (isNaN(chData.cubuk_sayisi_en) || chData.cubuk_sayisi_en <= 0) invalidFields.push(`cubuk_sayisi_en: ${chData.cubuk_sayisi_en}`);
+          
+          if (invalidFields.length > 0) {
+            console.error(`❌ INVALID FIELDS DETECTED in CH Data:`, invalidFields);
+          }
 
           chResponse = await fetchWithRetry(API_URLS.celikHasirMm, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chData)
           }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
+          
+          console.log(`📊 SAVE DEBUG - CH Response status: ${chResponse.status}`);
           
           if (chResponse.status === 409) {
             // Duplicate detected - try with next sequence number
@@ -5294,14 +5490,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // OPTIMIZATION: Check batch cache first
             if (batchNcbkCache.has(ncbkStokKodu)) {
               const cachedResult = batchNcbkCache.get(ncbkStokKodu);
-              console.log(`⚡ CACHE HIT: Using cached NCBK result for ${ncbkStokKodu}`);
+              ncbkCacheHits++;
+              console.log(`⚡ CACHE HIT: Using cached NCBK result for ${ncbkStokKodu} (hit #${ncbkCacheHits})`);
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = cachedResult;
               ncbkResults[length] = cachedResult;
               continue; // Skip API call, use cached result
             }
+            
+            ncbkApiCalls++;
+            console.log(`📊 NCBK DEBUG - Creating NCBK for ${spec.type}: cap=${cap}, length=${length}`);
 
             const ncbkWeight = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000);
+            console.log(`📊 NCBK DEBUG - Calculated weight: ${ncbkWeight}`);
+            
             const ncbkData = {
               stok_kodu: ncbkStokKodu,
               stok_adi: `YM Nervürlü Çubuk ${formatDecimalForDisplay(cap, true)} mm ${length} cm`,
@@ -5376,6 +5578,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               type: spec.type
             });
             
+            console.log(`📊 NCBK DEBUG - Sending NCBK data:`, {
+              stok_kodu: ncbkData.stok_kodu,
+              stok_adi: ncbkData.stok_adi,
+              kg: ncbkData.kg
+            });
+            
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -5429,11 +5637,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // OPTIMIZATION: Check batch cache first for NTEL
           if (batchNtelCache.has(ntelStokKodu)) {
             const cachedNtelResult = batchNtelCache.get(ntelStokKodu);
-            console.log(`⚡ CACHE HIT: Using cached NTEL result for ${ntelStokKodu}`);
+            ntelCacheHits++;
+            console.log(`⚡ CACHE HIT: Using cached NTEL result for ${ntelStokKodu} (hit #${ntelCacheHits})`);
             ntelResult = cachedNtelResult;
             // Skip API call, continue to recipe creation
           } else {
+            ntelApiCalls++;
+            console.log(`📊 NTEL DEBUG - Creating NTEL for cap=${ntelCap}`);
+            
             const ntelWeight = (Math.PI * (ntelCap/20) * (ntelCap/20) * 100 * 7.85 / 1000); // per meter
+            console.log(`📊 NTEL DEBUG - Calculated weight per meter: ${ntelWeight}`);
+            
             const ntelData = {
               stok_kodu: ntelStokKodu,
             stok_adi: `YM Nervürlü Tel ${formatDecimalForDisplay(ntelCap, true)} mm`,
@@ -5651,6 +5865,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: 'Excel hazırlanıyor'
       });
       
+      // OPTIMIZATION METRICS: Show cache effectiveness
+      const totalNcbkOperations = ncbkCacheHits + ncbkApiCalls;
+      const totalNtelOperations = ntelCacheHits + ntelApiCalls;
+      const ncbkCacheEfficiency = totalNcbkOperations > 0 ? ((ncbkCacheHits / totalNcbkOperations) * 100).toFixed(1) : 0;
+      const ntelCacheEfficiency = totalNtelOperations > 0 ? ((ntelCacheHits / totalNtelOperations) * 100).toFixed(1) : 0;
+      
+      console.log(`⚡ BATCH CACHING METRICS:`);
+      console.log(`   NCBK: ${ncbkCacheHits} cache hits / ${ncbkApiCalls} API calls = ${ncbkCacheEfficiency}% efficiency`);
+      console.log(`   NTEL: ${ntelCacheHits} cache hits / ${ntelApiCalls} API calls = ${ntelCacheEfficiency}% efficiency`);
+      console.log(`   Total operations saved: ${ncbkCacheHits + ntelCacheHits}`);
+      
       console.log('Veritabanı kaydetme tamamlandı. Excel için döndürülen ürünler:', {
         count: newProducts.length,
         products: newProducts.map(p => p.hasirTipi)
@@ -5684,9 +5909,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       return [];
     } finally {
-      setIsLoading(false);
-      setIsSavingToDatabase(false);
-      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+      // Only reset states if Excel generation is not following
+      if (!keepProgressForExcel) {
+        setIsLoading(false);
+        setIsSavingToDatabase(false);
+        setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+      }
     }
   };
 
@@ -5799,8 +6027,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           window.productLookupCache.clear();
         }
         
+        // CRITICAL: Reset batch sequence counters after individual deletion
+        console.log('🔄 CRITICAL: Resetting batch sequence counters after individual deletion');
+        resetBatchSequenceCounter();
+        
         // Force refresh data with cache-busting
         await fetchSavedProducts(false, true);
+        
+        // CRITICAL: Re-initialize batch sequence with fresh database state
+        console.log('🔄 CRITICAL: Re-initializing batch sequence after individual deletion');
+        await initializeBatchSequence();
         
         // Show success toast AFTER cache is cleared
         toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
@@ -5844,8 +6080,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             window.productLookupCache.clear();
           }
           
+          // CRITICAL: Reset batch sequence counters after fallback deletion
+          console.log('🔄 CRITICAL: Resetting batch sequence counters after fallback deletion');
+          resetBatchSequenceCounter();
+          
           // Force refresh data with cache-busting
           await fetchSavedProducts(false, true);
+          
+          // CRITICAL: Re-initialize batch sequence with fresh database state
+          console.log('🔄 CRITICAL: Re-initializing batch sequence after fallback deletion');
+          await initializeBatchSequence();
           
           // Show success toast AFTER cache is cleared
           toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
@@ -6165,9 +6409,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         [activeDbTab]: []
       }));
       
+      // CRITICAL: Reset batch sequence counters after bulk delete all
+      console.log('🔄 CRITICAL: Resetting batch sequence counters after bulk delete all');
+      resetBatchSequenceCounter();
+      
       // Force refresh data
       cacheRef.current.clear();
       await fetchSavedProducts(false, true);
+      
+      // CRITICAL: Re-initialize batch sequence with fresh database state
+      console.log('🔄 CRITICAL: Re-initializing batch sequence after bulk delete all');
+      await initializeBatchSequence();
       
     } catch (error) {
       console.error('❌ Bulk delete all error:', error);
@@ -6346,49 +6598,112 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <button
                 onClick={async () => {
                   setShowDatabaseWarning(false);
-                  const newProducts = await saveToDatabase(validProducts);
-                  if (newProducts && newProducts.length > 0) {
-                    console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
+                  
+                  try {
+                    // SEAMLESS UI: Continue database progress directly into Excel generation
+                    setDatabaseProgress(prev => ({ 
+                      ...prev, 
+                      operation: 'Veritabanı işlemi tamamlanıyor ve Excel hazırlanıyor...',
+                      currentProduct: 'İşlemler devam ediyor' 
+                    }));
                     
-                    // Unified approach: Fetch saved products from database with fallback
-                    try {
-                      // Direct unified fetch approach - use the stok_kodu from saved products
-                      const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
-                      console.log('Looking for these stok_kodu values:', stokKodular);
-                      console.log('newProducts structure:', newProducts.map(p => ({
-                        hasirTipi: p.hasirTipi,
-                        uzunlukBoy: p.uzunlukBoy,
-                        uzunlukEn: p.uzunlukEn,
-                        existingStokKodu: p.existingStokKodu,
-                        cubukSayisiBoy: p.cubukSayisiBoy,
-                        cubukSayisiEn: p.cubukSayisiEn
-                      })));
+                    const newProducts = await saveToDatabase(validProducts, true); // Keep progress for Excel
+                    
+                    if (newProducts && newProducts.length > 0) {
+                      console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
                       
-                      // Add small delay to ensure database consistency
-                      await new Promise(resolve => setTimeout(resolve, 800));
-                      
-                      // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
-                      const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
-                      console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
-                      console.log('Database products breakdown:', {
-                        total: databaseProducts?.length || 0,
-                        mm: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).length || 0,
-                        ncbk: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NCBK')).length || 0,
-                        ntel: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NTEL')).length || 0
+                      // SEAMLESS UI: Transition from database to Excel generation without closing modal
+                      setDatabaseProgress({ 
+                        current: 0, 
+                        total: 4, 
+                        operation: '📊 Excel dosyaları hazırlanıyor...', 
+                        currentProduct: 'Veritabanı verileri getiriliyor' 
                       });
-                      console.log('First MM product data:', databaseProducts?.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')) ? {
-                        stok_kodu: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).existingStokKodu,
-                        cubukSayisiBoy: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).cubukSayisiBoy,
-                        cubukSayisiEn: databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).cubukSayisiEn,
-                        hasRecipeData: !!databaseProducts.find(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).recipeData
-                      } : 'none');
+                      setIsGeneratingExcel(true); // Start Excel generation state
                       
-                      if (databaseProducts && databaseProducts.length > 0) {
-                        await generateExcelFiles(databaseProducts, false);
-                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
-                      } else {
-                        // Database fetch failed - apply fallback formula to newProducts
-                        console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                      // Unified approach: Fetch saved products from database with fallback
+                      try {
+                        // Direct unified fetch approach - use the stok_kodu from saved products
+                        const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
+                        console.log('Looking for these stok_kodu values:', stokKodular);
+                        
+                        setDatabaseProgress({ 
+                          current: 1, 
+                          total: 4, 
+                          operation: '📊 Veritabanından veriler alınıyor...', 
+                          currentProduct: `${stokKodular.length} ürün için veri hazırlanıyor` 
+                        });
+                        
+                        console.log('newProducts structure:', newProducts.map(p => ({
+                          hasirTipi: p.hasirTipi,
+                          uzunlukBoy: p.uzunlukBoy,
+                          uzunlukEn: p.uzunlukEn,
+                          existingStokKodu: p.existingStokKodu,
+                          cubukSayisiBoy: p.cubukSayisiBoy,
+                          cubukSayisiEn: p.cubukSayisiEn
+                        })));
+                        
+                        // Add small delay to ensure database consistency
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                        
+                        setDatabaseProgress({ 
+                          current: 2, 
+                          total: 4, 
+                          operation: '📊 Çubuk sayısı ve reçete verileri hesaplanıyor...', 
+                          currentProduct: 'Veritabanı sorgusu işleniyor' 
+                        });
+                        
+                        // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
+                        const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                        console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
+                        console.log('Database products breakdown:', {
+                          total: databaseProducts?.length || 0,
+                          mm: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).length || 0,
+                          ncbk: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NCBK')).length || 0,
+                          ntel: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NTEL')).length || 0
+                        });
+                        
+                        setDatabaseProgress({ 
+                          current: 3, 
+                          total: 4, 
+                          operation: '📊 Excel dosyaları oluşturuluyor...', 
+                          currentProduct: 'Son aşama başlıyor' 
+                        });
+                        
+                        if (databaseProducts && databaseProducts.length > 0) {
+                          await generateExcelFiles(databaseProducts, false);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                        } else {
+                          // Database fetch failed - apply fallback formula to newProducts
+                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          const fallbackProducts = await Promise.all(
+                            newProducts.map(async (product) => {
+                              const fallbackResult = await calculateFallbackCubukSayisi(
+                                product.hasirTipi,
+                                parseFloat(product.uzunlukBoy || 0),
+                                parseFloat(product.uzunlukEn || 0)
+                              );
+                              return {
+                                ...product,
+                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                cubukSayisiEn: fallbackResult.cubukSayisiEn
+                              };
+                            })
+                          );
+                          console.log('Applied fallback formula to', fallbackProducts.length, 'products');
+                          await generateExcelFiles(fallbackProducts, false);
+                          toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
+                        }
+                      } catch (error) {
+                        console.error('Unified fetch failed, applying fallback formula:', error);
+                        setDatabaseProgress({ 
+                          current: 3, 
+                          total: 4, 
+                          operation: '📊 Yedek formül ile Excel oluşturuluyor...', 
+                          currentProduct: 'Alternatif yöntem kullanılıyor' 
+                        });
+                        
+                        // Apply fallback formula even when fetch fails
                         const fallbackProducts = await Promise.all(
                           newProducts.map(async (product) => {
                             const fallbackResult = await calculateFallbackCubukSayisi(
@@ -6403,38 +6718,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             };
                           })
                         );
-                        console.log('Applied fallback formula to', fallbackProducts.length, 'products');
-                        console.log('First fallback product çubuk sayısı:', fallbackProducts[0] ? {
-                          stok_kodu: fallbackProducts[0].existingStokKodu,
-                          cubukSayisiBoy: fallbackProducts[0].cubukSayisiBoy,
-                          cubukSayisiEn: fallbackProducts[0].cubukSayisiEn
-                        } : 'none');
+                        console.log('Applied fallback formula after error to', fallbackProducts.length, 'products');
                         await generateExcelFiles(fallbackProducts, false);
-                        toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula)`);
+                        toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula - After Error)`);
                       }
-                    } catch (error) {
-                      console.error('Unified fetch failed, applying fallback formula:', error);
-                      // Apply fallback formula even when fetch fails
-                      const fallbackProducts = await Promise.all(
-                        newProducts.map(async (product) => {
-                          const fallbackResult = await calculateFallbackCubukSayisi(
-                            product.hasirTipi,
-                            parseFloat(product.uzunlukBoy || 0),
-                            parseFloat(product.uzunlukEn || 0)
-                          );
-                          return {
-                            ...product,
-                            cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-                            cubukSayisiEn: fallbackResult.cubukSayisiEn
-                          };
-                        })
-                      );
-                      console.log('Applied fallback formula after error to', fallbackProducts.length, 'products');
-                      await generateExcelFiles(fallbackProducts, false);
-                      toast.success(`${fallbackProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback Formula - After Error)`);
+                    } else {
+                      toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
                     }
-                  } else {
-                    toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                  } catch (error) {
+                    console.error('Save and Excel generation failed:', error);
+                    toast.error('İşlem sırasında hata oluştu');
+                  } finally {
+                    // SEAMLESS UI: Ensure all progress states are cleared
+                    setIsGeneratingExcel(false);
+                    setIsSavingToDatabase(false);
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                    setExcelProgress({ current: 0, total: 0, operation: '' });
                   }
                 }}
                 disabled={isSavingToDatabase || isGeneratingExcel}
