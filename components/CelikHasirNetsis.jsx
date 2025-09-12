@@ -2111,9 +2111,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const formattedBoy = parseInt(product.uzunlukBoy || 0) || 0;
       const formattedEn = parseInt(product.uzunlukEn || 0) || 0;
       
-      console.log('🚨 generateStokAdi DEBUG:', {
-        hasirTipi: product.hasirTipi, boyCapValue, enCapValue, formattedBoyCap, formattedEnCap
-      });
       
       // Create the standard format used in database saves
       const stokAdi = `${normalizedHasirTipi} Çap(${formattedBoyCap}x${formattedEnCap} mm) Ebat(${formattedBoy}x${formattedEn} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
@@ -2787,9 +2784,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const uzunlukEn = Math.round(product.uzunlukEn || 0);
       const gozAraligi = formatGozAraligi(product) || '';
       
-      console.log('🚨 generateIngilizceIsim DEBUG:', {
-        hasirTipi, boyCapValue, enCapValue, boyCap, enCap, uzunlukBoy, uzunlukEn, gozAraligi
-      });
       
       return `Wire Mesh- ${hasirTipi} Dia(${boyCap}x${enCap} mm) Size(${uzunlukBoy}x${uzunlukEn} cm) Mesh(${gozAraligi} cm)`;
     } else if (productType === 'NCBK') {
@@ -3744,7 +3738,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           uniqueNCBKProducts.add(boyKey);
           
           const stokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-          const stokAdi = `YM Nervürlü Çubuk ${boyCap} mm ${uzunlukBoy} cm`;
+          const stokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(boyCap, true)} mm ${uzunlukBoy} cm`;
           const ingilizceIsim = generateIngilizceIsim({cap: boyCap, length: uzunlukBoy}, 'NCBK');
           const ncbkWeight = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
           
@@ -3801,7 +3795,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           uniqueNCBKProducts.add(enKey);
           
           const stokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-          const stokAdi = `YM Nervürlü Çubuk ${enCap} mm ${uzunlukEn} cm`;
+          const stokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(enCap, true)} mm ${uzunlukEn} cm`;
           const ingilizceIsim = generateIngilizceIsim({cap: enCap, length: uzunlukEn}, 'NCBK');
           const ncbkWeight = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
           
@@ -5388,27 +5382,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Generate stok_kodu and capture it for sequence tracking
         let generatedStokKodu = generateStokKodu(product, 'CH', i);
         
-        // DEBUG: Check values that could cause NaN in database
-        console.log('🚨 DATABASE SAVE DEBUG - Product values for generateStokAdi/generateIngilizceIsim:', {
-          hasirTipi: product.hasirTipi,
+        
+        // Generate and validate the problematic fields
+        const generatedStokAdi = generateStokAdi(product, 'CH');
+        const generatedIngilizceIsim = generateIngilizceIsim(product, 'CH');
+        
+        // Critical debug - show exact strings being saved
+        console.log(`🚨 CRITICAL CHECK - ${generatedStokKodu}:`, {
+          stok_adi: generatedStokAdi,
+          ingilizce_isim: generatedIngilizceIsim,
           boyCap: product.boyCap,
           enCap: product.enCap,
-          boyCapType: typeof product.boyCap,
-          enCapType: typeof product.enCap,
-          boyCapIsUndefined: product.boyCap === undefined,
-          enCapIsUndefined: product.enCap === undefined,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn
+          hasNaN_stokAdi: generatedStokAdi.includes('NaN'),
+          hasNaN_ingilizceIsim: generatedIngilizceIsim.includes('NaN')
         });
         
         const chData = {
           stok_kodu: generatedStokKodu,
-          stok_adi: generateStokAdi(product, 'CH'),
+          stok_adi: generatedStokAdi,
           grup_kodu: 'MM',
           kod_1: 'HSR',
           kod_2: (product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                   (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25')) ? 'STD' : 'OZL',
-          ingilizce_isim: generateIngilizceIsim(product, 'CH'),
+          ingilizce_isim: generatedIngilizceIsim,
           // Standard columns from SQL
           alis_kdv_orani: 20,
           satis_kdv_orani: 20,
@@ -5601,13 +5597,26 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkWeight = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000);
             console.log(`📊 NCBK DEBUG - Calculated weight: ${ncbkWeight}`);
             
+            // Generate NCBK strings with validation
+            const ncbkStokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(cap, true)} mm ${length} cm`;
+            const ncbkIngilizceIsim = `Ribbed Rebar ${formatDecimalForDisplay(cap, false)} mm ${length} cm`;
+            
+            // Critical debug for NCBK
+            console.log(`🚨 CRITICAL NCBK CHECK - ${ncbkStokKodu}:`, {
+              stok_adi: ncbkStokAdi,
+              ingilizce_isim: ncbkIngilizceIsim,
+              cap: cap,
+              hasNaN_stokAdi: ncbkStokAdi.includes('NaN'),
+              hasNaN_ingilizceIsim: ncbkIngilizceIsim.includes('NaN')
+            });
+            
             const ncbkData = {
               stok_kodu: ncbkStokKodu,
-              stok_adi: `YM Nervürlü Çubuk ${formatDecimalForDisplay(cap, true)} mm ${length} cm`,
+              stok_adi: ncbkStokAdi,
               grup_kodu: 'YM',
               kod_1: 'NCBK',
               kod_2: '',
-              ingilizce_isim: `Ribbed Rebar ${formatDecimalForDisplay(cap, false)} mm ${length} cm`,
+              ingilizce_isim: ncbkIngilizceIsim,
               // Standard columns
               alis_kdv_orani: 20,
               satis_kdv_orani: 20,
@@ -8234,7 +8243,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   if (boyCap > 0) {
                                     const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
                                     const boyNCBKStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-                                    const boyNCBKStokAdi = `YM Nervürlü Çubuk ${boyCap} mm ${uzunlukBoy} cm`;
+                                    const boyNCBKStokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(boyCap, true)} mm ${uzunlukBoy} cm`;
                                     const boyExists = savedProducts.ncbk?.some(p => p.stok_kodu === boyNCBKStokKodu || p.stok_adi === boyNCBKStokAdi);
                                     
                                     neededNCBK.push({
@@ -8248,7 +8257,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   if (enCap > 0) {
                                     const uzunlukEn = parseInt(product.uzunlukEn || 0);
                                     const enNCBKStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-                                    const enNCBKStokAdi = `YM Nervürlü Çubuk ${enCap} mm ${uzunlukEn} cm`;
+                                    const enNCBKStokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(enCap, true)} mm ${uzunlukEn} cm`;
                                     const enExists = savedProducts.ncbk?.some(p => p.stok_kodu === enNCBKStokKodu || p.stok_adi === enNCBKStokAdi);
                                     
                                     neededNCBK.push({
