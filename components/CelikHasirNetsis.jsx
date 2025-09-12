@@ -67,18 +67,38 @@ const getFilmasinKodu = (diameter) => {
   };
 };
 
+// Cache for mesh config lookups to avoid repeated 404 requests
+const meshConfigCache = new Map();
+const failedMeshConfigCache = new Set();
+
 // Fallback formula function for missing database values
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
-    // First, try to get mesh configuration from mesh_type_configs table
+    // Check cache first to avoid repeated requests
     let meshConfig = null;
-    try {
-      const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
-      if (response.ok) {
-        meshConfig = await response.json();
+    if (meshConfigCache.has(hasirTipi)) {
+      meshConfig = meshConfigCache.get(hasirTipi);
+    } else if (failedMeshConfigCache.has(hasirTipi)) {
+      // Skip request - we know it fails
+      console.log(`Using cached fallback for ${hasirTipi} (known 404)`);
+    } else {
+      // First time - try to fetch mesh configuration
+      try {
+        const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
+        if (response.ok) {
+          meshConfig = await response.json();
+          meshConfigCache.set(hasirTipi, meshConfig);
+        } else if (response.status === 404) {
+          // Cache the failed lookup to avoid future requests
+          failedMeshConfigCache.add(hasirTipi);
+          console.log(`No mesh config found for ${hasirTipi}, cached for future (using defaults)`);
+        } else {
+          console.warn(`Unexpected response ${response.status} for mesh config ${hasirTipi}`);
+        }
+      } catch (error) {
+        console.warn('Could not fetch mesh config from database:', error);
+        failedMeshConfigCache.add(hasirTipi); // Cache the failure
       }
-    } catch (error) {
-      console.warn('Could not fetch mesh config from database:', error);
     }
     
     // Use database config or fallback to hardcoded values
@@ -3101,13 +3121,58 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
         
         try {
-          // OPTIMIZED: Use timeout to prevent hanging 
-          const fetchPromise = fetchDatabaseDataWithFallback([], existingStokKodes);
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Database fetch timeout')), 10000)
-          );
-          
-          const freshDatabaseProducts = await Promise.race([fetchPromise, timeoutPromise]);
+          // SIMPLE APPROACH: Direct fetch like working Vercel version
+          console.log('Using simple Vercel-style fetch for stok codes:', existingStokKodes);
+          const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
+            fetchWithAuth(`${API_URLS.celikHasirMm}`),
+            fetchWithAuth(`${API_URLS.celikHasirNcbk}`),
+            fetchWithAuth(`${API_URLS.celikHasirNtel}`)
+          ]);
+
+          const [allMM, allNCBK, allNTEL] = await Promise.all([
+            mmResponse.ok ? mmResponse.json() : [],
+            ncbkResponse.ok ? ncbkResponse.json() : [],
+            ntelResponse.ok ? ntelResponse.json() : []
+          ]);
+
+          // Filter for our products
+          const ourMM = allMM.filter(p => existingStokKodes.includes(p.stok_kodu));
+          console.log(`Simple fetch found ${ourMM.length} MM products for Excel`);
+
+          // Transform to Excel format EXACTLY like multiselection (lines 1308-1324)
+          const freshDatabaseProducts = ourMM.map(product => {
+            // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
+            let actualHasirTipi = product.hasir_tipi || '';
+            if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
+              const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
+              if (stokAdiMatch) {
+                actualHasirTipi = stokAdiMatch[1].toUpperCase();
+              }
+            }
+            
+            const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
+            
+            return {
+              ...product,
+              hasirTipi: actualHasirTipi,
+              uzunlukBoy: product.ebat_boy || product.uzunluk_boy || 0,
+              uzunlukEn: product.ebat_en || product.uzunluk_en || 0,
+              boyCap: product.cap || product.boy_cap || 0,
+              enCap: product.cap2 || product.en_cap || 0,
+              totalKg: product.kg || product.total_kg || 0,
+              adetKg: product.kg || product.adet_kg || 0,
+              cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
+              cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
+              boyAraligi: calculateGozAraligi(actualHasirTipi, 'boy'),
+              enAraligi: calculateGozAraligi(actualHasirTipi, 'en'),
+              gozAraligi: `${calculateGozAraligi(actualHasirTipi, 'boy')}x${calculateGozAraligi(actualHasirTipi, 'en')}`,
+              existingStokKodu: product.stok_kodu,
+              existingIngilizceIsim: cleanIngilizceIsim,
+              isOptimized: true,
+              source: 'database',
+              skipDatabaseRefresh: true
+            };
+          });
           
           if (freshDatabaseProducts && freshDatabaseProducts.length > 0) {
             // Use fresh database data
@@ -3130,8 +3195,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             inputProducts.map(async (product) => {
               const fallbackResult = await calculateFallbackCubukSayisi(
                 product.hasirTipi,
-                product.uzunlukBoy || 0,
-                product.uzunlukEn || 0
+                parseFloat(product.uzunlukBoy || 0),
+                parseFloat(product.uzunlukEn || 0)
               );
               return {
                 ...product,
@@ -3160,8 +3225,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           inputProducts.map(async (product) => {
             const fallbackResult = await calculateFallbackCubukSayisi(
               product.hasirTipi,
-              product.uzunlukBoy || 0,
-              product.uzunlukEn || 0
+              parseFloat(product.uzunlukBoy || 0),
+              parseFloat(product.uzunlukEn || 0)
             );
             return {
               ...product,
@@ -5282,19 +5347,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_degeri_2: 1,
           // Product specific columns - CRITICAL: Ensure all values are valid numbers
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)) || 0,
-          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)) || 0,
-          ebat_boy: parseFloat(product.uzunlukBoy || 0) || 0,
-          ebat_en: parseFloat(product.uzunlukEn || 0) || 0,
+          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)),
+          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)),
+          ebat_boy: parseFloat(product.uzunlukBoy || 0),
+          ebat_en: parseFloat(product.uzunlukEn || 0),
           goz_araligi: formatGozAraligi(product),
-          kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0) || 0,
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0) || 0,
+          kg: parseFloat(kgValue.toFixed(5)),
+          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0),
+          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0),
           hasir_sayisi: 1,
-          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0) || 0,
-          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0) || 0,
-          adet_kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
-          toplam_kg: parseFloat(kgValue.toFixed(5)) || 0.00001,
+          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0),
+          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0),
+          adet_kg: parseFloat(kgValue.toFixed(5)),
+          toplam_kg: parseFloat(kgValue.toFixed(5)),
           hasir_turu: 'MM',
           // Default values from SQL
           ozel_saha_2_say: 0,
@@ -5762,8 +5827,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             const fallbackResult = await calculateFallbackCubukSayisi(
               product.hasirTipi,
-              product.uzunlukBoy || 0,
-              product.uzunlukEn || 0
+              parseFloat(product.uzunlukBoy || 0),
+              parseFloat(product.uzunlukEn || 0)
             );
             
             console.log('🔍 FALLBACK CALCULATION RESULT:', {
