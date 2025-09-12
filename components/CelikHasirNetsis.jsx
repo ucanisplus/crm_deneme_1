@@ -68,54 +68,17 @@ const getFilmasinKodu = (diameter) => {
 };
 
 // Fallback formula function for missing database values
-// Global cache for mesh configurations to avoid repeated API calls
-const meshConfigCache = new Map();
-
-// Batch fetch mesh configurations to avoid individual API calls
-const batchFetchMeshConfigs = async (hasirTipis) => {
-  const uniqueHasirTipis = [...new Set(hasirTipis)];
-  const uncachedTypes = uniqueHasirTipis.filter(type => !meshConfigCache.has(type));
-  
-  if (uncachedTypes.length > 0) {
-    console.log(`📥 Batch fetching mesh configs for: ${uncachedTypes.join(', ')}`);
-    
-    // Fetch all uncached configs in parallel
-    const fetchPromises = uncachedTypes.map(async (hasirTipi) => {
-      try {
-        const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
-        if (response.ok) {
-          const config = await response.json();
-          meshConfigCache.set(hasirTipi, config);
-          return { hasirTipi, config };
-        } else {
-          meshConfigCache.set(hasirTipi, null); // Cache failure to avoid repeated calls
-          return { hasirTipi, config: null };
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch mesh config for ${hasirTipi}:`, error);
-        meshConfigCache.set(hasirTipi, null);
-        return { hasirTipi, config: null };
-      }
-    });
-    
-    await Promise.all(fetchPromises);
-  }
-  
-  return uniqueHasirTipis.map(type => ({
-    hasirTipi: type,
-    config: meshConfigCache.get(type)
-  }));
-};
-
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
-    // Use cached mesh configuration to avoid repeated API calls
-    let meshConfig = meshConfigCache.get(hasirTipi);
-    
-    if (meshConfig === undefined) {
-      // Not cached yet, fetch it
-      await batchFetchMeshConfigs([hasirTipi]);
-      meshConfig = meshConfigCache.get(hasirTipi);
+    // First, try to get mesh configuration from mesh_type_configs table
+    let meshConfig = null;
+    try {
+      const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
+      if (response.ok) {
+        meshConfig = await response.json();
+      }
+    } catch (error) {
+      console.warn('Could not fetch mesh config from database:', error);
     }
     
     // Use database config or fallback to hardcoded values
@@ -280,37 +243,24 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
     }
     // When searching by stok_kodu, get MM product + related NCBK/NTEL records
     else if (stokKodular.length > 0) {
-      // CRITICAL FIX: Batch fetch all products at once instead of individual API calls
+      // First get MM products - search directly by stok_kodu to avoid large API calls
       try {
         const filteredMmProducts = [];
         
-        // OPTIMIZATION: Fetch all products in batches to avoid server overload
-        const batchSize = 10; // Process in batches to avoid too long URLs
-        for (let i = 0; i < stokKodular.length; i += batchSize) {
-          const batch = stokKodular.slice(i, i + batchSize);
-          const searchParam = batch.join(',');
+        // Fetch each product individually to avoid large API responses
+        for (const stokKodu of stokKodular) {
+          // First try: Direct search by stok_kodu
+          let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
+          let mmProducts = [];
           
-          // Use batch search parameter if backend supports it, otherwise fallback to individual searches
-          let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?stok_kodular=${encodeURIComponent(searchParam)}`);
-          
-          // If batch search is not supported (404 or 400), fallback to individual searches for this batch
-          if (!mmResponse.ok && (mmResponse.status === 404 || mmResponse.status === 400)) {
-            console.log('Batch search not supported, falling back to individual searches for this batch');
-            for (const stokKodu of batch) {
-              let individualResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
-              if (individualResponse.ok) {
-                const products = await individualResponse.json();
-                const exactMatch = products.filter(p => p.stok_kodu === stokKodu);
-                if (exactMatch.length > 0) {
-                  console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
-                  filteredMmProducts.push(...exactMatch);
-                }
-              }
+          if (mmResponse.ok) {
+            mmProducts = await mmResponse.json();
+            const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
+            if (exactMatch.length > 0) {
+              console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
+              filteredMmProducts.push(...exactMatch);
+              continue; // Found it, move to next
             }
-          } else if (mmResponse.ok) {
-            const mmProducts = await mmResponse.json();
-            console.log(`✅ Found ${mmProducts.length} products in batch ${Math.floor(i/batchSize) + 1}`);
-            filteredMmProducts.push(...mmProducts);
           }
           
           // Second try: If search failed, try fetching recent records (newly saved might not be indexed)
@@ -543,11 +493,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const fetchControllerRef = useRef(null);
   const cacheRef = useRef(new Map()); // Simple cache for API responses
   const lastFetchTimeRef = useRef(0);
-  
-  // Add refs for save operation cancellation and rollback
-  const saveAbortControllerRef = useRef(null);
-  const currentSessionSavedProducts = useRef([]); // Track products saved in current session for rollback
-  const isSaveCancelledRef = useRef(false); // Flag to check if save was cancelled
   
   // Check for optimized data from advanced optimization screen
   const [products, setProducts] = useState(optimizedProducts);
@@ -959,18 +904,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return response;
         }
         
-        // If it's a 504 or 500 error, retry with LONGER delays for server recovery
+        // If it's a 504 or 500 error, retry
         if ((response.status === 504 || response.status === 500) && attempt < maxRetries) {
-          // Much longer delays for 504 errors - give server time to recover
-          const delay = response.status === 504 
-            ? Math.min(5000 * attempt, 15000)  // 504: 5s, 10s, 15s (max)
-            : baseDelay * Math.pow(2, attempt - 1); // 500: normal exponential backoff
-          
+          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
           console.log(`⏳ Request failed with ${response.status}, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
           
           // Update progress indicator if callback provided
           if (progressCallback) {
-            progressCallback(`⏳ Sunucu aşırı yüklü (${response.status}), ${delay/1000} saniye bekleniyor... (${attempt}/${maxRetries})`);
+            progressCallback(`⏳ Sunucu zaman aşımı, tekrar denenecek... (${attempt}/${maxRetries})`);
           }
           
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -1729,36 +1670,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Initialize batch sequence with database sync - MUST be called before any generateStokKodu calls
-  const initializeBatchSequence = async (forceRefresh = false) => {
-    if (batchSequenceInitialized && !forceRefresh) {
+  const initializeBatchSequence = async () => {
+    if (batchSequenceInitialized) {
       return batchSequenceCounter; // Already initialized
-    }
-    
-    // Force refresh the saved products data to get the latest state
-    if (forceRefresh || !savedProducts?.mm?.length) {
-      console.log('*** Force refreshing saved products data before sequence initialization');
-      await fetchSavedProducts(false, true); // Force refresh with resetData=true
-      // Wait a bit for state to update
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    // CRITICAL: Always fetch fresh sequences with cache-busting for accurate sequence detection
-    console.log('*** Fetching FRESH sequences from database with cache-busting');
-    try {
-      const freshSequencesResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?_cache_bust=${Date.now()}`);
-      if (freshSequencesResponse?.ok) {
-        const freshSequenceData = await freshSequencesResponse.json();
-        const freshSequenceMap = {};
-        freshSequenceData.forEach(seq => {
-          const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
-          freshSequenceMap[key] = seq.last_sequence || 0;
-        });
-        // Update sequences state with fresh data
-        setSequences(freshSequenceMap);
-        console.log('*** Fresh sequences loaded, updating local sequences state');
-      }
-    } catch (error) {
-      console.warn('*** Failed to fetch fresh sequences, using existing:', error);
     }
 
     let maxSequence = 2443; // Default fallback
@@ -1783,9 +1697,54 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
     console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
     
-    // Use the sequence table value directly - backend maintains this correctly
-    maxSequence = preliminaryMaxSequence;
-    console.log('*** Using sequence table value:', maxSequence);
+    // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
+    try {
+      console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
+      // Add timestamp to bypass any caching
+      const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5&_t=${Date.now()}`);
+      if (dbCheckResponse?.ok) {
+        const dbData = await dbCheckResponse.json();
+        console.log('*** initializeBatchSequence - DB check response structure:', dbData);
+        // Handle both possible response structures
+        const productList = dbData.data || dbData;
+        if (Array.isArray(productList) && productList.length > 0) {
+          let highestDbSequence = 0;
+          productList.forEach(product => {
+            const match = product.stok_kodu.match(/CHOZL(\d+)/);
+            if (match) {
+              const seqNum = parseInt(match[1]);
+              if (seqNum > highestDbSequence) {
+                highestDbSequence = seqNum;
+              }
+            }
+          });
+          console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
+          
+          // Use the higher of sequence table or actual database
+          maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
+          console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
+          
+          // If database has higher, we should update the sequence table
+          if (highestDbSequence > preliminaryMaxSequence) {
+            console.log('*** Database is ahead! Need to update sequence table to:', highestDbSequence);
+            console.log('*** SKIPPING POST operation to prevent duplicate sequence rows');
+            console.log('*** The existing PUT operations in updateSequences() will handle the sync');
+            // REMOVED: The POST operation here was creating duplicate rows
+            // The actual sequence updates are properly handled by updateSequences() 
+            // using PUT operations with specific row IDs
+          }
+        } else {
+          maxSequence = preliminaryMaxSequence;
+          console.log('*** No CHOZL products found in database, using sequence table value:', maxSequence);
+        }
+      } else {
+        maxSequence = preliminaryMaxSequence;
+        console.log('*** Could not check database, using sequence table value:', maxSequence);
+      }
+    } catch (dbCheckError) {
+      console.error('*** Error checking database for duplicates:', dbCheckError);
+      maxSequence = preliminaryMaxSequence;
+    }
     
     batchSequenceCounter = maxSequence;
     batchSequenceInitialized = true;
@@ -1888,8 +1847,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('*** FALLBACK: Batch initialized with sequence table only:', batchSequenceCounter);
       }
       
-      // Sequence table contains the HIGHEST EXISTING sequence, so next product should be +1
-      batchSequenceCounter++; // Increment to get next available sequence
+      // Increment counter ONLY when creating NEW product (not cached)
+      batchSequenceCounter++;
       const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
       
       // Cache the generated code for this product
@@ -1897,7 +1856,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('*** NEW STOK KODU GENERATION ***');
       console.log('Product:', { hasirTipi: product.hasirTipi, batchIndex });
-      console.log('Last existing sequence from table:', batchSequenceCounter - 1, 'Next sequence for NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
+      console.log('Sequence for this NEW product:', batchSequenceCounter, 'Generated:', generatedCode);
       console.log('Cached for future use with key:', productKey);
       
       return generatedCode;
@@ -2818,11 +2777,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // combined with fallback calculations for missing cubuk sayisi values
       console.log('KAYNAK PROGRAMI: Using optimized approach with existing data...');
       
-      // Pre-fetch all mesh configurations to avoid individual API calls during processing
-      const uniqueHasirTipis = [...new Set(validProducts.map(p => p.hasirTipi))];
-      console.log(`🔧 Pre-fetching mesh configurations for ${uniqueHasirTipis.length} unique hasir tipis...`);
-      await batchFetchMeshConfigs(uniqueHasirTipis);
-      
       const enhancedProducts = await Promise.all(validProducts.map(async (product) => {
         // Find matching stock code from analysis
         let stokKodu = '';
@@ -3373,16 +3327,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ];
     chSheet.addRow(chHeaders);
 
-    // CH ürünlerini ekle - SADECE CH ürünleri işle
+    // CH ürünlerini ekle
     let excelBatchIndex = 0;
-    const chProducts = products.filter(product => {
-      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
-    });
-    
-    console.log(`🔧 FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
-    console.log('🔧 Product types:', products.map(p => ({ stokKodu: p.existingStokKodu, hasirTipi: p.hasirTipi })));
-    
-    for (const product of chProducts) {
+    for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
         const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
@@ -3668,15 +3615,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const ntelReceteSheet = workbook.addWorksheet('YM NTEL REÇETE');
     ntelReceteSheet.addRow(receteHeaders);
 
-    // Reçete verilerini ekle - SADECE CH ürünleri için
+    // Reçete verilerini ekle
     let receteBatchIndex = 0;
-    const chProducts = products.filter(product => {
-      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
-    });
-    
-    console.log(`🔧 RECIPE FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
-    
-    for (const product of chProducts) {
+    for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
         receteBatchIndex++;
@@ -3940,16 +3881,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const ntelReceteSheet = workbook.addWorksheet('YM NTEL REÇETE');
     ntelReceteSheet.addRow(receteHeaders);
 
-    // Alternatif reçete verilerini ekle (NTEL bazlı) - SADECE CH ürünleri için
+    // Alternatif reçete verilerini ekle (NTEL bazlı)
     let altReceteBatchIndex = 0;
-    const chProducts = products.filter(product => {
-      return product.existingStokKodu?.startsWith('CH') || !product.existingStokKodu?.startsWith('YM.');
-    });
-    
-    console.log(`🔧 ALT RECIPE FILTERING DEBUG - Total products: ${products.length}, CH products: ${chProducts.length}`);
-    console.log('DEBUG: Starting CH reçete generation for', chProducts.length, 'products');
+    console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
     let chRowCount = 0;
-    for (const product of chProducts) {
+    for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
         console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
@@ -4239,8 +4175,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
-          '', '', '', '', '', 'H', 'H', '', '', '',
-          product.existingStokKodu, 'NCBK', 'H', 'H'
+          '', '', '', '', '', 'H', 'E', '', '', '',
+          product.existingStokKodu, 'NCBK', 'E', 'E'
         ]);
       } else if (product.productType === 'NTEL') {
         // Generate YM NTEL STOK row
@@ -4254,8 +4190,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
-          '', '', '', '', '', 'H', 'H', '', '', '',
-          product.existingStokKodu, 'NTEL', 'H', 'H'
+          '', '', '', '', '', 'H', 'E', '', '', '',
+          product.existingStokKodu, 'NTEL', 'E', 'E'
         ]);
       }
     });
@@ -4989,29 +4925,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Veritabanına kaydet
   const saveToDatabase = async (products) => {
     try {
-      // Reset cancellation flag and saved products tracker for new session
-      isSaveCancelledRef.current = false;
-      currentSessionSavedProducts.current = [];
-      
-      // Create new AbortController for this save session
-      saveAbortControllerRef.current = new AbortController();
-      
-      // IMMEDIATE UI FEEDBACK - Show progress modal immediately
-      setIsLoading(true);
-      setIsSavingToDatabase(true);
-      setDatabaseProgress({ current: 0, total: 0, operation: 'Kaydetme işlemi başlatılıyor...', currentProduct: 'Sistem hazırlanıyor...' });
-      
       // Reset batch sequence counter for new batch
       resetBatchSequenceCounter();
-      
-      // Update progress during initialization
-      setDatabaseProgress({ current: 0, total: 0, operation: 'Sıra numaraları hazırlanıyor...', currentProduct: 'Batch sequence başlatılıyor...' });
       
       // Initialize batch sequence before any stok kodu generation
       await initializeBatchSequence();
       
-      // Update progress for product analysis
-      setDatabaseProgress({ current: 0, total: 0, operation: 'Ürünler analiz ediliyor...', currentProduct: 'Kaydedilecek ürünler belirleniyor...' });
+      setIsLoading(true);
+      setIsSavingToDatabase(true);
+      setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
+      
+      // Optimization check removed - save products with or without optimization
       
       // Sadece kaydedilmesi gereken ürünleri kaydet
       const productsToSave = getProductsToSave();
@@ -5060,24 +4984,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const batchDuplicates = []; // Track duplicates within current batch
       
       // First pass: identify duplicates within the batch itself
-      setDatabaseProgress({ current: 0, total: productsToSave.length, operation: 'Batch içi duplikatlar kontrol ediliyor...', currentProduct: `${productsToSave.length} ürün analiz ediliyor...` });
-      
       const batchStokAdiMap = new Map(); // Map Stok Adı to first occurrence index
       const batchUniqueProducts = []; // Products after removing batch duplicates
       
       for (let i = 0; i < productsToSave.length; i++) {
         const product = productsToSave[i];
         const productStokAdi = generateStokAdi(product, 'CH');
-        
-        // Update progress every 5 items to show progress during analysis
-        if (i % 5 === 0 || i === productsToSave.length - 1) {
-          setDatabaseProgress({ 
-            current: i + 1, 
-            total: productsToSave.length, 
-            operation: 'Batch içi duplikatlar kontrol ediliyor...', 
-            currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)` 
-          });
-        }
         
         if (batchStokAdiMap.has(productStokAdi)) {
           // This is a duplicate within the batch
@@ -5095,22 +5007,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       // Second pass: check unique products against database
-      setDatabaseProgress({ current: 0, total: batchUniqueProducts.length, operation: 'Veritabanı ile karşılaştırılıyor...', currentProduct: `${batchUniqueProducts.length} benzersiz ürün kontrol ediliyor...` });
-      
-      let dbCheckIndex = 0;
       for (const product of batchUniqueProducts) {
-        dbCheckIndex++;
-        
-        // Update progress every 3 items to show progress during database comparison
-        if (dbCheckIndex % 3 === 0 || dbCheckIndex === batchUniqueProducts.length) {
-          setDatabaseProgress({ 
-            current: dbCheckIndex, 
-            total: batchUniqueProducts.length, 
-            operation: 'Veritabanı ile karşılaştırılıyor...', 
-            currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)` 
-          });
-        }
-        
         // Generate Stok Adı for identification
         const productStokAdi = generateStokAdi(product, 'CH');
         
@@ -5247,33 +5144,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: unoptimizedCount > 0 ? `(${unoptimizedCount} optimize edilmemiş)` : ''
       });
       
-      // Track successfully saved products and errors
-      const successfulProducts = [];
-      const failedProducts = [];
-      
-      // Add longer initial delay for large batches to prepare server
-      if (newProducts.length > 0) {
-        // Longer delay for more products to avoid server overload
-        const initialDelay = newProducts.length > 10 ? 3000 : 1000; // 3s for large batches, 1s for small
-        console.log(`⏳ Preparing to save ${newProducts.length} products, waiting ${initialDelay}ms for server...`);
-        setDatabaseProgress({ 
-          current: 0, 
-          total: newProducts.length, 
-          operation: `${newProducts.length} ürün için sunucu hazırlanıyor...`,
-          currentProduct: `${initialDelay/1000} saniye bekleniyor...`
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, initialDelay));
-      }
-      
-      // INDIVIDUAL SAVE LOGIC (restored from working Vercel version)
-      console.log(`🚀 Starting individual save operations for ${newProducts.length} products...`);
+      // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
         const product = newProducts[i];
         processedCount++;
         setDatabaseProgress({ 
           current: processedCount, 
-          total: newProducts.length, 
+          total: totalCount, 
           operation: 'Veritabanına kaydediliyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
@@ -5365,18 +5242,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg: chData.kg
           });
 
-          // CH SAVE: Real API call (restored from working Vercel version)
-          console.log('📥 DEBUG - CH Data being saved:', {
-            stok_kodu: chData.stok_kodu,
-            stok_adi: chData.stok_adi,
-            hasir_tipi: chData.hasir_tipi,
-            fiyat_birimi: chData.fiyat_birimi,
-            cap: chData.cap,
-            cap2: chData.cap2,
-            ebat_boy: chData.ebat_boy,
-            ebat_en: chData.ebat_en,
-            kg: chData.kg
-          });
           chResponse = await fetchWithRetry(API_URLS.celikHasirMm, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5413,80 +5278,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
                 retrySuccess = true;
               } else if (retryResponse.status === 409) {
-                console.log(`*** Retry ${retryAttempts} still duplicate: ${newStokKodu}`);
-                // Continue loop for next retry
-              } else {
-                throw new Error(`CH kaydi basarisiz: ${retryResponse.status} (retry ${retryAttempts})`);
-              }
-            }
-            
-            if (!retrySuccess) {
-              console.error(`*** Failed to save CH after 3 retry attempts`);
-              toast.error(`Kayit basarisiz: 3 deneme sonucu duplicate hatasi`);
-              continue; // Skip this product
-            }
-          } else if (!chResponse.ok) {
-            throw new Error(`CH kaydi basarisiz: ${chResponse.status}`);
-          } else {
-            chResult = await chResponse.json();
-          }
-        } catch (error) {
-          console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
-          toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
-          continue; // Bu ürünü atla, diğerlerine devam et
-        }
-
-        // NCBK kayıtları (Başarılı CH sonrasında)
-        try {
-          // Database should create ALL NCBKs including duplicates for recipe accuracy
-          const allNcbkSpecs = [
-            { cap: product.boyCap, length: parseInt(product.uzunlukBoy || 0), type: 'boy' },
-            { cap: product.enCap, length: parseInt(product.uzunlukEn || 0), type: 'en' }
-          ];
-          
-          // Deduplicate NCBK specs to prevent creating same product twice (and thus duplicate recipes)
-          const seenStokKodus = new Set();
-          const ncbkSpecs = allNcbkSpecs.filter(spec => {
-            const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(spec.cap) * 100)).padStart(4, '0')}.${spec.length}`;
-            if (seenStokKodus.has(stokKodu)) {
-              console.log(`⚠️ Skipping duplicate NCBK spec: ${stokKodu} (${spec.type})`);
-              return false;
-            }
-            seenStokKodus.add(stokKodu);
-            return true;
-          });
-          
-          for (const spec of ncbkSpecs) {
-            if (chResponse.status === 409) {
-            // Duplicate detected - try with next sequence number
-            console.log(`*** DUPLICATE DETECTED: ${chData.stok_kodu} already exists, retrying with next sequence`);
-            
-            // Increment sequence counter and try again (max 3 attempts)
-            let retryAttempts = 0;
-            let retrySuccess = false;
-            
-            while (retryAttempts < 3 && !retrySuccess) {
-              retryAttempts++;
-              batchSequenceCounter++; // Increment to get next sequence number
-              const newStokKodu = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
-              console.log(`*** Retry attempt ${retryAttempts}: trying with ${newStokKodu}`);
-              
-              // Update the chData with new stok_kodu
-              chData.stok_kodu = newStokKodu;
-              
-              // Try saving again
-              const retryResponse = await fetchWithRetry(`${API_URLS.celikHasirMm}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(chData)
-              }, 3, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
-              
-              if (retryResponse.ok) {
-                console.log(`*** Retry successful with ${newStokKodu}`);
-                chResult = await retryResponse.json();
-                generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
-                retrySuccess = true;
-              } else if (retryResponse.status === 409) {
                 console.log(`*** ${newStokKodu} also exists, trying next sequence`);
                 // Continue loop to try next number
               } else {
@@ -5502,14 +5293,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           } else if (!chResponse.ok) {
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
           } else {
-            // chResult already set from line 5431 - no need to read response again
-            // Track saved CH product for potential rollback
-            currentSessionSavedProducts.current.push({
-              type: 'CH',
-              id: chResult.id,
-              stok_kodu: chData.stok_kodu,
-              api_url: API_URLS.celikHasirMm
-            });
+            chResult = await chResponse.json();
           }
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
@@ -5609,17 +5393,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               type: spec.type
             });
             
-            // REMOVED: Micro delay - was causing extreme slowness
-            
-            // NCBK SAVE: Real API call (restored from working Vercel version)
-            console.log('📤 NCBK POST Request for', spec.type, ':', {
-              stok_kodu: ncbkData.stok_kodu,
-              cap: cap,
-              length: length,
-              type: spec.type
-            });
-            
-            
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -5640,47 +5413,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
               continue; // Continue to next NCBK
             } else if (!ncbkResponse.ok) {
-              throw new Error(`NCBK kaydi basarisiz: ${ncbkResponse.status}`);
-            } else {
-              const ncbkResult = await ncbkResponse.json();
-              console.log(`✅ NCBK created successfully (${ncbkResponse.status}), WILL create recipe: ${ncbkData.stok_kodu}`);
-              
-              // Mark this NCBK as newly created in this session
-              newlyCreatedNcbks.add(ncbkData.stok_kodu);
-              
-              // Store with spec type to handle boy/en separately even if same dimensions
-              const specKey = `${spec.type}-${cap}-${length}`;
-              ncbkResults[specKey] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
-              // Also store with just length for recipe lookup compatibility
-              ncbkResults[length] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
-            }
-            
-            console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
-              status: ncbkResponse.status,
-              statusText: ncbkResponse.statusText
-            });
-            
-            if (ncbkResponse.status === 409) {
-              // NCBK already exists - this is normal, just use existing
-              console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
-              // Store a placeholder result to continue the process
-              const specKey = `${spec.type}-${cap}-${length}`;
-              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
-              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
-              continue; // Continue to next NCBK
-            } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
               const ncbkResult = await ncbkResponse.json();
               console.log(`✅ NCBK created successfully (${ncbkResponse.status}), WILL create recipe: ${ncbkData.stok_kodu}`);
-              
-              // Track saved NCBK product for potential rollback
-              currentSessionSavedProducts.current.push({
-                type: 'NCBK',
-                id: ncbkResult.id,
-                stok_kodu: ncbkData.stok_kodu,
-                api_url: API_URLS.celikHasirNcbk
-              });
               
               // Mark this NCBK as newly created in this session
               newlyCreatedNcbks.add(ncbkData.stok_kodu);
@@ -5761,18 +5497,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg_per_meter: ntelData.payda_1
           });
 
-          // REMOVED: Micro delay - was causing extreme slowness
-
-          // NTEL SAVE: Real API call (restored from working Vercel version)
-          console.log('📥 DEBUG - NTEL Data being saved:', {
-            stok_kodu: ntelData.stok_kodu,
-            stok_adi: ntelData.stok_adi,
-            fiyat_birimi: ntelData.fiyat_birimi,
-            cap: ntelData.cap,
-            kg_per_meter: ntelData.payda_1
-          });
-          
-          
           const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -5785,47 +5509,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
             // Continue with existing NTEL
           } else if (!ntelResponse.ok) {
-            throw new Error(`NTEL kaydi basarisiz: ${ntelResponse.status}`);
-          } else {
-            ntelResult = await ntelResponse.json();
-            ntelResult.isNewlyCreated = true; // Mark as newly created in this session
-            console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
-          }
-          
-          if (ntelResponse.status === 409) {
-            // NTEL already exists - this is normal, just use existing
-            console.log(`ℹ️ NTEL already exists, using existing: ${ntelData.stok_kodu}`);
-            ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
-            // Continue with existing NTEL
-          } else if (!ntelResponse.ok) {
             throw new Error(`NTEL kaydı başarısız: ${ntelResponse.status}`);
           } else {
             ntelResult = await ntelResponse.json();
             ntelResult.isNewlyCreated = true; // Mark as newly created in this session
-            
-            // Track saved NTEL product for potential rollback
-            currentSessionSavedProducts.current.push({
-              type: 'NTEL',
-              id: ntelResult.id,
-              stok_kodu: ntelData.stok_kodu,
-              api_url: API_URLS.celikHasirNtel
-            });
-            
             console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
           }
-          // Mark as successfully saved
-          successfulProducts.push({
-            ...product,
-            existingStokKodu: generatedStokKodu
-          });
         } catch (error) {
           console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
-          failedProducts.push({
-            product,
-            error: error.message
-          });
-          // Continue with next product but show warning at the end
-          continue;
+          toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
+          continue; // Bu ürünü atla, diğerlerine devam et
         }
 
         // Recipe kayıtları oluştur (sadece yeni ürünler için)
@@ -5942,220 +5635,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Individual save completed successfully
-      console.log(`✅ Successfully processed ${processedCount} products individually`);
-      
-      // Update sequences after all saves completed
-      try {
-        console.log('*** Updating sequences with dual backup system');
-        // Update sequence for newly saved products
-        if (newProducts.length > 0) {
-          const actualSequence = batchSequenceCounter;
-          console.log('*** Final batch sequence counter:', actualSequence);
-          await updateSequences(newProducts[newProducts.length - 1], actualSequence);
-        }
-      } catch (seqError) {
-        console.error('Sequence update error:', seqError);
-      }
-
-      // INDIVIDUAL SAVE COMPLETED - All products processed successfully
-      console.log(`✅ Individual save completed for ${processedCount} products`);
-      
-      // Return the newly saved products for UI update
       toast.success(`${processedCount} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
-      
-      // Sadece yeni kaydedilen ürünleri döndür
-      return newProducts;
-      
-      // Add CH batch requests
-      allChData.forEach((chItem, index) => {
-        batchPromises.push(
-          fetchWithRetry(API_URLS.celikHasirMm, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(chItem.data)
-          }, 3, 1000).then(response => ({
-            type: 'CH',
-            index,
-            stok_kodu: chItem.data.stok_kodu,
-            originalProduct: chItem.originalProduct,
-            response,
-            success: response.status === 200 || response.status === 201
-          })).catch(error => ({
-            type: 'CH',
-            index,
-            stok_kodu: chItem.data.stok_kodu,
-            originalProduct: chItem.originalProduct,
-            success: false,
-            error: error.message
-          }))
-        );
-      });
-
-      // Add NCBK batch requests  
-      allNcbkData.forEach((ncbkItem, index) => {
-        batchPromises.push(
-          fetchWithRetry(API_URLS.celikHasirNcbk, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ncbkItem.data)
-          }, 3, 1000).then(response => ({
-            type: 'NCBK',
-            index,
-            stok_kodu: ncbkItem.data.stok_kodu,
-            originalProduct: ncbkItem.originalProduct,
-            response,
-            success: response.status === 200 || response.status === 201
-          })).catch(error => ({
-            type: 'NCBK',
-            index,
-            stok_kodu: ncbkItem.data.stok_kodu,
-            originalProduct: ncbkItem.originalProduct,
-            success: false,
-            error: error.message
-          }))
-        );
-      });
-
-      // Add NTEL batch requests
-      allNtelData.forEach((ntelItem, index) => {
-        batchPromises.push(
-          fetchWithRetry(API_URLS.celikHasirNtel, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ntelItem.data)
-          }, 3, 1000).then(response => ({
-            type: 'NTEL',
-            index,
-            stok_kodu: ntelItem.data.stok_kodu,
-            originalProduct: ntelItem.originalProduct,
-            response,
-            success: response.status === 200 || response.status === 201
-          })).catch(error => ({
-            type: 'NTEL',
-            index,
-            stok_kodu: ntelItem.data.stok_kodu,
-            originalProduct: ntelItem.originalProduct,
-            success: false,
-            error: error.message
-          }))
-        );
-      });
-
-      // CONTROLLED BATCH EXECUTION - Process in smaller chunks with delays
-      const BATCH_SIZE = 5; // Process 5 requests at a time
-      const BATCH_DELAY = 2000; // 2 seconds between batches
-      
-      console.log(`🚀 Sending ${batchPromises.length} requests in controlled batches of ${BATCH_SIZE}...`);
-      const batchStartTime = Date.now();
-      
-      const batchSuccesses = [];
-      const batchFailures = [];
-      let completedCount = 0;
-      
-      // Process requests in smaller batches
-      for (let i = 0; i < batchPromises.length; i += BATCH_SIZE) {
-        // Check for cancellation
-        if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
-          console.log('🛑 Batch save cancelled by user');
-          break;
-        }
-        
-        const chunk = batchPromises.slice(i, i + BATCH_SIZE);
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(batchPromises.length / BATCH_SIZE);
-        
-        console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${chunk.length} requests)...`);
-        
-        setDatabaseProgress({ 
-          current: completedCount, 
-          total: batchPromises.length, 
-          operation: `Batch ${batchNumber}/${totalBatches} işleniyor...`,
-          currentProduct: `${chunk.length} istek paralel olarak gönderiliyor...`
-        });
-        
-        try {
-          const chunkResults = await Promise.allSettled(chunk);
-          
-          // Process chunk results
-          chunkResults.forEach((result) => {
-            completedCount++;
-            if (result.status === 'fulfilled' && result.value.success) {
-              batchSuccesses.push(result.value);
-              // Track successfully saved products for session management
-              currentSessionSavedProducts.current.push({
-                stok_kodu: result.value.stok_kodu,
-                type: result.value.type
-              });
-              // Add to successful products for Excel generation
-              if (result.value.type === 'CH') {
-                successfulProducts.push({
-                  ...result.value.originalProduct,
-                  stok_kodu: result.value.stok_kodu,
-                  hasirTipi: result.value.originalProduct.hasirTipi,
-                  uzunlukBoy: result.value.originalProduct.uzunlukBoy,
-                  uzunlukEn: result.value.originalProduct.uzunlukEn
-                });
-              }
-            } else {
-              const errorInfo = result.status === 'fulfilled' ? result.value : { error: result.reason?.message || 'Unknown error' };
-              batchFailures.push(errorInfo);
-              if (errorInfo.originalProduct) {
-                failedProducts.push({
-                  product: errorInfo.originalProduct,
-                  error: errorInfo.error || 'Batch save failed'
-                });
-              }
-            }
-          });
-          
-          console.log(`✅ Batch ${batchNumber} completed: ${chunkResults.filter(r => r.status === 'fulfilled' && r.value.success).length}/${chunk.length} successful`);
-          
-          // Add delay between batches (except for the last batch)
-          if (i + BATCH_SIZE < batchPromises.length) {
-            console.log(`⏳ Waiting ${BATCH_DELAY/1000}s before next batch...`);
-            setDatabaseProgress({ 
-              current: completedCount, 
-              total: batchPromises.length, 
-              operation: `Sunucu dinleniyor...`,
-              currentProduct: `${BATCH_DELAY/1000}s bekleme (${batchNumber}/${totalBatches} tamamlandı)`
-            });
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
-          }
-          
-        } catch (error) {
-          console.error(`❌ Batch ${batchNumber} failed:`, error);
-          // Mark all items in this batch as failed
-          chunk.forEach(() => {
-            completedCount++;
-            batchFailures.push({ error: error.message || 'Batch processing failed' });
-          });
-        }
-      }
-      
-      const batchEndTime = Date.now();
-      const batchDuration = ((batchEndTime - batchStartTime) / 1000).toFixed(2);
-      console.log(`⚡ Controlled batch save completed in ${batchDuration} seconds`);
-      console.log(`📊 Final Results: ${batchSuccesses.length} successful, ${batchFailures.length} failed`);
-      
-      setDatabaseProgress({ 
-        current: completedCount, 
-        total: batchPromises.length, 
-        operation: `Batch save tamamlandı! ${batchDuration}s`,
-        currentProduct: `${batchSuccesses.length}/${batchPromises.length} başarılı`
-      });
-
-      // Show appropriate message based on results
-      if (failedProducts.length === 0) {
-        toast.success(`${successfulProducts.length} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
-      } else if (successfulProducts.length > 0) {
-        toast.warning(`${successfulProducts.length} ürün kaydedildi, ${failedProducts.length} ürün başarısız oldu`);
-        console.error('Failed products:', failedProducts);
-      } else {
-        toast.error(`Hiçbir ürün kaydedilemedi! ${failedProducts.length} ürün başarısız oldu`);
-        console.error('All products failed:', failedProducts);
-      }
-      
       setDatabaseProgress({ 
         current: processedCount, 
         total: totalCount, 
@@ -6164,35 +5644,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       console.log('Veritabanı kaydetme tamamlandı. Excel için döndürülen ürünler:', {
-        successful: successfulProducts.length,
-        failed: failedProducts.length,
-        products: successfulProducts.map(p => p.hasirTipi)
+        count: newProducts.length,
+        products: newProducts.map(p => p.hasirTipi)
       });
       
       // Listeyi güncelle (don't await to avoid timeout)
-      if (successfulProducts.length > 0) {
-        fetchSavedProducts().catch(error => {
-          console.warn('Database refresh failed after save:', error);
-          toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
-        });
-      }
+      fetchSavedProducts().catch(error => {
+        console.warn('Database refresh failed after save:', error);
+        toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
+      });
       
-      // DON'T close database modal yet - transition to Excel generation phase
-      setDatabaseProgress({ current: totalCount, total: totalCount, operation: 'Excel dosyaları hazırlanıyor...', currentProduct: '' });
+      // Force re-render for count updates
+      setIsSavingToDatabase(false);
       setIsLoading(false);
       
-      // Sadece başarıyla kaydedilen ürünleri döndür
-      return successfulProducts;
+      // Sadece yeni kaydedilen ürünleri döndür
+      return newProducts;
       
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
       
       // Provide specific error messages based on error type
-      if (error.message?.includes('504') || error.message?.includes('timeout')) {
-        toast.error('Sunucu zaman aşımına uğradı! Lütfen daha az ürünle tekrar deneyin.');
-      } else if (error.message?.includes('500')) {
-        toast.error('Sunucu hatası! Lütfen bir süre bekleyip tekrar deneyin.');
-      } else if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
+      if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
         toast.error('Ağ bağlantısı hatası - Lütfen internet bağlantınızı kontrol edin');
       } else if (error.message?.includes('Backend responses failed')) {
         toast.error('Veritabanı sunucusuna erişilemiyor - Lütfen daha sonra tekrar deneyin');
@@ -6870,10 +6343,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   if (newProducts && newProducts.length > 0) {
                     console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
                     
-                    // SEAMLESS TRANSITION: Close database modal, start Excel generation immediately
-                    setIsSavingToDatabase(false);
-                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
-                    
                     // Unified approach: Fetch saved products from database with fallback
                     try {
                       // Direct unified fetch approach - use the stok_kodu from saved products
@@ -6890,14 +6359,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       
                       // Add small delay to ensure database consistency
                       await new Promise(resolve => setTimeout(resolve, 800));
-                      
-                      // Update UI to show data fetching phase
-                      setDatabaseProgress({ 
-                        current: 0, 
-                        total: stokKodular.length, 
-                        operation: 'Kaydedilen ürünlerin detayları alınıyor...',
-                        currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
-                      });
                       
                       // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                       const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
@@ -6916,15 +6377,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       } : 'none');
                       
                       if (databaseProducts && databaseProducts.length > 0) {
-                        // Update UI before starting Excel generation
-                        setDatabaseProgress({ 
-                          current: databaseProducts.length, 
-                          total: databaseProducts.length, 
-                          operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
-                          currentProduct: ''
-                        });
                         await generateExcelFiles(databaseProducts, false);
-                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                        toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                       } else {
                         // Database fetch failed - apply fallback formula to newProducts
                         console.warn('Unified fetch returned no data, applying fallback formula to original data');
@@ -7040,14 +6494,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                         console.log('Looking for these stok_kodu values:', stokKodular);
                         
-                        // Update UI to show data fetching phase
-                        setDatabaseProgress({ 
-                          current: 0, 
-                          total: stokKodular.length, 
-                          operation: 'Kaydedilen ürünlerin detayları alınıyor...',
-                          currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
-                        });
-                        
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
@@ -7059,15 +6505,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          // Update UI before starting Excel generation
-                          setDatabaseProgress({ 
-                            current: databaseProducts.length, 
-                            total: databaseProducts.length, 
-                            operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
-                            currentProduct: ''
-                          });
                           await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
                           // Database fetch failed - apply fallback formula to newProducts
                           console.warn('Unified fetch returned no data, applying fallback formula to original data');
@@ -7249,70 +6688,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               </p>
               
               <button
-                onClick={async () => {
-                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?\n\nBu işlem şu ana kadar kaydedilen ürünleri geri alacaktır.')) {
-                    // Set cancellation flag
-                    isSaveCancelledRef.current = true;
-                    
-                    // Abort ongoing operations
-                    if (saveAbortControllerRef.current) {
-                      saveAbortControllerRef.current.abort();
-                    }
-                    
-                    // Check if there are products to rollback
-                    const savedCount = currentSessionSavedProducts.current.length;
-                    if (savedCount > 0) {
-                      const rollbackConfirm = window.confirm(`${savedCount} adet ürün bu oturumda kaydedildi.\n\nBu ürünleri silmek ister misiniz?`);
-                      
-                      if (rollbackConfirm) {
-                        setDatabaseProgress({ 
-                          current: 0, 
-                          total: savedCount, 
-                          operation: 'Kaydedilen ürünler geri alınıyor...', 
-                          currentProduct: 'Rollback işlemi başlatılıyor...' 
-                        });
-                        
-                        // Rollback saved products
-                        let rollbackCount = 0;
-                        for (const savedProduct of currentSessionSavedProducts.current) {
-                          try {
-                            // Use stok_kodu for deletion as API expects this
-                            const deleteUrl = `${savedProduct.api_url}?stok_kodu=${encodeURIComponent(savedProduct.stok_kodu)}`;
-                            console.log(`🔄 Attempting to rollback ${savedProduct.type}: ${savedProduct.stok_kodu}`);
-                            
-                            const response = await fetchWithAuth(deleteUrl, {
-                              method: 'DELETE'
-                            });
-                            
-                            if (response.ok) {
-                              rollbackCount++;
-                              console.log(`✅ Rolled back ${savedProduct.type} product: ${savedProduct.stok_kodu}`);
-                            } else {
-                              console.error(`❌ Failed to rollback ${savedProduct.type} product: ${savedProduct.stok_kodu}`);
-                            }
-                            
-                            setDatabaseProgress({ 
-                              current: rollbackCount, 
-                              total: savedCount, 
-                              operation: 'Kaydedilen ürünler geri alınıyor...', 
-                              currentProduct: `${savedProduct.stok_kodu} siliniyor...` 
-                            });
-                          } catch (error) {
-                            console.error(`Error rolling back ${savedProduct.stok_kodu}:`, error);
-                          }
-                        }
-                        
-                        toast.success(`${rollbackCount} ürün başarıyla geri alındı`);
-                        
-                        // Refresh database to show changes
-                        await fetchSavedProducts(false, true);
-                      }
-                    }
-                    
-                    // Clear session saved products
-                    currentSessionSavedProducts.current = [];
-                    
-                    // Close modal and reset states
+                onClick={() => {
+                  if (window.confirm('Veritabanı işlemini iptal etmek istediğinizden emin misiniz?')) {
                     setIsSavingToDatabase(false);
                     setIsLoading(false);
                     toast.warning('İşlem kullanıcı tarafından iptal edildi');
@@ -7401,38 +6778,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 <h3 className="text-xl font-semibold">Çelik Hasır Veritabanı</h3>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       // Force cache invalidation and full refresh
-                      console.log('🔄 Manual refresh clicked - invalidating all caches');
                       cacheRef.current.clear();
-                      
-                      // Reset batch sequence initialization to force fresh sequence check
-                      batchSequenceInitialized = false;
-                      console.log('🔄 Reset batch sequence initialization flag');
-                      
-                      // Refresh saved products
-                      await fetchSavedProducts(false, true); // isRetry=false, resetData=true
-                      
-                      // Also refresh sequences data to get latest from sequence table
-                      try {
-                        const sequencesResponse = await fetchWithAuth(API_URLS.celikHasirSequence);
-                        if (sequencesResponse.ok) {
-                          const sequenceData = await sequencesResponse.json();
-                          const sequenceMap = {};
-                          sequenceData.forEach(seq => {
-                            const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
-                            sequenceMap[key] = seq.last_sequence || 0;
-                          });
-                          setSequences(sequenceMap);
-                          console.log('🔄 Sequences refreshed from table');
-                        }
-                      } catch (seqError) {
-                        console.warn('Failed to refresh sequences:', seqError);
-                      }
+                      fetchSavedProducts(false, true); // isRetry=false, resetData=true
                     }}
                     disabled={isLoadingDb}
                     className="px-3 py-1 bg-blue-600 text-white rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-400"
-                    title="Veriyi yenile ve sıra numaralarını güncelle"
                   >
                     <RefreshCw className={`w-4 h-4 ${isLoadingDb ? 'animate-spin' : ''}`} />
                     Yenile
@@ -7455,12 +6807,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         disabled={isDeletingBulkDb}
                         className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
                       >
-                        {isDeletingBulkDb ? (
-                          <Loader className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                        {isDeletingBulkDb ? `Siliniyor... (${selectedDbItems.length})` : `Seçilileri Sil (${selectedDbItems.length})`}
+                        <Trash2 className="w-4 h-4" />
+                        Seçilileri Sil ({selectedDbItems.length})
                       </button>
                       {activeDbTab === 'mm' && (
                         <button
@@ -7532,12 +6880,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       disabled={isLoading}
                       className="w-full px-4 py-2 bg-red-600 text-white rounded-md flex items-center justify-center gap-2 hover:bg-red-700 transition-colors text-sm disabled:bg-gray-400 border-2 border-red-700 mb-2"
                     >
-                      {isLoading ? (
-                        <Loader className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                      {isLoading ? 'Siliniyor...' : (activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil')}
+                      <Trash2 className="w-4 h-4" />
+                      {activeDbTab === 'mm' ? 'Tüm CH\'leri Sil' : activeDbTab === 'ncbk' ? 'Tüm NCBK\'leri Sil' : 'Tüm NTEL\'leri Sil'}
                     </button>
                     <p className="text-xs text-red-600 text-center">
                       ⚠️ Bu işlem seçili sekmedeki tüm kayıtları kalıcı olarak siler. Bu işlem geri alınamaz!
@@ -7862,14 +7206,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                         console.log('Looking for these stok_kodu values:', stokKodular);
                         
-                        // Update UI to show data fetching phase
-                        setDatabaseProgress({ 
-                          current: 0, 
-                          total: stokKodular.length, 
-                          operation: 'Kaydedilen ürünlerin detayları alınıyor...',
-                          currentProduct: 'Veritabanından çubuk sayıları ve reçete bilgileri getiriliyor'
-                        });
-                        
                         // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
                         const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
@@ -7881,15 +7217,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          // Update UI before starting Excel generation
-                          setDatabaseProgress({ 
-                            current: databaseProducts.length, 
-                            total: databaseProducts.length, 
-                            operation: 'Veriler alındı, Excel dosyaları oluşturuluyor...',
-                            currentProduct: ''
-                          });
                           await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu!`);
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
                           // Database fetch failed - apply fallback formula to newProducts
                           console.warn('Unified fetch returned no data, applying fallback formula to original data');
@@ -7971,9 +7300,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               <button
                 onClick={bulkDeleteAll}
                 disabled={bulkDeleteText !== 'Hepsini Sil' || isLoading}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isLoading && <Loader className="w-4 h-4 animate-spin" />}
                 {isLoading ? 'Siliniyor...' : 'Sil'}
               </button>
             </div>
@@ -8590,10 +7918,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       const newProducts = await saveToDatabase(validProducts);
                       if (newProducts && newProducts.length > 0) {
                         console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
-                        
-                        // SEAMLESS TRANSITION: Close database modal, start Excel generation immediately
-                        setIsSavingToDatabase(false);
-                        setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                         
                         // Unified approach: Fetch saved products from database with fallback
                         try {
