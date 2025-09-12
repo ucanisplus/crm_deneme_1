@@ -70,18 +70,6 @@ const getFilmasinKodu = (diameter) => {
 // Fallback formula function for missing database values
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
-    // CRITICAL: Ensure input values are valid numbers
-    const validUzunlukBoy = parseFloat(uzunlukBoy) || 0;
-    const validUzunlukEn = parseFloat(uzunlukEn) || 0;
-    
-    if (validUzunlukBoy <= 0 || validUzunlukEn <= 0) {
-      console.warn('Invalid dimensions for fallback calculation:', { uzunlukBoy, uzunlukEn, validUzunlukBoy, validUzunlukEn });
-      return {
-        cubukSayisiBoy: 1,
-        cubukSayisiEn: 1
-      };
-    }
-    
     // First, try to get mesh configuration from mesh_type_configs table
     let meshConfig = null;
     try {
@@ -97,39 +85,25 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
     const boyAralik = meshConfig?.boy_aralik || getDefaultSpacing(hasirTipi, 'boy');
     const enAralik = meshConfig?.en_aralik || getDefaultSpacing(hasirTipi, 'en');
     
-    // Determine hasırTuru based on dimensions (use validated values)
+    // Determine hasırTuru based on dimensions
     let hasirTuru = 'Standart';
     if (hasirTipi.startsWith('Q')) {
-      if (validUzunlukBoy >= 490 && validUzunlukBoy <= 510) {
+      if (uzunlukBoy >= 490 && uzunlukBoy <= 510) {
         hasirTuru = 'Döşeme';
-      } else if (validUzunlukBoy <= 350) {
+      } else if (uzunlukBoy <= 350) {
         hasirTuru = 'Perde';
       } else {
         hasirTuru = 'Döşeme';
       }
     }
     
-    // CRITICAL: Ensure boyAralik and enAralik are valid numbers before division
-    const validBoyAralik = parseFloat(boyAralik) || 15; // Default 15mm spacing
-    const validEnAralik = parseFloat(enAralik) || 15;   // Default 15mm spacing
+    // Initialize with base calculation
+    let cubukSayisiBoy = Math.floor((uzunlukEn / boyAralik) + 1);
+    let cubukSayisiEn = Math.floor((uzunlukBoy / enAralik) + 1);
     
-    // Initialize with base calculation (use validated values)
-    let cubukSayisiBoy = Math.floor((validUzunlukEn / validBoyAralik) + 1);
-    let cubukSayisiEn = Math.floor((validUzunlukBoy / validEnAralik) + 1);
-    
-    // SAFETY: Ensure results are valid numbers
-    if (isNaN(cubukSayisiBoy) || cubukSayisiBoy <= 0) {
-      console.warn('Invalid cubukSayisiBoy calculated, using default:', cubukSayisiBoy);
-      cubukSayisiBoy = 1;
-    }
-    if (isNaN(cubukSayisiEn) || cubukSayisiEn <= 0) {
-      console.warn('Invalid cubukSayisiEn calculated, using default:', cubukSayisiEn);
-      cubukSayisiEn = 1;
-    }
-    
-    // Apply type-specific rules (use validated values)
-    const isStandardSize = (validUzunlukBoy >= 490 && validUzunlukBoy <= 510) && 
-                          (validUzunlukEn >= 210 && validUzunlukEn <= 220);
+    // Apply type-specific rules
+    const isStandardSize = (uzunlukBoy >= 490 && uzunlukBoy <= 510) && 
+                          (uzunlukEn >= 210 && uzunlukEn <= 220);
     
     if (hasirTipi.startsWith('R')) {
       if (isStandardSize) {
@@ -152,28 +126,10 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
       }
     }
     
-    // Apply optimization logic (simplified version) - use validated values
-    const optimized = applyFilizOptimization(hasirTipi, validUzunlukBoy, validUzunlukEn, cubukSayisiBoy, cubukSayisiEn, validBoyAralik, validEnAralik, hasirTuru);
+    // Apply optimization logic (simplified version)
+    const optimized = applyFilizOptimization(hasirTipi, uzunlukBoy, uzunlukEn, cubukSayisiBoy, cubukSayisiEn, boyAralik, enAralik, hasirTuru);
     
-    // FINAL SAFETY CHECK: Ensure optimized results are valid
-    const finalResult = {
-      cubukSayisiBoy: isNaN(optimized.cubukSayisiBoy) || optimized.cubukSayisiBoy <= 0 ? 1 : optimized.cubukSayisiBoy,
-      cubukSayisiEn: isNaN(optimized.cubukSayisiEn) || optimized.cubukSayisiEn <= 0 ? 1 : optimized.cubukSayisiEn
-    };
-    
-    // EXTENSIVE DEBUG: Log all fallback calculations
-    console.log(`🔍 FALLBACK DEBUG - Input: ${hasirTipi} ${uzunlukBoy}x${uzunlukEn}`);
-    console.log(`🔍 FALLBACK DEBUG - Validated: ${validUzunlukBoy}x${validUzunlukEn}`);
-    console.log(`🔍 FALLBACK DEBUG - hasirTuru: ${hasirTuru}, boyAralik: ${validBoyAralik}, enAralik: ${validEnAralik}`);
-    console.log(`🔍 FALLBACK DEBUG - Base calculation: boy=${cubukSayisiBoy}, en=${cubukSayisiEn}`);
-    console.log(`🔍 FALLBACK DEBUG - Optimized: boy=${optimized.cubukSayisiBoy}, en=${optimized.cubukSayisiEn}`);
-    console.log(`🔍 FALLBACK DEBUG - Final result: boy=${finalResult.cubukSayisiBoy}, en=${finalResult.cubukSayisiEn}`);
-    
-    if (finalResult.cubukSayisiBoy <= 0 || finalResult.cubukSayisiEn <= 0) {
-      console.error(`❌ FALLBACK ERROR - Invalid result for ${hasirTipi} ${validUzunlukBoy}x${validUzunlukEn}: boy=${finalResult.cubukSayisiBoy}, en=${finalResult.cubukSayisiEn}`);
-    }
-    
-    return finalResult;
+    return optimized;
   } catch (error) {
     console.error('Fallback formula calculation error:', error);
     // Return basic calculation if everything fails
@@ -196,30 +152,21 @@ const getDefaultSpacing = (hasirTipi, direction) => {
   return 15; // Default fallback
 };
 
+// Simple helper to avoid repeated parseFloat operations - PERFORMANCE OPTIMIZATION
+const safeFloat = (value) => parseFloat(value) || 0;
+const safeInt = (value) => parseInt(value) || 0;
+
 // Simplified optimization logic for fallback
 const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, initialEn, boyAralik, enAralik, hasirTuru) => {
-  // CRITICAL: Validate all input parameters to prevent NaN
-  const validUzunlukBoy = parseFloat(uzunlukBoy) || 0;
-  const validUzunlukEn = parseFloat(uzunlukEn) || 0;
-  const validInitialBoy = parseInt(initialBoy) || 1;
-  const validInitialEn = parseInt(initialEn) || 1;
-  const validBoyAralik = parseFloat(boyAralik) || 15;
-  const validEnAralik = parseFloat(enAralik) || 15;
-  
-  if (validUzunlukBoy <= 0 || validUzunlukEn <= 0 || validBoyAralik <= 0 || validEnAralik <= 0) {
-    console.warn('Invalid parameters for filiz optimization:', { uzunlukBoy, uzunlukEn, boyAralik, enAralik });
-    return { cubukSayisiBoy: validInitialBoy, cubukSayisiEn: validInitialEn };
-  }
-  
   // Q Perde: Fixed EN at 18, optimize BOY
   if (hasirTipi.startsWith('Q') && hasirTuru === 'Perde') {
     const targetSolFiliz = 2.5;
-    let bestBoy = validInitialBoy;
+    let bestBoy = initialBoy;
     let bestDiff = 999;
     
-    for (let boy = Math.max(2, validInitialBoy - 5); boy <= validInitialBoy + 5; boy++) {
-      const solFiliz = (validUzunlukEn - ((boy - 1) * validBoyAralik)) / 2;
-      if (!isNaN(solFiliz) && solFiliz >= 2 && solFiliz <= 9) {
+    for (let boy = Math.max(2, initialBoy - 5); boy <= initialBoy + 5; boy++) {
+      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
+      if (solFiliz >= 2 && solFiliz <= 9) {
         const diff = Math.abs(solFiliz - targetSolFiliz);
         if (diff < bestDiff) {
           bestDiff = diff;
@@ -231,16 +178,15 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
   }
   
   // For other types, try basic optimization within ±3 range
-  let bestCombination = { cubukSayisiBoy: validInitialBoy, cubukSayisiEn: validInitialEn };
+  let bestCombination = { cubukSayisiBoy: initialBoy, cubukSayisiEn: initialEn };
   let bestScore = -999;
   
-  for (let boy = Math.max(2, validInitialBoy - 3); boy <= validInitialBoy + 3; boy++) {
-    for (let en = Math.max(2, validInitialEn - 3); en <= validInitialEn + 3; en++) {
-      const solFiliz = (validUzunlukEn - ((boy - 1) * validBoyAralik)) / 2;
-      const onFiliz = (validUzunlukBoy - ((en - 1) * validEnAralik)) / 2;
+  for (let boy = Math.max(2, initialBoy - 3); boy <= initialBoy + 3; boy++) {
+    for (let en = Math.max(2, initialEn - 3); en <= initialEn + 3; en++) {
+      const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
+      const onFiliz = (uzunlukBoy - ((en - 1) * enAralik)) / 2;
       
-      // CRITICAL: Check for NaN values before using them
-      if (!isNaN(solFiliz) && !isNaN(onFiliz) && solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
+      if (solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
         let score = 0;
         if (Math.abs(solFiliz - 2.5) < 0.5) score += 10;
         if (hasirTipi.startsWith('R') && onFiliz >= 15 && onFiliz <= 27) score += 10;
@@ -260,11 +206,6 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
 
 // Unified function to fetch database data with fallback formula
 const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) => {
-  console.log(`🔍 FETCH DATABASE DEBUG - Starting with:`, {
-    productIds: productIds.length,
-    stokKodular: stokKodular.length,
-    stokKoduSamples: stokKodular.slice(0, 3)
-  });
   
   try {
     // Small delay to allow database transaction to commit if this is called right after save
@@ -291,7 +232,6 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           const response = await fetchWithAuth(`${url}?ids=${encodeURIComponent(idsParam)}`);
           if (response.ok) {
             const products = await response.json();
-            console.log(`✅ Found ${products.length} products from ${tableType} table using ID search`);
             allProducts.push(...products);
           }
         } catch (error) {
@@ -315,7 +255,6 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             mmProducts = await mmResponse.json();
             const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
             if (exactMatch.length > 0) {
-              console.log(`✅ Found ${exactMatch.length} products via search for ${stokKodu}`);
               filteredMmProducts.push(...exactMatch);
               continue; // Found it, move to next
             }
@@ -329,10 +268,8 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
               const recentProducts = await mmResponse.json();
               const exactMatch = recentProducts.filter(p => p.stok_kodu === stokKodu);
               if (exactMatch.length > 0) {
-                console.log(`✅ Found ${exactMatch.length} products via recent fetch for ${stokKodu}`);
                 filteredMmProducts.push(...exactMatch);
               } else {
-                console.error(`❌ Product ${stokKodu} not found even in recent records!`);
               }
             }
           } catch (error) {
