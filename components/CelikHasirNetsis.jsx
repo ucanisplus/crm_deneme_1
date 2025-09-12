@@ -5275,16 +5275,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: 'Batch save için veriler toplanıyor...'
       });
 
-      const allChData = [];
-      const allNcbkData = [];
-      const allNtelData = [];
+      // Individual save - no batch collection needed
       
+      // RESTORED WORKING INDIVIDUAL SAVE LOGIC FROM VERCEL VERSION
+      let processedCount = 0;
       for (let i = 0; i < newProducts.length; i++) {
-        // Check if collection was cancelled
-        if (isSaveCancelledRef.current || saveAbortControllerRef.current?.signal.aborted) {
-          console.log('🛑 Data collection cancelled by user');
-          break;
-        }
+        const product = newProducts[i];
+        processedCount++;
+        setDatabaseProgress({ 
+          current: processedCount, 
+          total: newProducts.length, 
+          operation: 'Veritabanına kaydediliyor...',
+          currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
+        });
         
         const product = newProducts[i];
         
@@ -5382,17 +5385,71 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             kg: chData.kg
           });
 
-          // BATCH COLLECTION: Collect CH data instead of saving individually
-          console.log('📦 Collecting CH data for batch save:', chData.stok_kodu);
-          allChData.push({
-            data: chData,
-            originalProduct: product,
-            generatedStokKodu: generatedStokKodu,
-            productIndex: i
+          // CH SAVE: Real API call (restored from working Vercel version)
+          console.log('📥 DEBUG - CH Data being saved:', {
+            stok_kodu: chData.stok_kodu,
+            stok_adi: chData.stok_adi,
+            hasir_tipi: chData.hasir_tipi,
+            fiyat_birimi: chData.fiyat_birimi,
+            cap: chData.cap,
+            cap2: chData.cap2,
+            ebat_boy: chData.ebat_boy,
+            ebat_en: chData.ebat_en,
+            kg: chData.kg
           });
+          chResponse = await fetchWithRetry(API_URLS.celikHasirMm, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chData)
+          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
           
-          // Simulate successful response for now - actual save will happen in batch
-          chResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: chData.stok_kodu }) };
+          if (chResponse.status === 409) {
+            // Duplicate detected - try with next sequence number
+            console.log(`*** DUPLICATE DETECTED: ${chData.stok_kodu} already exists, retrying with next sequence`);
+            
+            // Increment sequence counter and try again (max 3 attempts)
+            let retryAttempts = 0;
+            let retrySuccess = false;
+            
+            while (retryAttempts < 3 && !retrySuccess) {
+              retryAttempts++;
+              batchSequenceCounter++; // Increment to get next sequence number
+              const newStokKodu = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
+              console.log(`*** Retry attempt ${retryAttempts}: trying with ${newStokKodu}`);
+              
+              // Update the chData with new stok_kodu
+              chData.stok_kodu = newStokKodu;
+              
+              // Try saving again
+              const retryResponse = await fetchWithRetry(`${API_URLS.celikHasirMm}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(chData)
+              }, 3, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
+              
+              if (retryResponse.ok) {
+                console.log(`*** Retry successful with ${newStokKodu}`);
+                chResult = await retryResponse.json();
+                generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
+                retrySuccess = true;
+              } else if (retryResponse.status === 409) {
+                console.log(`*** Retry ${retryAttempts} still duplicate: ${newStokKodu}`);
+                // Continue loop for next retry
+              } else {
+                throw new Error(`CH kaydi basarisiz: ${retryResponse.status} (retry ${retryAttempts})`);
+              }
+            }
+            
+            if (!retrySuccess) {
+              console.error(`*** Failed to save CH after 3 retry attempts`);
+              toast.error(`Kayit basarisiz: 3 deneme sonucu duplicate hatasi`);
+              continue; // Skip this product
+            }
+          } else if (!chResponse.ok) {
+            throw new Error(`CH kaydi basarisiz: ${chResponse.status}`);
+          } else {
+            chResult = await chResponse.json();
+          }
           
           if (chResponse.status === 409) {
             // Duplicate detected - try with next sequence number
@@ -5548,17 +5605,49 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             // REMOVED: Micro delay - was causing extreme slowness
             
-            // BATCH COLLECTION: Collect NCBK data instead of saving individually
-            console.log('📦 Collecting NCBK data for batch save:', ncbkData.stok_kodu);
-            allNcbkData.push({
-              data: ncbkData,
-              originalProduct: product,
-              specType: spec.type,
-              productIndex: i
+            // NCBK SAVE: Real API call (restored from working Vercel version)
+            console.log('📤 NCBK POST Request for', spec.type, ':', {
+              stok_kodu: ncbkData.stok_kodu,
+              cap: cap,
+              length: length,
+              type: spec.type
             });
             
-            // Simulate successful response for now - actual save will happen in batch
-            const ncbkResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: ncbkData.stok_kodu, isNewlyCreated: true }) };
+            
+            const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(ncbkData)
+            }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NCBK ${spec.type}` })));
+            
+            console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
+              status: ncbkResponse.status,
+              statusText: ncbkResponse.statusText
+            });
+            
+            if (ncbkResponse.status === 409) {
+              // NCBK already exists - this is normal, just use existing
+              console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
+              // Store a placeholder result to continue the process
+              const specKey = `${spec.type}-${cap}-${length}`;
+              ncbkResults[specKey] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
+              ncbkResults[length] = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
+              continue; // Continue to next NCBK
+            } else if (!ncbkResponse.ok) {
+              throw new Error(`NCBK kaydi basarisiz: ${ncbkResponse.status}`);
+            } else {
+              const ncbkResult = await ncbkResponse.json();
+              console.log(`✅ NCBK created successfully (${ncbkResponse.status}), WILL create recipe: ${ncbkData.stok_kodu}`);
+              
+              // Mark this NCBK as newly created in this session
+              newlyCreatedNcbks.add(ncbkData.stok_kodu);
+              
+              // Store with spec type to handle boy/en separately even if same dimensions
+              const specKey = `${spec.type}-${cap}-${length}`;
+              ncbkResults[specKey] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
+              // Also store with just length for recipe lookup compatibility
+              ncbkResults[length] = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
+            }
             
             console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
               status: ncbkResponse.status,
@@ -5668,16 +5757,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           // REMOVED: Micro delay - was causing extreme slowness
 
-          // BATCH COLLECTION: Collect NTEL data instead of saving individually
-          console.log('📦 Collecting NTEL data for batch save:', ntelData.stok_kodu);
-          allNtelData.push({
-            data: ntelData,
-            originalProduct: product,
-            productIndex: i
+          // NTEL SAVE: Real API call (restored from working Vercel version)
+          console.log('📥 DEBUG - NTEL Data being saved:', {
+            stok_kodu: ntelData.stok_kodu,
+            stok_adi: ntelData.stok_adi,
+            fiyat_birimi: ntelData.fiyat_birimi,
+            cap: ntelData.cap,
+            kg_per_meter: ntelData.payda_1
           });
           
-          // Simulate successful response for now - actual save will happen in batch
-          const ntelResponse = { status: 201, json: () => Promise.resolve({ stok_kodu: ntelData.stok_kodu, isNewlyCreated: true }) };
+          
+          const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ntelData)
+          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} - NTEL` })));
+          
+          if (ntelResponse.status === 409) {
+            // NTEL already exists - this is normal, just use existing
+            console.log(`ℹ️ NTEL already exists, using existing: ${ntelData.stok_kodu}`);
+            ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
+            // Continue with existing NTEL
+          } else if (!ntelResponse.ok) {
+            throw new Error(`NTEL kaydi basarisiz: ${ntelResponse.status}`);
+          } else {
+            ntelResult = await ntelResponse.json();
+            ntelResult.isNewlyCreated = true; // Mark as newly created in this session
+            console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
+          }
           
           if (ntelResponse.status === 409) {
             // NTEL already exists - this is normal, just use existing
@@ -5829,19 +5936,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // BATCH SAVE IMPLEMENTATION: Send all collected data in parallel batches
-      console.log('🚀 Starting batch save operations...');
-      console.log(`📦 Batch Summary: ${allChData.length} CH, ${allNcbkData.length} NCBK, ${allNtelData.length} NTEL`);
+      // Individual save completed successfully
+      console.log(`✅ Successfully processed ${processedCount} products individually`);
       
-      setDatabaseProgress({ 
-        current: 0, 
-        total: allChData.length + allNcbkData.length + allNtelData.length, 
-        operation: 'Batch save işlemi başlatılıyor...',
-        currentProduct: 'Veriler paralel olarak kaydediliyor...'
-      });
+      // Update sequences after all saves completed
+      try {
+        console.log('*** Updating sequences with dual backup system');
+        // Update sequence for newly saved products
+        if (newProducts.length > 0) {
+          const actualSequence = batchSequenceCounter;
+          console.log('*** Final batch sequence counter:', actualSequence);
+          await updateSequences(newProducts[newProducts.length - 1], actualSequence);
+        }
+      } catch (seqError) {
+        console.error('Sequence update error:', seqError);
+      }
 
-      // Send all requests in parallel for maximum performance
-      const batchPromises = [];
+      // INDIVIDUAL SAVE COMPLETED - All products processed successfully
+      console.log(`✅ Individual save completed for ${processedCount} products`);
+      
+      // Return the newly saved products for UI update
+      toast.success(`${processedCount} yeni ürün ve reçeteleri başarıyla kaydedildi!`);
+      
+      // Sadece yeni kaydedilen ürünleri döndür
+      return newProducts;
       
       // Add CH batch requests
       allChData.forEach((chItem, index) => {
