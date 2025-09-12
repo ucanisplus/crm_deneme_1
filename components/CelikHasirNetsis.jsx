@@ -595,6 +595,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const maxRetries = 3;
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
   const [deletingProductId, setDeletingProductId] = useState(null); // Individual product deletion tracking
+  const [deleteProgress, setDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' }); // Delete progress tracking
   
   // Global operation duration calculator
   const calculateOperationDuration = (operationType, product) => {
@@ -742,9 +743,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const cubukBoyVal = parseInt(cubukSayisiBoy) || 0;
     const cubukEnVal = parseInt(cubukSayisiEn) || 0;
     
-    if (boyVal <= 0 || enVal <= 0 || diameterVal <= 0) {
-      console.warn('Invalid OTOCH parameters:', { boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn });
+    // CRITICAL FIX: For NCBK/NTEL products (wire/rod), en_mm can be 0 - this is normal
+    // Only validate that boy_mm and diameter_mm are valid
+    if (boyVal <= 0 || diameterVal <= 0) {
+      console.warn('Invalid OTOCH parameters (boy or diameter invalid):', { boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn });
       return 0.00001; // Return default small duration
+    }
+    
+    // For wire/rod products with en_mm = 0, use simplified calculation
+    if (enVal === 0) {
+      const wireLength = boyVal; // Length of the wire/rod
+      const wireFactor = Math.pow(diameterVal, 1.1);
+      const result = 0.048 + (wireLength * 0.0001) + (wireFactor * 0.01);
+      return parseFloat(result.toFixed(5));
     }
     
     const area = boyVal * enVal;
@@ -992,6 +1003,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     setIsDeletingBulkDb(true);
+    setDeleteProgress({ current: 0, total: selectedDbItems.length, operation: 'Silme işlemi başlatılıyor...', currentProduct: '' });
     let deletedCount = 0;
     const failedDeletions = [];
 
@@ -1008,11 +1020,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
 
       console.log(`🗑️ Starting bulk deletion of ${selectedProducts.length} products for ${activeDbTab}`);
+      setDeleteProgress({ current: 0, total: selectedProducts.length, operation: `${selectedProducts.length} ürün siliniyor...`, currentProduct: activeDbTab.toUpperCase() });
 
       // Process deletions sequentially to avoid overwhelming the backend
       for (const { id, stok_kodu, product } of selectedProducts) {
         try {
           console.log(`🗑️ Deleting product: ${stok_kodu}`);
+          setDeleteProgress({ 
+            current: deletedCount + 1, 
+            total: selectedProducts.length, 
+            operation: 'Ürün ve reçeteler siliniyor...', 
+            currentProduct: stok_kodu 
+          });
 
           // Step 1: Delete recipes using bulk deletion by mamul_kodu
           let recipeApiUrl = '';
@@ -1176,6 +1195,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     } finally {
       setIsDeletingBulkDb(false);
+      setDeleteProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+      
+      // CRITICAL: Force refresh database cache after deletions to update sequence tracking
+      console.log('🔄 CRITICAL: Refreshing database cache after deletions to update sequences');
+      await loadSavedProducts(true); // Force refresh with resetData=true
     }
   };
 
@@ -2972,27 +2996,50 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         .map(p => p.existingStokKodu);
       
       if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
-        // PERFORMANCE FIX: Skip database refresh during Excel generation to avoid hanging
-        // Database was just updated during save, fresh data is not critical for Excel
-        console.log('⚡ PERFORMANCE FIX: Skipping database refresh during Excel generation to avoid hanging');
-        console.log('Using fallback formula for Excel generation instead of fetching from overwhelmed backend');
+        console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
         
-        // Apply fallback formula instead of fetching from database
-        products = await Promise.all(
-          inputProducts.map(async (product) => {
-            const fallbackResult = await calculateFallbackCubukSayisi(
-              product.hasirTipi,
-              parseFloat(product.uzunlukBoy || 0),
-              parseFloat(product.uzunlukEn || 0)
-            );
-            return {
-              ...product,
-              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-              cubukSayisiEn: fallbackResult.cubukSayisiEn,
-              source: 'fallback-optimized'
-            };
-          })
-        );
+        try {
+          // OPTIMIZED: Use timeout to prevent hanging 
+          const fetchPromise = fetchDatabaseDataWithFallback([], existingStokKodes);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database fetch timeout')), 10000)
+          );
+          
+          const freshDatabaseProducts = await Promise.race([fetchPromise, timeoutPromise]);
+          
+          if (freshDatabaseProducts && freshDatabaseProducts.length > 0) {
+            // Use fresh database data
+            products = freshDatabaseProducts;
+            console.log('Excel generation: Using fresh database data');
+            console.log('🔧 EXCEL INPUT DEBUG - Products received from database fetch:', products.map(p => ({
+              stokKodu: p.existingStokKodu,
+              cubukSayisiBoy: p.cubukSayisiBoy,
+              cubukSayisiEn: p.cubukSayisiEn,
+              hasirTipi: p.hasirTipi,
+              source: p.source || 'database'
+            })));
+          } else {
+            throw new Error('No database products returned');
+          }
+        } catch (error) {
+          // Fallback: Apply fallback formula to input products
+          console.log('Excel generation: Database fetch failed/timeout, applying fallback formula:', error.message);
+          products = await Promise.all(
+            inputProducts.map(async (product) => {
+              const fallbackResult = await calculateFallbackCubukSayisi(
+                product.hasirTipi,
+                parseFloat(product.uzunlukBoy || 0),
+                parseFloat(product.uzunlukEn || 0)
+              );
+              return {
+                ...product,
+                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                cubukSayisiEn: fallbackResult.cubukSayisiEn,
+                source: 'fallback-timeout'
+              };
+            })
+          );
+        }
       } else if (inputProducts.some(p => p.skipDatabaseRefresh)) {
         // Skip database refresh - use input products as-is
         console.log('Excel generation: Skip database refresh flag detected, using input products directly');
@@ -6659,6 +6706,44 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               >
                 İptal
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Progress Modal */}
+      {isDeletingBulkDb && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-red-600" />
+              <h3 className="text-lg font-semibold mb-2">Ürünler Siliniyor</h3>
+              <p className="text-gray-600 mb-4">{deleteProgress.operation}</p>
+              
+              {deleteProgress.currentProduct && (
+                <p className="text-sm text-gray-500 mb-4">
+                  <span className="font-medium">Mevcut Ürün:</span> {deleteProgress.currentProduct}
+                </p>
+              )}
+              
+              {deleteProgress.total > 0 && (
+                <>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div 
+                      className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(deleteProgress.current / deleteProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  
+                  <p className="text-sm text-gray-500">
+                    {deleteProgress.current} / {deleteProgress.total} ürün silindi
+                  </p>
+                </>
+              )}
+              
+              <p className="text-xs text-gray-400 mt-4">
+                Lütfen bekleyiniz, ürünler ve reçeteler siliniyor...
+              </p>
             </div>
           </div>
         </div>
