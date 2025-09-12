@@ -7010,9 +7010,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         </div>
       )}
 
-      {/* Delete Progress Modal */}
+      {/* Delete Progress Modal - z-[60] to appear above database modal (z-50) */}
       {isDeletingBulkDb && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="text-center">
               <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-red-600" />
@@ -7072,9 +7072,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         </div>
       )}
 
-      {/* Bulk Delete Progress Modal */}
+      {/* Bulk Delete Progress Modal - z-[60] to appear above database modal (z-50) */}
       {isBulkDeleting && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="text-center">
               <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-red-600" />
