@@ -2103,11 +2103,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Normalize hasır tipi to correct format (Q257/257, R257, TR257)
       const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
       
-      // Format decimal values properly - use comma for Turkish format
-      const formattedBoyCap = formatDecimalForDisplay(product.boyCap, true);
-      const formattedEnCap = formatDecimalForDisplay(product.enCap, true);
+      // CRITICAL FIX: Handle undefined boyCap/enCap properly to prevent NaN in stok_adi
+      const boyCapValue = parseFloat(product.boyCap) || 0;
+      const enCapValue = parseFloat(product.enCap) || 0;
+      const formattedBoyCap = formatDecimalForDisplay(boyCapValue, true);
+      const formattedEnCap = formatDecimalForDisplay(enCapValue, true);
       const formattedBoy = parseInt(product.uzunlukBoy || 0) || 0;
       const formattedEn = parseInt(product.uzunlukEn || 0) || 0;
+      
+      console.log('🚨 generateStokAdi DEBUG:', {
+        hasirTipi: product.hasirTipi, boyCapValue, enCapValue, formattedBoyCap, formattedEnCap
+      });
       
       // Create the standard format used in database saves
       const stokAdi = `${normalizedHasirTipi} Çap(${formattedBoyCap}x${formattedEnCap} mm) Ebat(${formattedBoy}x${formattedEn} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
@@ -2710,10 +2716,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         });
         
-        // Check for NCBK/NTEL variants
-        const ncbkStokAdi500 = `YM Nervürlü Çubuk ${product.boyCap} mm 500 cm`;
-        const ncbkStokAdi215 = `YM Nervürlü Çubuk ${product.enCap} mm 215 cm`;
-        const ntelStokAdi = `YM Nervürlü Tel ${product.boyCap} mm`;
+        // Check for NCBK/NTEL variants - CRITICAL FIX: Handle undefined boyCap/enCap
+        const boyCapFormatted = formatDecimalForDisplay(parseFloat(product.boyCap) || 0, true);
+        const enCapFormatted = formatDecimalForDisplay(parseFloat(product.enCap) || 0, true);
+        const ncbkStokAdi500 = `YM Nervürlü Çubuk ${boyCapFormatted} mm 500 cm`;
+        const ncbkStokAdi215 = `YM Nervürlü Çubuk ${enCapFormatted} mm 215 cm`;
+        const ntelStokAdi = `YM Nervürlü Tel ${boyCapFormatted} mm`;
         
         console.log('DEBUG: Looking for variant Stok Adıs:', {
           ncbkStokAdi500,
@@ -2768,11 +2776,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const generateIngilizceIsim = (product, productType) => {
     if (productType === 'CH') {
       const hasirTipi = product.hasirTipi || '';
-      const boyCap = formatDecimalForDisplay(product.boyCap || 0, true); // No decimals for English
-      const enCap = formatDecimalForDisplay(product.enCap || 0, true);
+      
+      // CRITICAL FIX: Handle undefined boyCap/enCap properly to prevent NaN
+      const boyCapValue = parseFloat(product.boyCap) || 0;
+      const enCapValue = parseFloat(product.enCap) || 0;
+      const boyCap = formatDecimalForDisplay(boyCapValue, false); // Use false for English (no comma)
+      const enCap = formatDecimalForDisplay(enCapValue, false);
+      
       const uzunlukBoy = Math.round(product.uzunlukBoy || 0);
       const uzunlukEn = Math.round(product.uzunlukEn || 0);
       const gozAraligi = formatGozAraligi(product) || '';
+      
+      console.log('🚨 generateIngilizceIsim DEBUG:', {
+        hasirTipi, boyCapValue, enCapValue, boyCap, enCap, uzunlukBoy, uzunlukEn, gozAraligi
+      });
       
       return `Wire Mesh- ${hasirTipi} Dia(${boyCap}x${enCap} mm) Size(${uzunlukBoy}x${uzunlukEn} cm) Mesh(${gozAraligi} cm)`;
     } else if (productType === 'NCBK') {
@@ -5370,6 +5387,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Generate stok_kodu and capture it for sequence tracking
         let generatedStokKodu = generateStokKodu(product, 'CH', i);
+        
+        // DEBUG: Check values that could cause NaN in database
+        console.log('🚨 DATABASE SAVE DEBUG - Product values for generateStokAdi/generateIngilizceIsim:', {
+          hasirTipi: product.hasirTipi,
+          boyCap: product.boyCap,
+          enCap: product.enCap,
+          boyCapType: typeof product.boyCap,
+          enCapType: typeof product.enCap,
+          boyCapIsUndefined: product.boyCap === undefined,
+          enCapIsUndefined: product.enCap === undefined,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn
+        });
+        
         const chData = {
           stok_kodu: generatedStokKodu,
           stok_adi: generateStokAdi(product, 'CH'),
