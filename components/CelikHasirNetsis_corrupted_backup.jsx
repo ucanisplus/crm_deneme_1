@@ -5502,7 +5502,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           } else if (!chResponse.ok) {
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
           } else {
-            // chResult already set from line 5431 - no need to read response again
+            chResult = await chResponse.json();
             // Track saved CH product for potential rollback
             currentSessionSavedProducts.current.push({
               type: 'CH',
