@@ -71,6 +71,12 @@ const getFilmasinKodu = (diameter) => {
 const meshConfigCache = new Map();
 const failedMeshConfigCache = new Set();
 
+// Helper function to safely convert dimensions to 4-digit codes without NaN
+const safeCapToCode = (capValue) => {
+  const numValue = parseFloat(capValue || 0) || 0;
+  return String(Math.round(numValue * 100)).padStart(4, '0');
+};
+
 // Fallback formula function for missing database values
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
@@ -3683,7 +3689,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!uniqueNCBKProducts.has(boyKey)) {
           uniqueNCBKProducts.add(boyKey);
           
-          const stokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.${uzunlukBoy}`;
+          const stokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
           const stokAdi = `YM Nervürlü Çubuk ${boyCap} mm ${uzunlukBoy} cm`;
           const ingilizceIsim = generateIngilizceIsim({cap: boyCap, length: uzunlukBoy}, 'NCBK');
           const ncbkWeight = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
@@ -3717,7 +3723,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!uniqueNTELProducts.has(boyNtelKey)) {
           uniqueNTELProducts.add(boyNtelKey);
           
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
           const ntelStokAdi = `YM Nervürlü Tel ${boyCap} mm`;
           const ntelIngilizceIsim = generateIngilizceIsim({cap: boyCap}, 'NTEL');
           const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
@@ -3740,7 +3746,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!uniqueNCBKProducts.has(enKey)) {
           uniqueNCBKProducts.add(enKey);
           
-          const stokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.${uzunlukEn}`;
+          const stokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
           const stokAdi = `YM Nervürlü Çubuk ${enCap} mm ${uzunlukEn} cm`;
           const ingilizceIsim = generateIngilizceIsim({cap: enCap, length: uzunlukEn}, 'NCBK');
           const ncbkWeight = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
@@ -3775,7 +3781,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!uniqueNTELProducts.has(enNtelKey)) {
             uniqueNTELProducts.add(enNtelKey);
             
-            const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelStokAdi = `YM Nervürlü Tel ${enCap} mm`;
             const ntelIngilizceIsim = generateIngilizceIsim({cap: enCap}, 'NTEL');
             const ntelWeight = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
@@ -3868,7 +3874,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '1', 'Bileşen',
-          `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${Math.round(parseFloat(product.uzunlukEn) || 0)}`, 
+          `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`, 
           'AD', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
@@ -3876,7 +3882,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // BOY ÇUBUĞU (actual boy length)  
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '', '2', 'Bileşen',
-          `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${Math.round(parseFloat(product.uzunlukBoy) || 0)}`,
+          `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
           'AD', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
@@ -3905,7 +3911,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedNCBKRecipes.has(boyKey)) {
           processedNCBKRecipes.add(boyKey);
             
-            const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.${uzunlukBoy}`;
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
             const FILMASIN_MAPPING = {
               4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
               5.50: 6.5,
@@ -3939,7 +3945,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedNTELRecipes.has(ntelKey)) {
           processedNTELRecipes.add(ntelKey);
           
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
           const NTEL_FILMASIN_MAPPING = {
             4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
             5.50: 6.5,
@@ -3991,7 +3997,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedNCBKRecipes.has(enKey)) {
           processedNCBKRecipes.add(enKey);
             
-            const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.${uzunlukEn}`;
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const FILMASIN_MAPPING = {
               4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
               5.50: 6.5,
@@ -4026,7 +4032,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes.has(ntelKey)) {
             processedNTELRecipes.add(ntelKey);
             
-            const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const NTEL_FILMASIN_MAPPING = {
             4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
             5.50: 6.5,
@@ -4136,7 +4142,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Boy direction NTEL consumption
         if (boyCap > 0 && cubukSayisiBoyValue > 0) {
-          const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
           const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5); // 5 meters per cubuk
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
@@ -4152,7 +4158,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // En direction NTEL consumption (if different from boy)
         if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
-          const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
           const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
@@ -4164,7 +4170,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
         } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
           // Same diameter for both directions
-          const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
           const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
@@ -4200,7 +4206,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNCBKRecipes.has(boyKey)) {
           processedAltNCBKRecipes.add(boyKey);
             
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.${uzunlukBoy}`;
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
           const flmInfo = getFilmasinKodu(boyCap);
           const flmDiameter = flmInfo.diameter;
           const flmQuality = flmInfo.quality;
@@ -4230,7 +4236,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNCBKRecipes.has(enKey)) {
           processedAltNCBKRecipes.add(enKey);
             
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.${uzunlukEn}`;
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
           const flmInfo = getFilmasinKodu(enCap);
           const flmDiameter = flmInfo.diameter;
           const flmQuality = flmInfo.quality;
@@ -4258,7 +4264,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNTELRecipes.has(boyNtelKey)) {
           processedAltNTELRecipes.add(boyNtelKey);
           
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
           const flmInfo = getFilmasinKodu(boyCap);
           const flmDiameter = flmInfo.diameter;
           const flmQuality = flmInfo.quality;
@@ -4286,7 +4292,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNTELRecipes.has(enNtelKey)) {
           processedAltNTELRecipes.add(enNtelKey);
           
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
           const flmInfo = getFilmasinKodu(enCap);
           const flmDiameter = flmInfo.diameter;
           const flmQuality = flmInfo.quality;
@@ -4556,7 +4562,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Boy direction NTEL consumption
       if (boyCap > 0 && cubukSayisiBoyValue > 0) {
-        const boyNtelKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+        const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
         const boyNtelMiktar = Math.round(cubukSayisiBoyValue * 5);
         
         chReceteSheet.addRow([
@@ -4568,7 +4574,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // En direction NTEL consumption
       if (enCap > 0 && cubukSayisiEnValue > 0) {
-        const enNtelKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+        const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
         
         chReceteSheet.addRow([
@@ -4598,7 +4604,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNCBKRecipes.has(boyKey)) {
           processedAltNCBKRecipes.add(boyKey);
           
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.${uzunlukBoy}`;
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
           const flmInfo = getFilmasinKodu(boyCap);
           const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
           
@@ -4624,7 +4630,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (!processedAltNCBKRecipes.has(enKey)) {
           processedAltNCBKRecipes.add(enKey);
           
-          const ncbkStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.${uzunlukEn}`;
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
           const flmInfo = getFilmasinKodu(enCap);
           const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
           
@@ -4716,10 +4722,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         uzunlukEn: product.uzunlukEn
       });
       
-      // GENERATE NCBK codes directly from product dimensions - don't lookup in ncbkResults
-      // MM recipe should always reference the required NCBKs regardless of whether they exist
-      const boyBilesenKodu = `YM.NCBK.${String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukBoy || 0)}`;
-      const enBilesenKodu = `YM.NCBK.${String(Math.round(parseFloat(product.enCap) * 100)).padStart(4, '0')}.${parseInt(product.uzunlukEn || 0)}`;
+      // GENERATE NCBK codes with NaN protection - ensure no NaN in bilesen_kodu
+      const boyCap = parseFloat(product.boyCap || 0) || 0;
+      const enCap = parseFloat(product.enCap || 0) || 0;
+      const uzunlukBoy = parseInt(product.uzunlukBoy || 0) || 0;
+      const uzunlukEn = parseInt(product.uzunlukEn || 0) || 0;
+      
+      const boyBilesenKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
+      const enBilesenKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
       
       console.log('*** Generated BOY ÇUBUĞU:', boyBilesenKodu);
       console.log('*** Generated EN ÇUBUĞU:', enBilesenKodu);
@@ -4978,7 +4988,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       console.log('*** Final classification - kod2:', kod2, 'isStandard:', isStandard);
-      const capCode = isStandard ? String(Math.round(parseFloat(product.boyCap) * 100)).padStart(4, '0') : '';
+      const capCode = isStandard ? safeCapToCode(product.boyCap) : '';
       
       // For OZL products, implement dual sequence check and update
       if (kod2 === 'OZL' && actualSequenceNumber) {
@@ -5317,7 +5327,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         // Use helper function to get clean kg value
-        const kgValue = getCleanKgValue(product);
+        const kgValue = getCleanKgValue(product) || 0.1; // Minimum weight to prevent NaN/0
         console.log(`📊 SAVE DEBUG - kgValue after validation: ${kgValue}`);
         
         
@@ -5347,19 +5357,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_degeri_2: 1,
           // Product specific columns - CRITICAL: Ensure all values are valid numbers
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)),
-          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)),
-          ebat_boy: parseFloat(product.uzunlukBoy || 0),
-          ebat_en: parseFloat(product.uzunlukEn || 0),
+          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)) || 0,
+          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)) || 0,
+          ebat_boy: parseFloat(product.uzunlukBoy || 0) || 0,
+          ebat_en: parseFloat(product.uzunlukEn || 0) || 0,
           goz_araligi: formatGozAraligi(product),
-          kg: parseFloat(kgValue.toFixed(5)),
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0),
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0),
+          kg: parseFloat(kgValue.toFixed(5)) || 0,
+          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0) || 0,
+          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0) || 0,
           hasir_sayisi: 1,
-          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0),
-          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0),
-          adet_kg: parseFloat(kgValue.toFixed(5)),
-          toplam_kg: parseFloat(kgValue.toFixed(5)),
+          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0) || 0,
+          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0) || 0,
+          adet_kg: parseFloat(kgValue.toFixed(5)) || 0,
+          toplam_kg: parseFloat(kgValue.toFixed(5)) || 0,
           hasir_turu: 'MM',
           // Default values from SQL
           ozel_saha_2_say: 0,
@@ -5492,7 +5502,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Deduplicate NCBK specs to prevent creating same product twice (and thus duplicate recipes)
           const seenStokKodus = new Set();
           const ncbkSpecs = allNcbkSpecs.filter(spec => {
-            const stokKodu = `YM.NCBK.${String(Math.round(parseFloat(spec.cap) * 100)).padStart(4, '0')}.${spec.length}`;
+            const stokKodu = `YM.NCBK.${safeCapToCode(spec.cap)}.${spec.length}`;
             if (seenStokKodus.has(stokKodu)) {
               console.log(`⚠️ Skipping duplicate NCBK spec: ${stokKodu} (${spec.type})`);
               return false;
@@ -5504,7 +5514,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           for (const spec of ncbkSpecs) {
             const cap = spec.cap;
             const length = spec.length;
-            const ncbkStokKodu = `YM.NCBK.${String(Math.round(parseFloat(cap) * 100)).padStart(4, '0')}.${length}`;
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(cap)}.${length}`;
             
             // OPTIMIZATION: Check batch cache first
             if (batchNcbkCache.has(ncbkStokKodu)) {
@@ -5651,7 +5661,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           // NTEL kaydı
           const ntelCap = parseFloat(product.boyCap || 0);
-          const ntelStokKodu = `YM.NTEL.${String(Math.round(ntelCap * 100)).padStart(4, '0')}`;
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(ntelCap)}`;
           
           // OPTIMIZATION: Check batch cache first for NTEL
           if (batchNtelCache.has(ntelStokKodu)) {
@@ -8123,7 +8133,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   // Boy direction NCBK (actual uzunlukBoy)
                                   if (boyCap > 0) {
                                     const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
-                                    const boyNCBKStokKodu = `YM.NCBK.${String(Math.round(boyCap * 100)).padStart(4, '0')}.${uzunlukBoy}`;
+                                    const boyNCBKStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
                                     const boyNCBKStokAdi = `YM Nervürlü Çubuk ${boyCap} mm ${uzunlukBoy} cm`;
                                     const boyExists = savedProducts.ncbk?.some(p => p.stok_kodu === boyNCBKStokKodu || p.stok_adi === boyNCBKStokAdi);
                                     
@@ -8137,7 +8147,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   // En direction NCBK (actual uzunlukEn) 
                                   if (enCap > 0) {
                                     const uzunlukEn = parseInt(product.uzunlukEn || 0);
-                                    const enNCBKStokKodu = `YM.NCBK.${String(Math.round(enCap * 100)).padStart(4, '0')}.${uzunlukEn}`;
+                                    const enNCBKStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
                                     const enNCBKStokAdi = `YM Nervürlü Çubuk ${enCap} mm ${uzunlukEn} cm`;
                                     const enExists = savedProducts.ncbk?.some(p => p.stok_kodu === enNCBKStokKodu || p.stok_adi === enNCBKStokAdi);
                                     
@@ -8169,7 +8179,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   
                                   // Boy direction NTEL
                                   if (boyCap > 0) {
-                                    const boyNTELStokKodu = `YM.NTEL.${String(Math.round(boyCap * 100)).padStart(4, '0')}`;
+                                    const boyNTELStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
                                     const boyNTELStokAdi = `YM Nervürlü Tel ${boyCap} mm`;
                                     const boyExists = savedProducts.ntel?.some(p => p.stok_kodu === boyNTELStokKodu || p.stok_adi === boyNTELStokAdi);
                                     
@@ -8183,7 +8193,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                   
                                   // En direction NTEL (if different from boy)
                                   if (enCap > 0 && enCap !== boyCap) {
-                                    const enNTELStokKodu = `YM.NTEL.${String(Math.round(enCap * 100)).padStart(4, '0')}`;
+                                    const enNTELStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
                                     const enNTELStokAdi = `YM Nervürlü Tel ${enCap} mm`;
                                     const enExists = savedProducts.ntel?.some(p => p.stok_kodu === enNTELStokKodu || p.stok_adi === enNTELStokAdi);
                                     
