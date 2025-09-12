@@ -2986,19 +2986,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // If no cubuk sayisi found in saved data, calculate using fallback
-        const fallbackResult = await calculateFallbackCubukSayisi(
-          product.hasirTipi,
-          product.uzunlukBoy || 0,
-          product.uzunlukEn || 0
-        );
+        // Check if Excel-mapped cubuk values exist - only use fallback if missing
+        const hasExcelCubukValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+        
+        let finalCubukSayisiBoy, finalCubukSayisiEn;
+        
+        if (hasExcelCubukValues) {
+          // Use Excel-mapped values - DO NOT calculate fallback
+          console.log(`✅ KAYNAK PROGRAMI: Using Excel-mapped cubuk values for ${product.hasirTipi} - Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+          finalCubukSayisiBoy = product.cubukSayisiBoy;
+          finalCubukSayisiEn = product.cubukSayisiEn;
+        } else {
+          // Only calculate fallback if Excel values are missing or invalid
+          console.log(`⚠️ KAYNAK PROGRAMI: Missing Excel cubuk values, calculating fallback for ${product.hasirTipi}`);
+          const fallbackResult = await calculateFallbackCubukSayisi(
+            product.hasirTipi,
+            product.uzunlukBoy || 0,
+            product.uzunlukEn || 0
+          );
+          finalCubukSayisiBoy = fallbackResult?.cubukSayisiBoy || 0;
+          finalCubukSayisiEn = fallbackResult?.cubukSayisiEn || 0;
+        }
         
         return {
           ...product,
           existingStokKodu: stokKodu,
-          cubukSayisiBoy: fallbackResult?.cubukSayisiBoy || product.cubukSayisiBoy || 0,
-          cubukSayisiEn: fallbackResult?.cubukSayisiEn || product.cubukSayisiEn || 0,
-          source: 'fallback_calculation'
+          cubukSayisiBoy: finalCubukSayisiBoy,
+          cubukSayisiEn: finalCubukSayisiEn,
+          source: hasExcelCubukValues ? 'excel_mapping' : 'fallback_calculation'
         };
       }));
       
@@ -3195,21 +3210,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             throw new Error('No database products returned');
           }
         } catch (error) {
-          // Fallback: Apply fallback formula to input products
-          console.log('Excel generation: Database fetch failed/timeout, applying fallback formula:', error.message);
+          // Fallback: Only apply fallback formula if Excel values are missing
+          console.log('Excel generation: Database fetch failed/timeout, preserving Excel values or calculating fallback:', error.message);
           products = await Promise.all(
             inputProducts.map(async (product) => {
-              const fallbackResult = await calculateFallbackCubukSayisi(
-                product.hasirTipi,
-                parseFloat(product.uzunlukBoy || 0),
-                parseFloat(product.uzunlukEn || 0)
-              );
-              return {
-                ...product,
-                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-                cubukSayisiEn: fallbackResult.cubukSayisiEn,
-                source: 'fallback-timeout'
-              };
+              const hasExcelValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+              
+              if (hasExcelValues) {
+                console.log(`✅ Preserving Excel values for ${product.hasirTipi}: Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+                return {
+                  ...product,
+                  source: 'excel-preserved'
+                };
+              } else {
+                console.log(`⚠️ Missing Excel values, calculating fallback for ${product.hasirTipi}`);
+                const fallbackResult = await calculateFallbackCubukSayisi(
+                  product.hasirTipi,
+                  parseFloat(product.uzunlukBoy || 0),
+                  parseFloat(product.uzunlukEn || 0)
+                );
+                return {
+                  ...product,
+                  cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                  cubukSayisiEn: fallbackResult.cubukSayisiEn,
+                  source: 'fallback-timeout'
+                };
+              }
             })
           );
         }
@@ -3225,21 +3251,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           source: p.source || 'loaded-data'
         })));
       } else {
-        // No existing products - apply fallback formula to all
-        console.log('Excel generation: No existing products, applying fallback formula to all');
+        // No existing products - preserve Excel values or apply fallback formula
+        console.log('Excel generation: No existing products, preserving Excel values or calculating fallback');
         products = await Promise.all(
           inputProducts.map(async (product) => {
-            const fallbackResult = await calculateFallbackCubukSayisi(
-              product.hasirTipi,
-              parseFloat(product.uzunlukBoy || 0),
-              parseFloat(product.uzunlukEn || 0)
-            );
-            return {
-              ...product,
-              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-              cubukSayisiEn: fallbackResult.cubukSayisiEn,
-              source: 'fallback'
-            };
+            const hasExcelValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+            
+            if (hasExcelValues) {
+              console.log(`✅ Preserving Excel values for ${product.hasirTipi}: Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+              return {
+                ...product,
+                source: 'excel-preserved'
+              };
+            } else {
+              console.log(`⚠️ Missing Excel values, calculating fallback for ${product.hasirTipi}`);
+              const fallbackResult = await calculateFallbackCubukSayisi(
+                product.hasirTipi,
+                parseFloat(product.uzunlukBoy || 0),
+                parseFloat(product.uzunlukEn || 0)
+              );
+              return {
+                ...product,
+                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                cubukSayisiEn: fallbackResult.cubukSayisiEn,
+                source: 'fallback'
+              };
+            }
           })
         );
       }
@@ -5828,42 +5865,50 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ntelIsNewlyCreated: ntelForRecipe?.isNewlyCreated
             });
             
-            // Apply fallback formula to get correct cubuk sayısı values for recipe
-            console.log('🔍 ORIGINAL PRODUCT VALUES BEFORE FALLBACK:', {
+            // Check if cubuk values are present from Excel mapping or database - only apply fallback if truly missing
+            const hasValidCubukValues = product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0;
+            
+            console.log('🔍 ORIGINAL PRODUCT VALUES FROM EXCEL MAPPING:', {
               cubukSayisiBoy: product.cubukSayisiBoy,
               cubukSayisiEn: product.cubukSayisiEn,
-              hasirTipi: product.hasirTipi
+              hasirTipi: product.hasirTipi,
+              hasValidCubukValues
             });
             
-            const fallbackResult = await calculateFallbackCubukSayisi(
-              product.hasirTipi,
-              parseFloat(product.uzunlukBoy || 0),
-              parseFloat(product.uzunlukEn || 0)
-            );
+            let enhancedProduct;
             
-            console.log('🔍 FALLBACK CALCULATION RESULT:', {
-              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-              cubukSayisiEn: fallbackResult.cubukSayisiEn
-            });
+            if (hasValidCubukValues) {
+              // Use Excel-mapped or database values - DO NOT override with calculations
+              console.log(`✅ Using Excel-mapped cubuk values for recipe: ${product.hasirTipi} - Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+              enhancedProduct = { ...product };
+            } else {
+              // Only calculate fallback values if cubuk values are missing or invalid
+              console.log(`⚠️ Missing cubuk values, applying fallback calculation for: ${product.hasirTipi}`);
+              
+              const fallbackResult = await calculateFallbackCubukSayisi(
+                product.hasirTipi,
+                parseFloat(product.uzunlukBoy || 0),
+                parseFloat(product.uzunlukEn || 0)
+              );
+              
+              console.log('🔍 FALLBACK CALCULATION RESULT:', {
+                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                cubukSayisiEn: fallbackResult.cubukSayisiEn
+              });
+              
+              enhancedProduct = {
+                ...product,
+                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                cubukSayisiEn: fallbackResult.cubukSayisiEn
+              };
+              
+              console.log(`Applied fallback for recipe: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} => boy:${fallbackResult.cubukSayisiBoy}, en:${fallbackResult.cubukSayisiEn}`);
+            }
             
-            // Update product with correct optimized values for recipe generation
-            // CRITICAL FIX: Force override any existing values that might be wrong
-            const enhancedProduct = {
-              ...product,
-              cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-              cubukSayisiEn: fallbackResult.cubukSayisiEn
-            };
-            
-            // ADDITIONAL SAFETY: Ensure the values are actually set correctly
-            enhancedProduct.cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
-            enhancedProduct.cubukSayisiEn = fallbackResult.cubukSayisiEn;
-            
-            console.log('🔍 ENHANCED PRODUCT VALUES AFTER MERGE:', {
+            console.log('🔍 FINAL ENHANCED PRODUCT VALUES FOR RECIPE:', {
               cubukSayisiBoy: enhancedProduct.cubukSayisiBoy,
               cubukSayisiEn: enhancedProduct.cubukSayisiEn
             });
-            
-            console.log(`Applied fallback for recipe: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} => boy:${fallbackResult.cubukSayisiBoy}, en:${fallbackResult.cubukSayisiEn}`);
             
             await saveRecipeData(enhancedProduct, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
@@ -6715,20 +6760,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(databaseProducts, false);
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
-                          // Database fetch failed - apply fallback formula to newProducts
-                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          // Database fetch failed - preserve Excel values or apply fallback formula
+                          console.warn('Unified fetch returned no data, preserving Excel values or applying fallback');
                           const fallbackProducts = await Promise.all(
                             newProducts.map(async (product) => {
-                              const fallbackResult = await calculateFallbackCubukSayisi(
-                                product.hasirTipi,
-                                product.uzunlukBoy || 0,
-                                product.uzunlukEn || 0
-                              );
-                              return {
-                                ...product,
-                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-                                cubukSayisiEn: fallbackResult.cubukSayisiEn
-                              };
+                              const hasExcelValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+                              
+                              if (hasExcelValues) {
+                                console.log(`✅ Preserving Excel values for ${product.hasirTipi}: Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+                                return { ...product };
+                              } else {
+                                console.log(`⚠️ Missing Excel values, calculating fallback for ${product.hasirTipi}`);
+                                const fallbackResult = await calculateFallbackCubukSayisi(
+                                  product.hasirTipi,
+                                  product.uzunlukBoy || 0,
+                                  product.uzunlukEn || 0
+                                );
+                                return {
+                                  ...product,
+                                  cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                  cubukSayisiEn: fallbackResult.cubukSayisiEn
+                                };
+                              }
                             })
                           );
                           console.log('Applied fallback formula to', fallbackProducts.length, 'products');
@@ -6855,20 +6908,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(databaseProducts);
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
-                          // Database fetch failed - apply fallback formula to newProducts
-                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          // Database fetch failed - preserve Excel values or apply fallback formula
+                          console.warn('Unified fetch returned no data, preserving Excel values or applying fallback');
                           const fallbackProducts = await Promise.all(
                             newProducts.map(async (product) => {
-                              const fallbackResult = await calculateFallbackCubukSayisi(
-                                product.hasirTipi,
-                                product.uzunlukBoy || 0,
-                                product.uzunlukEn || 0
-                              );
-                              return {
-                                ...product,
-                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-                                cubukSayisiEn: fallbackResult.cubukSayisiEn
-                              };
+                              const hasExcelValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+                              
+                              if (hasExcelValues) {
+                                console.log(`✅ Preserving Excel values for ${product.hasirTipi}: Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+                                return { ...product };
+                              } else {
+                                console.log(`⚠️ Missing Excel values, calculating fallback for ${product.hasirTipi}`);
+                                const fallbackResult = await calculateFallbackCubukSayisi(
+                                  product.hasirTipi,
+                                  product.uzunlukBoy || 0,
+                                  product.uzunlukEn || 0
+                                );
+                                return {
+                                  ...product,
+                                  cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                  cubukSayisiEn: fallbackResult.cubukSayisiEn
+                                };
+                              }
                             })
                           );
                           console.log('Applied fallback formula to', fallbackProducts.length, 'products');
@@ -7635,20 +7696,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(databaseProducts);
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
                         } else {
-                          // Database fetch failed - apply fallback formula to newProducts
-                          console.warn('Unified fetch returned no data, applying fallback formula to original data');
+                          // Database fetch failed - preserve Excel values or apply fallback formula
+                          console.warn('Unified fetch returned no data, preserving Excel values or applying fallback');
                           const fallbackProducts = await Promise.all(
                             newProducts.map(async (product) => {
-                              const fallbackResult = await calculateFallbackCubukSayisi(
-                                product.hasirTipi,
-                                product.uzunlukBoy || 0,
-                                product.uzunlukEn || 0
-                              );
-                              return {
-                                ...product,
-                                cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
-                                cubukSayisiEn: fallbackResult.cubukSayisiEn
-                              };
+                              const hasExcelValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
+                              
+                              if (hasExcelValues) {
+                                console.log(`✅ Preserving Excel values for ${product.hasirTipi}: Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+                                return { ...product };
+                              } else {
+                                console.log(`⚠️ Missing Excel values, calculating fallback for ${product.hasirTipi}`);
+                                const fallbackResult = await calculateFallbackCubukSayisi(
+                                  product.hasirTipi,
+                                  product.uzunlukBoy || 0,
+                                  product.uzunlukEn || 0
+                                );
+                                return {
+                                  ...product,
+                                  cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
+                                  cubukSayisiEn: fallbackResult.cubukSayisiEn
+                                };
+                              }
                             })
                           );
                           console.log('Applied fallback formula to', fallbackProducts.length, 'products');
