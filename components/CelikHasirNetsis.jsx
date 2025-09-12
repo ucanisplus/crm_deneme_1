@@ -156,6 +156,46 @@ const getDefaultSpacing = (hasirTipi, direction) => {
 const safeFloat = (value) => parseFloat(value) || 0;
 const safeInt = (value) => parseInt(value) || 0;
 
+// Helper to get clean kg value from product with fallback calculation
+const getCleanKgValue = (product) => {
+  // Try multiple sources for kg value
+  const sources = [product.adetKg, product.totalKg, product.kg, product.toplamKg, product.toplamAgirlik];
+  for (const source of sources) {
+    const parsed = parseFloat(source);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  
+  // If still invalid, calculate basic kg using wire diameter and length
+  const boyCap = safeFloat(product.boyCap);
+  const enCap = safeFloat(product.enCap);
+  const uzunlukBoy = safeFloat(product.uzunlukBoy);
+  const uzunlukEn = safeFloat(product.uzunlukEn);
+  const cubukSayisiBoy = safeInt(product.cubukSayisiBoy);
+  const cubukSayisiEn = safeInt(product.cubukSayisiEn);
+  
+  if (boyCap > 0 && enCap > 0 && uzunlukBoy > 0 && uzunlukEn > 0 && cubukSayisiBoy > 0 && cubukSayisiEn > 0) {
+    // Basic wire weight calculation
+    const boyWireLength = cubukSayisiBoy * uzunlukEn / 100;
+    const enWireLength = cubukSayisiEn * uzunlukBoy / 100;
+    const totalWireLength = boyWireLength + enWireLength;
+    
+    const boyWireArea = Math.PI * Math.pow((boyCap / 2 / 10), 2);
+    const enWireArea = Math.PI * Math.pow((enCap / 2 / 10), 2);
+    const avgWireArea = (boyWireArea + enWireArea) / 2;
+    
+    const kgValue = (totalWireLength * avgWireArea * 7.85) / 1000; // Steel density 7.85 g/cm³
+    
+    if (!isNaN(kgValue) && kgValue > 0) {
+      return kgValue;
+    }
+  }
+  
+  // Final fallback
+  return 0.1; // Minimum meaningful weight
+};
+
 // Simplified optimization logic for fallback
 const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, initialEn, boyAralik, enAralik, hasirTuru) => {
   // Q Perde: Fixed EN at 18, optimize BOY
@@ -386,8 +426,8 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             
             const fallbackResult = await calculateFallbackCubukSayisi(
               actualHasirTipi,
-              parseFloat(product.ebat_boy || 0),
-              parseFloat(product.ebat_en || 0)
+              product.ebat_boy || 0,
+              product.ebat_en || 0
             );
             
             cubukSayisiBoy = fallbackResult.cubukSayisiBoy;
@@ -1199,6 +1239,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // CRITICAL: Force refresh database cache after deletions to update sequence tracking
       console.log('🔄 CRITICAL: Refreshing database cache after deletions to update sequences');
       await fetchSavedProducts(false, true); // Force fresh data with cache busting - resetData=true
+      
+      // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+      console.log('🔄 CRITICAL: Refreshing sequence data after deletions');
+      await fetchSequences(); // Refresh sequence state with fresh data
       
       // CRITICAL: Re-initialize batch sequence with fresh database state
       console.log('🔄 CRITICAL: Re-initializing batch sequence after deletion cache refresh');
@@ -2919,8 +2963,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // If no cubuk sayisi found in saved data, calculate using fallback
         const fallbackResult = await calculateFallbackCubukSayisi(
           product.hasirTipi,
-          parseFloat(product.uzunlukBoy || 0),
-          parseFloat(product.uzunlukEn || 0)
+          product.uzunlukBoy || 0,
+          product.uzunlukEn || 0
         );
         
         return {
@@ -3086,8 +3130,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             inputProducts.map(async (product) => {
               const fallbackResult = await calculateFallbackCubukSayisi(
                 product.hasirTipi,
-                parseFloat(product.uzunlukBoy || 0),
-                parseFloat(product.uzunlukEn || 0)
+                product.uzunlukBoy || 0,
+                product.uzunlukEn || 0
               );
               return {
                 ...product,
@@ -3494,7 +3538,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           finalCubukSayisiEn,
           excelCubukBoy,
           excelCubukEn,
-          kgValue: toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5))
+          kgValue: toExcelDecimal(getCleanKgValue(product).toFixed(5))
         });
         
         // Check for NaN in Excel values
@@ -3516,12 +3560,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
           '20', '20', '31', '36',
           // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
-          'KG', 'AD', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          'KG', 'AD', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
-          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
+          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the final calculated values (database OR fallback)
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
@@ -4289,12 +4333,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
           '20', '20', '31', '36',
           // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
-          'KG', 'AD', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          'KG', 'AD', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
-          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
+          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the same variables as working Excel
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
@@ -4311,10 +4355,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ncbkSheet.addRow([
           product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', product.existingIngilizceIsim,
           '20', '20', '31', '36',
-          'AD', 'KG', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          'AD', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
-          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), '', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
+          parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), '', toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
@@ -4326,10 +4370,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntelSheet.addRow([
           product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARI MAMÜL', 'NTEL', '', product.existingIngilizceIsim,
           '20', '20', '31', '36',
-          'MT', 'KG', '1', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)), '',
+          'MT', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
-          '0', '0', '', toExcelDecimal(parseFloat(product.totalKg || product.adetKg || 0).toFixed(5)),
+          '0', '0', '', toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
@@ -5232,15 +5276,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           totalKg: product.totalKg
         });
         
-        let kgValue = parseFloat(product.adetKg || product.totalKg || 0);
-        if (isNaN(kgValue) || kgValue <= 0) {
-          console.error('❌ Invalid kgValue detected, using default 0.00001:', { 
-            productKg: product.adetKg, 
-            totalKg: product.totalKg, 
-            calculated: kgValue 
-          });
-          kgValue = 0.00001; // Small positive value for database
-        }
+        // Use helper function to get clean kg value
+        const kgValue = getCleanKgValue(product);
         console.log(`📊 SAVE DEBUG - kgValue after validation: ${kgValue}`);
         
         
@@ -5353,7 +5390,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chData)
-          }, 5, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
+          }, 3, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: msg })));
           
           console.log(`📊 SAVE DEBUG - CH Response status: ${chResponse.status}`);
           
@@ -5379,7 +5416,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(chData)
-              }, 3, 1000, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
+              }, 2, 500, (msg) => setDatabaseProgress(prev => ({ ...prev, operation: `${msg} (retry ${retryAttempts})` })));
               
               if (retryResponse.ok) {
                 console.log(`*** Retry successful with ${newStokKodu}`);
@@ -5976,6 +6013,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Force refresh data with cache-busting
         await fetchSavedProducts(false, true);
         
+        // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+        console.log('🔄 CRITICAL: Refreshing sequence data after individual deletion');
+        await fetchSequences(); // Refresh sequence state with fresh data
+        
         // CRITICAL: Re-initialize batch sequence with fresh database state
         console.log('🔄 CRITICAL: Re-initializing batch sequence after individual deletion');
         await initializeBatchSequence();
@@ -6028,6 +6069,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Force refresh data with cache-busting
           await fetchSavedProducts(false, true);
+          
+          // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+          console.log('🔄 CRITICAL: Refreshing sequence data after fallback deletion');
+          await fetchSequences(); // Refresh sequence state with fresh data
           
           // CRITICAL: Re-initialize batch sequence with fresh database state
           console.log('🔄 CRITICAL: Re-initializing batch sequence after fallback deletion');
@@ -6358,6 +6403,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Force refresh data
       cacheRef.current.clear();
       await fetchSavedProducts(false, true);
+      
+      // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+      console.log('🔄 CRITICAL: Refreshing sequence data after bulk delete all');
+      await fetchSequences(); // Refresh sequence state with fresh data
       
       // CRITICAL: Re-initialize batch sequence with fresh database state
       console.log('🔄 CRITICAL: Re-initializing batch sequence after bulk delete all');
@@ -8233,7 +8282,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <button
                     onClick={async () => {
                       setShowPreSaveConfirmModal(false);
-                      const newProducts = await saveToDatabase(validProducts);
+                      const newProducts = await saveToDatabase(validProducts, true); // Keep progress for Excel
                       if (newProducts && newProducts.length > 0) {
                         console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
                         
