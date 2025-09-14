@@ -7041,14 +7041,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           currentProduct: 'Veritabanı sorgusu işleniyor' 
                         });
                         
-                        // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
-                        const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
-                        console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
-                        console.log('Database products breakdown:', {
+                        // DIRECT APPROACH: Use the saved products data directly instead of fetching from database
+                        console.log('🚀 Using saved products data directly - bypassing database fetch');
+                        const databaseProducts = newProducts.map(product => ({
+                          ...product,
+                          productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
+                                     product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
+                                     product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
+                          isOptimized: true,
+                          stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
+                          ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
+                          // Map existing fields for Excel generation
+                          hasirTuru: product.hasirTuru || 'Standart',
+                          boyAraligi: calculateGozAraligi(product.hasirTipi || '', 'boy'),
+                          enAraligi: calculateGozAraligi(product.hasirTipi || '', 'en'),
+                          gozAraligi: `${calculateGozAraligi(product.hasirTipi || '', 'boy')}x${calculateGozAraligi(product.hasirTipi || '', 'en')}`
+                        }));
+                        console.log('Direct saved products converted for Excel:', databaseProducts?.length || 0, 'products');
+                        console.log('Excel products breakdown:', {
                           total: databaseProducts?.length || 0,
-                          mm: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('CH')).length || 0,
-                          ncbk: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NCBK')).length || 0,
-                          ntel: databaseProducts?.filter(p => p.existingStokKodu && p.existingStokKodu.startsWith('YM.NTEL')).length || 0
+                          mm: databaseProducts?.filter(p => p.productType === 'MM').length || 0,
+                          ncbk: databaseProducts?.filter(p => p.productType === 'NCBK').length || 0,
+                          ntel: databaseProducts?.filter(p => p.productType === 'NTEL').length || 0
                         });
                         
                         setDatabaseProgress({ 
@@ -7192,12 +7206,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       
                       // Unified approach: Fetch saved products from database with fallback
                       try {
-                        // Direct unified fetch approach - use the stok_kodu from saved products
-                        const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
-                        console.log('Looking for these stok_kodu values:', stokKodular);
-                        
-                        // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
-                        const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                        // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                        console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
+                        const databaseProducts = newProducts.map(product => ({
+                          ...product,
+                          productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
+                                     product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
+                                     product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
+                          isOptimized: true,
+                          stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
+                          ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
+                          hasirTuru: product.hasirTuru || 'Standart',
+                          boyAraligi: calculateGozAraligi(product.hasirTipi || '', 'boy'),
+                          enAraligi: calculateGozAraligi(product.hasirTipi || '', 'en'),
+                          gozAraligi: `${calculateGozAraligi(product.hasirTipi || '', 'boy')}x${calculateGozAraligi(product.hasirTipi || '', 'en')}`
+                        }));
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
                         console.log('First database product data:', databaseProducts?.[0] ? {
                           stok_kodu: databaseProducts[0].existingStokKodu,
@@ -7980,12 +8003,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       
                       // Unified approach: Fetch saved products from database with fallback
                       try {
-                        // Direct unified fetch approach - use the stok_kodu from saved products
-                        const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
-                        console.log('Looking for these stok_kodu values:', stokKodular);
-                        
-                        // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
-                        const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                        // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                        console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
+                        const databaseProducts = newProducts.map(product => ({
+                          ...product,
+                          productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
+                                     product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
+                                     product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
+                          isOptimized: true,
+                          stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
+                          ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
+                          hasirTuru: product.hasirTuru || 'Standart',
+                          boyAraligi: calculateGozAraligi(product.hasirTipi || '', 'boy'),
+                          enAraligi: calculateGozAraligi(product.hasirTipi || '', 'en'),
+                          gozAraligi: `${calculateGozAraligi(product.hasirTipi || '', 'boy')}x${calculateGozAraligi(product.hasirTipi || '', 'en')}`
+                        }));
                         console.log('fetchDatabaseDataWithFallback returned:', databaseProducts?.length || 0, 'products');
                         console.log('First database product data:', databaseProducts?.[0] ? {
                           stok_kodu: databaseProducts[0].existingStokKodu,
@@ -8716,8 +8748,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           // Add small delay to ensure database consistency
                           await new Promise(resolve => setTimeout(resolve, 800));
                           
-                          // Use unified fetch directly with stok_kodu (bypassing the problematic fetchSavedProducts)
-                          const databaseProducts = await fetchDatabaseDataWithFallback([], stokKodular);
+                          // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                          console.log('🚀 Using saved products data directly - bypassing database fetch (instance 4)');
+                          const databaseProducts = newProducts.map(product => ({
+                            ...product,
+                            productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
+                                       product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
+                                       product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
+                            isOptimized: true,
+                            stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
+                            ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
+                            hasirTuru: product.hasirTuru || 'Standart',
+                            boyAraligi: calculateGozAraligi(product.hasirTipi || '', 'boy'),
+                            enAraligi: calculateGozAraligi(product.hasirTipi || '', 'en'),
+                            gozAraligi: `${calculateGozAraligi(product.hasirTipi || '', 'boy')}x${calculateGozAraligi(product.hasirTipi || '', 'en')}`
+                          }));
                           
                           if (databaseProducts && databaseProducts.length > 0) {
                             await generateExcelFiles(databaseProducts, false);
