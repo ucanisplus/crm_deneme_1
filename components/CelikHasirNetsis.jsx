@@ -3130,22 +3130,34 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Excel dosyalarını oluştur
-  const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false) => {
+  const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false, useDirectData = false) => {
     try {
       // Continue from database save progress - don't reset
       setIsGeneratingExcel(true);
       setDatabaseProgress(prev => ({ ...prev, operation: '📊 Excel dosyaları oluşturuluyor...', currentProduct: 'Veriler hazırlanıyor' }));
       setExcelProgress({ current: 0, total: 4, operation: 'Excel verisi hazırlanıyor...' });
 
-      // CRITICAL FIX: Always ensure we have the correct database-first + fallback values
+      // CRITICAL FIX: Use input products directly when using saved data
       let products = inputProducts;
       
-      // If we have existing stok codes, fetch fresh data from database with fallback
-      const existingStokKodes = inputProducts
-        .filter(p => p.existingStokKodu)
-        .map(p => p.existingStokKodu);
-      
-      if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
+      // Skip database fetch if we're using direct saved data
+      if (useDirectData) {
+        console.log('🎯 DIRECT MODE: Using input products directly, skipping database fetch');
+        console.log('🎯 DIRECT MODE: Input products count:', inputProducts.length);
+        console.log('🎯 DIRECT MODE: Sample product:', inputProducts[0] ? {
+          hasirTipi: inputProducts[0].hasirTipi,
+          existingStokKodu: inputProducts[0].existingStokKodu,
+          cubukSayisiBoy: inputProducts[0].cubukSayisiBoy,
+          cubukSayisiEn: inputProducts[0].cubukSayisiEn
+        } : 'none');
+        products = inputProducts; // Use input products as-is
+      } else {
+        // Original database fetch logic for other cases
+        const existingStokKodes = inputProducts
+          .filter(p => p.existingStokKodu)
+          .map(p => p.existingStokKodu);
+        
+        if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
         console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
         
         try {
@@ -7288,8 +7300,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                          await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
                           console.warn('Unified fetch returned no data, preserving Excel values or applying fallback');
@@ -8085,8 +8097,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          await generateExcelFiles(databaseProducts);
-                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                          await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                          toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
                           console.warn('Unified fetch returned no data, preserving Excel values or applying fallback');
@@ -8823,8 +8835,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           }));
                           
                           if (databaseProducts && databaseProducts.length > 0) {
-                            await generateExcelFiles(databaseProducts, false);
-                            toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Database + Fallback)`);
+                            await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                            toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                           } else {
                             // Fallback to original method if unified fetch fails
                             console.warn('Unified fetch returned no data, using original data');
