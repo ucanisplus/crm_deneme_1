@@ -3614,7 +3614,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
-        const stokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', excelBatchIndex);
+        console.log('📊 EXCEL STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
+        // STRICT: Only use saved stock codes, no fallback to generation
+        const stokKodu = product.existingStokKodu;
+        if (!stokKodu) {
+          console.error('❌ CRITICAL: Missing existingStokKodu for product:', product.hasirTipi);
+          throw new Error(`Missing existingStokKodu for product ${product.hasirTipi}`);
+        }
+        console.log('📊 EXCEL STOK KODU - Using saved stock code:', stokKodu);
         const stokAdi = generateStokAdi(product, 'CH');
         // Use existing İngilizce İsim from database if available (already cleaned), otherwise generate
         const ingilizceIsim = product.existingIngilizceIsim || generateIngilizceIsim(product, 'CH');
@@ -3896,7 +3903,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let receteBatchIndex = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', receteBatchIndex);
+        console.log('🔧 RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
+        // STRICT: Only use saved stock codes, no fallback to generation
+        const chStokKodu = product.existingStokKodu;
+        if (!chStokKodu) {
+          console.error('❌ CRITICAL: Missing existingStokKodu for recipe product:', product.hasirTipi);
+          throw new Error(`Missing existingStokKodu for recipe product ${product.hasirTipi}`);
+        }
+        console.log('🔧 RECIPE STOK KODU - Using saved stock code:', chStokKodu);
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
@@ -4164,7 +4178,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let chRowCount = 0;
     for (const product of products) {
       // For Excel generation, process all products regardless of optimization status
-        const chStokKodu = product.existingStokKodu || generateStokKodu(product, 'CH', altReceteBatchIndex);
+        console.log('🔧 ALT RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
+        // STRICT: Only use saved stock codes, no fallback to generation
+        const chStokKodu = product.existingStokKodu;
+        if (!chStokKodu) {
+          console.error('❌ CRITICAL: Missing existingStokKodu for alt recipe product:', product.hasirTipi);
+          throw new Error(`Missing existingStokKodu for alt recipe product ${product.hasirTipi}`);
+        }
+        console.log('🔧 ALT RECIPE STOK KODU - Using saved stock code:', chStokKodu);
         console.log('DEBUG: Processing product with stok kodu:', chStokKodu, 'boyCap:', product.boyCap, 'enCap:', product.enCap, 'cubukSayisiBoy:', product.cubukSayisiBoy, 'cubukSayisiEn:', product.cubukSayisiEn);
         altReceteBatchIndex++;
         const boyLength = parseFloat(product.cubukSayisiBoy || 0) * 500;
@@ -6256,6 +6277,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         count: newProducts.length,
         products: newProducts.map(p => p.hasirTipi)
       });
+      console.log('📊 SAVE RETURN DEBUG - First 3 products structure:', newProducts.slice(0, 3).map(p => ({
+        hasirTipi: p.hasirTipi,
+        existingStokKodu: p.existingStokKodu,
+        stokAdi: p.stokAdi,
+        boyCap: p.boyCap,
+        enCap: p.enCap,
+        cubukSayisiBoy: p.cubukSayisiBoy,
+        cubukSayisiEn: p.cubukSayisiEn
+      })));
       
       // Listeyi güncelle (don't await to avoid timeout)
       fetchSavedProducts().catch(error => {
@@ -7043,15 +7073,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         
                         // DIRECT APPROACH: Use the saved products data directly instead of fetching from database
                         console.log('🚀 Using saved products data directly - bypassing database fetch');
+                        console.log('🔍 Raw saved products sample:', newProducts.slice(0, 2).map(p => ({
+                          hasirTipi: p.hasirTipi,
+                          existingStokKodu: p.existingStokKodu,
+                          stokAdi: p.stokAdi,
+                          cubukSayisiBoy: p.cubukSayisiBoy,
+                          cubukSayisiEn: p.cubukSayisiEn,
+                          boyCap: p.boyCap,
+                          enCap: p.enCap
+                        })));
+                        
                         const databaseProducts = newProducts.map(product => ({
-                          ...product,
+                          ...product, // Preserve ALL original fields
                           productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
                                      product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
                                      product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
                           isOptimized: true,
+                          // Ensure critical fields are available
                           stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
                           ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
-                          // Map existing fields for Excel generation
                           hasirTuru: product.hasirTuru || 'Standart',
                           boyAraligi: calculateGozAraligi(product.hasirTipi || '', 'boy'),
                           enAraligi: calculateGozAraligi(product.hasirTipi || '', 'en'),
@@ -7209,7 +7249,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         // DIRECT APPROACH: Use saved products data directly instead of database fetch
                         console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
                         const databaseProducts = newProducts.map(product => ({
-                          ...product,
+                          ...product, // Preserve ALL original fields
                           productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
                                      product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
                                      product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
@@ -8006,7 +8046,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         // DIRECT APPROACH: Use saved products data directly instead of database fetch
                         console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
                         const databaseProducts = newProducts.map(product => ({
-                          ...product,
+                          ...product, // Preserve ALL original fields
                           productType: product.existingStokKodu?.startsWith('CHOZL') ? 'MM' : 
                                      product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
                                      product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
