@@ -5361,9 +5361,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           boyCap: newProducts[0].boyCap,
           enCap: newProducts[0].enCap,
           cap: newProducts[0].cap,
-          cap2: newProducts[0].cap2
+          cap2: newProducts[0].cap2,
+          allFieldNames: Object.keys(newProducts[0])
         } : 'none'
       });
+      
+      // Log all field names for first few products to understand Excel structure
+      if (newProducts.length > 0) {
+        console.log('🔍 EXCEL FIELD ANALYSIS - First 3 products field names:');
+        for (let idx = 0; idx < Math.min(3, newProducts.length); idx++) {
+          const productFields = Object.keys(newProducts[idx]);
+          console.log(`  Product ${idx + 1} fields:`, productFields.join(', '));
+          
+          // Look for diameter-related fields
+          const diameterFields = productFields.filter(field => 
+            field.toLowerCase().includes('cap') || 
+            field.toLowerCase().includes('diameter') || 
+            field.toLowerCase().includes('çap') ||
+            field.toLowerCase().includes('boy') ||
+            field.toLowerCase().includes('en')
+          );
+          console.log(`  Product ${idx + 1} diameter-related fields:`, diameterFields);
+        }
+      }
 
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
@@ -5376,15 +5396,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
         });
         
-        console.log(`🔍 PROCESSING PRODUCT ${i + 1}/${newProducts.length}:`, {
-          hasirTipi: product.hasirTipi,
-          uzunlukBoy: product.uzunlukBoy,
-          uzunlukEn: product.uzunlukEn,
-          boyCap: product.boyCap,
-          enCap: product.enCap,
-          cap: product.cap,
-          cap2: product.cap2
-        });
+        console.log(`🔍 PROCESSING PRODUCT ${i + 1}/${newProducts.length}: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} - boyCap=${product.boyCap}, enCap=${product.enCap}, cap=${product.cap}, cap2=${product.cap2}`);
         // CH kaydı - CRITICAL: Ensure kgValue is never NaN
         console.log(`📊 SAVE DEBUG [${i+1}/${newProducts.length}] - Product:`, {
           hasirTipi: product.hasirTipi,
@@ -5407,45 +5419,161 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let generatedStokKodu = generateStokKodu(product, 'CH', i);
         
         
-        // CRITICAL FIX: Ensure boyCap and enCap are valid before generating strings
+        // CRITICAL FIX: Dynamic field detection and mapping
         // Handle field mapping between Excel import flow and form flow
-        // Excel import may use different field names than the form
+        // Excel import may use completely different field names
+        
+        // Dynamic field detection based on field names
+        const productFields = Object.keys(product);
+        
+        // Find diameter fields dynamically - check ALL possible variations
+        let boyCapField = productFields.find(f => 
+          f === 'boyCap' || 
+          f === 'cap' || 
+          f === 'Boy Çap' ||
+          f === 'Boy Cap' ||
+          f === 'Çap (Boy)' ||
+          f === 'Boy Çapı' ||
+          f.toLowerCase() === 'boycap' ||
+          f.toLowerCase() === 'boy_cap'
+        );
+        
+        let enCapField = productFields.find(f => 
+          f === 'enCap' || 
+          f === 'cap2' || 
+          f === 'En Çap' ||
+          f === 'En Cap' ||
+          f === 'Çap (En)' ||
+          f === 'En Çapı' ||
+          f.toLowerCase() === 'encap' ||
+          f.toLowerCase() === 'en_cap'
+        );
+        
+        // If still not found, look for any field containing diameter/çap values
+        if (!boyCapField || !enCapField) {
+          console.log(`  ⚠️ Standard cap fields not found, searching for alternative fields...`);
+          
+          // Look for fields that might contain diameter data
+          const capFields = productFields.filter(f => 
+            f.toLowerCase().includes('çap') || 
+            f.toLowerCase().includes('cap') ||
+            f.toLowerCase().includes('diameter')
+          );
+          
+          console.log(`  Found ${capFields.length} cap-related fields:`, capFields);
+          
+          // Try to intelligently assign them
+          if (capFields.length >= 2) {
+            boyCapField = capFields[0];
+            enCapField = capFields[1];
+          } else if (capFields.length === 1) {
+            // If only one cap field, use it for both
+            boyCapField = capFields[0];
+            enCapField = capFields[0];
+          }
+        }
+        
+        // Find dimension fields dynamically  
+        const uzunlukBoyField = productFields.find(f =>
+          f.toLowerCase().includes('uzunlukboy') ||
+          f.toLowerCase().includes('uzunluk_boy') ||
+          f.toLowerCase().includes('ebat_boy') ||
+          f.toLowerCase().includes('boy') ||
+          f === 'uzunlukBoy'
+        );
+        
+        const uzunlukEnField = productFields.find(f =>
+          f.toLowerCase().includes('uzunluken') ||
+          f.toLowerCase().includes('uzunluk_en') ||
+          f.toLowerCase().includes('ebat_en') ||
+          f.toLowerCase().includes('en') ||
+          f === 'uzunlukEn'
+        );
+        
+        console.log(`  DYNAMIC FIELD DETECTION for product ${i + 1}:`, {
+          boyCapField: boyCapField || 'NOT FOUND',
+          enCapField: enCapField || 'NOT FOUND', 
+          uzunlukBoyField: uzunlukBoyField || 'NOT FOUND',
+          uzunlukEnField: uzunlukEnField || 'NOT FOUND'
+        });
+        
+        // Extract actual values from detected fields
+        const extractedBoyCap = boyCapField ? product[boyCapField] : null;
+        const extractedEnCap = enCapField ? product[enCapField] : null;
+        const extractedUzunlukBoy = uzunlukBoyField ? product[uzunlukBoyField] : null;
+        const extractedUzunlukEn = uzunlukEnField ? product[uzunlukEnField] : null;
+        
+        console.log(`  EXTRACTED RAW VALUES:`, {
+          boyCap: `field="${boyCapField}" value="${extractedBoyCap}"`,
+          enCap: `field="${enCapField}" value="${extractedEnCap}"`,
+          uzunlukBoy: `field="${uzunlukBoyField}" value="${extractedUzunlukBoy}"`,
+          uzunlukEn: `field="${uzunlukEnField}" value="${extractedUzunlukEn}"`
+        });
+        
+        // Parse and validate extracted values
+        let parsedBoyCap = parseFloat(extractedBoyCap);
+        let parsedEnCap = parseFloat(extractedEnCap);
+        
+        // If parsing fails, show detailed error
+        if (isNaN(parsedBoyCap) || parsedBoyCap === 0) {
+          console.error(`  ❌ Failed to parse boyCap: raw="${extractedBoyCap}", parsed=${parsedBoyCap}`);
+          // Try alternative fields
+          const altBoyCap = parseFloat(product.boyCap) || parseFloat(product.cap) || parseFloat(product['Boy Çap']) || parseFloat(product['Çap']);
+          if (!isNaN(altBoyCap) && altBoyCap > 0) {
+            console.log(`  ✅ Found alternative boyCap value: ${altBoyCap}`);
+            parsedBoyCap = altBoyCap;
+          }
+        }
+        
+        if (isNaN(parsedEnCap) || parsedEnCap === 0) {
+          console.error(`  ❌ Failed to parse enCap: raw="${extractedEnCap}", parsed=${parsedEnCap}`);
+          // Try alternative fields
+          const altEnCap = parseFloat(product.enCap) || parseFloat(product.cap2) || parseFloat(product['En Çap']) || parseFloat(product['Çap2']);
+          if (!isNaN(altEnCap) && altEnCap > 0) {
+            console.log(`  ✅ Found alternative enCap value: ${altEnCap}`);
+            parsedEnCap = altEnCap;
+          }
+        }
+        
         const productWithValidCaps = {
           ...product,
-          // Try multiple possible field names for diameter values
-          boyCap: parseFloat(product.boyCap) || parseFloat(product.cap) || parseFloat(product.boyap) || parseFloat(product.diameter1) || 0,
-          enCap: parseFloat(product.enCap) || parseFloat(product.cap2) || parseFloat(product.encap) || parseFloat(product.diameter2) || 0,
-          // Ensure other required fields are also properly mapped
-          uzunlukBoy: product.uzunlukBoy || product.ebat_boy || product.boy || 0,
-          uzunlukEn: product.uzunlukEn || product.ebat_en || product.en || 0,
+          // Use parsed values with validation
+          boyCap: !isNaN(parsedBoyCap) ? parsedBoyCap : 0,
+          enCap: !isNaN(parsedEnCap) ? parsedEnCap : 0,
+          uzunlukBoy: extractedUzunlukBoy || product.uzunlukBoy || product.ebat_boy || 0,
+          uzunlukEn: extractedUzunlukEn || product.uzunlukEn || product.ebat_en || 0,
           hasirTipi: product.hasirTipi || product.hasir_tipi || '',
           cubukSayisiBoy: product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0,
           cubukSayisiEn: product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0
         };
         
         // Add extensive logging to debug field mapping issues
-        console.log('🔍 FIELD MAPPING DEBUG for product', i + 1, ':', {
-          originalProduct: {
-            boyCap: product.boyCap,
-            enCap: product.enCap,
-            cap: product.cap,
-            cap2: product.cap2,
-            hasirTipi: product.hasirTipi,
-            uzunlukBoy: product.uzunlukBoy,
-            uzunlukEn: product.uzunlukEn
-          },
-          mappedProduct: {
-            boyCap: productWithValidCaps.boyCap,
-            enCap: productWithValidCaps.enCap,
-            hasirTipi: productWithValidCaps.hasirTipi,
-            uzunlukBoy: productWithValidCaps.uzunlukBoy,
-            uzunlukEn: productWithValidCaps.uzunlukEn
-          }
-        });
+        console.log(`🔍 FIELD MAPPING DEBUG for product ${i + 1}:`);
+        console.log('  RAW PRODUCT DATA:', JSON.stringify(product, null, 2));
+        console.log('  MAPPED VALUES:', JSON.stringify({
+          boyCap: productWithValidCaps.boyCap,
+          enCap: productWithValidCaps.enCap,
+          hasirTipi: productWithValidCaps.hasirTipi,
+          uzunlukBoy: productWithValidCaps.uzunlukBoy,
+          uzunlukEn: productWithValidCaps.uzunlukEn
+        }, null, 2));
         
         // Generate and validate the problematic fields with ensured valid caps
         let generatedStokAdi = generateStokAdi(productWithValidCaps, 'CH');
         let generatedIngilizceIsim = generateIngilizceIsim(productWithValidCaps, 'CH');
+        
+        console.log(`  GENERATED STRINGS:`);
+        console.log(`    stokAdi: "${generatedStokAdi}"`);
+        console.log(`    ingilizceIsim: "${generatedIngilizceIsim}"`);
+        console.log(`    stokAdi contains NaN: ${generatedStokAdi.includes('NaN')}`);
+        console.log(`    ingilizceIsim contains NaN: ${generatedIngilizceIsim.includes('NaN')}`);
+        
+        // Character-by-character inspection if NaN detected
+        if (generatedStokAdi.includes('NaN') || generatedIngilizceIsim.includes('NaN')) {
+          console.log(`🚨 NaN DETECTED! Breaking down strings:`);
+          console.log(`    stokAdi chars: ${generatedStokAdi.split('').map((c,i) => `${i}:'${c}'`).join(' ')}`);
+          console.log(`    ingilizceIsim chars: ${generatedIngilizceIsim.split('').map((c,i) => `${i}:'${c}'`).join(' ')}`);
+        }
         
         // CRITICAL: Validate that no NaN values made it through
         if (generatedStokAdi.includes('NaN') || generatedIngilizceIsim.includes('NaN')) {
@@ -5552,24 +5680,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.error('🔥 NaN DETECTED in ingilizce_isim:', chData.ingilizce_isim);
           }
           
-          console.log('🔍 DEBUG - CH Data being saved:', {
-            stok_kodu: chData.stok_kodu,
-            stok_adi: chData.stok_adi,
-            hasir_tipi: chData.hasir_tipi,
-            fiyat_birimi: chData.fiyat_birimi,
-            cap: chData.cap,
-            cap2: chData.cap2,
-            ebat_boy: chData.ebat_boy,
-            ebat_en: chData.ebat_en,
-            goz_araligi: chData.goz_araligi,
-            kg: chData.kg,
-            cubuk_sayisi_boy: chData.cubuk_sayisi_boy,
-            cubuk_sayisi_en: chData.cubuk_sayisi_en,
-            ic_cap_boy_cubuk_ad: chData.ic_cap_boy_cubuk_ad,
-            dis_cap_en_cubuk_ad: chData.dis_cap_en_cubuk_ad,
-            adet_kg: chData.adet_kg,
-            toplam_kg: chData.toplam_kg
-          });
+          console.log(`🔍 DEBUG - CH Data being saved:`);
+          console.log(`  stok_kodu: ${chData.stok_kodu}, stok_adi: "${chData.stok_adi}"`);
+          console.log(`  cap: ${chData.cap}, cap2: ${chData.cap2}, ebat: ${chData.ebat_boy}x${chData.ebat_en}`);
+          console.log(`  hasir_tipi: ${chData.hasir_tipi}, goz_araligi: ${chData.goz_araligi}`);
+          console.log(`  kg: ${chData.kg}, cubuk: ${chData.cubuk_sayisi_boy}x${chData.cubuk_sayisi_en}`);
           
           // Check for any NaN or invalid values
           const invalidFields = [];
