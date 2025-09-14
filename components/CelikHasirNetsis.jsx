@@ -2367,10 +2367,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         created_at: p.created_at
       })));
       
-      // CRITICAL: If we find CHOZL2448 products, the backend deletion failed!
-      console.error('❌ BACKEND DELETION FAILED! CHOZL2448 products still exist in database after "successful" deletion');
-      console.error('❌ This indicates the DELETE API is not working properly or there are multiple products with same stok_kodu');
-      console.error('❌ Need to investigate backend DELETE endpoint: /api/celik_hasir_netsis_mm/bulk-delete-by-stok');
     }
     
     // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
@@ -5218,6 +5214,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Veritabanına kaydet
   const saveToDatabase = async (products, keepProgressForExcel = false) => {
+    console.log(`🚨🚨🚨 saveToDatabase CALLED with ${products?.length || 0} products, keepProgress: ${keepProgressForExcel} 🚨🚨🚨`);
     try {
       // Reset batch sequence counter for new batch
       resetBatchSequenceCounter();
@@ -5387,15 +5384,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const generatedStokAdi = generateStokAdi(product, 'CH');
         const generatedIngilizceIsim = generateIngilizceIsim(product, 'CH');
         
-        // Critical debug - show exact strings being saved
-        console.log(`🚨 CRITICAL CHECK - ${generatedStokKodu}:`, {
-          stok_adi: generatedStokAdi,
-          ingilizce_isim: generatedIngilizceIsim,
+        // ABSOLUTE FINAL DEBUG - RAW STRING OUTPUT
+        console.log(`🚨🚨🚨 FINAL DEBUG ${generatedStokKodu} 🚨🚨🚨`);
+        console.log('STOK_ADI STRING:', JSON.stringify(generatedStokAdi));
+        console.log('INGILIZCE_ISIM STRING:', JSON.stringify(generatedIngilizceIsim));
+        console.log('RAW PRODUCT FIELDS:', JSON.stringify({
           boyCap: product.boyCap,
           enCap: product.enCap,
-          hasNaN_stokAdi: generatedStokAdi.includes('NaN'),
-          hasNaN_ingilizceIsim: generatedIngilizceIsim.includes('NaN')
-        });
+          boyCapType: typeof product.boyCap,
+          enCapType: typeof product.enCap
+        }));
+        if (generatedStokAdi.includes('NaN')) {
+          console.log('🔥🔥🔥 FOUND NaN IN STOK_ADI! 🔥🔥🔥');
+        }
+        if (generatedIngilizceIsim.includes('NaN')) {
+          console.log('🔥🔥🔥 FOUND NaN IN INGILIZCE_ISIM! 🔥🔥🔥');
+        }
         
         const chData = {
           stok_kodu: generatedStokKodu,
