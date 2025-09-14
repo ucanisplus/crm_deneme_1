@@ -5380,26 +5380,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let generatedStokKodu = generateStokKodu(product, 'CH', i);
         
         
-        // Generate and validate the problematic fields
-        const generatedStokAdi = generateStokAdi(product, 'CH');
-        const generatedIngilizceIsim = generateIngilizceIsim(product, 'CH');
+        // CRITICAL FIX: Ensure boyCap and enCap are valid before generating strings
+        const productWithValidCaps = {
+          ...product,
+          boyCap: parseFloat(product.boyCap) || parseFloat(product.cap) || 0,
+          enCap: parseFloat(product.enCap) || parseFloat(product.cap2) || 0
+        };
         
-        // ABSOLUTE FINAL DEBUG - RAW STRING OUTPUT
-        console.log(`🚨🚨🚨 FINAL DEBUG ${generatedStokKodu} 🚨🚨🚨`);
-        console.log('STOK_ADI STRING:', JSON.stringify(generatedStokAdi));
-        console.log('INGILIZCE_ISIM STRING:', JSON.stringify(generatedIngilizceIsim));
-        console.log('RAW PRODUCT FIELDS:', JSON.stringify({
-          boyCap: product.boyCap,
-          enCap: product.enCap,
-          boyCapType: typeof product.boyCap,
-          enCapType: typeof product.enCap
-        }));
-        if (generatedStokAdi.includes('NaN')) {
-          console.log('🔥🔥🔥 FOUND NaN IN STOK_ADI! 🔥🔥🔥');
-        }
-        if (generatedIngilizceIsim.includes('NaN')) {
-          console.log('🔥🔥🔥 FOUND NaN IN INGILIZCE_ISIM! 🔥🔥🔥');
-        }
+        // Generate and validate the problematic fields with ensured valid caps
+        const generatedStokAdi = generateStokAdi(productWithValidCaps, 'CH');
+        const generatedIngilizceIsim = generateIngilizceIsim(productWithValidCaps, 'CH');
+        
         
         const chData = {
           stok_kodu: generatedStokKodu,
@@ -5423,16 +5414,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_pay_2: 1,
           cevrim_payda_2: 1,
           cevrim_degeri_2: 1,
-          // Product specific columns - CRITICAL: Ensure all values are valid numbers
+          // Product specific columns - CRITICAL: Database expects DECIMAL types
           hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(parseFloat(product.boyCap || 0).toFixed(1)) || 0,
-          cap2: parseFloat(parseFloat(product.enCap || 0).toFixed(1)) || 0,
-          ebat_boy: parseFloat(product.uzunlukBoy || 0) || 0,
-          ebat_en: parseFloat(product.uzunlukEn || 0) || 0,
-          goz_araligi: formatGozAraligi(product),
-          kg: parseFloat(kgValue.toFixed(5)) || 0,
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy || 0) || 0,
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn || 0) || 0,
+          cap: parseFloat(product.boyCap) || 0,  // Database: DECIMAL - no NaN allowed
+          cap2: parseFloat(product.enCap) || 0,  // Database: DECIMAL - no NaN allowed
+          ebat_boy: parseFloat(product.uzunlukBoy) || 0,  // Database: DECIMAL
+          ebat_en: parseFloat(product.uzunlukEn) || 0,    // Database: DECIMAL
+          goz_araligi: formatGozAraligi(product) || '',
+          kg: parseFloat(kgValue) || 0,
+          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy) || 0,
+          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn) || 0,
           hasir_sayisi: 1,
           cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0) || 0,
           cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0) || 0,
@@ -5471,6 +5462,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         try {
           
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
+          
+          // CRITICAL VALIDATION: Check for NaN before saving to database
+          if (chData.stok_adi && chData.stok_adi.includes('NaN')) {
+            console.error('🔥 NaN DETECTED in stok_adi:', chData.stok_adi);
+          }
+          if (chData.ingilizce_isim && chData.ingilizce_isim.includes('NaN')) {
+            console.error('🔥 NaN DETECTED in ingilizce_isim:', chData.ingilizce_isim);
+          }
+          
           console.log('🔍 DEBUG - CH Data being saved:', {
             stok_kodu: chData.stok_kodu,
             stok_adi: chData.stok_adi,
