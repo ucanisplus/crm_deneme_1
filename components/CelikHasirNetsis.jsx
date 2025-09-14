@@ -7301,6 +7301,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
                           await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
                           
+                          // CLEANUP: Close modal and reset states after successful Excel generation
+                          setIsGeneratingExcel(false);
+                          setIsSavingToDatabase(false);
+                          setIsLoading(false);
+                          setExcelProgress({ current: 0, total: 0, operation: '' });
+                          setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                          
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
@@ -7335,13 +7342,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         console.error('Unified fetch failed, falling back to original method:', innerError);
                         await generateExcelFiles(newProducts);
                         toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                      } finally {
+                        // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                        setIsGeneratingExcel(false);
+                        setIsSavingToDatabase(false);
+                        setIsLoading(false);
+                        setExcelProgress({ current: 0, total: 0, operation: '' });
+                        setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                       }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                      // CLEANUP: Also needed when no products are saved
+                      setIsGeneratingExcel(false);
+                      setIsSavingToDatabase(false);
+                      setIsLoading(false);
+                      setExcelProgress({ current: 0, total: 0, operation: '' });
+                      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                     }
                   } catch (error) {
                     console.error('Database save error:', error);
                     toast.error('Veritabanı kaydı sırasında hata oluştu');
+                    // CLEANUP: Also needed when errors occur
+                    setIsGeneratingExcel(false);
+                    setIsSavingToDatabase(false);
+                    setIsLoading(false);
+                    setExcelProgress({ current: 0, total: 0, operation: '' });
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -8110,6 +8136,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
                           await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
                           
+                          // CLEANUP: Close modal and reset states after successful Excel generation
+                          setIsGeneratingExcel(false);
+                          setIsSavingToDatabase(false);
+                          setIsLoading(false);
+                          setExcelProgress({ current: 0, total: 0, operation: '' });
+                          setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                          
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
@@ -8144,13 +8177,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         console.error('Unified fetch failed, falling back to original method:', innerError);
                         await generateExcelFiles(newProducts);
                         toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                      } finally {
+                        // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                        setIsGeneratingExcel(false);
+                        setIsSavingToDatabase(false);
+                        setIsLoading(false);
+                        setExcelProgress({ current: 0, total: 0, operation: '' });
+                        setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                       }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
+                      // CLEANUP: Also needed when no products are saved
+                      setIsGeneratingExcel(false);
+                      setIsSavingToDatabase(false);
+                      setIsLoading(false);
+                      setExcelProgress({ current: 0, total: 0, operation: '' });
+                      setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                     }
                   } catch (error) {
                     console.error('Database save error:', error);
                     toast.error('Veritabanı kaydı sırasında hata oluştu');
+                    // CLEANUP: Also needed when errors occur
+                    setIsGeneratingExcel(false);
+                    setIsSavingToDatabase(false);
+                    setIsLoading(false);
+                    setExcelProgress({ current: 0, total: 0, operation: '' });
+                    setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                   }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -8860,6 +8912,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
                             await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
                             
+                            // CLEANUP: Close modal and reset states after successful Excel generation
+                            setIsGeneratingExcel(false);
+                            setIsSavingToDatabase(false);
+                            setIsLoading(false);
+                            setExcelProgress({ current: 0, total: 0, operation: '' });
+                            setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+                            
                             toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                           } else {
                             // Fallback to original method if unified fetch fails
@@ -8871,6 +8930,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           console.error('Unified fetch failed, falling back to original method:', innerError);
                           await generateExcelFiles(newProducts, false);
                           toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
+                        } finally {
+                          // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                          setIsGeneratingExcel(false);
+                          setIsSavingToDatabase(false);
+                          setIsLoading(false);
+                          setExcelProgress({ current: 0, total: 0, operation: '' });
+                          setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
                         }
                       } else {
                         toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
