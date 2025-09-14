@@ -5426,28 +5426,36 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Dynamic field detection based on field names
         const productFields = Object.keys(product);
         
-        // Find diameter fields dynamically - check ALL possible variations
-        let boyCapField = productFields.find(f => 
-          f === 'boyCap' || 
-          f === 'cap' || 
-          f === 'Boy Çap' ||
-          f === 'Boy Cap' ||
-          f === 'Çap (Boy)' ||
-          f === 'Boy Çapı' ||
-          f.toLowerCase() === 'boycap' ||
-          f.toLowerCase() === 'boy_cap'
-        );
+        // Find diameter fields - EXACT match first
+        let boyCapField = 'boyCap';  // Default to expected field name
+        let enCapField = 'enCap';    // Default to expected field name
         
-        let enCapField = productFields.find(f => 
-          f === 'enCap' || 
-          f === 'cap2' || 
-          f === 'En Çap' ||
-          f === 'En Cap' ||
-          f === 'Çap (En)' ||
-          f === 'En Çapı' ||
-          f.toLowerCase() === 'encap' ||
-          f.toLowerCase() === 'en_cap'
-        );
+        // Check if these fields actually exist
+        if (!product.hasOwnProperty('boyCap')) {
+          console.log(`  ⚠️ boyCap field not found, searching alternatives...`);
+          boyCapField = productFields.find(f => 
+            f === 'cap' || 
+            f === 'Boy Çap' ||
+            f === 'Boy Cap' ||
+            f === 'Çap (Boy)' ||
+            f === 'Boy Çapı' ||
+            f.toLowerCase() === 'boycap' ||
+            f.toLowerCase() === 'boy_cap'
+          ) || null;
+        }
+        
+        if (!product.hasOwnProperty('enCap')) {
+          console.log(`  ⚠️ enCap field not found, searching alternatives...`);
+          enCapField = productFields.find(f => 
+            f === 'cap2' || 
+            f === 'En Çap' ||
+            f === 'En Cap' ||
+            f === 'Çap (En)' ||
+            f === 'En Çapı' ||
+            f.toLowerCase() === 'encap' ||
+            f.toLowerCase() === 'en_cap'
+          ) || null;
+        }
         
         // If still not found, look for any field containing diameter/çap values
         if (!boyCapField || !enCapField) {
@@ -5503,12 +5511,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const extractedUzunlukBoy = uzunlukBoyField ? product[uzunlukBoyField] : null;
         const extractedUzunlukEn = uzunlukEnField ? product[uzunlukEnField] : null;
         
-        console.log(`  EXTRACTED RAW VALUES:`, {
-          boyCap: `field="${boyCapField}" value="${extractedBoyCap}"`,
-          enCap: `field="${enCapField}" value="${extractedEnCap}"`,
-          uzunlukBoy: `field="${uzunlukBoyField}" value="${extractedUzunlukBoy}"`,
-          uzunlukEn: `field="${uzunlukEnField}" value="${extractedUzunlukEn}"`
-        });
+        console.log(`  EXTRACTED RAW VALUES:`);
+        console.log(`    boyCap: field="${boyCapField}" value="${extractedBoyCap}"`);
+        console.log(`    enCap: field="${enCapField}" value="${extractedEnCap}"`);
+        console.log(`    uzunlukBoy: field="${uzunlukBoyField}" value="${extractedUzunlukBoy}"`);
+        console.log(`    uzunlukEn: field="${uzunlukEnField}" value="${extractedUzunlukEn}"`);
         
         // Parse and validate extracted values
         let parsedBoyCap = parseFloat(extractedBoyCap);
