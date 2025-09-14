@@ -5348,6 +5348,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       let ntelApiCalls = 0;
       console.log('⚡ OPTIMIZATION: Using batch-level NCBK/NTEL cache to eliminate redundant operations');
 
+      // Add comprehensive logging to track save process
+      let successfulSaves = 0;
+      let failedSaves = 0;
+      let skippedSaves = 0;
+      const saveResults = [];
+      
+      console.log('🔥 DATABASE SAVE PROCESS STARTING:', {
+        totalNewProducts: newProducts.length,
+        firstProduct: newProducts[0] ? {
+          hasirTipi: newProducts[0].hasirTipi,
+          boyCap: newProducts[0].boyCap,
+          enCap: newProducts[0].enCap,
+          cap: newProducts[0].cap,
+          cap2: newProducts[0].cap2
+        } : 'none'
+      });
+
       // Sadece YENİ ürünler için CH, NCBK ve NTEL kayıtları oluştur
       for (let i = 0; i < newProducts.length; i++) {
         const product = newProducts[i];
@@ -5357,6 +5374,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           total: totalCount, 
           operation: 'Veritabanına kaydediliyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
+        });
+        
+        console.log(`🔍 PROCESSING PRODUCT ${i + 1}/${newProducts.length}:`, {
+          hasirTipi: product.hasirTipi,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn,
+          boyCap: product.boyCap,
+          enCap: product.enCap,
+          cap: product.cap,
+          cap2: product.cap2
         });
         // CH kaydı - CRITICAL: Ensure kgValue is never NaN
         console.log(`📊 SAVE DEBUG [${i+1}/${newProducts.length}] - Product:`, {
@@ -5381,15 +5408,68 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         
         // CRITICAL FIX: Ensure boyCap and enCap are valid before generating strings
+        // Handle field mapping between Excel import flow and form flow
+        // Excel import may use different field names than the form
         const productWithValidCaps = {
           ...product,
-          boyCap: parseFloat(product.boyCap) || parseFloat(product.cap) || 0,
-          enCap: parseFloat(product.enCap) || parseFloat(product.cap2) || 0
+          // Try multiple possible field names for diameter values
+          boyCap: parseFloat(product.boyCap) || parseFloat(product.cap) || parseFloat(product.boyap) || parseFloat(product.diameter1) || 0,
+          enCap: parseFloat(product.enCap) || parseFloat(product.cap2) || parseFloat(product.encap) || parseFloat(product.diameter2) || 0,
+          // Ensure other required fields are also properly mapped
+          uzunlukBoy: product.uzunlukBoy || product.ebat_boy || product.boy || 0,
+          uzunlukEn: product.uzunlukEn || product.ebat_en || product.en || 0,
+          hasirTipi: product.hasirTipi || product.hasir_tipi || '',
+          cubukSayisiBoy: product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0,
+          cubukSayisiEn: product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0
         };
         
+        // Add extensive logging to debug field mapping issues
+        console.log('🔍 FIELD MAPPING DEBUG for product', i + 1, ':', {
+          originalProduct: {
+            boyCap: product.boyCap,
+            enCap: product.enCap,
+            cap: product.cap,
+            cap2: product.cap2,
+            hasirTipi: product.hasirTipi,
+            uzunlukBoy: product.uzunlukBoy,
+            uzunlukEn: product.uzunlukEn
+          },
+          mappedProduct: {
+            boyCap: productWithValidCaps.boyCap,
+            enCap: productWithValidCaps.enCap,
+            hasirTipi: productWithValidCaps.hasirTipi,
+            uzunlukBoy: productWithValidCaps.uzunlukBoy,
+            uzunlukEn: productWithValidCaps.uzunlukEn
+          }
+        });
+        
         // Generate and validate the problematic fields with ensured valid caps
-        const generatedStokAdi = generateStokAdi(productWithValidCaps, 'CH');
-        const generatedIngilizceIsim = generateIngilizceIsim(productWithValidCaps, 'CH');
+        let generatedStokAdi = generateStokAdi(productWithValidCaps, 'CH');
+        let generatedIngilizceIsim = generateIngilizceIsim(productWithValidCaps, 'CH');
+        
+        // CRITICAL: Validate that no NaN values made it through
+        if (generatedStokAdi.includes('NaN') || generatedIngilizceIsim.includes('NaN')) {
+          console.error('🚨 CRITICAL ERROR: NaN detected in generated strings for product', i + 1, '!', {
+            productIndex: i,
+            stokAdi: generatedStokAdi,
+            ingilizceIsim: generatedIngilizceIsim,
+            originalProduct: product,
+            mappedValues: productWithValidCaps
+          });
+          
+          // Instead of skipping, try to fix the values with fallback defaults
+          const fallbackStokAdi = `${normalizeHasirTipi(productWithValidCaps.hasirTipi || '')} Çap(0x0 mm) Ebat(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
+          const fallbackIngilizceIsim = `Wire Mesh- ${productWithValidCaps.hasirTipi || ''} Dia(0*0 mm) Size(${productWithValidCaps.uzunlukBoy || 0}*${productWithValidCaps.uzunlukEn || 0} cm)`;
+          
+          console.warn('🔧 Using fallback values for product', i + 1, ':', {
+            fallbackStokAdi,
+            fallbackIngilizceIsim
+          });
+          
+          // Use fallback values instead of skipping the product
+          generatedStokAdi = fallbackStokAdi;
+          generatedIngilizceIsim = fallbackIngilizceIsim;
+        }
         
         
         const chData = {
@@ -5415,18 +5495,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_payda_2: 1,
           cevrim_degeri_2: 1,
           // Product specific columns - CRITICAL: Database expects DECIMAL types
-          hasir_tipi: normalizeHasirTipi(product.hasirTipi),
-          cap: parseFloat(product.boyCap) || 0,  // Database: DECIMAL - no NaN allowed
-          cap2: parseFloat(product.enCap) || 0,  // Database: DECIMAL - no NaN allowed
-          ebat_boy: parseFloat(product.uzunlukBoy) || 0,  // Database: DECIMAL
-          ebat_en: parseFloat(product.uzunlukEn) || 0,    // Database: DECIMAL
-          goz_araligi: formatGozAraligi(product) || '',
+          // Use the mapped values from productWithValidCaps to ensure consistency
+          hasir_tipi: normalizeHasirTipi(productWithValidCaps.hasirTipi),
+          cap: parseFloat(productWithValidCaps.boyCap) || 0,  // Database: DECIMAL - no NaN allowed
+          cap2: parseFloat(productWithValidCaps.enCap) || 0,  // Database: DECIMAL - no NaN allowed
+          ebat_boy: parseFloat(productWithValidCaps.uzunlukBoy) || 0,  // Database: DECIMAL
+          ebat_en: parseFloat(productWithValidCaps.uzunlukEn) || 0,    // Database: DECIMAL
+          goz_araligi: formatGozAraligi(productWithValidCaps) || '',
           kg: parseFloat(kgValue) || 0,
-          ic_cap_boy_cubuk_ad: parseInt(product.cubukSayisiBoy) || 0,
-          dis_cap_en_cubuk_ad: parseInt(product.cubukSayisiEn) || 0,
+          ic_cap_boy_cubuk_ad: parseInt(productWithValidCaps.cubukSayisiBoy) || 0,
+          dis_cap_en_cubuk_ad: parseInt(productWithValidCaps.cubukSayisiEn) || 0,
           hasir_sayisi: 1,
-          cubuk_sayisi_boy: parseInt(product.cubukSayisiBoy || 0) || 0,
-          cubuk_sayisi_en: parseInt(product.cubukSayisiEn || 0) || 0,
+          cubuk_sayisi_boy: parseInt(productWithValidCaps.cubukSayisiBoy || 0) || 0,
+          cubuk_sayisi_en: parseInt(productWithValidCaps.cubukSayisiEn || 0) || 0,
           adet_kg: parseFloat(kgValue.toFixed(5)) || 0,
           toplam_kg: parseFloat(kgValue.toFixed(5)) || 0,
           hasir_turu: 'MM',
@@ -5558,7 +5639,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
           } else {
             chResult = await chResponse.json();
+            successfulSaves++;
+            console.log(`✅ SUCCESSFUL SAVE ${successfulSaves}/${newProducts.length}:`, {
+              product: i + 1,
+              stokKodu: chData.stok_kodu,
+              stokAdi: chData.stok_adi,
+              saved: true
+            });
           }
+          
+          // Track the save result
+          saveResults.push({
+            productIndex: i + 1,
+            stokKodu: chData.stok_kodu,
+            success: chResult ? true : false,
+            error: chResult ? null : 'Save failed'
+          });
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
           // Database should create ALL NCBKs including duplicates for recipe accuracy
@@ -5848,7 +5944,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
           } // Close the else block for cache miss
         } catch (error) {
-          console.error(`Ürün kaydı hatası (${product.hasirTipi}):`, error);
+          failedSaves++;
+          console.error(`❌ FAILED SAVE ${failedSaves}:`, {
+            product: i + 1,
+            hasirTipi: product.hasirTipi,
+            error: error.message
+          });
+          
+          saveResults.push({
+            productIndex: i + 1,
+            stokKodu: 'Failed to generate',
+            success: false,
+            error: error.message
+          });
+          
           toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
           continue; // Bu ürünü atla, diğerlerine devam et
         }
@@ -5983,6 +6092,33 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: 'Excel hazırlanıyor'
       });
       
+      // COMPREHENSIVE SAVE SUMMARY
+      console.log('🔥 DATABASE SAVE PROCESS COMPLETED:', {
+        totalProductsToSave: newProducts.length,
+        successfulSaves,
+        failedSaves,
+        skippedSaves,
+        saveResults: saveResults.slice(0, 5), // Show first 5 results
+        allResults: saveResults.length
+      });
+      
+      // If we have fewer successful saves than expected, investigate
+      if (successfulSaves < newProducts.length) {
+        console.warn('⚠️ INCOMPLETE SAVE DETECTED:', {
+          expected: newProducts.length,
+          actual: successfulSaves,
+          missing: newProducts.length - successfulSaves,
+          failedCount: failedSaves,
+          skippedCount: skippedSaves
+        });
+        
+        // Show detailed results for failed/skipped products
+        const problemProducts = saveResults.filter(r => !r.success);
+        console.error('❌ PROBLEM PRODUCTS:', problemProducts);
+      } else {
+        console.log('✅ ALL PRODUCTS SAVED SUCCESSFULLY');
+      }
+
       // OPTIMIZATION METRICS: Show cache effectiveness
       const totalNcbkOperations = ncbkCacheHits + ncbkApiCalls;
       const totalNtelOperations = ntelCacheHits + ntelApiCalls;
