@@ -3130,37 +3130,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Excel dosyalarını oluştur
-  const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false, useDirectData = false) => {
+  const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false) => {
     try {
       // Continue from database save progress - don't reset
       setIsGeneratingExcel(true);
       setDatabaseProgress(prev => ({ ...prev, operation: '📊 Excel dosyaları oluşturuluyor...', currentProduct: 'Veriler hazırlanıyor' }));
       setExcelProgress({ current: 0, total: 4, operation: 'Excel verisi hazırlanıyor...' });
 
-      // CRITICAL FIX: Use input products directly when using saved data
+      // CRITICAL FIX: Always ensure we have the correct database-first + fallback values
       let products = inputProducts;
       
-      // Skip database fetch if we're using direct saved data
-      if (useDirectData) {
-        console.log('🎯 DIRECT MODE: Using input products directly, skipping database fetch');
-        console.log('🎯 DIRECT MODE: Input products count:', inputProducts.length);
-        console.log('🎯 DIRECT MODE: Sample product:', inputProducts[0] ? {
-          hasirTipi: inputProducts[0].hasirTipi,
-          existingStokKodu: inputProducts[0].existingStokKodu,
-          cubukSayisiBoy: inputProducts[0].cubukSayisiBoy,
-          cubukSayisiEn: inputProducts[0].cubukSayisiEn
-        } : 'none');
-        products = inputProducts; // Use input products as-is
-      } else {
-        // Original database fetch logic for other cases
-        const existingStokKodes = inputProducts
-          .filter(p => p.existingStokKodu)
-          .map(p => p.existingStokKodu);
-        
-        if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
-        console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
-        
-        try {
+      // If we have existing stok codes, fetch fresh data from database with fallback
+      const existingStokKodes = inputProducts
+        .filter(p => p.existingStokKodu)
+        .map(p => p.existingStokKodu);
+      
+      if (existingStokKodes.length > 0 && !inputProducts.some(p => p.skipDatabaseRefresh)) {
+          console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
+          
+          try {
           // SIMPLE APPROACH: Direct fetch like working Vercel version
           console.log('Using simple Vercel-style fetch for stok codes:', existingStokKodes);
           const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
@@ -7300,7 +7288,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                          // DIRECT EXCEL: Call Excel functions directly with saved data
+                          console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
+                          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+                          
+                          setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                          await generateStokKartiExcel(databaseProducts, timestamp, false);
+                          
+                          setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
+                          await generateReceteExcel(databaseProducts, timestamp, false);
+                          
+                          setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
+                          await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+                          
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
@@ -8097,7 +8097,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                          // DIRECT EXCEL: Call Excel functions directly with saved data
+                          console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
+                          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+                          
+                          setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                          await generateStokKartiExcel(databaseProducts, timestamp, false);
+                          
+                          setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
+                          await generateReceteExcel(databaseProducts, timestamp, false);
+                          
+                          setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
+                          await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+                          
                           toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                         } else {
                           // Database fetch failed - preserve Excel values or apply fallback formula
@@ -8835,7 +8847,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           }));
                           
                           if (databaseProducts && databaseProducts.length > 0) {
-                            await generateExcelFiles(databaseProducts, false, true); // useDirectData = true
+                            // DIRECT EXCEL: Call Excel functions directly with saved data
+                            console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
+                            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
+                            
+                            setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                            await generateStokKartiExcel(databaseProducts, timestamp, false);
+                            
+                            setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
+                            await generateReceteExcel(databaseProducts, timestamp, false);
+                            
+                            setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
+                            await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+                            
                             toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                           } else {
                             // Fallback to original method if unified fetch fails
