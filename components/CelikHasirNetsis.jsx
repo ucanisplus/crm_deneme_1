@@ -5765,6 +5765,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 chResult = await retryResponse.json();
                 generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
                 retrySuccess = true;
+                
+                // CRITICAL FIX: Update the product in newProducts with the retry stock code
+                newProducts[i] = {
+                  ...newProducts[i],
+                  existingStokKodu: newStokKodu,
+                  stokAdi: chData.stok_adi,
+                  ingilizceIsim: chData.ingilizce_isim
+                };
+                console.log(`🔧 RETRY FIXED: Updated newProducts[${i}] with retry existingStokKodu:`, newStokKodu);
               } else if (retryResponse.status === 409) {
                 console.log(`*** ${newStokKodu} also exists, trying next sequence`);
                 // Continue loop to try next number
@@ -5789,6 +5798,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               stokAdi: chData.stok_adi,
               saved: true
             });
+            
+            // CRITICAL FIX: Update the product in newProducts with the saved stok_kodu
+            newProducts[i] = {
+              ...newProducts[i],
+              existingStokKodu: chData.stok_kodu,
+              stokAdi: chData.stok_adi,
+              ingilizceIsim: chData.ingilizce_isim
+            };
+            console.log(`🔧 FIXED: Updated newProducts[${i}] with existingStokKodu:`, chData.stok_kodu);
           }
           
           // Track the save result
