@@ -8069,8 +8069,12 @@ useEffect(() => {
               <button
                 onClick={iyilestirAll}
                 title="Alt+I"
-                disabled={batchProcessing}
-                className="px-4 py-2 bg-blue-700 text-white rounded-md flex items-center gap-2 hover:bg-blue-800 transition-colors"
+                disabled={batchProcessing || !isInteractiveMode}
+                className={`px-4 py-2 rounded-md flex items-center gap-2 transition-colors ${
+                  !isInteractiveMode 
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                    : 'bg-blue-700 text-white hover:bg-blue-800'
+                }`}
               >
                 {batchProcessing ? (
                   <Loader size={18} className="animate-spin" />
