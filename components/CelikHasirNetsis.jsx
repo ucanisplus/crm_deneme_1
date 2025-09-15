@@ -2069,10 +2069,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       let boyAraligi = product.boyAraligi || product.boyAralik;
       let enAraligi = product.enAraligi || product.enAralik;
       
-      // If not available on product, use calculateGozAraligi function
+      // If not available on product, use calculateGozAraligi function as fallback
       if (!boyAraligi || !enAraligi) {
         const hasirTipi = product.hasirTipi;
+        const isFromDatabase = product.source === 'database' || product.skipDatabaseRefresh;
+        
         if (hasirTipi) {
+          if (isFromDatabase) {
+            console.log(`⚠️ Database product ${hasirTipi} missing mesh size in generateStokAdi, using calculateGozAraligi fallback`);
+          } else {
+            console.log(`⚠️ UI product ${hasirTipi} missing mesh size in generateStokAdi, using calculateGozAraligi fallback`);
+          }
           boyAraligi = boyAraligi || calculateGozAraligi(hasirTipi, 'boy').toString();
           enAraligi = enAraligi || calculateGozAraligi(hasirTipi, 'en').toString();
         }
@@ -2782,7 +2789,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Göz aralığı formatla
   const formatGozAraligi = (product) => {
-    // Check multiple possible field names
+    // For database/bulk flows: prioritize stored database values
+    // For new product flows: prioritize UI values
+    
+    const isFromDatabase = product.source === 'database' || product.skipDatabaseRefresh;
+    
+    // Check multiple possible field names in priority order
     if (product.boyAraligi && product.enAraligi) {
       return `${product.boyAraligi}x${product.enAraligi}`;
     } else if (product.boyAralik && product.enAralik) {
@@ -2804,9 +2816,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return `${gozValue}x${gozValue}`;
       }
     } else {
-      // FIXED: Use calculateGozAraligi based on hasirTipi for accurate mesh size
+      // Fallback behavior depends on source
       const hasirTipi = product.hasirTipi || '';
       if (hasirTipi) {
+        if (isFromDatabase) {
+          console.log(`⚠️ Database product ${hasirTipi} missing mesh data, using calculateGozAraligi fallback`);
+        } else {
+          console.log(`⚠️ UI product ${hasirTipi} missing mesh data, using calculateGozAraligi fallback`);
+        }
         const boyAralik = calculateGozAraligi(hasirTipi, 'boy');
         const enAralik = calculateGozAraligi(hasirTipi, 'en');
         return `${boyAralik}x${enAralik}`;
