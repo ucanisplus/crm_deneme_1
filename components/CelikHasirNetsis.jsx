@@ -3346,19 +3346,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log('🚀 BULK EXCEL: Starting bulk database download using unified fetch approach...');
 
-      // 1. Get all product stock codes first
+      // 1. Get all product stock codes first - with explicit high limit to ensure we get all records
       setExcelProgress({ current: 1, total: 6, operation: 'Ürün kodları alınıyor...' });
-      
+
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
-        fetch(`${API_URLS.getAllMM}`, {
+        fetch(`${API_URLS.getAllMM}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         }),
-        fetch(`${API_URLS.getAllNCBK}`, {
+        fetch(`${API_URLS.getAllNCBK}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         }),
-        fetch(`${API_URLS.getAllNTEL}`, {
+        fetch(`${API_URLS.getAllNTEL}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         })
@@ -3372,19 +3372,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts.length}), NTEL(${allNTELProducts.length}) products`);
 
-      // 2. Fetch all recipe data
+      // 2. Fetch all recipe data - with explicit high limit to ensure we get all records
       setExcelProgress({ current: 2, total: 8, operation: 'Reçete verileri alınıyor...' });
-      
+
       const [mmReceteResponse, ncbkReceteResponse, ntelReceteResponse] = await Promise.all([
-        fetch(`${API_URLS.getAllMMRecetes}`, {
+        fetch(`${API_URLS.getAllMMRecetes}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         }),
-        fetch(`${API_URLS.getAllNCBKRecetes}`, {
+        fetch(`${API_URLS.getAllNCBKRecetes}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         }),
-        fetch(`${API_URLS.getAllNTELRecetes}`, {
+        fetch(`${API_URLS.getAllNTELRecetes}?limit=50000`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         })
@@ -4612,13 +4612,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     allProducts.forEach(product => {
       const productType = product.productType;
       const stokKodu = product.existingStokKodu;
-      
+
       // Get recipes for this product from the lookup
       const recipes = receteLookup[productType]?.get(stokKodu) || [];
-      
+
       if (recipes.length > 0) {
         console.log(`🚀 BULK RECIPE: Found ${recipes.length} recipes for ${stokKodu}`);
-        
+
         // Add recipes to appropriate sheet
         recipes.forEach(recipe => {
           const recipeRow = [
@@ -4708,31 +4708,31 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
         return; // Skip this product
       }
-      
+
       // Boy direction NTEL consumption
       if (boyCap > 0 && cubukSayisiBoyValue > 0) {
         const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
         const boyNtelMiktar = Math.round(cubukSayisiBoyValue * 5);
-        
+
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '1', 'Bileşen',
           boyNtelKodu, 'MT', toExcelNumber(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
-      
+
       // En direction NTEL consumption
       if (enCap > 0 && cubukSayisiEnValue > 0) {
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
-        
+
         chReceteSheet.addRow([
           chStokKodu, '1', '0', '', '', '2', 'Bileşen',
           enNtelKodu, 'MT', toExcelNumber(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
-      
+
       // Operation
       chReceteSheet.addRow([
         chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
