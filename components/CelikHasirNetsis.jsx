@@ -3573,15 +3573,83 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const calculateGozAraligi = (hasirTipi, direction) => {
     // Use the same mesh configurations from the correct_iyilestir_with_configs.js
     const MESH_CONFIGS = {
+      // R types - from database: boy_aralik: 15.00, en_aralik: 25.00
+      'R106': { boyAralik: 15, enAralik: 25 },
+      'R131': { boyAralik: 15, enAralik: 25 },
+      'R158': { boyAralik: 15, enAralik: 25 },
+      'R188': { boyAralik: 15, enAralik: 25 },
+      'R221': { boyAralik: 15, enAralik: 25 },
       'R257': { boyAralik: 15, enAralik: 25 },
-      'TR257': { boyAralik: 15, enAralik: 30 },  // FIXED: TR257 should be 15x30, not 30x15
-      'TR295': { boyAralik: 15, enAralik: 30 },  // Added missing TR295
-      'TR335': { boyAralik: 15, enAralik: 30 },  // Added missing TR335  
-      'Q257': { boyAralik: 15, enAralik: 15 },
+      'R295': { boyAralik: 15, enAralik: 25 },
+      'R317': { boyAralik: 15, enAralik: 25 },
+      'R335': { boyAralik: 15, enAralik: 25 },
+      'R377': { boyAralik: 15, enAralik: 25 },
+      'R378': { boyAralik: 15, enAralik: 25 },
+      'R389': { boyAralik: 15, enAralik: 25 },
+      'R423': { boyAralik: 15, enAralik: 25 },
+      'R424': { boyAralik: 15, enAralik: 25 },
+      'R442': { boyAralik: 15, enAralik: 25 },
+      'R443': { boyAralik: 15, enAralik: 25 },
+      'R473': { boyAralik: 15, enAralik: 25 },
+      'R513': { boyAralik: 15, enAralik: 25 },
+      'R524': { boyAralik: 15, enAralik: 25 },
+      'R577': { boyAralik: 15, enAralik: 25 },
+      'R588': { boyAralik: 15, enAralik: 25 },
+      'R589': { boyAralik: 15, enAralik: 25 },
+      'R634': { boyAralik: 15, enAralik: 25 },
+      'R754': { boyAralik: 15, enAralik: 25 },
+      
+      // TR types - from database: boy_aralik: 30.00, en_aralik: 15.00
+      'TR106': { boyAralik: 30, enAralik: 15 },
+      'TR131': { boyAralik: 30, enAralik: 15 },
+      'TR158': { boyAralik: 30, enAralik: 15 },
+      'TR188': { boyAralik: 30, enAralik: 15 },
+      'TR221': { boyAralik: 30, enAralik: 15 },
+      'TR257': { boyAralik: 30, enAralik: 15 },
+      'TR295': { boyAralik: 30, enAralik: 15 },
+      'TR317': { boyAralik: 30, enAralik: 15 },
+      'TR335': { boyAralik: 30, enAralik: 15 },
+      'TR377': { boyAralik: 30, enAralik: 15 },
+      'TR378': { boyAralik: 30, enAralik: 15 },
+      'TR389': { boyAralik: 30, enAralik: 15 },
+      'TR423': { boyAralik: 30, enAralik: 15 },
+      'TR424': { boyAralik: 30, enAralik: 15 },
+      'TR442': { boyAralik: 30, enAralik: 15 },
+      'TR443': { boyAralik: 30, enAralik: 15 },
+      'TR473': { boyAralik: 30, enAralik: 15 },
+      'TR513': { boyAralik: 30, enAralik: 15 },
+      'TR524': { boyAralik: 30, enAralik: 15 },
+      'TR577': { boyAralik: 30, enAralik: 15 },
+      'TR588': { boyAralik: 30, enAralik: 15 },
+      'TR589': { boyAralik: 30, enAralik: 15 },
+      'TR634': { boyAralik: 30, enAralik: 15 },
+      'TR754': { boyAralik: 30, enAralik: 15 },
+      
+      // Q types - from database: boy_aralik: 15.00, en_aralik: 15.00
+      'Q106': { boyAralik: 15, enAralik: 15 },
+      'Q131': { boyAralik: 15, enAralik: 15 },
+      'Q158': { boyAralik: 15, enAralik: 15 },
+      'Q188': { boyAralik: 15, enAralik: 15 },
       'Q221': { boyAralik: 15, enAralik: 15 },
-      'Q317': { boyAralik: 15, enAralik: 22 },   // Added missing Q317
-      'Q443': { boyAralik: 18, enAralik: 22 },   // Added missing Q443  
-      'Q589': { boyAralik: 18, enAralik: 22 },   // Added missing Q589
+      'Q257': { boyAralik: 15, enAralik: 15 },
+      'Q295': { boyAralik: 15, enAralik: 15 },
+      'Q317': { boyAralik: 15, enAralik: 15 },
+      'Q335': { boyAralik: 15, enAralik: 15 },
+      'Q377': { boyAralik: 15, enAralik: 15 },
+      'Q378': { boyAralik: 15, enAralik: 15 },
+      'Q389': { boyAralik: 15, enAralik: 15 },
+      'Q423': { boyAralik: 15, enAralik: 15 },
+      'Q424': { boyAralik: 15, enAralik: 15 },
+      'Q442': { boyAralik: 15, enAralik: 15 },
+      'Q443': { boyAralik: 15, enAralik: 15 },
+      'Q473': { boyAralik: 15, enAralik: 15 },
+      'Q513': { boyAralik: 15, enAralik: 15 },
+      'Q524': { boyAralik: 15, enAralik: 15 },
+      'Q577': { boyAralik: 15, enAralik: 15 },
+      'Q588': { boyAralik: 15, enAralik: 15 },
+      'Q589': { boyAralik: 15, enAralik: 15 },
+      'Q634': { boyAralik: 15, enAralik: 15 },
+      'Q754': { boyAralik: 15, enAralik: 15 },
     };
     
     // Handle Q combinations like Q257/257
