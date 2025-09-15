@@ -4639,7 +4639,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             recipe.sabit_fire_mik || '',
             recipe.istasyon_kodu || '',
             recipe.hazirlik_suresi || '',
-            recipe.uretim_suresi ? toExcelDecimal(parseFloat(recipe.uretim_suresi).toFixed(5)) : '',
+            recipe.uretim_suresi ? toExcelNumber(recipe.uretim_suresi) : '',
             recipe.ua_dahil_edilsin || 'E',
             recipe.son_operasyon || 'E',
             recipe.planlama_orani || '',
