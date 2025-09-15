@@ -1309,8 +1309,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
-        
         return {
           ...product,
           hasirTipi: actualHasirTipi,
@@ -1324,7 +1322,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enAraligi: calculateGozAraligi(actualHasirTipi, 'en'),
           gozAraligi: `${calculateGozAraligi(actualHasirTipi, 'boy')}x${calculateGozAraligi(actualHasirTipi, 'en')}`,
           existingStokKodu: product.stok_kodu,
-          existingIngilizceIsim: cleanIngilizceIsim,
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
           isOptimized: true,
           source: 'database',
           skipDatabaseRefresh: true  // Flag to prevent generateExcelFiles from re-fetching
@@ -2071,22 +2069,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       let boyAraligi = product.boyAraligi || product.boyAralik;
       let enAraligi = product.enAraligi || product.enAralik;
       
-      // If not available on product, try to get from mesh configs based on hasirTipi
+      // If not available on product, use calculateGozAraligi function
       if (!boyAraligi || !enAraligi) {
-        // This is a simplified approach - we should ideally access meshConfigs here
-        // For now, let's try some common patterns based on the hasir tipi
         const hasirTipi = product.hasirTipi;
-        
-        // Common patterns for different mesh types (this is a fallback)
-        if (hasirTipi && hasirTipi.includes('Q')) {
-          boyAraligi = boyAraligi || '15';
-          enAraligi = enAraligi || '15';
-        } else if (hasirTipi && hasirTipi.includes('TR')) {
-          boyAraligi = boyAraligi || '30';
-          enAraligi = enAraligi || '15';
-        } else if (hasirTipi && hasirTipi.includes('R')) {
-          boyAraligi = boyAraligi || '15';
-          enAraligi = enAraligi || '25';
+        if (hasirTipi) {
+          boyAraligi = boyAraligi || calculateGozAraligi(hasirTipi, 'boy').toString();
+          enAraligi = enAraligi || calculateGozAraligi(hasirTipi, 'en').toString();
         }
       }
       
@@ -2768,20 +2756,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // İngilizce isim oluştur
   const generateIngilizceIsim = (product, productType) => {
     if (productType === 'CH') {
-      const hasirTipi = product.hasirTipi || '';
+      // İngilizce İsim should be a direct translation of Stok Adı
+      // Get the Turkish Stok Adı first
+      const stokAdi = generateStokAdi(product, 'CH');
       
-      // CRITICAL FIX: Handle undefined boyCap/enCap properly to prevent NaN
-      const boyCapValue = parseFloat(product.boyCap) || 0;
-      const enCapValue = parseFloat(product.enCap) || 0;
-      const boyCap = formatDecimalForDisplay(boyCapValue, false); // Use false for English (no comma)
-      const enCap = formatDecimalForDisplay(enCapValue, false);
+      // Translate Turkish terms to English and format correctly
+      let ingilizceIsim = stokAdi
+        .replace(/Çap\(/g, 'Dia(')           // Çap -> Dia  
+        .replace(/Ebat\(/g, 'Size(')         // Ebat -> Size
+        .replace(/Göz Ara\(/g, 'Mesh(')      // Göz Ara -> Mesh
+        .replace(/,/g, '.');                 // Turkish decimal comma -> English decimal point
       
-      const uzunlukBoy = Math.round(product.uzunlukBoy || 0);
-      const uzunlukEn = Math.round(product.uzunlukEn || 0);
-      const gozAraligi = formatGozAraligi(product) || '';
-      
-      
-      return `Wire Mesh- ${hasirTipi} Dia(${boyCap}x${enCap} mm) Size(${uzunlukBoy}x${uzunlukEn} cm) Mesh(${gozAraligi} cm)`;
+      // Format: "Wire Mesh Q317/317 Dia(7.8x7.8 mm) Size(123x150 cm) Mesh(15x15 cm)"
+      return `Wire Mesh ${ingilizceIsim}`;
     } else if (productType === 'NCBK') {
       const cap = formatDecimalForDisplay(product.cap || 0, false);
       const length = product.length || 0;
@@ -2817,7 +2804,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return `${gozValue}x${gozValue}`;
       }
     } else {
-      return '15x15'; // Use x instead of * for consistency
+      // FIXED: Use calculateGozAraligi based on hasirTipi for accurate mesh size
+      const hasirTipi = product.hasirTipi || '';
+      if (hasirTipi) {
+        const boyAralik = calculateGozAraligi(hasirTipi, 'boy');
+        const enAralik = calculateGozAraligi(hasirTipi, 'en');
+        return `${boyAralik}x${enAralik}`;
+      }
+      return '15x15'; // Final fallback
     }
   };
 
@@ -3416,7 +3410,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return {
           ...product,
           existingStokKodu: product.stok_kodu,
-          existingIngilizceIsim: product.ingilizce_isim,
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
           hasirTipi: extractedHasirTipi,
           uzunlukBoy: product.ebat_boy?.toString() || '0',
           uzunlukEn: product.ebat_en?.toString() || '0',
@@ -3444,7 +3438,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       const processedNCBKProducts = allNCBKProducts.map(dbProduct => ({
         existingStokKodu: dbProduct.stok_kodu,
-        existingIngilizceIsim: dbProduct.ingilizce_isim,
+        // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
         hasirTipi: dbProduct.hasir_tipi || 'NCBK',
         uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
         uzunlukEn: dbProduct.ebat_en?.toString() || '0',
@@ -3467,7 +3461,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       const processedNTELProducts = allNTELProducts.map(dbProduct => ({
         existingStokKodu: dbProduct.stok_kodu,
-        existingIngilizceIsim: dbProduct.ingilizce_isim,
+        // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
         hasirTipi: dbProduct.hasir_tipi || 'NTEL',
         uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
         uzunlukEn: dbProduct.ebat_en?.toString() || '0',
@@ -3563,9 +3557,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Use the same mesh configurations from the correct_iyilestir_with_configs.js
     const MESH_CONFIGS = {
       'R257': { boyAralik: 15, enAralik: 25 },
-      'TR257': { boyAralik: 30, enAralik: 15 },
+      'TR257': { boyAralik: 15, enAralik: 30 },  // FIXED: TR257 should be 15x30, not 30x15
+      'TR295': { boyAralik: 15, enAralik: 30 },  // Added missing TR295
+      'TR335': { boyAralik: 15, enAralik: 30 },  // Added missing TR335  
       'Q257': { boyAralik: 15, enAralik: 15 },
       'Q221': { boyAralik: 15, enAralik: 15 },
+      'Q317': { boyAralik: 15, enAralik: 22 },   // Added missing Q317
+      'Q443': { boyAralik: 18, enAralik: 22 },   // Added missing Q443  
+      'Q589': { boyAralik: 18, enAralik: 22 },   // Added missing Q589
     };
     
     // Handle Q combinations like Q257/257
@@ -3623,8 +3622,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         console.log('📊 EXCEL STOK KODU - Using saved stock code:', stokKodu);
         const stokAdi = generateStokAdi(product, 'CH');
-        // Use existing İngilizce İsim from database if available (already cleaned), otherwise generate
-        const ingilizceIsim = product.existingIngilizceIsim || generateIngilizceIsim(product, 'CH');
+        // Always generate fresh İngilizce İsim to ensure correct format
+        const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
         excelBatchIndex++;
         
@@ -4440,7 +4439,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         chSheet.addRow([
           // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'CH'), 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', product.existingIngilizceIsim,
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'CH'), 'MM', '', 'HSR', isStandard ? 'STD' : 'OZL', generateIngilizceIsim(product, 'CH'),
           // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
           '20', '20', '31', '36',
           // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
@@ -4464,7 +4463,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } else if (product.productType === 'NCBK') {
         // Generate YM NCBK STOK row
         ncbkSheet.addRow([
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', product.existingIngilizceIsim,
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', generateIngilizceIsim(product, 'NCBK'),
           '20', '20', '31', '36',
           'AD', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
@@ -4479,7 +4478,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } else if (product.productType === 'NTEL') {
         // Generate YM NTEL STOK row
         ntelSheet.addRow([
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARI MAMÜL', 'NTEL', '', product.existingIngilizceIsim,
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARI MAMÜL', 'NTEL', '', generateIngilizceIsim(product, 'NTEL'),
           '20', '20', '31', '36',
           'MT', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
