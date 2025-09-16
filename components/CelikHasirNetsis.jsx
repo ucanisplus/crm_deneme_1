@@ -657,7 +657,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [isDeletingBulkDb, setIsDeletingBulkDb] = useState(false); // Bulk delete status
   const [deletingProductId, setDeletingProductId] = useState(null); // Individual product deletion tracking
   const [deleteProgress, setDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' }); // Delete progress tracking
-  
+
   // Global operation duration calculator
   const calculateOperationDuration = (operationType, product) => {
     switch(operationType) {
@@ -7112,8 +7112,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         >
           Veritabanı İşlemleri
         </button>
-        
+
       </div>
+
 
       {/* Optimizasyon Uyarı Modal */}
       {showOptimizationWarning && (
