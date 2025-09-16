@@ -4015,24 +4015,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // EN ÇUBUĞU (actual en length)
         chReceteSheet.addRow([
-          chStokKodu, '1', '', '', '', '1', 'Bileşen',
-          `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`, 
-          'AD', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
+          chStokKodu, '1', '', '', '2', '1', 'Bileşen',
+          `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
+          '', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
-        // BOY ÇUBUĞU (actual boy length)  
+        // BOY ÇUBUĞU (actual boy length)
         chReceteSheet.addRow([
-          chStokKodu, '1', '', '', '', '2', 'Bileşen',
+          chStokKodu, '1', '', '', '2', '2', 'Bileşen',
           `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
-          'AD', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
+          '', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
         // YOTOCH Operasyon
         chReceteSheet.addRow([
-          chStokKodu, '1', '', '', '', '3', 'Operasyon', 'YOTOCH',
-          'DK', '1', '', '', '', '', '', '', '', operationTime,
+          chStokKodu, '1', '', '', '2', '3', 'Operasyon', 'YOTOCH',
+          '', '1', '', '', '', '', '', '', '', operationTime,
           'E', 'E', '', '', '', '', '', '', ''
         ]);
 
@@ -4296,9 +4296,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', '', '1', 'Bileşen',
+            chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
             boyNtelKodu,
-            'MT', toExcelDecimal(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+            '', toExcelDecimal(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
           chRowCount++;
@@ -4312,9 +4312,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', '', '2', 'Bileşen',
+            chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
             enNtelKodu,
-            'MT', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+            '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
@@ -4324,17 +4324,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
           chReceteSheet.addRow([
-            chStokKodu, '1', '0', '', '', '2', 'Bileşen',
+            chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
             enNtelKodu,
-            'MT', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+            '', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         }
         
         // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-          'DK', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
+          chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+          '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
@@ -4621,36 +4621,86 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
         // Add recipes to appropriate sheet
         recipes.forEach(recipe => {
-          const recipeRow = [
-            recipe.mamul_kodu || stokKodu,
-            recipe.recete_top || 1,
-            toExcelNumber(recipe.fire_orani || 0),
-            recipe.oto_rec || '',
-            recipe.olcu_br || '',
-            recipe.sira_no || 1,
-            recipe.operasyon_bilesen || '',
-            recipe.bilesen_kodu || '',
-            recipe.olcu_br_bilesen || '',
-            recipe.miktar ? toExcelNumber(recipe.miktar) : '0',
-            recipe.aciklama || '',
-            recipe.miktar_sabitle || '',
-            recipe.stok_maliyet || '',
-            recipe.fire_mik || '',
-            recipe.sabit_fire_mik || '',
-            recipe.istasyon_kodu || '',
-            recipe.hazirlik_suresi || '',
-            recipe.uretim_suresi ? toExcelNumber(recipe.uretim_suresi) : '',
-            recipe.ua_dahil_edilsin || 'E',
-            recipe.son_operasyon || 'E',
-            recipe.planlama_orani || '',
-            '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-          ];
-
           if (productType === 'MM') {
-            chReceteSheet.addRow(recipeRow);
+            // For CH REÇETE sheet: Set Ölçü Br. to '2' and Ölçü Br. - Bileşen to empty
+            const chRecipeRow = [
+              recipe.mamul_kodu || stokKodu,
+              recipe.recete_top || 1,
+              toExcelNumber(recipe.fire_orani || 0),
+              recipe.oto_rec || '',
+              '2', // Ölçü Br. set to '2'
+              recipe.sira_no || 1,
+              recipe.operasyon_bilesen || '',
+              recipe.bilesen_kodu || '',
+              '', // Ölçü Br. - Bileşen set to empty
+              recipe.miktar ? toExcelNumber(recipe.miktar) : '0',
+              recipe.aciklama || '',
+              recipe.miktar_sabitle || '',
+              recipe.stok_maliyet || '',
+              recipe.fire_mik || '',
+              recipe.sabit_fire_mik || '',
+              recipe.istasyon_kodu || '',
+              recipe.hazirlik_suresi || '',
+              recipe.uretim_suresi ? toExcelNumber(recipe.uretim_suresi) : '',
+              recipe.ua_dahil_edilsin || 'E',
+              recipe.son_operasyon || 'E',
+              recipe.planlama_orani || '',
+              '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ];
+            chReceteSheet.addRow(chRecipeRow);
           } else if (productType === 'NCBK') {
+            // For NCBK and NTEL sheets: Keep original values
+            const recipeRow = [
+              recipe.mamul_kodu || stokKodu,
+              recipe.recete_top || 1,
+              toExcelNumber(recipe.fire_orani || 0),
+              recipe.oto_rec || '',
+              recipe.olcu_br || '',
+              recipe.sira_no || 1,
+              recipe.operasyon_bilesen || '',
+              recipe.bilesen_kodu || '',
+              recipe.olcu_br_bilesen || '',
+              recipe.miktar ? toExcelNumber(recipe.miktar) : '0',
+              recipe.aciklama || '',
+              recipe.miktar_sabitle || '',
+              recipe.stok_maliyet || '',
+              recipe.fire_mik || '',
+              recipe.sabit_fire_mik || '',
+              recipe.istasyon_kodu || '',
+              recipe.hazirlik_suresi || '',
+              recipe.uretim_suresi ? toExcelNumber(recipe.uretim_suresi) : '',
+              recipe.ua_dahil_edilsin || 'E',
+              recipe.son_operasyon || 'E',
+              recipe.planlama_orani || '',
+              '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ];
             ncbkReceteSheet.addRow(recipeRow);
           } else if (productType === 'NTEL') {
+            // For NCBK and NTEL sheets: Keep original values
+            const recipeRow = [
+              recipe.mamul_kodu || stokKodu,
+              recipe.recete_top || 1,
+              toExcelNumber(recipe.fire_orani || 0),
+              recipe.oto_rec || '',
+              recipe.olcu_br || '',
+              recipe.sira_no || 1,
+              recipe.operasyon_bilesen || '',
+              recipe.bilesen_kodu || '',
+              recipe.olcu_br_bilesen || '',
+              recipe.miktar ? toExcelNumber(recipe.miktar) : '0',
+              recipe.aciklama || '',
+              recipe.miktar_sabitle || '',
+              recipe.stok_maliyet || '',
+              recipe.fire_mik || '',
+              recipe.sabit_fire_mik || '',
+              recipe.istasyon_kodu || '',
+              recipe.hazirlik_suresi || '',
+              recipe.uretim_suresi ? toExcelNumber(recipe.uretim_suresi) : '',
+              recipe.ua_dahil_edilsin || 'E',
+              recipe.son_operasyon || 'E',
+              recipe.planlama_orani || '',
+              '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ];
             ntelReceteSheet.addRow(recipeRow);
           }
         });
@@ -4715,8 +4765,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const boyNtelMiktar = Math.round(cubukSayisiBoyValue * 5);
 
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', '', '1', 'Bileşen',
-          boyNtelKodu, 'MT', toExcelNumber(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+          chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
+          boyNtelKodu, '', toExcelNumber(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
@@ -4727,16 +4777,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
 
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', '', '2', 'Bileşen',
-          enNtelKodu, 'MT', toExcelNumber(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
+          enNtelKodu, '', toExcelNumber(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
 
       // Operation
       chReceteSheet.addRow([
-        chStokKodu, '1', '0', '', '', '3', 'Operasyon', 'OTOCH',
-        'DK', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+        '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
     });
