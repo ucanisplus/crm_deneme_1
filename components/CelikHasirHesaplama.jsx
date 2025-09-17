@@ -1437,25 +1437,25 @@ const processExcelWithMapping = (sheets, mapping) => {
     Q_DOSEME: {
       ON_ARKA_MIN: 15,
       ON_ARKA_MAX: 22,
-      SAG_SOL_MIN: 2,
+      SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 9
     },
     Q_PERDE: {
       ON_MIN: 2.5,
       ARKA_MIN: 65,
-      SAG_SOL_MIN: 2,
+      SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 9
     },
     R_TYPE: {
       ON_ARKA_MIN: 15,
       ON_ARKA_MAX: 27,
-      SAG_SOL_MIN: 2,
+      SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 9
     },
     TR_TYPE: {
       ON_ARKA_MIN: 10,
       ON_ARKA_MAX: 17,
-      SAG_SOL_MIN: 2,
+      SAG_SOL_MIN: 1.5,
       SAG_SOL_MAX: 16
     }
   };
@@ -3781,10 +3781,10 @@ const optimizeDosemeQFilizValues = (row, filizLimits) => {
   const boyAraligi = parseFloat(row.boyAraligi);
   const enAraligi = parseFloat(row.enAraligi);
   
-  // Hedef filiz aralığı (15-23 cm)
+  // Hedef filiz aralığı (15-22 cm)
   const targetMin = 15;
-  const targetMax = 23; 
-  const targetOptimal = 22.5; 
+  const targetMax = 22;
+  const targetOptimal = 18.5; 
   
   // Mevcut çubuk sayılarını al
   let currentBoyCount = parseInt(row.cubukSayisiBoy);

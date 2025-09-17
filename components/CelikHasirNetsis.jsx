@@ -232,7 +232,7 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
     
     for (let boy = Math.max(2, initialBoy - 5); boy <= initialBoy + 5; boy++) {
       const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
-      if (solFiliz >= 2 && solFiliz <= 9) {
+      if (solFiliz >= 1.5 && solFiliz <= 9) {
         const diff = Math.abs(solFiliz - targetSolFiliz);
         if (diff < bestDiff) {
           bestDiff = diff;
@@ -251,8 +251,14 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
     for (let en = Math.max(2, initialEn - 3); en <= initialEn + 3; en++) {
       const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
       const onFiliz = (uzunlukBoy - ((en - 1) * enAralik)) / 2;
-      
-      if (solFiliz >= 2 && solFiliz <= 16 && onFiliz >= 10) {
+
+      // Type-specific sol/sag filiz limits
+      let maxSolFiliz = 9; // Default for Q, R types
+      if (hasirTipi.startsWith('TR')) {
+        maxSolFiliz = 16; // TR type allows up to 16
+      }
+
+      if (solFiliz >= 1.5 && solFiliz <= maxSolFiliz && onFiliz >= 10) {
         let score = 0;
         if (Math.abs(solFiliz - 2.5) < 0.5) score += 10;
         if (hasirTipi.startsWith('R') && onFiliz >= 15 && onFiliz <= 27) score += 10;
