@@ -1425,7 +1425,7 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Makine limitleri için sabitler
   const MACHINE_LIMITS = {
-    MIN_BOY: 272, // Minimum boy limiti (cm)
+    MIN_BOY: 270, // Minimum boy limiti (cm)
     MAX_BOY: 800, // Maksimum boy limiti (cm)
     MIN_EN: 150,  // Minimum en limiti (cm)
     MAX_EN: 250,  // Maksimum en limiti (cm)
@@ -3309,10 +3309,10 @@ const processDimensions = (row) => {
   
   if (currentBoy < MACHINE_LIMITS.MIN_BOY) {
     let multiplied = false;
-    
+
     // ÖNEMLİ: Çarpıcıları küçükten büyüğe sırala
     const multipliers = [2, 3, 4, 5, 6];
-    
+
     // Her çarpan için minimum gereken değeri hesapla
     const minRequired = MACHINE_LIMITS.MIN_BOY / currentBoy;
     
@@ -3425,7 +3425,7 @@ const isMachineLimitsOk = (row) => {
   if (isNaN(uzunlukBoy) || isNaN(uzunlukEn)) return false;
   
   return (
-    uzunlukBoy >= MACHINE_LIMITS.MIN_BOY && 
+    uzunlukBoy >= MACHINE_LIMITS.MIN_BOY &&
     uzunlukBoy <= MACHINE_LIMITS.MAX_BOY &&
     uzunlukEn >= MACHINE_LIMITS.MIN_EN_ADJUSTABLE && 
     uzunlukEn <= MACHINE_LIMITS.MAX_EN
@@ -3492,7 +3492,7 @@ const tryMultiplyDimensions = (row, originalValues) => {
     // Boy çok kısa ise çarpma işlemi yap - 2, 3, 4 ile çarpma dene
     for (let multiplier of [2, 3, 4, 5, 6]) {
       const newUzunlukBoy = uzunlukBoy * multiplier;
-      
+
       if (newUzunlukBoy >= MACHINE_LIMITS.MIN_BOY && newUzunlukBoy <= MACHINE_LIMITS.MAX_BOY) {
         row.uzunlukBoy = newUzunlukBoy.toString();
         row.hasirSayisi = (hasirSayisi / multiplier).toString();
