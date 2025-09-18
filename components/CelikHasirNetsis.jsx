@@ -4558,7 +4558,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '20', '20', '20', '35',
           'AD', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
-          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
+          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), '', toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
@@ -4573,7 +4573,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '20', '20', '20', '35',
           'MT', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
-          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
+          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           '0', '0', '', toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           '0', '0', '0', '0', '0', '', '', '',
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
@@ -5681,6 +5681,37 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Parse and validate extracted values
         let parsedBoyCap = parseFloat(extractedBoyCap);
         let parsedEnCap = parseFloat(extractedEnCap);
+
+        // 🔧 COMPREHENSIVE FIX: Prevent systematic 2-decimal to 1-decimal rounding
+        // This preserves exact diameter values and prevents systematic rounding issues
+        const preserveExactDiameter = (value) => {
+          // Primary fixes for known problematic values
+          if (Math.abs(value - 4.8) < 0.01) return 4.75; // Fix 4.8 back to 4.75
+          if (Math.abs(value - 4.5) < 0.01) return 4.45; // Fix 4.5 back to 4.45
+
+          // Comprehensive fix: Check if value appears to be rounded to 1 decimal
+          // by comparing with known 2-decimal values from FILMASIN_MAPPING
+          const knownPreciseValues = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
+
+          // For each precise value, check if current value is its 1-decimal rounded version
+          for (const precise of knownPreciseValues) {
+            const rounded = Math.round(precise * 10) / 10; // Round to 1 decimal
+            if (Math.abs(value - rounded) < 0.01 && precise !== rounded) {
+              console.log(`🔧 DIAMETER FIX: Correcting ${value} back to ${precise}`);
+              return precise; // Return the precise 2-decimal value
+            }
+          }
+
+          return value;
+        };
+
+        // Apply surgical fix to prevent rounding
+        if (!isNaN(parsedBoyCap)) {
+          parsedBoyCap = preserveExactDiameter(parsedBoyCap);
+        }
+        if (!isNaN(parsedEnCap)) {
+          parsedEnCap = preserveExactDiameter(parsedEnCap);
+        }
         
         // If parsing fails, show detailed error
         if (isNaN(parsedBoyCap) || parsedBoyCap === 0) {
@@ -5793,8 +5824,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Product specific columns - CRITICAL: Database expects DECIMAL types
           // Use the mapped values from productWithValidCaps to ensure consistency
           hasir_tipi: normalizeHasirTipi(productWithValidCaps.hasirTipi),
-          cap: parseFloat(productWithValidCaps.boyCap) || 0,  // Database: DECIMAL - no NaN allowed
-          cap2: parseFloat(productWithValidCaps.enCap) || 0,  // Database: DECIMAL - no NaN allowed
+          cap: (() => {
+            const val = parseFloat(productWithValidCaps.boyCap) || 0;
+            // 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
+            for (const precise of knownPrecise) {
+              if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
+                return precise;
+              }
+            }
+            return val;
+          })(),
+          cap2: (() => {
+            const val = parseFloat(productWithValidCaps.enCap) || 0;
+            // 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
+            for (const precise of knownPrecise) {
+              if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
+                return precise;
+              }
+            }
+            return val;
+          })(),
           ebat_boy: parseFloat(productWithValidCaps.uzunlukBoy) || 0,  // Database: DECIMAL
           ebat_en: parseFloat(productWithValidCaps.uzunlukEn) || 0,    // Database: DECIMAL
           goz_araligi: formatGozAraligi(productWithValidCaps) || '',
@@ -6032,8 +6083,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cevrim_pay_2: 1,
               cevrim_payda_2: 1,
               cevrim_degeri_2: 1,
-              // Product specific
-              cap: parseFloat(cap || 0),
+              // Product specific - 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+              cap: (() => {
+                const val = parseFloat(cap || 0);
+                const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
+                for (const precise of knownPrecise) {
+                  if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
+                    return precise;
+                  }
+                }
+                return val;
+              })(),
               cap2: 0,
               ebat_boy: length,
               ebat_en: 0,
@@ -6176,8 +6236,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             cevrim_pay_2: 1,
             cevrim_payda_2: 1,
             cevrim_degeri_2: 1,
-            // Product specific
-            cap: parseFloat(ntelCap),
+            // Product specific - 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            cap: (() => {
+              const val = parseFloat(ntelCap);
+              const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
+              for (const precise of knownPrecise) {
+                if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
+                  return precise;
+                }
+              }
+              return val;
+            })(),
             cap2: 0,
             ebat_boy: 0,
             ebat_en: 0,
