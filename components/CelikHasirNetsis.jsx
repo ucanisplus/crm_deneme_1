@@ -3751,7 +3751,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
+          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the final calculated values (database OR fallback)
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
@@ -3845,7 +3845,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
             // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-            '', toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', uzunlukBoy, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
+            '', toExcelDecimal(parseFloat(boyCap)), '', uzunlukBoy, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
             // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
             '0', '0', '0', '0', '0', '', '', '',
             // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
@@ -3872,7 +3872,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ntelSheet.addRow([
             ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
             'MT', 'KG', '1', toExcelDecimal(ntelWeight), '', '', '1', '1', 'Y', '',
-            toExcelDecimal(parseFloat(boyCap).toFixed(1)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
+            toExcelDecimal(parseFloat(boyCap)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
             '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
             '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
             ntelStokKodu, 'YM', '', 'E', 'E'
@@ -3902,7 +3902,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
             // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-            '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', uzunlukEn, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
+            '', toExcelDecimal(parseFloat(enCap)), '', uzunlukEn, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
             // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
             '0', '0', '0', '0', '0', '', '', '',
             // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
@@ -3937,7 +3937,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
               '', '1', '1', 'Y',
               // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-              '', toExcelDecimal(parseFloat(enCap).toFixed(1)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
+              '', toExcelDecimal(parseFloat(enCap)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
               // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
               '', '', '0', '0', '0', '', '', '',
               // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
@@ -4538,7 +4538,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
           // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
+          product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the same variables as working Excel
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
@@ -4555,7 +4555,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Generate YM NCBK STOK row
         ncbkSheet.addRow([
           product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', generateIngilizceIsim(product, 'NCBK'),
-          '20', '20', '31', '36',
+          '20', '20', '20', '35',
           'AD', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
@@ -4570,7 +4570,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Generate YM NTEL STOK row
         ntelSheet.addRow([
           product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NTEL'), 'YM', 'YARI MAMÜL', 'NTEL', '', generateIngilizceIsim(product, 'NTEL'),
-          '20', '20', '31', '36',
+          '20', '20', '20', '35',
           'MT', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0).toFixed(1)), toExcelDecimal(parseFloat(product.enCap || 0).toFixed(1)), 
@@ -6022,7 +6022,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               alis_kdv_orani: 20,
               satis_kdv_orani: 20,
               muh_detay: 20,
-              depo_kodu: 36,
+              depo_kodu: 35,
               br_1: 'AD',
               br_2: 'KG',
               pay_1: parseFloat(ncbkWeight.toFixed(5)),
@@ -6165,8 +6165,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             // Standard columns
             alis_kdv_orani: 20,
             satis_kdv_orani: 20,
-            muh_detay: 35,
-            depo_kodu: 36,
+            muh_detay: 20,
+            depo_kodu: 35,
             br_1: 'MT',
             br_2: 'KG',
             pay_1: parseFloat(ntelWeight.toFixed(5)),
