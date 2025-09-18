@@ -4748,8 +4748,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedAltNCBKRecipes = new Set();
     const processedAltNTELRecipes = new Set();
     
-    // Process MM products for CH alternative recipes (NTEL-based)
-    const mmProducts = allProducts.filter(p => p.productType === 'MM');
+    // Process all products for CH alternative recipes (NTEL-based)
+    const mmProducts = allProducts;
     
     mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu;
@@ -5755,7 +5755,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Instead of skipping, try to fix the values with fallback defaults
           const fallbackStokAdi = `${normalizeHasirTipi(productWithValidCaps.hasirTipi || '')} Çap(0x0 mm) Ebat(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
-          const fallbackIngilizceIsim = `Wire Mesh- ${productWithValidCaps.hasirTipi || ''} Dia(0*0 mm) Size(${productWithValidCaps.uzunlukBoy || 0}*${productWithValidCaps.uzunlukEn || 0} cm)`;
+          const fallbackIngilizceIsim = `Wire Mesh- ${productWithValidCaps.hasirTipi || ''} Dia(0x0 mm) Size(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
           
           console.warn('🔧 Using fallback values for product', i + 1, ':', {
             fallbackStokAdi,
@@ -6033,7 +6033,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cevrim_payda_2: 1,
               cevrim_degeri_2: 1,
               // Product specific
-              cap: parseFloat(parseFloat(cap || 0).toFixed(1)),
+              cap: parseFloat(cap || 0),
               cap2: 0,
               ebat_boy: length,
               ebat_en: 0,
@@ -6177,8 +6177,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             cevrim_payda_2: 1,
             cevrim_degeri_2: 1,
             // Product specific
-            cap: parseFloat(ntelCap.toFixed(1)),
-            cap2: parseFloat(ntelCap.toFixed(1)),
+            cap: parseFloat(ntelCap),
+            cap2: 0,
             ebat_boy: 0,
             ebat_en: 0,
             goz_araligi: '',
