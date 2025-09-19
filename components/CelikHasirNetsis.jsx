@@ -34,7 +34,8 @@ const getFilmasinKodu = (diameter) => {
     6.50: 7.5,
     7.00: 8.0,
     7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-    9.20: 11.0,
+    9.19: 10.0,
+    9.20: 10.0,
     10.60: 12.0
   };
   
@@ -50,9 +51,9 @@ const getFilmasinKodu = (diameter) => {
     } else {
       flmDiameter = diameter + 2.0;
     }
-    // Round to nearest standard filmaşin size
-    const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-    flmDiameter = standardSizes.find(s => s >= flmDiameter) || flmDiameter;
+    // Round to nearest standard filmaşin size (max 12.0mm)
+    const standardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0];
+    flmDiameter = standardSizes.find(s => s >= flmDiameter) || 12.0;
   }
   
   const flmQuality = flmDiameter >= 7.0 ? '1010' : '1008';
@@ -4067,7 +4068,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               6.50: 7.5,
               7.00: 8.0,
               7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-              9.20: 11.0,
+              9.19: 10.0,
+              9.20: 10.0,
               10.60: 12.0
             };
             
@@ -4101,7 +4103,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             6.50: 7.5,
             7.00: 8.0,
             7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-            9.20: 11.0,
+            9.19: 10.0,
+            9.20: 10.0,
             10.60: 12.0
           };
           let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[boyCap];
@@ -4114,8 +4117,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             } else {
               ntelFlmDiameter = boyCap + 2.0;
             }
-            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
+            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0];
+            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || 12.0;
           }
           
           const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
@@ -4153,7 +4156,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               6.50: 7.5,
               7.00: 8.0,
               7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-              9.20: 11.0,
+              9.19: 10.0,
+              9.20: 10.0,
               10.60: 12.0
             };
             
@@ -4188,7 +4192,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             6.50: 7.5,
             7.00: 8.0,
             7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-            9.20: 11.0,
+            9.19: 10.0,
+            9.20: 10.0,
             10.60: 12.0
           };
           let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[enCap];
@@ -4201,8 +4206,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             } else {
               ntelFlmDiameter = enCap + 2.0;
             }
-            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0];
-            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || ntelFlmDiameter;
+            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0];
+            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || 12.0;
           }
           
           const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
