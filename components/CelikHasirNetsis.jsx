@@ -3385,7 +3385,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntelResponse.json()
       ]);
 
-      console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts.length}), NTEL(${allNTELProducts.length}) products`);
+      console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts?.length || 0}), NTEL(${allNTELProducts?.length || 0}) products`);
 
       // 2. Fetch all recipe data - with explicit high limit to ensure we get all records
       setExcelProgress({ current: 2, total: 8, operation: 'Reçete verileri alınıyor...' });
@@ -3411,7 +3411,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntelReceteResponse.json()
       ]);
 
-      console.log(`🚀 BULK EXCEL: Found MM Recipes(${allMMRecetes.length}), NCBK Recipes(${allNCBKRecetes.length}), NTEL Recipes(${allNTELRecetes.length})`);
+      console.log(`🚀 BULK EXCEL: Found MM Recipes(${allMMRecetes?.length || 0}), NCBK Recipes(${allNCBKRecetes?.length || 0}), NTEL Recipes(${allNTELRecetes?.length || 0})`);
 
       // 3. Process MM products with recipe data
       setExcelProgress({ current: 3, total: 8, operation: 'MM ürünleri formatlanıyor...' });
@@ -3419,7 +3419,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Process MM products and enhance with recipe data
       const processedProducts = allMMProducts.map(product => {
         // Find recipe data for this product
-        const productRecipes = allMMRecetes.filter(r => r.mamul_kodu === product.stok_kodu);
+        const productRecipes = (allMMRecetes || []).filter(r => r.mamul_kodu === product.stok_kodu);
         
         // Extract YOTOCH duration from recipes
         let yotochDuration = 0;
@@ -3468,7 +3468,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
       
-      const processedNCBKProducts = allNCBKProducts.map(dbProduct => ({
+      const processedNCBKProducts = (allNCBKProducts || []).map(dbProduct => ({
         existingStokKodu: dbProduct.stok_kodu,
         // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
         hasirTipi: dbProduct.hasir_tipi || 'NCBK',
@@ -3491,7 +3491,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       setExcelProgress({ current: 5, total: 8, operation: 'NTEL ürünleri formatlanıyor...' });
       
-      const processedNTELProducts = allNTELProducts.map(dbProduct => ({
+      const processedNTELProducts = (allNTELProducts || []).map(dbProduct => ({
         existingStokKodu: dbProduct.stok_kodu,
         // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
         hasirTipi: dbProduct.hasir_tipi || 'NTEL',
@@ -3528,7 +3528,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       };
 
       // Index all recipes by mamul_kodu for fast lookup
-      allMMRecetes.forEach(recipe => {
+      (allMMRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
         if (!receteLookup.MM.has(key)) {
           receteLookup.MM.set(key, []);
@@ -3536,7 +3536,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         receteLookup.MM.get(key).push(recipe);
       });
 
-      allNCBKRecetes.forEach(recipe => {
+      (allNCBKRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
         if (!receteLookup.NCBK.has(key)) {
           receteLookup.NCBK.set(key, []);
@@ -3544,7 +3544,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         receteLookup.NCBK.get(key).push(recipe);
       });
 
-      allNTELRecetes.forEach(recipe => {
+      (allNTELRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
         if (!receteLookup.NTEL.has(key)) {
           receteLookup.NTEL.set(key, []);
