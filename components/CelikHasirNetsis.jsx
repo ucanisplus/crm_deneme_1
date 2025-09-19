@@ -4350,9 +4350,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
         }
         
-        // Olcu Birimi: Originally was 'DK' for CH alternatif recipe operations, now left empty per user request
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+          chStokKodu, '1', '0', 'DK', '2', '3', 'Operasyon', 'OTOCH',
           '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
@@ -4388,9 +4387,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
-          // Olcu Birimi: Originally was 'DK' for NCBK alternatif recipe operations, now left empty per user request
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4419,7 +4417,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
           
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: 215, boyCap: enCap, enCap: enCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4446,9 +4444,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
-          // Olcu Birimi: Originally was 'DK' for NTEL alternatif recipe operations, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4475,7 +4472,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
           
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: enCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4818,7 +4815,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // Operation
       chReceteSheet.addRow([
-        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+        chStokKodu, '1', '0', 'DK', '2', '3', 'Operasyon', 'OTOCH',
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
@@ -4849,7 +4846,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Operation
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4875,7 +4872,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Operation
           ncbkReceteSheet.addRow([
-            ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+            ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4907,7 +4904,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             // Operation
             ntelReceteSheet.addRow([
-              ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
+              ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: cap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
