@@ -4092,7 +4092,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -4142,7 +4142,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap})),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
@@ -4180,7 +4180,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
             
             ncbkReceteSheet.addRow([
-              ncbkStokKodu, '1', '', '', '', '2', 'Operasyon', 'NDK01',
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { length: uzunlukEn, boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
@@ -4230,7 +4230,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ]);
           
           ntelReceteSheet.addRow([
-            ntelStokKodu, '1', '', '', '', '2', 'Operasyon', 'NTLC01',
+            ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: enCap, enCap: enCap})),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
