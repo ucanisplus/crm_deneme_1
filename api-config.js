@@ -85,6 +85,31 @@ export const API_URLS = {
   // Fallback URLs if Render is slow/down
   apsCalculateTimeVercel: 'https://crm-deneme-backend.vercel.app/api/aps/calculate-time',
   apsOptimizeScheduleVercel: 'https://crm-deneme-backend.vercel.app/api/aps/optimize-schedule',
+
+  // Production Planning endpoints (Çelik Hasır Üretim Planlaması)
+  production: {
+    // Session Management
+    sessions: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/sessions',
+
+    // Excel Upload and Processing
+    uploadExcel: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/upload',
+
+    // Production Orders
+    orders: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/orders',
+
+    // Scheduling Algorithm
+    runScheduling: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/schedule',
+
+    // Machine Schedules
+    schedules: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/schedules',
+    updateSchedule: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/schedules/reorder',
+
+    // Analytics and Dashboard
+    analytics: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/analytics',
+
+    // Export Functions
+    export: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/export'
+  }
 };
 
 /**

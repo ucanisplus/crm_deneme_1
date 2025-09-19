@@ -4351,7 +4351,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         
         chReceteSheet.addRow([
-          chStokKodu, '1', '0', 'DK', '2', '3', 'Operasyon', 'OTOCH',
+          chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
           '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
@@ -4815,7 +4815,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // Operation
       chReceteSheet.addRow([
-        chStokKodu, '1', '0', 'DK', '2', '3', 'Operasyon', 'OTOCH',
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
