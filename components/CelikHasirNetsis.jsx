@@ -2785,7 +2785,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       return `Wire Mesh ${ingilizceIsim}`;
     } else if (productType === 'NCBK') {
       const cap = formatDecimalForDisplay(product.cap || 0, false);
-      const length = product.length || 0;
+      const length = product.length || product.uzunlukBoy || product.uzunlukEn || 0;
+      console.log(`🔍 NCBK İngilizce İsim DEBUG:`, {
+        product,
+        cap,
+        length,
+        originalLength: product.length,
+        uzunlukBoy: product.uzunlukBoy,
+        uzunlukEn: product.uzunlukEn
+      });
       return `Ribbed Rebar ${cap} mm ${length} cm`;
     } else if (productType === 'NTEL') {
       const cap = formatDecimalForDisplay(product.cap || 0, false);
@@ -4558,8 +4566,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       } else if (product.productType === 'NCBK') {
         // Generate YM NCBK STOK row
+        // ✅ CRITICAL FIX: Extract length from stok_kodu for proper English name generation
+        const stokKoduMatch = product.existingStokKodu?.match(/YM\.NCBK\.\d+\.(\d+)/);
+        const extractedLength = stokKoduMatch ? parseInt(stokKoduMatch[1]) : (parseInt(product.uzunlukBoy) || parseInt(product.uzunlukEn) || 0);
+        const extractedCap = parseFloat(product.boyCap || product.enCap || product.cap || 0);
+
+        console.log(`🔍 NCBK EXCEL DEBUG:`, {
+          stokKodu: product.existingStokKodu,
+          extractedLength,
+          extractedCap,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn
+        });
+
         ncbkSheet.addRow([
-          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '', generateIngilizceIsim(product, 'NCBK'),
+          product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '',
+          generateIngilizceIsim({cap: extractedCap, length: extractedLength}, 'NCBK'),
           '20', '20', '20', '35',
           'AD', 'KG', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           '', '1', '1', '1',
@@ -6015,10 +6037,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
           // Database should create ALL NCBKs including duplicates for recipe accuracy
+          const boyLength = parseInt(product.uzunlukBoy) || 0;
+          const enLength = parseInt(product.uzunlukEn) || 0;
+
+          console.log(`🔍 NCBK LENGTH DEBUG:`, {
+            uzunlukBoy: product.uzunlukBoy,
+            uzunlukEn: product.uzunlukEn,
+            boyLength,
+            enLength
+          });
+
           const allNcbkSpecs = [
-            { cap: product.boyCap, length: parseInt(product.uzunlukBoy || 0), type: 'boy' },
-            { cap: product.enCap, length: parseInt(product.uzunlukEn || 0), type: 'en' }
-          ];
+            { cap: product.boyCap, length: boyLength, type: 'boy' },
+            { cap: product.enCap, length: enLength, type: 'en' }
+          ].filter(spec => spec.cap > 0 && spec.length > 0); // ✅ Only create NCBK if both cap and length are valid
           
           // Deduplicate NCBK specs to prevent creating same product twice (and thus duplicate recipes)
           const seenStokKodus = new Set();
