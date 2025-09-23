@@ -40,6 +40,8 @@ const ExcelUploadModule = ({
   const [showColumnMapping, setShowColumnMapping] = useState(false);
   const [columnMappings, setColumnMappings] = useState({});
   const [allSheetData, setAllSheetData] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [mappingFilter, setMappingFilter] = useState('all');
   const fileInputRef = useRef(null);
 
   // Expected CSV column mapping based on analysis
@@ -738,13 +740,13 @@ const ExcelUploadModule = ({
                 <input
                   type="text"
                   placeholder="Excel sütununda ara..."
-                  value={searchText || ''}
-                  onChange={(e) => setSearchText && setSearchText(e.target.value)}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
                   className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <select
-                  value={mappingFilter || 'all'}
-                  onChange={(e) => setMappingFilter && setMappingFilter(e.target.value)}
+                  value={mappingFilter}
+                  onChange={(e) => setMappingFilter(e.target.value)}
                   className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">Tüm Sütunlar</option>
@@ -785,7 +787,22 @@ const ExcelUploadModule = ({
 
             {/* Column Mapping Cards */}
             <div className="space-y-3">
-              {previewData.headers.map((excelColumn, index) => {
+              {previewData.headers.filter(excelColumn => {
+                // Filter by search text
+                if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                  return false;
+                }
+
+                // Filter by mapping status
+                if (mappingFilter === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                  return false;
+                }
+                if (mappingFilter === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                  return false;
+                }
+
+                return true;
+              }).map((excelColumn, index) => {
                 const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
                 return (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
