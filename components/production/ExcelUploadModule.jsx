@@ -731,46 +731,84 @@ const ExcelUploadModule = ({
 
         {previewData && (
           <div className="p-6 overflow-y-auto max-h-[70vh]">
-            <div className="mb-6">
-              <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-blue-900 mb-1">Sütun Eşleştirme Talimatları</p>
-                    <p className="text-blue-800">
-                      Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
-                    </p>
+            {/* Filter Controls */}
+            <div className="mb-4 space-y-3">
+              {/* Search and main filters row */}
+              <div className="flex gap-2 flex-wrap">
+                <input
+                  type="text"
+                  placeholder="Excel sütununda ara..."
+                  value={searchText || ''}
+                  onChange={(e) => setSearchText && setSearchText(e.target.value)}
+                  className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <select
+                  value={mappingFilter || 'all'}
+                  onChange={(e) => setMappingFilter && setMappingFilter(e.target.value)}
+                  className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Tüm Sütunlar</option>
+                  <option value="mapped">Eşleştirilen</option>
+                  <option value="unmapped">Eşleştirilmemiş</option>
+                </select>
+              </div>
+
+              {/* Info panel and stats */}
+              <div className="flex gap-2 flex-wrap items-center">
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-sm text-gray-600">
+                    Toplam: {previewData.headers.length} sütun |
+                    Eşleştirilen: {Object.values(columnMappings).filter(val => val !== 'none').length} |
+                    Eşleştirilmemiş: {previewData.headers.length - Object.values(columnMappings).filter(val => val !== 'none').length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Clear filters button */}
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={() => setColumnMappings({})}
+                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1 inline" />
+                  Tüm Eşleştirmeleri Temizle
+                </button>
+
+                <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    <span className="text-blue-800">Excel sütunlarını sistem sütunlarıyla eşleştirin</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              {/* Table Header */}
-              <div className="bg-gray-50 border-b border-gray-200">
-                <div className="grid grid-cols-3 gap-4 p-4">
-                  <div className="text-sm font-semibold text-gray-700">Excel Sütunu</div>
-                  <div className="text-sm font-semibold text-gray-700">Sistem Sütunu</div>
-                  <div className="text-sm font-semibold text-gray-700">Örnek Veri</div>
-                </div>
-              </div>
-
-              {/* Mapping Rows */}
-              <div className="divide-y divide-gray-200">
-                {previewData.headers.map((excelColumn, index) => {
-                  const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
-                  const isEven = index % 2 === 0;
-                  return (
-                    <div key={index} className={`grid grid-cols-3 gap-4 p-4 items-center transition-colors hover:bg-gray-50 ${isEven ? 'bg-white' : 'bg-gray-25'}`}>
-                      <div className="text-sm font-medium text-gray-900">
-                        {excelColumn}
+            {/* Column Mapping Cards */}
+            <div className="space-y-3">
+              {previewData.headers.map((excelColumn, index) => {
+                const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
+                return (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-1">{excelColumn}</h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Örnek: {String(sampleData).substring(0, 50)}{String(sampleData).length > 50 && '...'}
+                          </p>
+                          <div className="flex gap-4 text-xs text-gray-500">
+                            <span>Sütun #{index + 1}</span>
+                            <span>Tip: {typeof sampleData}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
+
+                      <div className="flex gap-2 ml-4 min-w-[200px]">
                         <Select
                           value={columnMappings[excelColumn] || 'none'}
                           onValueChange={(value) => handleColumnMapping(excelColumn, value)}
                         >
-                          <SelectTrigger className="w-full shadow-sm">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Sütun seçin..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -782,39 +820,21 @@ const ExcelUploadModule = ({
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        <div className="bg-gray-50 border border-gray-200 rounded px-3 py-2 max-w-xs">
-                          <div className="truncate" title={String(sampleData)}>
-                            {String(sampleData).substring(0, 35)}
-                            {String(sampleData).length > 35 && '...'}
-                          </div>
-                        </div>
+
+                        {columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none' && (
+                          <button
+                            onClick={() => handleColumnMapping(excelColumn, 'none')}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eşleştirmeyi Kaldır"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Statistics */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-blue-900">Toplam Sütun</div>
-                <div className="text-lg font-semibold text-blue-700">{previewData.headers.length}</div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-green-900">Eşleştirilen</div>
-                <div className="text-lg font-semibold text-green-700">
-                  {Object.values(columnMappings).filter(val => val !== 'none').length}
-                </div>
-              </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-gray-900">Eşleştirilmemiş</div>
-                <div className="text-lg font-semibold text-gray-700">
-                  {previewData.headers.length - Object.values(columnMappings).filter(val => val !== 'none').length}
-                </div>
-              </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Action Buttons */}
@@ -827,14 +847,6 @@ const ExcelUploadModule = ({
                 İptal
               </Button>
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setColumnMappings({})}
-                  className="shadow-sm"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sıfırla
-                </Button>
                 <Button
                   onClick={handleConfirmMapping}
                   className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
