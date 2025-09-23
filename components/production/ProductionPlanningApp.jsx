@@ -182,8 +182,7 @@ const ProductionPlanningApp = () => {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const newSession = data.session;
+        const newSession = await response.json();
 
         setSessions(prev => [newSession, ...prev]);
         setCurrentSession(newSession);

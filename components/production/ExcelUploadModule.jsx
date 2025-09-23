@@ -272,10 +272,16 @@ const ExcelUploadModule = ({
 
   // Handle column mapping
   const handleColumnMapping = (excelColumn, systemColumn) => {
-    setColumnMappings(prev => ({
-      ...prev,
-      [excelColumn]: systemColumn
-    }));
+    setColumnMappings(prev => {
+      const newMappings = { ...prev };
+      if (systemColumn === 'none' || systemColumn === '') {
+        // Remove mapping if "none" is selected
+        delete newMappings[excelColumn];
+      } else {
+        newMappings[excelColumn] = systemColumn;
+      }
+      return newMappings;
+    });
   };
 
   // Apply column mappings and proceed with upload
@@ -738,14 +744,14 @@ const ExcelUploadModule = ({
                     <div className="text-sm font-medium">{excelColumn}</div>
                     <div>
                       <Select
-                        value={columnMappings[excelColumn] || ''}
+                        value={columnMappings[excelColumn] || 'none'}
                         onValueChange={(value) => handleColumnMapping(excelColumn, value)}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Sütun seçin..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">-- Eşleştirme --</SelectItem>
+                          <SelectItem value="none">-- Eşleştirme --</SelectItem>
                           {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
                             <SelectItem key={expectedCol} value={expectedCol}>
                               {expectedCol}
