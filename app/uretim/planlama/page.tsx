@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MainLayout3 from '@/components/MainLayout3';
-import ClientAuthCheck from '@/components/ClientAuthCheck.jsx';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import ProductionPlanningApp from '@/components/production/ProductionPlanningApp';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -3196,7 +3196,7 @@ function ComprehensiveAPSSystem() {
 
 export default function ProductionPlanningPage() {
   return (
-    <ClientAuthCheck>
+    <ProtectedRoute>
       <MainLayout3>
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
@@ -3209,6 +3209,6 @@ export default function ProductionPlanningPage() {
           </div>
         </div>
       </MainLayout3>
-    </ClientAuthCheck>
+    </ProtectedRoute>
   );
 }
