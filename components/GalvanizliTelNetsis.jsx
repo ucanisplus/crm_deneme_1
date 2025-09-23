@@ -3692,7 +3692,7 @@ const GalvanizliTelNetsis = () => {
             '1', // Reçete Top.
             '', // Fire Oranı (%)
             '', // Oto.Reç.
-            'KG', // Ölçü Br.
+            'KG', // Ölçü Br. (for main product)
             '1', // Sıra No(*) - Always 1 for material
             'B', // Operasyon Bileşen
             sourceYmSt.stok_kodu, // Bileşen Kodu(*)
@@ -3705,7 +3705,16 @@ const GalvanizliTelNetsis = () => {
             'Hammadde Siyah Tel Tüketimi', // Açıklama
             '', // Miktar Sabitle
             '', // Stok/Maliyet
-            '', '', '', '', '', '', '', '', '', '', '', '', '' // Remaining empty fields
+            '', // Fire Mik.
+            '', // Sabit Fire Mik.
+            '', // İstasyon Kodu
+            '', // Hazırlık Süresi
+            '', // Üretim Süresi
+            '', // Ü.A.Dahil Edilsin
+            '', // Son Operasyon
+            '', // Öncelik
+            '', // Planlama Oranı
+            '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
           ];
           worksheet.addRow(materialRow);
 
@@ -3715,27 +3724,27 @@ const GalvanizliTelNetsis = () => {
             '1', // Reçete Top.
             '', // Fire Oranı (%)
             '', // Oto.Reç.
-            'KG', // Ölçü Br.
+            'DK', // Ölçü Br. (DK for operation)
             '2', // Sıra No(*) - Always 2 for operation
             'O', // Operasyon Bileşen
-            'COTLC01', // Bileşen Kodu(*) - Changed from TLC01
+            'COTLC01', // Bileşen Kodu(*)
             '1', // Ölçü Br. - Bileşen
-            recipeCalc.operationDuration.toLocaleString('tr-TR', {
-              minimumFractionDigits: 5,
-              maximumFractionDigits: 5,
-              useGrouping: false
-            }), // Miktar(*)
-            `Coiler Tel Çekme - ${sourceYmSt.cap}mm`, // Açıklama with source diameter
+            '1', // Miktar(*) - Always 1 for operation
+            'Coiler Tel Çekme Operasyonu', // Açıklama
             '', // Miktar Sabitle
             '', // Stok/Maliyet
             '', // Fire Mik.
             '', // Sabit Fire Mik.
             '', // İstasyon Kodu
             '', // Hazırlık Süresi
-            '', // Üretim Süresi
-            '', // Ü.A.Dahil Edilsin
+            recipeCalc.operationDuration.toLocaleString('tr-TR', {
+              minimumFractionDigits: 5,
+              maximumFractionDigits: 5,
+              useGrouping: false
+            }), // Üretim Süresi - Duration goes here!
+            'E', // Ü.A.Dahil Edilsin
             'E', // Son Operasyon
-            'E', // Öncelik
+            '', // Öncelik (was 'E', should be empty)
             '', // Planlama Oranı
             '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
           ];
