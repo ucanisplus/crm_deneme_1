@@ -74,7 +74,7 @@ const ProductionPlanningApp = () => {
   useEffect(() => {
     if (!user) return;
 
-    if (!hasPermission('production_planning')) {
+    if (!hasPermission('page:planlama')) {
       toast.error('Üretim planlaması için yetkiniz bulunmamaktadır');
       router.push('/unauthorized');
       return;
@@ -374,7 +374,7 @@ const ProductionPlanningApp = () => {
     };
   }, [productionOrders, machineSchedules]);
 
-  if (!user || !hasPermission('production_planning')) {
+  if (!user || !hasPermission('page:planlama')) {
     return null;
   }
 
