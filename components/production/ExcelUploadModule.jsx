@@ -41,25 +41,30 @@ const ExcelUploadModule = ({
   const [columnMappings, setColumnMappings] = useState({});
   const fileInputRef = useRef(null);
 
-  // Expected CSV column mapping based on analysis
+  // Expected CSV column mapping based on actual production data
   const EXPECTED_COLUMNS = {
-    'S. Tarihi': 'scheduled_date',
+    'S. Tarihi': 'order_date',
     'Firma': 'customer',
     'Stok Kartı': 'stock_code',
-    'Stok Adı': 'stock_name',
-    'Hasır Tipi': 'hasir_tipi',
-    'Boy': 'boy',
-    'En': 'en',
-    'Çap': 'cap',
-    'Ağırlık (KG)': 'weight_kg',
-    'Miktar': 'quantity',
-    'Birim': 'unit',
-    'Kalan': 'remaining',
-    'Ü. Kalan': 'uretim_kalan',
-    'Kalan KG': 'kalan_kg',
-    'Teslim Tarihi': 'delivery_date',
-    'Sipariş No': 'order_number',
-    'Müşteri Siparişi': 'customer_order'
+    'Hasır cinsi': 'mesh_type',
+    'Boy': 'length',
+    'En': 'width',
+    'Boy çap': 'length_diameter',
+    'En çap': 'width_diameter',
+    'Boy ara': 'length_spacing',
+    'En ara': 'width_spacing',
+    'Filiz Ön': 'front_edge',
+    'Filiz Arka': 'back_edge',
+    'Filiz Sağ': 'right_edge',
+    'Filiz Sol': 'left_edge',
+    'Birim ağırlık': 'unit_weight',
+    'Sipariş miktarı adet': 'order_quantity',
+    'stok(adet)': 'stock_quantity',
+    'stok(kg)': 'stock_weight',
+    'Ü. Kalan': 'remaining_production',
+    'Kalan Kg': 'remaining_weight',
+    'Boy adet': 'length_pieces',
+    'En adet': 'width_pieces'
   };
 
   // File validation rules
@@ -265,25 +270,39 @@ const ExcelUploadModule = ({
 
 
   const validateHeaders = (headers) => {
-    const requiredColumns = ['Firma', 'Stok Kartı', 'Hasır Tipi', 'Boy', 'En', 'Çap'];
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+    // Updated required columns based on actual CSV structure
+    const requiredColumns = ['Firma', 'Stok Kartı', 'Hasır cinsi', 'Sipariş miktarı adet'];
+    const recommendedColumns = ['Boy', 'En', 'Boy çap', 'En çap', 'Birim ağırlık', 'Ü. Kalan'];
+
+    const missingRequired = requiredColumns.filter(col => !headers.includes(col));
+    const missingRecommended = recommendedColumns.filter(col => !headers.includes(col));
     const extraColumns = headers.filter(col => !Object.keys(EXPECTED_COLUMNS).includes(col));
 
     const warnings = [];
     const errors = [];
 
-    if (missingColumns.length > 0) {
-      errors.push(`Eksik sütunlar: ${missingColumns.join(', ')}`);
+    if (missingRequired.length > 0) {
+      errors.push(`Gerekli sütunlar eksik: ${missingRequired.join(', ')}`);
+    }
+
+    if (missingRecommended.length > 0) {
+      warnings.push(`Önerilen sütunlar eksik: ${missingRecommended.join(', ')}`);
     }
 
     if (extraColumns.length > 0) {
       warnings.push(`Bilinmeyen sütunlar (göz ardı edilecek): ${extraColumns.join(', ')}`);
     }
 
+    // Check for weight calculation capability
+    const hasWeightCalculation = headers.includes('Birim ağırlık') && headers.includes('Sipariş miktarı adet');
+    if (!hasWeightCalculation) {
+      warnings.push('Ağırlık hesaplaması için Birim ağırlık ve Sipariş miktarı gerekli');
+    }
+
     // Check for filler products detection capability
     const hasFillerDetection = headers.includes('Firma') && headers.includes('Ü. Kalan');
     if (!hasFillerDetection) {
-      warnings.push('Dolgu ürünü algılama için gerekli sütunlar eksik olabilir');
+      warnings.push('Dolgu ürünü algılama için Firma ve Ü. Kalan sütunları gerekli');
     }
 
     return {
@@ -292,7 +311,7 @@ const ExcelUploadModule = ({
       warnings,
       requiredColumns,
       foundColumns: headers.filter(col => Object.keys(EXPECTED_COLUMNS).includes(col)),
-      missingColumns,
+      missingColumns: missingRequired,
       extraColumns
     };
   };
@@ -351,49 +370,73 @@ const ExcelUploadModule = ({
     }
   };
 
-  // Auto-detect columns (like CelikHasirHesaplama)
+  // Auto-detect columns based on actual production CSV data structure
   const autoDetectColumns = (headers) => {
     const detected = {};
 
     headers.forEach((header, index) => {
-      const headerLower = String(header || '').toLowerCase();
+      const headerLower = String(header || '').toLowerCase().trim();
 
-      // Auto-detect based on header text
-      if (headerLower.includes('tarih') || headerLower.includes('date')) {
-        detected.scheduled_date = index;
-      } else if (headerLower.includes('firma') || headerLower.includes('customer')) {
+      // Match exact column names from actual CSV data
+      if (headerLower === 's. tarihi' || headerLower.includes('sipariş') && headerLower.includes('tarihi')) {
+        detected.order_date = index;
+      } else if (headerLower === 'firma' || headerLower.includes('customer')) {
         detected.customer = index;
-      } else if (headerLower.includes('stok') && headerLower.includes('kod')) {
+      } else if (headerLower === 'stok kartı' || headerLower.includes('stok') && headerLower.includes('kart')) {
         detected.stock_code = index;
-      } else if (headerLower.includes('stok') && headerLower.includes('ad')) {
-        detected.stock_name = index;
-      } else if (headerLower.includes('hasır') && headerLower.includes('tip')) {
+      } else if (headerLower === 'hasır cinsi' || headerLower.includes('hasır') && headerLower.includes('cins')) {
         detected.mesh_type = index;
-      } else if (headerLower.includes('boy') && !headerLower.includes('çap')) {
+      } else if (headerLower === 'boy' && !headerLower.includes('çap') && !headerLower.includes('ara') && !headerLower.includes('adet')) {
         detected.length = index;
-      } else if (headerLower.includes('en') && !headerLower.includes('çap')) {
+      } else if (headerLower === 'en' && !headerLower.includes('çap') && !headerLower.includes('ara') && !headerLower.includes('adet')) {
         detected.width = index;
-      } else if (headerLower.includes('çap') || headerLower.includes('diameter')) {
-        detected.diameter = index;
-      } else if (headerLower.includes('miktar') || headerLower.includes('quantity')) {
-        detected.quantity = index;
-      } else if (headerLower.includes('birim') || headerLower.includes('unit')) {
-        detected.unit = index;
+      } else if (headerLower === 'boy çap' || (headerLower.includes('boy') && headerLower.includes('çap'))) {
+        detected.length_diameter = index;
+      } else if (headerLower === 'en çap' || (headerLower.includes('en') && headerLower.includes('çap'))) {
+        detected.width_diameter = index;
+      } else if (headerLower === 'boy ara' || (headerLower.includes('boy') && headerLower.includes('ara'))) {
+        detected.length_spacing = index;
+      } else if (headerLower === 'en ara' || (headerLower.includes('en') && headerLower.includes('ara'))) {
+        detected.width_spacing = index;
+      } else if (headerLower === 'sipariş miktarı adet' || (headerLower.includes('sipariş') && headerLower.includes('miktar'))) {
+        detected.order_quantity = index;
+      } else if (headerLower === 'ü. kalan' || headerLower.includes('kalan') && !headerLower.includes('kg')) {
+        detected.remaining_production = index;
+      } else if (headerLower === 'kalan kg' || (headerLower.includes('kalan') && headerLower.includes('kg'))) {
+        detected.remaining_weight = index;
+      } else if (headerLower === 'birim ağırlık' || (headerLower.includes('birim') && headerLower.includes('ağırlık'))) {
+        detected.unit_weight = index;
+      } else if (headerLower === 'stok(adet)' || (headerLower.includes('stok') && headerLower.includes('adet'))) {
+        detected.stock_quantity = index;
+      } else if (headerLower === 'stok(kg)' || (headerLower.includes('stok') && headerLower.includes('kg'))) {
+        detected.stock_weight = index;
+      } else if (headerLower === 'boy adet' || (headerLower.includes('boy') && headerLower.includes('adet'))) {
+        detected.length_pieces = index;
+      } else if (headerLower === 'en adet' || (headerLower.includes('en') && headerLower.includes('adet'))) {
+        detected.width_pieces = index;
       }
     });
 
     // Convert undefined to -1 for undetected columns
     return {
-      scheduled_date: detected.scheduled_date !== undefined ? detected.scheduled_date : -1,
+      order_date: detected.order_date !== undefined ? detected.order_date : -1,
       customer: detected.customer !== undefined ? detected.customer : -1,
       stock_code: detected.stock_code !== undefined ? detected.stock_code : -1,
-      stock_name: detected.stock_name !== undefined ? detected.stock_name : -1,
       mesh_type: detected.mesh_type !== undefined ? detected.mesh_type : -1,
       length: detected.length !== undefined ? detected.length : -1,
       width: detected.width !== undefined ? detected.width : -1,
-      diameter: detected.diameter !== undefined ? detected.diameter : -1,
-      quantity: detected.quantity !== undefined ? detected.quantity : -1,
-      unit: detected.unit !== undefined ? detected.unit : -1
+      length_diameter: detected.length_diameter !== undefined ? detected.length_diameter : -1,
+      width_diameter: detected.width_diameter !== undefined ? detected.width_diameter : -1,
+      length_spacing: detected.length_spacing !== undefined ? detected.length_spacing : -1,
+      width_spacing: detected.width_spacing !== undefined ? detected.width_spacing : -1,
+      order_quantity: detected.order_quantity !== undefined ? detected.order_quantity : -1,
+      remaining_production: detected.remaining_production !== undefined ? detected.remaining_production : -1,
+      remaining_weight: detected.remaining_weight !== undefined ? detected.remaining_weight : -1,
+      unit_weight: detected.unit_weight !== undefined ? detected.unit_weight : -1,
+      stock_quantity: detected.stock_quantity !== undefined ? detected.stock_quantity : -1,
+      stock_weight: detected.stock_weight !== undefined ? detected.stock_weight : -1,
+      length_pieces: detected.length_pieces !== undefined ? detected.length_pieces : -1,
+      width_pieces: detected.width_pieces !== undefined ? detected.width_pieces : -1
     };
   };
 
@@ -413,9 +456,9 @@ const ExcelUploadModule = ({
   };
 
   const handleConfirmMapping = () => {
-    // Check required fields
-    if (columnMappings.customer === -1 || columnMappings.stock_code === -1 || columnMappings.quantity === -1) {
-      alert('Lütfen en az Firma, Stok Kodu ve Miktar sütunlarını seçin.');
+    // Check required fields based on actual data structure
+    if (columnMappings.customer === -1 || columnMappings.stock_code === -1 || columnMappings.order_quantity === -1) {
+      alert('Lütfen en az Firma, Stok Kartı ve Sipariş Miktarı sütunlarını seçin.');
       return;
     }
 
@@ -425,27 +468,32 @@ const ExcelUploadModule = ({
   };
 
   const downloadTemplate = () => {
-    // Create template Excel file
+    // Create template Excel file based on actual CSV structure
     const templateData = [
       Object.keys(EXPECTED_COLUMNS),
       [
-        '2024-01-15',
-        'ÖRNEK FİRMA',
-        'STOK001',
-        'Q188 15x15 Ø4.5 200x300',
-        'Q',
-        '300',
-        '200',
-        '4.5',
-        '125.5',
-        '10',
-        'adet',
-        '10',
-        '10',
-        '125.5',
-        '2024-01-20',
-        'SIP001',
-        'MSP001'
+        '2024-01-15', // S. Tarihi
+        'ÖRNEK FİRMA', // Firma
+        'STOK001', // Stok Kartı
+        'Q188 15x15 Ø4.5', // Hasır cinsi
+        '300', // Boy
+        '200', // En
+        '4.5', // Boy çap
+        '4.5', // En çap
+        '15', // Boy ara
+        '15', // En ara
+        '10', // Filiz Ön
+        '10', // Filiz Arka
+        '10', // Filiz Sağ
+        '10', // Filiz Sol
+        '12.5', // Birim ağırlık
+        '10', // Sipariş miktarı adet
+        '10', // stok(adet)
+        '125.0', // stok(kg)
+        '5', // Ü. Kalan
+        '62.5', // Kalan Kg
+        '20', // Boy adet
+        '15' // En adet
       ]
     ];
 
@@ -731,7 +779,9 @@ const ExcelUploadModule = ({
         <div className="text-xs text-gray-500 space-y-1">
           <p>• Excel dosyası Üretim Takip formatında olmalıdır</p>
           <p>• Dolgu ürünleri: Firma sütunu boş VEYA ALBAYRAK MÜŞTERİ + Ü.Kalan = 0</p>
-          <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır Tipi, Boy, En, Çap</p>
+          <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır cinsi, Sipariş miktarı adet</p>
+          <p>• Ağırlık hesaplaması için: Birim ağırlık × Sipariş miktarı kullanılır</p>
+          <p>• Önerilen sütunlar: Boy, En, Boy çap, En çap, Birim ağırlık, Ü. Kalan</p>
         </div>
       </CardContent>
     </Card>
@@ -775,7 +825,7 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stok Kodu <span className="text-red-500">*</span>
+                  Stok Kartı <span className="text-red-500">*</span>
                   {columnMappings.stock_code !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
                 </label>
                 <select
@@ -794,13 +844,13 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stok Adı
-                  {columnMappings.stock_name !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                  Hasır Cinsi
+                  {columnMappings.mesh_type !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
                 </label>
                 <select
-                  className={`w-full border rounded-md p-2 ${columnMappings.stock_name !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
-                  value={columnMappings.stock_name || -1}
-                  onChange={(e) => handleMappingChange('stock_name', e.target.value)}
+                  className={`w-full border rounded-md p-2 ${columnMappings.mesh_type !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.mesh_type || -1}
+                  onChange={(e) => handleMappingChange('mesh_type', e.target.value)}
                 >
                   <option value="-1">Seçiniz</option>
                   {previewData.headers.map((header, index) => (
@@ -813,13 +863,13 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Miktar <span className="text-red-500">*</span>
-                  {columnMappings.quantity !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                  Sipariş Miktarı <span className="text-red-500">*</span>
+                  {columnMappings.order_quantity !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
                 </label>
                 <select
-                  className={`w-full border rounded-md p-2 ${columnMappings.quantity !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
-                  value={columnMappings.quantity || -1}
-                  onChange={(e) => handleMappingChange('quantity', e.target.value)}
+                  className={`w-full border rounded-md p-2 ${columnMappings.order_quantity !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.order_quantity || -1}
+                  onChange={(e) => handleMappingChange('order_quantity', e.target.value)}
                 >
                   <option value="-1">Seçiniz</option>
                   {previewData.headers.map((header, index) => (
@@ -832,13 +882,13 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Birim
-                  {columnMappings.unit !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                  Boy
+                  {columnMappings.length !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
                 </label>
                 <select
-                  className={`w-full border rounded-md p-2 ${columnMappings.unit !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
-                  value={columnMappings.unit || -1}
-                  onChange={(e) => handleMappingChange('unit', e.target.value)}
+                  className={`w-full border rounded-md p-2 ${columnMappings.length !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.length || -1}
+                  onChange={(e) => handleMappingChange('length', e.target.value)}
                 >
                   <option value="-1">Seçiniz</option>
                   {previewData.headers.map((header, index) => (
@@ -851,13 +901,89 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Teslim Tarihi
-                  {columnMappings.scheduled_date !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                  En
+                  {columnMappings.width !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
                 </label>
                 <select
-                  className={`w-full border rounded-md p-2 ${columnMappings.scheduled_date !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
-                  value={columnMappings.scheduled_date || -1}
-                  onChange={(e) => handleMappingChange('scheduled_date', e.target.value)}
+                  className={`w-full border rounded-md p-2 ${columnMappings.width !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.width || -1}
+                  onChange={(e) => handleMappingChange('width', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Boy Çap
+                  {columnMappings.length_diameter !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.length_diameter !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.length_diameter || -1}
+                  onChange={(e) => handleMappingChange('length_diameter', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  En Çap
+                  {columnMappings.width_diameter !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.width_diameter !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.width_diameter || -1}
+                  onChange={(e) => handleMappingChange('width_diameter', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ü. Kalan
+                  {columnMappings.remaining_production !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.remaining_production !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.remaining_production || -1}
+                  onChange={(e) => handleMappingChange('remaining_production', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sipariş Tarihi
+                  {columnMappings.order_date !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.order_date !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.order_date || -1}
+                  onChange={(e) => handleMappingChange('order_date', e.target.value)}
                 >
                   <option value="-1">Seçiniz</option>
                   {previewData.headers.map((header, index) => (
@@ -885,19 +1011,31 @@ const ExcelUploadModule = ({
                           <span className="text-green-600 text-[10px]">(Firma)</span>
                         )}
                         {columnMappings.stock_code === index && (
-                          <span className="text-green-600 text-[10px]">(Stok Kodu)</span>
+                          <span className="text-green-600 text-[10px]">(Stok Kartı)</span>
                         )}
-                        {columnMappings.stock_name === index && (
-                          <span className="text-blue-600 text-[10px]">(Stok Adı)</span>
+                        {columnMappings.mesh_type === index && (
+                          <span className="text-blue-600 text-[10px]">(Hasır Cinsi)</span>
                         )}
-                        {columnMappings.quantity === index && (
-                          <span className="text-green-600 text-[10px]">(Miktar)</span>
+                        {columnMappings.order_quantity === index && (
+                          <span className="text-green-600 text-[10px]">(Sipariş Miktarı)</span>
                         )}
-                        {columnMappings.unit === index && (
-                          <span className="text-blue-600 text-[10px]">(Birim)</span>
+                        {columnMappings.length === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy)</span>
                         )}
-                        {columnMappings.scheduled_date === index && (
-                          <span className="text-blue-600 text-[10px]">(Tarih)</span>
+                        {columnMappings.width === index && (
+                          <span className="text-blue-600 text-[10px]">(En)</span>
+                        )}
+                        {columnMappings.length_diameter === index && (
+                          <span className="text-blue-600 text-[10px]">(Boy Çap)</span>
+                        )}
+                        {columnMappings.width_diameter === index && (
+                          <span className="text-blue-600 text-[10px]">(En Çap)</span>
+                        )}
+                        {columnMappings.remaining_production === index && (
+                          <span className="text-blue-600 text-[10px]">(Ü. Kalan)</span>
+                        )}
+                        {columnMappings.order_date === index && (
+                          <span className="text-blue-600 text-[10px]">(Sipariş Tarihi)</span>
                         )}
                       </div>
                     </th>
