@@ -423,6 +423,7 @@ const ExcelUploadModule = ({
   };
 
   return (
+    <>
     <Card className="excel-upload-module">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
@@ -709,77 +710,78 @@ const ExcelUploadModule = ({
           <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır Tipi, Boy, En, Çap</p>
         </div>
       </CardContent>
+    </Card>
 
-      {/* Column Mapping Dialog */}
-      <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Sütun Eşleştirme</DialogTitle>
-          </DialogHeader>
+    {/* Column Mapping Dialog */}
+    <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Sütun Eşleştirme</DialogTitle>
+        </DialogHeader>
 
-          {previewData && (
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600">
-                Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
+        {previewData && (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
+            </div>
+
+            <div className="grid gap-3">
+              <div className="grid grid-cols-3 gap-2 text-xs font-medium bg-gray-50 p-2 rounded">
+                <div>Excel Sütunu</div>
+                <div>Sistem Sütunu</div>
+                <div>Örnek Veri</div>
               </div>
 
-              <div className="grid gap-3">
-                <div className="grid grid-cols-3 gap-2 text-xs font-medium bg-gray-50 p-2 rounded">
-                  <div>Excel Sütunu</div>
-                  <div>Sistem Sütunu</div>
-                  <div>Örnek Veri</div>
-                </div>
-
-                {previewData.headers.map((excelColumn, index) => {
-                  const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
-                  return (
-                    <div key={index} className="grid grid-cols-3 gap-2 items-center p-2 border rounded">
-                      <div className="text-sm font-medium">{excelColumn}</div>
-                      <div>
-                        <Select
-                          value={columnMappings[excelColumn] || ''}
-                          onValueChange={(value) => handleColumnMapping(excelColumn, value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Sütun seçin..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="">-- Eşleştirme --</SelectItem>
-                            {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
-                              <SelectItem key={expectedCol} value={expectedCol}>
-                                {expectedCol}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="text-xs text-gray-600 truncate" title={String(sampleData)}>
-                        {String(sampleData).substring(0, 30)}
-                        {String(sampleData).length > 30 && '...'}
-                      </div>
+              {previewData.headers.map((excelColumn, index) => {
+                const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
+                return (
+                  <div key={index} className="grid grid-cols-3 gap-2 items-center p-2 border rounded">
+                    <div className="text-sm font-medium">{excelColumn}</div>
+                    <div>
+                      <Select
+                        value={columnMappings[excelColumn] || ''}
+                        onValueChange={(value) => handleColumnMapping(excelColumn, value)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Sütun seçin..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">-- Eşleştirme --</SelectItem>
+                          {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
+                            <SelectItem key={expectedCol} value={expectedCol}>
+                              {expectedCol}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="text-xs text-gray-600 truncate" title={String(sampleData)}>
+                      {String(sampleData).substring(0, 30)}
+                      {String(sampleData).length > 30 && '...'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-              <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
-                  İptal
+            <div className="flex justify-between pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
+                İptal
+              </Button>
+              <div className="space-x-2">
+                <Button variant="outline" onClick={() => setColumnMappings({})}>
+                  Sıfırla
                 </Button>
-                <div className="space-x-2">
-                  <Button variant="outline" onClick={() => setColumnMappings({})}>
-                    Sıfırla
-                  </Button>
-                  <Button onClick={handleConfirmMapping}>
-                    Eşleştirmeyi Onayla ve Devam Et
-                  </Button>
-                </div>
+                <Button onClick={handleConfirmMapping}>
+                  Eşleştirmeyi Onayla ve Devam Et
+                </Button>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </Card>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
