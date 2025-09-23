@@ -262,12 +262,6 @@ const ExcelUploadModule = ({
     });
   };
 
-  // Apply column mappings and proceed with upload
-  const handleConfirmMapping = () => {
-    setShowColumnMapping(false);
-    // The mappings will be sent with the file upload
-    handleProcessFile();
-  };
 
   // Show column mapping interface if validation fails
   const handleShowColumnMapping = () => {
