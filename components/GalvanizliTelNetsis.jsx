@@ -71,7 +71,9 @@ const GalvanizliTelNetsis = () => {
 
   // Coiler Recete modali icin state'ler
   const [showCoilerReceteModal, setShowCoilerReceteModal] = useState(false);
-  const [coilerTargetYmSt, setCoilerTargetYmSt] = useState('');
+  const [coilerTargetDiameter, setCoilerTargetDiameter] = useState('');
+  const [coilerTargetFilmasin, setCoilerTargetFilmasin] = useState('');
+  const [coilerTargetQuality, setCoilerTargetQuality] = useState('');
   const [coilerSourceYmSt, setCoilerSourceYmSt] = useState(null);
   const [coilerSourceYmStSearch, setCoilerSourceYmStSearch] = useState('');
   const [isGeneratingCoilerExcel, setIsGeneratingCoilerExcel] = useState(false);
@@ -3578,39 +3580,65 @@ const GalvanizliTelNetsis = () => {
 
   // ======================= COILER RECETE FUNCTIONS =======================
 
-  // Validate Coiler YM ST target input
-  const validateCoilerTargetYmSt = (stokKodu) => {
+  // Validate Coiler target inputs
+  const validateCoilerTargetInputs = () => {
     const errors = [];
 
-    // Check format: YM.ST.XXXX.XXXX.XXXX
-    const ymStPattern = /^YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})$/;
-    const match = stokKodu.match(ymStPattern);
-
-    if (!match) {
-      errors.push('Stok kodu formatı yanlış. Örnek: YM.ST.0400.0600.1006');
-      return { valid: false, errors };
-    }
-
-    const [, capStr, filmasinStr, qualityStr] = match;
-    const diameter = parseFloat(capStr) / 100; // Convert 0400 to 4.00
-    const filmasin = parseFloat(filmasinStr) / 100; // Convert 0600 to 6.00
-    const quality = qualityStr;
-
-    // Check diameter range (0.8mm to 4mm)
-    if (diameter < 0.8 || diameter > 4.0) {
+    // Validate diameter
+    const diameter = parseFloat(coilerTargetDiameter);
+    if (!coilerTargetDiameter || isNaN(diameter)) {
+      errors.push('Çap değeri gereklidir');
+    } else if (diameter < 0.8 || diameter > 4.0) {
       errors.push(`Çap ${diameter}mm izin verilen aralıkta değil (0.8mm - 4.0mm)`);
     }
+
+    // Validate filmaşin
+    const filmasin = parseFloat(coilerTargetFilmasin);
+    if (!coilerTargetFilmasin || isNaN(filmasin)) {
+      errors.push('Filmaşin değeri gereklidir');
+    }
+
+    // Validate quality
+    if (!coilerTargetQuality) {
+      errors.push('Kalite seçimi gereklidir');
+    }
+
+    const capStr = Math.round(diameter * 100).toString().padStart(4, '0');
+    const filmasinStr = Math.round(filmasin * 100).toString().padStart(4, '0');
+    const targetStokKodu = `YM.ST.${capStr}.${filmasinStr}.${coilerTargetQuality}`;
 
     return {
       valid: errors.length === 0,
       errors,
       diameter,
       filmasin,
-      quality,
+      quality: coilerTargetQuality,
       capStr,
       filmasinStr,
-      qualityStr
+      targetStokKodu
     };
+  };
+
+  // Get available filmaşin options based on diameter
+  const getAvailableFilmasinOptions = () => {
+    const diameter = parseFloat(coilerTargetDiameter);
+    if (isNaN(diameter)) return [];
+
+    // Get options from FILMASIN_MAPPING for the diameter
+    const filmasinOptions = getFilmasinForCapFromMapping(diameter);
+    if (filmasinOptions) {
+      // Return all available filmaşin values, not just the first one
+      const allOptions = Object.values(FILMASIN_MAPPING)
+        .flat()
+        .map(opt => opt.filmasin)
+        .filter((value, index, self) => self.indexOf(value) === index)
+        .sort((a, b) => a - b);
+
+      return allOptions;
+    }
+
+    // Fallback: common filmaşin sizes
+    return [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 11.0, 12.0, 13.0];
   };
 
   // Filter and search source YM STs
@@ -3660,12 +3688,12 @@ const GalvanizliTelNetsis = () => {
 
   // Generate Coiler Excel file
   const generateCoilerExcel = async () => {
-    if (!coilerTargetYmSt || !coilerSourceYmSt) {
-      toast.error('Lütfen hedef YM ST ve kaynak YM ST seçin');
+    if (!coilerSourceYmSt) {
+      toast.error('Lütfen kaynak YM ST seçin');
       return;
     }
 
-    const validation = validateCoilerTargetYmSt(coilerTargetYmSt);
+    const validation = validateCoilerTargetInputs();
     if (!validation.valid) {
       toast.error(`Validation error: ${validation.errors.join(', ')}`);
       return;
@@ -3685,7 +3713,6 @@ const GalvanizliTelNetsis = () => {
       const recipeValues = calculateCoilerRecipeValues(validation, coilerSourceYmSt);
 
       if (recipeValues) {
-        let siraNo = 1;
         const recipeEntries = Object.entries(recipeValues);
 
         // Fixed order: Source YM ST first, then TLC01
@@ -3694,43 +3721,50 @@ const GalvanizliTelNetsis = () => {
 
         const orderedEntries = [sourceYmStEntry, tlc01Entry].filter(Boolean);
 
-        orderedEntries.forEach(([bilesenKodu, miktar]) => {
-          if (miktar !== '' && miktar > 0) {
+        orderedEntries.forEach(([bilesenKodu, miktar], index) => {
+          if (miktar !== '' && miktar !== null && miktar !== undefined) {
             const isOperation = bilesenKodu === 'TLC01';
-            const olcuBr = isOperation ? 'DK' : 'KG';
-            const aciklama = getReceteAciklama(bilesenKodu);
+            const siraNo = index + 1;
 
-            // Format miktar to 5 decimal places
-            const formattedMiktar = typeof miktar === 'number'
-              ? miktar.toLocaleString('en-US', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 5,
-                  useGrouping: false
-                })
-              : miktar;
+            // Format miktar to match Excel format (comma as decimal separator)
+            let formattedMiktar;
+            if (typeof miktar === 'number' && miktar > 0) {
+              formattedMiktar = miktar.toLocaleString('tr-TR', {
+                minimumFractionDigits: 5,
+                maximumFractionDigits: 5,
+                useGrouping: false
+              });
+            } else {
+              formattedMiktar = '1,00000'; // Default for source material
+            }
+
+            // Get proper description
+            const aciklama = isOperation ? 'Tel Çekme Operasyonu' :
+                            bilesenKodu.includes('YM.ST.') ? 'Siyah Tel Tüketim Miktarı' :
+                            getReceteAciklama(bilesenKodu);
 
             const recipeRow = [
-              coilerTargetYmSt, // Mamul Kodu
-              '', // Reçete Top
-              '', // Fire Oranı
+              validation.targetStokKodu, // Mamul Kodu(*)
+              '1', // Reçete Top.
+              '', // Fire Oranı (%)
               '', // Oto.Reç.
-              'KG', // Ölçü Br. (for target product)
-              siraNo++, // Sıra No
-              isOperation ? 'O' : 'B', // Operasyon/Bileşen
-              bilesenKodu, // Bileşen Kodu
-              olcuBr, // Ölçü Br. - Bileşen
-              formattedMiktar, // Miktar
+              'KG', // Ölçü Br.
+              siraNo, // Sıra No(*)
+              isOperation ? 'O' : 'B', // Operasyon Bileşen
+              bilesenKodu, // Bileşen Kodu(*)
+              '1', // Ölçü Br. - Bileşen (always 1 for both KG and DK)
+              formattedMiktar, // Miktar(*)
               aciklama, // Açıklama
-              'H', // Miktar Sabitle
-              'S', // Stok/Maliyet
+              '', // Miktar Sabitle
+              '', // Stok/Maliyet
               '', // Fire Mik.
               '', // Sabit Fire Mik.
               '', // İstasyon Kodu
               '', // Hazırlık Süresi
               '', // Üretim Süresi
-              'H', // Ü.A.Dahil Edilsin
-              '', // Son Operasyon
-              '', // Öncelik
+              '', // Ü.A.Dahil Edilsin
+              isOperation ? 'E' : '', // Son Operasyon (E for TLC01)
+              isOperation ? 'E' : '', // Öncelik (E for TLC01)
               '', // Planlama Oranı
               '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
             ];
@@ -3751,9 +3785,11 @@ const GalvanizliTelNetsis = () => {
 
       toast.success(`Coiler Reçete Excel dosyası oluşturuldu: ${filename}`);
 
-      // Close modal
+      // Close modal and reset form
       setShowCoilerReceteModal(false);
-      setCoilerTargetYmSt('');
+      setCoilerTargetDiameter('');
+      setCoilerTargetFilmasin('');
+      setCoilerTargetQuality('');
       setCoilerSourceYmSt(null);
       setCoilerSourceYmStSearch('');
 
@@ -13899,40 +13935,89 @@ const GalvanizliTelNetsis = () => {
                   İnce çaplı YM ST ürünleri (0.8mm-4mm) için kalın YM ST malzemesi kullanarak Coiler reçetesi oluşturun.
                 </p>
 
-                {/* Target YM ST Input */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Hedef YM ST Stok Kodu *
-                  </label>
-                  <input
-                    type="text"
-                    value={coilerTargetYmSt}
-                    onChange={(e) => setCoilerTargetYmSt(e.target.value.toUpperCase())}
-                    placeholder="YM.ST.0400.0600.1006"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Format: YM.ST.XXXX.XXXX.XXXX (Çap aralığı: 0.8mm - 4.0mm)
-                  </p>
-                  {coilerTargetYmSt && (() => {
-                    const validation = validateCoilerTargetYmSt(coilerTargetYmSt);
-                    if (!validation.valid) {
-                      return (
-                        <div className="text-xs text-red-600">
-                          {validation.errors.map((error, index) => (
-                            <div key={index}>• {error}</div>
-                          ))}
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div className="text-xs text-green-600">
-                          ✓ Çap: {validation.diameter}mm, Filmaşin: {validation.filmasin}mm, Kalite: {validation.quality}
-                        </div>
-                      );
-                    }
-                  })()}
+                {/* Target YM ST Inputs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Çap (mm) *
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={coilerTargetDiameter}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/,/g, '.');
+                        setCoilerTargetDiameter(value);
+                        // Auto-suggest filmaşin when diameter changes
+                        const diameter = parseFloat(value);
+                        if (!isNaN(diameter) && diameter >= 0.8 && diameter <= 4.0) {
+                          const suggested = getFilmasinForCapFromMapping(diameter);
+                          if (suggested && !coilerTargetFilmasin) {
+                            setCoilerTargetFilmasin(suggested.filmasin.toString());
+                            setCoilerTargetQuality(suggested.quality);
+                          }
+                        }
+                      }}
+                      placeholder="3.34"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500">Aralık: 0.8 - 4.0mm</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Filmaşin (mm) *
+                    </label>
+                    <select
+                      value={coilerTargetFilmasin}
+                      onChange={(e) => setCoilerTargetFilmasin(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seçin</option>
+                      {getAvailableFilmasinOptions().map(filmasin => (
+                        <option key={filmasin} value={filmasin}>
+                          {filmasin}mm
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Kalite *
+                    </label>
+                    <select
+                      value={coilerTargetQuality}
+                      onChange={(e) => setCoilerTargetQuality(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seçin</option>
+                      <option value="1006">1006</option>
+                      <option value="1008">1008</option>
+                      <option value="1010">1010</option>
+                    </select>
+                  </div>
                 </div>
+
+                {/* Validation feedback */}
+                {(coilerTargetDiameter || coilerTargetFilmasin || coilerTargetQuality) && (() => {
+                  const validation = validateCoilerTargetInputs();
+                  if (!validation.valid) {
+                    return (
+                      <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                        {validation.errors.map((error, index) => (
+                          <div key={index}>• {error}</div>
+                        ))}
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+                        ✓ Hedef Stok Kodu: {validation.targetStokKodu}
+                      </div>
+                    );
+                  }
+                })()}
 
                 {/* Source YM ST Selection */}
                 <div className="space-y-2">
@@ -13998,7 +14083,9 @@ const GalvanizliTelNetsis = () => {
                   <button
                     onClick={() => {
                       setShowCoilerReceteModal(false);
-                      setCoilerTargetYmSt('');
+                      setCoilerTargetDiameter('');
+                      setCoilerTargetFilmasin('');
+                      setCoilerTargetQuality('');
                       setCoilerSourceYmSt(null);
                       setCoilerSourceYmStSearch('');
                     }}
@@ -14008,7 +14095,7 @@ const GalvanizliTelNetsis = () => {
                   </button>
                   <button
                     onClick={generateCoilerExcel}
-                    disabled={isGeneratingCoilerExcel || !coilerTargetYmSt || !coilerSourceYmSt}
+                    disabled={isGeneratingCoilerExcel || !coilerTargetDiameter || !coilerTargetFilmasin || !coilerTargetQuality || !coilerSourceYmSt}
                     className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isGeneratingCoilerExcel ? (
