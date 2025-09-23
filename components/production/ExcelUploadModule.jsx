@@ -423,7 +423,7 @@ const ExcelUploadModule = ({
   };
 
   return (
-    <>
+    <div className="excel-upload-wrapper">
     <Card className="excel-upload-module">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
@@ -781,7 +781,7 @@ const ExcelUploadModule = ({
         )}
       </DialogContent>
     </Dialog>
-    </>
+    </div>
   );
 };
 
