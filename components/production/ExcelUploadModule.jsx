@@ -263,25 +263,6 @@ const ExcelUploadModule = ({
   };
 
 
-  // Show column mapping interface if validation fails
-  const handleShowColumnMapping = () => {
-    if (!previewData) return;
-
-    // Initialize mappings with automatic matches
-    const autoMappings = {};
-    previewData.headers.forEach(header => {
-      const lowerHeader = header.toLowerCase();
-      Object.entries(EXPECTED_COLUMNS).forEach(([expectedKey, systemKey]) => {
-        if (lowerHeader.includes(expectedKey.toLowerCase()) ||
-            expectedKey.toLowerCase().includes(lowerHeader)) {
-          autoMappings[header] = expectedKey;
-        }
-      });
-    });
-
-    setColumnMappings(autoMappings);
-    setShowColumnMapping(true);
-  };
 
   const validateHeaders = (headers) => {
     const requiredColumns = ['Firma', 'Stok Kartı', 'Hasır Tipi', 'Boy', 'En', 'Çap'];
