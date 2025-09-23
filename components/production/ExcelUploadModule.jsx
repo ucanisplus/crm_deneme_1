@@ -17,7 +17,8 @@ import {
   X,
   Download,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
@@ -719,65 +720,127 @@ const ExcelUploadModule = ({
 
     {/* Column Mapping Dialog */}
     <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Sütun Eşleştirme</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">Sütun Eşleştirme</DialogTitle>
+            </DialogHeader>
+          </div>
+        </div>
 
         {previewData && (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            <div className="mb-6">
+              <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-blue-900 mb-1">Sütun Eşleştirme Talimatları</p>
+                    <p className="text-blue-800">
+                      Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-3">
-              <div className="grid grid-cols-3 gap-2 text-xs font-medium bg-gray-50 p-2 rounded">
-                <div>Excel Sütunu</div>
-                <div>Sistem Sütunu</div>
-                <div>Örnek Veri</div>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {/* Table Header */}
+              <div className="bg-gray-50 border-b border-gray-200">
+                <div className="grid grid-cols-3 gap-4 p-4">
+                  <div className="text-sm font-semibold text-gray-700">Excel Sütunu</div>
+                  <div className="text-sm font-semibold text-gray-700">Sistem Sütunu</div>
+                  <div className="text-sm font-semibold text-gray-700">Örnek Veri</div>
+                </div>
               </div>
 
-              {previewData.headers.map((excelColumn, index) => {
-                const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
-                return (
-                  <div key={index} className="grid grid-cols-3 gap-2 items-center p-2 border rounded">
-                    <div className="text-sm font-medium">{excelColumn}</div>
-                    <div>
-                      <Select
-                        value={columnMappings[excelColumn] || 'none'}
-                        onValueChange={(value) => handleColumnMapping(excelColumn, value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Sütun seçin..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">-- Eşleştirme --</SelectItem>
-                          {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
-                            <SelectItem key={expectedCol} value={expectedCol}>
-                              {expectedCol}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              {/* Mapping Rows */}
+              <div className="divide-y divide-gray-200">
+                {previewData.headers.map((excelColumn, index) => {
+                  const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
+                  const isEven = index % 2 === 0;
+                  return (
+                    <div key={index} className={`grid grid-cols-3 gap-4 p-4 items-center transition-colors hover:bg-gray-50 ${isEven ? 'bg-white' : 'bg-gray-25'}`}>
+                      <div className="text-sm font-medium text-gray-900">
+                        {excelColumn}
+                      </div>
+                      <div>
+                        <Select
+                          value={columnMappings[excelColumn] || 'none'}
+                          onValueChange={(value) => handleColumnMapping(excelColumn, value)}
+                        >
+                          <SelectTrigger className="w-full shadow-sm">
+                            <SelectValue placeholder="Sütun seçin..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">-- Eşleştirme Yok --</SelectItem>
+                            {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
+                              <SelectItem key={expectedCol} value={expectedCol}>
+                                {expectedCol}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <div className="bg-gray-50 border border-gray-200 rounded px-3 py-2 max-w-xs">
+                          <div className="truncate" title={String(sampleData)}>
+                            {String(sampleData).substring(0, 35)}
+                            {String(sampleData).length > 35 && '...'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-600 truncate" title={String(sampleData)}>
-                      {String(sampleData).substring(0, 30)}
-                      {String(sampleData).length > 30 && '...'}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
+            {/* Statistics */}
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-blue-900">Toplam Sütun</div>
+                <div className="text-lg font-semibold text-blue-700">{previewData.headers.length}</div>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-green-900">Eşleştirilen</div>
+                <div className="text-lg font-semibold text-green-700">
+                  {Object.values(columnMappings).filter(val => val !== 'none').length}
+                </div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-900">Eşleştirilmemiş</div>
+                <div className="text-lg font-semibold text-gray-700">
+                  {previewData.headers.length - Object.values(columnMappings).filter(val => val !== 'none').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowColumnMapping(false)}
+                className="shadow-sm"
+              >
                 İptal
               </Button>
-              <div className="space-x-2">
-                <Button variant="outline" onClick={() => setColumnMappings({})}>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setColumnMappings({})}
+                  className="shadow-sm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
                   Sıfırla
                 </Button>
-                <Button onClick={handleConfirmMapping}>
+                <Button
+                  onClick={handleConfirmMapping}
+                  className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
+                  disabled={Object.values(columnMappings).filter(val => val !== 'none').length === 0}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
                   Eşleştirmeyi Onayla ve Devam Et
                 </Button>
               </div>
