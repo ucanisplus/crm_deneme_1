@@ -42,6 +42,8 @@ const ExcelUploadModule = ({
   const [allSheetData, setAllSheetData] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [mappingFilter, setMappingFilter] = useState('all');
+  const [selectedColumns, setSelectedColumns] = useState([]);
+  const [activeMappingTab, setActiveMappingTab] = useState('all');
   const fileInputRef = useRef(null);
 
   // Expected CSV column mapping based on analysis
@@ -739,7 +741,7 @@ const ExcelUploadModule = ({
               <div className="flex gap-2 flex-wrap">
                 <input
                   type="text"
-                  placeholder="Excel sütununda ara..."
+                  placeholder="Ara (Sütun Adı, Örnek Veri...)"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -747,41 +749,163 @@ const ExcelUploadModule = ({
                 <select
                   value={mappingFilter}
                   onChange={(e) => setMappingFilter(e.target.value)}
-                  className="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">Tüm Sütunlar</option>
-                  <option value="mapped">Eşleştirilen</option>
-                  <option value="unmapped">Eşleştirilmemiş</option>
+                  <option value="all">Durumu</option>
+                  <option value="mapped">Eşleştirildi</option>
+                  <option value="unmapped">Eşleştirilmedi</option>
                 </select>
               </div>
 
-              {/* Info panel and stats */}
+              {/* Sorting controls */}
               <div className="flex gap-2 flex-wrap items-center">
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-sm text-gray-600">
-                    Toplam: {previewData.headers.length} sütun |
-                    Eşleştirilen: {Object.values(columnMappings).filter(val => val !== 'none').length} |
-                    Eşleştirilmemiş: {previewData.headers.length - Object.values(columnMappings).filter(val => val !== 'none').length}
+                    {(() => {
+                      const filteredColumns = previewData.headers.filter(excelColumn => {
+                        if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                          return false;
+                        }
+                        if (mappingFilter === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                          return false;
+                        }
+                        if (mappingFilter === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                          return false;
+                        }
+                        return true;
+                      });
+                      return `Toplam: ${filteredColumns.length} / ${previewData.headers.length} sütun`;
+                    })()}
                   </span>
                 </div>
               </div>
 
-              {/* Clear filters button */}
+              {/* Clear filters and tabs */}
               <div className="flex justify-between items-center">
                 <button
-                  onClick={() => setColumnMappings({})}
+                  onClick={() => {
+                    setSearchText('');
+                    setMappingFilter('all');
+                    setSelectedColumns([]);
+                  }}
                   className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
                 >
-                  <RefreshCw className="h-4 w-4 mr-1 inline" />
-                  Tüm Eşleştirmeleri Temizle
+                  Filtreleri Temizle
                 </button>
 
-                <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                    <span className="text-blue-800">Excel sütunlarını sistem sütunlarıyla eşleştirin</span>
-                  </div>
+                <span className="text-sm text-gray-600">
+                  {selectedColumns.length > 0 ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-600 rounded"></div>
+                      {selectedColumns.length} sütun seçili
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+
+              {/* Tabs for mapping categories */}
+              <div className="flex gap-1 mt-4">
+                {[
+                  { key: 'all', label: 'Tüm Sütunlar', count: previewData.headers.length },
+                  { key: 'mapped', label: 'Eşleştirilen', count: Object.values(columnMappings).filter(val => val !== 'none').length },
+                  { key: 'unmapped', label: 'Eşleştirilmemiş', count: previewData.headers.length - Object.values(columnMappings).filter(val => val !== 'none').length }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => {
+                      setActiveMappingTab(tab.key);
+                      setSelectedColumns([]);
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      activeMappingTab === tab.key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tab.label} ({tab.count})
+                  </button>
+                ))}
+              </div>
+
+              {/* Selection actions */}
+              {selectedColumns.length > 0 && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      selectedColumns.forEach(column => {
+                        handleColumnMapping(column, 'none');
+                      });
+                      setSelectedColumns([]);
+                    }}
+                    className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:bg-gray-400 text-sm flex items-center gap-1"
+                  >
+                    <X className="w-4 h-4" />
+                    Seçililerin Eşleştirmesini Kaldır ({selectedColumns.length})
+                  </button>
                 </div>
+              )}
+
+              {/* Select All Checkbox */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={
+                    (() => {
+                      const filteredColumns = previewData.headers.filter(excelColumn => {
+                        if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                          return false;
+                        }
+                        if (activeMappingTab === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                          return false;
+                        }
+                        if (activeMappingTab === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                          return false;
+                        }
+                        return true;
+                      });
+                      return filteredColumns.length > 0 && filteredColumns.every(column => selectedColumns.includes(column));
+                    })()
+                  }
+                  onChange={() => {
+                    const filteredColumns = previewData.headers.filter(excelColumn => {
+                      if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                        return false;
+                      }
+                      if (activeMappingTab === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                        return false;
+                      }
+                      if (activeMappingTab === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                        return false;
+                      }
+                      return true;
+                    });
+
+                    const allSelected = filteredColumns.every(column => selectedColumns.includes(column));
+                    if (allSelected) {
+                      setSelectedColumns(prev => prev.filter(col => !filteredColumns.includes(col)));
+                    } else {
+                      setSelectedColumns(prev => [...new Set([...prev, ...filteredColumns])]);
+                    }
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label className="text-sm font-medium text-gray-700">
+                  Tümünü Seç ({(() => {
+                    const filteredColumns = previewData.headers.filter(excelColumn => {
+                      if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                        return false;
+                      }
+                      if (activeMappingTab === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                        return false;
+                      }
+                      if (activeMappingTab === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                        return false;
+                      }
+                      return true;
+                    });
+                    return filteredColumns.length;
+                  })()} sütun)
+                </label>
               </div>
             </div>
 
@@ -793,11 +917,11 @@ const ExcelUploadModule = ({
                   return false;
                 }
 
-                // Filter by mapping status
-                if (mappingFilter === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                // Filter by active tab
+                if (activeMappingTab === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
                   return false;
                 }
-                if (mappingFilter === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                if (activeMappingTab === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
                   return false;
                 }
 
@@ -807,25 +931,39 @@ const ExcelUploadModule = ({
                 return (
                   <div key={index} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex justify-between items-start">
-                      <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-center gap-3 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedColumns.includes(excelColumn)}
+                          onChange={() => {
+                            setSelectedColumns(prev =>
+                              prev.includes(excelColumn)
+                                ? prev.filter(col => col !== excelColumn)
+                                : [...prev, excelColumn]
+                            );
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 mb-1">{excelColumn}</h4>
                           <p className="text-sm text-gray-600 mb-2">
-                            Örnek: {String(sampleData).substring(0, 50)}{String(sampleData).length > 50 && '...'}
+                            {String(sampleData).substring(0, 50)}{String(sampleData).length > 50 && '...'}
                           </p>
                           <div className="flex gap-4 text-xs text-gray-500">
-                            <span>Sütun #{index + 1}</span>
-                            <span>Tip: {typeof sampleData}</span>
+                            <span>Sütun #{previewData.headers.indexOf(excelColumn) + 1}</span>
+                            {columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none' && (
+                              <span className="text-green-600 font-medium">• Eşleştirildi: {columnMappings[excelColumn]}</span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex gap-2 ml-4 min-w-[200px]">
+                      <div className="flex gap-2 ml-4">
                         <Select
                           value={columnMappings[excelColumn] || 'none'}
                           onValueChange={(value) => handleColumnMapping(excelColumn, value)}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full min-w-[200px]">
                             <SelectValue placeholder="Sütun seçin..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -854,6 +992,34 @@ const ExcelUploadModule = ({
               })}
             </div>
 
+            {/* Empty State */}
+            {(() => {
+              const filteredColumns = previewData.headers.filter(excelColumn => {
+                if (searchText && !excelColumn.toLowerCase().includes(searchText.toLowerCase())) {
+                  return false;
+                }
+                if (activeMappingTab === 'mapped' && (!columnMappings[excelColumn] || columnMappings[excelColumn] === 'none')) {
+                  return false;
+                }
+                if (activeMappingTab === 'unmapped' && columnMappings[excelColumn] && columnMappings[excelColumn] !== 'none') {
+                  return false;
+                }
+                return true;
+              });
+
+              if (filteredColumns.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500">
+                    {previewData.headers.length === 0
+                      ? "Bu Excel dosyasında sütun bulunmamaktadır."
+                      : "Filtrelere uygun sütun bulunmamaktadır."
+                    }
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Action Buttons */}
             <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-6">
               <Button
@@ -864,6 +1030,14 @@ const ExcelUploadModule = ({
                 İptal
               </Button>
               <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setColumnMappings({})}
+                  className="shadow-sm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sıfırla
+                </Button>
                 <Button
                   onClick={handleConfirmMapping}
                   className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
