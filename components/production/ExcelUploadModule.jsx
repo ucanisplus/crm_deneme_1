@@ -30,7 +30,6 @@ const ExcelUploadModule = ({
   isProcessing,
   sessionId
 }) => {
-  const [dragActive, setDragActive] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [validationResults, setValidationResults] = useState(null);
   const [previewData, setPreviewData] = useState(null);
@@ -78,28 +77,6 @@ const ExcelUploadModule = ({
     allowedExtensions: ['.xlsx', '.xls', '.csv']
   };
 
-  const handleDragOver = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelection(files[0]);
-    }
-  }, []);
 
   const handleFileSelect = useCallback((e) => {
     const files = Array.from(e.target.files);
@@ -453,56 +430,49 @@ const ExcelUploadModule = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* File Drop Zone */}
-        <div
-          className={`upload-dropzone border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive
-              ? 'border-blue-500 bg-blue-50'
-              : uploadedFile
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => !uploadedFile && fileInputRef.current?.click()}
-        >
-          {!uploadedFile ? (
-            <div className="space-y-2">
-              <FileSpreadsheet className="h-12 w-12 text-gray-400 mx-auto" />
-              <p className="text-gray-600">
-                Excel dosyasını sürükleyip bırakın veya tıklayın
-              </p>
-              <p className="text-xs text-gray-500">
-                (.xlsx, .xls, .csv - Maksimum 50MB)
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <CheckCircle className="h-8 w-8 text-green-500 mx-auto" />
-              <p className="font-medium">{uploadedFile.name}</p>
-              <p className="text-sm text-gray-600">
-                {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-              </p>
-              <Button
-                onClick={handleRemoveFile}
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                <X className="h-3 w-3 mr-1" />
-                Kaldır
-              </Button>
-            </div>
+        {/* File Upload Button */}
+        <div className="flex flex-wrap gap-3 mb-3">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-2 rounded-md flex items-center gap-2 transition-colors bg-gray-600 text-white hover:bg-gray-700"
+            disabled={isProcessing}
+          >
+            <Upload size={16} />
+            Excel/CSV Yükle
+          </button>
+
+          {uploadedFile && (
+            <button
+              onClick={handleRemoveFile}
+              className="px-3 py-2 rounded-md flex items-center gap-2 transition-colors bg-red-500 text-white hover:bg-red-600"
+            >
+              <X size={16} />
+              Dosyayı Kaldır
+            </button>
           )}
         </div>
+
+        {uploadedFile && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <div className="flex-1">
+                <p className="font-medium text-green-900">{uploadedFile.name}</p>
+                <p className="text-sm text-green-700">
+                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • {uploadedFile.type || 'Bilinmeyen format'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
 
         {/* Parse Progress */}
         {parseProgress && (
