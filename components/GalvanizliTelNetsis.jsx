@@ -3637,11 +3637,16 @@ const GalvanizliTelNetsis = () => {
 
     const sourceDiameter = parseFloat(sourceYmSt.cap) || 0;
 
-    // Use same TLC_Hiz calculation but with source YM ST diameter
-    const hmCap = sourceDiameter; // Source YM ST acts as "filmaşin"
-    const tlcHiz = calculateTlcHiz(hmCap, targetDiameter);
+    // CORRECT: For Coiler, use source YM ST diameter directly as giris_capi
+    // TLC_Hızlar table: giris_capi = source diameter, cikis_capi = target diameter
+    const giris_capi = sourceDiameter; // Source YM ST diameter (input)
+    const cikis_capi = targetDiameter; // Target YM ST diameter (output)
+
+    // Use source YM ST diameter as input to TLC_Hiz lookup
+    const tlcHiz = calculateTlcHiz(giris_capi, cikis_capi);
 
     if (!tlcHiz || tlcHiz <= 0) {
+      console.warn(`⚠️ COILER: No TLC_Hiz found for ${giris_capi}mm → ${cikis_capi}mm`);
       return {
         materialAmount: 1, // Default 1 kg source YM ST per 1 kg target YM ST
         operationDuration: 0.01 // Default small duration if no valid TLC_Hiz
@@ -3651,6 +3656,8 @@ const GalvanizliTelNetsis = () => {
     // COTLC01 calculation using same formula as YM ST recipe
     const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / targetDiameter / targetDiameter / tlcHiz / 60);
     const operationDuration = parseFloat((tlc01Raw / 1000).toFixed(5));
+
+    console.log(`🔧 COILER DURATION DEBUG: Source ${sourceDiameter}mm → Target ${targetDiameter}mm → TLC_Hiz ${tlcHiz} → Duration ${operationDuration}`);
 
     return {
       materialAmount: 1, // 1 kg source YM ST per 1 kg target YM ST
