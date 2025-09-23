@@ -198,13 +198,11 @@ export const startKeepAlive = () => {
   
   console.log('🔄 Starting keepalive system...');
 
-  // Ping both servers every 3 minutes (Render goes cold after ~5 minutes)
+  // Ping Render server every 3 minutes (Render goes cold after ~5 minutes)
+  // Note: Vercel doesn't need pinging - it handles its own warming
   keepAliveInterval = setInterval(async () => {
     try {
-      // Ping Vercel
-      await fetch(`${SERVERS.VERCEL}/ping`, { method: 'GET' });
-
-      // Ping Render with multiple endpoints to keep database connections alive
+      // Only ping Render with multiple endpoints to keep database connections alive
       if (SERVERS.USE_HYBRID) {
         await Promise.all([
           fetch(API_URLS.ping, { method: 'GET' }),
@@ -214,7 +212,7 @@ export const startKeepAlive = () => {
         ]);
       }
 
-      console.log('📡 Enhanced keepalive ping sent (3min interval)');
+      console.log('📡 Render keepalive ping sent (3min interval)');
     } catch (error) {
       console.warn('Keepalive ping failed:', error.message);
     }

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';\nimport { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';\nimport { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';\nimport { Label } from '@/components/ui/label';
 import {
   Upload,
   FileSpreadsheet,
@@ -32,6 +32,10 @@ const ExcelUploadModule = ({
   const [previewData, setPreviewData] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [parseProgress, setParseProgress] = useState(null);
+  const [headerRowIndex, setHeaderRowIndex] = useState(0);
+  const [showColumnMapping, setShowColumnMapping] = useState(false);
+  const [columnMappings, setColumnMappings] = useState({});
+  const [allSheetData, setAllSheetData] = useState(null);
   const fileInputRef = useRef(null);
 
   // Expected CSV column mapping based on analysis
@@ -167,8 +171,15 @@ const ExcelUploadModule = ({
             return;
           }
 
-          const headers = jsonData[0];
-          const dataRows = jsonData.slice(1, 6); // First 5 rows for preview
+          // Store all sheet data for header detection
+          setAllSheetData(jsonData);
+
+          // Auto-detect header row (could be row 0 or 1)
+          const detectedHeaderRow = detectHeaderRow(jsonData);
+          setHeaderRowIndex(detectedHeaderRow);
+
+          const headers = jsonData[detectedHeaderRow];
+          const dataRows = jsonData.slice(detectedHeaderRow + 1, detectedHeaderRow + 6); // First 5 rows for preview
 
           // Validate headers
           const validation = validateHeaders(headers);
@@ -184,10 +195,12 @@ const ExcelUploadModule = ({
 
           resolve({
             headers,
-            totalRows: jsonData.length - 1,
+            totalRows: jsonData.length - detectedHeaderRow - 1,
             previewRows,
             validation,
-            sheetName: firstSheetName
+            sheetName: firstSheetName,
+            headerRowIndex: detectedHeaderRow,
+            allRows: jsonData
           });
         } catch (error) {
           reject(error);
@@ -197,6 +210,97 @@ const ExcelUploadModule = ({
       reader.onerror = () => reject(new Error('Dosya okuma hatası'));
       reader.readAsArrayBuffer(file);
     });
+  };
+
+  // Auto-detect header row by looking for expected column patterns
+  const detectHeaderRow = (jsonData) => {
+    const expectedPatterns = ['Firma', 'Stok', 'Hasır', 'Boy', 'En', 'Çap', 'S. Tarihi', 'Miktar'];
+
+    for (let rowIndex = 0; rowIndex < Math.min(3, jsonData.length); rowIndex++) {
+      const row = jsonData[rowIndex] || [];
+      const rowText = row.join(' ').toLowerCase();
+
+      let patternMatches = 0;
+      expectedPatterns.forEach(pattern => {
+        if (rowText.includes(pattern.toLowerCase())) {
+          patternMatches++;
+        }
+      });
+
+      // If we find at least 3 pattern matches, this is likely the header row
+      if (patternMatches >= 3) {
+        return rowIndex;
+      }
+    }
+
+    // Default to first row if no clear header detected
+    return 0;
+  };
+
+  // Handle header row change
+  const handleHeaderRowChange = (newRowIndex) => {
+    if (!allSheetData) return;
+
+    setHeaderRowIndex(newRowIndex);
+
+    const headers = allSheetData[newRowIndex];
+    const dataRows = allSheetData.slice(newRowIndex + 1, newRowIndex + 6);
+
+    const validation = validateHeaders(headers);
+
+    const previewRows = dataRows.map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    });
+
+    setPreviewData({
+      headers,
+      totalRows: allSheetData.length - newRowIndex - 1,
+      previewRows,
+      validation,
+      sheetName: previewData?.sheetName,
+      headerRowIndex: newRowIndex,
+      allRows: allSheetData
+    });
+  };
+
+  // Handle column mapping
+  const handleColumnMapping = (excelColumn, systemColumn) => {
+    setColumnMappings(prev => ({
+      ...prev,
+      [excelColumn]: systemColumn
+    }));
+  };
+
+  // Apply column mappings and proceed with upload
+  const handleConfirmMapping = () => {
+    setShowColumnMapping(false);
+    // The mappings will be sent with the file upload
+    handleProcessFile();
+  };
+
+  // Show column mapping interface if validation fails
+  const handleShowColumnMapping = () => {
+    if (!previewData) return;
+
+    // Initialize mappings with automatic matches
+    const autoMappings = {};
+    previewData.headers.forEach(header => {
+      const lowerHeader = header.toLowerCase();
+      Object.entries(EXPECTED_COLUMNS).forEach(([expectedKey, systemKey]) => {
+        if (lowerHeader.includes(expectedKey.toLowerCase()) ||
+            expectedKey.toLowerCase().includes(lowerHeader)) {
+          autoMappings[header] = expectedKey;
+        }
+      });
+    });
+
+    setColumnMappings(autoMappings);
+    setShowColumnMapping(true);
+  };
   };
 
   const validateHeaders = (headers) => {
@@ -241,6 +345,10 @@ const ExcelUploadModule = ({
     const formData = new FormData();
     formData.append('file', uploadedFile);
     formData.append('session_id', sessionId);
+    formData.append('header_row_index', headerRowIndex.toString());
+    if (Object.keys(columnMappings).length > 0) {
+      formData.append('column_mappings', JSON.stringify(columnMappings));
+    }
 
     try {
       const response = await fetchWithAuth(API_URLS.production.uploadExcel, {
@@ -484,6 +592,48 @@ const ExcelUploadModule = ({
               </div>
             )}
 
+            {/* Header Row Selector */}
+            {allSheetData && allSheetData.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="header-row-select" className="text-sm font-medium">
+                  Başlık Satırı (Header Row):
+                </Label>
+                <Select value={headerRowIndex.toString()} onValueChange={(value) => handleHeaderRowChange(parseInt(value))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Başlık satırını seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allSheetData.slice(0, 5).map((row, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        Satır {index + 1}: {row.slice(0, 4).join(' | ')}...
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Column Mapping Controls */}
+            {previewData.validation && !previewData.validation.isValid && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Sütun Eşleştirme:</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShowColumnMapping}
+                  >
+                    Sütunları Eşleştir
+                  </Button>
+                </div>
+                {Object.keys(columnMappings).length > 0 && (
+                  <div className="text-xs text-green-600">
+                    {Object.keys(columnMappings).length} sütun eşleştirildi
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Preview Table */}
             {showPreview && previewData.previewRows && (
               <div className="border rounded-lg overflow-x-auto max-h-64">
@@ -556,6 +706,76 @@ const ExcelUploadModule = ({
           <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır Tipi, Boy, En, Çap</p>
         </div>
       </CardContent>
+
+      {/* Column Mapping Dialog */}
+      <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sütun Eşleştirme</DialogTitle>
+          </DialogHeader>
+
+          {previewData && (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                Excel dosyanızdaki sütunları sistem sütunlarıyla eşleştirin. Otomatik eşleştirme yapılmıştır, gerekirse düzenleyebilirsiniz.
+              </div>
+
+              <div className="grid gap-3">
+                <div className="grid grid-cols-3 gap-2 text-xs font-medium bg-gray-50 p-2 rounded">
+                  <div>Excel Sütunu</div>
+                  <div>Sistem Sütunu</div>
+                  <div>Örnek Veri</div>
+                </div>
+
+                {previewData.headers.map((excelColumn, index) => {
+                  const sampleData = previewData.previewRows[0]?.[excelColumn] || '';
+                  return (
+                    <div key={index} className="grid grid-cols-3 gap-2 items-center p-2 border rounded">
+                      <div className="text-sm font-medium">{excelColumn}</div>
+                      <div>
+                        <Select
+                          value={columnMappings[excelColumn] || ''}
+                          onValueChange={(value) => handleColumnMapping(excelColumn, value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Sütun seçin..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">-- Eşleştirme --</SelectItem>
+                            {Object.keys(EXPECTED_COLUMNS).map(expectedCol => (
+                              <SelectItem key={expectedCol} value={expectedCol}>
+                                {expectedCol}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="text-xs text-gray-600 truncate" title={String(sampleData)}>
+                        {String(sampleData).substring(0, 30)}
+                        {String(sampleData).length > 30 && '...'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-between pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
+                  İptal
+                </Button>
+                <div className="space-x-2">
+                  <Button variant="outline" onClick={() => setColumnMappings({})}>
+                    Sıfırla
+                  </Button>
+                  <Button onClick={handleConfirmMapping}>
+                    Eşleştirmeyi Onayla ve Devam Et
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
