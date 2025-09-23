@@ -197,23 +197,28 @@ export const startKeepAlive = () => {
   }
   
   console.log('🔄 Starting keepalive system...');
-  
-  // Ping both servers every 10 minutes
+
+  // Ping both servers every 3 minutes (Render goes cold after ~5 minutes)
   keepAliveInterval = setInterval(async () => {
     try {
       // Ping Vercel
       await fetch(`${SERVERS.VERCEL}/ping`, { method: 'GET' });
-      
-      // Ping Render
+
+      // Ping Render with multiple endpoints to keep database connections alive
       if (SERVERS.USE_HYBRID) {
-        await fetch(API_URLS.ping, { method: 'GET' });
+        await Promise.all([
+          fetch(API_URLS.ping, { method: 'GET' }),
+          fetch(`${SERVERS.RENDER}/health`, { method: 'GET' }),
+          // Keep critical database connections warm
+          fetch(`${SERVERS.RENDER}/celik_hasir_netsis_sequence?limit=1`, { method: 'GET' })
+        ]);
       }
-      
-      console.log('📡 Keepalive ping sent');
+
+      console.log('📡 Enhanced keepalive ping sent (3min interval)');
     } catch (error) {
       console.warn('Keepalive ping failed:', error.message);
     }
-  }, 10 * 60 * 1000); // Every 10 minutes
+  }, 3 * 60 * 1000); // Every 3 minutes
 };
 
 /**
@@ -228,14 +233,15 @@ export const stopKeepAlive = () => {
 };
 
 /**
- * Warmup Render server (call on login)
+ * Warmup Render server (call on login) - Enhanced version
  */
 export const warmupRender = async () => {
   if (!SERVERS.USE_HYBRID) return;
-  
+
   try {
     console.log('🔥 Warming up Render server...');
-    
+
+    // Primary warmup call
     const response = await fetch(API_URLS.warmup, {
       method: 'POST',
       headers: {
@@ -243,13 +249,50 @@ export const warmupRender = async () => {
       },
       timeout: 15000 // 15 second timeout
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log('✅ Render server warmed up:', data.timestamp);
+
+      // Secondary warmup - wake up critical database connections
+      setTimeout(async () => {
+        try {
+          await Promise.all([
+            fetch(API_URLS.celikHasirMm + '?limit=1', { method: 'GET' }),
+            fetch(API_URLS.celikHasirSequence, { method: 'GET' }),
+            fetch(API_URLS.ping, { method: 'GET' })
+          ]);
+          console.log('🔄 Database connections warmed up');
+        } catch (err) {
+          console.warn('Database warmup partial failure:', err.message);
+        }
+      }, 1000); // Wait 1 second after initial warmup
     }
   } catch (error) {
     console.warn('Render warmup failed (will work on first use):', error.message);
+  }
+};
+
+/**
+ * Emergency warmup for specific component - can be called from çelik hasır
+ */
+export const emergencyWarmup = async () => {
+  if (!SERVERS.USE_HYBRID) return;
+
+  console.log('🚨 Emergency warmup triggered...');
+
+  try {
+    // Quick concurrent warmup of essential endpoints
+    await Promise.all([
+      fetch(API_URLS.warmup, { method: 'POST', headers: { 'Content-Type': 'application/json' } }),
+      fetch(API_URLS.ping, { method: 'GET' }),
+      fetch(API_URLS.celikHasirSequence + '?limit=1', { method: 'GET' })
+    ]);
+    console.log('⚡ Emergency warmup completed');
+    return true;
+  } catch (error) {
+    console.warn('Emergency warmup failed:', error.message);
+    return false;
   }
 };
 

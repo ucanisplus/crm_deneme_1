@@ -18,13 +18,46 @@ export default function LoginPage() {
     if (user) {
       router.push('/');
     }
-    
-    // Wake up Render backend early (it can be slow to start)
-    // This ensures APS features are ready when user needs them
-    fetch('https://crm-factory-backend.onrender.com/api/aps/test')
-      .then(res => res.json())
-      .then(data => console.log('Render backend status:', data.status))
-      .catch(err => console.log('Render wake-up call (this is normal on first load):', err.message));
+
+    // Progressive warmup of Render backend - start immediately on login page load
+    const warmupSequence = async () => {
+      console.log('🔥 Starting progressive Render server warmup...');
+
+      const endpoints = [
+        // Primary warmup endpoint
+        'https://crm-factory-backend.onrender.com/api/warmup',
+        // Critical database endpoints for çelik hasır
+        'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm?limit=1',
+        'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_sequence',
+        // Ping endpoint for keepalive
+        'https://crm-factory-backend.onrender.com/api/ping'
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: endpoint.includes('warmup') ? 'POST' : 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15000
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ Warmed up: ${endpoint.split('/').pop()}`, data?.status || 'OK');
+          }
+        } catch (err) {
+          console.log(`🔄 Warming ${endpoint.split('/').pop()}:`, err.message);
+        }
+
+        // Small delay between calls to avoid overwhelming
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      console.log('🎯 Progressive warmup completed - server should be ready!');
+    };
+
+    // Start warmup immediately
+    warmupSequence();
   }, [user, router]);
 
   const handleSubmit = async (e) => {

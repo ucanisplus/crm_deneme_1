@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout3 from '@/components/MainLayout3';
 import ClientAuthCheck from '@/components/ClientAuthCheck.jsx';
+import ProductionPlanningApp from '@/components/production/ProductionPlanningApp';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -3193,18 +3194,18 @@ function ComprehensiveAPSSystem() {
   );
 }
 
-export default function APSSystemPage() {
+export default function ProductionPlanningPage() {
   return (
     <ClientAuthCheck>
       <MainLayout3>
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">İleri Planlama & Çizelgeleme (APS)</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Çelik Hasır Üretim Planlaması</h1>
             <p className="text-gray-600">Akıllı üretim planlama ve çizelgeleme sistemi</p>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow">
-            <ComprehensiveAPSSystem />
+            <ProductionPlanningApp />
           </div>
         </div>
       </MainLayout3>
