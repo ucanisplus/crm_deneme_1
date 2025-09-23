@@ -617,7 +617,7 @@ const ExcelUploadModule = ({
             )}
 
             {/* Column Mapping Controls */}
-            {previewData.validation && !previewData.validation.isValid && (
+            {previewData && previewData.validation && !previewData.validation.isValid && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Sütun Eşleştirme:</span>
