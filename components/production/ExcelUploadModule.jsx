@@ -304,7 +304,6 @@ const ExcelUploadModule = ({
     setColumnMappings(autoMappings);
     setShowColumnMapping(true);
   };
-  };
 
   const validateHeaders = (headers) => {
     const requiredColumns = ['Firma', 'Stok Kartı', 'Hasır Tipi', 'Boy', 'En', 'Çap'];
