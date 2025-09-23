@@ -37,6 +37,8 @@ const ExcelUploadModule = ({
   const [parseProgress, setParseProgress] = useState(null);
   const [headerRowIndex, setHeaderRowIndex] = useState(0);
   const [allSheetData, setAllSheetData] = useState(null);
+  const [showColumnMapping, setShowColumnMapping] = useState(false);
+  const [columnMappings, setColumnMappings] = useState({});
   const fileInputRef = useRef(null);
 
   // Expected CSV column mapping based on analysis
@@ -367,9 +369,84 @@ const ExcelUploadModule = ({
     setPreviewData(null);
     setValidationResults(null);
     setParseProgress(null);
+    setShowColumnMapping(false);
+    setColumnMappings({});
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  // Auto-detect columns (like CelikHasirHesaplama)
+  const autoDetectColumns = (headers) => {
+    const detected = {};
+
+    headers.forEach((header, index) => {
+      const headerLower = String(header || '').toLowerCase();
+
+      // Auto-detect based on header text
+      if (headerLower.includes('tarih') || headerLower.includes('date')) {
+        detected.scheduled_date = index;
+      } else if (headerLower.includes('firma') || headerLower.includes('customer')) {
+        detected.customer = index;
+      } else if (headerLower.includes('stok') && headerLower.includes('kod')) {
+        detected.stock_code = index;
+      } else if (headerLower.includes('stok') && headerLower.includes('ad')) {
+        detected.stock_name = index;
+      } else if (headerLower.includes('hasır') && headerLower.includes('tip')) {
+        detected.mesh_type = index;
+      } else if (headerLower.includes('boy') && !headerLower.includes('çap')) {
+        detected.length = index;
+      } else if (headerLower.includes('en') && !headerLower.includes('çap')) {
+        detected.width = index;
+      } else if (headerLower.includes('çap') || headerLower.includes('diameter')) {
+        detected.diameter = index;
+      } else if (headerLower.includes('miktar') || headerLower.includes('quantity')) {
+        detected.quantity = index;
+      } else if (headerLower.includes('birim') || headerLower.includes('unit')) {
+        detected.unit = index;
+      }
+    });
+
+    // Convert undefined to -1 for undetected columns
+    return {
+      scheduled_date: detected.scheduled_date !== undefined ? detected.scheduled_date : -1,
+      customer: detected.customer !== undefined ? detected.customer : -1,
+      stock_code: detected.stock_code !== undefined ? detected.stock_code : -1,
+      stock_name: detected.stock_name !== undefined ? detected.stock_name : -1,
+      mesh_type: detected.mesh_type !== undefined ? detected.mesh_type : -1,
+      length: detected.length !== undefined ? detected.length : -1,
+      width: detected.width !== undefined ? detected.width : -1,
+      diameter: detected.diameter !== undefined ? detected.diameter : -1,
+      quantity: detected.quantity !== undefined ? detected.quantity : -1,
+      unit: detected.unit !== undefined ? detected.unit : -1
+    };
+  };
+
+  const handleShowColumnMapping = () => {
+    if (previewData && previewData.headers) {
+      const autoDetected = autoDetectColumns(previewData.headers);
+      setColumnMappings(autoDetected);
+      setShowColumnMapping(true);
+    }
+  };
+
+  const handleMappingChange = (field, columnIndex) => {
+    setColumnMappings({
+      ...columnMappings,
+      [field]: parseInt(columnIndex)
+    });
+  };
+
+  const handleConfirmMapping = () => {
+    // Check required fields
+    if (columnMappings.customer === -1 || columnMappings.stock_code === -1 || columnMappings.quantity === -1) {
+      alert('Lütfen en az Firma, Stok Kodu ve Miktar sütunlarını seçin.');
+      return;
+    }
+
+    setShowColumnMapping(false);
+    // Process with confirmed mapping
+    // onUploadComplete would handle the actual processing
   };
 
   const downloadTemplate = () => {
@@ -591,22 +668,21 @@ const ExcelUploadModule = ({
               </div>
             )}
 
-            {/* Validation Results */}
-            {previewData && previewData.validation && (
+            {/* Column Mapping Controls */}
+            {previewData && previewData.headers && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Doğrulama Sonucu:</span>
-                  <div className="flex items-center gap-2">
-                    {previewData.validation.isValid ? (
-                      <span className="text-green-600 text-sm">✓ Geçerli Format</span>
-                    ) : (
-                      <span className="text-orange-600 text-sm">⚠ Eksik Sütunlar Tespit Edildi</span>
-                    )}
-                  </div>
+                  <span className="text-sm font-medium">Sütun Eşleştirme:</span>
+                  <button
+                    onClick={handleShowColumnMapping}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Sütunları Eşleştir
+                  </button>
                 </div>
-                {previewData.validation.missingColumns && previewData.validation.missingColumns.length > 0 && (
-                  <div className="text-xs text-orange-600">
-                    Eksik: {previewData.validation.missingColumns.join(', ')}
+                {Object.keys(columnMappings).length > 0 && (
+                  <div className="text-xs text-green-600">
+                    ✓ Sütun eşleştirmesi yapıldı
                   </div>
                 )}
               </div>
@@ -684,6 +760,208 @@ const ExcelUploadModule = ({
         </div>
       </CardContent>
     </Card>
+
+    {/* Column Mapping Modal - Exact CelikHasir Design */}
+    {showColumnMapping && previewData && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Sütunları Eşleştir</h2>
+            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+              {previewData.previewRows?.length || 0} satır tespit edildi
+            </span>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 mb-2">
+              Sütunlar otomatik olarak tespit edilmeye çalışıldı. Lütfen kontrol edin ve gerekirse düzeltin:
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {/* Required Fields */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Firma <span className="text-red-500">*</span>
+                  {columnMappings.customer !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.customer !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.customer || -1}
+                  onChange={(e) => handleMappingChange('customer', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stok Kodu <span className="text-red-500">*</span>
+                  {columnMappings.stock_code !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.stock_code !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.stock_code || -1}
+                  onChange={(e) => handleMappingChange('stock_code', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stok Adı
+                  {columnMappings.stock_name !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.stock_name !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.stock_name || -1}
+                  onChange={(e) => handleMappingChange('stock_name', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Miktar <span className="text-red-500">*</span>
+                  {columnMappings.quantity !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.quantity !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.quantity || -1}
+                  onChange={(e) => handleMappingChange('quantity', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Birim
+                  {columnMappings.unit !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.unit !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.unit || -1}
+                  onChange={(e) => handleMappingChange('unit', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teslim Tarihi
+                  {columnMappings.scheduled_date !== -1 && <span className="text-green-600 text-xs ml-2">✓ Otomatik tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.scheduled_date !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.scheduled_date || -1}
+                  onChange={(e) => handleMappingChange('scheduled_date', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Table with Column Indicators */}
+          <div className="border rounded-lg overflow-x-auto mb-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50">
+                  {previewData.headers.map((header, index) => (
+                    <th key={index} className="py-1 px-2 border-b text-left font-medium text-gray-500 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="truncate max-w-[120px]" title={header || `Sütun ${index + 1}`}>
+                          {header || `Sütun ${index + 1}`}
+                        </span>
+                        {columnMappings.customer === index && (
+                          <span className="text-green-600 text-[10px]">(Firma)</span>
+                        )}
+                        {columnMappings.stock_code === index && (
+                          <span className="text-green-600 text-[10px]">(Stok Kodu)</span>
+                        )}
+                        {columnMappings.stock_name === index && (
+                          <span className="text-blue-600 text-[10px]">(Stok Adı)</span>
+                        )}
+                        {columnMappings.quantity === index && (
+                          <span className="text-green-600 text-[10px]">(Miktar)</span>
+                        )}
+                        {columnMappings.unit === index && (
+                          <span className="text-blue-600 text-[10px]">(Birim)</span>
+                        )}
+                        {columnMappings.scheduled_date === index && (
+                          <span className="text-blue-600 text-[10px]">(Tarih)</span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.previewRows.slice(0, 5).map((row, rowIndex) => (
+                  <tr key={rowIndex} className="hover:bg-gray-50">
+                    {previewData.headers.map((header, colIndex) => (
+                      <td key={colIndex} className="px-2 py-1 border-b">
+                        {String(row[header] || '').substring(0, 20)}
+                        {String(row[header] || '').length > 20 && '...'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-between">
+            <button
+              onClick={() => setShowColumnMapping(false)}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleConfirmMapping}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Eşleştirmeyi Onayla
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     </div>
   );

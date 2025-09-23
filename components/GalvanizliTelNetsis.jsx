@@ -68,6 +68,13 @@ const GalvanizliTelNetsis = () => {
   
   // Kullanici girdi degerleri icin ayarlar modali
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Coiler Recete modali icin state'ler
+  const [showCoilerReceteModal, setShowCoilerReceteModal] = useState(false);
+  const [coilerTargetYmSt, setCoilerTargetYmSt] = useState('');
+  const [coilerSourceYmSt, setCoilerSourceYmSt] = useState(null);
+  const [coilerSourceYmStSearch, setCoilerSourceYmStSearch] = useState('');
+  const [isGeneratingCoilerExcel, setIsGeneratingCoilerExcel] = useState(false);
   
   // Change preview modal for edit mode
   const [showChangePreviewModal, setShowChangePreviewModal] = useState(false);
@@ -3568,6 +3575,197 @@ const GalvanizliTelNetsis = () => {
       console.groupEnd();
     }
   };
+
+  // ======================= COILER RECETE FUNCTIONS =======================
+
+  // Validate Coiler YM ST target input
+  const validateCoilerTargetYmSt = (stokKodu) => {
+    const errors = [];
+
+    // Check format: YM.ST.XXXX.XXXX.XXXX
+    const ymStPattern = /^YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})$/;
+    const match = stokKodu.match(ymStPattern);
+
+    if (!match) {
+      errors.push('Stok kodu formatı yanlış. Örnek: YM.ST.0400.0600.1006');
+      return { valid: false, errors };
+    }
+
+    const [, capStr, filmasinStr, qualityStr] = match;
+    const diameter = parseFloat(capStr) / 100; // Convert 0400 to 4.00
+    const filmasin = parseFloat(filmasinStr) / 100; // Convert 0600 to 6.00
+    const quality = qualityStr;
+
+    // Check diameter range (0.8mm to 4mm)
+    if (diameter < 0.8 || diameter > 4.0) {
+      errors.push(`Çap ${diameter}mm izin verilen aralıkta değil (0.8mm - 4.0mm)`);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      diameter,
+      filmasin,
+      quality,
+      capStr,
+      filmasinStr,
+      qualityStr
+    };
+  };
+
+  // Filter and search source YM STs
+  const getFilteredSourceYmSts = () => {
+    if (!existingYmSts || existingYmSts.length === 0) return [];
+
+    return existingYmSts.filter(ymSt => {
+      if (!coilerSourceYmStSearch) return true;
+
+      const searchLower = coilerSourceYmStSearch.toLowerCase();
+      return (
+        (ymSt.stok_kodu && ymSt.stok_kodu.toLowerCase().includes(searchLower)) ||
+        (ymSt.cap && ymSt.cap.toString().toLowerCase().includes(searchLower)) ||
+        (ymSt.filmasin && ymSt.filmasin.toString().toLowerCase().includes(searchLower)) ||
+        (ymSt.quality && ymSt.quality.toLowerCase().includes(searchLower))
+      );
+    });
+  };
+
+  // Calculate Coiler recipe values using YM ST instead of filmaşin
+  const calculateCoilerRecipeValues = (targetYmSt, sourceYmSt) => {
+    if (!targetYmSt || !sourceYmSt) return null;
+
+    const targetDiameter = targetYmSt.diameter;
+    const sourceDiameter = parseFloat(sourceYmSt.cap) || 0;
+
+    // Use same TLC_Hiz calculation but with source YM ST diameter
+    const hmCap = sourceDiameter; // Source YM ST acts as "filmaşin"
+    const tlcHiz = calculateTlcHiz(hmCap, targetDiameter);
+
+    if (!tlcHiz || tlcHiz <= 0) {
+      return {
+        [sourceYmSt.stok_kodu]: 1, // 1 kg source YM ST per 1 kg target YM ST
+        'TLC01': '' // Empty if no valid TLC_Hiz
+      };
+    }
+
+    // TLC01 calculation using same formula as YM ST recipe
+    const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / targetDiameter / targetDiameter / tlcHiz / 60);
+    const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5));
+
+    return {
+      [sourceYmSt.stok_kodu]: 1, // 1 kg source YM ST per 1 kg target YM ST
+      'TLC01': tlcValue
+    };
+  };
+
+  // Generate Coiler Excel file
+  const generateCoilerExcel = async () => {
+    if (!coilerTargetYmSt || !coilerSourceYmSt) {
+      toast.error('Lütfen hedef YM ST ve kaynak YM ST seçin');
+      return;
+    }
+
+    const validation = validateCoilerTargetYmSt(coilerTargetYmSt);
+    if (!validation.valid) {
+      toast.error(`Validation error: ${validation.errors.join(', ')}`);
+      return;
+    }
+
+    try {
+      setIsGeneratingCoilerExcel(true);
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('YM ST REÇETE');
+
+      // Use same headers as existing recipe Excel
+      const receteHeaders = getReceteHeaders();
+      worksheet.addRow(receteHeaders);
+
+      // Calculate recipe values
+      const recipeValues = calculateCoilerRecipeValues(validation, coilerSourceYmSt);
+
+      if (recipeValues) {
+        let siraNo = 1;
+        const recipeEntries = Object.entries(recipeValues);
+
+        // Fixed order: Source YM ST first, then TLC01
+        const sourceYmStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.'));
+        const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
+
+        const orderedEntries = [sourceYmStEntry, tlc01Entry].filter(Boolean);
+
+        orderedEntries.forEach(([bilesenKodu, miktar]) => {
+          if (miktar !== '' && miktar > 0) {
+            const isOperation = bilesenKodu === 'TLC01';
+            const olcuBr = isOperation ? 'DK' : 'KG';
+            const aciklama = getReceteAciklama(bilesenKodu);
+
+            // Format miktar to 5 decimal places
+            const formattedMiktar = typeof miktar === 'number'
+              ? miktar.toLocaleString('en-US', {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 5,
+                  useGrouping: false
+                })
+              : miktar;
+
+            const recipeRow = [
+              coilerTargetYmSt, // Mamul Kodu
+              '', // Reçete Top
+              '', // Fire Oranı
+              '', // Oto.Reç.
+              'KG', // Ölçü Br. (for target product)
+              siraNo++, // Sıra No
+              isOperation ? 'O' : 'B', // Operasyon/Bileşen
+              bilesenKodu, // Bileşen Kodu
+              olcuBr, // Ölçü Br. - Bileşen
+              formattedMiktar, // Miktar
+              aciklama, // Açıklama
+              'H', // Miktar Sabitle
+              'S', // Stok/Maliyet
+              '', // Fire Mik.
+              '', // Sabit Fire Mik.
+              '', // İstasyon Kodu
+              '', // Hazırlık Süresi
+              '', // Üretim Süresi
+              'H', // Ü.A.Dahil Edilsin
+              '', // Son Operasyon
+              '', // Öncelik
+              '', // Planlama Oranı
+              '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
+            ];
+
+            worksheet.addRow(recipeRow);
+          }
+        });
+      }
+
+      // Save Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `Coiler_Recete_${validation.capStr}_${timestamp}.xlsx`;
+
+      saveAs(new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }), filename);
+
+      toast.success(`Coiler Reçete Excel dosyası oluşturuldu: ${filename}`);
+
+      // Close modal
+      setShowCoilerReceteModal(false);
+      setCoilerTargetYmSt('');
+      setCoilerSourceYmSt(null);
+      setCoilerSourceYmStSearch('');
+
+    } catch (error) {
+      console.error('Coiler Excel generation error:', error);
+      toast.error(`Excel oluşturma hatası: ${error.message}`);
+    } finally {
+      setIsGeneratingCoilerExcel(false);
+    }
+  };
+
+  // ======================= END COILER RECETE FUNCTIONS =======================
 
   // Otomatik reçete değerlerini hesapla - NOKTA kullan ve geliştirilmiş hata kontrolü ile
   const calculateAutoRecipeValues = () => {
@@ -11970,6 +12168,15 @@ const GalvanizliTelNetsis = () => {
             Hesaplama Değerleri
           </button>
           <button
+            onClick={() => setShowCoilerReceteModal(true)}
+            className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Coiler Reçete
+          </button>
+          <button
             onClick={() => setShowExistingMmGtModal(true)}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
@@ -13657,6 +13864,169 @@ const GalvanizliTelNetsis = () => {
                     className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
                   >
                     Kaydet
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Coiler Recete Modalı */}
+      {showCoilerReceteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Coiler Reçete Oluştur
+                </h2>
+                <button
+                  onClick={() => setShowCoilerReceteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  İnce çaplı YM ST ürünleri (0.8mm-4mm) için kalın YM ST malzemesi kullanarak Coiler reçetesi oluşturun.
+                </p>
+
+                {/* Target YM ST Input */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Hedef YM ST Stok Kodu *
+                  </label>
+                  <input
+                    type="text"
+                    value={coilerTargetYmSt}
+                    onChange={(e) => setCoilerTargetYmSt(e.target.value.toUpperCase())}
+                    placeholder="YM.ST.0400.0600.1006"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Format: YM.ST.XXXX.XXXX.XXXX (Çap aralığı: 0.8mm - 4.0mm)
+                  </p>
+                  {coilerTargetYmSt && (() => {
+                    const validation = validateCoilerTargetYmSt(coilerTargetYmSt);
+                    if (!validation.valid) {
+                      return (
+                        <div className="text-xs text-red-600">
+                          {validation.errors.map((error, index) => (
+                            <div key={index}>• {error}</div>
+                          ))}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="text-xs text-green-600">
+                          ✓ Çap: {validation.diameter}mm, Filmaşin: {validation.filmasin}mm, Kalite: {validation.quality}
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+
+                {/* Source YM ST Selection */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Kaynak YM ST (Kalın Tel) *
+                  </label>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={coilerSourceYmStSearch}
+                      onChange={(e) => setCoilerSourceYmStSearch(e.target.value)}
+                      placeholder="YM ST ara... (stok kodu, çap, filmaşin, kalite)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <svg className="absolute right-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+
+                  {/* Source YM ST Dropdown */}
+                  <div className="border border-gray-300 rounded-md max-h-40 overflow-y-auto">
+                    {getFilteredSourceYmSts().length === 0 ? (
+                      <div className="p-3 text-gray-500 text-sm">
+                        {existingYmSts.length === 0 ? 'YM ST veritabanı yükleniyor...' : 'Arama kriterine uygun YM ST bulunamadı'}
+                      </div>
+                    ) : (
+                      getFilteredSourceYmSts().map((ymSt) => (
+                        <div
+                          key={ymSt.id}
+                          onClick={() => setCoilerSourceYmSt(ymSt)}
+                          className={`p-3 cursor-pointer border-b border-gray-100 hover:bg-blue-50 transition-colors ${
+                            coilerSourceYmSt?.id === ymSt.id ? 'bg-blue-100 border-blue-300' : ''
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <div className="font-medium text-sm">{ymSt.stok_kodu}</div>
+                              <div className="text-xs text-gray-600">
+                                Çap: {ymSt.cap}mm | Filmaşin: {ymSt.filmasin}mm | Kalite: {ymSt.quality}
+                              </div>
+                            </div>
+                            {coilerSourceYmSt?.id === ymSt.id && (
+                              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {coilerSourceYmSt && (
+                    <div className="text-xs text-green-600 p-2 bg-green-50 rounded">
+                      ✓ Seçilen: {coilerSourceYmSt.stok_kodu} ({coilerSourceYmSt.cap}mm)
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowCoilerReceteModal(false);
+                      setCoilerTargetYmSt('');
+                      setCoilerSourceYmSt(null);
+                      setCoilerSourceYmStSearch('');
+                    }}
+                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={generateCoilerExcel}
+                    disabled={isGeneratingCoilerExcel || !coilerTargetYmSt || !coilerSourceYmSt}
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isGeneratingCoilerExcel ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Oluşturuluyor...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Coiler Exceli Oluştur
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
