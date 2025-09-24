@@ -4461,6 +4461,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
+        const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
         for (let priority = 0; priority < 5; priority++) {
@@ -4974,6 +4975,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
+        const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
         for (let priority = 0; priority < 5; priority++) {
