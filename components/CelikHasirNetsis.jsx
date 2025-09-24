@@ -4313,8 +4313,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
-    // CH REÇETE sheet (NTEL bazlı)
-    const chReceteSheet = workbook.addWorksheet('CH REÇETE');
+    // CH REÇETE ALT1 sheet (NTEL bazlı)
+    const chReceteSheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteSheet.addRow(receteHeaders);
 
     // 5 NCBK Alternatif sheets (Priority 0-4)
@@ -4461,7 +4461,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
-        const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
         for (let priority = 0; priority < 5; priority++) {
@@ -4843,7 +4842,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
-    const chReceteSheet = workbook.addWorksheet('CH REÇETE');
+    const chReceteSheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteSheet.addRow(receteHeaders);
 
     // 5 NCBK Alternatif sheets (Priority 0-4)
@@ -4866,9 +4865,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
     
-    // Process all products for CH alternative recipes (NTEL-based)
-    const mmProducts = allProducts;
-    
+    // Process only MM products for CH alternative recipes (NTEL-based)
+    const mmProducts = allProducts.filter(product =>
+      product.productType === 'MM' ||
+      !product.productType ||
+      product.existingStokKodu?.startsWith('YM.CH.')
+    );
+
+    console.log(`🚀 BULK ALT RECIPE: Processing ${mmProducts.length} MM products for CH recipes out of ${allProducts.length} total products`);
+
     mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu;
       const boyCap = parseFloat(product.boyCap || 0);
@@ -4915,14 +4920,26 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // Use the same updated logic from generateAlternatifReceteExcel
-    allProducts.forEach(product => {
+    // Use the same updated logic from generateAlternatifReceteExcel - only process MM products
+    mmProducts.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
+      // Skip products with invalid uzunluk values to avoid invalid stock codes
+      const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
+      const uzunlukEn = parseInt(product.uzunlukEn || 0);
+
+      if (uzunlukBoy <= 0 || uzunlukEn <= 0) {
+        console.warn('Skipping product with invalid uzunluk values:', {
+          stokKodu: product.existingStokKodu,
+          uzunlukBoy: product.uzunlukBoy,
+          uzunlukEn: product.uzunlukEn
+        });
+        return;
+      }
+
       // Boy direction NCBK recipes - generate for all 5 alternatif sheets
       if (boyCap > 0) {
-        const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
         for (let priority = 0; priority < 5; priority++) {
@@ -4957,7 +4974,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
-        const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
         for (let priority = 0; priority < 5; priority++) {
