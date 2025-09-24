@@ -18,7 +18,8 @@ import {
   Download,
   Eye,
   RefreshCw,
-  Info
+  Info,
+  Settings
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
@@ -142,20 +143,43 @@ const ExcelUploadModule = ({
 
       reader.onload = (e) => {
         try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
+          let jsonData;
+          let firstSheetName = 'Sheet1';
 
-          // Get first sheet
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
+          // Check if it's a CSV file
+          if (file.name.toLowerCase().endsWith('.csv')) {
+            // For CSV files, parse with semicolon delimiter
+            const text = new TextDecoder('utf-8').decode(e.target.result);
+            const lines = text.split('\n').filter(line => line.trim());
 
-          // Convert to JSON with header row
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            // Parse CSV with semicolon delimiter (common in Turkish/European CSVs)
+            jsonData = lines.map(line => {
+              // Handle semicolon-delimited CSV
+              return line.split(';').map(cell => (cell || '').trim());
+            });
+
+            firstSheetName = 'CSV Data';
+          } else {
+            // For Excel files, use XLSX
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001 }); // UTF-8 support
+
+            firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+
+            // Convert to JSON with header row
+            jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+          }
 
           if (jsonData.length < 2) {
             reject(new Error('Dosya boş veya yeterli veri içermiyor'));
             return;
           }
+
+          // Filter out empty rows and rows with only empty cells
+          jsonData = jsonData.filter(row =>
+            row && row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+          );
 
           // Store all sheet data for header detection
           setAllSheetData(jsonData);
@@ -167,20 +191,23 @@ const ExcelUploadModule = ({
           const headers = jsonData[detectedHeaderRow];
           const dataRows = jsonData.slice(detectedHeaderRow + 1, detectedHeaderRow + 6); // First 5 rows for preview
 
+          // Clean up headers - remove empty strings
+          const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
+
           // Validate headers
-          const validation = validateHeaders(headers);
+          const validation = validateHeaders(cleanHeaders);
 
           // Convert preview rows to objects
           const previewRows = dataRows.map(row => {
             const obj = {};
-            headers.forEach((header, index) => {
+            cleanHeaders.forEach((header, index) => {
               obj[header] = row[index] || '';
             });
             return obj;
           });
 
           resolve({
-            headers,
+            headers: cleanHeaders,
             totalRows: jsonData.length - detectedHeaderRow - 1,
             previewRows,
             validation,
@@ -232,18 +259,21 @@ const ExcelUploadModule = ({
     const headers = allSheetData[newRowIndex];
     const dataRows = allSheetData.slice(newRowIndex + 1, newRowIndex + 6);
 
-    const validation = validateHeaders(headers);
+    // Clean up headers - remove empty strings
+    const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
+
+    const validation = validateHeaders(cleanHeaders);
 
     const previewRows = dataRows.map(row => {
       const obj = {};
-      headers.forEach((header, index) => {
+      cleanHeaders.forEach((header, index) => {
         obj[header] = row[index] || '';
       });
       return obj;
     });
 
     setPreviewData({
-      headers,
+      headers: cleanHeaders,
       totalRows: allSheetData.length - newRowIndex - 1,
       previewRows,
       validation,
@@ -549,12 +579,21 @@ const ExcelUploadModule = ({
         {uploadedFile && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <div className="flex-1">
-                <p className="font-medium text-green-900">{uploadedFile.name}</p>
-                <p className="text-sm text-green-700">
-                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • {uploadedFile.type || 'Bilinmeyen format'}
+              <div className="flex-shrink-0">
+                <FileSpreadsheet className="h-8 w-8 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-green-900 truncate" title={uploadedFile.name}>
+                  📄 {uploadedFile.name}
                 </p>
+                <div className="flex items-center gap-4 text-sm text-green-700 mt-1">
+                  <span>💾 {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                  <span>📋 {uploadedFile.type ? uploadedFile.type.split('/').pop().toUpperCase() : 'Excel/CSV'}</span>
+                  <span>📅 {new Date(uploadedFile.lastModified).toLocaleDateString('tr-TR')}</span>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <CheckCircle className="h-5 w-5 text-green-500" />
               </div>
             </div>
           </div>
@@ -646,23 +685,31 @@ const ExcelUploadModule = ({
 
             {/* Validation Summary */}
             {previewData.validation && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="font-medium text-green-600">
-                      Bulunan Sütunlar ({previewData.validation.foundColumns.length}):
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 text-xs">
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <span className="font-medium text-green-700 block mb-1">
+                      ✓ Bulunan Sütunlar ({previewData.validation.foundColumns.length}):
                     </span>
-                    <div className="text-gray-600">
-                      {previewData.validation.foundColumns.join(', ')}
+                    <div className="text-green-600 flex flex-wrap gap-1">
+                      {previewData.validation.foundColumns.map((col, idx) => (
+                        <span key={idx} className="bg-green-100 px-2 py-1 rounded text-xs">
+                          {col}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   {previewData.validation.missingColumns.length > 0 && (
-                    <div>
-                      <span className="font-medium text-red-600">
-                        Eksik Sütunlar ({previewData.validation.missingColumns.length}):
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <span className="font-medium text-red-700 block mb-1">
+                        ⚠ Eksik Gerekli Sütunlar ({previewData.validation.missingColumns.length}):
                       </span>
-                      <div className="text-gray-600">
-                        {previewData.validation.missingColumns.join(', ')}
+                      <div className="text-red-600 flex flex-wrap gap-1">
+                        {previewData.validation.missingColumns.map((col, idx) => (
+                          <span key={idx} className="bg-red-100 px-2 py-1 rounded text-xs">
+                            {col}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -672,18 +719,27 @@ const ExcelUploadModule = ({
 
             {/* Header Row Selector */}
             {allSheetData && allSheetData.length > 1 && (
-              <div className="space-y-2">
-                <Label htmlFor="header-row-select" className="text-sm font-medium">
-                  Başlık Satırı (Header Row):
+              <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
+                <Label htmlFor="header-row-select" className="text-sm font-medium text-blue-800">
+                  📋 Başlık Satırı Seçimi:
                 </Label>
+                <p className="text-xs text-blue-600 mb-2">
+                  Sütun başlıklarının bulunduğu satırı seçin
+                </p>
                 <Select value={headerRowIndex.toString()} onValueChange={(value) => handleHeaderRowChange(parseInt(value))}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full border-blue-200">
                     <SelectValue placeholder="Başlık satırını seçin" />
                   </SelectTrigger>
                   <SelectContent>
                     {allSheetData.slice(0, 5).map((row, index) => (
                       <SelectItem key={index} value={index.toString()}>
-                        Satır {index + 1}: {row.slice(0, 4).join(' | ')}...
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">Satır {index + 1}:</span>
+                          <span className="text-gray-600 truncate max-w-[300px]">
+                            {row.slice(0, 4).map(cell => String(cell || '').substring(0, 15)).join(' | ')}
+                            {row.length > 4 && '...'}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -693,19 +749,26 @@ const ExcelUploadModule = ({
 
             {/* Column Mapping Controls */}
             {previewData && previewData.headers && (
-              <div className="space-y-2">
+              <div className="space-y-3 p-3 bg-gray-50 rounded-lg border">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Sütun Eşleştirme:</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">🔗 Sütun Eşleştirme</span>
+                    <p className="text-xs text-gray-500 mt-1">Sistem alanları ile Excel sütunlarını eşleştirin</p>
+                  </div>
                   <button
                     onClick={handleShowColumnMapping}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
                   >
+                    <Settings className="h-4 w-4" />
                     Sütunları Eşleştir
                   </button>
                 </div>
                 {Object.keys(columnMappings).length > 0 && (
-                  <div className="text-xs text-green-600">
-                    ✓ Sütun eşleştirmesi yapıldı
+                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded border border-green-200">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-700 font-medium">
+                      Sütun eşleştirmesi yapıldı ({Object.keys(columnMappings).length} alan)
+                    </span>
                   </div>
                 )}
               </div>
@@ -713,33 +776,43 @@ const ExcelUploadModule = ({
 
             {/* Preview Table */}
             {showPreview && previewData.previewRows && (
-              <div className="border rounded-lg overflow-x-auto max-h-64">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {previewData.headers.slice(0, 8).map((header, index) => (
-                        <th key={index} className="px-2 py-1 text-left border-b font-medium">
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewData.previewRows.map((row, rowIndex) => (
-                      <tr key={rowIndex} className="hover:bg-gray-50">
-                        {previewData.headers.slice(0, 8).map((header, colIndex) => (
-                          <td key={colIndex} className="px-2 py-1 border-b">
-                            {String(row[header] || '').substring(0, 20)}
-                            {String(row[header] || '').length > 20 && '...'}
-                          </td>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-3 py-2 border-b">
+                  <h4 className="text-sm font-medium text-gray-700">Veri Önizlemesi</h4>
+                  <p className="text-xs text-gray-500">İlk {previewData.previewRows.length} satır gösteriliyor</p>
+                </div>
+                <div className="overflow-x-auto max-h-64">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        {previewData.headers.slice(0, 10).map((header, index) => (
+                          <th key={index} className="px-3 py-2 text-left border-r font-medium text-gray-700 min-w-[100px]">
+                            <div className="truncate" title={header || `Sütun ${index + 1}`}>
+                              {header || `Sütun ${index + 1}`}
+                            </div>
+                          </th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {previewData.headers.length > 8 && (
-                  <div className="p-2 text-center text-gray-500 text-xs">
-                    +{previewData.headers.length - 8} sütun daha...
+                    </thead>
+                    <tbody>
+                      {previewData.previewRows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="hover:bg-gray-50 border-b">
+                          {previewData.headers.slice(0, 10).map((header, colIndex) => (
+                            <td key={colIndex} className="px-3 py-2 border-r text-gray-600 min-w-[100px]">
+                              <div className="truncate" title={String(row[header] || '')}>
+                                {String(row[header] || '').substring(0, 15)}
+                                {String(row[header] || '').length > 15 && '...'}
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {previewData.headers.length > 10 && (
+                  <div className="p-3 text-center text-gray-500 text-xs bg-gray-50 border-t">
+                    +{previewData.headers.length - 10} sütun daha var (toplam {previewData.headers.length} sütun)
                   </div>
                 )}
               </div>

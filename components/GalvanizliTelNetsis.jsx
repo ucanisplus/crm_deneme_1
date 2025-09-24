@@ -3636,6 +3636,7 @@ const GalvanizliTelNetsis = () => {
     if (!targetDiameter || !sourceYmSt) return null;
 
     const sourceDiameter = parseFloat(sourceYmSt.cap) || 0;
+    console.log(`🔧 COILER SOURCE DEBUG: Processing source YM ST: ${sourceYmSt.stok_kodu}, diameter: ${sourceDiameter}mm`);
 
     // CORRECT: For Coiler, use source YM ST diameter directly as giris_capi
     // TLC_Hızlar table: giris_capi = source diameter, cikis_capi = target diameter
@@ -3644,6 +3645,7 @@ const GalvanizliTelNetsis = () => {
 
     // Use source YM ST diameter as input to TLC_Hiz lookup
     const tlcHiz = calculateTlcHiz(giris_capi, cikis_capi);
+    console.log(`🔧 COILER TLC_HIZ DEBUG: ${giris_capi}mm → ${cikis_capi}mm = TLC_Hiz: ${tlcHiz}`);
 
     if (!tlcHiz || tlcHiz <= 0) {
       console.warn(`⚠️ COILER: No TLC_Hiz found for ${giris_capi}mm → ${cikis_capi}mm`);
@@ -3736,7 +3738,7 @@ const GalvanizliTelNetsis = () => {
             'O', // Operasyon Bileşen
             'COTLC01', // Bileşen Kodu(*)
             '1', // Ölçü Br. - Bileşen
-            '1', // Miktar(*) - Always 1 for operation
+            '', // Miktar(*) - Empty for operation
             'Coiler Tel Çekme Operasyonu', // Açıklama
             '', // Miktar Sabitle
             '', // Stok/Maliyet
