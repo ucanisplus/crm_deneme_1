@@ -4506,7 +4506,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4540,7 +4540,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4606,7 +4606,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ntelSheets.push(sheet);
     }
 
-    // Add data to Sheet 1 (CH REÇETE) - main recete logic
+    // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
     let receteBatchIndex = 0;
     for (const product of products) {
       const chStokKodu = product.existingStokKodu;
@@ -4614,12 +4614,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.error('❌ CRITICAL: Missing existingStokKodu for recipe product:', product.hasirTipi);
         throw new Error(`Missing existingStokKodu for recipe product ${product.hasirTipi}`);
       }
+      console.log('🔧 RECIPE STOK KODU - Using saved stock code:', chStokKodu);
       receteBatchIndex++;
 
-      // CH Reçete - Boy ve En çubuk tüketimleri (main recete logic)
+      // CH Reçete - Boy ve En çubuk tüketimleri
       const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
       const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
 
+      // Calculate YOTOCH operation time using our formula
       const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
 
       // EN ÇUBUĞU (actual en length)
@@ -4646,7 +4648,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     }
 
-    // Add data to Sheet 2 (CH REÇETE ALT1) - alternatif recete logic for CH
+    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    let altReceteBatchIndex = 0;
     let chRowCount = 0;
     for (const product of products) {
       const chStokKodu = product.existingStokKodu;
@@ -4654,15 +4657,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.error('❌ CRITICAL: Missing existingStokKodu for alt recipe product:', product.hasirTipi);
         throw new Error(`Missing existingStokKodu for alt recipe product ${product.hasirTipi}`);
       }
+      console.log('🔧 ALT RECIPE STOK KODU - Using saved stock code:', chStokKodu);
+      altReceteBatchIndex++;
 
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
       const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
+      // Validate all numeric values are valid
       if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
         console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
         console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
+        // Continue with 0 values instead of NaN
       }
 
       // Boy direction NTEL consumption
@@ -4691,152 +4698,175 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
+        // Same diameter for both directions
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
 
         chReceteAlt1Sheet.addRow([
           chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
           enNtelKodu,
-          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          '', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
 
-      // KAYNAK operasyonu
-      const kaynakDuration = toExcelNumber(calculateOperationDuration('KAYNAK', product));
+      // CRITICAL FIX: Use OTOCH not KAYNAK (from original)
       chReceteAlt1Sheet.addRow([
-        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'KAYNAK',
-        '', '1', '', '', '', '', '', '', '', kaynakDuration,
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+        '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
     }
 
-    // Process NCBK and NTEL recipes for sheets 3-12 (avoid duplicates)
-    const processedNCBKRecipes = new Set();
-    const processedNTELRecipes = new Set();
+    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    const processedNCBKRecipes = Array(5).fill().map(() => new Set());
+    const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
     products.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction uses boyCap with actual uzunlukBoy length
+      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
-        if (!processedNCBKRecipes.has(boyKey)) {
-          processedNCBKRecipes.add(boyKey);
 
-          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-          const FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 8.0,
-            7.00: 9.0,
-            8.00: 10.0, 8.50: 10.0,
-            9.00: 11.0, 9.20: 11.0,
-            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
-            12.00: 13.0
-          };
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNCBKRecipes[priority].has(boyKey)) {
+            processedNCBKRecipes[priority].add(boyKey);
 
-          // Generate NCBK recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(boyCap, priority) || FILMASIN_MAPPING[boyCap] || 6.0;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((boyCap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
       }
 
-      // En direction uses enCap with actual uzunlukEn length
+      // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
-        if (!processedNCBKRecipes.has(enKey)) {
-          processedNCBKRecipes.add(enKey);
 
-          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-          const FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 8.0,
-            7.00: 9.0,
-            8.00: 10.0, 8.50: 10.0,
-            9.00: 11.0, 9.20: 11.0,
-            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
-            12.00: 13.0
-          };
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNCBKRecipes[priority].has(enKey)) {
+            processedNCBKRecipes[priority].add(enKey);
 
-          // Generate NCBK recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(enCap, priority) || FILMASIN_MAPPING[enCap] || 6.0;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((enCap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
+            const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
       }
 
-      // Generate NTEL recipes for both diameters
-      [boyCap, enCap].forEach(cap => {
-        if (cap > 0 && !processedNTELRecipes.has(cap)) {
-          processedNTELRecipes.add(cap);
+      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      if (boyCap > 0) {
+        const boyNtelKey = boyCap.toString();
 
-          const ntelStokKodu = `YM.NTEL.${safeCapToCode(cap)}`;
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
+            processedNTELRecipes[priority].add(boyNtelKey);
 
-          // Generate NTEL recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(cap, priority) || cap * 1.3;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((cap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
-      });
+      }
+
+      // En direction NTEL recipes - generate for all 5 alternatif sheets
+      if (enCap > 0 && enCap !== boyCap) {
+        const enNtelKey = enCap.toString();
+
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNTELRecipes[priority].has(enNtelKey)) {
+            processedNTELRecipes[priority].add(enNtelKey);
+
+            const flmInfo = getFilmasinByPriority(enCap, priority);
+
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+            const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: enCap, enCap: enCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
     });
 
     // Save the merged Excel file
@@ -5304,7 +5334,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5338,7 +5368,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5406,7 +5436,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const mmProducts = allProducts.filter(p => p.productType === 'MM');
     console.log('🚀 BULK MERGED RECETE: Filtered to', mmProducts.length, 'MM products');
 
-    // Add data to Sheet 1 (CH REÇETE) - main recete logic
+    // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
     for (const product of mmProducts) {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
@@ -5414,10 +5444,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         continue;
       }
 
-      // CH Reçete - Boy ve En çubuk tüketimleri (main recete logic)
+      // CH Reçete - Boy ve En çubuk tüketimleri
       const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
       const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
 
+      // Calculate YOTOCH operation time using our formula
       const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
 
       // EN ÇUBUĞU (actual en length)
@@ -5444,7 +5475,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     }
 
-    // Add data to Sheet 2 (CH REÇETE ALT1) - alternatif recete logic for CH
+    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
     for (const product of mmProducts) {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
@@ -5457,10 +5488,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
       const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
+      // Validate all numeric values are valid
+      if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
+        console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
+        console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
+        // Continue with 0 values instead of NaN
+      }
+
       // Boy direction NTEL consumption
       if (boyCap > 0 && cubukSayisiBoyValue > 0) {
         const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-        const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5);
+        const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5); // 5 meters per cubuk
 
         chReceteAlt1Sheet.addRow([
           chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
@@ -5470,10 +5508,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       }
 
-      // En direction NTEL consumption
+      // En direction NTEL consumption (if different from boy)
       if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
-        const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5);
+        const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
 
         chReceteAlt1Sheet.addRow([
           chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
@@ -5482,152 +5520,175 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
+        // Same diameter for both directions
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
 
         chReceteAlt1Sheet.addRow([
           chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
           enNtelKodu,
-          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          '', toExcelDecimal(parseFloat(enNtelMiktar).toFixed(5)), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       }
 
-      // KAYNAK operasyonu
-      const kaynakDuration = toExcelNumber(calculateOperationDuration('KAYNAK', product));
+      // CRITICAL FIX: Use OTOCH not KAYNAK (from original)
       chReceteAlt1Sheet.addRow([
-        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'KAYNAK',
-        '', '1', '', '', '', '', '', '', '', kaynakDuration,
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
+        '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
     }
 
-    // Process NCBK and NTEL recipes for sheets 3-12 (avoid duplicates)
-    const processedNCBKRecipes = new Set();
-    const processedNTELRecipes = new Set();
+    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    const processedNCBKRecipes = Array(5).fill().map(() => new Set());
+    const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
     mmProducts.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction uses boyCap with actual uzunlukBoy length
+      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
-        if (!processedNCBKRecipes.has(boyKey)) {
-          processedNCBKRecipes.add(boyKey);
 
-          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-          const FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 8.0,
-            7.00: 9.0,
-            8.00: 10.0, 8.50: 10.0,
-            9.00: 11.0, 9.20: 11.0,
-            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
-            12.00: 13.0
-          };
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNCBKRecipes[priority].has(boyKey)) {
+            processedNCBKRecipes[priority].add(boyKey);
 
-          // Generate NCBK recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(boyCap, priority) || FILMASIN_MAPPING[boyCap] || 6.0;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((boyCap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
       }
 
-      // En direction uses enCap with actual uzunlukEn length
+      // En direction NCBK recipes - generate for all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
-        if (!processedNCBKRecipes.has(enKey)) {
-          processedNCBKRecipes.add(enKey);
 
-          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-          const FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 8.0,
-            7.00: 9.0,
-            8.00: 10.0, 8.50: 10.0,
-            9.00: 11.0, 9.20: 11.0,
-            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
-            12.00: 13.0
-          };
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNCBKRecipes[priority].has(enKey)) {
+            processedNCBKRecipes[priority].add(enKey);
 
-          // Generate NCBK recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(enCap, priority) || FILMASIN_MAPPING[enCap] || 6.0;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((enCap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
+            const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ncbkSheets[priority].addRow([
-              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
       }
 
-      // Generate NTEL recipes for both diameters
-      [boyCap, enCap].forEach(cap => {
-        if (cap > 0 && !processedNTELRecipes.has(cap)) {
-          processedNTELRecipes.add(cap);
+      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      if (boyCap > 0) {
+        const boyNtelKey = boyCap.toString();
 
-          const ntelStokKodu = `YM.NTEL.${safeCapToCode(cap)}`;
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
+            processedNTELRecipes[priority].add(boyNtelKey);
 
-          // Generate NTEL recipes with 5 priorities for 5 sheets
-          for (let priority = 0; priority < 5; priority++) {
-            const filmasinDiameter = getFilmasinByPriority(cap, priority) || cap * 1.3;
-            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
-            const filmasinConsumption = toExcelDecimal(((Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000)).toFixed(5));
-            const operationDuration = toExcelNumber((cap * 0.0003).toFixed(6));
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Bileşen record
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
-              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
-              '', '', '', '', '', '', '', '', ''
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            // Operasyon record
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
-              'NTLC01', 'DK', '1', '', '', '', '', '', '', operationDuration,
-              '', '', '', '', '', '', '', '', ''
+              ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
         }
-      });
+      }
+
+      // En direction NTEL recipes - generate for all 5 alternatif sheets
+      if (enCap > 0 && enCap !== boyCap) {
+        const enNtelKey = enCap.toString();
+
+        for (let priority = 0; priority < 5; priority++) {
+          if (!processedNTELRecipes[priority].has(enNtelKey)) {
+            processedNTELRecipes[priority].add(enNtelKey);
+
+            const flmInfo = getFilmasinByPriority(enCap, priority);
+
+            // Skip if no alternative exists for this priority
+            if (!flmInfo) {
+              continue;
+            }
+
+            const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+            const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+
+            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: enCap, enCap: enCap })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
     });
 
     // Save the merged Excel file
