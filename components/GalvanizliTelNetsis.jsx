@@ -3604,6 +3604,15 @@ const GalvanizliTelNetsis = () => {
 
   // Toggle selection of source YM ST
   const toggleSourceYmStSelection = (ymSt) => {
+    // Validate that source diameter is greater than target
+    const targetDiameter = parseFloat(coilerTargetDiameter) || 0;
+    const sourceDiameter = parseFloat(ymSt.cap) || 0;
+
+    if (targetDiameter > 0 && sourceDiameter <= targetDiameter) {
+      toast.error(`Hammadde çapı (${sourceDiameter}mm) hedef çaptan (${targetDiameter}mm) büyük olmalıdır`);
+      return;
+    }
+
     setCoilerSourceYmSts(prev => {
       const exists = prev.find(s => s.id === ymSt.id);
       if (exists) {
@@ -3618,7 +3627,17 @@ const GalvanizliTelNetsis = () => {
   const getFilteredSourceYmSts = () => {
     if (!existingYmSts || existingYmSts.length === 0) return [];
 
+    // Parse target diameter for filtering
+    const targetDiameter = parseFloat(coilerTargetDiameter) || 0;
+
     return existingYmSts.filter(ymSt => {
+      // Filter by diameter - source must be greater than target
+      const sourceDiameter = parseFloat(ymSt.cap) || 0;
+      if (targetDiameter > 0 && sourceDiameter <= targetDiameter) {
+        return false; // Don't show YM ST with diameter <= target diameter
+      }
+
+      // Filter by search term
       if (!coilerSourceYmStSearch) return true;
 
       const searchLower = coilerSourceYmStSearch.toLowerCase();
