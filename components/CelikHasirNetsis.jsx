@@ -3368,21 +3368,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // 1. Stok Kartı Excel
       console.log('DEBUG: Starting Stok Kartı Excel generation with corrected data...');
-      setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+      setExcelProgress({ current: 1, total: 2, operation: 'Stok Kartı Excel oluşturuluyor...' });
       await generateStokKartiExcel(products, timestamp, includeAllProducts);
       console.log('DEBUG: Stok Kartı Excel completed');
       
-      // 2. Reçete Excel  
-      console.log('DEBUG: Starting Reçete Excel generation...');
-      setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
-      await generateReceteExcel(products, timestamp, includeAllProducts);
-      console.log('DEBUG: Reçete Excel completed');
-      
-      // 3. Alternatif Reçete Excel
-      console.log('DEBUG: Starting Alternatif Reçete Excel generation...');
-      setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
-      await generateAlternatifReceteExcel(products, timestamp, includeAllProducts);
-      console.log('DEBUG: Alternatif Reçete Excel completed');
+      // 2. Merged Reçete Excel (combines main recete + alternatif recete into 12 sheets)
+      console.log('DEBUG: Starting Merged Reçete Excel generation...');
+      setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
+      await generateMergedReceteExcel(products, timestamp, includeAllProducts);
+      console.log('DEBUG: Merged Reçete Excel completed');
       
       // Show comprehensive success message for the entire save+Excel process
       const productCount = products ? products.length : 0;
@@ -3407,12 +3401,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const generateBulkExcelFromDatabase = useCallback(async () => {
     try {
       setIsGeneratingExcel(true);
-      setExcelProgress({ current: 0, total: 6, operation: 'Toplu veritabanı indirme başlıyor...' });
+      setExcelProgress({ current: 0, total: 7, operation: 'Toplu veritabanı indirme başlıyor...' });
 
       console.log('🚀 BULK EXCEL: Starting bulk database download using unified fetch approach...');
 
       // 1. Get all product stock codes first - with explicit high limit to ensure we get all records
-      setExcelProgress({ current: 1, total: 6, operation: 'Ürün kodları alınıyor...' });
+      setExcelProgress({ current: 1, total: 7, operation: 'Ürün kodları alınıyor...' });
 
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
         fetch(`${API_URLS.getAllMM}?limit=50000`, {
@@ -3438,7 +3432,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts?.length || 0}), NTEL(${allNTELProducts?.length || 0}) products`);
 
       // 2. Fetch all recipe data - with explicit high limit to ensure we get all records
-      setExcelProgress({ current: 2, total: 8, operation: 'Reçete verileri alınıyor...' });
+      setExcelProgress({ current: 2, total: 7, operation: 'Reçete verileri alınıyor...' });
 
       const [mmReceteResponse, ncbkReceteResponse, ntelReceteResponse] = await Promise.all([
         fetch(`${API_URLS.getAllMMRecetes}?limit=50000`, {
@@ -3614,10 +3608,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Generate Excel files with recipe data
       await generateBulkStokKartiExcel(allProcessedProducts, timestamp);
-      await generateBulkReceteExcel(allProcessedProducts, receteLookup, timestamp);
-      await generateBulkAlternatifReceteExcel(allProcessedProducts, receteLookup, timestamp);
+      await generateBulkMergedReceteExcel(allProcessedProducts, receteLookup, timestamp);
       
-      setExcelProgress({ current: 8, total: 8, operation: 'Tamamlandı!' });
+      setExcelProgress({ current: 7, total: 7, operation: 'Tamamlandı!' });
       
       toast.success(`Toplu Excel oluşturma tamamlandı! ${allProcessedProducts.length} ürün işlendi.`);
       console.log(`🚀 BULK EXCEL: Successfully generated Excel files for ${allProcessedProducts.length} products`);
@@ -4570,6 +4563,290 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('DEBUG: generateAlternatifReceteExcel completed successfully');
   };
 
+  // MERGED Recete Excel generation function (combines main recete + alternatif recete into 12 sheets)
+  const generateMergedReceteExcel = async (products, timestamp, includeAllProducts) => {
+    console.log('DEBUG: generateMergedReceteExcel started with', products.length, 'products');
+
+    const workbook = new ExcelJS.Workbook();
+
+    const receteHeaders = [
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.',
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
+      'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
+      'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
+      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
+      'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
+      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ',
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+    ];
+
+    // Sheet 1: CH REÇETE (from main recete)
+    const chReceteSheet = workbook.addWorksheet('CH REÇETE');
+    chReceteSheet.addRow(receteHeaders);
+
+    // Sheet 2: CH REÇETE ALT1 (from alternatif recete)
+    const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
+    chReceteAlt1Sheet.addRow(receteHeaders);
+
+    // Sheets 3-7: YM NCBK REÇETE and ALT 1-4 (priority 0-4)
+    const ncbkSheets = [];
+    for (let i = 0; i < 5; i++) {
+      const sheetName = i === 0 ? 'YM NCBK REÇETE' : `YM NCBK REÇETE ALT ${i}`;
+      const sheet = workbook.addWorksheet(sheetName);
+      sheet.addRow(receteHeaders);
+      ncbkSheets.push(sheet);
+    }
+
+    // Sheets 8-12: YM NTEL REÇETE and ALT 1-4 (priority 0-4)
+    const ntelSheets = [];
+    for (let i = 0; i < 5; i++) {
+      const sheetName = i === 0 ? 'YM NTEL REÇETE' : `YM NTEL REÇETE ALT ${i}`;
+      const sheet = workbook.addWorksheet(sheetName);
+      sheet.addRow(receteHeaders);
+      ntelSheets.push(sheet);
+    }
+
+    // Add data to Sheet 1 (CH REÇETE) - main recete logic
+    let receteBatchIndex = 0;
+    for (const product of products) {
+      const chStokKodu = product.existingStokKodu;
+      if (!chStokKodu) {
+        console.error('❌ CRITICAL: Missing existingStokKodu for recipe product:', product.hasirTipi);
+        throw new Error(`Missing existingStokKodu for recipe product ${product.hasirTipi}`);
+      }
+      receteBatchIndex++;
+
+      // CH Reçete - Boy ve En çubuk tüketimleri (main recete logic)
+      const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
+      const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
+
+      const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
+
+      // EN ÇUBUĞU (actual en length)
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '1', 'Bileşen',
+        `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
+        '', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+
+      // BOY ÇUBUĞU (actual boy length)
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '2', 'Bileşen',
+        `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
+        '', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+
+      // YOTOCH Operasyon
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '3', 'Operasyon', 'YOTOCH',
+        '', '1', '', '', '', '', '', '', '', operationTime,
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+    }
+
+    // Add data to Sheet 2 (CH REÇETE ALT1) - alternatif recete logic for CH
+    let chRowCount = 0;
+    for (const product of products) {
+      const chStokKodu = product.existingStokKodu;
+      if (!chStokKodu) {
+        console.error('❌ CRITICAL: Missing existingStokKodu for alt recipe product:', product.hasirTipi);
+        throw new Error(`Missing existingStokKodu for alt recipe product ${product.hasirTipi}`);
+      }
+
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+      const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
+      const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
+
+      if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
+        console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
+        console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
+      }
+
+      // Boy direction NTEL consumption
+      if (boyCap > 0 && cubukSayisiBoyValue > 0) {
+        const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
+        const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5); // 5 meters per cubuk
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
+          boyNtelKodu,
+          '', toExcelDecimal(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+        chRowCount++;
+      }
+
+      // En direction NTEL consumption (if different from boy)
+      if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
+        const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+        const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
+          enNtelKodu,
+          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+      } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
+        const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+        const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
+          enNtelKodu,
+          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+      }
+
+      // KAYNAK operasyonu
+      const kaynakDuration = toExcelNumber(calculateOperationDuration('KAYNAK', product));
+      chReceteAlt1Sheet.addRow([
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'KAYNAK',
+        '', '1', '', '', '', '', '', '', '', kaynakDuration,
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+    }
+
+    // Process NCBK and NTEL recipes for sheets 3-12 (avoid duplicates)
+    const processedNCBKRecipes = new Set();
+    const processedNTELRecipes = new Set();
+
+    products.forEach(product => {
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+
+      // Boy direction uses boyCap with actual uzunlukBoy length
+      if (boyCap > 0) {
+        const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
+        const boyKey = `${boyCap}-${uzunlukBoy}`;
+        if (!processedNCBKRecipes.has(boyKey)) {
+          processedNCBKRecipes.add(boyKey);
+
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
+          const FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 8.0,
+            7.00: 9.0,
+            8.00: 10.0, 8.50: 10.0,
+            9.00: 11.0, 9.20: 11.0,
+            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
+            12.00: 13.0
+          };
+
+          // Generate NCBK recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(boyCap, priority) || FILMASIN_MAPPING[boyCap] || 6.0;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((boyCap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
+
+      // En direction uses enCap with actual uzunlukEn length
+      if (enCap > 0) {
+        const uzunlukEn = parseInt(product.uzunlukEn || 0);
+        const enKey = `${enCap}-${uzunlukEn}`;
+        if (!processedNCBKRecipes.has(enKey)) {
+          processedNCBKRecipes.add(enKey);
+
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
+          const FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 8.0,
+            7.00: 9.0,
+            8.00: 10.0, 8.50: 10.0,
+            9.00: 11.0, 9.20: 11.0,
+            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
+            12.00: 13.0
+          };
+
+          // Generate NCBK recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(enCap, priority) || FILMASIN_MAPPING[enCap] || 6.0;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((enCap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
+
+      // Generate NTEL recipes for both diameters
+      [boyCap, enCap].forEach(cap => {
+        if (cap > 0 && !processedNTELRecipes.has(cap)) {
+          processedNTELRecipes.add(cap);
+
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(cap)}`;
+
+          // Generate NTEL recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(cap, priority) || cap * 1.3;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((cap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      });
+    });
+
+    // Save the merged Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Celik_Hasir_Recete_${timestamp}.xlsx`);
+
+    console.log('DEBUG: generateMergedReceteExcel - saving file with', products.length, 'products processed, CH rows added:', chRowCount);
+    console.log('DEBUG: generateMergedReceteExcel completed successfully');
+  };
+
   // BULK Excel generation functions that use pre-downloaded database data
   const generateBulkStokKartiExcel = async (allProducts, timestamp) => {
     console.log('🚀 BULK STOK KARTI: Processing', allProducts.length, 'products');
@@ -5080,6 +5357,284 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
     console.log('🚀 BULK ALT RECIPE: Excel generation completed');
+  };
+
+  // BULK Merged Recete Excel generation function (combines main recete + alternatif recete into 12 sheets)
+  const generateBulkMergedReceteExcel = async (allProducts, receteLookup, timestamp) => {
+    console.log('🚀 BULK MERGED RECETE: Starting with', allProducts.length, 'products');
+
+    const workbook = new ExcelJS.Workbook();
+
+    const receteHeaders = [
+      'Mamul Kodu(*)', 'Reçete Top.', 'Fire Oranı (%)', 'Oto.Reç.', 'Ölçü Br.',
+      'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
+      'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
+      'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
+      'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Planlama Oranı',
+      'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
+      'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ',
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+    ];
+
+    // Sheet 1: CH REÇETE (from main recete)
+    const chReceteSheet = workbook.addWorksheet('CH REÇETE');
+    chReceteSheet.addRow(receteHeaders);
+
+    // Sheet 2: CH REÇETE ALT1 (from alternatif recete)
+    const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
+    chReceteAlt1Sheet.addRow(receteHeaders);
+
+    // Sheets 3-7: YM NCBK REÇETE and ALT 1-4 (priority 0-4)
+    const ncbkSheets = [];
+    for (let i = 0; i < 5; i++) {
+      const sheetName = i === 0 ? 'YM NCBK REÇETE' : `YM NCBK REÇETE ALT ${i}`;
+      const sheet = workbook.addWorksheet(sheetName);
+      sheet.addRow(receteHeaders);
+      ncbkSheets.push(sheet);
+    }
+
+    // Sheets 8-12: YM NTEL REÇETE and ALT 1-4 (priority 0-4)
+    const ntelSheets = [];
+    for (let i = 0; i < 5; i++) {
+      const sheetName = i === 0 ? 'YM NTEL REÇETE' : `YM NTEL REÇETE ALT ${i}`;
+      const sheet = workbook.addWorksheet(sheetName);
+      sheet.addRow(receteHeaders);
+      ntelSheets.push(sheet);
+    }
+
+    // Filter for MM products only (as bulk functions work with all product types)
+    const mmProducts = allProducts.filter(p => p.productType === 'MM');
+    console.log('🚀 BULK MERGED RECETE: Filtered to', mmProducts.length, 'MM products');
+
+    // Add data to Sheet 1 (CH REÇETE) - main recete logic
+    for (const product of mmProducts) {
+      const chStokKodu = product.existingStokKodu || product.stok_kodu;
+      if (!chStokKodu) {
+        console.error('❌ BULK MERGED RECETE: Missing stok kodu for product:', product.hasirTipi);
+        continue;
+      }
+
+      // CH Reçete - Boy ve En çubuk tüketimleri (main recete logic)
+      const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
+      const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
+
+      const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
+
+      // EN ÇUBUĞU (actual en length)
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '1', 'Bileşen',
+        `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
+        '', enCubukMiktar, 'EN ÇUBUĞU ', '', '', '', '', '', '', '',
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+
+      // BOY ÇUBUĞU (actual boy length)
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '2', 'Bileşen',
+        `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
+        '', boyCubukMiktar, 'BOY ÇUBUĞU', '', '', '', '', '', '', '',
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+
+      // YOTOCH Operasyon
+      chReceteSheet.addRow([
+        chStokKodu, '1', '', '', '2', '3', 'Operasyon', 'YOTOCH',
+        '', '1', '', '', '', '', '', '', '', operationTime,
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+    }
+
+    // Add data to Sheet 2 (CH REÇETE ALT1) - alternatif recete logic for CH
+    for (const product of mmProducts) {
+      const chStokKodu = product.existingStokKodu || product.stok_kodu;
+      if (!chStokKodu) {
+        console.error('❌ BULK MERGED RECETE: Missing stok kodu for alt recipe product:', product.hasirTipi);
+        continue;
+      }
+
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+      const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
+      const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
+
+      // Boy direction NTEL consumption
+      if (boyCap > 0 && cubukSayisiBoyValue > 0) {
+        const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
+        const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5);
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
+          boyNtelKodu,
+          '', toExcelDecimal(boyNtelMiktar), 'Boy NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+      }
+
+      // En direction NTEL consumption
+      if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
+        const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+        const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5);
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
+          enNtelKodu,
+          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+      } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
+        const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
+        const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
+
+        chReceteAlt1Sheet.addRow([
+          chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
+          enNtelKodu,
+          '', toExcelDecimal(enNtelMiktar), 'En NTEL Tüketimi', '', '', '', '', '', '', '',
+          'E', 'E', '', '', '', '', '', '', ''
+        ]);
+      }
+
+      // KAYNAK operasyonu
+      const kaynakDuration = toExcelNumber(calculateOperationDuration('KAYNAK', product));
+      chReceteAlt1Sheet.addRow([
+        chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'KAYNAK',
+        '', '1', '', '', '', '', '', '', '', kaynakDuration,
+        'E', 'E', '', '', '', '', '', '', ''
+      ]);
+    }
+
+    // Process NCBK and NTEL recipes for sheets 3-12 (avoid duplicates)
+    const processedNCBKRecipes = new Set();
+    const processedNTELRecipes = new Set();
+
+    mmProducts.forEach(product => {
+      const boyCap = parseFloat(product.boyCap || 0);
+      const enCap = parseFloat(product.enCap || 0);
+
+      // Boy direction uses boyCap with actual uzunlukBoy length
+      if (boyCap > 0) {
+        const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
+        const boyKey = `${boyCap}-${uzunlukBoy}`;
+        if (!processedNCBKRecipes.has(boyKey)) {
+          processedNCBKRecipes.add(boyKey);
+
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
+          const FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 8.0,
+            7.00: 9.0,
+            8.00: 10.0, 8.50: 10.0,
+            9.00: 11.0, 9.20: 11.0,
+            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
+            12.00: 13.0
+          };
+
+          // Generate NCBK recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(boyCap, priority) || FILMASIN_MAPPING[boyCap] || 6.0;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((boyCap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
+
+      // En direction uses enCap with actual uzunlukEn length
+      if (enCap > 0) {
+        const uzunlukEn = parseInt(product.uzunlukEn || 0);
+        const enKey = `${enCap}-${uzunlukEn}`;
+        if (!processedNCBKRecipes.has(enKey)) {
+          processedNCBKRecipes.add(enKey);
+
+          const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
+          const FILMASIN_MAPPING = {
+            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
+            5.50: 6.5,
+            6.00: 7.0,
+            6.50: 8.0,
+            7.00: 9.0,
+            8.00: 10.0, 8.50: 10.0,
+            9.00: 11.0, 9.20: 11.0,
+            10.00: 12.0, 10.60: 12.0, 11.00: 12.0, 11.20: 12.0,
+            12.00: 13.0
+          };
+
+          // Generate NCBK recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(enCap, priority) || FILMASIN_MAPPING[enCap] || 6.0;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((enCap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ncbkSheets[priority].addRow([
+              ncbkStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      }
+
+      // Generate NTEL recipes for both diameters
+      [boyCap, enCap].forEach(cap => {
+        if (cap > 0 && !processedNTELRecipes.has(cap)) {
+          processedNTELRecipes.add(cap);
+
+          const ntelStokKodu = `YM.NTEL.${safeCapToCode(cap)}`;
+
+          // Generate NTEL recipes with 5 priorities for 5 sheets
+          for (let priority = 0; priority < 5; priority++) {
+            const filmasinDiameter = getFilmasinByPriority(cap, priority) || cap * 1.3;
+            const filmasinCode = `FLM.${String(Math.round(filmasinDiameter * 100)).padStart(4, '0')}.1008`;
+            const filmasinConsumption = toExcelDecimal(((Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000)).toFixed(5));
+            const operationDuration = toExcelNumber((cap * 0.0003).toFixed(6));
+
+            // Bileşen record
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '0', '', 'MT', '1', 'Bileşen',
+              filmasinCode, 'KG', filmasinConsumption, 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '', '',
+              '', '', '', '', '', '', '', '', ''
+            ]);
+
+            // Operasyon record
+            ntelSheets[priority].addRow([
+              ntelStokKodu, '1', '0', '', 'DK', '2', 'Operasyon',
+              'NTLC01', 'DK', '1', '', '', '', '', '', '', operationDuration,
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        }
+      });
+    });
+
+    // Save the merged Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Recete_${timestamp}.xlsx`);
+
+    console.log('🚀 BULK MERGED RECETE: Excel generation completed');
   };
 
   // Recipe kayıtlarını veritabanına kaydet
@@ -7700,14 +8255,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                           
-                          setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                          setExcelProgress({ current: 1, total: 2, operation: 'Stok Kartı Excel oluşturuluyor...' });
                           await generateStokKartiExcel(databaseProducts, timestamp, false);
-                          
-                          setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
-                          await generateReceteExcel(databaseProducts, timestamp, false);
-                          
-                          setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
-                          await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+
+                          setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
+                          await generateMergedReceteExcel(databaseProducts, timestamp, false);
                           
                           // CLEANUP: Close modal and reset states after successful Excel generation
                           setIsGeneratingExcel(false);
@@ -8535,14 +9087,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                           
-                          setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                          setExcelProgress({ current: 1, total: 2, operation: 'Stok Kartı Excel oluşturuluyor...' });
                           await generateStokKartiExcel(databaseProducts, timestamp, false);
-                          
-                          setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
-                          await generateReceteExcel(databaseProducts, timestamp, false);
-                          
-                          setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
-                          await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+
+                          setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
+                          await generateMergedReceteExcel(databaseProducts, timestamp, false);
                           
                           // CLEANUP: Close modal and reset states after successful Excel generation
                           setIsGeneratingExcel(false);
@@ -9311,14 +9860,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                             
-                            setExcelProgress({ current: 1, total: 3, operation: 'Stok Kartı Excel oluşturuluyor...' });
+                            setExcelProgress({ current: 1, total: 2, operation: 'Stok Kartı Excel oluşturuluyor...' });
                             await generateStokKartiExcel(databaseProducts, timestamp, false);
-                            
-                            setExcelProgress({ current: 2, total: 3, operation: 'Reçete Excel oluşturuluyor...' });
-                            await generateReceteExcel(databaseProducts, timestamp, false);
-                            
-                            setExcelProgress({ current: 3, total: 3, operation: 'Alternatif Reçete Excel oluşturuluyor...' });
-                            await generateAlternatifReceteExcel(databaseProducts, timestamp, false);
+
+                            setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
+                            await generateMergedReceteExcel(databaseProducts, timestamp, false);
                             
                             // CLEANUP: Close modal and reset states after successful Excel generation
                             setIsGeneratingExcel(false);
