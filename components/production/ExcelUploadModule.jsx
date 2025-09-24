@@ -208,7 +208,7 @@ const ExcelUploadModule = ({
           setHeaderRowIndex(detectedHeaderRow);
 
           const headers = jsonData[detectedHeaderRow];
-          const dataRows = jsonData.slice(detectedHeaderRow + 1, detectedHeaderRow + 6); // First 5 rows for preview
+          const dataRows = jsonData.slice(detectedHeaderRow + 1, detectedHeaderRow + 11); // First 10 rows for preview
 
           // Clean up headers - remove empty strings
           const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
@@ -276,7 +276,7 @@ const ExcelUploadModule = ({
     setHeaderRowIndex(newRowIndex);
 
     const headers = allSheetData[newRowIndex];
-    const dataRows = allSheetData.slice(newRowIndex + 1, newRowIndex + 6);
+    const dataRows = allSheetData.slice(newRowIndex + 1, newRowIndex + 11);
 
     // Clean up headers - remove empty strings
     const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
@@ -449,7 +449,7 @@ const ExcelUploadModule = ({
       setHeaderRowIndex(detectedHeaderRow);
 
       const headers = filteredData[detectedHeaderRow];
-      const dataRows = filteredData.slice(detectedHeaderRow + 1, detectedHeaderRow + 6);
+      const dataRows = filteredData.slice(detectedHeaderRow + 1, detectedHeaderRow + 11);
 
       // Clean up headers - remove empty strings
       const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
@@ -519,16 +519,20 @@ const ExcelUploadModule = ({
       } else if (headerLower === 'birim ağırlık') {
         detected.unit_weight = index;
         console.log(`✓ BIRIM AĞIRLIK detected at column ${index}`);
+      } else if (headerLower === 'ü. kalan' || headerLower === 'ü.kalan' || headerLower.includes('kalan') && !headerLower.includes('kg')) {
+        detected.remaining_production = index;
+        console.log(`✓ Ü. KALAN detected at column ${index} - CRITICAL for production tracking!`);
       }
     });
 
-    // Only return essential fields
+    // Essential fields for production planning
     const result = {
       customer: detected.customer !== undefined ? detected.customer : -1,
       stock_code: detected.stock_code !== undefined ? detected.stock_code : -1,
       order_quantity: detected.order_quantity !== undefined ? detected.order_quantity : -1,
       length: detected.length !== undefined ? detected.length : -1,
       width: detected.width !== undefined ? detected.width : -1,
+      remaining_production: detected.remaining_production !== undefined ? detected.remaining_production : -1,
       unit_weight: detected.unit_weight !== undefined ? detected.unit_weight : -1
     };
 
@@ -552,8 +556,8 @@ const ExcelUploadModule = ({
   };
 
   const handleConfirmMapping = () => {
-    // Check essential required fields only
-    const requiredFields = ['customer', 'stock_code', 'order_quantity', 'length', 'width'];
+    // Check essential required fields including Ü. Kalan for production tracking
+    const requiredFields = ['customer', 'stock_code', 'order_quantity', 'length', 'width', 'remaining_production'];
     const missingFields = requiredFields.filter(field => columnMappings[field] === -1);
 
     if (missingFields.length > 0) {
@@ -562,7 +566,8 @@ const ExcelUploadModule = ({
         stock_code: 'Stok Kartı',
         order_quantity: 'Sipariş Miktarı',
         length: 'Boy',
-        width: 'En'
+        width: 'En',
+        remaining_production: 'Ü. Kalan'
       };
       const missingNames = missingFields.map(f => fieldNames[f]).join(', ');
       alert(`Lütfen şu gerekli alanları seçin: ${missingNames}`);
@@ -1051,6 +1056,25 @@ const ExcelUploadModule = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ü. Kalan <span className="text-red-500">*</span>
+                  {columnMappings.remaining_production !== -1 && <span className="text-green-600 text-xs ml-2">✓ Tespit edildi</span>}
+                </label>
+                <select
+                  className={`w-full border rounded-md p-2 ${columnMappings.remaining_production !== -1 ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                  value={columnMappings.remaining_production || -1}
+                  onChange={(e) => handleMappingChange('remaining_production', e.target.value)}
+                >
+                  <option value="-1">Seçiniz</option>
+                  {previewData.headers.map((header, index) => (
+                    <option key={index} value={index}>
+                      {header || `Sütun ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Birim Ağırlık
                   {columnMappings.unit_weight !== -1 && <span className="text-green-600 text-xs ml-2">✓ Tespit edildi</span>}
                 </label>
@@ -1095,6 +1119,9 @@ const ExcelUploadModule = ({
                         )}
                         {columnMappings.width === index && (
                           <span className="text-green-600 text-[10px] font-bold">(En *)</span>
+                        )}
+                        {columnMappings.remaining_production === index && (
+                          <span className="text-green-600 text-[10px] font-bold">(Ü. Kalan *)</span>
                         )}
                         {columnMappings.unit_weight === index && (
                           <span className="text-blue-600 text-[10px]">(Birim Ağırlık)</span>
