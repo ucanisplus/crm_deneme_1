@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { API_URLS, fetchWithAuth } from '@/api-config';
+import { toast } from 'react-toastify';
 import {
   Clock,
   Zap,
@@ -347,6 +349,68 @@ const MachineSchedulesGrid = ({
   isLoading
 }) => {
   const [selectedItems, setSelectedItems] = useState([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
+  // Handle automatic optimization
+  const handleAutoOptimization = async () => {
+    if (!sessionId || isOptimizing) return;
+
+    setIsOptimizing(true);
+    try {
+      toast.info('Otomatik optimizasyon başlatılıyor...', { autoClose: 3000 });
+
+      const response = await fetchWithAuth(API_URLS.production.runScheduling, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          optimization_mode: 'automatic',
+          criteria: {
+            minimize_setup_time: true,
+            balance_workload: true,
+            optimize_efficiency: true
+          }
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Update schedules with optimized data
+        if (result.schedules) {
+          onScheduleUpdate(result.schedules);
+          toast.success(`✅ Optimizasyon tamamlandı! ${result.improvements_summary || 'Çizelge iyileştirildi.'}`, {
+            autoClose: 5000
+          });
+        } else {
+          toast.success('✅ Otomatik optimizasyon tamamlandı!', { autoClose: 3000 });
+        }
+
+        // Show optimization results if available
+        if (result.optimization_stats) {
+          const stats = result.optimization_stats;
+          toast.info(
+            `📊 Optimizasyon Sonuçları:\n` +
+            `• Toplam süre: ${Math.round(stats.total_time || 0)} saat\n` +
+            `• Verimlilik: %${Math.round(stats.efficiency || 0)}\n` +
+            `• Dengeleme: %${Math.round(stats.balance_score || 0)}`,
+            { autoClose: 8000 }
+          );
+        }
+
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || 'Optimizasyon başarısız');
+      }
+    } catch (error) {
+      console.error('Optimization error:', error);
+      toast.error(`❌ Optimizasyon hatası: ${error.message}`, { autoClose: 5000 });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   // Handle item movement between machines
   const handleItemMove = useCallback((draggedItem, targetMachine, targetIndex) => {
@@ -460,15 +524,22 @@ const MachineSchedulesGrid = ({
               </div>
 
               <Button
-                onClick={() => {
-                  // TODO: Auto-optimize schedules
-                  console.log('Auto-optimize schedules');
-                }}
+                onClick={handleAutoOptimization}
                 size="sm"
                 variant="outline"
+                disabled={isOptimizing || isLoading || !sessionId}
               >
-                <Zap className="h-4 w-4 mr-1" />
-                Otomatik Optimizasyon
+                {isOptimizing ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-1 animate-spin" />
+                    Optimizasyon Yapılıyor...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-1" />
+                    Otomatik Optimizasyon
+                  </>
+                )}
               </Button>
             </div>
           </CardTitle>
