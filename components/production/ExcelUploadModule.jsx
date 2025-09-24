@@ -492,22 +492,34 @@ const ExcelUploadModule = ({
   const autoDetectColumns = (headers) => {
     const detected = {};
 
+    // Debug: Log headers for inspection
+    console.log('Headers for auto-detection:', headers);
+
     headers.forEach((header, index) => {
       const headerLower = String(header || '').toLowerCase().trim();
+
+      // Debug: Log each header being processed
+      console.log(`Processing header ${index}: "${header}" -> "${headerLower}"`);
 
       // Match exact column names from actual CSV data
       if (headerLower === 's. tarihi' || headerLower.includes('sipariş') && headerLower.includes('tarihi')) {
         detected.order_date = index;
+        console.log(`✓ Detected order_date at index ${index}`);
       } else if (headerLower === 'firma' || headerLower.includes('customer')) {
         detected.customer = index;
+        console.log(`✓ Detected customer at index ${index}`);
       } else if (headerLower === 'stok kartı' || headerLower.includes('stok') && headerLower.includes('kart')) {
         detected.stock_code = index;
+        console.log(`✓ Detected stock_code at index ${index}`);
       } else if (headerLower === 'hasır cinsi' || headerLower.includes('hasır') && headerLower.includes('cins')) {
         detected.mesh_type = index;
+        console.log(`✓ Detected mesh_type at index ${index}`);
       } else if (headerLower === 'boy' && !headerLower.includes('çap') && !headerLower.includes('ara') && !headerLower.includes('adet')) {
         detected.length = index;
+        console.log(`✓ Detected length (Boy) at index ${index}`);
       } else if (headerLower === 'en' && !headerLower.includes('çap') && !headerLower.includes('ara') && !headerLower.includes('adet')) {
         detected.width = index;
+        console.log(`✓ Detected width (En) at index ${index}`);
       } else if (headerLower === 'boy çap' || (headerLower.includes('boy') && headerLower.includes('çap'))) {
         detected.length_diameter = index;
       } else if (headerLower === 'en çap' || (headerLower.includes('en') && headerLower.includes('çap'))) {
