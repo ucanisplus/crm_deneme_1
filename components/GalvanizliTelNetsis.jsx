@@ -8321,18 +8321,28 @@ const GalvanizliTelNetsis = () => {
     cacheKeys.forEach(key => {
       const [keyHmCap, keyCap] = key.split('x').map(parseFloat);
       if (!isNaN(keyHmCap) && !isNaN(keyCap)) {
-        // Calculate distance using weighted formula (cap difference is more important)
-        const distance = Math.abs(keyHmCap - formattedHmCap) * 0.3 + Math.abs(keyCap - formattedCap) * 0.7;
+        // For COILER: Give more weight to hmCap (source diameter) differences
+        // This ensures different source diameters get different TLC_Hiz values
+        const distance = Math.abs(keyHmCap - formattedHmCap) * 0.7 + Math.abs(keyCap - formattedCap) * 0.3;
         if (distance < minDistance) {
           minDistance = distance;
           closestMatch = key;
         }
       }
     });
-    
+
     if (closestMatch && tlcHizlarCache[closestMatch]) {
       const interpolatedValue = tlcHizlarCache[closestMatch];
-      return interpolatedValue * 0.7;
+      console.log(`🔧 TLC_HIZ MATCH: ${formattedHmCap}x${formattedCap} → closest: ${closestMatch} → value: ${interpolatedValue * 0.7}`);
+
+      // Apply interpolation based on source diameter difference
+      const [matchHmCap] = closestMatch.split('x').map(parseFloat);
+      const capRatio = formattedHmCap / matchHmCap;
+
+      // Adjust TLC_Hiz based on diameter ratio (larger source = slower speed)
+      const adjustedValue = interpolatedValue / capRatio;
+
+      return adjustedValue * 0.7;
     }
     
     // Final fallback - use a reasonable default based on wire size
