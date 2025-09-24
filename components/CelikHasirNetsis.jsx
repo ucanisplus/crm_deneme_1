@@ -4506,7 +4506,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4540,7 +4540,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4818,7 +4818,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4853,7 +4853,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5334,7 +5334,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5368,7 +5368,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5640,7 +5640,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5675,7 +5675,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
-              ntelStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
