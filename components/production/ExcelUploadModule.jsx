@@ -40,6 +40,10 @@ const ExcelUploadModule = ({
   const [allSheetData, setAllSheetData] = useState(null);
   const [showColumnMapping, setShowColumnMapping] = useState(false);
   const [columnMappings, setColumnMappings] = useState({});
+  const [showSheetSelection, setShowSheetSelection] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [workbookData, setWorkbookData] = useState(null);
   const fileInputRef = useRef(null);
 
   // Expected CSV column mapping based on actual production data
@@ -145,6 +149,7 @@ const ExcelUploadModule = ({
         try {
           let jsonData;
           let firstSheetName = 'Sheet1';
+          let workbook = null;
 
           // Check if it's a CSV file
           if (file.name.toLowerCase().endsWith('.csv')) {
@@ -162,7 +167,21 @@ const ExcelUploadModule = ({
           } else {
             // For Excel files, use XLSX
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array', codepage: 65001 }); // UTF-8 support
+            workbook = XLSX.read(data, { type: 'array', codepage: 65001 }); // UTF-8 support
+
+            // Store workbook for potential sheet selection
+            setWorkbookData(workbook);
+
+            // Check if multiple sheets exist
+            if (workbook.SheetNames.length > 1) {
+              // Show sheet selection dialog
+              setAvailableSheets(workbook.SheetNames.map(name => ({
+                name,
+                rowCount: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1 }).length
+              })));
+              setShowSheetSelection(true);
+              return; // Don't resolve yet, wait for sheet selection
+            }
 
             firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
@@ -395,8 +414,77 @@ const ExcelUploadModule = ({
     setParseProgress(null);
     setShowColumnMapping(false);
     setColumnMappings({});
+    setShowSheetSelection(false);
+    setAvailableSheets([]);
+    setSelectedSheet(null);
+    setWorkbookData(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle sheet selection
+  const handleSheetSelection = (sheetName) => {
+    if (!workbookData) return;
+
+    try {
+      const worksheet = workbookData.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+      if (jsonData.length < 2) {
+        toast.error('Seçilen sayfa boş veya yeterli veri içermiyor');
+        return;
+      }
+
+      // Filter out empty rows and rows with only empty cells
+      const filteredData = jsonData.filter(row =>
+        row && row.some(cell => cell !== '' && cell !== null && cell !== undefined)
+      );
+
+      // Store all sheet data for header detection
+      setAllSheetData(filteredData);
+
+      // Auto-detect header row
+      const detectedHeaderRow = detectHeaderRow(filteredData);
+      setHeaderRowIndex(detectedHeaderRow);
+
+      const headers = filteredData[detectedHeaderRow];
+      const dataRows = filteredData.slice(detectedHeaderRow + 1, detectedHeaderRow + 6);
+
+      // Clean up headers - remove empty strings
+      const cleanHeaders = headers.map(h => (h || '').toString().trim()).filter(h => h !== '');
+
+      // Validate headers
+      const validation = validateHeaders(cleanHeaders);
+
+      // Convert preview rows to objects
+      const previewRows = dataRows.map(row => {
+        const obj = {};
+        cleanHeaders.forEach((header, index) => {
+          obj[header] = row[index] || '';
+        });
+        return obj;
+      });
+
+      setPreviewData({
+        headers: cleanHeaders,
+        totalRows: filteredData.length - detectedHeaderRow - 1,
+        previewRows,
+        validation,
+        sheetName: sheetName,
+        headerRowIndex: detectedHeaderRow,
+        allRows: filteredData
+      });
+
+      setSelectedSheet(sheetName);
+      setShowSheetSelection(false);
+      setParseProgress(null);
+
+      toast.success(`"${sheetName}" sayfası seçildi`);
+
+    } catch (error) {
+      console.error('Sheet processing error:', error);
+      toast.error(`Sayfa işlenirken hata oluştu: ${error.message}`);
     }
   };
 
@@ -1144,6 +1232,69 @@ const ExcelUploadModule = ({
             >
               Eşleştirmeyi Onayla
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Sheet Selection Modal */}
+    {showSheetSelection && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">📋 Sayfa Seçimi</h2>
+            <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+              {availableSheets.length} sayfa bulundu
+            </span>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 mb-4">
+              Excel dosyanızda birden fazla sayfa bulundu. Üretim verilerini içeren sayfayı seçin:
+            </p>
+
+            <div className="grid grid-cols-1 gap-3">
+              {availableSheets.map((sheet, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleSheetSelection(sheet.name)}
+                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        <FileSpreadsheet className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{sheet.name}</h3>
+                        <p className="text-sm text-gray-500">
+                          {sheet.rowCount} satır veri
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-blue-600 text-sm font-medium">
+                      Seç →
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-between">
+            <button
+              onClick={() => {
+                setShowSheetSelection(false);
+                handleRemoveFile();
+              }}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            >
+              ✕ İptal
+            </button>
+            <div className="text-xs text-gray-500">
+              Lütfen bir sayfa seçin
+            </div>
           </div>
         </div>
       </div>
