@@ -75,14 +75,38 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
 
     setSaving(true);
     try {
+      // Normalize hasir tipi for storage - Q692/692 becomes Q692
+      let normalizedHasirTipi = currentMeshType;
+      if (currentMeshType.match(/^Q(\d+)\/(\d+)$/)) {
+        const match = currentMeshType.match(/^Q(\d+)\/(\d+)$/);
+        if (match[1] === match[2]) {
+          // Q692/692 -> Q692 for storage
+          normalizedHasirTipi = `Q${match[1]}`;
+        }
+      } else if (currentMeshType.match(/^Q(\d+)$/)) {
+        // Already in correct format
+        normalizedHasirTipi = currentMeshType;
+      }
+
+      // Determine type from the normalized format
+      let type = 'Q';
+      if (normalizedHasirTipi.startsWith('R')) type = 'R';
+      else if (normalizedHasirTipi.startsWith('TR')) type = 'TR';
+
+      // Generate description
+      const typeLabel = type === 'Q' ? 'mesh' : type === 'TR' ? 'truss reinforcement mesh' : 'reinforcement mesh';
+      const number = normalizedHasirTipi.replace(/[A-Z]+/, '');
+      const description = `${type} type ${typeLabel} - ${number}${type === 'Q' ? ` (used for Q${number}/${number} combinations)` : 'kg/m³'}`;
+
       // Convert strings to numbers
       const meshConfig = {
-        hasirTipi: currentMeshType,
+        hasirTipi: normalizedHasirTipi, // Use normalized format for storage
         boyCap: parseFloat(specifications.boyCap),
         enCap: parseFloat(specifications.enCap),
         boyAralik: parseFloat(specifications.boyAralik),
         enAralik: parseFloat(specifications.enAralik),
-        type: currentMeshType.substring(0, currentMeshType.match(/\d/) ? currentMeshType.search(/\d/) : currentMeshType.length).toUpperCase()
+        type: type,
+        description: description
       };
 
       await onSave(meshConfig);

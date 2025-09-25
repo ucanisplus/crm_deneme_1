@@ -136,6 +136,26 @@ const CelikHasirPlanlama = () => {
     { id: 'MG208-2', name: 'MG208-2', maxCapacity: 24 }
   ], []);
 
+  // Session Management Functions - moved before useEffect to avoid initialization issues
+  const loadSessions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`);
+      if (response.ok) {
+        const sessionsData = await response.json();
+        setSessions(sessionsData);
+        if (sessionsData.length > 0 && !currentSession) {
+          setCurrentSession(sessionsData[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+      toast.error('Oturumlar yüklenemedi');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [API_BASE_URL, currentSession]);
+
   // Initialize component
   useEffect(() => {
     if (!user) {
@@ -194,26 +214,6 @@ const CelikHasirPlanlama = () => {
 
     return mappings;
   }, [STANDARD_COLUMNS]);
-
-  // Session Management Functions
-  const loadSessions = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`);
-      if (response.ok) {
-        const sessionsData = await response.json();
-        setSessions(sessionsData);
-        if (sessionsData.length > 0 && !currentSession) {
-          setCurrentSession(sessionsData[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading sessions:', error);
-      toast.error('Oturumlar yüklenemedi');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [API_BASE_URL, currentSession]);
 
   const createSession = async () => {
     if (!newSessionName.trim()) {

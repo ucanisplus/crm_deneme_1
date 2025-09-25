@@ -1551,11 +1551,62 @@ const processExcelWithMapping = (sheets, mapping) => {
       return stringValue;
   };
 
+  // Helper function to normalize hasir tipi for mesh config storage
+  // Q692/692 -> Q692, Q257/443 -> Q257/443 (keeps different combinations)
+  const normalizeHasirTipiForConfig = (tipi) => {
+    if (!tipi) return '';
+
+    let cleanTipi = tipi.toString().trim().toUpperCase();
+    cleanTipi = cleanTipi.replace(/\s+/g, '');
+
+    // Extract base format: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
+    const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const first = combinationMatch[1];
+      const second = combinationMatch[2];
+      // If same numbers (Q692/692), convert to single format (Q692)
+      if (first === second) {
+        return `Q${first}`;
+      }
+      // If different numbers (Q257/443), keep as-is
+      return `Q${first}/${second}`;
+    }
+
+    // Handle R and TR types normally
+    const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
+    if (!match) return cleanTipi;
+
+    const prefix = match[1];
+    const number = match[2];
+
+    return `${prefix}${number}`;
+  };
+
+  // Check if mesh type exists and prompt for data if not
+  const checkMeshTypeExists = async (hasirTipi, rowIndex) => {
+    if (!hasirTipi) return;
+
+    try {
+      const exists = await meshConfigService.meshTypeExists(hasirTipi);
+
+      if (!exists) {
+        // Add to unknown types list if not already there
+        if (!unknownMeshTypes.includes(hasirTipi)) {
+          setUnknownMeshTypes(prev => [...prev, hasirTipi]);
+          setCurrentUnknownType(hasirTipi);
+          setShowUnknownMeshModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking mesh type existence:', error);
+    }
+  };
+
   // Hasır tipini standartlaştırma - Updated to handle combination Q-types
   const standardizeHasirTipi = (value) => {
     console.log(`[DEBUG] standardizeHasirTipi INPUT: "${value}"`);
     if (!value) return '';
-    
+
     // Boşlukları kaldır ve büyük harfe çevir
     let standardized = value.toUpperCase().replace(/\s+/g, '');
     console.log(`[DEBUG] standardizeHasirTipi AFTER CLEANING: "${standardized}"`);
@@ -2207,8 +2258,12 @@ const handleCellChange = (rowIndex, field, value) => {
   
   if (field === 'hasirTipi') {
     value = standardizeHasirTipi(value);
+
+    // Check if this mesh type exists in the database
+    const normalizedType = normalizeHasirTipiForConfig(value);
+    checkMeshTypeExists(normalizedType, rowIndex);
   }
-  
+
   // Değeri güncelle
   row[field] = value;
   
@@ -7764,6 +7819,13 @@ useEffect(() => {
                         className="w-full p-1 border border-gray-300 rounded"
                         value={row.hasirTipi}
                         onChange={(e) => handleCellChange(rowIndex, 'hasirTipi', e.target.value)}
+                        onBlur={(e) => {
+                          // Check mesh type existence when user finishes typing
+                          if (e.target.value) {
+                            const normalizedType = normalizeHasirTipiForConfig(e.target.value);
+                            checkMeshTypeExists(normalizedType, rowIndex);
+                          }
+                        }}
                       />
                     </td>
                     
