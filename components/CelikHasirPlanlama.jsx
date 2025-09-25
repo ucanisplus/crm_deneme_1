@@ -70,7 +70,7 @@ const CelikHasirPlanlama = () => {
   const router = useRouter();
 
   // API Base URL
-  const API_BASE_URL = 'https://crm-factory-backend.onrender.com/api';
+  const API_BASE_URL = 'https://crm-deneme-backend.vercel.app/api';
 
   // Core state management
   const [currentSession, setCurrentSession] = useState(null);
