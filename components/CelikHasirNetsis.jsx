@@ -2898,16 +2898,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // Smart hasır tipi normalizer - handles Q/R/TR format variations intelligently
+  // FIXED: Q products should be stored as single Qxxx format in mesh_type_configs table
   const normalizeHasirTipi = (tipi) => {
     if (!tipi) return '';
-    
+
     // Handle various input formats and clean the string
     let cleanTipi = tipi.toString().trim().toUpperCase();
-    
+
     // Remove any extra whitespace between letters and numbers
     cleanTipi = cleanTipi.replace(/\s+/g, '');
-    
-    // Handle Q-type combinations (Q221/443) - preserve as-is
+
+    // Handle Q-type combinations (Q221/443) - preserve as-is for different numbers
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
@@ -2917,22 +2918,121 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return `Q${first}/${second}`;
       }
     }
-    
+
     // Extract the base pattern (Q257, R257, TR257, etc.)
     // Handle both Q257 and Q257/257 formats
     const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
     if (!match) return cleanTipi;
-    
+
     const prefix = match[1];  // Q, R, or TR
     const number = match[2];  // 257, 221, etc.
-    
-    // Normalize based on type rules from CSV analysis:
-    // Q types should have double format: Q257/257 (only for single Q-types)
-    // R and TR types should have single format: R257, TR257
-    if (prefix === 'Q') {
-      return `${prefix}${number}/${number}`;
-    } else {
-      return `${prefix}${number}`;
+
+    // CRITICAL FIX: All types should use single format for mesh_type_configs table
+    // - Q products: Q692 (not Q692/692)
+    // - R products: R257
+    // - TR products: TR257
+    return `${prefix}${number}`;
+  };
+
+  // Helper function to normalize hasir tipi specifically for mesh config storage
+  // This should store Q products as single format (Q692) not double (Q692/692)
+  const normalizeHasirTipiForMeshConfig = (tipi) => {
+    if (!tipi) return '';
+
+    let cleanTipi = tipi.toString().trim().toUpperCase();
+    cleanTipi = cleanTipi.replace(/\s+/g, '');
+
+    // Extract base format: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
+    const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const first = combinationMatch[1];
+      const second = combinationMatch[2];
+      // If same numbers (Q692/692), convert to single format (Q692)
+      if (first === second) {
+        return `Q${first}`;
+      }
+      // If different numbers (Q257/443), keep as-is
+      return `Q${first}/${second}`;
+    }
+
+    // Handle R and TR types normally
+    const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
+    if (!match) return cleanTipi;
+
+    const prefix = match[1];
+    const number = match[2];
+
+    return `${prefix}${number}`;
+  };
+
+  // Helper function to check if hasir tipi exists in mesh_type_configs and prompt for data if not
+  const checkAndPromptForMeshConfig = async (hasirTipi) => {
+    if (!hasirTipi) return true;
+
+    // Normalize the hasir tipi for lookup
+    const normalizedHasirTipi = normalizeHasirTipiForMeshConfig(hasirTipi);
+
+    try {
+      const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(normalizedHasirTipi)}`);
+
+      if (response.ok) {
+        // Config exists, return true to continue
+        return true;
+      } else if (response.status === 404) {
+        // Config doesn't exist, show popup to get data
+        const confirmed = window.confirm(`Hasır tipi "${normalizedHasirTipi}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
+
+        if (confirmed) {
+          // Get data from user
+          const boyCap = prompt('Boy çapı (mm):');
+          const enCap = prompt('En çapı (mm):');
+          const boyAralik = prompt('Boy aralığı (cm):', '15');
+          const enAralik = prompt('En aralığı (cm):', normalizedHasirTipi.startsWith('Q') ? '15' : normalizedHasirTipi.startsWith('TR') ? '15' : '25');
+
+          if (boyCap && enCap && boyAralik && enAralik) {
+            // Determine type
+            let type = 'Q';
+            if (normalizedHasirTipi.startsWith('R')) type = 'R';
+            else if (normalizedHasirTipi.startsWith('TR')) type = 'TR';
+
+            // Generate description
+            const description = `${type} type ${type === 'Q' ? 'mesh' : type === 'TR' ? 'truss reinforcement mesh' : 'reinforcement mesh'} - ${normalizedHasirTipi.replace(/[A-Z]+/, '')}${type === 'Q' ? ` (used for ${normalizedHasirTipi}/${normalizedHasirTipi.replace(/[A-Z]+/, '')} combinations)` : ''}`;
+
+            // Save to database
+            const createResponse = await fetchWithAuth(API_URLS.meshTypeConfigs, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                hasirTipi: normalizedHasirTipi,
+                boyCap: parseFloat(boyCap),
+                enCap: parseFloat(enCap),
+                boyAralik: parseFloat(boyAralik),
+                enAralik: parseFloat(enAralik),
+                type: type,
+                description: description
+              })
+            });
+
+            if (createResponse.ok) {
+              toast.success(`${normalizedHasirTipi} mesh konfigürasyonu başarıyla eklendi!`);
+              return true;
+            } else {
+              toast.error(`Mesh konfigürasyonu eklenirken hata oluştu: ${createResponse.statusText}`);
+              return false;
+            }
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      } else {
+        console.warn(`Unexpected response ${response.status} for mesh config ${normalizedHasirTipi}`);
+        return true; // Continue even if there's an error
+      }
+    } catch (error) {
+      console.warn('Could not check mesh config from database:', error);
+      return true; // Continue even if there's an error
     }
   };
 

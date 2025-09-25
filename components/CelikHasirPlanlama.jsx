@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -69,6 +69,9 @@ const CelikHasirPlanlama = () => {
   const { user, hasPermission } = useAuth();
   const router = useRouter();
 
+  // API Base URL
+  const API_BASE_URL = 'https://crm-deneme-backend.vercel.app/api';
+
   // Core state management
   const [currentSession, setCurrentSession] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -93,7 +96,7 @@ const CelikHasirPlanlama = () => {
   const [newSessionName, setNewSessionName] = useState('');
 
   // Standard column mapping for CSV format (A=0, B=1, etc.)
-  const STANDARD_COLUMNS = {
+  const STANDARD_COLUMNS = useMemo(() => ({
     0: 'S. Tarihi',
     1: 'Firma',
     2: 'Stok Kartı',
@@ -114,7 +117,7 @@ const CelikHasirPlanlama = () => {
     17: 'stok(kg)',
     18: 'Ü. Kalan',
     19: 'Kalan Kg'
-  };
+  }), []);
 
   const REQUIRED_COLUMNS = [
     'Firma',
@@ -126,12 +129,12 @@ const CelikHasirPlanlama = () => {
     'Ü. Kalan'
   ];
 
-  const MACHINES = [
+  const MACHINES = useMemo(() => [
     { id: 'MG316', name: 'MG316', maxCapacity: 24 },
     { id: 'EUROBEND', name: 'EUROBEND', maxCapacity: 24 },
     { id: 'MG208-1', name: 'MG208-1', maxCapacity: 24 },
     { id: 'MG208-2', name: 'MG208-2', maxCapacity: 24 }
-  ];
+  ], []);
 
   // Initialize component
   useEffect(() => {
@@ -147,10 +150,10 @@ const CelikHasirPlanlama = () => {
     }
 
     loadSessions();
-  }, [user, hasPermission, router]);
+  }, [user, hasPermission, router, loadSessions]);
 
   // Auto-detect column mappings
-  const autoDetectColumns = (headers) => {
+  const autoDetectColumns = useCallback((headers) => {
     const mappings = {};
 
     // For standard format, use position-based mapping
@@ -190,13 +193,13 @@ const CelikHasirPlanlama = () => {
     });
 
     return mappings;
-  };
+  }, [STANDARD_COLUMNS]);
 
   // Session Management Functions
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/celik-hasir-planlama/sessions');
+      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`);
       if (response.ok) {
         const sessionsData = await response.json();
         setSessions(sessionsData);
@@ -210,7 +213,7 @@ const CelikHasirPlanlama = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [API_BASE_URL, currentSession]);
 
   const createSession = async () => {
     if (!newSessionName.trim()) {
@@ -219,7 +222,7 @@ const CelikHasirPlanlama = () => {
     }
 
     try {
-      const response = await fetch('/api/celik-hasir-planlama/sessions', {
+      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -260,9 +263,9 @@ const CelikHasirPlanlama = () => {
 
     setUploadedFile(file);
     parseFile(file);
-  }, []);
+  }, [parseFile]);
 
-  const parseFile = async (file) => {
+  const parseFile = useCallback(async (file) => {
     try {
       setIsProcessing(true);
 
@@ -300,7 +303,7 @@ const CelikHasirPlanlama = () => {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [headerRowIndex, autoDetectColumns]);
 
   const validateMappings = () => {
     const mappedColumns = new Set(Object.values(columnMappings));
@@ -361,7 +364,7 @@ const CelikHasirPlanlama = () => {
         // Enhance with stock database information if stock code exists
         if (order.stok_kodu && order.stok_kodu.trim()) {
           try {
-            const stockResponse = await fetch(`/api/celik-hasir-planlama/stock/${encodeURIComponent(order.stok_kodu)}`);
+            const stockResponse = await fetch(`${API_BASE_URL}/celik-hasir-planlama/stock/${encodeURIComponent(order.stok_kodu)}`);
             if (stockResponse.ok) {
               const stockData = await stockResponse.json();
               if (stockData && stockData.length > 0) {
@@ -395,7 +398,7 @@ const CelikHasirPlanlama = () => {
       }
 
       // Send to backend for processing
-      const response = await fetch('/api/celik-hasir-planlama/upload', {
+      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -408,7 +411,7 @@ const CelikHasirPlanlama = () => {
       if (!response.ok) throw new Error('Backend processing failed');
 
       // Trigger scheduling
-      const scheduleResponse = await fetch(`/api/celik-hasir-planlama/schedule/${currentSession.id}`, {
+      const scheduleResponse = await fetch(`${API_BASE_URL}/celik-hasir-planlama/schedule/${currentSession.id}`, {
         method: 'POST'
       });
 
@@ -450,13 +453,13 @@ const CelikHasirPlanlama = () => {
   };
 
   // Dashboard Functions
-  const loadScheduleData = async () => {
+  const loadScheduleData = useCallback(async () => {
     if (!currentSession?.id) return;
 
     try {
       const [schedulesResponse, ordersResponse] = await Promise.all([
-        fetch(`/api/celik-hasir-planlama/schedules/${currentSession.id}`),
-        fetch(`/api/celik-hasir-planlama/orders/${currentSession.id}`)
+        fetch(`${API_BASE_URL}/celik-hasir-planlama/schedules/${currentSession.id}`),
+        fetch(`${API_BASE_URL}/celik-hasir-planlama/orders/${currentSession.id}`)
       ]);
 
       const schedules = await schedulesResponse.json();
@@ -489,9 +492,9 @@ const CelikHasirPlanlama = () => {
     } catch (error) {
       console.error('Error loading schedule data:', error);
     }
-  };
+  }, [currentSession?.id, API_BASE_URL, MACHINES, processScheduleData]);
 
-  const processScheduleData = (schedules, orders) => {
+  const processScheduleData = useCallback((schedules, orders) => {
     const machineStats = {};
     const customerStats = {};
     let totalOrders = 0;
@@ -566,14 +569,14 @@ const CelikHasirPlanlama = () => {
         customers: Object.values(customerStats)
       }
     };
-  };
+  }, [MACHINES]);
 
   // Load schedule data when session changes
   useEffect(() => {
     if (currentSession) {
       loadScheduleData();
     }
-  }, [currentSession]);
+  }, [currentSession, loadScheduleData]);
 
   const processing = isProcessing;
 
