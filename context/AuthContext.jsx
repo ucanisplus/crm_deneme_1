@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_URLS } from '@/api-config';
 
@@ -108,12 +108,9 @@ export function AuthProvider({ children }) {
   };
 
   // Check if user has a specific permission
-  const hasPermission = (permissionName) => {
-    console.log('Checking permission:', permissionName);
-    console.log('User permissions array:', permissions);
-    console.log('Has permission:', permissions.includes(permissionName));
+  const hasPermission = useCallback((permissionName) => {
     return permissions.includes(permissionName);
-  };
+  }, [permissions]);
 
   const value = {
     user,
