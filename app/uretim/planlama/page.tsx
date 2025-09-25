@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout3 from '@/components/MainLayout3';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ProductionPlanningApp from '@/components/production/ProductionPlanningApp';
+import CelikHasirPlanlama from '@/components/CelikHasirPlanlama';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,7 +98,7 @@ export default function APSSystemPage() {
             {/* Çelik Hasır Tab - Your new production planning */}
             <TabsContent value="celik-hasir" className="mt-6">
               <div className="bg-white rounded-lg shadow">
-                <ProductionPlanningApp />
+                <CelikHasirPlanlama />
               </div>
             </TabsContent>
 
