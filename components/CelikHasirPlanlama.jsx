@@ -66,7 +66,7 @@ import {
 } from 'recharts';
 
 const CelikHasirPlanlama = () => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, permissions, loading: authLoading } = useAuth();
   const router = useRouter();
 
   // API Base URL
@@ -158,19 +158,23 @@ const CelikHasirPlanlama = () => {
 
   // Initialize component
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
     if (!user) {
       router.push('/login');
       return;
     }
 
-    if (!hasPermission('page:planlama')) {
+    // Check permissions without causing infinite loop
+    if (!permissions.includes('page:planlama')) {
       toast.error('Bu sayfaya erişim yetkiniz yok');
       router.push('/');
       return;
     }
 
     loadSessions();
-  }, [user, hasPermission, router, loadSessions]);
+  }, [user, permissions, authLoading, router, loadSessions]);
 
   // Auto-detect column mappings
   const autoDetectColumns = useCallback((headers) => {
@@ -872,6 +876,19 @@ const CelikHasirPlanlama = () => {
       </CardContent>
     </Card>
   );
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <RefreshCw className="h-12 w-12 mx-auto mb-4 text-gray-400 animate-spin" />
+          <h2 className="text-2xl font-bold mb-2">Yükleniyor...</h2>
+          <p className="text-gray-600">Sistem başlatılıyor</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentSession && !isLoading) {
     return (
