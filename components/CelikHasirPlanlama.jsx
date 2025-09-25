@@ -93,6 +93,11 @@ const CelikHasirPlanlama = () => {
 
   // Session Management state
   const [showCreateSession, setShowCreateSession] = useState(false);
+
+  // Debug logging
+  console.log('Component render - showCreateSession:', showCreateSession);
+  console.log('Component render - currentSession:', currentSession);
+  console.log('Component render - isLoading:', isLoading);
   const [newSessionName, setNewSessionName] = useState('');
 
   // Standard column mapping for CSV format (A=0, B=1, etc.)
@@ -220,7 +225,9 @@ const CelikHasirPlanlama = () => {
   }, [STANDARD_COLUMNS]);
 
   const createSession = async () => {
+    console.log('CREATE SESSION CALLED! newSessionName:', newSessionName);
     if (!newSessionName.trim()) {
+      console.log('No session name provided');
       toast.error('Oturum adı gereklidir');
       return;
     }
@@ -602,7 +609,12 @@ const CelikHasirPlanlama = () => {
             Oturum Yönetimi
           </div>
           <Button
-            onClick={() => setShowCreateSession(true)}
+            onClick={() => {
+              console.log('HEADER BUTTON CLICKED! Setting showCreateSession to true');
+              console.log('Current state before click:', showCreateSession);
+              setShowCreateSession(true);
+              console.log('setShowCreateSession(true) called from header');
+            }}
             size="sm"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -658,7 +670,14 @@ const CelikHasirPlanlama = () => {
       </CardContent>
 
       {/* Create Session Dialog */}
-      <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
+      {console.log('DIALOG RENDER - showCreateSession:', showCreateSession)}
+      <Dialog
+        open={showCreateSession}
+        onOpenChange={(open) => {
+          console.log('Dialog onOpenChange called with:', open);
+          setShowCreateSession(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
@@ -910,7 +929,14 @@ const CelikHasirPlanlama = () => {
           <p className="text-gray-600 mb-4">
             Üretim planlaması yapmak için önce bir oturum oluşturun.
           </p>
-          <Button onClick={() => setShowCreateSession(true)}>
+          <Button
+            onClick={() => {
+              console.log('MAIN BUTTON CLICKED! Setting showCreateSession to true');
+              console.log('Current state before click:', showCreateSession);
+              setShowCreateSession(true);
+              console.log('setShowCreateSession(true) called');
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Yeni Oturum Oluştur
           </Button>
