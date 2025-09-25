@@ -920,32 +920,75 @@ const CelikHasirPlanlama = () => {
     );
   }
 
+  const renderCreateSessionDialog = () => (
+    <>
+      {/* Create Session Dialog */}
+      {console.log('DIALOG RENDER - showCreateSession:', showCreateSession)}
+      <Dialog
+        open={showCreateSession}
+        onOpenChange={(open) => {
+          console.log('Dialog onOpenChange called with:', open);
+          setShowCreateSession(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-name">Oturum Adı</Label>
+              <Input
+                id="session-name"
+                value={newSessionName}
+                onChange={(e) => setNewSessionName(e.target.value)}
+                placeholder="Örnek: Ocak 2025 Planlaması"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateSession(false)}>
+                İptal
+              </Button>
+              <Button onClick={createSession}>
+                Oluştur
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   if (!currentSession && !isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-12">
-          <Factory className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-2xl font-bold mb-2">Planlama Oturumu Gerekli</h2>
-          <p className="text-gray-600 mb-4">
-            Üretim planlaması yapmak için önce bir oturum oluşturun.
-          </p>
-          <Button
-            onClick={() => {
-              console.log('MAIN BUTTON CLICKED! Setting showCreateSession to true');
-              console.log('Current state before click:', showCreateSession);
-              setShowCreateSession(true);
-              console.log('setShowCreateSession(true) called');
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Oturum Oluştur
-          </Button>
+      <>
+        <div className="container mx-auto p-6">
+          <div className="text-center py-12">
+            <Factory className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-2xl font-bold mb-2">Planlama Oturumu Gerekli</h2>
+            <p className="text-gray-600 mb-4">
+              Üretim planlaması yapmak için önce bir oturum oluşturun.
+            </p>
+            <Button
+              onClick={() => {
+                console.log('MAIN BUTTON CLICKED! Setting showCreateSession to true');
+                console.log('Current state before click:', showCreateSession);
+                setShowCreateSession(true);
+                console.log('setShowCreateSession(true) called');
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Yeni Oturum Oluştur
+            </Button>
+          </div>
         </div>
-      </div>
+        {renderCreateSessionDialog()}
+      </>
     );
   }
 
   return (
+    <>
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -1089,9 +1132,9 @@ const CelikHasirPlanlama = () => {
               </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
     </div>
+    {renderCreateSessionDialog()}
+    </>
   );
 };
 
