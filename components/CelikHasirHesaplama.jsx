@@ -1602,6 +1602,16 @@ const processExcelWithMapping = (sheets, mapping) => {
     }
   };
 
+  // Check if all 4 key fields are complete and trigger mesh type check
+  const checkIfKeyFieldsComplete = (rowIndex) => {
+    const row = rows[rowIndex];
+    if (row && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn && row.hasirSayisi) {
+      // All 4 key fields are complete, check mesh type
+      const normalizedType = normalizeHasirTipiForConfig(row.hasirTipi);
+      checkMeshTypeExists(normalizedType, rowIndex);
+    }
+  };
+
   // Hasır tipini standartlaştırma - Updated to handle combination Q-types
   const standardizeHasirTipi = (value) => {
     console.log(`[DEBUG] standardizeHasirTipi INPUT: "${value}"`);
@@ -2258,15 +2268,18 @@ const handleCellChange = (rowIndex, field, value) => {
   
   if (field === 'hasirTipi') {
     value = standardizeHasirTipi(value);
-
-    // Check if this mesh type exists in the database
-    const normalizedType = normalizeHasirTipiForConfig(value);
-    checkMeshTypeExists(normalizedType, rowIndex);
+    // Note: Mesh type existence checking moved to onBlur event
   }
 
   // Değeri güncelle
   row[field] = value;
-  
+
+  // Check if all 4 key fields are complete after updating any of them
+  if (field === 'hasirTipi' || field === 'uzunlukBoy' || field === 'uzunlukEn' || field === 'hasirSayisi') {
+    // Small delay to ensure state is updated
+    setTimeout(() => checkIfKeyFieldsComplete(rowIndex), 100);
+  }
+
   // Elle değiştirildi mesajını ekle (hasirTipi ve aciklama hariç)
   if (field !== 'hasirTipi' && field !== 'aciklama' && previousValue !== value && value !== '') {
     const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
@@ -7821,8 +7834,10 @@ useEffect(() => {
                         onChange={(e) => handleCellChange(rowIndex, 'hasirTipi', e.target.value)}
                         onBlur={(e) => {
                           // Check mesh type existence when user finishes typing
-                          if (e.target.value) {
-                            const normalizedType = normalizeHasirTipiForConfig(e.target.value);
+                          // Only check if it looks like a complete hasir tipi (Q/R/TR followed by numbers)
+                          const value = e.target.value.trim();
+                          if (value && /^(Q|R|TR)\d+/.test(value.toUpperCase())) {
+                            const normalizedType = normalizeHasirTipiForConfig(value);
                             checkMeshTypeExists(normalizedType, rowIndex);
                           }
                         }}

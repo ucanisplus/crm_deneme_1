@@ -245,26 +245,7 @@ const CelikHasirPlanlama = () => {
     }
   };
 
-  // Excel Upload Functions
-  const handleFileUpload = useCallback((event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'text/csv'
-    ];
-
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx?|csv)$/i)) {
-      toast.error('Desteklenen formatlar: .xlsx, .xls, .csv');
-      return;
-    }
-
-    setUploadedFile(file);
-    parseFile(file);
-  }, [parseFile]);
-
+  // Excel Upload Functions - parseFile moved before handleFileUpload to avoid initialization issues
   const parseFile = useCallback(async (file) => {
     try {
       setIsProcessing(true);
@@ -304,6 +285,25 @@ const CelikHasirPlanlama = () => {
       setIsProcessing(false);
     }
   }, [headerRowIndex, autoDetectColumns]);
+
+  const handleFileUpload = useCallback((event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv'
+    ];
+
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx?|csv)$/i)) {
+      toast.error('Desteklenen formatlar: .xlsx, .xls, .csv');
+      return;
+    }
+
+    setUploadedFile(file);
+    parseFile(file);
+  }, [parseFile]);
 
   const validateMappings = () => {
     const mappedColumns = new Set(Object.values(columnMappings));
@@ -452,48 +452,7 @@ const CelikHasirPlanlama = () => {
     }
   };
 
-  // Dashboard Functions
-  const loadScheduleData = useCallback(async () => {
-    if (!currentSession?.id) return;
-
-    try {
-      const [schedulesResponse, ordersResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/celik-hasir-planlama/schedules/${currentSession.id}`),
-        fetch(`${API_BASE_URL}/celik-hasir-planlama/orders/${currentSession.id}`)
-      ]);
-
-      const schedules = await schedulesResponse.json();
-      const orders = await ordersResponse.json();
-
-      // Process data for dashboard
-      const processedData = processScheduleData(schedules, orders);
-      setRealTimeData(processedData);
-
-      // Group schedules by machine
-      const schedulesById = {};
-      MACHINES.forEach(machine => {
-        schedulesById[machine.id] = [];
-      });
-
-      schedules.forEach(schedule => {
-        const machineId = schedule.assigned_machine_id;
-        if (schedulesById[machineId]) {
-          schedulesById[machineId].push({
-            ...schedule,
-            customer: schedule.firma,
-            hasir_tipi: schedule.hasir_cinsi,
-            weight: schedule.total_tonnage * 1000 || 0,
-            production_time: schedule.production_time_minutes || 0
-          });
-        }
-      });
-
-      setMachineSchedules(schedulesById);
-    } catch (error) {
-      console.error('Error loading schedule data:', error);
-    }
-  }, [currentSession?.id, API_BASE_URL, MACHINES, processScheduleData]);
-
+  // Dashboard Functions - processScheduleData moved before loadScheduleData to avoid initialization issues
   const processScheduleData = useCallback((schedules, orders) => {
     const machineStats = {};
     const customerStats = {};
@@ -570,6 +529,47 @@ const CelikHasirPlanlama = () => {
       }
     };
   }, [MACHINES]);
+
+  const loadScheduleData = useCallback(async () => {
+    if (!currentSession?.id) return;
+
+    try {
+      const [schedulesResponse, ordersResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/celik-hasir-planlama/schedules/${currentSession.id}`),
+        fetch(`${API_BASE_URL}/celik-hasir-planlama/orders/${currentSession.id}`)
+      ]);
+
+      const schedules = await schedulesResponse.json();
+      const orders = await ordersResponse.json();
+
+      // Process data for dashboard
+      const processedData = processScheduleData(schedules, orders);
+      setRealTimeData(processedData);
+
+      // Group schedules by machine
+      const schedulesById = {};
+      MACHINES.forEach(machine => {
+        schedulesById[machine.id] = [];
+      });
+
+      schedules.forEach(schedule => {
+        const machineId = schedule.assigned_machine_id;
+        if (schedulesById[machineId]) {
+          schedulesById[machineId].push({
+            ...schedule,
+            customer: schedule.firma,
+            hasir_tipi: schedule.hasir_cinsi,
+            weight: schedule.total_tonnage * 1000 || 0,
+            production_time: schedule.production_time_minutes || 0
+          });
+        }
+      });
+
+      setMachineSchedules(schedulesById);
+    } catch (error) {
+      console.error('Error loading schedule data:', error);
+    }
+  }, [currentSession?.id, API_BASE_URL, MACHINES, processScheduleData]);
 
   // Load schedule data when session changes
   useEffect(() => {
