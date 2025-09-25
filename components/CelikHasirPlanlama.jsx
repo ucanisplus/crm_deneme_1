@@ -140,7 +140,7 @@ const CelikHasirPlanlama = () => {
       return;
     }
 
-    if (!hasPermission('production_planning')) {
+    if (!hasPermission('page:planlama')) {
       toast.error('Bu sayfaya erişim yetkiniz yok');
       router.push('/');
       return;
