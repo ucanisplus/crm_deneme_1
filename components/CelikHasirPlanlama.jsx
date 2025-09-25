@@ -309,6 +309,14 @@ const CelikHasirPlanlama = () => {
     parseFile(file);
   }, [parseFile]);
 
+  // Silent validation for UI states (no toast)
+  const isValidMappings = () => {
+    const mappedColumns = new Set(Object.values(columnMappings));
+    const missingColumns = REQUIRED_COLUMNS.filter(col => !mappedColumns.has(col));
+    return missingColumns.length === 0;
+  };
+
+  // Validation with toast error for user feedback
   const validateMappings = () => {
     const mappedColumns = new Set(Object.values(columnMappings));
     const missingColumns = REQUIRED_COLUMNS.filter(col => !mappedColumns.has(col));
@@ -593,7 +601,10 @@ const CelikHasirPlanlama = () => {
             <Settings className="h-5 w-5" />
             Oturum Yönetimi
           </div>
-          <Button onClick={() => setShowCreateSession(true)} size="sm">
+          <Button
+            onClick={() => setShowCreateSession(true)}
+            size="sm"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Yeni Oturum
           </Button>
@@ -1040,7 +1051,7 @@ const CelikHasirPlanlama = () => {
                 </Button>
                 <Button
                   onClick={handleProcessData}
-                  disabled={processing || !validateMappings()}
+                  disabled={processing || !isValidMappings()}
                 >
                   {processing ? (
                     <Loader className="h-4 w-4 mr-2 animate-spin" />
