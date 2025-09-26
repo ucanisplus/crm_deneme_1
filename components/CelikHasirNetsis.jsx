@@ -2908,13 +2908,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Remove any extra whitespace between letters and numbers
     cleanTipi = cleanTipi.replace(/\s+/g, '');
 
-    // Handle Q-type combinations (Q221/443) - preserve as-is for ALL combinations
+    // Handle Q-type combinations (Q221/443) - preserve as-is for different numbers
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
-      // CRITICAL FIX: Return combination format for ALL Q-type combinations to preserve existing product matching
-      return `Q${first}/${second}`;
+      // Return combination format as-is if numbers are different
+      if (first !== second) {
+        return `Q${first}/${second}`;
+      }
     }
 
     // Extract the base pattern (Q257, R257, TR257, etc.)
@@ -2925,11 +2927,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const prefix = match[1];  // Q, R, or TR
     const number = match[2];  // 257, 221, etc.
 
-    // CRITICAL FIX: All types should use single format for mesh_type_configs table
-    // - Q products: Q692 (not Q692/692)
-    // - R products: R257
-    // - TR products: TR257
-    return `${prefix}${number}`;
+    // Normalize based on type rules from CSV analysis:
+    // Q types should have double format: Q257/257 (only for single Q-types)
+    // R and TR types should have single format: R257, TR257
+    if (prefix === 'Q') {
+      return `${prefix}${number}/${number}`;
+    } else {
+      return `${prefix}${number}`;
+    }
   };
 
   // Helper function to normalize hasir tipi specifically for mesh config storage
