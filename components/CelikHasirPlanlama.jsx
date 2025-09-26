@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { API_URLS, fetchWithAuth } from '@/api-config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,8 +70,7 @@ const CelikHasirPlanlama = () => {
   const { user, hasPermission, permissions, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // API Base URL
-  const API_BASE_URL = 'https://crm-deneme-backend.vercel.app/api';
+  // Component uses API_URLS.production endpoints from api-config.js
 
   // Core state management
   const [currentSession, setCurrentSession] = useState(null);
@@ -141,7 +141,7 @@ const CelikHasirPlanlama = () => {
   const loadSessions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`);
+      const response = await fetchWithAuth(API_URLS.production.sessions);
       if (response.ok) {
         const sessionsData = await response.json();
         setSessions(sessionsData);
@@ -155,7 +155,7 @@ const CelikHasirPlanlama = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [API_BASE_URL, currentSession]);
+  }, [currentSession]);
 
   // Initialize component
   useEffect(() => {
@@ -227,9 +227,8 @@ const CelikHasirPlanlama = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/sessions`, {
+      const response = await fetchWithAuth(API_URLS.production.sessions, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newSessionName,
           description: `Üretim planı - ${new Date().toLocaleDateString('tr-TR')}`
@@ -377,7 +376,7 @@ const CelikHasirPlanlama = () => {
         // Enhance with stock database information if stock code exists
         if (order.stok_kodu && order.stok_kodu.trim()) {
           try {
-            const stockResponse = await fetch(`${API_BASE_URL}/celik-hasir-planlama/stock/${encodeURIComponent(order.stok_kodu)}`);
+            const stockResponse = await fetchWithAuth(`${API_URLS.production.stock}/${encodeURIComponent(order.stok_kodu)}`);
             if (stockResponse.ok) {
               const stockData = await stockResponse.json();
               if (stockData && stockData.length > 0) {
@@ -411,9 +410,8 @@ const CelikHasirPlanlama = () => {
       }
 
       // Send to backend for processing
-      const response = await fetch(`${API_BASE_URL}/celik-hasir-planlama/upload`, {
+      const response = await fetchWithAuth(API_URLS.production.uploadExcel, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: currentSession.id,
           orders: processedOrders,
@@ -424,7 +422,7 @@ const CelikHasirPlanlama = () => {
       if (!response.ok) throw new Error('Backend processing failed');
 
       // Trigger scheduling
-      const scheduleResponse = await fetch(`${API_BASE_URL}/celik-hasir-planlama/schedule/${currentSession.id}`, {
+      const scheduleResponse = await fetchWithAuth(`${API_URLS.production.runScheduling}/${currentSession.id}`, {
         method: 'POST'
       });
 
@@ -548,8 +546,8 @@ const CelikHasirPlanlama = () => {
 
     try {
       const [schedulesResponse, ordersResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/celik-hasir-planlama/schedules/${currentSession.id}`),
-        fetch(`${API_BASE_URL}/celik-hasir-planlama/orders/${currentSession.id}`)
+        fetchWithAuth(`${API_URLS.production.schedules}/${currentSession.id}`),
+        fetchWithAuth(`${API_URLS.production.orders}/${currentSession.id}`)
       ]);
 
       const schedules = await schedulesResponse.json();
@@ -582,7 +580,7 @@ const CelikHasirPlanlama = () => {
     } catch (error) {
       console.error('Error loading schedule data:', error);
     }
-  }, [currentSession?.id, API_BASE_URL, MACHINES, processScheduleData]);
+  }, [currentSession?.id, MACHINES, processScheduleData]);
 
   // Load schedule data when session changes
   useEffect(() => {
