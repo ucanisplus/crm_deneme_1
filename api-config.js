@@ -86,32 +86,32 @@ export const API_URLS = {
   apsCalculateTimeVercel: 'https://crm-deneme-backend.vercel.app/api/aps/calculate-time',
   apsOptimizeScheduleVercel: 'https://crm-deneme-backend.vercel.app/api/aps/optimize-schedule',
 
-  // Production Planning endpoints (Çelik Hasır Üretim Planlaması) - MIGRATED TO RENDER for performance!
+  // Production Planning endpoints (Çelik Hasır Üretim Planlaması) - HYBRID: Light ops on Vercel, heavy on Render
   production: {
-    // Session Management
-    sessions: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/sessions',
+    // Session Management (Light - stays on Vercel)
+    sessions: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/sessions',
 
-    // Excel Upload and Processing
+    // Excel Upload and Processing (Heavy - use Render)
     uploadExcel: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/upload',
 
-    // Production Orders
-    orders: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/orders',
+    // Production Orders (Light - stays on Vercel)
+    orders: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/orders',
 
-    // Scheduling Algorithm
+    // Scheduling Algorithm (Heavy computation - use Render)
     runScheduling: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/schedule',
 
-    // Machine Schedules
-    schedules: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/schedules',
-    updateSchedule: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/schedules/reorder',
+    // Machine Schedules (Light - stays on Vercel)
+    schedules: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/schedules',
+    updateSchedule: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/schedules/reorder',
 
-    // Analytics and Dashboard
-    analytics: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/analytics',
+    // Analytics and Dashboard (Medium - stays on Vercel)
+    analytics: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/analytics',
 
-    // Export Functions
+    // Export Functions (Heavy - use Render)
     export: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/export',
 
-    // Stock info endpoint
-    stock: 'https://crm-deneme-backend.onrender.com/api/celik-hasir-planlama/stock'
+    // Stock info endpoint (Light - stays on Vercel)
+    stock: 'https://crm-deneme-backend.vercel.app/api/celik-hasir-planlama/stock'
   }
 };
 
