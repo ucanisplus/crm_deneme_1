@@ -2652,7 +2652,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Generate expected stok_adi for similarity comparison
           const expectedStokAdi = generateStokAdi(product, 'CH');
           const similarity = calculateSimilarity(p.stok_adi, expectedStokAdi);
-          const stokAdiMatch = similarity > 0.80; // 80% similarity threshold for typo tolerance
+          // More flexible similarity for standard vs OZL products - they can have very different stok_adi formats but identical specs
+          const isStandardProduct = p.stok_kodu && p.stok_kodu.includes('.STD.');
+          const similarityThreshold = isStandardProduct ? 0.60 : 0.80; // Lower threshold for standard products
+          const stokAdiMatch = similarity > similarityThreshold;
           
           // Combine all matching criteria
           const overallMatch = hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch && stokAdiMatch;
@@ -2692,7 +2695,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             });
             console.log('  ✅ OVERALL MATCH:', overallMatch);
           }
-          
+
+          // Debug matching products beyond the first one
+          if (overallMatch && p.stok_kodu !== existingProduct.stok_kodu) {
+            console.log(`🔍 ADDITIONAL MATCH FOUND: ${p.stok_kodu} - ${p.stok_adi}`);
+          }
+
           return overallMatch;
         });
         
@@ -2968,11 +2976,117 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return `${prefix}${number}`;
   };
 
+  // Helper function to prompt user for mesh config data and save to database
+  const promptAndSaveMeshConfig = async (hasirTipi) => {
+    const boyCap = prompt('Boy çapı (mm):');
+    const enCap = prompt('En çapı (mm):');
+    const boyAralik = prompt('Boy aralığı (cm):', '15');
+    const enAralik = prompt('En aralığı (cm):', hasirTipi.startsWith('Q') ? '15' : hasirTipi.startsWith('TR') ? '15' : '25');
+
+    if (boyCap && enCap && boyAralik && enAralik) {
+      // Determine type
+      let type = 'Q';
+      if (hasirTipi.startsWith('R')) type = 'R';
+      else if (hasirTipi.startsWith('TR')) type = 'TR';
+
+      // Generate description
+      const description = `${type} type ${type === 'Q' ? 'mesh' : type === 'TR' ? 'truss reinforcement mesh' : 'reinforcement mesh'} - ${hasirTipi.replace(/[A-Z]+/, '')}${type === 'Q' ? ` (used for ${hasirTipi}/${hasirTipi.replace(/[A-Z]+/, '')} combinations)` : ''}`;
+
+      // Save to database
+      try {
+        const createResponse = await fetchWithAuth(API_URLS.meshTypeConfigs, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hasirTipi: hasirTipi,
+            boyCap: parseFloat(boyCap),
+            enCap: parseFloat(enCap),
+            boyAralik: parseFloat(boyAralik),
+            enAralik: parseFloat(enAralik),
+            type: type,
+            description: description
+          })
+        });
+
+        if (createResponse.ok) {
+          toast.success(`${hasirTipi} mesh konfigürasyonu başarıyla eklendi!`);
+          return true;
+        } else {
+          toast.error(`${hasirTipi} mesh konfigürasyonu eklenirken hata oluştu.`);
+          return false;
+        }
+      } catch (error) {
+        console.error('Error saving mesh config:', error);
+        toast.error('Mesh konfigürasyonu kaydedilirken hata oluştu.');
+        return false;
+      }
+    } else {
+      return false; // User cancelled or incomplete data
+    }
+  };
+
   // Helper function to check if hasir tipi exists in mesh_type_configs and prompt for data if not
   const checkAndPromptForMeshConfig = async (hasirTipi) => {
     if (!hasirTipi) return true;
 
-    // Normalize the hasir tipi for lookup
+    // Clean the input
+    let cleanTipi = hasirTipi.toString().trim().toUpperCase().replace(/\s+/g, '');
+
+    // CRITICAL FIX: Handle Q combinations (Q257/131) by checking individual base types
+    const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const first = combinationMatch[1];
+      const second = combinationMatch[2];
+
+      // If same numbers (Q257/257), check for single Q257
+      if (first === second) {
+        const singleType = `Q${first}`;
+        try {
+          const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(singleType)}`);
+          if (response.ok) {
+            return true; // Q257 exists, so Q257/257 is valid
+          }
+          // Fall through to prompt for Q257
+        } catch (error) {
+          console.error('Error checking mesh config:', error);
+        }
+      } else {
+        // Different numbers (Q257/131), check if both Q257 AND Q131 exist
+        try {
+          const [response1, response2] = await Promise.all([
+            fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(`Q${first}`)}`),
+            fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(`Q${second}`)}`)
+          ]);
+
+          if (response1.ok && response2.ok) {
+            return true; // Both Q257 and Q131 exist, combination is valid
+          }
+
+          // Determine which base types are missing and prompt only for those
+          const missing = [];
+          if (!response1.ok) missing.push(`Q${first}`);
+          if (!response2.ok) missing.push(`Q${second}`);
+
+          // Only prompt for the missing base types, not the combination
+          for (const missingType of missing) {
+            const normalizedMissingType = missingType;
+            const confirmed = window.confirm(`Hasır tipi "${normalizedMissingType}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
+            if (confirmed) {
+              const result = await promptAndSaveMeshConfig(normalizedMissingType);
+              if (!result) return false;
+            } else {
+              return false;
+            }
+          }
+          return true;
+        } catch (error) {
+          console.error('Error checking combination mesh configs:', error);
+          return false;
+        }
+      }
+    }
+
+    // For single types (Q257, R257, TR257, etc.), use the existing logic
     const normalizedHasirTipi = normalizeHasirTipiForMeshConfig(hasirTipi);
 
     try {
@@ -2986,46 +3100,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const confirmed = window.confirm(`Hasır tipi "${normalizedHasirTipi}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
 
         if (confirmed) {
-          // Get data from user
-          const boyCap = prompt('Boy çapı (mm):');
-          const enCap = prompt('En çapı (mm):');
-          const boyAralik = prompt('Boy aralığı (cm):', '15');
-          const enAralik = prompt('En aralığı (cm):', normalizedHasirTipi.startsWith('Q') ? '15' : normalizedHasirTipi.startsWith('TR') ? '15' : '25');
-
-          if (boyCap && enCap && boyAralik && enAralik) {
-            // Determine type
-            let type = 'Q';
-            if (normalizedHasirTipi.startsWith('R')) type = 'R';
-            else if (normalizedHasirTipi.startsWith('TR')) type = 'TR';
-
-            // Generate description
-            const description = `${type} type ${type === 'Q' ? 'mesh' : type === 'TR' ? 'truss reinforcement mesh' : 'reinforcement mesh'} - ${normalizedHasirTipi.replace(/[A-Z]+/, '')}${type === 'Q' ? ` (used for ${normalizedHasirTipi}/${normalizedHasirTipi.replace(/[A-Z]+/, '')} combinations)` : ''}`;
-
-            // Save to database
-            const createResponse = await fetchWithAuth(API_URLS.meshTypeConfigs, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                hasirTipi: normalizedHasirTipi,
-                boyCap: parseFloat(boyCap),
-                enCap: parseFloat(enCap),
-                boyAralik: parseFloat(boyAralik),
-                enAralik: parseFloat(enAralik),
-                type: type,
-                description: description
-              })
-            });
-
-            if (createResponse.ok) {
-              toast.success(`${normalizedHasirTipi} mesh konfigürasyonu başarıyla eklendi!`);
-              return true;
-            } else {
-              toast.error(`Mesh konfigürasyonu eklenirken hata oluştu: ${createResponse.statusText}`);
-              return false;
-            }
-          } else {
-            return false;
-          }
+          return await promptAndSaveMeshConfig(normalizedHasirTipi);
         } else {
           return false;
         }
