@@ -2442,19 +2442,32 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
-      // Find existing product by exact Stok Adı using FRESH data
-      let existingProduct = freshSavedProducts.mm.find(p => p.stok_adi === productStokAdi);
+      // Find ALL existing products by exact Stok Adı using FRESH data
+      let allMatchingProducts = freshSavedProducts.mm.filter(p => p.stok_adi === productStokAdi);
+      let existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
+
+      // Debug: Show all exact matches
+      if (allMatchingProducts.length > 0) {
+        console.log(`DEBUG: Found ${allMatchingProducts.length} exact match(es) for: "${productStokAdi}"`);
+        allMatchingProducts.forEach((p, index) => {
+          console.log(`  Exact Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
+        });
+      }
       
       // Try normalized Stok Adı if exact match not found
       if (!existingProduct) {
         const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
-        existingProduct = freshSavedProducts.mm.find(p => {
+        allMatchingProducts = freshSavedProducts.mm.filter(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
           return normalizedDbStokAdi === normalizedProductStokAdi;
         });
+        existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
         
         if (existingProduct) {
-          console.log(`DEBUG: Found match via normalized Stok Adı: "${productStokAdi}" matched "${existingProduct.stok_adi}"`);
+          console.log(`DEBUG: Found ${allMatchingProducts.length} match(es) via normalized Stok Adı for: "${productStokAdi}"`);
+          allMatchingProducts.forEach((p, index) => {
+            console.log(`  Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
+          });
         } else {
           // If still not found, show some similar products for debugging
           const similarProducts = freshSavedProducts.mm.filter(p => {
@@ -2497,10 +2510,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Find ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
         // This will catch products with identical specs but different Stok Adı formatting
-        
-        // Using the component-level normalizeHasirTipi function for intelligent format handling
-        
-        const allMatchingProducts = freshSavedProducts.mm.filter(p => {
+
+        // Start with products already found by exact/normalized stok_adi match, then add spec-based matches
+        const specBasedMatches = freshSavedProducts.mm.filter(p => {
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
           
@@ -2695,13 +2707,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               isStandard: isStandardProduct,
               match: stokAdiMatch
             });
-            console.log('  🔍 INDIVIDUAL CRITERIA:', {
-              hasirTipiMatch,
-              dimensionMatch,
-              diameterMatch,
-              gozMatch,
-              stokAdiMatch
-            });
+            console.log('  🔍 INDIVIDUAL CRITERIA:');
+            console.log('    hasirTipiMatch:', hasirTipiMatch);
+            console.log('    dimensionMatch:', dimensionMatch);
+            console.log('    diameterMatch:', diameterMatch);
+            console.log('    gozMatch:', gozMatch);
+            console.log('    stokAdiMatch:', stokAdiMatch);
             console.log('  ✅ OVERALL MATCH:', overallMatch);
           }
 
@@ -2717,8 +2728,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const allHasirTipiVariations = new Set(freshSavedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
         console.log('📋 ALL HASIR TIPI VARIATIONS IN DATABASE:', Array.from(allHasirTipiVariations).sort());
         
-        console.log(`DEBUG: Found ${allMatchingProducts.length} products with IDENTICAL specifications:`, 
-          allMatchingProducts.map(p => ({ 
+        // Combine exact/normalized stok_adi matches with spec-based matches
+        const combinedMatches = new Map();
+        // Add exact/normalized matches first
+        allMatchingProducts.forEach(p => combinedMatches.set(p.stok_kodu, p));
+        // Add spec-based matches
+        specBasedMatches.forEach(p => combinedMatches.set(p.stok_kodu, p));
+        const finalMatchingProducts = Array.from(combinedMatches.values());
+
+        console.log(`DEBUG: Found ${finalMatchingProducts.length} products with IDENTICAL specifications:`,
+          finalMatchingProducts.map(p => ({ 
             stok_kodu: p.stok_kodu,
             stok_adi: p.stok_adi,
             hasir_tipi_original: p.hasir_tipi,
