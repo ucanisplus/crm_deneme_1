@@ -1587,25 +1587,52 @@ const processExcelWithMapping = (sheets, mapping) => {
     if (!hasirTipi) return;
 
     try {
-      let exists = false;
+      // Check if it's a Q combination (Q212/245)
+      const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
+      if (combinationMatch) {
+        const firstNum = combinationMatch[1];
+        const secondNum = combinationMatch[2];
 
-      // First check if it's a Q combination (Q257/131) - these should always be valid if base types exist
-      if (hasirTipi.match(/^Q\d+\/\d+$/)) {
-        const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
-        exists = combinationConfig !== null;
-        if (exists) {
-          console.log(`✅ Q combination ${hasirTipi} is valid - base types exist`);
+        // If same numbers (Q221/221), only check Q221 once
+        if (firstNum === secondNum) {
+          const singleType = `Q${firstNum}`;
+          const exists = await meshConfigService.meshTypeExists(singleType);
+          if (!exists && !unknownMeshTypes.includes(singleType)) {
+            setUnknownMeshTypes(prev => [...prev, singleType]);
+            setCurrentUnknownType(singleType);
+            setShowUnknownMeshModal(true);
+          }
         } else {
-          console.log(`❌ Q combination ${hasirTipi} is invalid - one or both base types missing`);
+          // Different numbers (Q212/245), check both base types
+          const firstType = `Q${firstNum}`;
+          const secondType = `Q${secondNum}`;
+
+          const firstExists = await meshConfigService.meshTypeExists(firstType);
+          const secondExists = await meshConfigService.meshTypeExists(secondType);
+
+          // Add missing base types to unknown list
+          const missingTypes = [];
+          if (!firstExists && !unknownMeshTypes.includes(firstType)) {
+            missingTypes.push(firstType);
+          }
+          if (!secondExists && !unknownMeshTypes.includes(secondType)) {
+            missingTypes.push(secondType);
+          }
+
+          if (missingTypes.length > 0) {
+            // Add all missing types and show modal for the first one
+            setUnknownMeshTypes(prev => [...prev, ...missingTypes]);
+            setCurrentUnknownType(missingTypes[0]);
+            setShowUnknownMeshModal(true);
+            console.log(`❌ Q combination ${hasirTipi} missing base types:`, missingTypes);
+          } else {
+            console.log(`✅ Q combination ${hasirTipi} is valid - both base types exist`);
+          }
         }
       } else {
         // For non-combination types, use regular exists check
-        exists = await meshConfigService.meshTypeExists(hasirTipi);
-      }
-
-      if (!exists) {
-        // Add to unknown types list if not already there
-        if (!unknownMeshTypes.includes(hasirTipi)) {
+        const exists = await meshConfigService.meshTypeExists(hasirTipi);
+        if (!exists && !unknownMeshTypes.includes(hasirTipi)) {
           setUnknownMeshTypes(prev => [...prev, hasirTipi]);
           setCurrentUnknownType(hasirTipi);
           setShowUnknownMeshModal(true);

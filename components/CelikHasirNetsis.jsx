@@ -3073,10 +3073,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(singleType)}`);
           if (response.ok) {
             return true; // Q257 exists, so Q257/257 is valid
+          } else {
+            // Q257 doesn't exist, prompt for it
+            const confirmed = window.confirm(`Hasır tipi "${singleType}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
+            if (confirmed) {
+              return await promptAndSaveMeshConfig(singleType);
+            } else {
+              return false;
+            }
           }
-          // Fall through to prompt for Q257
         } catch (error) {
           console.error('Error checking mesh config:', error);
+          return false;
         }
       } else {
         // Different numbers (Q257/131), check if both Q257 AND Q131 exist
