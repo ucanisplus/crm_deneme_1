@@ -1587,7 +1587,21 @@ const processExcelWithMapping = (sheets, mapping) => {
     if (!hasirTipi) return;
 
     try {
-      const exists = await meshConfigService.meshTypeExists(hasirTipi);
+      let exists = false;
+
+      // First check if it's a Q combination (Q257/131) - these should always be valid if base types exist
+      if (hasirTipi.match(/^Q\d+\/\d+$/)) {
+        const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
+        exists = combinationConfig !== null;
+        if (exists) {
+          console.log(`✅ Q combination ${hasirTipi} is valid - base types exist`);
+        } else {
+          console.log(`❌ Q combination ${hasirTipi} is invalid - one or both base types missing`);
+        }
+      } else {
+        // For non-combination types, use regular exists check
+        exists = await meshConfigService.meshTypeExists(hasirTipi);
+      }
 
       if (!exists) {
         // Add to unknown types list if not already there
