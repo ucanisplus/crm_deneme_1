@@ -6735,24 +6735,37 @@ const processPreviewData = async () => {
     const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
     console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
-    
-    // First check if it exists in regular mesh configs
-    let configExists = meshConfigs.has(hasirTipi);
-    
-    // If not found, check if it's a combination Q-type
-    if (!configExists && hasirTipi.match(/^Q\d+\/\d+$/)) {
-      try {
-        console.log(`[DEBUG] processPreviewData CHECKING COMBINATION Q-TYPE: "${hasirTipi}"`);
-        const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
-        configExists = combinationConfig !== null;
-        console.log(`[DEBUG] processPreviewData Combination Q-type "${hasirTipi}" check result:`, !!combinationConfig);
-      } catch (error) {
-        console.error(`Error checking combination Q-type "${hasirTipi}":`, error);
+
+    // Check if it's a Q combination (Q221/667)
+    const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
+    if (combinationMatch) {
+      const firstNum = combinationMatch[1];
+      const secondNum = combinationMatch[2];
+
+      // If same numbers (Q221/221), only check Q221
+      if (firstNum === secondNum) {
+        const singleType = `Q${firstNum}`;
+        if (!meshConfigs.has(singleType) && !unknownTypes.includes(singleType)) {
+          unknownTypes.push(singleType);
+          console.log(`Unknown base type found: ${singleType} (from ${hasirTipi})`);
+        }
+      } else {
+        // Different numbers (Q221/667), check both base types
+        const firstType = `Q${firstNum}`;
+        const secondType = `Q${secondNum}`;
+
+        if (!meshConfigs.has(firstType) && !unknownTypes.includes(firstType)) {
+          unknownTypes.push(firstType);
+          console.log(`Unknown base type found: ${firstType} (from ${hasirTipi})`);
+        }
+        if (!meshConfigs.has(secondType) && !unknownTypes.includes(secondType)) {
+          unknownTypes.push(secondType);
+          console.log(`Unknown base type found: ${secondType} (from ${hasirTipi})`);
+        }
       }
-    }
-    
-    if (!configExists) {
-      if (!unknownTypes.includes(hasirTipi)) {
+    } else {
+      // For non-combination types, check normally
+      if (!meshConfigs.has(hasirTipi) && !unknownTypes.includes(hasirTipi)) {
         unknownTypes.push(hasirTipi);
         console.log(`Unknown type found: ${hasirTipi}`);
       }
