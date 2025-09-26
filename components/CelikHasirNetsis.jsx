@@ -2687,11 +2687,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               normalized_product: enhancedNormalizeGozAraligi(formatGozAraligi(product)), 
               match: gozMatch 
             });
-            console.log('  📝 STOK ADI SIMILARITY:', { 
-              db: p.stok_adi, 
-              expected: expectedStokAdi, 
-              similarity: similarity.toFixed(5), 
-              match: stokAdiMatch 
+            console.log('  📝 STOK ADI SIMILARITY:', {
+              db: p.stok_adi,
+              expected: expectedStokAdi,
+              similarity: similarity.toFixed(5),
+              threshold: similarityThreshold,
+              isStandard: isStandardProduct,
+              match: stokAdiMatch
+            });
+            console.log('  🔍 INDIVIDUAL CRITERIA:', {
+              hasirTipiMatch,
+              dimensionMatch,
+              diameterMatch,
+              gozMatch,
+              stokAdiMatch
             });
             console.log('  ✅ OVERALL MATCH:', overallMatch);
           }
