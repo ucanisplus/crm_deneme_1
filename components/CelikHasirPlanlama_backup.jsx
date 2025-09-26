@@ -8,28 +8,69 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import {
-  Factory, Calendar, Clock, Settings, BarChart3, RefreshCw,
-  Play, Pause, Plus, Trash2, Eye, Download, AlertTriangle,
-  CheckCircle, Zap, Users, Package, Target, Activity, Upload,
-  FileSpreadsheet, X, Loader, Info, TrendingUp, Gauge, Truck,
-  Move, Edit, GitBranch, ChevronDown, ArrowRight, Check
+  Factory,
+  Calendar,
+  Clock,
+  Settings,
+  BarChart3,
+  RefreshCw,
+  Play,
+  Pause,
+  Plus,
+  Trash2,
+  Eye,
+  Download,
+  AlertTriangle,
+  CheckCircle,
+  Zap,
+  Users,
+  Package,
+  Target,
+  Activity,
+  Upload,
+  FileSpreadsheet,
+  X,
+  Loader,
+  Info,
+  TrendingUp,
+  Gauge,
+  Truck,
+  Move,
+  Edit,
+  GitBranch,
+  ChevronDown
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell,
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ReferenceLine
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine
 } from 'recharts';
 
 const CelikHasirPlanlama = () => {
   const { user, hasPermission, permissions, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  // Component uses API_URLS.production endpoints from api-config.js
 
   // Core state management
   const [currentSession, setCurrentSession] = useState(null);
@@ -47,27 +88,46 @@ const CelikHasirPlanlama = () => {
   const [showColumnMapping, setShowColumnMapping] = useState(false);
   const [columnMappings, setColumnMappings] = useState({});
   const [parsedData, setParsedData] = useState(null);
-  const [headerRowIndex, setHeaderRowIndex] = useState(1);
+  const [headerRowIndex, setHeaderRowIndex] = useState(1); // Default to row 2
   const fileInputRef = useRef(null);
 
   // Session Management state
   const [showCreateSession, setShowCreateSession] = useState(false);
+
   const [newSessionName, setNewSessionName] = useState('');
 
-  // Define required columns for production planning
+  // Standard column mapping for CSV format (A=0, B=1, etc.)
+  const STANDARD_COLUMNS = useMemo(() => ({
+    0: 'S. Tarihi',
+    1: 'Firma',
+    2: 'Stok Kartı',
+    3: 'Hasır cinsi',
+    4: 'Boy',
+    5: 'En',
+    6: 'Boy çap',
+    7: 'En çap',
+    8: 'Boy ara',
+    9: 'En ara',
+    10: 'Filiz Ön',
+    11: 'Filiz Arka',
+    12: 'Filiz Sağ',
+    13: 'Filiz Sol',
+    14: 'Birim ağırlık',
+    15: 'Sipariş miktarı adet',
+    16: 'stok(adet)',
+    17: 'stok(kg)',
+    18: 'Ü. Kalan',
+    19: 'Kalan Kg'
+  }), []);
+
   const REQUIRED_COLUMNS = [
-    { key: 'firma', label: 'Firma', required: true, color: 'blue' },
-    { key: 'stok_karti', label: 'Stok Kartı', required: true, color: 'green' },
-    { key: 'hasir_cinsi', label: 'Hasır Cinsi', required: true, color: 'purple' },
-    { key: 'boy', label: 'Boy', required: true, color: 'orange' },
-    { key: 'en', label: 'En', required: true, color: 'pink' },
-    { key: 'boy_cap', label: 'Boy Çap', required: false, color: 'yellow' },
-    { key: 'en_cap', label: 'En Çap', required: false, color: 'cyan' },
-    { key: 'boy_ara', label: 'Boy Ara', required: false, color: 'indigo' },
-    { key: 'en_ara', label: 'En Ara', required: false, color: 'red' },
-    { key: 'birim_agirlik', label: 'Birim Ağırlık', required: true, color: 'teal' },
-    { key: 'uretim_kalan', label: 'Ü. Kalan', required: true, color: 'rose' },
-    { key: 'siparis_miktari', label: 'Sipariş Miktarı', required: false, color: 'slate' },
+    'Firma',
+    'Stok Kartı',
+    'Hasır cinsi',
+    'Boy',
+    'En',
+    'Birim ağırlık',
+    'Ü. Kalan'
   ];
 
   const MACHINES = useMemo(() => [
@@ -77,26 +137,7 @@ const CelikHasirPlanlama = () => {
     { id: 'MG208-2', name: 'MG208-2', maxCapacity: 24 }
   ], []);
 
-  // Get color class for column
-  const getColumnColorClass = (colorName) => {
-    const colorMap = {
-      'blue': 'bg-blue-100 border-blue-300 text-blue-800',
-      'green': 'bg-green-100 border-green-300 text-green-800',
-      'purple': 'bg-purple-100 border-purple-300 text-purple-800',
-      'orange': 'bg-orange-100 border-orange-300 text-orange-800',
-      'pink': 'bg-pink-100 border-pink-300 text-pink-800',
-      'yellow': 'bg-yellow-100 border-yellow-300 text-yellow-800',
-      'cyan': 'bg-cyan-100 border-cyan-300 text-cyan-800',
-      'indigo': 'bg-indigo-100 border-indigo-300 text-indigo-800',
-      'red': 'bg-red-100 border-red-300 text-red-800',
-      'teal': 'bg-teal-100 border-teal-300 text-teal-800',
-      'rose': 'bg-rose-100 border-rose-300 text-rose-800',
-      'slate': 'bg-slate-100 border-slate-300 text-slate-800',
-    };
-    return colorMap[colorName] || 'bg-gray-100 border-gray-300 text-gray-800';
-  };
-
-  // Session Management Functions
+  // Session Management Functions - moved before useEffect to avoid initialization issues
   const loadSessions = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -118,16 +159,21 @@ const CelikHasirPlanlama = () => {
 
   // Initialize component
   useEffect(() => {
+    // Wait for auth to finish loading
     if (authLoading) return;
+
     if (!user) {
       router.push('/login');
       return;
     }
+
+    // Check permissions without causing infinite loop
     if (!permissions.includes('page:planlama')) {
       toast.error('Bu sayfaya erişim yetkiniz yok');
       router.push('/');
       return;
     }
+
     loadSessions();
   }, [user, permissions, authLoading, router, loadSessions]);
 
@@ -135,34 +181,44 @@ const CelikHasirPlanlama = () => {
   const autoDetectColumns = useCallback((headers) => {
     const mappings = {};
 
+    // For standard format, use position-based mapping
+    if (headers && headers.length >= 20) {
+      Object.entries(STANDARD_COLUMNS).forEach(([index, columnName]) => {
+        const headerIndex = parseInt(index);
+        if (headerIndex < headers.length && headers[headerIndex]) {
+          mappings[headers[headerIndex].toString().trim()] = columnName;
+        }
+      });
+      return mappings;
+    }
+
+    // Fallback pattern matching
     const patterns = {
-      'firma': /firma|müşteri|customer|company/i,
-      'stok_karti': /stok.*kart|stok.*kod|stock.*code/i,
-      'hasir_cinsi': /hasır.*cins|mesh.*type/i,
-      'boy': /^boy$|length/i,
-      'en': /^en$|width/i,
-      'boy_cap': /boy.*çap|boy.*cap|length.*dia/i,
-      'en_cap': /en.*çap|en.*cap|width.*dia/i,
-      'boy_ara': /boy.*ara|boy.*spacing/i,
-      'en_ara': /en.*ara|en.*spacing/i,
-      'birim_agirlik': /birim.*ağır|unit.*weight|ağırlık/i,
-      'uretim_kalan': /ü\.?\s*kalan|üret.*kalan|remaining/i,
-      'siparis_miktari': /sipariş.*miktar|order.*quantity/i,
+      'S. Tarihi': /s\.?\s*tarihi?/i,
+      'Firma': /firma|müşteri|customer/i,
+      'Stok Kartı': /stok.*kart|stok.*kod/i,
+      'Hasır cinsi': /hasır.*cins/i,
+      'Boy': /^boy$/i,
+      'En': /^en$/i,
+      'Boy çap': /boy.*çap/i,
+      'En çap': /en.*çap/i,
+      'Birim ağırlık': /birim.*ağır|ağır/i,
+      'Ü. Kalan': /ü\.?\s*kalan|uret.*kalan/i
     };
 
     headers.forEach((header, index) => {
       if (!header) return;
       const headerStr = header.toString().trim();
 
-      Object.entries(patterns).forEach(([columnKey, pattern]) => {
-        if (pattern.test(headerStr) && !mappings[index]) {
-          mappings[index] = columnKey;
+      Object.entries(patterns).forEach(([columnName, pattern]) => {
+        if (pattern.test(headerStr)) {
+          mappings[headerStr] = columnName;
         }
       });
     });
 
     return mappings;
-  }, []);
+  }, [STANDARD_COLUMNS]);
 
   const createSession = async () => {
     if (!newSessionName.trim()) {
@@ -193,10 +249,11 @@ const CelikHasirPlanlama = () => {
     }
   };
 
-  // Excel parsing
+  // Excel Upload Functions - parseFile moved before handleFileUpload to avoid initialization issues
   const parseFile = useCallback(async (file) => {
     try {
       setIsProcessing(true);
+
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
@@ -222,6 +279,7 @@ const CelikHasirPlanlama = () => {
 
       setParsedData({ headers, data: dataRows, totalRows: dataRows.length });
       setColumnMappings(detectedMappings);
+      setShowColumnMapping(true);
 
       toast.success(`${dataRows.length} satır veri başarıyla okundu`);
     } catch (error) {
@@ -251,23 +309,20 @@ const CelikHasirPlanlama = () => {
     parseFile(file);
   }, [parseFile]);
 
-  // Validation
+  // Silent validation for UI states (no toast)
   const isValidMappings = () => {
-    const requiredKeys = REQUIRED_COLUMNS.filter(col => col.required).map(col => col.key);
-    const mappedKeys = Object.values(columnMappings);
-    return requiredKeys.every(key => mappedKeys.includes(key));
+    const mappedColumns = new Set(Object.values(columnMappings));
+    const missingColumns = REQUIRED_COLUMNS.filter(col => !mappedColumns.has(col));
+    return missingColumns.length === 0;
   };
 
+  // Validation with toast error for user feedback
   const validateMappings = () => {
-    const requiredKeys = REQUIRED_COLUMNS.filter(col => col.required).map(col => col.key);
-    const mappedKeys = Object.values(columnMappings);
-    const missingKeys = requiredKeys.filter(key => !mappedKeys.includes(key));
+    const mappedColumns = new Set(Object.values(columnMappings));
+    const missingColumns = REQUIRED_COLUMNS.filter(col => !mappedColumns.has(col));
 
-    if (missingKeys.length > 0) {
-      const missingLabels = missingKeys.map(key =>
-        REQUIRED_COLUMNS.find(col => col.key === key)?.label
-      );
-      toast.error(`Eksik zorunlu sütunlar: ${missingLabels.join(', ')}`);
+    if (missingColumns.length > 0) {
+      toast.error(`Eksik sütunlar: ${missingColumns.join(', ')}`);
       return false;
     }
     return true;
@@ -278,36 +333,83 @@ const CelikHasirPlanlama = () => {
 
     try {
       setIsProcessing(true);
+
       const { headers, data } = parsedData;
       const processedOrders = [];
 
-      // Process each row
+      const reverseMapping = {};
+      Object.entries(columnMappings).forEach(([header, column]) => {
+        reverseMapping[column] = headers.indexOf(header);
+      });
+
+      // Process each data row
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0) continue;
 
-        const order = {};
-        Object.entries(columnMappings).forEach(([index, columnKey]) => {
-          order[columnKey] = row[index] || '';
-        });
+        const uretimKalan = parseInt(row[reverseMapping['Ü. Kalan']] || 0);
+        if (uretimKalan <= 0) continue;
 
-        // Parse numeric values
-        order.boy = parseInt(order.boy || 500);
-        order.en = parseInt(order.en || 215);
-        order.boy_cap = parseFloat(order.boy_cap || 4.5);
-        order.en_cap = parseFloat(order.en_cap || 4.5);
-        order.boy_ara = parseFloat(order.boy_ara || 15);
-        order.en_ara = parseFloat(order.en_ara || 15);
-        order.birim_agirlik = parseFloat(order.birim_agirlik || 0);
-        order.uretim_kalan = parseInt(order.uretim_kalan || 0);
-        order.siparis_miktari = parseInt(order.siparis_miktari || 0);
+        const order = {
+          siparis_tarihi: row[reverseMapping['S. Tarihi']] || null,
+          firma: row[reverseMapping['Firma']] || '',
+          stok_kodu: row[reverseMapping['Stok Kartı']] || '',
+          hasir_cinsi: row[reverseMapping['Hasır cinsi']] || '',
+          boy: parseInt(row[reverseMapping['Boy']] || 500),
+          en: parseInt(row[reverseMapping['En']] || 215),
+          boy_cap: parseFloat(row[reverseMapping['Boy çap']] || 4.5),
+          en_cap: parseFloat(row[reverseMapping['En çap']] || 4.5),
+          boy_ara: parseFloat(row[reverseMapping['Boy ara']] || 15),
+          en_ara: parseFloat(row[reverseMapping['En ara']] || 15),
+          filiz_on: parseFloat(row[reverseMapping['Filiz Ön']] || 0),
+          filiz_arka: parseFloat(row[reverseMapping['Filiz Arka']] || 0),
+          filiz_sag: parseFloat(row[reverseMapping['Filiz Sağ']] || 0),
+          filiz_sol: parseFloat(row[reverseMapping['Filiz Sol']] || 0),
+          birim_agirlik: parseFloat(row[reverseMapping['Birim ağırlık']] || 0),
+          siparis_miktari: parseInt(row[reverseMapping['Sipariş miktarı adet']] || 0),
+          stok_adet: parseInt(row[reverseMapping['stok(adet)']] || 0),
+          stok_kg: parseFloat(row[reverseMapping['stok(kg)']] || 0),
+          uretim_kalan: uretimKalan,
+          kalan_kg: parseFloat(row[reverseMapping['Kalan Kg']] || (uretimKalan * parseFloat(row[reverseMapping['Birim ağırlık']] || 0)))
+        };
 
-        if (order.uretim_kalan > 0 && order.stok_karti) {
+        // Enhance with stock database information if stock code exists
+        if (order.stok_kodu && order.stok_kodu.trim()) {
+          try {
+            const stockResponse = await fetchWithAuth(`${API_URLS.production.stock}/${encodeURIComponent(order.stok_kodu)}`);
+            if (stockResponse.ok) {
+              const stockData = await stockResponse.json();
+              if (stockData && stockData.length > 0) {
+                const stock = stockData[0];
+                order.has_stock_data = true;
+                order.dis_cap_boy_cubuk_ad = stock.dis_cap_boy_cubuk_ad;
+                order.dis_cap_en_cubuk_ad = stock.dis_cap_en_cubuk_ad;
+                order.ic_cap_boy_cubuk_ad = stock.ic_cap_boy_cubuk_ad;
+                order.ic_cap_en_cubuk_ad = stock.ic_cap_en_cubuk_ad;
+                order.stock_complexity_score = (stock.dis_cap_boy_cubuk_ad || 0) + (stock.dis_cap_en_cubuk_ad || 0);
+              }
+            }
+          } catch (stockError) {
+            console.warn('Stock lookup failed for', order.stok_kodu, stockError);
+            order.has_stock_data = false;
+          }
+        }
+
+        // Calculate derived fields
+        order.primary_diameter = Math.max(order.boy_cap, order.en_cap);
+        order.secondary_diameter = Math.min(order.boy_cap, order.en_cap);
+        order.mesh_type = extractMeshType(order.hasir_cinsi);
+        order.total_tonnage = (order.birim_agirlik * order.uretim_kalan) / 1000;
+        order.is_stock_customer = (order.firma || '').includes('ALBAYRAK MÜŞTERİ');
+        order.is_filler_product = !order.firma || order.firma.trim() === '';
+        order.is_regular_product = order.uretim_kalan > 0;
+
+        if (order.stok_kodu && order.primary_diameter > 0) {
           processedOrders.push(order);
         }
       }
 
-      // Send to backend
+      // Send to backend for processing
       const response = await fetchWithAuth(API_URLS.production.uploadExcel, {
         method: 'POST',
         body: JSON.stringify({
@@ -327,7 +429,7 @@ const CelikHasirPlanlama = () => {
       const scheduleResult = await scheduleResponse.json();
 
       toast.success(`✅ ${processedOrders.length} sipariş başarıyla planlandı!`);
-      toast.success(`📊 ${scheduleResult.total_production_days || 0} gün üretim süresi`);
+      toast.success(`📊 ${scheduleResult.total_production_days} gün üretim süresi`);
 
       // Reset and switch to dashboard
       handleReset();
@@ -342,6 +444,15 @@ const CelikHasirPlanlama = () => {
     }
   };
 
+  const extractMeshType = (hasirCinsi) => {
+    const upperStr = (hasirCinsi || '').toUpperCase();
+    if (upperStr.includes('Q')) return 'Q';
+    if (upperStr.includes('R')) return 'R';
+    if (upperStr.includes('TR')) return 'TR';
+    if (upperStr.includes('S')) return 'S';
+    return 'UNKNOWN';
+  };
+
   const handleReset = () => {
     setUploadedFile(null);
     setParsedData(null);
@@ -352,7 +463,7 @@ const CelikHasirPlanlama = () => {
     }
   };
 
-  // Dashboard Functions
+  // Dashboard Functions - processScheduleData moved before loadScheduleData to avoid initialization issues
   const processScheduleData = useCallback((schedules, orders) => {
     const machineStats = {};
     const customerStats = {};
@@ -370,7 +481,7 @@ const CelikHasirPlanlama = () => {
         utilizationPercent: 0,
         orderCount: 0,
         totalHours: 0,
-        maxCapacity: machine.maxCapacity * 60
+        maxCapacity: machine.maxCapacity * 60 // Convert to minutes
       };
     });
 
@@ -385,13 +496,13 @@ const CelikHasirPlanlama = () => {
       totalTime += schedule.production_time_minutes || 0;
     });
 
-    // Calculate utilization
+    // Calculate machine utilization
     Object.values(machineStats).forEach(machine => {
       machine.totalHours = Math.round(machine.totalTime / 60);
       machine.utilizationPercent = Math.round((machine.totalTime / machine.maxCapacity) * 100);
     });
 
-    // Process customer stats
+    // Process orders for customer stats
     orders.forEach(order => {
       const customer = order.firma || 'BILINMEYEN';
       if (!customerStats[customer]) {
@@ -418,6 +529,8 @@ const CelikHasirPlanlama = () => {
         estimatedDays: maxProductionDays,
         uniqueCustomers: Object.keys(customerStats).length,
         avgOrderWeight: totalOrders > 0 ? Math.round(totalWeight / totalOrders) : 0,
+        avgOrdersPerCustomer: Math.round(totalOrders / Math.max(Object.keys(customerStats).length, 1)),
+        newOrdersToday: 0
       },
       machines: {
         machines: Object.values(machineStats)
@@ -440,6 +553,7 @@ const CelikHasirPlanlama = () => {
       const schedules = await schedulesResponse.json();
       const orders = await ordersResponse.json();
 
+      // Process data for dashboard
       const processedData = processScheduleData(schedules, orders);
       setRealTimeData(processedData);
 
@@ -475,7 +589,110 @@ const CelikHasirPlanlama = () => {
     }
   }, [currentSession, loadScheduleData]);
 
+  const processing = isProcessing;
+
   // Render Functions
+  const renderSessionManagement = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Oturum Yönetimi
+          </div>
+          <Button
+            onClick={() => setShowCreateSession(true)}
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Yeni Oturum
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Aktif Oturum</Label>
+            <Select
+              value={currentSession?.id?.toString()}
+              onValueChange={(value) => {
+                const session = sessions.find(s => s.id.toString() === value);
+                setCurrentSession(session);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Oturum seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {sessions.map(session => (
+                  <SelectItem key={session.id} value={session.id.toString()}>
+                    {session.session_name} ({new Date(session.created_at).toLocaleDateString('tr-TR')})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {currentSession && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-blue-50 rounded">
+                <div className="text-lg font-bold text-blue-600">{currentSession.total_products || 0}</div>
+                <div className="text-xs text-blue-700">Toplam Ürün</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded">
+                <div className="text-lg font-bold text-green-600">{currentSession.total_regular_products || 0}</div>
+                <div className="text-xs text-green-700">Normal Ürün</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded">
+                <div className="text-lg font-bold text-purple-600">{currentSession.system_efficiency_percent || 0}%</div>
+                <div className="text-xs text-purple-700">Sistem Verimliliği</div>
+              </div>
+              <div className="text-center p-3 bg-orange-50 rounded">
+                <div className="text-lg font-bold text-orange-600">{currentSession.overall_utilization_percent || 0}%</div>
+                <div className="text-xs text-orange-700">Genel Kullanım</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+
+      {/* Create Session Dialog */}
+      {console.log('DIALOG RENDER - showCreateSession:', showCreateSession)}
+      <Dialog
+        open={showCreateSession}
+        onOpenChange={(open) => {
+          console.log('Dialog onOpenChange called with:', open);
+          setShowCreateSession(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-name">Oturum Adı</Label>
+              <Input
+                id="session-name"
+                value={newSessionName}
+                onChange={(e) => setNewSessionName(e.target.value)}
+                placeholder="Örnek: Ocak 2025 Planlaması"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateSession(false)}>
+                İptal
+              </Button>
+              <Button onClick={createSession}>
+                Oturum Oluştur
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+
   const renderExcelUpload = () => (
     <div className="space-y-6">
       <Card>
@@ -494,7 +711,7 @@ const CelikHasirPlanlama = () => {
                 accept=".xlsx,.xls,.csv"
                 onChange={handleFileUpload}
                 className="hidden"
-                disabled={isProcessing}
+                disabled={processing}
               />
               <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium mb-2">Excel dosyasını seçin</p>
@@ -503,7 +720,7 @@ const CelikHasirPlanlama = () => {
               </p>
               <Button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
+                disabled={processing}
                 className="mb-2"
               >
                 <Upload className="h-4 w-4 mr-2" />
@@ -512,7 +729,7 @@ const CelikHasirPlanlama = () => {
               <div className="text-sm text-gray-500 mt-4">
                 <p>• Başlık satırı: 2. satır (varsayılan)</p>
                 <p>• Veri başlangıcı: 3. satır</p>
-                <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır Cinsi, Boy, En, Birim Ağırlık, Ü. Kalan</p>
+                <p>• Gerekli sütunlar: Firma, Stok Kartı, Hasır cinsi, Boy, En, Birim ağırlık, Ü. Kalan</p>
               </div>
             </div>
           ) : (
@@ -531,36 +748,41 @@ const CelikHasirPlanlama = () => {
                   variant="ghost"
                   size="sm"
                   onClick={handleReset}
-                  disabled={isProcessing}
+                  disabled={processing}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
               {parsedData && (
-                <div className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-blue-800">
-                      {parsedData.totalRows} satır veri okundu.
-                      Sütun eşleştirmelerini kontrol edin ve devam edin.
-                    </AlertDescription>
-                  </Alert>
-
-                  <Button
-                    onClick={() => setShowColumnMapping(true)}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <ArrowRight className="h-5 w-5 mr-2" />
-                    Sütunları Eşleştir ve Devam Et
-                  </Button>
-                </div>
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {parsedData.totalRows} satır veri okundu. Sütun eşleşmeleri kontrol edin.
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Processing Progress */}
+      {processing && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <Loader className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+              <div>
+                <p className="font-medium">Üretim planlaması yapılıyor...</p>
+                <p className="text-sm text-gray-600">
+                  Bu işlem birkaç dakika sürebilir
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 
@@ -569,6 +791,7 @@ const CelikHasirPlanlama = () => {
 
     return (
       <div className="space-y-6">
+        {/* Executive Summary */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
@@ -603,6 +826,7 @@ const CelikHasirPlanlama = () => {
           </Card>
         </div>
 
+        {/* Machine Utilization */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -612,7 +836,7 @@ const CelikHasirPlanlama = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {data.machines?.machines?.map((machine) => (
+              {data.machines?.machines?.map((machine, index) => (
                 <div key={machine.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{machine.name}</span>
@@ -670,6 +894,7 @@ const CelikHasirPlanlama = () => {
     </Card>
   );
 
+  // Show loading while auth is initializing
   if (authLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -682,56 +907,60 @@ const CelikHasirPlanlama = () => {
     );
   }
 
+  const renderCreateSessionDialog = () => (
+    <>
+      <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-name">Oturum Adı</Label>
+              <Input
+                id="session-name"
+                value={newSessionName}
+                onChange={(e) => setNewSessionName(e.target.value)}
+                placeholder="Örnek: Ocak 2025 Planlaması"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateSession(false)}>
+                İptal
+              </Button>
+              <Button onClick={createSession}>
+                Oluştur
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+
   if (!currentSession && !isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-12">
-          <Factory className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-2xl font-bold mb-2">Planlama Oturumu Gerekli</h2>
-          <p className="text-gray-600 mb-4">
-            Üretim planlaması yapmak için önce bir oturum oluşturun.
-          </p>
-          <Button onClick={() => setShowCreateSession(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Oturum Oluştur
-          </Button>
+      <>
+        <div className="container mx-auto p-6">
+          <div className="text-center py-12">
+            <Factory className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-2xl font-bold mb-2">Planlama Oturumu Gerekli</h2>
+            <p className="text-gray-600 mb-4">
+              Üretim planlaması yapmak için önce bir oturum oluşturun.
+            </p>
+            <Button onClick={() => setShowCreateSession(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Yeni Oturum Oluştur
+            </Button>
+          </div>
         </div>
-
-        {/* Create Session Dialog */}
-        <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
-              <DialogDescription>
-                Üretim planlaması için yeni bir oturum oluşturun
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="session-name">Oturum Adı</Label>
-                <Input
-                  id="session-name"
-                  value={newSessionName}
-                  onChange={(e) => setNewSessionName(e.target.value)}
-                  placeholder="Örnek: Ocak 2025 Planlaması"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowCreateSession(false)}>
-                  İptal
-                </Button>
-                <Button onClick={createSession}>
-                  Oluştur
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+        {renderCreateSessionDialog()}
+      </>
     );
   }
 
   return (
+    <>
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -754,69 +983,7 @@ const CelikHasirPlanlama = () => {
       </div>
 
       {/* Session Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Oturum Yönetimi
-            </div>
-            <Button
-              onClick={() => setShowCreateSession(true)}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Yeni Oturum
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Aktif Oturum</Label>
-              <Select
-                value={currentSession?.id?.toString()}
-                onValueChange={(value) => {
-                  const session = sessions.find(s => s.id.toString() === value);
-                  setCurrentSession(session);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Oturum seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions.map(session => (
-                    <SelectItem key={session.id} value={session.id.toString()}>
-                      {session.session_name} ({new Date(session.created_at).toLocaleDateString('tr-TR')})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {currentSession && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded">
-                  <div className="text-lg font-bold text-blue-600">{currentSession.total_products || 0}</div>
-                  <div className="text-xs text-blue-700">Toplam Ürün</div>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded">
-                  <div className="text-lg font-bold text-green-600">{currentSession.total_regular_products || 0}</div>
-                  <div className="text-xs text-green-700">Normal Ürün</div>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded">
-                  <div className="text-lg font-bold text-purple-600">{currentSession.system_efficiency_percent || 0}%</div>
-                  <div className="text-xs text-purple-700">Sistem Verimliliği</div>
-                </div>
-                <div className="text-center p-3 bg-orange-50 rounded">
-                  <div className="text-lg font-bold text-orange-600">{currentSession.overall_utilization_percent || 0}%</div>
-                  <div className="text-xs text-orange-700">Genel Kullanım</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {renderSessionManagement()}
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -851,30 +1018,22 @@ const CelikHasirPlanlama = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Enhanced Column Mapping Dialog with Colorful Design */}
+      {/* Column Mapping Dialog */}
       <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Excel Sütunlarını Eşleştirin</DialogTitle>
-            <DialogDescription>
-              Excel dosyanızdaki sütunları sistemdeki alanlarla eşleştirin
-            </DialogDescription>
+            <DialogTitle>Sütunları Eşleştir</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-2">
+          <div className="space-y-6">
             {/* Header Row Selection */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <Label className="font-semibold">Başlık Satırı Seçimi</Label>
+            <div className="space-y-2">
+              <Label>Başlık Satırı</Label>
               <Select
                 value={headerRowIndex.toString()}
-                onValueChange={(value) => {
-                  setHeaderRowIndex(parseInt(value));
-                  if (uploadedFile) {
-                    parseFile(uploadedFile);
-                  }
-                }}
+                onValueChange={(value) => setHeaderRowIndex(parseInt(value))}
               >
-                <SelectTrigger className="w-64 mt-2">
+                <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -885,176 +1044,71 @@ const CelikHasirPlanlama = () => {
               </Select>
             </div>
 
-            {/* Column Mappings with Colorful UI */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Sütun Eşleştirmeleri</h3>
+            {/* Column Mappings */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-medium mb-3">Excel Sütunları</h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {parsedData?.headers.map((header, index) => (
+                    <div key={index} className="text-sm p-2 bg-gray-50 rounded">
+                      {String.fromCharCode(65 + index)}: {header || `Sütun ${index + 1}`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-3">Sistem Sütunları</h4>
+                <div className="space-y-2">
+                  {REQUIRED_COLUMNS.map(column => (
+                    <div key={column} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{column}</span>
+                      <Badge variant={
+                        Object.values(columnMappings).includes(column) ? "default" : "destructive"
+                      }>
+                        {Object.values(columnMappings).includes(column) ? "Eşleşti" : "Gerekli"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
+                İptal
+              </Button>
+              <div className="space-x-2">
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => {
                     const newMappings = autoDetectColumns(parsedData?.headers);
                     setColumnMappings(newMappings);
-                    toast.success('Otomatik eşleştirme yapıldı');
                   }}
                 >
                   <Settings className="h-4 w-4 mr-2" />
-                  Otomatik Algıla
+                  Otomatik Eşle
+                </Button>
+                <Button
+                  onClick={handleProcessData}
+                  disabled={processing || !isValidMappings()}
+                >
+                  {processing ? (
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  Planlamayı Başlat
                 </Button>
               </div>
-
-              {/* Required Columns Display */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {REQUIRED_COLUMNS.map((column) => (
-                  <div
-                    key={column.key}
-                    className={`p-4 rounded-lg border-2 ${getColumnColorClass(column.color)} transition-all`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{column.label}</span>
-                        {column.required && (
-                          <Badge variant="destructive" className="text-xs">
-                            Zorunlu
-                          </Badge>
-                        )}
-                      </div>
-                      {Object.values(columnMappings).includes(column.key) && (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      )}
-                    </div>
-
-                    <Select
-                      value={Object.entries(columnMappings).find(([_, v]) => v === column.key)?.[0] || ''}
-                      onValueChange={(value) => {
-                        const newMappings = { ...columnMappings };
-                        // Remove any existing mapping for this column
-                        Object.entries(newMappings).forEach(([k, v]) => {
-                          if (v === column.key) delete newMappings[k];
-                        });
-                        // Add new mapping
-                        if (value) {
-                          newMappings[value] = column.key;
-                        }
-                        setColumnMappings(newMappings);
-                      }}
-                    >
-                      <SelectTrigger className="w-full bg-white">
-                        <SelectValue placeholder="Excel sütunu seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Seçim yok</SelectItem>
-                        {parsedData?.headers.map((header, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            {String.fromCharCode(65 + index)}: {header || `Sütun ${index + 1}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Data Preview */}
-            {parsedData && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-3">Veri Önizlemesi (İlk 5 Satır)</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-200">
-                        {parsedData.headers.map((header, idx) => (
-                          <th key={idx} className="p-2 text-left font-medium">
-                            {header || `Sütun ${idx + 1}`}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsedData.data.slice(0, 5).map((row, rowIdx) => (
-                        <tr key={rowIdx} className="border-b">
-                          {row.map((cell, cellIdx) => (
-                            <td key={cellIdx} className="p-2">
-                              {cell || '-'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Validation Messages */}
-            {!isValidMappings() && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Zorunlu sütunların tamamı eşleştirilmeli!
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-between pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
-              İptal
-            </Button>
-            <Button
-              onClick={handleProcessData}
-              disabled={isProcessing || !isValidMappings()}
-              className="min-w-[200px]"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  İşleniyor...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Planlamayı Başlat ({parsedData?.totalRows || 0} Satır)
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Session Dialog */}
-      <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Yeni Planlama Oturumu</DialogTitle>
-            <DialogDescription>
-              Üretim planlaması için yeni bir oturum oluşturun
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-session-name">Oturum Adı</Label>
-              <Input
-                id="new-session-name"
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-                placeholder="Örnek: Ocak 2025 Planlaması"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowCreateSession(false)}>
-                İptal
-              </Button>
-              <Button onClick={createSession}>
-                Oluştur
-              </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
     </div>
+    {renderCreateSessionDialog()}
+    </>
   );
 };
 

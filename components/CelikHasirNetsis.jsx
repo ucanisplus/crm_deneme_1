@@ -2908,15 +2908,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Remove any extra whitespace between letters and numbers
     cleanTipi = cleanTipi.replace(/\s+/g, '');
 
-    // Handle Q-type combinations (Q221/443) - preserve as-is for different numbers
+    // Handle Q-type combinations (Q221/443) - preserve as-is for ALL combinations
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
-      // Return combination format as-is if numbers are different
-      if (first !== second) {
-        return `Q${first}/${second}`;
-      }
+      // CRITICAL FIX: Return combination format for ALL Q-type combinations to preserve existing product matching
+      return `Q${first}/${second}`;
     }
 
     // Extract the base pattern (Q257, R257, TR257, etc.)
