@@ -15,13 +15,34 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
   const currentMeshType = meshTypes[currentIndex] || '';
   const totalTypes = meshTypes.length;
 
+  // Determine if current type is Q type for simplified input
+  const isQType = currentMeshType.startsWith('Q');
+
   const handleInputChange = (field, value) => {
     // Convert comma to period for decimal inputs
     const normalizedValue = value.replace(',', '.');
-    setSpecifications(prev => ({
-      ...prev,
-      [field]: normalizedValue
-    }));
+
+    // For Q types, when setting diameter or spacing, set both boy and en values
+    if (isQType) {
+      if (field === 'diameter' || field === 'boyCap') {
+        setSpecifications(prev => ({
+          ...prev,
+          boyCap: normalizedValue,
+          enCap: normalizedValue
+        }));
+      } else if (field === 'aralik' || field === 'boyAralik') {
+        setSpecifications(prev => ({
+          ...prev,
+          boyAralik: normalizedValue,
+          enAralik: normalizedValue
+        }));
+      }
+    } else {
+      setSpecifications(prev => ({
+        ...prev,
+        [field]: normalizedValue
+      }));
+    }
     
     // Clear error when user starts typing
     if (errors[field]) {
@@ -34,16 +55,38 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
 
   const validateForm = () => {
     const newErrors = {};
-    
-    // Validate each field
-    Object.entries(specifications).forEach(([key, value]) => {
-      const numValue = parseFloat(value);
-      if (!value || value.trim() === '') {
-        newErrors[key] = 'Bu alan zorunludur';
-      } else if (isNaN(numValue) || numValue <= 0) {
-        newErrors[key] = 'Geçerli bir pozitif sayı giriniz';
+
+    // For Q types, only validate the displayed fields
+    if (isQType) {
+      const diameter = parseFloat(specifications.boyCap);
+      const aralik = parseFloat(specifications.boyAralik);
+
+      if (!specifications.boyCap || specifications.boyCap.trim() === '') {
+        newErrors.diameter = 'Çap zorunludur';
+      } else if (isNaN(diameter) || diameter <= 0) {
+        newErrors.diameter = 'Geçerli bir pozitif sayı giriniz';
+      } else if (diameter < 3 || diameter > 20) {
+        newErrors.diameter = 'Çap 3-20 mm arasında olmalıdır';
       }
-    });
+
+      if (!specifications.boyAralik || specifications.boyAralik.trim() === '') {
+        newErrors.aralik = 'Göz aralığı zorunludur';
+      } else if (isNaN(aralik) || aralik <= 0) {
+        newErrors.aralik = 'Geçerli bir pozitif sayı giriniz';
+      } else if (aralik < 5 || aralik > 100) {
+        newErrors.aralik = 'Göz aralığı 5-100 cm arasında olmalıdır';
+      }
+    } else {
+      // Validate all fields for R and TR types
+      Object.entries(specifications).forEach(([key, value]) => {
+        const numValue = parseFloat(value);
+        if (!value || value.trim() === '') {
+          newErrors[key] = 'Bu alan zorunludur';
+        } else if (isNaN(numValue) || numValue <= 0) {
+          newErrors[key] = 'Geçerli bir pozitif sayı giriniz';
+        }
+      });
+    }
 
     // Additional validation for reasonable ranges
     const boyCap = parseFloat(specifications.boyCap);
@@ -183,82 +226,134 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
         </div>
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Boy Çapı (mm)
-            </label>
-            <input
-              type="text"
-              value={specifications.boyCap}
-              onChange={(e) => handleInputChange('boyCap', e.target.value)}
-              placeholder="Örn: 8.0"
-              className={`w-full p-3 border rounded-md ${
-                errors.boyCap ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            />
-            {errors.boyCap && (
-              <p className="text-red-500 text-xs mt-1">{errors.boyCap}</p>
-            )}
-          </div>
+          {isQType ? (
+            // Simplified inputs for Q types - single diameter and spacing
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Çap (mm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.boyCap}
+                  onChange={(e) => handleInputChange('diameter', e.target.value)}
+                  placeholder="Örn: 8.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.diameter ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.diameter && (
+                  <p className="text-red-500 text-xs mt-1">{errors.diameter}</p>
+                )}
+                <p className="text-gray-500 text-xs mt-1">
+                  Q tipi hasırlarda tek çap değeri kullanılır
+                </p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              En Çapı (mm)
-            </label>
-            <input
-              type="text"
-              value={specifications.enCap}
-              onChange={(e) => handleInputChange('enCap', e.target.value)}
-              placeholder="Örn: 6.0"
-              className={`w-full p-3 border rounded-md ${
-                errors.enCap ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            />
-            {errors.enCap && (
-              <p className="text-red-500 text-xs mt-1">{errors.enCap}</p>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Göz Aralığı (cm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.boyAralik}
+                  onChange={(e) => handleInputChange('aralik', e.target.value)}
+                  placeholder="Örn: 15.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.aralik ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.aralik && (
+                  <p className="text-red-500 text-xs mt-1">{errors.aralik}</p>
+                )}
+                <p className="text-gray-500 text-xs mt-1">
+                  Q tipi hasırlarda tek göz aralığı değeri kullanılır
+                </p>
+              </div>
+            </>
+          ) : (
+            // Full inputs for R and TR types - different values for boy and en
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Boy Çapı (mm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.boyCap}
+                  onChange={(e) => handleInputChange('boyCap', e.target.value)}
+                  placeholder="Örn: 8.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.boyCap ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.boyCap && (
+                  <p className="text-red-500 text-xs mt-1">{errors.boyCap}</p>
+                )}
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Boy Aralığı (cm)
-            </label>
-            <input
-              type="text"
-              value={specifications.boyAralik}
-              onChange={(e) => handleInputChange('boyAralik', e.target.value)}
-              placeholder="Örn: 15.0"
-              className={`w-full p-3 border rounded-md ${
-                errors.boyAralik ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            />
-            {errors.boyAralik && (
-              <p className="text-red-500 text-xs mt-1">{errors.boyAralik}</p>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  En Çapı (mm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.enCap}
+                  onChange={(e) => handleInputChange('enCap', e.target.value)}
+                  placeholder="Örn: 6.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.enCap ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.enCap && (
+                  <p className="text-red-500 text-xs mt-1">{errors.enCap}</p>
+                )}
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              En Aralığı (cm)
-            </label>
-            <input
-              type="text"
-              value={specifications.enAralik}
-              onChange={(e) => handleInputChange('enAralik', e.target.value)}
-              placeholder="Örn: 15.0"
-              className={`w-full p-3 border rounded-md ${
-                errors.enAralik ? 'border-red-500' : 'border-gray-300'
-              } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            />
-            {errors.enAralik && (
-              <p className="text-red-500 text-xs mt-1">{errors.enAralik}</p>
-            )}
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Boy Aralığı (cm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.boyAralik}
+                  onChange={(e) => handleInputChange('boyAralik', e.target.value)}
+                  placeholder="Örn: 15.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.boyAralik ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.boyAralik && (
+                  <p className="text-red-500 text-xs mt-1">{errors.boyAralik}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  En Aralığı (cm)
+                </label>
+                <input
+                  type="text"
+                  value={specifications.enAralik}
+                  onChange={(e) => handleInputChange('enAralik', e.target.value)}
+                  placeholder="Örn: 15.0"
+                  className={`w-full p-3 border rounded-md ${
+                    errors.enAralik ? 'border-red-500' : 'border-gray-300'
+                  } focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                />
+                {errors.enAralik && (
+                  <p className="text-red-500 text-xs mt-1">{errors.enAralik}</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="bg-blue-50 p-3 rounded-md mt-4">
           <p className="text-blue-800 text-sm">
-            <strong>Not:</strong> Bu bilgiler hasır tipinin çubuk sayısı ve ağırlık hesaplamalarında kullanılacaktır. 
+            <strong>Not:</strong> {isQType
+              ? `Q${currentMeshType.replace('Q', '')} tipi için girdiğiniz çap ve göz aralığı değerleri, bu tipin kullanıldığı tüm kombinasyonlarda (örn: Q${currentMeshType.replace('Q', '')}/${currentMeshType.replace('Q', '')}, Q${currentMeshType.replace('Q', '')}/XXX) kullanılacaktır.`
+              : 'Bu bilgiler hasır tipinin çubuk sayısı ve ağırlık hesaplamalarında kullanılacaktır.'}
             Kaydettiğiniz değerler gelecekte aynı hasır tipi için otomatik olarak kullanılacaktır.
           </p>
         </div>
