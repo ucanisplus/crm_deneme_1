@@ -82,6 +82,13 @@ const getFilmasinKodu = (diameter) => {
   return filmasin ? filmasin.code : '';
 };
 
+// Helper function to get available priorities for a target diameter
+const getAvailablePriorities = (targetDiameter) => {
+  const priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+  if (!priorityList) return [];
+  return priorityList.map((_, index) => index);
+};
+
 // Cache for mesh config lookups to avoid repeated 404 requests
 const meshConfigCache = new Map();
 const failedMeshConfigCache = new Set();
@@ -4595,21 +4602,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
+      // Boy direction NCBK recipes - only generate for available priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
+        const availablePriorities = getAvailablePriorities(boyCap);
 
-        for (let priority = 0; priority <= 5; priority++) {
+        // Only process priorities that actually exist for this diameter
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
@@ -4635,16 +4640,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
@@ -4669,16 +4671,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(boyCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
@@ -4703,16 +4702,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
@@ -4904,21 +4900,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
+      // Boy direction NCBK recipes - only generate for available priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
+        const availablePriorities = getAvailablePriorities(boyCap);
 
-        for (let priority = 0; priority <= 5; priority++) {
+        // Only process priorities that actually exist for this diameter
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
@@ -4945,16 +4939,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
@@ -4980,16 +4971,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(boyCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
@@ -5015,16 +5003,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
@@ -5463,16 +5448,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
@@ -5497,16 +5479,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(boyCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
@@ -5531,16 +5510,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
@@ -5726,7 +5702,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (FIXED: only process available priorities) =====
     const processedNCBKRecipes = Array(6).fill().map(() => new Set());
     const processedNTELRecipes = Array(6).fill().map(() => new Set());
 
@@ -5734,12 +5710,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
+      // Boy direction NCBK recipes - only generate for available priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
+        const availablePriorities = getAvailablePriorities(boyCap);
 
-        for (let priority = 0; priority <= 5; priority++) {
+        // Only process priorities that actually exist for this diameter
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
@@ -5775,16 +5753,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
@@ -5810,16 +5785,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(boyCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
@@ -5845,16 +5817,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority <= 5; priority++) {
+        const availablePriorities = getAvailablePriorities(enCap);
+        for (const priority of availablePriorities) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
             const flmInfo = getFilmasinByPriority(enCap, priority);
-
-            // Skip if no alternative exists for this priority
-            if (!flmInfo) {
-              continue;
-            }
+            if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
