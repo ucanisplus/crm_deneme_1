@@ -1712,21 +1712,59 @@ const processExcelWithMapping = (sheets, mapping) => {
 
   // Handle removing unknown mesh type from preview
   const handleRemoveUnknownType = (meshTypeToRemove) => {
-    // Remove all rows with this mesh type from preview data
-    const updatedPreviewData = previewData.filter(row => row.hasirTipi !== meshTypeToRemove);
+    console.log(`Removing rows for mesh type: ${meshTypeToRemove}`);
+
+    // Get current pending preview data or previewData
+    const currentPreviewData = window.pendingPreviewData || previewData;
+
+    // Filter out rows based on the mesh type to remove
+    // For Q combinations, we need to check if the row's hasirTipi contains this base type
+    const updatedPreviewData = currentPreviewData.filter(row => {
+      const standardized = standardizeHasirTipi(row.hasirTipi);
+
+      // Check if it's a Q combination
+      const combinationMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
+      if (combinationMatch) {
+        const firstNum = combinationMatch[1];
+        const secondNum = combinationMatch[2];
+
+        // If removing a base type that's part of this combination, remove the row
+        if (meshTypeToRemove === `Q${firstNum}` || meshTypeToRemove === `Q${secondNum}`) {
+          console.log(`Removing row with combination ${standardized} because it contains ${meshTypeToRemove}`);
+          return false;
+        }
+      }
+
+      // For regular types, direct comparison
+      return standardized !== meshTypeToRemove;
+    });
+
+    // Update the pending preview data
+    window.pendingPreviewData = updatedPreviewData;
     setPreviewData(updatedPreviewData);
-    
+
     // Remove this mesh type from unknown types list
     const updatedUnknownTypes = unknownMeshTypes.filter(type => type !== meshTypeToRemove);
     setUnknownMeshTypes(updatedUnknownTypes);
-    
-    console.log(`Removed all rows with mesh type: ${meshTypeToRemove} from preview`);
-    
-    // If no more unknown types, close modal and continue
+
+    console.log(`Removed ${currentPreviewData.length - updatedPreviewData.length} rows with mesh type: ${meshTypeToRemove}`);
+
+    // If no more unknown types, close modal but DON'T transfer to main table
     if (updatedUnknownTypes.length === 0) {
       setShowUnknownMeshModal(false);
-      // Continue processing with remaining preview data
-      processValidPreviewData(updatedPreviewData);
+      setCurrentUnknownType('');
+
+      // Only keep the preview visible with remaining data
+      if (updatedPreviewData.length > 0) {
+        console.log(`${updatedPreviewData.length} rows remain in preview after removal`);
+        setBulkInputVisible(true);
+      } else {
+        console.log('No rows remain in preview, closing preview modal');
+        setBulkInputVisible(false);
+      }
+    } else {
+      // Move to next unknown type
+      setCurrentUnknownType(updatedUnknownTypes[0]);
     }
   };
 
