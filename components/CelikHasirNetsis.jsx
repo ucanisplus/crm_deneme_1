@@ -4600,7 +4600,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
@@ -4608,7 +4608,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -4635,7 +4635,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
@@ -4643,7 +4643,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -4669,7 +4669,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
@@ -4677,7 +4677,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -4703,7 +4703,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
@@ -4711,7 +4711,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -4909,7 +4909,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
@@ -4917,7 +4917,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -4945,7 +4945,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
@@ -4953,7 +4953,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -4980,7 +4980,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
@@ -4988,7 +4988,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -5015,7 +5015,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
@@ -5023,7 +5023,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -5428,7 +5428,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
@@ -5436,7 +5436,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -5463,7 +5463,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
@@ -5471,7 +5471,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -5497,7 +5497,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
@@ -5505,7 +5505,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -5531,7 +5531,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
@@ -5539,7 +5539,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -5592,7 +5592,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteAlt1Sheet.addRow(receteHeaders);
 
-    // Sheets 3-8: YM NCBK REÇETE (main) and ALT 1-5 (priority 1-5) = 6 sheets total
+    // Sheets 3-8: YM NCBK REÇETE (main) + ALT 1-5 = 6 sheets total
     const ncbkSheets = [];
     // Main NCBK sheet (priority 0)
     const ncbkMainSheet = workbook.addWorksheet('YM NCBK REÇETE');
@@ -5605,7 +5605,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ncbkSheets.push(sheet);
     }
 
-    // Sheets 9-14: YM NTEL REÇETE (main) and ALT 1-5 (priority 1-5) = 6 sheets total
+    // Sheets 9-14: YM NTEL REÇETE (main) + ALT 1-5 = 6 sheets total
     const ntelSheets = [];
     // Main NTEL sheet (priority 0)
     const ntelMainSheet = workbook.addWorksheet('YM NTEL REÇETE');
@@ -5739,7 +5739,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
@@ -5747,7 +5747,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -5775,7 +5775,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNCBKRecipes[priority].has(enKey)) {
             processedNCBKRecipes[priority].add(enKey);
 
@@ -5783,7 +5783,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -5810,7 +5810,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(boyNtelKey)) {
             processedNTELRecipes[priority].add(boyNtelKey);
 
@@ -5818,7 +5818,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -5845,7 +5845,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 1; priority <= 5; priority++) {
+        for (let priority = 0; priority <= 5; priority++) {
           if (!processedNTELRecipes[priority].has(enNtelKey)) {
             processedNTELRecipes[priority].add(enNtelKey);
 
@@ -5853,7 +5853,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              return;
+              continue;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
