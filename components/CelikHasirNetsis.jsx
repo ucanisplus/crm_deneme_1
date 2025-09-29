@@ -1570,7 +1570,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         mm: mmTotal,
         ncbk: ncbkTotal,
         ntel: ntelTotal
-      }
+      });
 
       // Warn user about partial failures
       if (failedAPIs.length > 0) {
@@ -1584,9 +1584,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('🔄 Forcing complete data refresh due to resetData=true');
         setSavedProducts({
           mm: [...mmData],
-          ncbk: [...ncbkData], 
+          ncbk: [...ncbkData],
           ntel: [...ntelData]
-        }
+        });
       } else {
         setSavedProducts(allData);
       }
@@ -1628,16 +1628,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           type: 'retrying',
           message: `Bağlantı hatası - Yeniden denenyor (${nextRetryCount}/${maxRetries})...`,
           canRetry: false
-        }
+        });
       } else {
         // Final error state
         setBackendError({
           type: 'connection',
-          message: isNetworkError ? 
+          message: isNetworkError ?
             'Vercel Backend sunucusu şu anda erişilebilir durumda değil. Lütfen birkaç dakika sonra tekrar deneyin.' :
             'Beklenmeyen bir hata oluştu.',
           canRetry: true
-        }
+        });
         
         if (resetData) {
           setSavedProducts({ mm: [], ncbk: [], ntel: [] });
@@ -1721,7 +1721,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backupSequenceData)
-          }
+          });
           
           if (backupResponse?.ok) {
             console.log('*** Backup sequence row created successfully');
@@ -1766,7 +1766,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(actualUpdateData)
-                }
+                });
                 
                 // Update backup sequence
                 const backupUpdateData = {
@@ -1782,7 +1782,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(backupUpdateData)
-                }
+                });
                 
                 console.log('*** Both sequences updated to match database');
                 
