@@ -4332,33 +4332,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           processedNTELRecipes.add(ntelKey);
           
           const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-          const NTEL_FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 7.5,
-            7.00: 8.0,
-            7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-            9.19: 10.0,
-            9.20: 10.0,
-            10.60: 12.0
-          };
-          let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[boyCap];
-          
-          if (!ntelFlmDiameter) {
-            if (boyCap <= 6.0) {
-              ntelFlmDiameter = boyCap + 1.5;
-            } else if (boyCap <= 8.0) {
-              ntelFlmDiameter = boyCap + 1.5;
-            } else {
-              ntelFlmDiameter = boyCap + 2.0;
-            }
-            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0];
-            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || 12.0;
-          }
-          
-          const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
-          const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
+          // NTEL_FILMASIN_MAPPING removed - now using database-driven priority system
+          // Use priority-based filmaşin selection (priority 0 = main recipe)
+          const flmInfo = getFilmasinByPriority(boyCap, 0);
+          const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
           const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
@@ -4421,33 +4398,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             processedNTELRecipes.add(ntelKey);
             
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
-            const NTEL_FILMASIN_MAPPING = {
-            4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
-            5.50: 6.5,
-            6.00: 7.0,
-            6.50: 7.5,
-            7.00: 8.0,
-            7.50: 9.0, 7.80: 9.0, 8.00: 9.0, 8.50: 9.0, 8.60: 9.0,
-            9.19: 10.0,
-            9.20: 10.0,
-            10.60: 12.0
-          };
-          let ntelFlmDiameter = NTEL_FILMASIN_MAPPING[enCap];
-          
-          if (!ntelFlmDiameter) {
-            if (enCap <= 6.0) {
-              ntelFlmDiameter = enCap + 1.5;
-            } else if (enCap <= 8.0) {
-              ntelFlmDiameter = enCap + 1.5;
-            } else {
-              ntelFlmDiameter = enCap + 2.0;
-            }
-            const ntelStandardSizes = [5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0, 10.0, 11.0, 12.0];
-            ntelFlmDiameter = ntelStandardSizes.find(s => s >= ntelFlmDiameter) || 12.0;
-          }
-          
-          const ntelFlmQuality = ntelFlmDiameter >= 7.0 ? '1010' : '1008';
-          const ntelFlmKodu = `FLM.${String(Math.round(ntelFlmDiameter * 100)).padStart(4, '0')}.${ntelFlmQuality}`;
+            // NTEL_FILMASIN_MAPPING removed - now using database-driven priority system
+          // Use priority-based filmaşin selection (priority 0 = main recipe)
+          const flmInfo = getFilmasinByPriority(enCap, 0);
+          const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
           const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
