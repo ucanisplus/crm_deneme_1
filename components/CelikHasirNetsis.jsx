@@ -1277,7 +1277,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (failedDeletions.length > 0) {
         failedDeletions.forEach(failure => {
           toast.error(`❌ ${failure.stok_kodu} silinemedi: ${failure.error}`, { autoClose: 8000 });
-        }
+        });
       }
 
       if (deletedCount === 0) {
@@ -1285,7 +1285,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 4000,
           hideProgressBar: false
-        }
+        });
       }
 
     } catch (error) {
