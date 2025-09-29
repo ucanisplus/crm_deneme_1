@@ -1295,13 +1295,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 6000,
           hideProgressBar: false
-        }
+        });
       } else {
         toast.error(`❌ Toplu silme hatası: ${error.message}`, {
           position: "top-right",
           autoClose: 5000,
           hideProgressBar: false
-        }
+        });
       }
     } finally {
       setIsDeletingBulkDb(false);
