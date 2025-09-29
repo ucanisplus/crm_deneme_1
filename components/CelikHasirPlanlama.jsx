@@ -56,18 +56,21 @@ const CelikHasirPlanlama = () => {
 
   // Define required columns for production planning
   const REQUIRED_COLUMNS = [
-    { key: 'firma', label: 'Firma', required: true, color: 'blue' },
-    { key: 'stok_karti', label: 'Stok Kartı', required: true, color: 'green' },
-    { key: 'hasir_cinsi', label: 'Hasır Cinsi', required: true, color: 'purple' },
-    { key: 'boy', label: 'Boy', required: true, color: 'orange' },
-    { key: 'en', label: 'En', required: true, color: 'pink' },
-    { key: 'boy_cap', label: 'Boy Çap', required: false, color: 'yellow' },
-    { key: 'en_cap', label: 'En Çap', required: false, color: 'cyan' },
-    { key: 'boy_ara', label: 'Boy Ara', required: false, color: 'indigo' },
-    { key: 'en_ara', label: 'En Ara', required: false, color: 'red' },
-    { key: 'birim_agirlik', label: 'Birim Ağırlık', required: true, color: 'teal' },
-    { key: 'uretim_kalan', label: 'Ü. Kalan', required: true, color: 'rose' },
-    { key: 'siparis_miktari', label: 'Sipariş Miktarı', required: false, color: 'slate' },
+    { key: 'firma', label: 'Firma', required: true },
+    { key: 'stok_karti', label: 'Stok Kartı', required: true },
+    { key: 'hasir_cinsi', label: 'Hasır Cinsi', required: true },
+    { key: 'boy', label: 'Boy (cm)', required: true },
+    { key: 'en', label: 'En (cm)', required: true },
+    { key: 'boy_cap', label: 'Boy Çap (mm)', required: false },
+    { key: 'en_cap', label: 'En Çap (mm)', required: false },
+    { key: 'boy_ara', label: 'Boy Aralığı (cm)', required: false },
+    { key: 'en_ara', label: 'En Aralığı (cm)', required: false },
+    { key: 'birim_agirlik', label: 'Birim Ağırlık (kg)', required: true },
+    { key: 'uretim_kalan', label: 'Üretim Kalan (adet)', required: true },
+    { key: 'siparis_miktari', label: 'Sipariş Miktarı (adet)', required: false },
+    { key: 's_tarihi', label: 'Sipariş Tarihi', required: false },
+    { key: 'stok_adet', label: 'Stok (adet)', required: false },
+    { key: 'stok_kg', label: 'Stok (kg)', required: false },
   ];
 
   const MACHINES = useMemo(() => [
@@ -77,23 +80,25 @@ const CelikHasirPlanlama = () => {
     { id: 'MG208-2', name: 'MG208-2', maxCapacity: 24 }
   ], []);
 
-  // Get color class for column
-  const getColumnColorClass = (colorName) => {
-    const colorMap = {
-      'blue': 'bg-blue-100 border-blue-300 text-blue-800',
-      'green': 'bg-green-100 border-green-300 text-green-800',
-      'purple': 'bg-purple-100 border-purple-300 text-purple-800',
-      'orange': 'bg-orange-100 border-orange-300 text-orange-800',
-      'pink': 'bg-pink-100 border-pink-300 text-pink-800',
-      'yellow': 'bg-yellow-100 border-yellow-300 text-yellow-800',
-      'cyan': 'bg-cyan-100 border-cyan-300 text-cyan-800',
-      'indigo': 'bg-indigo-100 border-indigo-300 text-indigo-800',
-      'red': 'bg-red-100 border-red-300 text-red-800',
-      'teal': 'bg-teal-100 border-teal-300 text-teal-800',
-      'rose': 'bg-rose-100 border-rose-300 text-rose-800',
-      'slate': 'bg-slate-100 border-slate-300 text-slate-800',
-    };
-    return colorMap[colorName] || 'bg-gray-100 border-gray-300 text-gray-800';
+  // Helper to check if column is auto-detected
+  const isAutoDetected = (field, mappedIndex) => {
+    if (!parsedData?.headers) return false;
+    const autoMapping = autoDetectColumns(parsedData.headers);
+    return Object.entries(autoMapping).find(([idx, key]) => key === field && idx === mappedIndex.toString()) !== undefined;
+  };
+
+  // Handle column mapping change
+  const handleMappingChange = (field, columnIndex) => {
+    const newMappings = { ...columnMappings };
+    // Remove any existing mapping for this field
+    Object.entries(newMappings).forEach(([idx, mappedField]) => {
+      if (mappedField === field) delete newMappings[idx];
+    });
+    // Add new mapping if not -1
+    if (columnIndex !== '-1') {
+      newMappings[columnIndex] = field;
+    }
+    setColumnMappings(newMappings);
   };
 
   // Session Management Functions
@@ -851,44 +856,38 @@ const CelikHasirPlanlama = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Enhanced Column Mapping Dialog with Colorful Design */}
-      <Dialog open={showColumnMapping} onOpenChange={setShowColumnMapping}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Excel Sütunlarını Eşleştirin</DialogTitle>
-            <DialogDescription>
-              Excel dosyanızdaki sütunları sistemdeki alanlarla eşleştirin
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6 overflow-y-auto max-h-[70vh] pr-2">
-            {/* Header Row Selection */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <Label className="font-semibold">Başlık Satırı Seçimi</Label>
-              <Select
-                value={headerRowIndex.toString()}
-                onValueChange={(value) => {
-                  setHeaderRowIndex(parseInt(value));
-                  if (uploadedFile) {
-                    parseFile(uploadedFile);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-64 mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">1. Satır</SelectItem>
-                  <SelectItem value="1">2. Satır (Önerilen)</SelectItem>
-                  <SelectItem value="2">3. Satır</SelectItem>
-                </SelectContent>
-              </Select>
+      {/* Column Mapping Dialog - Exact design from CelikHasirHesaplama */}
+      {showColumnMapping && parsedData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Üretim Planlaması Sütun Eşleştirme</h2>
+              <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-md font-medium">
+                {parsedData.totalRows} satır tespit edildi
+              </span>
             </div>
 
-            {/* Column Mappings with Colorful UI */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg">Sütun Eşleştirmeleri</h3>
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-4">
+                Excel dosyanızdaki sütunları sistem alanlarıyla eşleştirin. Otomatik tespit edilen sütunlar işaretlenmiştir.
+              </p>
+
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Başlık Satırı</label>
+                  <select
+                    value={headerRowIndex}
+                    onChange={(e) => {
+                      setHeaderRowIndex(parseInt(e.target.value));
+                      if (uploadedFile) parseFile(uploadedFile);
+                    }}
+                    className="border rounded-md p-2"
+                  >
+                    <option value="0">1. Satır</option>
+                    <option value="1">2. Satır (Önerilen)</option>
+                    <option value="2">3. Satır</option>
+                  </select>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -903,126 +902,112 @@ const CelikHasirPlanlama = () => {
                 </Button>
               </div>
 
-              {/* Required Columns Display */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {REQUIRED_COLUMNS.map((column) => (
-                  <div
-                    key={column.key}
-                    className={`p-4 rounded-lg border-2 ${getColumnColorClass(column.color)} transition-all`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{column.label}</span>
-                        {column.required && (
-                          <Badge variant="destructive" className="text-xs">
-                            Zorunlu
-                          </Badge>
-                        )}
-                      </div>
-                      {Object.values(columnMappings).includes(column.key) && (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      )}
-                    </div>
+              {/* Column Mapping Grid - Exact style from CelikHasirHesaplama */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {REQUIRED_COLUMNS.map((column) => {
+                  const mappedIndex = Object.entries(columnMappings).find(([_, v]) => v === column.key)?.[0];
+                  const isMapped = mappedIndex !== undefined;
+                  const isAuto = isAutoDetected(column.key, mappedIndex);
 
-                    <Select
-                      value={Object.entries(columnMappings).find(([_, v]) => v === column.key)?.[0] || ''}
-                      onValueChange={(value) => {
-                        const newMappings = { ...columnMappings };
-                        // Remove any existing mapping for this column
-                        Object.entries(newMappings).forEach(([k, v]) => {
-                          if (v === column.key) delete newMappings[k];
-                        });
-                        // Add new mapping
-                        if (value) {
-                          newMappings[value] = column.key;
-                        }
-                        setColumnMappings(newMappings);
-                      }}
-                    >
-                      <SelectTrigger className="w-full bg-white">
-                        <SelectValue placeholder="Excel sütunu seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Seçim yok</SelectItem>
-                        {parsedData?.headers.map((header, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            {String.fromCharCode(65 + index)}: {header || `Sütun ${index + 1}`}
-                          </SelectItem>
+                  return (
+                    <div key={column.key}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {column.label} {column.required && <span className="text-red-500">*</span>}
+                        {isAuto && <span className="text-green-600 text-xs ml-2">✓ Otomatik</span>}
+                      </label>
+                      <select
+                        className={`w-full border rounded-md p-2 ${isMapped ? 'border-green-300 bg-green-50' : 'border-gray-300'}`}
+                        value={mappedIndex || '-1'}
+                        onChange={(e) => handleMappingChange(column.key, e.target.value)}
+                      >
+                        <option value="-1">Seçiniz</option>
+                        {parsedData.headers.map((header, index) => (
+                          <option key={index} value={index}>
+                            Sütun {String.fromCharCode(65 + index)}: {header || `Sütun ${index + 1}`}
+                          </option>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Data Preview */}
-            {parsedData && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-3">Veri Önizlemesi (İlk 5 Satır)</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-200">
-                        {parsedData.headers.map((header, idx) => (
-                          <th key={idx} className="p-2 text-left font-medium">
-                            {header || `Sütun ${idx + 1}`}
-                          </th>
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Veri Önizlemesi (İlk 5 Satır)</h3>
+              <div className="overflow-x-auto border rounded-md">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {parsedData.headers.map((header, idx) => (
+                        <th key={idx} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          {String.fromCharCode(65 + idx)}: {header || `Sütun ${idx + 1}`}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {parsedData.data.slice(0, 5).map((row, rowIdx) => (
+                      <tr key={rowIdx}>
+                        {row.map((cell, cellIdx) => (
+                          <td key={cellIdx} className="px-3 py-2 text-sm text-gray-900">
+                            {cell || '-'}
+                          </td>
                         ))}
                       </tr>
-                    </thead>
-                    <tbody>
-                      {parsedData.data.slice(0, 5).map((row, rowIdx) => (
-                        <tr key={rowIdx} className="border-b">
-                          {row.map((cell, cellIdx) => (
-                            <td key={cellIdx} className="p-2">
-                              {cell || '-'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
 
-            {/* Validation Messages */}
-            {!isValidMappings() && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Zorunlu sütunların tamamı eşleştirilmeli!
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Validation and Actions */}
+            <div className="flex justify-between items-center">
+              <div>
+                {!isValidMappings() && (
+                  <div className="text-red-600 text-sm">
+                    <AlertTriangle className="h-4 w-4 inline mr-1" />
+                    Zorunlu sütunları eşleştirin: {
+                      REQUIRED_COLUMNS
+                        .filter(col => col.required && !Object.values(columnMappings).includes(col.key))
+                        .map(col => col.label)
+                        .join(', ')
+                    }
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => {
+                  setShowColumnMapping(false);
+                  setUploadedFile(null);
+                  setParsedData(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}>
+                  İptal
+                </Button>
+                <Button
+                  onClick={handleProcessData}
+                  disabled={isProcessing || !isValidMappings()}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader className="h-4 w-4 mr-2 animate-spin" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Devam Et ve Planla
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-between pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowColumnMapping(false)}>
-              İptal
-            </Button>
-            <Button
-              onClick={handleProcessData}
-              disabled={isProcessing || !isValidMappings()}
-              className="min-w-[200px]"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  İşleniyor...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Planlamayı Başlat ({parsedData?.totalRows || 0} Satır)
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Create Session Dialog */}
       <Dialog open={showCreateSession} onOpenChange={setShowCreateSession}>
