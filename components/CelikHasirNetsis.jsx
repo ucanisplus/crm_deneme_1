@@ -948,12 +948,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       products = products.filter(product => {
         // Use the hasir_turu field from the database, or calculate it from dimensions if missing
         let hasirTuru = product.hasir_turu;
-        
+
         if (!hasirTuru || hasirTuru === 'MM') {
           // Calculate hasir_turu based on logic from the codebase
           const stokAdi = product.stok_adi || '';
           const uzunlukBoy = parseFloat(product.ebat_boy || 0);
-          
+
           if (stokAdi.match(/^Q\d+/i)) {
             if (uzunlukBoy >= 490 && uzunlukBoy <= 510) {
               hasirTuru = 'Döşeme';
@@ -966,7 +966,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             hasirTuru = 'Standart';
           }
         }
-        
+
         return hasirTuru === dbFilterHasirTuru;
       });
     }
@@ -974,7 +974,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Apply sorting
     products.sort((a, b) => {
       let aValue, bValue;
-      
+
       switch (dbSortBy) {
         case 'stok_kodu':
           aValue = a.stok_kodu || '';
@@ -1000,7 +1000,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           aValue = a.stok_kodu || '';
           bValue = b.stok_kodu || '';
       }
-      
+
       if (typeof aValue === 'string') {
         const comparison = aValue.localeCompare(bValue);
         return dbSortOrder === 'asc' ? comparison : -comparison;
@@ -1136,11 +1136,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       for (const { id, stok_kodu, product } of selectedProducts) {
         try {
           console.log(`🗑️ Deleting product: ${stok_kodu}`);
-          setDeleteProgress({ 
-            current: deletedCount + 1, 
-            total: selectedProducts.length, 
-            operation: 'Ürün ve reçeteler siliniyor...', 
-            currentProduct: stok_kodu 
+          setDeleteProgress({
+            current: deletedCount + 1,
+            total: selectedProducts.length,
+            operation: 'Ürün ve reçeteler siliniyor...',
+            currentProduct: stok_kodu
           });
 
           // Step 1: Delete recipes using bulk deletion by mamul_kodu
@@ -1277,7 +1277,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (failedDeletions.length > 0) {
         failedDeletions.forEach(failure => {
           toast.error(`❌ ${failure.stok_kodu} silinemedi: ${failure.error}`, { autoClose: 8000 });
-        });
+        }
       }
 
       if (deletedCount === 0) {
@@ -1285,7 +1285,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 4000,
           hideProgressBar: false
-        });
+        }
       }
 
     } catch (error) {
@@ -1295,13 +1295,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 6000,
           hideProgressBar: false
-        });
+        }
       } else {
         toast.error(`❌ Toplu silme hatası: ${error.message}`, {
           position: "top-right",
           autoClose: 5000,
           hideProgressBar: false
-        });
+        }
       }
     } finally {
       setIsDeletingBulkDb(false);
@@ -1376,7 +1376,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           source: 'database',
           skipDatabaseRefresh: true  // Flag to prevent generateExcelFiles from re-fetching
         };
-      });
+      }
 
       await generateExcelFiles(transformedProducts, true);
       toast.success(`${transformedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
@@ -1570,7 +1570,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         mm: mmTotal,
         ncbk: ncbkTotal,
         ntel: ntelTotal
-      });
+      }
 
       // Warn user about partial failures
       if (failedAPIs.length > 0) {
@@ -1586,7 +1586,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           mm: [...mmData],
           ncbk: [...ncbkData], 
           ntel: [...ntelData]
-        });
+        }
       } else {
         setSavedProducts(allData);
       }
@@ -1628,7 +1628,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           type: 'retrying',
           message: `Bağlantı hatası - Yeniden denenyor (${nextRetryCount}/${maxRetries})...`,
           canRetry: false
-        });
+        }
       } else {
         // Final error state
         setBackendError({
@@ -1637,7 +1637,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'Vercel Backend sunucusu şu anda erişilebilir durumda değil. Lütfen birkaç dakika sonra tekrar deneyin.' :
             'Beklenmeyen bir hata oluştu.',
           canRetry: true
-        });
+        }
         
         if (resetData) {
           setSavedProducts({ mm: [], ncbk: [], ntel: [] });
@@ -1662,7 +1662,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         data.forEach(seq => {
           const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
           sequenceMap[key] = seq.last_sequence;
-        });
+        }
         setSequences(sequenceMap);
       }
     } catch (error) {
@@ -1684,7 +1684,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           data.forEach(seq => {
             const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
             currentSequences[key] = seq.last_sequence;
-          });
+          }
           console.log('*** Fresh sequences loaded:', Object.keys(currentSequences));
         }
       } catch (error) {
@@ -1721,7 +1721,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(backupSequenceData)
-          });
+          }
           
           if (backupResponse?.ok) {
             console.log('*** Backup sequence row created successfully');
@@ -1766,7 +1766,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(actualUpdateData)
-                });
+                }
                 
                 // Update backup sequence
                 const backupUpdateData = {
@@ -1782,7 +1782,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(backupUpdateData)
-                });
+                }
                 
                 console.log('*** Both sequences updated to match database');
                 
@@ -1894,7 +1894,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 highestDbSequence = seqNum;
               }
             }
-          });
+          }
           console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
           
           // Use the higher of sequence table or actual database
@@ -1957,7 +1957,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 maxSequence = sequenceNum;
               }
             }
-          });
+          }
           
           const nextSequence = maxSequence + 1;
           return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
@@ -2051,7 +2051,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       uzunlukEn: product.uzunlukEn,
       batchIndex,
       batchSequenceCounter
-    });
+    }
     
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
@@ -2075,7 +2075,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               maxSequence = sequenceNum;
             }
           }
-        });
+        }
         
         const nextSequence = maxSequence + 1;
         return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
@@ -2184,7 +2184,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         uzunlukEn: validProducts[0].uzunlukEn,
         existingStokKodu: validProducts[0].existingStokKodu
       } : null
-    });
+    }
     const newProducts = [];
     
     // Helper function to normalize Stok Adı for comparison
@@ -2219,7 +2219,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         productExists = savedProducts.mm.some(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
           return normalizedDbStokAdi === normalizedProductStokAdi;
-        });
+        }
         
         if (productExists) {
           console.log(`Found match via normalized Stok Adı: "${productStokAdi}" matched database entry`);
@@ -2297,7 +2297,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         existingProduct = savedProducts.mm.find(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
           return normalizedDbStokAdi === normalizedProductStokAdi;
-        });
+        }
       }
       
       // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
@@ -2339,7 +2339,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           gozAraligi: existingProduct.goz_araligi || product.gozAraligi,
           cubukSayisiBoy: existingProduct.ic_cap_boy_cubuk_ad || product.cubukSayisiBoy,
           cubukSayisiEn: existingProduct.dis_cap_en_cubuk_ad || product.cubukSayisiEn
-        });
+        }
       }
     }
     
@@ -2374,7 +2374,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ...product,
           duplicateOfIndex: firstOccurrenceIndex,
           stokAdi: productStokAdi
-        });
+        }
       } else {
         // First occurrence of this Stok Adı in the batch
         batchStokAdiMap.set(productStokAdi, i);
@@ -2398,7 +2398,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       mm: freshSavedProducts.mm?.length || 0,
       ncbk: freshSavedProducts.ncbk?.length || 0,
       ntel: freshSavedProducts.ntel?.length || 0
-    });
+    }
     
     // CRITICAL DEBUG: Check if CHOZL2448 still exists in fresh data after deletion
     const chozl2448Products = freshSavedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.includes('CHOZL2448'));
@@ -2443,7 +2443,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`DEBUG: Found ${allMatchingProducts.length} exact match(es) for: "${productStokAdi}"`);
         allMatchingProducts.forEach((p, index) => {
           console.log(`  Exact Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
-        });
+        }
       }
       
       // Try normalized Stok Adı if exact match not found
@@ -2452,14 +2452,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         allMatchingProducts = freshSavedProducts.mm.filter(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
           return normalizedDbStokAdi === normalizedProductStokAdi;
-        });
+        }
         existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
         
         if (existingProduct) {
           console.log(`DEBUG: Found ${allMatchingProducts.length} match(es) via normalized Stok Adı for: "${productStokAdi}"`);
           allMatchingProducts.forEach((p, index) => {
             console.log(`  Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
-          });
+          }
         } else {
           // If still not found, show some similar products for debugging
           const similarProducts = freshSavedProducts.mm.filter(p => {
@@ -2673,24 +2673,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               normalized_db: enhancedNormalizeHasirTipi(p.hasir_tipi), 
               normalized_product: enhancedNormalizeHasirTipi(product.hasirTipi), 
               match: hasirTipiMatch 
-            });
+            }
             console.log('  📏 DIMENSIONS:', { 
               db: [p.ebat_boy, p.ebat_en], 
               product: [product.uzunlukBoy, product.uzunlukEn], 
               match: dimensionMatch 
-            });
+            }
             console.log('  📐 DIAMETERS:', { 
               db: [normalizeDecimal(p.cap), normalizeDecimal(p.cap2)], 
               product: [normalizeDecimal(product.boyCap), normalizeDecimal(product.enCap)], 
               match: diameterMatch 
-            });
+            }
             console.log('  🕳️ GOZ ARALIGI:', { 
               db: p.goz_araligi, 
               product: formatGozAraligi(product), 
               normalized_db: enhancedNormalizeGozAraligi(p.goz_araligi), 
               normalized_product: enhancedNormalizeGozAraligi(formatGozAraligi(product)), 
               match: gozMatch 
-            });
+            }
             console.log('  📝 STOK ADI SIMILARITY:', {
               db: p.stok_adi,
               expected: expectedStokAdi,
@@ -2698,7 +2698,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               threshold: similarityThreshold,
               isStandard: isStandardProduct,
               match: stokAdiMatch
-            });
+            }
             console.log('  🔍 INDIVIDUAL CRITERIA:');
             console.log('    hasirTipiMatch:', hasirTipiMatch);
             console.log('    dimensionMatch:', dimensionMatch);
@@ -2714,7 +2714,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
 
           return overallMatch;
-        });
+        }
         
         // Debug all hasır tipi variations in the database for this comparison
         const allHasirTipiVariations = new Set(freshSavedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
@@ -2756,7 +2756,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
             return hasirTipiBasicMatch && dimensionMatch;
-          });
+          }
           
           if (fallbackMatches.length > 0) {
             console.log(`DEBUG: Fallback found ${fallbackMatches.length} matches:`, fallbackMatches.map(p => p.stok_kodu));
@@ -2787,7 +2787,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
             stokAdiToStokKodusMap.get(p.stok_adi).push(p.stok_kodu);
           }
-        });
+        }
         
         // Check for NCBK/NTEL variants - CRITICAL FIX: Handle undefined boyCap/enCap
         const boyCapFormatted = formatDecimalForDisplay(parseFloat(product.boyCap) || 0, true);
@@ -2800,7 +2800,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ncbkStokAdi500,
           ncbkStokAdi215, 
           ntelStokAdi
-        });
+        }
         
         const variants = {
           ch: allMatchingProducts.map(p => p.stok_kodu), // Show ALL matching CH products
@@ -2819,7 +2819,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ...variants,
             ch: allMatchingProducts.map(p => p.stok_kodu) // Ensure CH variants are also populated
           }
-        });
+        }
       } else {
         console.log('DEBUG: Product not found, creating new:', productStokAdi);
         
@@ -2829,7 +2829,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ...product,
           newStokKodu: newStokKodu,
           stokAdi: productStokAdi
-        });
+        }
         modalBatchIndex++;
       }
     }
@@ -2838,7 +2838,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       newProducts: newProducts.length,
       existingProducts: existingProducts.length,
       existingProductsData: existingProducts
-    });
+    }
     
     return { newProducts, existingProducts, batchDuplicates };
   };
@@ -2871,7 +2871,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         originalLength: product.length,
         uzunlukBoy: product.uzunlukBoy,
         uzunlukEn: product.uzunlukEn
-      });
+      }
       return `Ribbed Rebar ${cap} mm ${length} cm`;
     } else if (productType === 'NTEL') {
       const cap = formatDecimalForDisplay(product.cap || 0, false);
@@ -3026,7 +3026,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             type: type,
             description: description
           })
-        });
+        }
 
         if (createResponse.ok) {
           toast.success(`${hasirTipi} mesh konfigürasyonu başarıyla eklendi!`);
@@ -3240,14 +3240,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
           const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
           return hasirTipiMatch && boyMatch && enMatch;
-        });
+        }
         
         if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
           const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
             const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
             const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
             return numB - numA;
-          });
+          }
           stokKodu = sortedCodes[0];
           
           // Try to find saved product data for cubuk sayisi values
@@ -3268,7 +3268,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
             const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
             return hasirTipiMatch && boyMatch && enMatch;
-          });
+          }
           
           if (newMatch && newMatch.newStokKodu) {
             stokKodu = newMatch.newStokKodu;
@@ -3367,7 +3367,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           parseFloat(enhancedProduct.toplamKg || enhancedProduct.toplamAgirlik || 0) || 0, // TOPLAM KG
           '' // Empty last column
         ]);
-      });
+      }
       
       // Check for cancellation before final Excel generation
       if (cancelExcelGeneration) {
@@ -3482,7 +3482,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               source: 'database',
               skipDatabaseRefresh: true
             };
-          });
+          }
           
           if (freshDatabaseProducts && freshDatabaseProducts.length > 0) {
             // Use fresh database data
@@ -3684,7 +3684,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           } else if (recipe.bilesen_kodu === 'YOTOCH' && recipe.uretim_suresi) {
             yotochDuration = parseFloat(recipe.uretim_suresi) || 0;
           }
-        });
+        }
         
         // Extract actual hasir_tipi from stok_adi if hasir_tipi is missing or 'MM'
         const extractedHasirTipi = extractHasirTipiFromStokAdi(product.stok_adi) || product.hasir_tipi || 'MM';
@@ -3714,7 +3714,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Preserve stok_adi from database
           stok_adi: product.stok_adi
         };
-      });
+      }
 
       setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
       
@@ -3784,7 +3784,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.MM.set(key, []);
         }
         receteLookup.MM.get(key).push(recipe);
-      });
+      }
 
       (allNCBKRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
@@ -3792,7 +3792,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.NCBK.set(key, []);
         }
         receteLookup.NCBK.get(key).push(recipe);
-      });
+      }
 
       (allNTELRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
@@ -3800,7 +3800,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.NTEL.set(key, []);
         }
         receteLookup.NTEL.get(key).push(recipe);
-      });
+      }
 
       console.log(`🚀 BULK EXCEL: Indexed recipes - MM(${receteLookup.MM.size}), NCBK(${receteLookup.NCBK.size}), NTEL(${receteLookup.NTEL.size}) unique products`);
 
@@ -3987,7 +3987,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (excelBatchIndex < 3 || finalCubukSayisiBoy <= 0 || finalCubukSayisiEn <= 0) {
           console.log(`📊 EXCEL DEBUG [${excelBatchIndex+1}] - Product ${stokKodu}:`, {
             finalCubukSayisiBoy, finalCubukSayisiEn, hasirTipi: product.hasirTipi
-          });
+          }
         }
         
         // Define Excel cubuk values with NaN protection
@@ -4076,7 +4076,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const uniqueNCBKProducts = new Set();
     const uniqueNTELProducts = new Set();
     
-    products.forEach(product => {
+    for (const product of products) {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
@@ -4210,7 +4210,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -4306,7 +4306,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedNCBKRecipes = new Set();
     const processedNTELRecipes = new Set();
     
-    products.forEach(product => {
+    for (const product of products) {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
@@ -4488,7 +4488,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -4621,7 +4621,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
-    products.forEach(product => {
+    for (const product of products) {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -4762,7 +4762,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     // Excel dosyasını kaydet
     console.log('DEBUG: generateAlternatifReceteExcel - saving file with', products.length, 'products processed, CH rows added:', chRowCount);
@@ -4930,7 +4930,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
-    products.forEach(product => {
+    for (const product of products) {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -5075,7 +5075,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     // Save the merged Excel file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -5172,7 +5172,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           extractedCap,
           uzunlukBoy: product.uzunlukBoy,
           uzunlukEn: product.uzunlukEn
-        });
+        }
 
         ncbkSheet.addRow([
           product.existingStokKodu, product.stok_adi || generateStokAdi(product, 'NCBK'), 'YM', 'YARI MAMÜL', 'NCBK', '',
@@ -5204,7 +5204,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           product.existingStokKodu, 'NTEL', 'E', 'E'
         ]);
       }
-    });
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Stok_Karti_${timestamp}.xlsx`);
@@ -5331,11 +5331,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ];
             ntelReceteSheet.addRow(recipeRow);
           }
-        });
+        }
       } else {
         console.log(`🚀 BULK RECIPE: No recipes found for ${stokKodu} (${productType})`);
       }
-    });
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Recete_${timestamp}.xlsx`);
@@ -5434,7 +5434,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    });
+    }
 
     // Use the same updated logic from generateAlternatifReceteExcel - only process MM products
     mmProducts.forEach(product => {
@@ -5450,7 +5450,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           stokKodu: product.existingStokKodu,
           uzunlukBoy: product.uzunlukBoy,
           uzunlukEn: product.uzunlukEn
-        });
+        }
         return;
       }
 
@@ -5590,7 +5590,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
@@ -5897,7 +5897,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    });
+    }
 
     // Save the merged Excel file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -5915,7 +5915,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       hasirTipi: product.hasirTipi,
       cubukSayisiBoy: product.cubukSayisiBoy,
       cubukSayisiEn: product.cubukSayisiEn
-    });
+    }
     
     try {
       console.log('*** saveRecipeData - ncbkResults keys:', Object.keys(ncbkResults));
@@ -5925,7 +5925,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         cubukSayisiEn: product.cubukSayisiEn,
         productType: typeof product.cubukSayisiEn,
         isNumber: !isNaN(product.cubukSayisiEn)
-      });
+      }
       
       // DEFENSIVE CHECK: Ensure we have valid numbers
       const boyCubukValue = parseInt(product.cubukSayisiBoy) || 0;
@@ -5937,7 +5937,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         hasirTipi: product.hasirTipi,
         uzunlukBoy: product.uzunlukBoy,
         uzunlukEn: product.uzunlukEn
-      });
+      }
       
       // GENERATE NCBK codes with NaN protection - ensure no NaN in bilesen_kodu
       const boyCap = parseFloat(product.boyCap || 0) || 0;
@@ -6012,7 +6012,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           stok_kodu: ncbkResult?.stok_kodu,
           message: ncbkResult?.message,
           status: ncbkResult?.status
-        });
+        }
         
         // Skip if not a valid result
         if (!ncbkResult || !ncbkResult.stok_kodu) {
@@ -6084,7 +6084,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(recipe)
-            });
+            }
             if (response.status === 409) {
               console.log(`*** NCBK recipe already exists for ${recipe.mamul_kodu} - ${recipe.operasyon_bilesen}`);
               return { success: true, status: 'existing' };
@@ -6147,7 +6147,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(recipe)
-            });
+            }
             if (response.status === 409) {
               console.log(`*** NTEL recipe already exists for ${recipe.mamul_kodu} - ${recipe.operasyon_bilesen}`);
               return { success: true, status: 'existing' };
@@ -6247,8 +6247,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   kod_2: seq.kod_2,
                   cap_code: seq.cap_code,
                   last_sequence: seq.last_sequence
-                });
-              });
+                }
+              }
               
               // Update existing sequence using PUT - FIRST OZL ROW [0]
               const sequenceId = existingSequences[0].id;
@@ -6257,7 +6257,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ last_sequence: maxSequence })
-              });
+              }
               console.log('*** Successfully updated existing OZL sequence');
             } else {
               console.log('*** No existing OZL sequence found, creating new one');
@@ -6271,7 +6271,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(actualSequenceData)
-              });
+              }
             }
           }
         }
@@ -6300,8 +6300,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   kod_2: seq.kod_2,
                   cap_code: seq.cap_code,
                   last_sequence: seq.last_sequence
-                });
-              });
+                }
+              }
               
               // Update existing backup sequence using PUT - FIRST OZL_BACKUP ROW [0]
               const backupId = existingBackups[0].id;
@@ -6310,7 +6310,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ last_sequence: maxSequence })
-              });
+              }
               console.log('*** Successfully updated existing OZL_BACKUP sequence');
             } else {
               console.log('*** No existing OZL_BACKUP sequence found, creating new one');
@@ -6324,7 +6324,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(backupSequenceData)
-              });
+              }
             }
           }
         }
@@ -6355,7 +6355,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ last_sequence: actualSequenceNumber || 0 })
-            });
+            }
             console.log('*** Successfully updated STD sequence for cap_code:', capCode);
           } else {
             console.log('*** No existing STD sequence found for cap_code:', capCode, '- creating new one');
@@ -6370,7 +6370,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(sequenceData)
-            });
+            }
           }
         } else {
           console.error('*** Failed to fetch existing STD sequences for cap_code:', capCode);
@@ -6422,7 +6422,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ncbk: freshSavedProducts.ncbk.length,
         ntel: freshSavedProducts.ntel.length,
         mmCodes: freshSavedProducts.mm.map(p => p.stok_kodu)
-      });
+      }
       
       setSavedProducts(freshSavedProducts);
       
@@ -6437,7 +6437,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
           stokAdiToStokKodusMap.get(p.stok_adi).push(p.stok_kodu);
         }
-      });
+      }
       
       console.log('Stok Adı to Stok Kodus mapping:', Array.from(stokAdiToStokKodusMap.entries()));
       console.log('Sample database Stok Adı formats:', Array.from(stokAdiToStokKodusMap.keys()).slice(0, 3));
@@ -6454,7 +6454,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         totalProducts: productsToSave.length,
         newProducts: newProducts.length,
         skippedProducts: skippedProducts.length
-      });
+      }
       
       if (newProducts.length === 0) {
         // Show detailed info about skipped products with their existing Stok Kodus
@@ -6466,7 +6466,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (p.existingStokAdiVariants?.ncbk500) p.existingStokAdiVariants.ncbk500.forEach(kod => allSkippedStokKodus.add(kod));
           if (p.existingStokAdiVariants?.ncbk215) p.existingStokAdiVariants.ncbk215.forEach(kod => allSkippedStokKodus.add(kod));
           if (p.existingStokAdiVariants?.ntel) p.existingStokAdiVariants.ntel.forEach(kod => allSkippedStokKodus.add(kod));
-        });
+        }
         
         const skippedStokKodusList = Array.from(allSkippedStokKodus).sort();
         const skippedInfo = skippedProducts.slice(0, 3).map(p => p.hasirTipi).join(', ');
@@ -6489,7 +6489,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           skippedProducts: skippedProducts,
           batchDuplicates: batchDuplicates,
           allSkippedStokKodus: skippedStokKodusList
-        });
+        }
         setShowPreSaveConfirmModal(true);
         
         toast.info(`${skippedProducts.length} mevcut ürün atlandı. Mevcut Stok Kodus: ${stokKodusDisplay}`);
@@ -6510,7 +6510,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: totalCount, 
         operation: `${newProducts.length} yeni ürün kaydediliyor, ${skippedProducts.length} mevcut ürün atlanıyor${duplicateMessage}...`,
         currentProduct: unoptimizedCount > 0 ? `(${unoptimizedCount} optimize edilmemiş)` : ''
-      });
+      }
       
       // OPTIMIZATION: Create batch-level cache to avoid redundant NCBK/NTEL operations
       const batchNcbkCache = new Map(); // stok_kodu -> result
@@ -6537,7 +6537,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cap2: newProducts[0].cap2,
           allFieldNames: Object.keys(newProducts[0])
         } : 'none'
-      });
+      }
       
       // Log all field names for first few products to understand Excel structure
       if (newProducts.length > 0) {
@@ -6567,7 +6567,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           total: totalCount, 
           operation: 'Veritabanına kaydediliyor...',
           currentProduct: `${product.hasirTipi} (${product.uzunlukBoy}x${product.uzunlukEn}cm)`
-        });
+        }
         
         console.log(`🔍 PROCESSING PRODUCT ${i + 1}/${newProducts.length}: ${product.hasirTipi} ${product.uzunlukBoy}x${product.uzunlukEn} - boyCap=${product.boyCap}, enCap=${product.enCap}, cap=${product.cap}, cap2=${product.cap2}`);
         // CH kaydı - CRITICAL: Ensure kgValue is never NaN
@@ -6581,7 +6581,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: product.cubukSayisiEn,
           adetKg: product.adetKg,
           totalKg: product.totalKg
-        });
+        }
         
         // Use helper function to get clean kg value
         const kgValue = getCleanKgValue(product) || 0.1; // Minimum weight to prevent NaN/0
@@ -6676,7 +6676,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enCapField: enCapField || 'NOT FOUND', 
           uzunlukBoyField: uzunlukBoyField || 'NOT FOUND',
           uzunlukEnField: uzunlukEnField || 'NOT FOUND'
-        });
+        }
         
         // Extract actual values from detected fields
         const extractedBoyCap = boyCapField ? product[boyCapField] : null;
@@ -6794,7 +6794,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ingilizceIsim: generatedIngilizceIsim,
             originalProduct: product,
             mappedValues: productWithValidCaps
-          });
+          }
           
           // Instead of skipping, try to fix the values with fallback defaults
           const fallbackStokAdi = `${normalizeHasirTipi(productWithValidCaps.hasirTipi || '')} Çap(0x0 mm) Ebat(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
@@ -6803,7 +6803,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.warn('🔧 Using fallback values for product', i + 1, ':', {
             fallbackStokAdi,
             fallbackIngilizceIsim
-          });
+          }
           
           // Use fallback values instead of skipping the product
           generatedStokAdi = fallbackStokAdi;
@@ -7000,7 +7000,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               stokKodu: chData.stok_kodu,
               stokAdi: chData.stok_adi,
               saved: true
-            });
+            }
             
             // CRITICAL FIX: Update the product in newProducts with the saved stok_kodu
             newProducts[i] = {
@@ -7018,7 +7018,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             stokKodu: chData.stok_kodu,
             success: chResult ? true : false,
             error: chResult ? null : 'Save failed'
-          });
+          }
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
           // Database should create ALL NCBKs including duplicates for recipe accuracy
@@ -7030,7 +7030,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             uzunlukEn: product.uzunlukEn,
             boyLength,
             enLength
-          });
+          }
 
           const allNcbkSpecs = [
             { cap: product.boyCap, length: boyLength, type: 'boy' },
@@ -7047,7 +7047,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
             seenStokKodus.add(stokKodu);
             return true;
-          });
+          }
           
           for (const spec of ncbkSpecs) {
             const cap = spec.cap;
@@ -7082,7 +7082,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cap: cap,
               hasNaN_stokAdi: ncbkStokAdi.includes('NaN'),
               hasNaN_ingilizceIsim: ncbkIngilizceIsim.includes('NaN')
-            });
+            }
             
             const ncbkData = {
               stok_kodu: ncbkStokKodu,
@@ -7158,20 +7158,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cap: ncbkData.cap,
               length_cm: length,
               kg: ncbkData.payda_1
-            });
+            }
 
             console.log(`📤 NCBK POST Request for ${spec.type}:`, {
               stok_kodu: ncbkData.stok_kodu,
               cap: cap,
               length: length,
               type: spec.type
-            });
+            }
             
             console.log(`📊 NCBK DEBUG - Sending NCBK data:`, {
               stok_kodu: ncbkData.stok_kodu,
               stok_adi: ncbkData.stok_adi,
               kg: ncbkData.kg
-            });
+            }
             
             const ncbkResponse = await fetchWithRetry(API_URLS.celikHasirNcbk, {
               method: 'POST',
@@ -7182,7 +7182,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`📥 NCBK Response for ${ncbkData.stok_kodu}:`, {
               status: ncbkResponse.status,
               statusText: ncbkResponse.statusText
-            });
+            }
             
             if (ncbkResponse.status === 409) {
               // NCBK already exists - this is normal, just use existing
@@ -7309,7 +7309,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             fiyat_birimi: ntelData.fiyat_birimi,
             cap: ntelData.cap,
             kg_per_meter: ntelData.payda_1
-          });
+          }
 
           const ntelResponse = await fetchWithRetry(API_URLS.celikHasirNtel, {
             method: 'POST',
@@ -7341,14 +7341,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             product: i + 1,
             hasirTipi: product.hasirTipi,
             error: error.message
-          });
+          }
           
           saveResults.push({
             productIndex: i + 1,
             stokKodu: 'Failed to generate',
             success: false,
             error: error.message
-          });
+          }
           
           toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
           continue; // Bu ürünü atla, diğerlerine devam et
@@ -7366,7 +7366,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               } else if (result && result.stok_kodu) {
                 console.log(`🚫 Skipping existing NCBK for recipe: ${result.stok_kodu} (key: ${key}, isNewlyCreated: ${result.isNewlyCreated})`);
               }
-            });
+            }
             
             // Check if NTEL is newly created (not existing)
             const newNtelResult = (ntelResult && ntelResult.isNewlyCreated === true) ? ntelResult : null;
@@ -7384,7 +7384,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ntelResult: !!ntelResult,
               newNtelResult: !!newNtelResult,
               willCreateRecipes: Object.keys(newNcbkResults).length > 0 || newNtelResult
-            });
+            }
             
             // DEBUG: Log detailed NCBK results for troubleshooting
             console.log('🔍 DEBUG - All NCBK Results:', ncbkResults);
@@ -7395,8 +7395,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 message: result?.message,
                 messageNotExisting: result?.message !== 'existing',
                 willBeIncluded: result && result.stok_kodu && result.message !== 'existing'
-              });
-            });
+              }
+            }
 
             // Always create CH recipes when CH is new, even if NCBK/NTEL exist
             // Use existing NCBK/NTEL if no new ones were created
@@ -7408,7 +7408,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ncbkResults: Object.keys(ncbkForRecipe).map(k => ({ key: k, stok_kodu: ncbkForRecipe[k]?.stok_kodu, isNewlyCreated: ncbkForRecipe[k]?.isNewlyCreated })),
               ntelResult: ntelForRecipe?.stok_kodu,
               ntelIsNewlyCreated: ntelForRecipe?.isNewlyCreated
-            });
+            }
             
             // Check if cubuk values are present from Excel mapping or database - only apply fallback if truly missing
             const hasValidCubukValues = product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0;
@@ -7418,7 +7418,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cubukSayisiEn: product.cubukSayisiEn,
               hasirTipi: product.hasirTipi,
               hasValidCubukValues
-            });
+            }
             
             let enhancedProduct;
             
@@ -7439,7 +7439,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               console.log('🔍 FALLBACK CALCULATION RESULT:', {
                 cubukSayisiBoy: fallbackResult.cubukSayisiBoy,
                 cubukSayisiEn: fallbackResult.cubukSayisiEn
-              });
+              }
               
               enhancedProduct = {
                 ...product,
@@ -7453,7 +7453,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('🔍 FINAL ENHANCED PRODUCT VALUES FOR RECIPE:', {
               cubukSayisiBoy: enhancedProduct.cubukSayisiBoy,
               cubukSayisiEn: enhancedProduct.cubukSayisiEn
-            });
+            }
             
             await saveRecipeData(enhancedProduct, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
@@ -7482,7 +7482,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: totalCount, 
         operation: '✅ Veritabanı kaydı tamamlandı - Excel oluşturuluyor...',
         currentProduct: 'Excel hazırlanıyor'
-      });
+      }
       
       // COMPREHENSIVE SAVE SUMMARY
       console.log('🔥 DATABASE SAVE PROCESS COMPLETED:', {
@@ -7492,7 +7492,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         skippedSaves,
         saveResults: saveResults.slice(0, 5), // Show first 5 results
         allResults: saveResults.length
-      });
+      }
       
       // If we have fewer successful saves than expected, investigate
       if (successfulSaves < newProducts.length) {
@@ -7502,7 +7502,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           missing: newProducts.length - successfulSaves,
           failedCount: failedSaves,
           skippedCount: skippedSaves
-        });
+        }
         
         // Show detailed results for failed/skipped products
         const problemProducts = saveResults.filter(r => !r.success);
@@ -7525,7 +7525,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('Veritabanı kaydetme tamamlandı. Excel için döndürülen ürünler:', {
         count: newProducts.length,
         products: newProducts.map(p => p.hasirTipi)
-      });
+      }
       console.log('📊 SAVE RETURN DEBUG - First 3 products structure:', newProducts.slice(0, 3).map(p => ({
         hasirTipi: p.hasirTipi,
         existingStokKodu: p.existingStokKodu,
@@ -7540,7 +7540,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       fetchSavedProducts().catch(error => {
         console.warn('Database refresh failed after save:', error);
         toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
-      });
+      }
       
       // Keep loading states active - Excel generation will handle final cleanup
       console.log('⚡ CONTINUITY FIX: Keeping loading states active for Excel generation');
@@ -7702,7 +7702,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false
-        });
+        }
       } else if (deleteProductResponse.status === 404) {
         // Fallback: Use old method if bulk endpoint doesn't exist
         console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${product.stok_kodu}`);
@@ -7759,7 +7759,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             position: "top-right",
             autoClose: 3000,
             hideProgressBar: false
-          });
+          }
         } else {
           throw new Error(`Fallback product deletion failed: ${fallbackResponse.status}`);
         }
@@ -7774,13 +7774,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           position: "top-right",
           autoClose: 5000,
           hideProgressBar: false
-        });
+        }
       } else {
         toast.error(`❌ Ürün silinirken hata: ${error.message}`, {
           position: "top-right", 
           autoClose: 5000,
           hideProgressBar: false
-        });
+        }
       }
     } finally {
       setIsLoading(false);
@@ -7846,7 +7846,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       highestOzlSequence = seqNum;
                     }
                   }
-                });
+                }
               }
               
               console.log(`*** Found highest STD sequence: ${highestStdSequence}, highest OZL sequence: ${highestOzlSequence}`);
@@ -7907,7 +7907,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ last_sequence: newMaxSequence })
-                  });
+                  }
                   console.log(`*** Updated ${kod2} sequence from ${currentSequence} to ${newMaxSequence}`);
                 } else {
                   console.log(`*** ${kod2} sequence (${currentSequence}) is already <= new max (${newMaxSequence}), no update needed`);
@@ -7921,7 +7921,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           } catch (error) {
             console.warn(`Error updating ${kod2} sequence:`, error);
           }
-        });
+        }
         
         await Promise.all(updateTasks);
         
@@ -7965,7 +7965,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: 3, 
         operation: 'Tüm reçeteler siliniyor...', 
         currentItem: `${tabName} reçeteleri` 
-      });
+      }
       
       // Step 1: Delete ALL recipes for this product type using bulk endpoint
       const recipeApiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMmRecete :
@@ -8002,7 +8002,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: 3, 
         operation: 'Tüm ürünler siliniyor...', 
         currentItem: `${tabName} ürünleri` 
-      });
+      }
       
       const apiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMm :
                      activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbk :
@@ -8038,7 +8038,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: 3, 
         operation: 'Sequence kayıtları temizleniyor...', 
         currentItem: 'CH Sequence' 
-      });
+      }
       
       if (activeDbTab === 'mm') {
         try {
@@ -8062,7 +8062,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         total: 3, 
         operation: 'Tamamlandı!', 
         currentItem: `${totalProducts} ${tabName} ürün silindi` 
-      });
+      }
       
       toast.success(`✅ Tüm ${totalProducts} ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
       
@@ -8286,7 +8286,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         total: 4, 
                         operation: '📊 Excel dosyaları hazırlanıyor...', 
                         currentProduct: 'Veritabanı verileri getiriliyor' 
-                      });
+                      }
                       setIsGeneratingExcel(true); // Start Excel generation state
                       
                       // Unified approach: Fetch saved products from database with fallback
@@ -8300,7 +8300,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           total: 4, 
                           operation: '📊 Veritabanından veriler alınıyor...', 
                           currentProduct: `${stokKodular.length} ürün için veri hazırlanıyor` 
-                        });
+                        }
                         
                         console.log('newProducts structure:', newProducts.map(p => ({
                           hasirTipi: p.hasirTipi,
@@ -8319,7 +8319,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           total: 4, 
                           operation: '📊 Çubuk sayısı ve reçete verileri hesaplanıyor...', 
                           currentProduct: 'Veritabanı sorgusu işleniyor' 
-                        });
+                        }
                         
                         // DIRECT APPROACH: Use the saved products data directly instead of fetching from database
                         console.log('🚀 Using saved products data directly - bypassing database fetch');
@@ -8353,14 +8353,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           mm: databaseProducts?.filter(p => p.productType === 'MM').length || 0,
                           ncbk: databaseProducts?.filter(p => p.productType === 'NCBK').length || 0,
                           ntel: databaseProducts?.filter(p => p.productType === 'NTEL').length || 0
-                        });
+                        }
                         
                         setDatabaseProgress({ 
                           current: 3, 
                           total: 4, 
                           operation: '📊 Excel dosyaları oluşturuluyor...', 
                           currentProduct: 'Son aşama başlıyor' 
-                        });
+                        }
                         
                         if (databaseProducts && databaseProducts.length > 0) {
                           await generateExcelFiles(databaseProducts, false);
@@ -8401,7 +8401,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           total: 4, 
                           operation: '📊 Yedek formül ile Excel oluşturuluyor...', 
                           currentProduct: 'Alternatif yöntem kullanılıyor' 
-                        });
+                        }
                         
                         // Apply fallback formula even when fetch fails
                         const fallbackProducts = await Promise.all(
@@ -8630,7 +8630,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       hasirTipi: p.hasirTipi,
                       isOptimized: isProductOptimized(p)
                     }))
-                  });
+                  }
                   
                   if (validProducts.length === 0) {
                     // Ürün yoksa direkt veritabanı ekranına git
@@ -9631,7 +9631,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       }
                       stokAdiToStokKodusMap.get(productStokAdi).push(product.stok_kodu);
                     }
-                  });
+                  }
                   
                   // Reset batch counter for planned stok_kodu generation
                   resetBatchSequenceCounter();
@@ -9647,19 +9647,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
                         const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
                         return numB - numA; // Descending order 
-                      });
+                      }
                       const highestStokKodu = sortedCodes[0];
                       
                       allProductsWithCodes.push({
                         ...product,
                         existingStokKodu: highestStokKodu
-                      });
+                      }
                     } else {
                       // New product - use planned stok_kodu
                       allProductsWithCodes.push({
                         ...product,
                         existingStokKodu: generateStokKodu(product, 'CH', plannedIndex)
-                      });
+                      }
                       plannedIndex++;
                     }
                   }
@@ -9699,7 +9699,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     newProductsWithPlannedCodes.push({
                       ...product,
                       existingStokKodu: stokKodu
-                    });
+                    }
                   }
                   
                   await generateExcelFiles(newProductsWithPlannedCodes, false);
@@ -9731,7 +9731,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       }
                       stokAdiToStokKodusMap.get(productStokAdi).push(product.stok_kodu);
                     }
-                  });
+                  }
                   
                   validProducts.forEach(product => {
                     const productStokAdi = generateStokAdi(product, 'CH');
@@ -9743,15 +9743,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
                         const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
                         return numB - numA; // Descending order 
-                      });
+                      }
                       const highestStokKodu = sortedCodes[0];
                       
                       existingProductsWithHighestCodes.push({
                         ...product,
                         existingStokKodu: highestStokKodu
-                      });
+                      }
                     }
-                  });
+                  }
                   
                   if (existingProductsWithHighestCodes.length === 0) {
                     toast.info('Kaydedilmiş ürün bulunamadı.');
@@ -9904,7 +9904,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                       stokKodu: boyNCBKStokKodu,
                                       exists: boyExists,
                                       label: `${boyCap}mm-${uzunlukBoy}cm`
-                                    });
+                                    }
                                   }
                                   
                                   // En direction NCBK (actual uzunlukEn) 
@@ -9918,7 +9918,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                       stokKodu: enNCBKStokKodu,
                                       exists: enExists,
                                       label: `${enCap}mm-${uzunlukEn}cm`
-                                    });
+                                    }
                                   }
                                   
                                   return neededNCBK.map((ncbk, i) => (
@@ -9951,7 +9951,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                       exists: boyExists,
                                       label: `${boyCap}mm Tel`,
                                       diameter: boyCap
-                                    });
+                                    }
                                   }
                                   
                                   // En direction NTEL (if different from boy)
@@ -9965,7 +9965,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                       exists: enExists,
                                       label: `${enCap}mm Tel`,
                                       diameter: enCap
-                                    });
+                                    }
                                   }
                                   
                                   return neededNTEL.map((ntel, i) => (
