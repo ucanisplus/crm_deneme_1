@@ -1108,13 +1108,28 @@ const CelikHasirHesaplama = () => {
       console.log('Saving mesh config:', meshConfig);
 
       await meshConfigService.saveMeshConfig(meshConfig);
-      
+
       // Update local configs immediately
       const updatedConfigs = await meshConfigService.loadMeshConfigs();
       setMeshConfigs(updatedConfigs);
-      
+
       console.log(`Saved new mesh configuration: ${meshConfig.hasirTipi}`);
-      
+
+      // CRITICAL: Remove ALL instances of this saved type from unknownMeshTypes
+      // This prevents asking for the same type multiple times
+      const savedType = meshConfig.hasirTipi;
+      setUnknownMeshTypes(prev => {
+        const filtered = prev.filter(type => type !== savedType);
+        console.log(`Removed all instances of ${savedType} from unknown types. Remaining: ${filtered.length}`);
+        return filtered;
+      });
+
+      // Update currentUnknownType to the next type if available
+      setCurrentUnknownType(prev => {
+        const remaining = unknownMeshTypes.filter(type => type !== savedType);
+        return remaining.length > 0 ? remaining[0] : '';
+      });
+
     } catch (error) {
       console.error('Error saving mesh configuration:', error);
       throw error; // Let the modal handle the error

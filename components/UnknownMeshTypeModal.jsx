@@ -153,7 +153,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
       };
 
       await onSave(meshConfig);
-      
+
       // Reset form for next mesh type
       setSpecifications({
         boyCap: '',
@@ -162,13 +162,13 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
         enAralik: ''
       });
       setErrors({});
-      
-      // Move to next mesh type or close if done
-      if (currentIndex < totalTypes - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        // All mesh types processed, close modal
-        setCurrentIndex(0);
+
+      // The parent component will update the meshTypes list
+      // Keep currentIndex at 0 since the saved type is removed from the list
+      setCurrentIndex(0);
+
+      // If no more types remain, close modal
+      if (meshTypes.length <= 1) {
         onClose();
       }
     } catch (error) {
