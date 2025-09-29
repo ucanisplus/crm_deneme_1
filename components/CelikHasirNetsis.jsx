@@ -1894,7 +1894,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 highestDbSequence = seqNum;
               }
             }
-          }
+          });
           console.log('*** Database highest CHOZL sequence found:', highestDbSequence);
           
           // Use the higher of sequence table or actual database
@@ -1957,7 +1957,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 maxSequence = sequenceNum;
               }
             }
-          }
+          });
           
           const nextSequence = maxSequence + 1;
           return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
@@ -2051,7 +2051,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       uzunlukEn: product.uzunlukEn,
       batchIndex,
       batchSequenceCounter
-    }
+    });
     
     if (productType === 'CH') {
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
