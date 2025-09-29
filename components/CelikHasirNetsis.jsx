@@ -1376,7 +1376,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           source: 'database',
           skipDatabaseRefresh: true  // Flag to prevent generateExcelFiles from re-fetching
         };
-      }
+      });
 
       await generateExcelFiles(transformedProducts, true);
       toast.success(`${transformedProducts.length} ürün için Excel dosyaları oluşturuldu!`);
@@ -1662,7 +1662,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         data.forEach(seq => {
           const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
           sequenceMap[key] = seq.last_sequence;
-        }
+        });
         setSequences(sequenceMap);
       }
     } catch (error) {
@@ -1684,7 +1684,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           data.forEach(seq => {
             const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
             currentSequences[key] = seq.last_sequence;
-          }
+          });
           console.log('*** Fresh sequences loaded:', Object.keys(currentSequences));
         }
       } catch (error) {
@@ -2443,7 +2443,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`DEBUG: Found ${allMatchingProducts.length} exact match(es) for: "${productStokAdi}"`);
         allMatchingProducts.forEach((p, index) => {
           console.log(`  Exact Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
-        }
+        });
       }
       
       // Try normalized Stok Adı if exact match not found
@@ -3784,7 +3784,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.MM.set(key, []);
         }
         receteLookup.MM.get(key).push(recipe);
-      }
+      });
 
       (allNCBKRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
@@ -3792,7 +3792,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.NCBK.set(key, []);
         }
         receteLookup.NCBK.get(key).push(recipe);
-      }
+      });
 
       (allNTELRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
@@ -3800,7 +3800,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           receteLookup.NTEL.set(key, []);
         }
         receteLookup.NTEL.get(key).push(recipe);
-      }
+      });
 
       console.log(`🚀 BULK EXCEL: Indexed recipes - MM(${receteLookup.MM.size}), NCBK(${receteLookup.NCBK.size}), NTEL(${receteLookup.NTEL.size}) unique products`);
 
