@@ -4312,7 +4312,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const flmKodu = getFilmasinKodu(boyCap);
             const flmInfo = getFilmasinByPriority(boyCap, 0);
             const actualDiameter = flmInfo ? flmInfo.diameter : boyCap;
-            const flmTuketimi = (Math.PI * (actualDiameter/20) * (actualDiameter/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
+            const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
@@ -4323,7 +4323,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: actualDiameter, enCap: actualDiameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -4338,7 +4338,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Use priority-based filmaşin selection (priority 0 = main recipe)
           const flmInfo = getFilmasinByPriority(boyCap, 0);
           const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
-          const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * 100 * 7.85 / 1000).toFixed(5);
+          const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
@@ -4350,7 +4350,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-            '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: flmInfo.diameter, enCap: flmInfo.diameter})),
+            '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap})),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
         }
@@ -4415,7 +4415,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-            '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: flmInfo.diameter, enCap: flmInfo.diameter})),
+            '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: boyCap, enCap: boyCap})),
             'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           }
@@ -4573,7 +4573,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
@@ -4584,7 +4584,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -4636,7 +4636,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
@@ -4647,7 +4647,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -4678,7 +4678,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -4871,7 +4871,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -4883,7 +4883,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -4936,7 +4936,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
@@ -4948,7 +4948,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -5392,7 +5392,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -5444,7 +5444,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * 100 * 7.85 / 1000).toFixed(5);
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
@@ -5455,7 +5455,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -5486,7 +5486,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -5685,7 +5685,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -5697,7 +5697,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -5750,7 +5750,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
@@ -5762,7 +5762,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
-              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
           }
@@ -6039,7 +6039,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br_bilesen: 'DK',
             miktar: 1,
             aciklama: null,
-            uretim_suresi: calculateOperationDuration('NTEL', { ...product, boyCap: getFilmasinByPriority(ntelCap, 0)?.diameter || ntelCap })
+            uretim_suresi: calculateOperationDuration('NTEL', { ...product, boyCap: ntelCap })
           }
         ];
 
