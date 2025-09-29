@@ -25,58 +25,50 @@ import {
   ChevronUp
 } from 'lucide-react';
 
-// Priority-based filmaşin selection from CSV matrix
-const getFilmasinByPriority = (targetDiameter, priority) => {
-  // Filmaşin mapping matrix from Hammadde_tktm_gncl.csv
-  const FILMASIN_PRIORITY_MAP = {
-    4.20: [{ diameter: 5.5, quality: '1008' }],
-    4.25: [{ diameter: 5.5, quality: '1008' }],
-    4.45: [{ diameter: 5.5, quality: '1008' }, { diameter: 6.5, quality: '1008' }],
-    4.50: [{ diameter: 5.5, quality: '1008' }, { diameter: 6.5, quality: '1008' }],
-    4.75: [{ diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }],
-    4.85: [{ diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }],
-    5.00: [{ diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }],
-    5.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }, { diameter: 7.5, quality: '1010' }],
-    6.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }, { diameter: 7.5, quality: '1008' }],
-    6.50: [{ diameter: 8.0, quality: '1008' }, { diameter: 8.0, quality: '1010' }],
-    7.00: [{ diameter: 9.0, quality: '1008' }, { diameter: 9.0, quality: '1010' }, { diameter: 7.5, quality: '1008' }, { diameter: 7.5, quality: '1010' }],
-    7.50: [{ diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }],
-    7.80: [{ diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }, { diameter: 9.0, quality: '1010' }],
-    8.00: [{ diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
-    8.50: [{ diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }],
-    8.60: [{ diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }],
-    9.00: [{ diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }, { diameter: 10.0, quality: '1010' }],
-    9.20: [{ diameter: 12.0, quality: '1008' }, { diameter: 12.0, quality: '1010' }],
-    9.50: [{ diameter: 12.0, quality: '1008' }, { diameter: 12.0, quality: '1010' }],
-    9.90: [{ diameter: 12.0, quality: '1008' }, { diameter: 12.0, quality: '1010' }],
-    10.00: [{ diameter: 12.0, quality: '1008' }, { diameter: 12.0, quality: '1010' }],
-    10.50: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }],
-    10.60: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }],
-    11.00: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }],
-    11.20: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }],
-    11.50: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }],
-    12.00: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }]
-  };
+// DATABASE-BASED filmaşin selection - replaces hardcoded matrix
+const getFilmasinByPriority = async (targetDiameter, priority) => {
+  try {
+    console.log(`🔍 DB FILMAŞIN: Fetching diameter ${targetDiameter}, priority ${priority}`);
 
-  const priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
-  if (!priorityList || priority >= priorityList.length) {
-    // Return null to indicate no alternative exists for this priority
+    const response = await fetchWithAuth(`${API_URLS.filmasinPriority}/${targetDiameter}/${priority}`);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`❌ DB FILMAŞIN: No filmaşin found for ${targetDiameter}mm priority ${priority}`);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const filmasin = await response.json();
+    console.log(`✅ DB FILMAŞIN: Found ${filmasin.code}`);
+
+    return {
+      code: filmasin.code,
+      diameter: filmasin.diameter,
+      quality: filmasin.quality,
+      toString: () => filmasin.code
+    };
+
+  } catch (error) {
+    console.error(`❌ DB FILMAŞIN ERROR for ${targetDiameter}mm priority ${priority}:`, error);
     return null;
   }
-
-  const filmasin = priorityList[priority];
-  const flmKodu = `FLM.${String(Math.round(filmasin.diameter * 100)).padStart(4, '0')}.${filmasin.quality}`;
-
-  return {
-    code: flmKodu,
-    diameter: filmasin.diameter,
-    quality: filmasin.quality,
-    toString: () => flmKodu
-  };
 };
 
-// Original filmaşin selection function (fallback)
-const getFilmasinKodu = (diameter) => {
+// DATABASE-BASED main recipe filmaşin selection (priority 0)
+const getMainRecipeFilmasin = async (targetDiameter) => {
+  return await getFilmasinByPriority(targetDiameter, 0);
+};
+
+// DATABASE-BASED main recipe filmaşin selection (replaces hardcoded logic)
+const getFilmasinKodu = async (diameter) => {
+  const filmasin = await getMainRecipeFilmasin(diameter);
+  return filmasin || { code: 'FLM.0650.1008', diameter: 6.5, quality: '1008' }; // fallback
+};
+
+// DEPRECATED: Original hardcoded filmaşin selection function (kept for emergency fallback)
+const getFilmasinKoduOld = (diameter) => {
   const FILMASIN_MAPPING = {
     4.45: 6.0, 4.50: 6.0, 4.75: 6.0, 4.85: 6.0, 5.00: 6.0,
     5.50: 6.5,
@@ -4338,7 +4330,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            const flmKodu = getFilmasinKodu(boyCap).code;
+            const flmInfo = await getFilmasinKodu(boyCap);
+            const flmKodu = flmInfo.code;
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -4426,7 +4419,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            const flmKodu = getFilmasinKodu(enCap).code;
+            const flmInfo = await getFilmasinKodu(enCap);
+            const flmKodu = flmInfo.code;
             const flmTuketimi = Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000;
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -4636,11 +4630,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(boyKey)) {
-            processedNCBKRecipes[priority].add(boyKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
+            processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4650,14 +4644,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4671,11 +4665,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(enKey)) {
-            processedNCBKRecipes[priority].add(enKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(enKey)) {
+            processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4685,14 +4679,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4705,11 +4699,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
-            processedNTELRecipes[priority].add(boyNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
+            processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4719,14 +4713,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4739,11 +4733,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(enNtelKey)) {
-            processedNTELRecipes[priority].add(enNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
+            processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4753,14 +4747,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4945,11 +4939,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(boyKey)) {
-            processedNCBKRecipes[priority].add(boyKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
+            processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4960,14 +4954,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -4981,11 +4975,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(enKey)) {
-            processedNCBKRecipes[priority].add(enKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(enKey)) {
+            processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -4996,14 +4990,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5016,11 +5010,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
-            processedNTELRecipes[priority].add(boyNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
+            processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5031,14 +5025,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5051,11 +5045,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(enNtelKey)) {
-            processedNTELRecipes[priority].add(enNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
+            processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5066,14 +5060,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5464,11 +5458,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(boyKey)) {
-            processedNCBKRecipes[priority].add(boyKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
+            processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5478,14 +5472,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5499,11 +5493,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(enKey)) {
-            processedNCBKRecipes[priority].add(enKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(enKey)) {
+            processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5513,14 +5507,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5533,11 +5527,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
-            processedNTELRecipes[priority].add(boyNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
+            processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5547,14 +5541,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5567,11 +5561,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(enNtelKey)) {
-            processedNTELRecipes[priority].add(enNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
+            processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5581,14 +5575,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { ...product, boyCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5767,11 +5761,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(boyKey)) {
-            processedNCBKRecipes[priority].add(boyKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
+            processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5782,14 +5776,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukBoy, boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5803,11 +5797,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNCBKRecipes[priority].has(enKey)) {
-            processedNCBKRecipes[priority].add(enKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNCBKRecipes[priority - 1].has(enKey)) {
+            processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5818,14 +5812,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ncbkSheets[priority].addRow([
+            ncbkSheets[priority - 1].addRow([
               ncbkStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { ...product, length: uzunlukEn, boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5838,11 +5832,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(boyNtelKey)) {
-            processedNTELRecipes[priority].add(boyNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
+            processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = getFilmasinByPriority(boyCap, priority);
+            const flmInfo = await getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5853,14 +5847,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: boyCap, enCap: boyCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -5873,11 +5867,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
-        for (let priority = 0; priority < 5; priority++) {
-          if (!processedNTELRecipes[priority].has(enNtelKey)) {
-            processedNTELRecipes[priority].add(enNtelKey);
+        for (let priority = 1; priority <= 5; priority++) {
+          if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
+            processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = getFilmasinByPriority(enCap, priority);
+            const flmInfo = await getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
@@ -5888,14 +5882,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
               '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
               '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
 
-            ntelSheets[priority].addRow([
+            ntelSheets[priority - 1].addRow([
               ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: enCap, enCap: enCap })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
@@ -6062,7 +6056,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: getFilmasinKodu(ncbkCap).code,
+            bilesen_kodu: (await getFilmasinKodu(ncbkCap)).code,
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (ncbkCap/20) * (ncbkCap/20) * ncbkLength * 7.85 / 1000).toFixed(5)),
             aciklama: 'Filmaşin Tüketim Miktarı',
@@ -6125,7 +6119,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'MT',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: getFilmasinKodu(ntelCap).code,
+            bilesen_kodu: (await getFilmasinKodu(ntelCap)).code,
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (ntelCap/20) * (ntelCap/20) * 100 * 7.85 / 1000).toFixed(5)),
             aciklama: 'Filmaşin Tüketim Miktarı',

@@ -37,7 +37,11 @@ export const API_URLS = {
   celikHasirNcbkRecete: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ncbk_recete',
   celikHasirNtelRecete: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ntel_recete',
   celikHasirSequence: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_sequence',
-  
+
+  // Filmaşin Priority Mapping APIs
+  filmasinPriority: 'https://crm-factory-backend.onrender.com/api/filmasin-priority',
+  filmasinAlternatives: 'https://crm-factory-backend.onrender.com/api/filmasin-alternatives',
+
   // Bulk endpoints for Excel generation (MIGRATED TO RENDER)
   getAllMM: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm',
   getAllNCBK: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ncbk',
