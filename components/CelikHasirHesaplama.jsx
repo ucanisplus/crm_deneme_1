@@ -2548,12 +2548,15 @@ const updateRowFromHasirTipi = async (rows, rowIndex) => {
       const firstConfig = await getMeshConfig(firstType);
       const secondConfig = await getMeshConfig(secondType);
       if (firstConfig && secondConfig) {
+        // CRITICAL FIX: For Q combinations, each type provides its own diameter AND spacing
+        // Q424 provides boy direction: diameter (boyCap) AND spacing (boyAralik)
+        // Q271 provides en direction: diameter (boyCap since Q has single value) AND spacing (boyAralik since Q has single value)
         row.boyCap = firstConfig.boyCap;
-        row.enCap = secondConfig.enCap;
-        
-        // Aralık değerlerini ilk tipten al
+        row.enCap = secondConfig.boyCap;  // Use secondConfig's boyCap (Q types have single diameter)
+
+        // Each Q type provides its own spacing
         row.boyAraligi = firstConfig.boyAralik;
-        row.enAraligi = firstConfig.enAralik;
+        row.enAraligi = secondConfig.boyAralik;  // Use secondConfig's boyAralik (Q types have single spacing)
         return;
       }
     }

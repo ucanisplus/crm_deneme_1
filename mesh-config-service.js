@@ -83,13 +83,16 @@ class MeshConfigService {
     }
 
     // Combine configurations: boyCap from first, enCap from second
+    // CRITICAL FIX: For Q types, each type provides its own diameter AND spacing
+    // Q424 provides boy direction: diameter AND spacing
+    // Q271 provides en direction: diameter AND spacing
     return {
       boyCap: firstConfig.boyCap,
-      enCap: secondConfig.enCap,
-      boyAralik: firstConfig.boyAralik, // Use first Q-type's spacing
-      enAralik: firstConfig.enAralik,   // Use first Q-type's spacing
+      enCap: secondConfig.boyCap,     // Use secondConfig's boyCap (since Q types have single diameter)
+      boyAralik: firstConfig.boyAralik, // Use first Q-type's spacing for boy
+      enAralik: secondConfig.boyAralik, // Use second Q-type's spacing for en (stored as boyAralik)
       type: 'Q',
-      description: `Combination Q-type: ${firstQType} (${firstConfig.boyCap}mm) / ${secondQType} (${secondConfig.enCap}mm)`
+      description: `Combination Q-type: ${firstQType} (${firstConfig.boyCap}mm, ${firstConfig.boyAralik}cm) / ${secondQType} (${secondConfig.boyCap}mm, ${secondConfig.boyAralik}cm)`
     };
   }
 
