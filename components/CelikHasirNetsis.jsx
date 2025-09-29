@@ -3129,8 +3129,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Convert to string and replace decimal point with comma
     const result = String(num).replace('.', ',');
     
-    // Log if the value seems suspicious
-    if (num <= 0 || num > 1000000) {
+    // Log if the value seems suspicious (excluding legitimate 0 values)
+    if (num < 0 || num > 1000000) {
       console.warn(`⚠️ EXCEL DECIMAL - Suspicious value: ${num} -> "${result}"`);
     }
     
@@ -5567,7 +5567,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('🚀 BULK ALT RECIPE: Excel generation completed');
   };
 
-  // BULK Merged Recete Excel generation function (combines main recete + alternatif recete into 12 sheets)
+  // BULK Merged Recete Excel generation function (combines main recete + alternatif recete into 14 sheets)
   const generateBulkMergedReceteExcel = async (allProducts, receteLookup, timestamp) => {
     console.log('🚀 BULK MERGED RECETE: Starting with', allProducts.length, 'products');
 
@@ -5592,20 +5592,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteAlt1Sheet.addRow(receteHeaders);
 
-    // Sheets 3-7: YM NCBK REÇETE and ALT 1-5 (priority 1-5)
+    // Sheets 3-8: YM NCBK REÇETE (main) and ALT 1-5 (priority 1-5) = 6 sheets total
     const ncbkSheets = [];
-    for (let i = 0; i < 5; i++) {
-      const sheetName = i === 0 ? 'YM NCBK REÇETE' : `YM NCBK REÇETE ALT ${i}`;
-      const sheet = workbook.addWorksheet(sheetName);
+    // Main NCBK sheet (priority 0)
+    const ncbkMainSheet = workbook.addWorksheet('YM NCBK REÇETE');
+    ncbkMainSheet.addRow(receteHeaders);
+    ncbkSheets.push(ncbkMainSheet);
+    // Alternative NCBK sheets (priority 1-5)
+    for (let i = 1; i <= 5; i++) {
+      const sheet = workbook.addWorksheet(`YM NCBK ALT${i}`);
       sheet.addRow(receteHeaders);
       ncbkSheets.push(sheet);
     }
 
-    // Sheets 8-12: YM NTEL REÇETE and ALT 1-5 (priority 1-5)
+    // Sheets 9-14: YM NTEL REÇETE (main) and ALT 1-5 (priority 1-5) = 6 sheets total
     const ntelSheets = [];
-    for (let i = 0; i < 5; i++) {
-      const sheetName = i === 0 ? 'YM NTEL REÇETE' : `YM NTEL REÇETE ALT ${i}`;
-      const sheet = workbook.addWorksheet(sheetName);
+    // Main NTEL sheet (priority 0)
+    const ntelMainSheet = workbook.addWorksheet('YM NTEL REÇETE');
+    ntelMainSheet.addRow(receteHeaders);
+    ntelSheets.push(ntelMainSheet);
+    // Alternative NTEL sheets (priority 1-5)
+    for (let i = 1; i <= 5; i++) {
+      const sheet = workbook.addWorksheet(`YM NTEL ALT${i}`);
       sheet.addRow(receteHeaders);
       ntelSheets.push(sheet);
     }
