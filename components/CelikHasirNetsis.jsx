@@ -25,39 +25,60 @@ import {
   ChevronUp
 } from 'lucide-react';
 
-// Priority-based filmaşin selection from CSV matrix
-const getFilmasinByPriority = async (targetDiameter, priority) => {
-  try {
-    console.log(`🔍 DB FILMAŞIN: Fetching diameter ${targetDiameter}, priority ${priority}`);
-
-    const response = await fetchWithAuth(`${API_URLS.filmasinPriority}/${targetDiameter}/${priority}`);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        console.log(`❌ DB FILMAŞIN: No filmaşin found for ${targetDiameter}mm priority ${priority}`);
-        return null;
-      }
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const filmasin = await response.json();
-    console.log(`✅ DB FILMAŞIN: Found ${filmasin.code}`);
-
-    return {
-      code: filmasin.code,
-      diameter: filmasin.diameter,
-      quality: filmasin.quality,
-      toString: () => filmasin.code
-    };
-  } catch (error) {
-    console.error(`❌ DB FILMAŞIN: Error fetching ${targetDiameter}mm priority ${priority}:`, error);
-    return null;
-  }
+// Updated filmaşin map from database (priority 0=main recipe, 1-5=alternatives)
+const FILMASIN_PRIORITY_MAP = {
+  4.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1
+  4.25: [{ diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1
+  4.45: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1,2
+  4.50: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1,2
+  4.75: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }], // 0,1,2
+  4.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }], // 0,1,2
+  4.85: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }], // 0,1,2
+  5.00: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }], // 0,1,2
+  5.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }, { diameter: 6.5, quality: '1008' }, { diameter: 6.5, quality: '1010' }, { diameter: 7.5, quality: '1010' }, { diameter: 6.0, quality: '1008' }], // 0,1,2,3,4,5
+  6.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.5, quality: '1008' }, { diameter: 7.5, quality: '1010' }, { diameter: 6.5, quality: '1010' }, { diameter: 6.5, quality: '1008' }], // 0,1,2,3,4,5
+  6.50: [{ diameter: 8.0, quality: '1008' }, { diameter: 8.0, quality: '1010' }, { diameter: 7.5, quality: '1008' }, { diameter: 7.0, quality: '1010' }, { diameter: 7.5, quality: '1010' }, { diameter: 7.0, quality: '1008' }], // 0,1,2,3,4,5
+  7.00: [{ diameter: 8.0, quality: '1010' }, { diameter: 8.0, quality: '1008' }, { diameter: 9.0, quality: '1008' }, { diameter: 9.0, quality: '1010' }], // 0,1,2,3
+  7.50: [{ diameter: 9.0, quality: '1008' }, { diameter: 9.0, quality: '1010' }, { diameter: 8.0, quality: '1010' }, { diameter: 8.0, quality: '1008' }], // 0,1,2,3
+  7.80: [{ diameter: 9.0, quality: '1008' }, { diameter: 9.0, quality: '1010' }, { diameter: 10.0, quality: '1008' }], // 0,1,2
+  8.00: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }, { diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }], // 0,1,2,3
+  8.50: [{ diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }], // 0,1,2,3
+  8.60: [{ diameter: 10.0, quality: '1008' }, { diameter: 10.0, quality: '1010' }], // 0,1
+  9.00: [{ diameter: 10.0, quality: '1010' }, { diameter: 10.0, quality: '1008' }, { diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }], // 0,1,2,3
+  9.20: [{ diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }, { diameter: 10.0, quality: '1010' }, { diameter: 10.0, quality: '1008' }], // 0,1,2,3
+  9.50: [{ diameter: 11.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }], // 0,1
+  9.90: [{ diameter: 11.0, quality: '1010' }, { diameter: 11.0, quality: '1008' }], // 0,1
+  10.00: [{ diameter: 11.0, quality: '1010' }, { diameter: 11.0, quality: '1008' }, { diameter: 12.0, quality: '1008' }, { diameter: 12.0, quality: '1010' }], // 0,1,2,3
+  10.50: [{ diameter: 12.0, quality: '1010' }, { diameter: 12.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }], // 0,1,2
+  10.60: [{ diameter: 12.0, quality: '1010' }, { diameter: 12.0, quality: '1008' }, { diameter: 11.0, quality: '1010' }], // 0,1,2
+  11.00: [{ diameter: 12.0, quality: '1010' }, { diameter: 12.0, quality: '1008' }, { diameter: 13.0, quality: '1008' }], // 0,1,2
+  11.20: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }], // 0,1
+  11.50: [{ diameter: 13.0, quality: '1008' }, { diameter: 13.0, quality: '1010' }], // 0,1
+  12.00: [{ diameter: 13.0, quality: '1010' }, { diameter: 13.0, quality: '1008' }] // 0,1
 };
 
-// Database-driven filmaşin selection function for main recipes
-const getFilmasinKodu = async (diameter) => {
-  const filmasin = await getFilmasinByPriority(diameter, 0);
+// Fast hardcoded filmaşin selection (same logic as old working version)
+const getFilmasinByPriority = (targetDiameter, priority) => {
+  const priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+  if (!priorityList || priority >= priorityList.length) {
+    // Return null to indicate no alternative exists for this priority
+    return null;
+  }
+
+  const filmasin = priorityList[priority];
+  const flmKodu = `FLM.${String(Math.round(filmasin.diameter * 100)).padStart(4, '0')}.${filmasin.quality}`;
+
+  return {
+    code: flmKodu,
+    diameter: filmasin.diameter,
+    quality: filmasin.quality,
+    toString: () => flmKodu
+  };
+};
+
+// Fast filmaşin selection function for main recipes
+const getFilmasinKodu = (diameter) => {
+  const filmasin = getFilmasinByPriority(diameter, 0);
   return filmasin ? filmasin.code : '';
 };
 
@@ -322,7 +343,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             const exactMatch = mmProducts.filter(p => p.stok_kodu === stokKodu);
             if (exactMatch.length > 0) {
               filteredMmProducts.push(...exactMatch);
-              continue; // Found it, move to next
+              return; // Found it, move to next
             }
           }
           
@@ -1004,7 +1025,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
           
           await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
+          return;
         }
         
         // If it's not a retryable error or max retries reached, return the response
@@ -1021,7 +1042,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
           
           await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
+          return;
         }
         throw error;
       }
@@ -3910,7 +3931,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     // CH ürünlerini ekle
     let excelBatchIndex = 0;
-    for (const product of products) {
+    products.forEach(product => {
       // For Excel generation, process all products regardless of optimization status
         // For saved products, use existing Stok Kodu; for new products, generate new one
         console.log('📊 EXCEL STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
@@ -3973,7 +3994,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // 66-69: Extra columns from our app format (not in CSV template)
           stokKodu, 'MM', 'E', 'E'
         ]);
-    }
+    });
 
     // YM NCBK STOK sheet oluştur
     const ncbkSheet = workbook.addWorksheet('YM NCBK STOK');
@@ -4027,7 +4048,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const uniqueNCBKProducts = new Set();
     const uniqueNTELProducts = new Set();
     
-    for (const product of products) {
+    products.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
@@ -4161,7 +4182,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -4200,7 +4221,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     // Reçete verilerini ekle
     let receteBatchIndex = 0;
-    for (const product of products) {
+    products.forEach(product => {
       // For Excel generation, process all products regardless of optimization status
         console.log('🔧 RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
         // STRICT: Only use saved stock codes, no fallback to generation
@@ -4251,13 +4272,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
 
-    }
-    
+    });
+
     // Create correct NCBK and NTEL recipes based on CH product requirements - avoid duplicates
     const processedNCBKRecipes = new Set();
     const processedNTELRecipes = new Set();
 
-    for (const product of products) {
+    products.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
@@ -4281,7 +4302,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            const flmKodu = await getFilmasinKodu(boyCap);
+            const flmKodu = getFilmasinKodu(boyCap);
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -4369,7 +4390,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               10.60: 12.0
             };
             
-            const flmKodu = await getFilmasinKodu(enCap);
+            const flmKodu = getFilmasinKodu(enCap);
             const flmTuketimi = Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000;
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -4437,7 +4458,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     // Excel dosyasını kaydet
     const buffer = await workbook.xlsx.writeBuffer();
@@ -4487,7 +4508,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let altReceteBatchIndex = 0;
     console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
     let chRowCount = 0;
-    for (const product of products) {
+    products.forEach(product => {
       // For Excel generation, process all products regardless of optimization status
         console.log('🔧 ALT RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
         // STRICT: Only use saved stock codes, no fallback to generation
@@ -4563,14 +4584,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
           'E', 'E', '', '', '', '', '', '', ''
         ]);
-        
-    }
-    
+
+    });
+
     // Generate NCBK and NTEL recipes for 5 alternatif sheets using priority-based filmaşin
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
-    for (const product of products) {
+    products.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -4583,11 +4604,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
             processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -4618,11 +4639,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(enKey)) {
             processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -4652,11 +4673,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
             processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -4686,11 +4707,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
             processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -4711,7 +4732,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     // Excel dosyasını kaydet
     console.log('DEBUG: generateAlternatifReceteExcel - saving file with', products.length, 'products processed, CH rows added:', chRowCount);
@@ -4765,7 +4786,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
     let receteBatchIndex = 0;
-    for (const product of products) {
+    products.forEach(product => {
       const chStokKodu = product.existingStokKodu;
       if (!chStokKodu) {
         console.error('❌ CRITICAL: Missing existingStokKodu for recipe product:', product.hasirTipi);
@@ -4803,12 +4824,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', operationTime,
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    }
+    });
 
     // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
     let altReceteBatchIndex = 0;
     let chRowCount = 0;
-    for (const product of products) {
+    products.forEach(product => {
       const chStokKodu = product.existingStokKodu;
       if (!chStokKodu) {
         console.error('❌ CRITICAL: Missing existingStokKodu for alt recipe product:', product.hasirTipi);
@@ -4873,13 +4894,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    }
+    });
 
     // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
-    for (const product of products) {
+    products.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -4892,11 +4913,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
             processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -4928,11 +4949,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(enKey)) {
             processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -4963,11 +4984,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
             processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -4998,11 +5019,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
             processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -5024,7 +5045,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     // Save the merged Excel file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -5339,7 +5360,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     console.log(`🚀 BULK ALT RECIPE: Processing ${mmProducts.length} MM products for CH recipes out of ${allProducts.length} total products`);
 
-    for (const product of mmProducts) {
+    mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu;
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
@@ -5383,10 +5404,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    }
+    });
 
     // Use the same updated logic from generateAlternatifReceteExcel - only process MM products
-    for (const product of mmProducts) {
+    mmProducts.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -5411,11 +5432,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
             processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -5446,11 +5467,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(enKey)) {
             processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -5480,11 +5501,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
             processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -5514,11 +5535,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
             processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -5539,7 +5560,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `Bulk_Celik_Hasir_Alternatif_Recete_${timestamp}.xlsx`);
@@ -5594,11 +5615,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('🚀 BULK MERGED RECETE: Filtered to', mmProducts.length, 'MM products');
 
     // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
-    for (const product of mmProducts) {
+    mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
         console.error('❌ BULK MERGED RECETE: Missing stok kodu for product:', product.hasirTipi);
-        continue;
+        return;
       }
 
       // CH Reçete - Boy ve En çubuk tüketimleri
@@ -5630,14 +5651,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', operationTime,
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    }
+    });
 
     // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
-    for (const product of mmProducts) {
+    mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
         console.error('❌ BULK MERGED RECETE: Missing stok kodu for alt recipe product:', product.hasirTipi);
-        continue;
+        return;
       }
 
       const boyCap = parseFloat(product.boyCap || 0);
@@ -5695,13 +5716,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
         'E', 'E', '', '', '', '', '', '', ''
       ]);
-    }
+    });
 
     // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
     const processedNCBKRecipes = Array(5).fill().map(() => new Set());
     const processedNTELRecipes = Array(5).fill().map(() => new Set());
 
-    for (const product of mmProducts) {
+    mmProducts.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
@@ -5714,11 +5735,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(boyKey)) {
             processedNCBKRecipes[priority - 1].add(boyKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
@@ -5750,11 +5771,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNCBKRecipes[priority - 1].has(enKey)) {
             processedNCBKRecipes[priority - 1].add(enKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -5785,11 +5806,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(boyNtelKey)) {
             processedNTELRecipes[priority - 1].add(boyNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(boyCap, priority);
+            const flmInfo = getFilmasinByPriority(boyCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
@@ -5820,11 +5841,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (!processedNTELRecipes[priority - 1].has(enNtelKey)) {
             processedNTELRecipes[priority - 1].add(enNtelKey);
 
-            const flmInfo = await getFilmasinByPriority(enCap, priority);
+            const flmInfo = getFilmasinByPriority(enCap, priority);
 
             // Skip if no alternative exists for this priority
             if (!flmInfo) {
-              continue;
+              return;
             }
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
@@ -5846,7 +5867,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
       }
-    }
+    });
 
     // Save the merged Excel file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -5966,19 +5987,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Skip if not a valid result
         if (!ncbkResult || !ncbkResult.stok_kodu) {
           console.log(`⏭️ Skipping NCBK recipe - invalid result for key "${key}"`);
-          continue;
+          return;
         }
         
         // Skip if we've already processed this stok_kodu to prevent duplicate recipes
         if (processedNcbkStokKodus.has(ncbkResult.stok_kodu)) {
           console.log(`⏭️ Skipping NCBK recipe - already processed: ${ncbkResult.stok_kodu} (key: ${key})`);
-          continue;
+          return;
         }
         
         // Only create recipes for NCBKs that were NEWLY created in this save operation
         if (!ncbkResult.isNewlyCreated) {
           console.log(`⏭️ Skipping NCBK recipe - not newly created: ${ncbkResult.stok_kodu} (status: ${ncbkResult.status}, message: ${ncbkResult.message})`);
-          continue;
+          return;
         }
         
         // Mark this stok_kodu as processed
@@ -5990,7 +6011,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const stokParts = ncbkResult.stok_kodu.match(/YM\.NCBK\.(\d{4})\.(\d+)/);
         if (!stokParts) {
           console.warn('Invalid NCBK stok kodu format:', ncbkResult.stok_kodu);
-          continue;
+          return;
         }
         
         const ncbkCap = parseInt(stokParts[1]) / 100; // Convert from 0500 to 5.0
@@ -6005,7 +6026,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'AD',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: await getFilmasinKodu(ncbkCap),
+            bilesen_kodu: getFilmasinKodu(ncbkCap),
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (ncbkCap/20) * (ncbkCap/20) * ncbkLength * 7.85 / 1000).toFixed(5)),
             aciklama: 'Filmaşin Tüketim Miktarı',
@@ -6068,7 +6089,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             olcu_br: 'MT',
             sira_no: 1,
             operasyon_bilesen: 'Bileşen',
-            bilesen_kodu: await getFilmasinKodu(ntelCap),
+            bilesen_kodu: getFilmasinKodu(ntelCap),
             olcu_br_bilesen: 'KG',
             miktar: parseFloat((Math.PI * (ntelCap/20) * (ntelCap/20) * 100 * 7.85 / 1000).toFixed(5)),
             aciklama: 'Filmaşin Tüketim Miktarı',
@@ -6937,7 +6958,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!retrySuccess) {
               console.error(`*** Failed to save CH after 3 retry attempts`);
               toast.error(`Kayıt başarısız: 3 deneme sonucu duplicate hatası`);
-              continue; // Skip this product
+              return; // Skip this product
             }
           } else if (!chResponse.ok) {
             throw new Error(`CH kaydı başarısız: ${chResponse.status}`);
@@ -7011,7 +7032,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = cachedResult;
               ncbkResults[length] = cachedResult;
-              continue; // Skip API call, use cached result
+              return; // Skip API call, use cached result
             }
             
             ncbkApiCalls++;
@@ -7145,7 +7166,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = existingResult;
               ncbkResults[length] = existingResult;
-              continue; // Continue to next NCBK
+              return; // Continue to next NCBK
             } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
@@ -7300,7 +7321,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           });
           
           toast.error(`Ürün kaydı hatası: ${product.hasirTipi}`);
-          continue; // Bu ürünü atla, diğerlerine devam et
+          return; // Bu ürünü atla, diğerlerine devam et
         }
 
         // Recipe kayıtları oluştur (sadece yeni ürünler için)
