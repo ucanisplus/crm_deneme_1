@@ -3842,7 +3842,7 @@ const GalvanizliTelNetsis = () => {
     const capStr = Math.round(capValue * 100).toString().padStart(4, '0');
     const filmasinStr = Math.round(filmasinValue * 100).toString().padStart(4, '0');
     const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${qualityValue}`;
-    const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinValue.toFixed(2)}.${qualityValue}`;
+    const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinStr}.${qualityValue}`;
 
     // Check for duplicates
     if (ymStReceteList.some(item => item.stok_kodu === stokKodu)) {
@@ -3907,7 +3907,7 @@ const GalvanizliTelNetsis = () => {
       const receteHeaders = getReceteHeaders();
       receteSheet.addRow(receteHeaders);
 
-      // Add recipes for each YM ST
+      // Add recipes for each YM ST using the same helper functions as main flow
       ymStReceteList.forEach(ymSt => {
         // Calculate TLC01 value using the proper calculateTlcHiz function
         const ymStCap = parseFloat(ymSt.cap);
@@ -3924,65 +3924,12 @@ const GalvanizliTelNetsis = () => {
         const filmasinStr = Math.round(ymSt.filmasin * 100).toString().padStart(4, '0');
         const filmasinKodu = `FLM.${filmasinStr}.${ymSt.quality}`;
 
-        // Material row (Bileşen) - Sıra No: 1
-        const materialRow = [
-          ymSt.stok_kodu, // Mamul Kodu(*)
-          '1', // Reçete Top.
-          '', // Fire Oranı (%)
-          '', // Oto.Reç.
-          'KG', // Ölçü Br.
-          '1', // Sıra No(*) - Always 1 for material
-          'B', // Operasyon Bileşen
-          filmasinKodu, // Bileşen Kodu(*)
-          '1', // Ölçü Br. - Bileşen
-          '1,00000', // Miktar(*) - Always 1 kg filmaşin per 1 kg YM ST
-          'Filmaşin Tüketimi', // Açıklama
-          '', // Miktar Sabitle
-          '', // Stok/Maliyet
-          '', // Fire Mik.
-          '', // Sabit Fire Mik.
-          '', // İstasyon Kodu
-          '', // Hazırlık Süresi
-          '', // Üretim Süresi
-          '', // Ü.A.Dahil Edilsin
-          '', // Son Operasyon
-          '', // Öncelik
-          '', // Planlama Oranı
-          '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
-        ];
-        receteSheet.addRow(materialRow);
+        // Use the exact same helper function as main flow for YM ST recipe rows
+        // Row 1: Filmaşin (Bileşen)
+        receteSheet.addRow(generateYmStReceteRow(filmasinKodu, 1, 1, ymSt));
 
-        // Operation row (TLC01) - Sıra No: 2
-        const operationRow = [
-          ymSt.stok_kodu, // Mamul Kodu(*)
-          '1', // Reçete Top.
-          '', // Fire Oranı (%)
-          '', // Oto.Reç.
-          'DK', // Ölçü Br. (DK for operation)
-          '2', // Sıra No(*) - Always 2 for operation
-          'O', // Operasyon Bileşen
-          'TLC01', // Bileşen Kodu(*)
-          '1', // Ölçü Br. - Bileşen
-          '', // Miktar(*) - Empty for operation
-          'Tel Çekme Operasyonu', // Açıklama
-          '', // Miktar Sabitle
-          '', // Stok/Maliyet
-          '', // Fire Mik.
-          '', // Sabit Fire Mik.
-          '', // İstasyon Kodu
-          '', // Hazırlık Süresi
-          tlcValue.toLocaleString('tr-TR', {
-            minimumFractionDigits: 5,
-            maximumFractionDigits: 5,
-            useGrouping: false
-          }), // Üretim Süresi - Duration goes here!
-          'E', // Ü.A.Dahil Edilsin
-          'E', // Son Operasyon
-          '', // Öncelik
-          '', // Planlama Oranı
-          '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
-        ];
-        receteSheet.addRow(operationRow);
+        // Row 2: TLC01 (Operasyon)
+        receteSheet.addRow(generateYmStReceteRow('TLC01', tlcValue, 2, ymSt));
       });
 
       // Save Reçete Excel
