@@ -3822,7 +3822,7 @@ const GalvanizliTelNetsis = () => {
   // Add YM ST to list
   const addYmStToReceteList = () => {
     const capValue = parseFloat(newYmStRecete.cap);
-    const filmasinValue = parseInt(newYmStRecete.filmasin);
+    const filmasinValue = parseFloat(newYmStRecete.filmasin);
     const qualityValue = newYmStRecete.quality;
 
     // Validation
@@ -3830,8 +3830,8 @@ const GalvanizliTelNetsis = () => {
       toast.error('Geçerli bir YM ST çapı girin');
       return;
     }
-    if (!filmasinValue) {
-      toast.error('Filmaşin çapı seçin');
+    if (!filmasinValue || filmasinValue <= 0) {
+      toast.error('Geçerli bir filmaşin çapı girin');
       return;
     }
     if (!qualityValue) {
@@ -3842,7 +3842,7 @@ const GalvanizliTelNetsis = () => {
     const capStr = Math.round(capValue * 100).toString().padStart(4, '0');
     const filmasinStr = Math.round(filmasinValue * 100).toString().padStart(4, '0');
     const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${qualityValue}`;
-    const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinValue}.${qualityValue}`;
+    const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinValue.toFixed(2)}.${qualityValue}`;
 
     // Check for duplicates
     if (ymStReceteList.some(item => item.stok_kodu === stokKodu)) {
@@ -3878,28 +3878,6 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsGeneratingYmStExcel(true);
 
-      // Get current TLC_Hiz value
-      let currentTlcHiz = tlcHiz;
-      if (!currentTlcHiz || currentTlcHiz <= 0) {
-        // Fetch from database if not in state
-        try {
-          const response = await fetchWithAuth(API_URLS.galTlcHizlar);
-          if (response && response.ok) {
-            const tlcData = await response.json();
-            if (tlcData && tlcData.length > 0) {
-              currentTlcHiz = parseFloat(tlcData[0].tlc_hiz);
-            }
-          }
-        } catch (error) {
-          console.error('TLC_Hiz fetch error:', error);
-        }
-      }
-
-      if (!currentTlcHiz || currentTlcHiz <= 0) {
-        toast.error('TLC_Hiz değeri bulunamadı. Lütfen ayarlardan kontrol edin.');
-        return;
-      }
-
       // ===== STOK KARTI EXCEL =====
       const stokWorkbook = new ExcelJS.Workbook();
       const stokSheet = stokWorkbook.addWorksheet('YM ST');
@@ -3931,9 +3909,15 @@ const GalvanizliTelNetsis = () => {
 
       // Add recipes for each YM ST
       ymStReceteList.forEach(ymSt => {
-        // Calculate TLC01 value
+        // Calculate TLC01 value using the proper calculateTlcHiz function
         const ymStCap = parseFloat(ymSt.cap);
-        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / currentTlcHiz / 60);
+        const hmCap = parseFloat(ymSt.filmasin);
+
+        // Calculate TLC_Hiz using the same function as main flow
+        const tlcHizValue = calculateTlcHiz(hmCap, ymStCap);
+
+        // TLC01 formula
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHizValue / 60);
         const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5));
 
         // Filmaşin code
@@ -14386,29 +14370,22 @@ const GalvanizliTelNetsis = () => {
                       />
                     </div>
 
-                    {/* Filmaşin Dropdown */}
+                    {/* Filmaşin Text Field */}
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Filmaşin Çapı *
+                        Filmaşin Çapı (mm) *
                       </label>
-                      <select
+                      <input
+                        type="text"
+                        inputMode="decimal"
                         value={newYmStRecete.filmasin}
-                        onChange={(e) => setNewYmStRecete(prev => ({ ...prev, filmasin: e.target.value }))}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/,/g, '.');
+                          setNewYmStRecete(prev => ({ ...prev, filmasin: value }));
+                        }}
+                        placeholder="6.0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">Seçin</option>
-                        <option value="5.5">5.5mm</option>
-                        <option value="6.0">6.0mm</option>
-                        <option value="6.5">6.5mm</option>
-                        <option value="7.0">7.0mm</option>
-                        <option value="7.5">7.5mm</option>
-                        <option value="8.0">8.0mm</option>
-                        <option value="9.0">9.0mm</option>
-                        <option value="10.0">10.0mm</option>
-                        <option value="11.0">11.0mm</option>
-                        <option value="12.0">12.0mm</option>
-                        <option value="13.0">13.0mm</option>
-                      </select>
+                      />
                     </div>
 
                     {/* Kalite Dropdown */}
