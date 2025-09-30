@@ -4107,12 +4107,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelWeight = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
           ntelSheet.addRow([
-            ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim, '20', '20', '20', '35',
-            'MT', 'KG', '1', toExcelDecimal(ntelWeight), '', '', '1', '1', 'Y', '',
-            toExcelDecimal(parseFloat(boyCap)), '', '', '', '', toExcelDecimal(ntelWeight), '', '', '0', '0',
-            '0', '', '', '', '0', '2', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-            '', '0', '0', '0', '0', '0', '0', 'D', '', '', '', '', '', 'H', 'H',
-            ntelStokKodu, 'YM', '', 'E', 'E'
+            ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim,
+            '20', '20', '20', '35',
+            'MT', 'KG', '1', toExcelDecimal(ntelWeight), '',
+            '', '1', '1', '1',
+            '', toExcelDecimal(parseFloat(boyCap)), '',
+            '0', '0', '', toExcelDecimal(ntelWeight),
+            '0', '0', '0', '0', '0', '', '', '',
+            '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
+            '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
+            '', '', '', '', '', 'H', 'E', '', '', '',
+            ntelStokKodu, 'NTEL', 'E', 'E'
           ]);
         }
       }
@@ -4165,26 +4170,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelWeight = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
             
             ntelSheet.addRow([
-              // 1-7: Basic info (Stok Kodu, Stok Adı, Grup Kodu, Grup İsmi, Kod-1, Kod-2, İngilizce İsim)
               ntelStokKodu, ntelStokAdi, 'YM', 'YARI MAMÜL', 'NTEL', '', ntelIngilizceIsim,
-              // 8-11: KDV and codes (Alış KDV Oranı, Satış KDV Oranı, Muh. Detay, Depo Kodu)
               '20', '20', '20', '35',
-              // 12-16: Units and conversions (Br-1, Br-2, Pay-1, Payda-1, Çevrim Değeri-1)
               'MT', 'KG', '1', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)), '',
-              // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
-              '', '1', '1', 'Y',
-              // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
-              '', toExcelDecimal(parseFloat(enCap)), '', '', '', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
-              // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
-              '', '', '0', '0', '0', '', '', '',
-              // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
+              '', '1', '1', '1',
+              '', toExcelDecimal(parseFloat(enCap)), '',
+              '0', '0', '', toExcelDecimal(parseFloat(ntelWeight).toFixed(5)),
+              '0', '0', '0', '0', '0', '', '', '',
               '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
-              // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
-              '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
-              // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
-              '', '', '', '', '', 'H', 'H', ntelStokKodu, 'YM', '',
-              // 66-69: Extra columns from our app format (not in CSV template)  
-              'E', 'E'
+              '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
+              '', '', '', '', '', 'H', 'E', '', '', '',
+              ntelStokKodu, 'NTEL', 'E', 'E'
             ]);
           }
         }
@@ -4726,20 +4722,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteAlt1Sheet.addRow(receteHeaders);
 
-    // Sheets 3-7: YM NCBK REÇETE and ALT 1-5 (priority 1-5)
+    // Sheets 3-8: YM NCBK REÇETE (main) + ALT 1-5 = 6 sheets total
     const ncbkSheets = [];
-    for (let i = 0; i < 5; i++) {
-      const sheetName = i === 0 ? 'YM NCBK REÇETE' : `YM NCBK REÇETE ALT ${i}`;
-      const sheet = workbook.addWorksheet(sheetName);
+    // Main NCBK sheet (priority 0)
+    const ncbkMainSheet = workbook.addWorksheet('YM NCBK REÇETE');
+    ncbkMainSheet.addRow(receteHeaders);
+    ncbkSheets.push(ncbkMainSheet);
+    // Alternative NCBK sheets (priority 1-5)
+    for (let i = 1; i <= 5; i++) {
+      const sheet = workbook.addWorksheet(`YM NCBK ALT${i}`);
       sheet.addRow(receteHeaders);
       ncbkSheets.push(sheet);
     }
 
-    // Sheets 8-12: YM NTEL REÇETE and ALT 1-5 (priority 1-5)
+    // Sheets 9-14: YM NTEL REÇETE (main) + ALT 1-5 = 6 sheets total
     const ntelSheets = [];
-    for (let i = 0; i < 5; i++) {
-      const sheetName = i === 0 ? 'YM NTEL REÇETE' : `YM NTEL REÇETE ALT ${i}`;
-      const sheet = workbook.addWorksheet(sheetName);
+    // Main NTEL sheet (priority 0)
+    const ntelMainSheet = workbook.addWorksheet('YM NTEL REÇETE');
+    ntelMainSheet.addRow(receteHeaders);
+    ntelSheets.push(ntelMainSheet);
+    // Alternative NTEL sheets (priority 1-5)
+    for (let i = 1; i <= 5; i++) {
+      const sheet = workbook.addWorksheet(`YM NTEL ALT${i}`);
       sheet.addRow(receteHeaders);
       ntelSheets.push(sheet);
     }
