@@ -75,7 +75,17 @@ const GalvanizliTelNetsis = () => {
   const [coilerSourceYmSts, setCoilerSourceYmSts] = useState([]); // Multiple sources
   const [coilerSourceYmStSearch, setCoilerSourceYmStSearch] = useState('');
   const [isGeneratingCoilerExcel, setIsGeneratingCoilerExcel] = useState(false);
-  
+
+  // YM ST Recete modali (standalone - filmaşinden YM ST)
+  const [showYmStReceteModal, setShowYmStReceteModal] = useState(false);
+  const [ymStReceteList, setYmStReceteList] = useState([]); // List of YM STs to generate
+  const [newYmStRecete, setNewYmStRecete] = useState({
+    cap: '',
+    filmasin: '',
+    quality: ''
+  });
+  const [isGeneratingYmStExcel, setIsGeneratingYmStExcel] = useState(false);
+
   // Change preview modal for edit mode
   const [showChangePreviewModal, setShowChangePreviewModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(null);
@@ -3806,6 +3816,214 @@ const GalvanizliTelNetsis = () => {
   };
 
   // ======================= END COILER RECETE FUNCTIONS =======================
+
+  // ======================= YM ST RECETE (STANDALONE) FUNCTIONS =======================
+
+  // Add YM ST to list
+  const addYmStToReceteList = () => {
+    const capValue = parseFloat(newYmStRecete.cap);
+    const filmasinValue = parseInt(newYmStRecete.filmasin);
+    const qualityValue = newYmStRecete.quality;
+
+    // Validation
+    if (!capValue || capValue <= 0) {
+      toast.error('Geçerli bir YM ST çapı girin');
+      return;
+    }
+    if (!filmasinValue) {
+      toast.error('Filmaşin çapı seçin');
+      return;
+    }
+    if (!qualityValue) {
+      toast.error('Kalite seçin');
+      return;
+    }
+
+    const capStr = Math.round(capValue * 100).toString().padStart(4, '0');
+    const filmasinStr = Math.round(filmasinValue * 100).toString().padStart(4, '0');
+    const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${qualityValue}`;
+    const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinValue}.${qualityValue}`;
+
+    // Check for duplicates
+    if (ymStReceteList.some(item => item.stok_kodu === stokKodu)) {
+      toast.warning('Bu YM ST zaten listede mevcut');
+      return;
+    }
+
+    const newYmSt = {
+      stok_kodu: stokKodu,
+      stok_adi: stokAdi,
+      cap: capValue,
+      filmasin: filmasinValue,
+      quality: qualityValue
+    };
+
+    setYmStReceteList(prev => [...prev, newYmSt]);
+    setNewYmStRecete({ cap: '', filmasin: '', quality: '' });
+    toast.success('YM ST listeye eklendi');
+  };
+
+  // Remove YM ST from list
+  const removeYmStFromReceteList = (stokKodu) => {
+    setYmStReceteList(prev => prev.filter(item => item.stok_kodu !== stokKodu));
+  };
+
+  // Generate YM ST Excel files (Stok + Reçete)
+  const generateYmStReceteExcel = async () => {
+    if (ymStReceteList.length === 0) {
+      toast.error('Lütfen en az bir YM ST ekleyin');
+      return;
+    }
+
+    try {
+      setIsGeneratingYmStExcel(true);
+
+      // Get current TLC_Hiz value
+      let currentTlcHiz = tlcHiz;
+      if (!currentTlcHiz || currentTlcHiz <= 0) {
+        // Fetch from database if not in state
+        try {
+          const response = await fetchWithAuth(API_URLS.galTlcHizlar);
+          if (response && response.ok) {
+            const tlcData = await response.json();
+            if (tlcData && tlcData.length > 0) {
+              currentTlcHiz = parseFloat(tlcData[0].tlc_hiz);
+            }
+          }
+        } catch (error) {
+          console.error('TLC_Hiz fetch error:', error);
+        }
+      }
+
+      if (!currentTlcHiz || currentTlcHiz <= 0) {
+        toast.error('TLC_Hiz değeri bulunamadı. Lütfen ayarlardan kontrol edin.');
+        return;
+      }
+
+      // ===== STOK KARTI EXCEL =====
+      const stokWorkbook = new ExcelJS.Workbook();
+      const stokSheet = stokWorkbook.addWorksheet('YM ST');
+
+      // Add headers
+      const stokHeaders = getYmStHeaders();
+      stokSheet.addRow(stokHeaders);
+
+      // Add YM ST products
+      ymStReceteList.forEach(ymSt => {
+        stokSheet.addRow(generateYmStStokKartiData(ymSt));
+      });
+
+      // Save Stok Kartı Excel
+      const stokBuffer = await stokWorkbook.xlsx.writeBuffer();
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const stokFilename = `YM_ST_Stok_Karti_${timestamp}.xlsx`;
+      saveAs(new Blob([stokBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }), stokFilename);
+
+      // ===== REÇETE EXCEL =====
+      const receteWorkbook = new ExcelJS.Workbook();
+      const receteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
+
+      // Add headers
+      const receteHeaders = getReceteHeaders();
+      receteSheet.addRow(receteHeaders);
+
+      // Add recipes for each YM ST
+      ymStReceteList.forEach(ymSt => {
+        // Calculate TLC01 value
+        const ymStCap = parseFloat(ymSt.cap);
+        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / currentTlcHiz / 60);
+        const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5));
+
+        // Filmaşin code
+        const filmasinStr = Math.round(ymSt.filmasin * 100).toString().padStart(4, '0');
+        const filmasinKodu = `FLM.${filmasinStr}.${ymSt.quality}`;
+
+        // Material row (Bileşen) - Sıra No: 1
+        const materialRow = [
+          ymSt.stok_kodu, // Mamul Kodu(*)
+          '1', // Reçete Top.
+          '', // Fire Oranı (%)
+          '', // Oto.Reç.
+          'KG', // Ölçü Br.
+          '1', // Sıra No(*) - Always 1 for material
+          'B', // Operasyon Bileşen
+          filmasinKodu, // Bileşen Kodu(*)
+          '1', // Ölçü Br. - Bileşen
+          '1,00000', // Miktar(*) - Always 1 kg filmaşin per 1 kg YM ST
+          'Filmaşin Tüketimi', // Açıklama
+          '', // Miktar Sabitle
+          '', // Stok/Maliyet
+          '', // Fire Mik.
+          '', // Sabit Fire Mik.
+          '', // İstasyon Kodu
+          '', // Hazırlık Süresi
+          '', // Üretim Süresi
+          '', // Ü.A.Dahil Edilsin
+          '', // Son Operasyon
+          '', // Öncelik
+          '', // Planlama Oranı
+          '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
+        ];
+        receteSheet.addRow(materialRow);
+
+        // Operation row (TLC01) - Sıra No: 2
+        const operationRow = [
+          ymSt.stok_kodu, // Mamul Kodu(*)
+          '1', // Reçete Top.
+          '', // Fire Oranı (%)
+          '', // Oto.Reç.
+          'DK', // Ölçü Br. (DK for operation)
+          '2', // Sıra No(*) - Always 2 for operation
+          'O', // Operasyon Bileşen
+          'TLC01', // Bileşen Kodu(*)
+          '1', // Ölçü Br. - Bileşen
+          '', // Miktar(*) - Empty for operation
+          'Tel Çekme Operasyonu', // Açıklama
+          '', // Miktar Sabitle
+          '', // Stok/Maliyet
+          '', // Fire Mik.
+          '', // Sabit Fire Mik.
+          '', // İstasyon Kodu
+          '', // Hazırlık Süresi
+          tlcValue.toLocaleString('tr-TR', {
+            minimumFractionDigits: 5,
+            maximumFractionDigits: 5,
+            useGrouping: false
+          }), // Üretim Süresi - Duration goes here!
+          'E', // Ü.A.Dahil Edilsin
+          'E', // Son Operasyon
+          '', // Öncelik
+          '', // Planlama Oranı
+          '', '', '', '', '' // Alternatif Politika fields and İÇ/DIŞ
+        ];
+        receteSheet.addRow(operationRow);
+      });
+
+      // Save Reçete Excel
+      const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
+      const receteFilename = `YM_ST_Recete_${timestamp}.xlsx`;
+      saveAs(new Blob([receteBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }), receteFilename);
+
+      toast.success(`${ymStReceteList.length} YM ST için Stok ve Reçete Excel dosyaları oluşturuldu!`);
+
+      // Close modal and reset
+      setShowYmStReceteModal(false);
+      setYmStReceteList([]);
+      setNewYmStRecete({ cap: '', filmasin: '', quality: '' });
+
+    } catch (error) {
+      console.error('YM ST Excel generation error:', error);
+      toast.error(`Excel oluşturma hatası: ${error.message}`);
+    } finally {
+      setIsGeneratingYmStExcel(false);
+    }
+  };
+
+  // ======================= END YM ST RECETE (STANDALONE) FUNCTIONS =======================
 
   // Otomatik reçete değerlerini hesapla - NOKTA kullan ve geliştirilmiş hata kontrolü ile
   const calculateAutoRecipeValues = () => {
@@ -12227,6 +12445,15 @@ const GalvanizliTelNetsis = () => {
             Coiler Reçete
           </button>
           <button
+            onClick={() => setShowYmStReceteModal(true)}
+            className="px-3 py-2 bg-green-600 text-white rounded-md text-sm flex items-center"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            YM ST Reçete
+          </button>
+          <button
             onClick={() => setShowExistingMmGtModal(true)}
             className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
@@ -14095,6 +14322,189 @@ const GalvanizliTelNetsis = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         Coiler Exceli Oluştur
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YM ST Reçete Modalı (Standalone - Filmaşinden YM ST) */}
+      {showYmStReceteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  YM ST Reçete Oluştur (Filmaşinden)
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowYmStReceteModal(false);
+                    setYmStReceteList([]);
+                    setNewYmStRecete({ cap: '', filmasin: '', quality: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-sm text-gray-600">
+                  Filmaşinden üretilen YM ST (Siyah Tel) ürünleri için Stok Kartı ve Reçete Excel dosyaları oluşturun.
+                </p>
+
+                {/* Add YM ST Form */}
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-700">YM ST Ekle</h3>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* YM ST Çap */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        YM ST Çapı (mm) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={newYmStRecete.cap}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/,/g, '.');
+                          setNewYmStRecete(prev => ({ ...prev, cap: value }));
+                        }}
+                        placeholder="3.08"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+
+                    {/* Filmaşin Dropdown */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Filmaşin Çapı *
+                      </label>
+                      <select
+                        value={newYmStRecete.filmasin}
+                        onChange={(e) => setNewYmStRecete(prev => ({ ...prev, filmasin: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Seçin</option>
+                        <option value="5.5">5.5mm</option>
+                        <option value="6.0">6.0mm</option>
+                        <option value="6.5">6.5mm</option>
+                        <option value="7.0">7.0mm</option>
+                        <option value="7.5">7.5mm</option>
+                        <option value="8.0">8.0mm</option>
+                        <option value="9.0">9.0mm</option>
+                        <option value="10.0">10.0mm</option>
+                        <option value="11.0">11.0mm</option>
+                        <option value="12.0">12.0mm</option>
+                        <option value="13.0">13.0mm</option>
+                      </select>
+                    </div>
+
+                    {/* Kalite Dropdown */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Kalite *
+                      </label>
+                      <select
+                        value={newYmStRecete.quality}
+                        onChange={(e) => setNewYmStRecete(prev => ({ ...prev, quality: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Seçin</option>
+                        <option value="1006">1006</option>
+                        <option value="1008">1008</option>
+                        <option value="1010">1010</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={addYmStToReceteList}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Listeye Ekle
+                  </button>
+                </div>
+
+                {/* YM ST List */}
+                {ymStReceteList.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      Eklenecek YM ST Listesi ({ymStReceteList.length})
+                    </h3>
+                    <div className="border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-60 overflow-y-auto">
+                      {ymStReceteList.map((ymSt, index) => (
+                        <div
+                          key={ymSt.stok_kodu}
+                          className="p-3 hover:bg-gray-50 transition-colors flex justify-between items-center"
+                        >
+                          <div>
+                            <div className="font-medium text-sm">{ymSt.stok_kodu}</div>
+                            <div className="text-xs text-gray-600">{ymSt.stok_adi}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Çap: {ymSt.cap}mm | Filmaşin: {ymSt.filmasin}mm | Kalite: {ymSt.quality}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeYmStFromReceteList(ymSt.stok_kodu)}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                            title="Listeden çıkar"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setShowYmStReceteModal(false);
+                      setYmStReceteList([]);
+                      setNewYmStRecete({ cap: '', filmasin: '', quality: '' });
+                    }}
+                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    onClick={generateYmStReceteExcel}
+                    disabled={isGeneratingYmStExcel || ymStReceteList.length === 0}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isGeneratingYmStExcel ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Oluşturuluyor...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Excel Oluştur
                       </>
                     )}
                   </button>
