@@ -4310,8 +4310,6 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             };
             
             const flmKodu = getFilmasinKodu(boyCap);
-            const flmInfo = getFilmasinByPriority(boyCap, 0);
-            const actualDiameter = flmInfo ? flmInfo.diameter : boyCap;
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
@@ -5365,23 +5363,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      // Boy direction NCBK recipes - generate for all 5 alternatif sheets
+      // Boy direction NCBK recipes - only generate for available priorities
       if (boyCap > 0) {
         const boyKey = `${boyCap}-${uzunlukBoy}`;
+        const availablePriorities = getAvailablePriorities(boyCap);
 
-        for (let priority = 0; priority <= 5; priority++) {
+        for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Skip if no alternative exists for this priority
+            // Should always exist since we got it from availablePriorities
             if (!flmInfo) {
               continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
