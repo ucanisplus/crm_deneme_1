@@ -1879,11 +1879,26 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Handle both possible response structures
         const productList = dbData.data || dbData;
         if (Array.isArray(productList) && productList.length > 0) {
+          // Debug: Check actual field names in response
+          console.log('*** First product fields:', Object.keys(productList[0]));
+          console.log('*** First product stok_kodu variants:', {
+            stok_kodu: productList[0].stok_kodu,
+            stokKodu: productList[0].stokKodu,
+            STOK_KODU: productList[0].STOK_KODU
+          });
+
           let highestDbSequence = 0;
-          productList.forEach(product => {
-            const match = product.stok_kodu.match(/CHOZL(\d+)/);
+          productList.forEach((product, idx) => {
+            // Try multiple field name variants
+            const stokKodu = product.stok_kodu || product.stokKodu || product.STOK_KODU;
+            if (!stokKodu) {
+              console.warn(`*** Product ${idx} has no stok_kodu field:`, product);
+              return;
+            }
+            const match = stokKodu.match(/CHOZL(\d+)/);
             if (match) {
               const seqNum = parseInt(match[1]);
+              console.log(`*** Found sequence ${seqNum} from ${stokKodu}`);
               if (seqNum > highestDbSequence) {
                 highestDbSequence = seqNum;
               }
@@ -7125,15 +7140,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               // NCBK already exists - this is normal, just use existing
               console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
               const existingResult = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
-              
+
               // OPTIMIZATION: Cache result for future products
               batchNcbkCache.set(ncbkStokKodu, existingResult);
-              
+
               // Store result for current product
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = existingResult;
               ncbkResults[length] = existingResult;
-              return; // Continue to next NCBK
+              continue; // FIXED: Continue to next NCBK spec, not exit entire function
             } else if (!ncbkResponse.ok) {
               throw new Error(`NCBK kaydı başarısız: ${ncbkResponse.status}`);
             } else {
