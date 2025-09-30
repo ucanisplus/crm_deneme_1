@@ -4311,10 +4311,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             const flmInfo = getFilmasinByPriority(boyCap, 0);
             const flmKodu = flmInfo ? flmInfo.code : getFilmasinKodu(boyCap);
-            // Calculate filmaşin consumption based on wire drawing physics
+            // Miktar: Weight based on target diameter (conservation of mass)
+            const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
+            // Duration uses actual filmaşin diameter for machine speed calculation
             const filmasinDiameter = flmInfo ? flmInfo.diameter : boyCap;
-            const lengthNeeded = uzunlukBoy * Math.pow(boyCap / filmasinDiameter, 2);
-            const flmTuketimi = (Math.PI * (filmasinDiameter/20) * (filmasinDiameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5);
             
             // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
             ncbkReceteSheet.addRow([
@@ -4340,10 +4340,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           // Use priority-based filmaşin selection (priority 0 = main recipe)
           const flmInfo = getFilmasinByPriority(boyCap, 0);
           const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
-          // Calculate filmaşin consumption for NTEL
+          // Miktar: Weight based on target diameter (conservation of mass)
+          const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
+          // Duration uses actual filmaşin diameter for machine speed calculation
           const filmasinDiameter = flmInfo ? flmInfo.diameter : boyCap;
-          const lengthNeeded = 100 * Math.pow(boyCap / filmasinDiameter, 2);
-          const ntelFlmTuketimi = (Math.PI * (filmasinDiameter/20) * (filmasinDiameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5);
           
           // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
           ntelReceteSheet.addRow([
@@ -4578,11 +4578,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukBoy * Math.pow(boyCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
@@ -4614,11 +4611,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukEn * Math.pow(enCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
@@ -4884,11 +4878,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukBoy * Math.pow(boyCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -4921,11 +4912,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukEn * Math.pow(enCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -4957,11 +4945,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            // Calculate filmaşin consumption for NTEL (per meter)
-            // Length needed = 100cm × (target_diameter / source_diameter)²
-            const lengthNeeded = 100 * Math.pow(boyCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg for 100m
+            // Miktar: Weight based on target diameter (conservation of mass)
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
@@ -5711,11 +5696,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukBoy * Math.pow(boyCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -5748,11 +5730,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Calculate filmaşin consumption based on wire drawing physics
-            // Length needed = target_length × (target_diameter / source_diameter)²
-            const lengthNeeded = uzunlukEn * Math.pow(enCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ncbkFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg
+            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
             ncbkSheets[priority].addRow([
@@ -5784,11 +5763,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            // Calculate filmaşin consumption for NTEL (per meter)
-            // Length needed = 100cm × (target_diameter / source_diameter)²
-            const lengthNeeded = 100 * Math.pow(boyCap / flmInfo.diameter, 2);
-            // Weight = π × (source_diameter/20)² × length_needed × density / 1000
-            const ntelFlmTuketimi = (Math.PI * (flmInfo.diameter/20) * (flmInfo.diameter/20) * lengthNeeded * 7.85 / 1000).toFixed(5); // kg for 100m
+            // Miktar: Weight based on target diameter (conservation of mass)
+            const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
             // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
             ntelSheets[priority].addRow([
