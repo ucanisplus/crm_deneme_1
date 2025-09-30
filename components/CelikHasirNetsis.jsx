@@ -6979,7 +6979,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = cachedResult;
               ncbkResults[length] = cachedResult;
-              return; // Skip API call, use cached result
+              continue; // Skip API call, use cached result
             }
             
             ncbkApiCalls++;
