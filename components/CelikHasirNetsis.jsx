@@ -8126,33 +8126,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           {(isLoading || isSavingToDatabase || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
           Kaydet ve Excel Oluştur
         </button>
-        
-        <button
-          onClick={async () => {
-            if (validProducts.length === 0) {
-              toast.warn('Excel oluşturmak için önce ürün listesini doldurun.');
-              return;
-            }
-            
-            setIsLoading(true); // Show immediate feedback
-            try {
-              // Show analysis count for Excel operations
-              const newProductsCount = getProductsToSave().length;
-              const existingProductsCount = validProducts.length - newProductsCount;
-              toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilmemiş`);
-              
-              setShowExcelOptionsModal(true);
-            } finally {
-              setIsLoading(false); // Hide loading when modal appears
-            }
-          }}
-          disabled={isLoading || isGeneratingExcel || isSavingToDatabase || validProducts.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-        >
-          {(isLoading || isGeneratingExcel) && <Loader className="w-4 h-4 animate-spin" />}
-          Sadece Excel Oluştur
-        </button>
-        
+
         <button
           onClick={() => {
             setShowDatabaseModal(true);
