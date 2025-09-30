@@ -14346,6 +14346,7 @@ const GalvanizliTelNetsis = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         <option value="">Seçin</option>
+                        <option value="1005">1005</option>
                         <option value="1006">1006</option>
                         <option value="1008">1008</option>
                         <option value="1010">1010</option>
