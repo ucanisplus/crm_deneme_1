@@ -3592,10 +3592,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
       await generateMergedReceteExcel(products, timestamp, includeAllProducts);
       console.log('DEBUG: Merged Reçete Excel completed');
-      
-      // Show comprehensive success message for the entire save+Excel process
+
+      // Show success message for Excel generation only (saving messages handled by caller)
       const productCount = products ? products.length : 0;
-      toast.success(`✅ İşlem tamamlandı! ${productCount} yeni ürün kaydedildi ve Excel dosyaları oluşturuldu!`);
+      toast.success(`✅ ${productCount} ürün için Excel dosyaları oluşturuldu!`);
       
     } catch (error) {
       console.error('Excel oluşturma hatası:', error);
@@ -3607,8 +3607,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setIsLoading(false);
       setExcelProgress({ current: 0, total: 0, operation: '' });
       setDatabaseProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
-      
-      console.log('✅ UNIFIED MODAL: Save and Excel generation process finished - modal closed');
+
+      console.log('✅ UNIFIED MODAL: Excel generation process finished - modal closed');
     }
   }, []);
 
