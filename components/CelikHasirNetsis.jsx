@@ -57,9 +57,33 @@ const FILMASIN_PRIORITY_MAP = {
   12.00: [{ diameter: 13.0, quality: '1010' }, { diameter: 13.0, quality: '1008' }] // 0,1
 };
 
+// Helper function to find closest bigger diameter in the matrix when exact match doesn't exist
+const getClosestBiggerDiameter = (targetDiameter) => {
+  const availableDiameters = Object.keys(FILMASIN_PRIORITY_MAP).map(d => parseFloat(d)).sort((a, b) => a - b);
+
+  // Find the smallest diameter that is bigger than or equal to target
+  for (const diameter of availableDiameters) {
+    if (diameter >= targetDiameter) {
+      return diameter;
+    }
+  }
+
+  // If no bigger diameter found, return the largest available
+  return availableDiameters[availableDiameters.length - 1];
+};
+
 // Fast hardcoded filmaşin selection (same logic as old working version)
+// Now with fallback to closest bigger diameter for missing values
 const getFilmasinByPriority = (targetDiameter, priority) => {
-  const priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+  let priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+
+  // If exact diameter not found, use closest bigger diameter
+  if (!priorityList) {
+    const closestDiameter = getClosestBiggerDiameter(targetDiameter);
+    priorityList = FILMASIN_PRIORITY_MAP[closestDiameter];
+    console.log(`🔄 Diameter ${targetDiameter}mm not in matrix, using ${closestDiameter}mm priorities`);
+  }
+
   if (!priorityList || priority >= priorityList.length) {
     // Return null to indicate no alternative exists for this priority
     return null;
@@ -3823,7 +3847,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       // Generate Excel files with recipe data
       await generateBulkStokKartiExcel(allProcessedProducts, timestamp);
-      await generateBulkMergedReceteExcel(allProcessedProducts, receteLookup, timestamp);
+      await generateBulkMergedReceteExcel(allProcessedProducts, receteLookup, timestamp, allNCBKProducts, allNTELProducts);
       
       setExcelProgress({ current: 7, total: 7, operation: 'Tamamlandı!' });
       
@@ -5546,8 +5570,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
   // BULK Merged Recete Excel generation function (combines main recete + alternatif recete into 14 sheets)
-  const generateBulkMergedReceteExcel = async (allProducts, receteLookup, timestamp) => {
-    console.log('🚀 BULK MERGED RECETE: Starting with', allProducts.length, 'products');
+  const generateBulkMergedReceteExcel = async (allProducts, receteLookup, timestamp, allNCBKProducts = [], allNTELProducts = []) => {
+    console.log('🚀 BULK MERGED RECETE: Starting with', allProducts.length, 'MM products,', allNCBKProducts.length, 'NCBK products,', allNTELProducts.length, 'NTEL products');
 
     const workbook = new ExcelJS.Workbook();
 
@@ -5846,6 +5870,91 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
               'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
             ]);
+          }
+        }
+      }
+    });
+
+    // ===== STANDALONE: Generate recipes for NCBK products without MM equivalents =====
+    console.log('🚀 STANDALONE NCBK: Processing', allNCBKProducts.length, 'NCBK products for recipes');
+    allNCBKProducts.forEach(ncbkProduct => {
+      // Extract diameter and length from stok_kodu (e.g., YM.NCBK.0650.202 -> cap=6.50, length=202)
+      const stokKodu = ncbkProduct.stok_kodu;
+      const cap = parseFloat(ncbkProduct.cap || 0);
+      const length = parseInt(ncbkProduct.length_cm || 0);
+
+      if (cap > 0 && length > 0) {
+        const availablePriorities = getAvailablePriorities(cap);
+
+        // Generate recipes for all priorities
+        for (const priority of availablePriorities) {
+          const ncbkKey = `${cap}-${length}`;
+
+          // Check if already processed from MM products
+          if (!processedNCBKRecipes[priority].has(ncbkKey)) {
+            processedNCBKRecipes[priority].add(ncbkKey);
+
+            const flmInfo = getFilmasinByPriority(cap, priority);
+            if (!flmInfo) continue;
+
+            const ncbkFlmTuketimi = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000).toFixed(5);
+
+            ncbkSheets[priority].addRow([
+              stokKodu, '1', '', '', 'AD', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ncbkFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            ncbkSheets[priority].addRow([
+              stokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NDK01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NCBK', { length: length, boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            console.log(`✅ STANDALONE NCBK: Generated recipe for ${stokKodu} (${cap}mm x ${length}cm) with priority ${priority}`);
+          }
+        }
+      }
+    });
+
+    // ===== STANDALONE: Generate recipes for NTEL products without MM equivalents =====
+    console.log('🚀 STANDALONE NTEL: Processing', allNTELProducts.length, 'NTEL products for recipes');
+    allNTELProducts.forEach(ntelProduct => {
+      // Extract diameter from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.50)
+      const stokKodu = ntelProduct.stok_kodu;
+      const cap = parseFloat(ntelProduct.cap || 0);
+
+      if (cap > 0) {
+        const availablePriorities = getAvailablePriorities(cap);
+
+        // Generate recipes for all priorities
+        for (const priority of availablePriorities) {
+          const ntelKey = cap.toString();
+
+          // Check if already processed from MM products
+          if (!processedNTELRecipes[priority].has(ntelKey)) {
+            processedNTELRecipes[priority].add(ntelKey);
+
+            const flmInfo = getFilmasinByPriority(cap, priority);
+            if (!flmInfo) continue;
+
+            const ntelFlmTuketimi = (Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000).toFixed(5);
+
+            ntelSheets[priority].addRow([
+              stokKodu, '1', '', '', 'MT', '1', 'Bileşen',
+              flmInfo.code,
+              '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
+              '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            ntelSheets[priority].addRow([
+              stokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
+              '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', { boyCap: flmInfo.diameter, enCap: flmInfo.diameter })),
+              'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+            ]);
+
+            console.log(`✅ STANDALONE NTEL: Generated recipe for ${stokKodu} (${cap}mm) with priority ${priority}`);
           }
         }
       }
