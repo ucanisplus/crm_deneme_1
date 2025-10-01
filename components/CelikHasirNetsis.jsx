@@ -108,7 +108,15 @@ const getFilmasinKodu = (diameter) => {
 
 // Helper function to get available priorities for a target diameter
 const getAvailablePriorities = (targetDiameter) => {
-  const priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+  let priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
+
+  // If exact diameter not found, use closest bigger diameter
+  if (!priorityList) {
+    const closestDiameter = getClosestBiggerDiameter(targetDiameter);
+    priorityList = FILMASIN_PRIORITY_MAP[closestDiameter];
+    console.log(`🔄 getAvailablePriorities: Diameter ${targetDiameter}mm not in matrix, using ${closestDiameter}mm priorities`);
+  }
+
   if (!priorityList) return [];
   return priorityList.map((_, index) => index);
 };
