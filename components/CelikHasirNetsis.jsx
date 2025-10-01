@@ -5881,7 +5881,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Extract diameter and length from stok_kodu (e.g., YM.NCBK.0650.202 -> cap=6.50, length=202)
       const stokKodu = ncbkProduct.stok_kodu;
       const cap = parseFloat(ncbkProduct.cap || 0);
-      const length = parseInt(ncbkProduct.length_cm || 0);
+      // FIXED: Extract length from stok_kodu instead of length_cm field
+      const length = parseInt(stokKodu.split('.').pop() || 0);
 
       if (cap > 0 && length > 0) {
         const availablePriorities = getAvailablePriorities(cap);
