@@ -7971,17 +7971,17 @@ const GalvanizliTelNetsis = () => {
     if (bilesen === 'GTPKT01') return 'Paketleme Operasyonu';
     if (bilesen === 'GLV01') return 'Galvanizleme Operasyonu';
     if (bilesen === 'TLC01') return 'Tel Çekme Operasyonu';
-    if (bilesen === '150 03') return 'Çinko Tüketim Miktarı';
-    if (bilesen === 'SM.HİDROLİK.ASİT') return 'Asit Tüketim Miktarı';
+    if (bilesen === '150 03' || bilesen === 'HM-000001') return 'Çinko Tüketim Miktarı';
+    if (bilesen === 'SM.HİDROLİK.ASİT' || bilesen === 'SM-KMY-000096') return 'Asit Tüketim Miktarı';
     if (bilesen.includes('FLM.')) return 'Filmaşin Tüketimi';
     if (bilesen.includes('YM.GT.')) return 'Galvanizli Tel Tüketim Miktarı';
     if (bilesen.includes('YM.ST.')) return 'Siyah Tel Tüketim Miktarı';
-    if (bilesen.includes('KARTON')) return 'Karton Tüketim Miktarı';
-    if (bilesen.includes('SHRİNK')) return 'Naylon Tüketim Miktarı';
-    if (bilesen.includes('HALKA')) return 'Kaldırma Kancası Tüketim Miktarı';
-    if (bilesen.includes('CEMBER')) return 'Çelik çember Tüketim Miktarı';
-    if (bilesen.includes('TOKA')) return 'Çember Tokası Tüketim Miktarı';
-    if (bilesen.includes('DESİ')) return 'Slikajel Tüketim Miktarı';
+    if (bilesen.includes('KARTON') || bilesen === 'SM-AMB-000019') return 'Karton Tüketim Miktarı';
+    if (bilesen.includes('SHRİNK') || bilesen === 'SM-AMB-000027' || bilesen === 'SM-AMB-000028' || bilesen === 'SM-AMB-000030') return 'Naylon Tüketim Miktarı';
+    if (bilesen.includes('HALKA') || bilesen === 'SM-AMB-000023') return 'Kaldırma Kancası Tüketim Miktarı';
+    if (bilesen.includes('CEMBER') || bilesen === 'SM-AMB-000017') return 'Çelik çember Tüketim Miktarı';
+    if (bilesen.includes('TOKA') || bilesen === 'SM-AMB-000018') return 'Çember Tokası Tüketim Miktarı';
+    if (bilesen.includes('DESİ') || bilesen === 'SM-KMY-000102') return 'Slikajel Tüketim Miktarı';
     return 'Tüketim Miktarı';
   };
 
@@ -8868,7 +8868,20 @@ const GalvanizliTelNetsis = () => {
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         mmGtByProduct[stokKodu].forEach(recipe => {
-          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          // FIX: Update YM.GT bilesen codes to match MM GT sequence (same logic as batch Excel)
+          let updatedBilesenKodu = recipe.bilesen_kodu;
+          if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.GT.')) {
+            // Get sequence from MM GT stok kodu
+            const mmGtSequence = stokKodu.split('.').pop() || '00';
+            // Replace sequence in YM.GT bilesen kodu
+            const bilesenParts = recipe.bilesen_kodu.split('.');
+            if (bilesenParts.length >= 5) {
+              bilesenParts[bilesenParts.length - 1] = mmGtSequence;
+              updatedBilesenKodu = bilesenParts.join('.');
+            }
+          }
+
+          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(updatedBilesenKodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
           productSiraNo++;
         });
       }
@@ -11762,19 +11775,22 @@ const GalvanizliTelNetsis = () => {
 
   const generateMmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-    
+
+    // Map bilesen code to new standardized code
+    const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
+
     // Determine if this is an Operation row
     const isOperation = bilesenKodu === 'GTPKT01';
-    
+
     return [
       `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
       '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
       '', // Oto.Reç.
-      getOlcuBr(bilesenKodu), // Ölçü Br.
+      getOlcuBr(bilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental as requested
       isOperation ? 'O' : 'B', // GTPKT01 should be marked as O (Operasyon) per Excel format
-      bilesenKodu, // Bileşen Kodu
+      mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
@@ -11799,22 +11815,25 @@ const GalvanizliTelNetsis = () => {
 
   const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
-    
+
     // Fix: Convert "150" to "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
-    
+
+    // Map bilesen code to new standardized code
+    const mappedBilesenKodu = mapBilesenKoduForExcel(fixedBilesenKodu);
+
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
-    
+
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
       '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
       '', // Oto.Reç.
-      getOlcuBr(fixedBilesenKodu), // Ölçü Br.
+      getOlcuBr(fixedBilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental as requested
       isOperation ? 'O' : 'B', // According to Excel format, only GLV01 is O (Operasyon), all others are B (Bileşen)
-      fixedBilesenKodu, // Bileşen Kodu
+      mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(fixedBilesenKodu), // Açıklama
@@ -11873,23 +11892,46 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
+  // Map old bilesen codes to new standardized codes for Excel export
+  const mapBilesenKoduForExcel = (bilesenKodu) => {
+    const bilesenMapping = {
+      // MM GT bilesen mappings
+      'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
+      'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
+      'SM.7MMHALKA': 'SM-AMB-000023',
+      'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019',
+      'AMB.SHRİNK.200*140CM': 'SM-AMB-000027',
+      'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
+      'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
+      'SM.DESİ.PAK': 'SM-KMY-000102',
+      // YM GT bilesen mappings
+      '150 03': 'HM-000001',
+      'SM.HİDROLİK.ASİT': 'SM-KMY-000096'
+    };
+
+    return bilesenMapping[bilesenKodu] || bilesenKodu;
+  };
+
   // Batch Excel için MM GT recipe row generator
   const generateMmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmGtStokKodu) => {
     // FIXED: MM GT recipe should use MM GT stok kodu, not YM GT format
     // The mmGtStokKodu is already in correct format (GT.PAD.0087.00)
-    
+
+    // Map bilesen code to new standardized code
+    const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
+
     // Determine if this is an Operation row
     const isOperation = bilesenKodu === 'GTPKT01';
-    
+
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
       '1', // Reçete Top.
       '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
       '', // Oto.Reç.
-      getOlcuBr(bilesenKodu), // Ölçü Br.
+      getOlcuBr(bilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // Bileşen/Operasyon
-      bilesenKodu, // Bileşen Kodu
+      mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(bilesenKodu), // Açıklama
@@ -11916,19 +11958,22 @@ const GalvanizliTelNetsis = () => {
   const generateYmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, ymGtStokKodu) => {
     // Fix: Convert "150" to "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
-    
+
+    // Map bilesen code to new standardized code
+    const mappedBilesenKodu = mapBilesenKoduForExcel(fixedBilesenKodu);
+
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
-    
+
     return [
       ymGtStokKodu, // Mamul Kodu - YM GT stok kodu from parameter
       '1', // Reçete Top.
       '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
       '', // Oto.Reç.
-      getOlcuBr(fixedBilesenKodu), // Ölçü Br.
+      getOlcuBr(fixedBilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental
       isOperation ? 'O' : 'B', // GLV01 is O (Operasyon), others are B (Bileşen)
-      fixedBilesenKodu, // Bileşen Kodu
+      mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
       getReceteAciklama(fixedBilesenKodu), // Açıklama
