@@ -5880,7 +5880,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     allNCBKProducts.forEach(ncbkProduct => {
       // Extract diameter and length from stok_kodu (e.g., YM.NCBK.0650.202 -> cap=6.50, length=202)
       const stokKodu = ncbkProduct.stok_kodu;
-      const cap = parseFloat(ncbkProduct.cap || 0);
+      if (!stokKodu) return; // Skip if no stok_kodu
+
+      // FIXED: Normalize comma separator to period before parsing
+      const capStr = (ncbkProduct.cap || '0').toString().replace(',', '.');
+      const cap = parseFloat(capStr);
       // FIXED: Extract length from stok_kodu instead of length_cm field
       const length = parseInt(stokKodu.split('.').pop() || 0);
 
@@ -5924,7 +5928,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     allNTELProducts.forEach(ntelProduct => {
       // Extract diameter from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.50)
       const stokKodu = ntelProduct.stok_kodu;
-      const cap = parseFloat(ntelProduct.cap || 0);
+      if (!stokKodu) return; // Skip if no stok_kodu
+
+      // FIXED: Normalize comma separator to period before parsing
+      const capStr = (ntelProduct.cap || '0').toString().replace(',', '.');
+      const cap = parseFloat(capStr);
 
       if (cap > 0) {
         const availablePriorities = getAvailablePriorities(cap);
