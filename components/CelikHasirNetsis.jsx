@@ -3729,8 +3729,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           hasirTipi: extractedHasirTipi,
           uzunlukBoy: product.ebat_boy?.toString() || '0',
           uzunlukEn: product.ebat_en?.toString() || '0',
-          boyCap: product.cap?.toString() || '0',
-          enCap: product.cap2?.toString() || '0',
+          // FIXED: Normalize comma separators to periods for decimal values
+          boyCap: (product.cap?.toString() || '0').replace(',', '.'),
+          enCap: (product.cap2?.toString() || '0').replace(',', '.'),
           totalKg: product.kg?.toString() || '0',
           adetKg: product.kg?.toString() || '0',
           // Use recipe data if available, otherwise use database values
@@ -3757,8 +3758,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         hasirTipi: dbProduct.hasir_tipi || 'NCBK',
         uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
         uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        boyCap: dbProduct.cap?.toString() || '0',
-        enCap: dbProduct.cap2?.toString() || '0',
+        // FIXED: Normalize comma separators to periods for decimal values
+        boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
+        enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
         totalKg: dbProduct.kg?.toString() || '0',
         adetKg: dbProduct.kg?.toString() || '0',
         cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
@@ -3780,8 +3782,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         hasirTipi: dbProduct.hasir_tipi || 'NTEL',
         uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
         uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        boyCap: dbProduct.cap?.toString() || '0',
-        enCap: dbProduct.cap2?.toString() || '0',
+        // FIXED: Normalize comma separators to periods for decimal values
+        boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
+        enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
         totalKg: dbProduct.kg?.toString() || '0',
         adetKg: dbProduct.kg?.toString() || '0',
         cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
