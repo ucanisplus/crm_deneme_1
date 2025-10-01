@@ -5891,8 +5891,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // FIXED: Extract length from stok_kodu instead of length_cm field
       const length = parseInt(stokKodu.split('.').pop() || 0);
 
+      // DEBUG: Log products with diameters 4.70, 7.20, 9.40, 11.30
+      if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
+        console.log(`🔍 STANDALONE NCBK DEBUG: Found ${stokKodu} with cap=${cap}, length=${length}, capStr="${capStr}", original="${ncbkProduct.cap}"`);
+      }
+
       if (cap > 0 && length > 0) {
         const availablePriorities = getAvailablePriorities(cap);
+
+        // DEBUG: Log for special diameters
+        if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
+          console.log(`🔍 STANDALONE NCBK: ${stokKodu} passed validation, availablePriorities=${JSON.stringify(availablePriorities)}`);
+        }
 
         // Generate recipes for all priorities
         for (const priority of availablePriorities) {
@@ -5903,6 +5913,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             processedNCBKRecipes[priority].add(ncbkKey);
 
             const flmInfo = getFilmasinByPriority(cap, priority);
+
+            // DEBUG: Log for special diameters
+            if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
+              console.log(`🔍 STANDALONE NCBK: ${stokKodu} priority ${priority}, flmInfo=${flmInfo ? flmInfo.code : 'NULL'}`);
+            }
+
             if (!flmInfo) continue;
 
             const ncbkFlmTuketimi = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000).toFixed(5);
@@ -5937,8 +5953,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const capStr = (ntelProduct.cap || '0').toString().replace(',', '.');
       const cap = parseFloat(capStr);
 
+      // DEBUG: Log products with diameters 4.70, 7.20, 9.19, 9.40, 11.30
+      if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
+        console.log(`🔍 STANDALONE NTEL DEBUG: Found ${stokKodu} with cap=${cap}, capStr="${capStr}", original="${ntelProduct.cap}"`);
+      }
+
       if (cap > 0) {
         const availablePriorities = getAvailablePriorities(cap);
+
+        // DEBUG: Log for special diameters
+        if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
+          console.log(`🔍 STANDALONE NTEL: ${stokKodu} passed validation, availablePriorities=${JSON.stringify(availablePriorities)}`);
+        }
 
         // Generate recipes for all priorities
         for (const priority of availablePriorities) {
@@ -5949,6 +5975,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             processedNTELRecipes[priority].add(ntelKey);
 
             const flmInfo = getFilmasinByPriority(cap, priority);
+
+            // DEBUG: Log for special diameters
+            if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
+              console.log(`🔍 STANDALONE NTEL: ${stokKodu} priority ${priority}, flmInfo=${flmInfo ? flmInfo.code : 'NULL'}`);
+            }
+
             if (!flmInfo) continue;
 
             const ntelFlmTuketimi = (Math.PI * (cap/20) * (cap/20) * 100 * 7.85 / 1000).toFixed(5);
