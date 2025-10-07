@@ -11859,7 +11859,7 @@ const GalvanizliTelNetsis = () => {
 
   const generateYmStReceteRow = (bilesenKodu, miktar, siraNo, ymSt) => {
     // Determine if this is an Operation row
-    const isOperation = bilesenKodu === 'TLC01';
+    const isOperation = ['TLC01', 'COTLC01'].includes(bilesenKodu);
     
     return [
       ymSt.stok_kodu || '', // Mamul Kodu
@@ -11999,7 +11999,7 @@ const GalvanizliTelNetsis = () => {
   // Batch Excel için YM ST recipe row generator (stok_kodu parametreli)
   const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu) => {
     // Determine if this is an Operation row
-    const isOperation = bilesenKodu === 'TLC01';
+    const isOperation = ['TLC01', 'COTLC01'].includes(bilesenKodu);
     
     return [
       stokKodu, // Mamul Kodu - batch'de parametre olarak verilen stok kodu
