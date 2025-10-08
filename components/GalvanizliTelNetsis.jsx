@@ -7,6 +7,181 @@ import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+// YM ST Wire Drawing Matrix (for products >= 1.50mm using TLC01 direct drawing)
+// Products < 1.50mm use COTLC01 two-step method (not in matrix)
+// Priority: 0 = Ana (Main), 1 = ALT_1, 2 = ALT_2
+// NOTE: Each key represents a RANGE (e.g., 1.50 covers 1.50-1.59mm, 7.20 covers 7.20-7.29mm)
+const YM_ST_FILMASIN_PRIORITY_MAP = {
+  // 1.50-1.59mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
+  1.50: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.60-1.69mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
+  1.60: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.70-1.79mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
+  1.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.80-1.89mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
+  1.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
+  // 1.90-1.99mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
+  1.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
+  // 2.00-2.09mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
+  2.00: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
+  // 2.10-2.19mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
+  2.10: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
+  // 2.20-2.29mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
+  2.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
+  // 2.30-2.39mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.30: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.40-2.49mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.40: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.50-2.59mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.50: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.60-2.69mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.60: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.70-2.79mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.70: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.80-2.89mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 2.90-2.99mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  2.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 3.00-3.09mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  3.00: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 3.10-3.19mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  3.10: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 3.20-3.29mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  3.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 3.30-3.39mm range: Ana=6.0/1008, ALT_1=6.0/1006
+  3.30: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
+  // 3.40-3.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 3.50-3.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 3.60-3.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 3.70-3.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 3.80-3.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 3.90-3.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  3.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.00-4.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.10-4.19mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.10: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.20-4.29mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.20: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.30-4.39mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.30: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.40-4.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.50-4.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.60-4.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.70-4.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.80-4.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 4.90-4.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  4.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.00-5.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.10-5.19mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.10: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.20-5.29mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.20: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.30-5.39mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.30: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.40-5.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.50-5.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.60-5.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.70-5.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.80-5.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 5.90-5.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  5.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 6.00-6.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
+  6.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 6.10-6.19mm range: Ana=8.0/1010
+  6.10: [{ diameter: 8.0, quality: '1010' }],
+  // 6.20-6.29mm range: Ana=8.0/1010
+  6.20: [{ diameter: 8.0, quality: '1010' }],
+  // 6.30-6.39mm range: Ana=8.0/1010
+  6.30: [{ diameter: 8.0, quality: '1010' }],
+  // 6.40-6.49mm range: Ana=8.0/1010
+  6.40: [{ diameter: 8.0, quality: '1010' }],
+  // 6.50-6.59mm range: Ana=8.0/1010
+  6.50: [{ diameter: 8.0, quality: '1010' }],
+  // 6.60-6.69mm range: Ana=8.0/1010
+  6.60: [{ diameter: 8.0, quality: '1010' }],
+  // 6.70-6.79mm range: Ana=8.0/1010
+  6.70: [{ diameter: 8.0, quality: '1010' }],
+  // 6.80-6.89mm range: Ana=8.0/1010
+  6.80: [{ diameter: 8.0, quality: '1010' }],
+  // 6.90-6.99mm range: Ana=8.0/1010
+  6.90: [{ diameter: 8.0, quality: '1010' }],
+  // 7.00-7.09mm range: Ana=9.0/1010
+  7.00: [{ diameter: 9.0, quality: '1010' }],
+  // 7.10-7.19mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  7.10: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
+  // 7.20-7.29mm range: Ana=9.0/1010
+  7.20: [{ diameter: 9.0, quality: '1010' }],
+  // 7.30-7.39mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  7.30: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
+  // 7.40-7.49mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  7.40: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
+  // 7.50-7.59mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  7.50: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
+  // 8.00-8.09mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  8.00: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
+  // 8.10-8.19mm range: Ana=10.0/1010, ALT_1=9.0/1010
+  8.10: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }]
+};
+
+// Helper: Floor diameter to matrix range (e.g., 7.29 → 7.20, 4.18 → 4.10)
+const getMatrixRangeKey = (targetDiameter) => {
+  if (targetDiameter < 1.50) return null; // COTLC01 products
+
+  // Floor to 0.10mm range: Math.floor(diameter * 10) / 10
+  const rangeKey = Math.floor(targetDiameter * 10) / 10;
+
+  // Handle special cases where matrix jumps (e.g., 7.50 → 8.00)
+  if (rangeKey >= 7.60 && rangeKey < 8.00) return 7.50;
+  if (rangeKey >= 8.20) return 8.10;
+
+  return rangeKey;
+};
+
+// Helper: Get filmaşin by priority for YM ST
+const getYmStFilmasinByPriority = (targetDiameter, priority) => {
+  // Products < 1.50mm use COTLC01 method, not in matrix
+  if (targetDiameter < 1.50) {
+    return null;
+  }
+
+  // Floor diameter to matrix range key
+  const rangeKey = getMatrixRangeKey(targetDiameter);
+  if (!rangeKey) return null;
+
+  const priorityList = YM_ST_FILMASIN_PRIORITY_MAP[rangeKey];
+
+  if (!priorityList || priority >= priorityList.length) {
+    return null;
+  }
+
+  const filmasin = priorityList[priority];
+  const diameterStr = filmasin.diameter.toString().replace('.', '').padStart(4, '0');
+
+  return {
+    code: `FLM.${diameterStr}.${filmasin.quality}`,
+    diameter: filmasin.diameter,
+    quality: filmasin.quality,
+    priority: priority
+  };
+};
+
 const GalvanizliTelNetsis = () => {
   const { user, hasPermission } = useAuth();
   
@@ -3112,87 +3287,215 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const kaplama = parseInt(mmGtData.kaplama) || 0;
     const kodType = mmGtData.kod_2; // 'PAD' or 'NIT'
-    
-    // Calculate cap reduction based on kaplama value
-    // Decrease by 0.01mm for each 35gr of kaplama
-    // Round to 2 decimal places for precise control over the output value
-    const capReductionFactor = Math.round((kaplama / 35) * 0.01 * 100) / 100;
-    
-    // Calculate the base cap (apply kaplama-based reduction)
-    // Same calculation for both PAD and NIT - reduce cap by the kaplama factor
-    // Round to 2 decimal places to ensure we get values like 2.48 not 2.4774
-    const baseAdjustedCap = Math.round((cap - capReductionFactor) * 100) / 100;
-    const safeAdjustedCap = Math.max(baseAdjustedCap, 0.1); // Minimum 0.1mm
-    
-    // No need for additional toFixed formatting since we already rounded to 2 decimals
-    const filmasinCap = getFilmasinForCap(safeAdjustedCap);
-    const quality = getQualityForCap(safeAdjustedCap);
-    
-    
-    // Calculate the stok_kodlar for auto-generated YM STs
-    const capStr1 = Math.round(safeAdjustedCap * 100).toString().padStart(4, '0');
-    const alternativeCap = Math.round((safeAdjustedCap - 0.01) * 100) / 100;
-    const safeAlternativeCap = Math.max(alternativeCap, 0.1); // Minimum 0.1mm
-    const capStr2 = Math.round(safeAlternativeCap * 100).toString().padStart(4, '0');
-    
-    const stokKodu1 = `YM.ST.${capStr1}.${filmasinCap}.${quality}`;
-    const stokKodu2 = `YM.ST.${capStr2}.${filmasinCap}.${quality}`;
-    
-    try {
-      // Check if these YM STs already exist in database
-      const existingYmSt1 = await checkExistingProduct(API_URLS.galYmSt, stokKodu1);
-      const existingYmSt2 = await checkExistingProduct(API_URLS.galYmSt, stokKodu2);
-      
-      const existingYmSts = [];
-      if (existingYmSt1) existingYmSts.push(existingYmSt1);
-      if (existingYmSt2) existingYmSts.push(existingYmSt2);
-      
-      if (existingYmSts.length > 0) {
-        // Show professional modal asking user what to do
-        setExistingYmStsForModal(existingYmSts);
-        setShowYmStExistsModal(true);
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking existing YM STs:', error);
-      // Continue with auto-generation if check fails
-    }
-    
-    // If no existing YM STs found, proceed with auto-generation
+
+    // ========== STEP 1: Calculate YM ST diameter with CORRECT formula ==========
+    // Formula: YM_ST_diameter = YM_GT_nominal - abs(min_tolerance) - coating_reduction
+    const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+    const toleransMinSign = mmGtData.tolerans_min_sign || '-';
+
+    const actualToleranceMinus = Math.abs(toleransMinus);
+    const coatingReduction = Math.floor((kaplama / 35) * 100) / 100;
+
+    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction;
+    const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1); // Minimum 0.1mm, round to 2 decimals
+
+    console.log(`🔧 YM ST Diameter Calculation:`, {
+      mmGtCap: cap,
+      tolerance: actualToleranceMinus,
+      coating: coatingReduction,
+      result: ymStDiameter
+    });
+
+    // ========== STEP 2: Determine product type based on diameter ==========
     const autoYmSts = [];
-    
-    // İlk YM ST
-    autoYmSts.push({
-      stok_kodu: stokKodu1,
-      stok_adi: `YM Siyah Tel ${safeAdjustedCap.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
-      cap: safeAdjustedCap,
-      filmasin: parseInt(filmasinCap),
-      quality: quality,
-      kaplama: kaplama, // Add coating property for proper differentiation
-      source: 'auto-generated'
-    });
-    
-    // İkinci YM ST - bir tık daha azaltılmış (0.01mm daha az)
-    autoYmSts.push({
-      stok_kodu: stokKodu2,
-      stok_adi: `YM Siyah Tel ${safeAlternativeCap.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
-      cap: safeAlternativeCap,
-      filmasin: parseInt(filmasinCap),
-      quality: quality,
-      kaplama: kaplama, // Add coating property for proper differentiation
-      source: 'auto-generated'
-    });
-    
+
+    if (ymStDiameter < 1.5) {
+      // ========== CASE 1: < 1.5mm → Only .ST products (COTLC01-based) ==========
+      console.log('📍 YM ST < 1.5mm: Creating .ST product only');
+
+      const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+      const stokKodu = `YM.ST.${capStr}.ST`;
+
+      // Check if this .ST product already exists
+      try {
+        const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+        if (existing) {
+          setExistingYmStsForModal([existing]);
+          setShowYmStExistsModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking existing .ST product:', error);
+      }
+
+      // Create .ST product
+      autoYmSts.push({
+        stok_kodu: stokKodu,
+        stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler)`,
+        cap: ymStDiameter,
+        filmasin: 0, // .ST products have no filmasin
+        quality: 'ST',
+        payda_1: 1000, // .ST products use 1000 (not 1.000)
+        kaplama: kaplama,
+        source: 'auto-generated',
+        isStProduct: true // Mark as .ST product
+      });
+
+    } else if (ymStDiameter >= 1.5 && ymStDiameter < 1.8) {
+      // ========== CASE 2: 1.5-1.8mm → BOTH filmaşin (Ana) + .ST (ALT_1) ==========
+      console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
+
+      // Ana: Filmaşin-based from matrix priority 0
+      const matrixAlts = await getMatrixAlternatives(ymStDiameter);
+      const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
+        ? matrixAlts[0]
+        : null;
+
+      if (anaAlt) {
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const filmasinStr = (anaAlt.diameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${anaAlt.quality}`;
+
+        // Check if Ana product already exists
+        try {
+          const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+          if (!existing) {
+            autoYmSts.push({
+              stok_kodu: stokKodu,
+              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${anaAlt.quality}`,
+              cap: ymStDiameter,
+              filmasin: Math.round(anaAlt.diameter * 100),
+              quality: anaAlt.quality,
+              payda_1: 1, // Filmaşin products use 1.000
+              kaplama: kaplama,
+              source: 'auto-generated',
+              priority: 0,
+              isMain: true
+            });
+          }
+        } catch (error) {
+          console.error('Error checking Ana product:', error);
+        }
+      } else {
+        // Fallback to FILMASIN_MAPPING if matrix not available
+        console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
+        const filmasinCap = getFilmasinForCap(ymStDiameter);
+        const quality = getQualityForCap(ymStDiameter);
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinCap}.${quality}`;
+
+        autoYmSts.push({
+          stok_kodu: stokKodu,
+          stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+          cap: ymStDiameter,
+          filmasin: parseInt(filmasinCap),
+          quality: quality,
+          payda_1: 1,
+          kaplama: kaplama,
+          source: 'auto-generated',
+          priority: 0,
+          isMain: true
+        });
+      }
+
+      // ALT_1: .ST product
+      const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+      const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
+
+      try {
+        const existing = await checkExistingProduct(API_URLS.galYmSt, stokKoduAlt);
+        if (!existing) {
+          autoYmSts.push({
+            stok_kodu: stokKoduAlt,
+            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler ALT)`,
+            cap: ymStDiameter,
+            filmasin: 0,
+            quality: 'ST',
+            payda_1: 1000,
+            kaplama: kaplama,
+            source: 'auto-generated',
+            priority: 1,
+            isStProduct: true,
+            isMain: false
+          });
+        }
+      } catch (error) {
+        console.error('Error checking .ST alternative:', error);
+      }
+
+    } else {
+      // ========== CASE 3: > 1.8mm → Matrix-based filmaşin alternatives ==========
+      console.log('📍 YM ST > 1.8mm: Creating matrix-based alternatives');
+
+      const matrixAlts = await getMatrixAlternatives(ymStDiameter);
+
+      if (matrixAlts && matrixAlts.length > 0) {
+        // Create products for each priority (0=Ana, 1=ALT_1, 2=ALT_2)
+        for (const alt of matrixAlts) {
+          const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+          const filmasinStr = (alt.diameter * 100).toString().padStart(4, '0');
+          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${alt.quality}`;
+
+          try {
+            const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+            if (!existing) {
+              autoYmSts.push({
+                stok_kodu: stokKodu,
+                stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${alt.quality}`,
+                cap: ymStDiameter,
+                filmasin: Math.round(alt.diameter * 100),
+                quality: alt.quality,
+                payda_1: 1,
+                kaplama: kaplama,
+                source: 'auto-generated',
+                priority: alt.priority,
+                isMain: alt.priority === 0
+              });
+            }
+          } catch (error) {
+            console.error(`Error checking alternative priority ${alt.priority}:`, error);
+          }
+        }
+      } else {
+        // Fallback to FILMASIN_MAPPING if matrix not available
+        console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
+        const filmasinCap = getFilmasinForCap(ymStDiameter);
+        const quality = getQualityForCap(ymStDiameter);
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinCap}.${quality}`;
+
+        autoYmSts.push({
+          stok_kodu: stokKodu,
+          stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+          cap: ymStDiameter,
+          filmasin: parseInt(filmasinCap),
+          quality: quality,
+          payda_1: 1,
+          kaplama: kaplama,
+          source: 'auto-generated',
+          priority: 0,
+          isMain: true
+        });
+      }
+    }
+
+    // ========== STEP 3: Set state and calculate recipes ==========
+    if (autoYmSts.length === 0) {
+      toast.warning('Otomatik YM ST oluşturulamadı - tüm ürünler zaten mevcut');
+      return;
+    }
+
+    console.log(`✅ Generated ${autoYmSts.length} YM ST products:`, autoYmSts.map(y => y.stok_kodu));
+
     setAutoGeneratedYmSts(autoYmSts);
-    
-    // If this is the first time we're adding YMSTs and there are none selected yet,
-    // auto-set the first auto-generated YMST as the main one
+
+    // Set main YM ST index if this is the first selection
     const totalYmSts = selectedYmSts.length + autoYmSts.length;
     if (totalYmSts > 0 && selectedYmSts.length === 0 && autoYmSts.length > 0) {
       setMainYmStIndex(0);
     }
-    
-    // Otomatik oluşturulan YM ST'ler için reçeteleri hesapla
+
+    // Calculate recipes for auto-generated YM STs
     setTimeout(() => {
       calculateAutoRecipeValues();
     }, 100);
@@ -3264,6 +3567,128 @@ const GalvanizliTelNetsis = () => {
   const getQualityForCap = (cap) => {
     const result = getFilmasinForCapFromMapping(cap);
     return result.quality;
+  };
+
+  // ==================== MATRIX-BASED ALTERNATIVE SYSTEM ====================
+
+  /**
+   * Parse filmaşin source from matrix row header
+   * Example: "5,50 mm 1006" → { diameter: 5.5, quality: "1006" }
+   */
+  const parseFilmasinSource = (sourceStr) => {
+    const match = sourceStr.match(/(\d+,\d+)\s*mm\s*(\d+)/);
+    if (match) {
+      const diameter = parseFloat(match[1].replace(',', '.'));
+      const quality = match[2];
+      return { diameter, quality };
+    }
+    return null;
+  };
+
+  /**
+   * Round diameter to nearest 0.10mm for matrix column lookup
+   * Example: 3.39 → 3.40, 1.53 → 1.50
+   */
+  const roundToMatrixColumn = (diameter) => {
+    return Math.round(diameter * 10) / 10;
+  };
+
+  /**
+   * Parse matrix CSV and return structure:
+   * {
+   *   columns: [1.20, 1.30, 1.40, ...],
+   *   sources: [
+   *     { diameter: 5.5, quality: "1006", priorities: {1.20: 1, 1.30: 1, ...} },
+   *     { diameter: 6.0, quality: "1006", priorities: {1.20: 0, 1.30: 0, ...} },
+   *     ...
+   *   ]
+   * }
+   */
+  const parseMatrixCSV = (csvContent) => {
+    const lines = csvContent.trim().split('\n');
+    if (lines.length < 2) return null;
+
+    // Parse header row (columns = target diameters)
+    const headerParts = lines[0].split(';');
+    const columns = headerParts.slice(1).map(col => {
+      const match = col.match(/(\d+\.\d+)\s*mm/);
+      return match ? parseFloat(match[1]) : null;
+    }).filter(c => c !== null);
+
+    // Parse data rows (filmaşin sources with priorities)
+    const sources = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const parts = line.split(';');
+      const sourceInfo = parseFilmasinSource(parts[0]);
+      if (!sourceInfo) continue;
+
+      // Build priorities map for this source
+      const priorities = {};
+      for (let j = 0; j < columns.length && j + 1 < parts.length; j++) {
+        const priorityStr = parts[j + 1].trim();
+        if (priorityStr !== '') {
+          priorities[columns[j]] = parseInt(priorityStr);
+        }
+      }
+
+      sources.push({
+        diameter: sourceInfo.diameter,
+        quality: sourceInfo.quality,
+        priorities: priorities
+      });
+    }
+
+    return { columns, sources };
+  };
+
+  /**
+   * Get filmaşin alternatives for a target diameter based on matrix priorities
+   * Returns array sorted by priority: [{diameter, quality, priority}, ...]
+   * priority: 0=Ana, 1=ALT_1, 2=ALT_2
+   */
+  const getMatrixAlternatives = async (targetDiameter) => {
+    try {
+      // Load matrix file
+      const matrixPath = '/mnt/c/Users/Selman/Desktop/UBUNTU/gecici/GT_Son/Guncellenmis_Matris_Tel_1.csv';
+      const response = await fetch(matrixPath);
+      if (!response.ok) {
+        console.warn('Matrix file not found, using FILMASIN_MAPPING fallback');
+        return null;
+      }
+
+      const csvContent = await response.text();
+      const matrix = parseMatrixCSV(csvContent);
+      if (!matrix) {
+        console.warn('Failed to parse matrix, using FILMASIN_MAPPING fallback');
+        return null;
+      }
+
+      // Round target diameter to nearest matrix column
+      const columnDiameter = roundToMatrixColumn(targetDiameter);
+
+      // Find all sources with priorities for this column
+      const alternatives = [];
+      for (const source of matrix.sources) {
+        if (source.priorities[columnDiameter] !== undefined) {
+          alternatives.push({
+            diameter: source.diameter,
+            quality: source.quality,
+            priority: source.priorities[columnDiameter]
+          });
+        }
+      }
+
+      // Sort by priority (0 first, then 1, then 2)
+      alternatives.sort((a, b) => a.priority - b.priority);
+
+      return alternatives.length > 0 ? alternatives : null;
+    } catch (error) {
+      console.warn('Error loading matrix file:', error);
+      return null;
+    }
   };
 
   // Handle YMST exists modal actions
@@ -4070,94 +4495,101 @@ const GalvanizliTelNetsis = () => {
         newRecipeStatus.mmGtRecipes[index][key] = 'auto';
       });
       
-      // YM ST Reçete - use existing ymStCap value
-      // Get filmasin kodu using the already defined ymStCap
-      // Update ymSt with appropriate filmasin and quality values if missing
-      // This will be done inside getFilmasinKodu for auto-generated YM STs
-      const filmasinKodu = getFilmasinKodu(ymSt);
-      
-      // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
-      const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
-      const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
-      
-      
-      // Otomatik Doldur: YM ST Filmaşin ve Kalite değerlerini otomatik seç (kullanıcı değiştirebilir)
-      // NOTE: getFilmasinKodu already updates ymSt.filmasin and ymSt.quality for ≤ 2mm diameters
-      // But we still need to handle cases where they weren't set properly
-      if (!ymSt.filmasin || !ymSt.quality || ymSt.source === 'auto-generated') {
-        if (hmCapMatch) {
-          // Filmaşin Çapı (HM_Cap) otomatik belirle
-          ymSt.filmasin = parseInt(hmCapMatch[1]);
-          console.log('Otomatik Doldur: Filmasin Capi = ' + (ymSt.filmasin/100) + 'mm secildi for cap ' + ymSt.cap);
-        }
-        const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
-        if (qualityMatch) {
-          // Filmaşin Kalitesi otomatik belirle
-          ymSt.quality = qualityMatch[1];
-          console.log('Otomatik Doldur: Filmasin Kalitesi = ' + ymSt.quality + ' secildi for cap ' + ymSt.cap);
-        }
-        
-        // Auto-selected flag ekle - kullanıcının değiştirebileceğini belirt
-        ymSt.autoSelected = true;
-      }
-      
-      // Calculate TLC_Hiz using the lookup table with the DÜŞEYARA formula
-      // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
-      // IMPORTANT: Çap here is the final product diameter (MM GT cap), not YM ST cap!
-      const tlcHiz = calculateTlcHiz(hmCap, cap);
-      
-      // Log raw inputs and intermediate values to help debug
-      
-          // TLC01 hesaplama - Referans formülüne göre düzeltildi
-      // GTPKT01 gibi küçük değerler üretmemeli, referans formül büyük değerler verir
-      // Not: GTPKT01 = 0.02 (dakika/kg), TLC01 = 9.89 (dakika/kg) olmalı
-      
-      // TLC_Hiz değeri kontrol et - 0.7 multiplier nedeniyle düşük değerler normal
-      // Calculate Çinko consumption for this specific YMST (regardless of TLC_Hiz)
-      // Formula: ((1000*4000/3.14/7.85/'DIA (MM)'/'DIA (MM)'*'DIA (MM)'*3.14/1000*'ZING COATING (GR/M2)'/1000)+(Ash*0.6)+(Lapa*0.7))/1000
-      // Reference formula uses MM GT diameter for all diameter references
-      const ymStKaplama = parseFloat(ymSt.kaplama) || kaplama; // Use YMST coating if available
-      
-      // Use YM ST cap for zinc consumption calculation to get accurate material usage
+      // ========== YM ST Recipe Calculation ==========
       const ymStCap = parseFloat(ymSt.cap); // Each YM ST must use its own cap value
-      const zincConsumption = parseFloat((
-        ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * ymStCap * Math.PI / 1000 * ymStKaplama / 1000) + 
-        (userInputValues.ash * 0.6) + 
-        (userInputValues.lapa * 0.7)) / 1000
-      ).toFixed(5));
-      
 
-      if (!tlcHiz || tlcHiz <= 0) {
-        newYmStRecipes[index] = {
-          [filmasinKodu]: 1, // Use the Filmaşin code directly
-          'TLC01': '' // Empty if no valid TLC_Hiz
-        };
+      // Check if this is a .ST product (COTLC01-based) or filmaşin-based (TLC01)
+      const isStProduct = ymSt.isStProduct || ymSt.quality === 'ST';
+
+      if (isStProduct) {
+        // ========== .ST PRODUCT: Use COTLC01 with source YM ST ==========
+        console.log(`📍 Calculating .ST recipe for ${ymSt.stok_kodu}`);
+
+        // Find suitable source YM ST from existing YM STs (larger diameter, filmaşin-based)
+        let sourceYmSt = null;
+        if (existingYmSts && existingYmSts.length > 0) {
+          // Filter for filmaşin-based YM STs with larger diameter
+          const suitableSources = existingYmSts.filter(ym => {
+            const sourceCap = parseFloat(ym.cap) || 0;
+            const isFilmasinBased = ym.quality !== 'ST' && ym.filmasin > 0;
+            return sourceCap > ymStCap && isFilmasinBased;
+          });
+
+          // Sort by cap (ascending) and pick the smallest suitable one
+          if (suitableSources.length > 0) {
+            suitableSources.sort((a, b) => parseFloat(a.cap) - parseFloat(b.cap));
+            sourceYmSt = suitableSources[0];
+            console.log(`✅ Found source YM ST: ${sourceYmSt.stok_kodu} (${sourceYmSt.cap}mm)`);
+          }
+        }
+
+        if (sourceYmSt) {
+          // Calculate COTLC01 operation using coiler logic
+          const sourceDiameter = parseFloat(sourceYmSt.cap);
+          const giris_capi = sourceDiameter;
+          const cikis_capi = ymStCap;
+
+          const tlcHiz = calculateTlcHiz(giris_capi, cikis_capi);
+
+          let operationDuration = 0.01; // Default small duration
+          if (tlcHiz && tlcHiz > 0) {
+            const cotlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60);
+            operationDuration = parseFloat((cotlc01Raw / 1000).toFixed(5));
+          }
+
+          console.log(`🔧 COTLC01: ${sourceDiameter}mm → ${ymStCap}mm, TLC_Hiz: ${tlcHiz}, Duration: ${operationDuration}`);
+
+          newYmStRecipes[index] = {
+            [sourceYmSt.stok_kodu]: 1, // Source YM ST (1 kg)
+            'COTLC01': operationDuration // Coiler operation duration
+          };
+        } else {
+          // No source YM ST found - create placeholder recipe
+          console.warn(`⚠️ No source YM ST found for .ST product ${ymSt.stok_kodu}`);
+          newYmStRecipes[index] = {
+            'NOTE': '(Hammadde YM ST seçilmeli)' // Placeholder
+          };
+        }
+
       } else {
-        
-        // TLC01 formulu
-        // dk/ton -> dk/kg cevirimi icin 1000'e bol
-        // Her YM ST kendi cap degerini kullansin
-        const ymStCap = parseFloat(ymSt.cap);
-        const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60);
-        const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5));
-        
-        
-        // Cinko tuketimi hesapla
-        // Cinko formulu
-        const ymStKaplama = parseFloat(ymSt.kaplama) || kaplama;
-        
-        // YM ST cap ile cinko hesapla
-        const zincConsumption = parseFloat((
-          ((1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap * ymStCap * Math.PI / 1000 * ymStKaplama / 1000) + 
-          (userInputValues.ash * 0.6) + 
-          (userInputValues.lapa * 0.7)) / 1000
-        ).toFixed(5));
-        
+        // ========== FILMAŞIN PRODUCT: Use TLC01 ==========
+        const filmasinKodu = getFilmasinKodu(ymSt);
 
-        newYmStRecipes[index] = {
-          [filmasinKodu]: 1, // Use the Filmaşin code directly
-          'TLC01': tlcValue
-        };
+        // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
+        const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
+        const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
+
+        // Otomatik Doldur: YM ST Filmaşin ve Kalite değerlerini otomatik seç (kullanıcı değiştirebilir)
+        if (!ymSt.filmasin || !ymSt.quality || ymSt.source === 'auto-generated') {
+          if (hmCapMatch) {
+            ymSt.filmasin = parseInt(hmCapMatch[1]);
+            console.log('Otomatik Doldur: Filmasin Capi = ' + (ymSt.filmasin/100) + 'mm secildi for cap ' + ymSt.cap);
+          }
+          const qualityMatch = filmasinKodu.match(/\.(\d{4})$/);
+          if (qualityMatch) {
+            ymSt.quality = qualityMatch[1];
+            console.log('Otomatik Doldur: Filmasin Kalitesi = ' + ymSt.quality + ' secildi for cap ' + ymSt.cap);
+          }
+          ymSt.autoSelected = true;
+        }
+
+        // Calculate TLC_Hiz using the lookup table
+        const tlcHiz = calculateTlcHiz(hmCap, cap);
+
+        if (!tlcHiz || tlcHiz <= 0) {
+          newYmStRecipes[index] = {
+            [filmasinKodu]: 1,
+            'TLC01': ''
+          };
+        } else {
+          const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / ymStCap / ymStCap / tlcHiz / 60);
+          const tlcValue = parseFloat((tlc01Raw / 1000).toFixed(5));
+
+          newYmStRecipes[index] = {
+            [filmasinKodu]: 1,
+            'TLC01': tlcValue
+          };
+        }
       }
       
       // YM ST reçete durumlarını 'auto' olarak işaretle
@@ -8959,10 +9391,14 @@ const GalvanizliTelNetsis = () => {
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
-    const ymStMap = new Map(); // key: stok_kodu, value: YM ST data
+    const ymStMap = new Map(); // key: stok_kodu, value: YM ST data (main only)
+    const ymStAlt1Map = new Map(); // key: stok_kodu, value: YM ST ALT 1 data
+    const ymStAlt2Map = new Map(); // key: stok_kodu, value: YM ST ALT 2 data
     const mmGtRecipeMap = new Map(); // key: `${mm_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymGtRecipeMap = new Map(); // key: `${ym_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
-    const ymStRecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe
+    const ymStRecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (main only)
+    const ymStAlt1RecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (ALT 1)
+    const ymStAlt2RecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (ALT 2)
 
     let totalApiCalls = 0;
     let successfulApiCalls = 0;
@@ -9182,38 +9618,58 @@ const GalvanizliTelNetsis = () => {
                       const ymStData = await ymStResponse.json();
                       const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
                       if (ymSt) {
-                        // Only include YM STs that were marked as main or specifically selected
-                        if (relation.is_main === true || relation.is_main === 1) {
-                          ymStMap.set(ymSt.stok_kodu, ymSt);
-                          
-                          // Add YM ST recipes
-                          console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
-                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
-                          let ymStRecipeResponse = null;
-                          
-                          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                            const allYmStRecipes = await allYmStRecipesResponse.json();
-                            const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id); // Use == for type coercion
-                            console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id}`);
-                            
-                            // Create mock response
-                            ymStRecipeResponse = {
-                              ok: true,
-                              json: async () => filteredYmStRecipes
-                            };
-                          }
-                          
-                          if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                            const ymStRecipes = await ymStRecipeResponse.json();
-                            ymStRecipes.forEach(r => {
-                              const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                              ymStRecipeMap.set(key, {
-                                ...r,
-                                ym_st_stok_kodu: ymSt.stok_kodu
-                              });
-                            });
-                          }
+                        // Determine which map to use based on is_main and sequence_index
+                        const isMain = relation.is_main === true || relation.is_main === 1;
+                        const sequenceIndex = parseInt(relation.sequence_index) || 0;
+
+                        let targetStockMap, targetRecipeMap, altLabel;
+
+                        if (isMain && sequenceIndex === 0) {
+                          targetStockMap = ymStMap;
+                          targetRecipeMap = ymStRecipeMap;
+                          altLabel = 'Ana';
+                        } else if (!isMain && sequenceIndex === 1) {
+                          targetStockMap = ymStAlt1Map;
+                          targetRecipeMap = ymStAlt1RecipeMap;
+                          altLabel = 'ALT 1';
+                        } else if (!isMain && sequenceIndex === 2) {
+                          targetStockMap = ymStAlt2Map;
+                          targetRecipeMap = ymStAlt2RecipeMap;
+                          altLabel = 'ALT 2';
                         } else {
+                          console.warn(`⚠️ Unknown YM ST alternative type: is_main=${relation.is_main}, sequence_index=${sequenceIndex}`);
+                          return; // Skip unknown alternatives
+                        }
+
+                        console.log(`📦 Adding YM ST to ${altLabel}: ${ymSt.stok_kodu}`);
+                        targetStockMap.set(ymSt.stok_kodu, ymSt);
+
+                        // Add YM ST recipes to appropriate map
+                        console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
+                        const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
+                        let ymStRecipeResponse = null;
+
+                        if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                          const allYmStRecipes = await allYmStRecipesResponse.json();
+                          const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id); // Use == for type coercion
+                          console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id} (${altLabel})`);
+
+                          // Create mock response
+                          ymStRecipeResponse = {
+                            ok: true,
+                            json: async () => filteredYmStRecipes
+                          };
+                        }
+
+                        if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+                          const ymStRecipes = await ymStRecipeResponse.json();
+                          ymStRecipes.forEach(r => {
+                            const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                            targetRecipeMap.set(key, {
+                              ...r,
+                              ym_st_stok_kodu: ymSt.stok_kodu
+                            });
+                          });
                         }
                       }
                     }
@@ -9326,21 +9782,31 @@ const GalvanizliTelNetsis = () => {
     console.log(`MM GT Map keys: [${Array.from(mmGtMap.keys()).join(', ')}]`);
     console.log(`YM GT Map keys: [${Array.from(ymGtMap.keys()).join(', ')}]`);
     console.log(`YM ST Map keys: [${Array.from(ymStMap.keys()).join(', ')}]`);
-    
+    console.log(`YM ST ALT 1 Map keys: [${Array.from(ymStAlt1Map.keys()).join(', ')}]`);
+    console.log(`YM ST ALT 2 Map keys: [${Array.from(ymStAlt2Map.keys()).join(', ')}]`);
+
     const allMmGtData = Array.from(mmGtMap.values());
     const allYmGtData = Array.from(ymGtMap.values());
     const allYmStData = Array.from(ymStMap.values());
+    const allYmStAlt1Data = Array.from(ymStAlt1Map.values());
+    const allYmStAlt2Data = Array.from(ymStAlt2Map.values());
     const allMmGtRecipes = Array.from(mmGtRecipeMap.values());
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
-    
+    const allYmStAlt1Recipes = Array.from(ymStAlt1RecipeMap.values());
+    const allYmStAlt2Recipes = Array.from(ymStAlt2RecipeMap.values());
+
     console.log('📊 === BATCH DATA COLLECTION SUMMARY ===');
     console.log(`MM GT Products: ${allMmGtData.length}`);
     console.log(`MM GT Recipes: ${allMmGtRecipes.length} (should be ~${allMmGtData.length * 8} for 8 components per product)`);
     console.log(`YM GT Products: ${allYmGtData.length}`);
     console.log(`YM GT Recipes: ${allYmGtRecipes.length}`);
-    console.log(`YM ST Products: ${allYmStData.length}`);
-    console.log(`YM ST Recipes: ${allYmStRecipes.length}`);
+    console.log(`YM ST Products (Ana): ${allYmStData.length}`);
+    console.log(`YM ST Products (ALT 1): ${allYmStAlt1Data.length}`);
+    console.log(`YM ST Products (ALT 2): ${allYmStAlt2Data.length}`);
+    console.log(`YM ST Recipes (Ana): ${allYmStRecipes.length}`);
+    console.log(`YM ST Recipes (ALT 1): ${allYmStAlt1Recipes.length}`);
+    console.log(`YM ST Recipes (ALT 2): ${allYmStAlt2Recipes.length}`);
     
     // Sort all products by diameter (cap) in ascending order (low to high)
     console.log('🔢 Sorting products by diameter (Çap) - ascending order...');
@@ -9377,7 +9843,25 @@ const GalvanizliTelNetsis = () => {
       // If caps are equal, sort by stok_kodu to ensure sequence order
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
-    
+
+    const sortedYmStAlt1Data = allYmStAlt1Data.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      if (capA !== capB) {
+        return capA - capB;
+      }
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
+    });
+
+    const sortedYmStAlt2Data = allYmStAlt2Data.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      if (capA !== capB) {
+        return capA - capB;
+      }
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
+    });
+
     // Recipe order will be determined by sorted product data in generateBatchReceteExcel
     
     
@@ -9424,22 +9908,22 @@ const GalvanizliTelNetsis = () => {
 
     // Create two separate Excel files with EXACT same format as individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
-    setExcelProgress({ 
-      current: requestsList.length + 1, 
-      total: totalSteps, 
+    setExcelProgress({
+      current: requestsList.length + 1,
+      total: totalSteps,
       operation: 'Stok Kartı Excel oluşturuluyor...',
-      currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST`
+      currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST (Ana), ${sortedYmStAlt1Data.length} ALT 1, ${sortedYmStAlt2Data.length} ALT 2`
     });
-    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData);
-    
+    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data);
+
     console.log('📄 Starting Reçete Excel generation...');
-    setExcelProgress({ 
-      current: requestsList.length + 2, 
-      total: totalSteps, 
+    setExcelProgress({
+      current: requestsList.length + 2,
+      total: totalSteps,
       operation: 'Reçete Excel oluşturuluyor...',
-      currentProduct: `${allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length} reçete`
+      currentProduct: `${allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length + allYmStAlt1Recipes.length + allYmStAlt2Recipes.length} reçete`
     });
-    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData);
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, allYmStAlt1Recipes, allYmStAlt2Recipes, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data);
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
     setExcelProgress({ 
@@ -9451,56 +9935,78 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
-  const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData) => {
+  const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData, ymStAlt1Data, ymStAlt2Data) => {
     console.log('📋 Batch Stok Kartı Excel - Input validation');
-    
+
     if (!mmGtData || mmGtData.length === 0) {
       throw new Error('MM GT verisi bulunamadı - Stok Kartı Excel oluşturulamıyor');
     }
-    
+
     const workbook = new ExcelJS.Workbook();
-    
+
     // MM GT Sheet - EXACT same structure as individual
     const mmGtSheet = workbook.addWorksheet('MM GT');
     const mmGtHeaders = getStokKartiHeaders();
     mmGtSheet.addRow(mmGtHeaders);
-    
+
     // Add multiple MM GT rows (one per product)
     for (const mmGt of mmGtData) {
       // Create a batch-specific row with actual MM GT data
       mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(mmGt));
     }
-    
+
     // YM GT Sheet - EXACT same structure as individual
     const ymGtSheet = workbook.addWorksheet('YM GT');
     const ymGtHeaders = getYmGtHeaders();
     ymGtSheet.addRow(ymGtHeaders);
-    
+
     // Add multiple YM GT rows (one per product)
     for (const ymGt of ymGtData) {
       // Create a batch-specific row with actual YM GT data
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     }
-    
-    // YM ST Sheet - EXACT same structure as individual
+
+    // YM ST Sheet (Ana) - EXACT same structure as individual
     const ymStSheet = workbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
-    
-    // Add multiple YM ST rows (all YM STs from all products)
+
+    // Add multiple YM ST rows (main products only)
     for (const ymSt of ymStData) {
       ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     }
-    
+
+    // YM ST ALT 1 Sheet - if there are ALT 1 products
+    if (ymStAlt1Data && ymStAlt1Data.length > 0) {
+      console.log(`📋 Creating YM ST ALT 1 sheet with ${ymStAlt1Data.length} products`);
+      const ymStAlt1Sheet = workbook.addWorksheet('YM ST ALT 1');
+      ymStAlt1Sheet.addRow(ymStHeaders); // Same headers as main YM ST
+
+      for (const ymSt of ymStAlt1Data) {
+        ymStAlt1Sheet.addRow(generateYmStStokKartiData(ymSt));
+      }
+    }
+
+    // YM ST ALT 2 Sheet - if there are ALT 2 products
+    if (ymStAlt2Data && ymStAlt2Data.length > 0) {
+      console.log(`📋 Creating YM ST ALT 2 sheet with ${ymStAlt2Data.length} products`);
+      const ymStAlt2Sheet = workbook.addWorksheet('YM ST ALT 2');
+      ymStAlt2Sheet.addRow(ymStHeaders); // Same headers as main YM ST
+
+      for (const ymSt of ymStAlt2Data) {
+        ymStAlt2Sheet.addRow(generateYmStStokKartiData(ymSt));
+      }
+    }
+
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
     const fileName = `Toplu_Stok_Kartlari_${new Date().toISOString().slice(0, 10)}.xlsx`;
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
-    
+
   };
 
-  // Generate batch recipe Excel - EXACT same format as individual, just multiple rows  
-  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData) => {
+  // Generate batch recipe Excel - EXACT same format as individual, just multiple rows
+  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, ymStAlt1Recipes, ymStAlt2Recipes, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data) => {
     console.log('📋 Batch Reçete Excel - Input validation');
     
     const workbook = new ExcelJS.Workbook();
@@ -9602,12 +10108,66 @@ const GalvanizliTelNetsis = () => {
         });
       }
     });
-    
+
+    // YM ST ALT 1 REÇETE Sheet - if there are ALT 1 products
+    if (ymStAlt1Recipes && ymStAlt1Recipes.length > 0) {
+      console.log(`📋 Creating YM ST Reçete ALT 1 sheet with ${ymStAlt1Recipes.length} recipes`);
+      const ymStAlt1ReceteSheet = workbook.addWorksheet('YM ST Reçete ALT 1');
+      ymStAlt1ReceteSheet.addRow(receteHeaders);
+
+      const ymStAlt1ByProduct = {};
+      ymStAlt1Recipes.forEach(recipe => {
+        if (!ymStAlt1ByProduct[recipe.ym_st_stok_kodu]) {
+          ymStAlt1ByProduct[recipe.ym_st_stok_kodu] = [];
+        }
+        ymStAlt1ByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      });
+
+      const sortedYmStAlt1StokCodes = sortedYmStAlt1Data.map(product => product.stok_kodu);
+
+      sortedYmStAlt1StokCodes.forEach(stokKodu => {
+        if (ymStAlt1ByProduct[stokKodu] && ymStAlt1ByProduct[stokKodu].length > 0) {
+          let productSiraNo = 1;
+          ymStAlt1ByProduct[stokKodu].forEach(recipe => {
+            ymStAlt1ReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
+            productSiraNo++;
+          });
+        }
+      });
+    }
+
+    // YM ST ALT 2 REÇETE Sheet - if there are ALT 2 products
+    if (ymStAlt2Recipes && ymStAlt2Recipes.length > 0) {
+      console.log(`📋 Creating YM ST Reçete ALT 2 sheet with ${ymStAlt2Recipes.length} recipes`);
+      const ymStAlt2ReceteSheet = workbook.addWorksheet('YM ST Reçete ALT 2');
+      ymStAlt2ReceteSheet.addRow(receteHeaders);
+
+      const ymStAlt2ByProduct = {};
+      ymStAlt2Recipes.forEach(recipe => {
+        if (!ymStAlt2ByProduct[recipe.ym_st_stok_kodu]) {
+          ymStAlt2ByProduct[recipe.ym_st_stok_kodu] = [];
+        }
+        ymStAlt2ByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      });
+
+      const sortedYmStAlt2StokCodes = sortedYmStAlt2Data.map(product => product.stok_kodu);
+
+      sortedYmStAlt2StokCodes.forEach(stokKodu => {
+        if (ymStAlt2ByProduct[stokKodu] && ymStAlt2ByProduct[stokKodu].length > 0) {
+          let productSiraNo = 1;
+          ymStAlt2ByProduct[stokKodu].forEach(recipe => {
+            ymStAlt2ReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
+            productSiraNo++;
+          });
+        }
+      });
+    }
+
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
     const fileName = `Toplu_Receteler_${new Date().toISOString().slice(0, 10)}.xlsx`;
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
-    
+
   };
 
   // Handle edit confirmation
@@ -10838,21 +11398,54 @@ const GalvanizliTelNetsis = () => {
     // Sadece 1 YM GT ekle (doğru sequence ile)
     ymGtSheet.addRow(generateYmGtStokKartiData(sequence));
     
-    // YM ST Sheet - Tüm YM ST'ler
+    // YM ST Sheet - Main products only
     const ymStSheet = workbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
-    
-    // İlk olarak ana YM ST'yi ekle
-    ymStSheet.addRow(generateYmStStokKartiData(mainYmSt));
-    
-    // Sonra diğer YM ST'leri ekle
+
+    // Categorize YM STs by priority/isMain
+    const mainYmSts = [];
+    const alt1YmSts = [];
+    const alt2YmSts = [];
+
     allYmSts.forEach((ymSt, index) => {
-      // Ana YM ST'yi atla (zaten ekledik)
-      if (index !== mainYmStIndex) {
-        ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+      const isMain = ymSt.isMain !== false && (ymSt.priority === 0 || ymSt.priority === undefined || index === mainYmStIndex);
+      const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex ? 0 : index);
+
+      if (isMain || priority === 0) {
+        mainYmSts.push(ymSt);
+      } else if (priority === 1) {
+        alt1YmSts.push(ymSt);
+      } else if (priority === 2) {
+        alt2YmSts.push(ymSt);
+      } else {
+        // Fallback: add to main if unclear
+        mainYmSts.push(ymSt);
       }
     });
+
+    // Add main YM STs to main sheet
+    mainYmSts.forEach(ymSt => {
+      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+    });
+
+    // Add YM ST ALT 1 sheet if alternatives exist
+    if (alt1YmSts.length > 0) {
+      const ymStAlt1Sheet = workbook.addWorksheet('YM ST ALT 1');
+      ymStAlt1Sheet.addRow(ymStHeaders);
+      alt1YmSts.forEach(ymSt => {
+        ymStAlt1Sheet.addRow(generateYmStStokKartiData(ymSt));
+      });
+    }
+
+    // Add YM ST ALT 2 sheet if alternatives exist
+    if (alt2YmSts.length > 0) {
+      const ymStAlt2Sheet = workbook.addWorksheet('YM ST ALT 2');
+      ymStAlt2Sheet.addRow(ymStHeaders);
+      alt2YmSts.forEach(ymSt => {
+        ymStAlt2Sheet.addRow(generateYmStStokKartiData(ymSt));
+      });
+    }
     
     try {
       // Validate data before writing
@@ -11044,76 +11637,89 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // YM ST REÇETE Sheet - Tüm YM ST'ler için reçeteleri oluştur
+    // YM ST REÇETE Sheet - Main products only
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
-    
-    // İlk olarak ana YM ST'nin reçetesini ekle
-    let siraNoMain = 1;
-    
-    // Ana YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
-    const mainYmStRecipe = allRecipes.ymStRecipes[mainYmStIndex_] || {};
-    const mainRecipeEntries = Object.entries(mainYmStRecipe);
-    
-    // Fixed order: FLM.*.*, TLC01
-    const mainFlmEntry = mainRecipeEntries.find(([key]) => key.includes('FLM.'));
-    const mainTlc01Entry = mainRecipeEntries.find(([key]) => key === 'TLC01');
-    
-    // Any other entries that might exist but aren't in the fixed order
-    const mainOtherEntries = mainRecipeEntries.filter(([key]) => 
-      !key.includes('FLM.') && 
-      key !== 'TLC01'
-    );
-    
-    // Sırayla ekle - exact order
-    const mainOrderedEntries = [
-      mainFlmEntry,
-      mainTlc01Entry,
-      ...mainOtherEntries
-    ].filter(Boolean);
-    
-    mainOrderedEntries.forEach(([key, value]) => {
-      if (value > 0) {
-        ymStReceteSheet.addRow(generateYmStReceteRow(key, value, siraNoMain, mainYmSt));
-        siraNoMain++;
-      }
-    });
-    
-    // Diğer YM ST'lerin reçetelerini ekle
+
+    // Categorize YM STs by priority (reuse logic from stok karti)
+    const mainRecipeYmSts = [];
+    const alt1RecipeYmSts = [];
+    const alt2RecipeYmSts = [];
+
     allYmSts.forEach((ymSt, index) => {
-      // Ana YM ST'yi atla (zaten ekledik)
-      if (index !== mainYmStIndex_) {
-        const ymStRecipe = allRecipes.ymStRecipes[index] || {};
-        let siraNo = 1;
-        
-        // YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
-        const recipeEntries = Object.entries(ymStRecipe);
-        
-        // Fixed order: FLM.*.*, TLC01
-        const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
-        const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
-        
-        // Any other entries that might exist but aren't in the fixed order
-        const otherEntries = recipeEntries.filter(([key]) => 
-          !key.includes('FLM.') && 
-          key !== 'TLC01'
-        );
-        
-        // Sırayla ekle - exact order
-        const orderedEntries = [
-          flmEntry,
-          tlc01Entry,
-          ...otherEntries
-        ].filter(Boolean);
-        
-        orderedEntries.forEach(([key, value]) => {
-          if (value > 0) {
-            ymStReceteSheet.addRow(generateYmStReceteRow(key, value, siraNo, ymSt));
-            siraNo++;
-          }
-        });
+      const isMain = ymSt.isMain !== false && (ymSt.priority === 0 || ymSt.priority === undefined || index === mainYmStIndex_);
+      const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex_ ? 0 : index);
+
+      const ymStWithIndex = { ...ymSt, originalIndex: index };
+
+      if (isMain || priority === 0) {
+        mainRecipeYmSts.push(ymStWithIndex);
+      } else if (priority === 1) {
+        alt1RecipeYmSts.push(ymStWithIndex);
+      } else if (priority === 2) {
+        alt2RecipeYmSts.push(ymStWithIndex);
+      } else {
+        mainRecipeYmSts.push(ymStWithIndex);
       }
     });
+
+    // Helper function to add YM ST recipe rows
+    const addYmStRecipeRows = (ymSt, sheet) => {
+      const ymStRecipe = allRecipes.ymStRecipes[ymSt.originalIndex] || {};
+      let siraNo = 1;
+
+      const recipeEntries = Object.entries(ymStRecipe);
+
+      // Fixed order: FLM/YM.ST (material), TLC01/COTLC01 (operation)
+      const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+      const ymStEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && !key.includes(ymSt.stok_kodu));
+      const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
+      const cotlc01Entry = recipeEntries.find(([key]) => key === 'COTLC01');
+
+      const otherEntries = recipeEntries.filter(([key]) =>
+        !key.includes('FLM.') &&
+        (!key.includes('YM.ST.') || key.includes(ymSt.stok_kodu)) &&
+        key !== 'TLC01' &&
+        key !== 'COTLC01' &&
+        key !== 'NOTE'
+      );
+
+      const orderedEntries = [
+        flmEntry || ymStEntry, // Material (FLM or source YM ST)
+        tlc01Entry || cotlc01Entry, // Operation
+        ...otherEntries
+      ].filter(Boolean);
+
+      orderedEntries.forEach(([key, value]) => {
+        if (value > 0 || key === 'TLC01' || key === 'COTLC01') {
+          sheet.addRow(generateYmStReceteRow(key, value, siraNo, ymSt));
+          siraNo++;
+        }
+      });
+    };
+
+    // Add main YM ST recipes
+    mainRecipeYmSts.forEach(ymSt => {
+      addYmStRecipeRows(ymSt, ymStReceteSheet);
+    });
+
+    // Add YM ST REÇETE ALT 1 sheet if alternatives exist
+    if (alt1RecipeYmSts.length > 0) {
+      const ymStReceteAlt1Sheet = workbook.addWorksheet('YM ST Reçete ALT 1');
+      ymStReceteAlt1Sheet.addRow(receteHeaders);
+      alt1RecipeYmSts.forEach(ymSt => {
+        addYmStRecipeRows(ymSt, ymStReceteAlt1Sheet);
+      });
+    }
+
+    // Add YM ST REÇETE ALT 2 sheet if alternatives exist
+    if (alt2RecipeYmSts.length > 0) {
+      const ymStReceteAlt2Sheet = workbook.addWorksheet('YM ST Reçete ALT 2');
+      ymStReceteAlt2Sheet.addRow(receteHeaders);
+      alt2RecipeYmSts.forEach(ymSt => {
+        addYmStRecipeRows(ymSt, ymStReceteAlt2Sheet);
+      });
+    }
     
     try {
       // Validate data before writing
