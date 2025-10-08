@@ -9687,8 +9687,155 @@ const GalvanizliTelNetsis = () => {
             // Add MM GT
             console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
             mmGtMap.set(mmGt.stok_kodu, mmGt);
-            
-            // Find relationships created specifically for this request's MM GT
+
+            // STEP 1: Fetch MM GT recipes first to extract YM GT stok_kodu
+            console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching MM GT recipes for mm_gt_id=${mmGt.id} (stok_kodu: ${mmGt.stok_kodu})...`);
+            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=10000`);
+            let mmGtRecipes = [];
+
+            if (allRecipesResponse && allRecipesResponse.ok) {
+              const allRecipes = await allRecipesResponse.json();
+              console.log(`📊 Total MM GT recipes fetched from API: ${allRecipes.length}`);
+
+              // Try ID matching first, then stok_kodu matching as fallback
+              const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mmGt.id);
+              const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
+
+              if (recipesByIdFilter.length > 0) {
+                mmGtRecipes = recipesByIdFilter;
+                console.log(`✅ Found ${mmGtRecipes.length} MM GT recipes by ID`);
+              } else if (recipesByStokKodu.length > 0) {
+                mmGtRecipes = recipesByStokKodu;
+                console.log(`⚠️ Found ${mmGtRecipes.length} MM GT recipes by stok_kodu fallback`);
+              } else {
+                console.error(`❌ NO RECIPES found for MM GT ${mmGt.stok_kodu}`);
+              }
+
+              // Store MM GT recipes in map
+              mmGtRecipes.forEach(r => {
+                let updatedBilesenKodu = r.bilesen_kodu;
+                if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
+                  const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
+                  const bilesenParts = r.bilesen_kodu.split('.');
+                  if (bilesenParts.length >= 5) {
+                    bilesenParts[bilesenParts.length - 1] = mmGtSequence;
+                    updatedBilesenKodu = bilesenParts.join('.');
+                  }
+                }
+
+                const key = `${mmGt.stok_kodu}-${updatedBilesenKodu}`;
+                mmGtRecipeMap.set(key, {
+                  ...r,
+                  bilesen_kodu: updatedBilesenKodu,
+                  mm_gt_stok_kodu: mmGt.stok_kodu,
+                  sequence: mmGt.stok_kodu?.split('.').pop() || '00'
+                });
+              });
+            }
+
+            // STEP 2: Extract YM GT stok_kodu from MM GT recipes
+            const ymGtRecipe = mmGtRecipes.find(r =>
+              r.operasyon_bilesen === 'Bileşen' &&
+              r.bilesen_kodu &&
+              r.bilesen_kodu.startsWith('YM.GT.')
+            );
+
+            let ymGtStokKodu = null;
+            if (ymGtRecipe) {
+              // Extract and update YM GT stok_kodu with MM GT sequence
+              const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
+              const bilesenParts = ymGtRecipe.bilesen_kodu.split('.');
+              if (bilesenParts.length >= 5) {
+                bilesenParts[bilesenParts.length - 1] = mmGtSequence;
+                ymGtStokKodu = bilesenParts.join('.');
+              } else {
+                ymGtStokKodu = ymGtRecipe.bilesen_kodu;
+              }
+              console.log(`✅ Found YM GT stok_kodu from MM GT recipe: ${ymGtStokKodu}`);
+            } else {
+              // Fallback: Construct YM GT stok_kodu from MM GT stok_kodu
+              ymGtStokKodu = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
+              console.log(`⚠️ No YM GT in recipes, using fallback: ${ymGtStokKodu}`);
+            }
+
+            // STEP 3: Fetch YM GT by stok_kodu
+            if (ymGtStokKodu) {
+              console.log(`📖 Fetching YM GT by stok_kodu: ${ymGtStokKodu}...`);
+              const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+
+              if (allYmGtResponse && allYmGtResponse.ok) {
+                const allYmGt = await allYmGtResponse.json();
+                const ymGt = allYmGt.find(r => r.stok_kodu === ymGtStokKodu);
+
+                if (ymGt) {
+                  console.log(`✅ Found YM GT: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
+                  ymGtMap.set(ymGt.stok_kodu, ymGt);
+
+                  // Fetch YM GT recipes
+                  console.log(`📖 Fetching YM GT recipes for ym_gt_id=${ymGt.id}...`);
+                  const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+
+                  if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
+                    const allYmGtRecipes = await allYmGtRecipesResponse.json();
+                    const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
+                    console.log(`✅ Found ${ymGtRecipes.length} YM GT recipes`);
+
+                    // Store YM GT recipes
+                    ymGtRecipes.forEach(r => {
+                      const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
+                      ymGtRecipeMap.set(key, {
+                        ...r,
+                        mm_gt_stok_kodu: mmGt.stok_kodu,
+                        sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                      });
+                    });
+
+                    // STEP 4: Extract main YM ST from YM GT recipes
+                    const mainYmStRecipe = ymGtRecipes.find(r =>
+                      r.operasyon_bilesen === 'Bileşen' &&
+                      r.bilesen_kodu &&
+                      r.bilesen_kodu.startsWith('YM.ST.')
+                    );
+
+                    if (mainYmStRecipe) {
+                      console.log(`✅ Found main YM ST stok_kodu from YM GT recipe: ${mainYmStRecipe.bilesen_kodu}`);
+
+                      // Fetch main YM ST
+                      const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
+                      if (allYmStResponse && allYmStResponse.ok) {
+                        const allYmSt = await allYmStResponse.json();
+                        const ymSt = allYmSt.find(r => r.stok_kodu === mainYmStRecipe.bilesen_kodu);
+
+                        if (ymSt) {
+                          console.log(`✅ Found main YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
+                          ymStMap.set(ymSt.stok_kodu, ymSt);
+
+                          // Fetch main YM ST recipes
+                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
+                          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
+                            const allYmStRecipes = await allYmStRecipesResponse.json();
+                            const ymStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id);
+                            console.log(`✅ Found ${ymStRecipes.length} main YM ST recipes`);
+
+                            ymStRecipes.forEach(r => {
+                              const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                              ymStRecipeMap.set(key, {
+                                ...r,
+                                ym_st_stok_kodu: ymSt.stok_kodu
+                              });
+                            });
+                          }
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  console.warn(`⚠️ YM GT not found: ${ymGtStokKodu}`);
+                }
+              }
+            }
+
+            // STEP 5: Handle alternatives from relationship table (if any)
             let relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
             
             // If relation fetch fails due to parameter error, fetch all and filter client-side
@@ -9889,88 +10036,6 @@ const GalvanizliTelNetsis = () => {
                   }
                 }
               }
-            }
-            
-            // Add MM GT recipes for this specific MM GT
-            console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching all MM GT recipes and filtering for mm_gt_id=${mmGt.id} (stok_kodu: ${mmGt.stok_kodu})...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=10000`);
-            let mmGtRecipeResponse = null;
-            
-            if (allRecipesResponse && allRecipesResponse.ok) {
-              const allRecipes = await allRecipesResponse.json();
-              console.log(`📊 Total MM GT recipes fetched from API: ${allRecipes.length}`);
-              
-              // First try ID matching
-              const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mmGt.id); // Use == for type coercion
-              
-              // Then try stok_kodu matching as fallback
-              const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
-              
-              console.log(`🔍 Recipe matching for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}):`);
-              console.log(`  - By ID (mm_gt_id): ${recipesByIdFilter.length} recipes`);
-              console.log(`  - By stok_kodu (mamul_kodu): ${recipesByStokKodu.length} recipes`);
-              
-              // Debug: Show what IDs and stok_kodlar actually exist in the recipe database
-              if (recipesByIdFilter.length === 0 && recipesByStokKodu.length === 0) {
-                console.log(`🔬 DEBUG: Available mm_gt_id values in recipes:`, [...new Set(allRecipes.map(r => r.mm_gt_id))].slice(0, 20));
-                console.log(`🔬 DEBUG: Available mamul_kodu values in recipes:`, [...new Set(allRecipes.map(r => r.mamul_kodu))].slice(0, 20));
-                console.log(`🔬 DEBUG: Looking for mm_gt_id=${mmGt.id} and mamul_kodu="${mmGt.stok_kodu}"`);
-              }
-              
-              let filteredRecipes;
-              if (recipesByIdFilter.length > 0) {
-                // ID matching worked
-                filteredRecipes = recipesByIdFilter;
-                console.log(`✅ Using ID match: Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
-              } else if (recipesByStokKodu.length > 0) {
-                // Fallback to stok_kodu matching
-                filteredRecipes = recipesByStokKodu;
-                console.warn(`⚠️ ID match failed, using stok_kodu match: Found ${filteredRecipes.length} recipes for MM GT ${mmGt.stok_kodu}`);
-              } else {
-                // No recipes found by either method
-                filteredRecipes = [];
-                console.error(`❌ NO RECIPES found for MM GT ${mmGt.stok_kodu} by either ID (${mmGt.id}) or stok_kodu`);
-              }
-              
-              // Create mock response
-              mmGtRecipeResponse = {
-                ok: true,
-                json: async () => filteredRecipes
-              };
-            }
-            
-            if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
-              const mmGtRecipes = await mmGtRecipeResponse.json();
-              console.log(`📖 Raw MM GT recipes for ID ${mmGt.id}:`, mmGtRecipes);
-              console.log(`📖 Recipe count: ${mmGtRecipes.length}`);
-              if (mmGtRecipes.length > 0) {
-                console.log(`📖 First recipe sample:`, mmGtRecipes[0]);
-              } else {
-                console.warn(`⚠️ NO RECIPES found for MM GT ${mmGt.stok_kodu} (ID: ${mmGt.id}) - this product will be missing from recipe Excel`);
-              }
-              mmGtRecipes.forEach(r => {
-                // Düzeltme: YM.GT bileşen kodlarını MM GT ürününün sequence'ine göre güncelle
-                let updatedBilesenKodu = r.bilesen_kodu;
-                if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
-                  // MM GT stok kodundan sequence'i al
-                  const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
-                  // YM.GT bileşen kodundaki sequence'i değiştir
-                  const bilesenParts = r.bilesen_kodu.split('.');
-                  if (bilesenParts.length >= 5) {
-                    // Örnek: YM.GT.PAD.0150.00 -> YM.GT.PAD.0150.02
-                    bilesenParts[bilesenParts.length - 1] = mmGtSequence;
-                    updatedBilesenKodu = bilesenParts.join('.');
-                  }
-                }
-                
-                const key = `${mmGt.stok_kodu}-${updatedBilesenKodu}`;
-                mmGtRecipeMap.set(key, {
-                  ...r,
-                  bilesen_kodu: updatedBilesenKodu, // Güncellenmiş bileşen kodunu kullan
-                  mm_gt_stok_kodu: mmGt.stok_kodu,
-                  sequence: mmGt.stok_kodu?.split('.').pop() || '00'
-                });
-              });
             }
           }
         } else {
