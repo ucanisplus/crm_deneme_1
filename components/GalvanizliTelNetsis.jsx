@@ -5227,7 +5227,7 @@ const GalvanizliTelNetsis = () => {
     const capStr = Math.round(capValue * 100).toString().padStart(4, '0');
     const newYmSt = {
       stok_kodu: `YM.ST.${capStr}.${newYmStData.filmasin}.${newYmStData.quality}`,
-      stok_adi: `YM Siyah Tel ${capStr} mm HM:${newYmStData.filmasin}.${newYmStData.quality}`,
+      stok_adi: `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${newYmStData.filmasin}.${newYmStData.quality}`,
       cap: capValue,
       filmasin: parseInt(newYmStData.filmasin),
       quality: newYmStData.quality,
@@ -9543,10 +9543,26 @@ const GalvanizliTelNetsis = () => {
     // YM ST REÇETE Sheet
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
-    
-    // Add all YM ST recipes (they don't need grouping by stok_kodu for sequence)
-    allYMSTRecetes.forEach((recipe, index) => {
-      ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, index + 1, recipe.mamul_kodu));
+
+    // Group YM ST recipes by mamul_kodu for proper sequencing
+    const ymStByProduct = {};
+    allYMSTRecetes.forEach(recipe => {
+      if (!ymStByProduct[recipe.mamul_kodu]) {
+        ymStByProduct[recipe.mamul_kodu] = [];
+      }
+      ymStByProduct[recipe.mamul_kodu].push(recipe);
+    });
+
+    // Add YM ST recipes with proper sequencing per product
+    const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
+    sortedYmStStokCodes.forEach(stokKodu => {
+      if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1;
+        ymStByProduct[stokKodu].forEach(recipe => {
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu));
+          productSiraNo++;
+        });
+      }
     });
     
     // Save Reçete Excel
