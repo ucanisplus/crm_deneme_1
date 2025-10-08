@@ -449,6 +449,9 @@ const GalvanizliTelNetsis = () => {
   const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
   const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
 
+  // Calculated YM ST diameter for conditional UI rendering
+  const [calculatedYmStDiameter, setCalculatedYmStDiameter] = useState(null);
+
   // Hesaplanan/oluşturulan veriler
   const [ymGtData, setYmGtData] = useState(null);
   const [suitableYmSts, setSuitableYmSts] = useState([]);
@@ -679,7 +682,26 @@ const GalvanizliTelNetsis = () => {
       generateYmGtData();
     }
   }, [mmGtData.cap, mmGtData.kod_2, mmGtData.kaplama, mmGtData.min_mukavemet, mmGtData.max_mukavemet, mmGtData.kg, mmGtData.ic_cap, mmGtData.dis_cap, mmGtData.tolerans_plus, mmGtData.tolerans_minus]);
-  
+
+  // Calculate YM ST diameter for UI conditional rendering
+  useEffect(() => {
+    if (mmGtData.cap && mmGtData.kaplama && mmGtData.tolerans_minus) {
+      const cap = parseFloat(mmGtData.cap) || 0;
+      const kaplama = parseInt(mmGtData.kaplama) || 0;
+      const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+
+      const actualToleranceMinus = Math.abs(toleransMinus);
+      const coatingReduction = Math.floor(kaplama / 35) / 100;
+
+      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction;
+      const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
+
+      setCalculatedYmStDiameter(ymStDiameter);
+    } else {
+      setCalculatedYmStDiameter(null);
+    }
+  }, [mmGtData.cap, mmGtData.kaplama, mmGtData.tolerans_minus]);
+
   // Component yuklendikten sonra TLC_Hizlar verisini veritabanindan yukle
   useEffect(() => {
     fetchTlcHizlarData();
@@ -13685,6 +13707,45 @@ const GalvanizliTelNetsis = () => {
 
           {/* YM ST Yönetimi - Geliştirilmiş UI */}
           <div className="bg-white rounded-xl shadow-lg p-6">
+            {/* Diameter-based info banner */}
+            {calculatedYmStDiameter !== null && (
+              <div className={`mb-4 p-4 rounded-lg border-l-4 ${
+                calculatedYmStDiameter < 1.5
+                  ? 'bg-blue-50 border-blue-500'
+                  : calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8
+                  ? 'bg-purple-50 border-purple-500'
+                  : 'bg-green-50 border-green-500'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      Hesaplanan YM ST Çapı: {calculatedYmStDiameter.toFixed(2)} mm
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {calculatedYmStDiameter < 1.5 && (
+                        <>
+                          <span className="font-semibold text-blue-700">Çap &lt; 1.5mm:</span> Sadece YM ST hammadde kullanılır (COTLC01 operasyonu)
+                        </>
+                      )}
+                      {calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8 && (
+                        <>
+                          <span className="font-semibold text-purple-700">1.5mm ≤ Çap &lt; 1.8mm:</span> Hem filmaşin (Ana) hem YM ST (ALT) alternatifleri oluşturulabilir
+                        </>
+                      )}
+                      {calculatedYmStDiameter >= 1.8 && (
+                        <>
+                          <span className="font-semibold text-green-700">Çap ≥ 1.8mm:</span> Filmaşin hammadde kullanılır (matris bazlı alternatifler)
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
