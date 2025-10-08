@@ -3294,7 +3294,7 @@ const GalvanizliTelNetsis = () => {
     const toleransMinSign = mmGtData.tolerans_min_sign || '-';
 
     const actualToleranceMinus = Math.abs(toleransMinus);
-    const coatingReduction = Math.floor((kaplama / 35) * 100) / 100;
+    const coatingReduction = Math.floor(kaplama / 35) / 100;
 
     const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction;
     const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1); // Minimum 0.1mm, round to 2 decimals
@@ -3346,7 +3346,7 @@ const GalvanizliTelNetsis = () => {
       console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
 
       // Ana: Filmaşin-based from matrix priority 0
-      const matrixAlts = await getMatrixAlternatives(ymStDiameter);
+      const matrixAlts = getMatrixAlternatives(ymStDiameter);
       const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
         ? matrixAlts[0]
         : null;
@@ -3427,7 +3427,7 @@ const GalvanizliTelNetsis = () => {
       // ========== CASE 3: > 1.8mm → Matrix-based filmaşin alternatives ==========
       console.log('📍 YM ST > 1.8mm: Creating matrix-based alternatives');
 
-      const matrixAlts = await getMatrixAlternatives(ymStDiameter);
+      const matrixAlts = getMatrixAlternatives(ymStDiameter);
 
       if (matrixAlts && matrixAlts.length > 0) {
         // Create products for each priority (0=Ana, 1=ALT_1, 2=ALT_2)
@@ -3571,18 +3571,263 @@ const GalvanizliTelNetsis = () => {
 
   // ==================== MATRIX-BASED ALTERNATIVE SYSTEM ====================
 
-  /**
-   * Parse filmaşin source from matrix row header
-   * Example: "5,50 mm 1006" → { diameter: 5.5, quality: "1006" }
-   */
-  const parseFilmasinSource = (sourceStr) => {
-    const match = sourceStr.match(/(\d+,\d+)\s*mm\s*(\d+)/);
-    if (match) {
-      const diameter = parseFloat(match[1].replace(',', '.'));
-      const quality = match[2];
-      return { diameter, quality };
-    }
-    return null;
+  // Hardcoded matrix data from Guncellenmis_Matris_Tel_1.csv
+  // Priority: 0=Ana, 1=ALT_1, 2=ALT_2
+  const FILMASIN_MATRIX = {
+    // Each key is target diameter, value is array of {diameter, quality, priority}
+    1.20: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 5.5, quality: '1006', priority: 1 }
+    ],
+    1.30: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 5.5, quality: '1006', priority: 1 }
+    ],
+    1.40: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 5.5, quality: '1006', priority: 1 }
+    ],
+    1.50: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 5.5, quality: '1006', priority: 1 },
+      { diameter: 6.0, quality: '1008', priority: 2 }
+    ],
+    1.60: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 5.5, quality: '1006', priority: 1 },
+      { diameter: 6.0, quality: '1008', priority: 2 }
+    ],
+    1.70: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 2 }
+    ],
+    1.80: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 2 }
+    ],
+    1.90: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 2 }
+    ],
+    2.00: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.10: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 },
+      { diameter: 5.5, quality: '1006', priority: 2 }
+    ],
+    2.20: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 },
+      { diameter: 5.5, quality: '1006', priority: 2 }
+    ],
+    2.30: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.40: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.50: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.60: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.70: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.80: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    2.90: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    3.00: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    3.10: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    3.20: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    3.30: [
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    3.40: [
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
+    ],
+    3.50: [
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
+    ],
+    3.60: [
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
+    ],
+    3.70: [
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
+    ],
+    3.80: [
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
+    ],
+    3.90: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.00: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.10: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.20: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.30: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.40: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.50: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.60: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.70: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.80: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    4.90: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.00: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.10: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.20: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.30: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.40: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.50: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.60: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.70: [
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
+    ],
+    5.80: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    5.90: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.00: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.10: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.20: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.30: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.40: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.50: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.60: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.70: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.80: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    6.90: [
+      { diameter: 8.0, quality: '1010', priority: 0 }
+    ],
+    7.00: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    7.10: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    7.20: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    7.30: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    7.40: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    7.50: [
+      { diameter: 9.0, quality: '1010', priority: 0 }
+    ],
+    8.00: [
+      { diameter: 10.0, quality: '1010', priority: 0 }
+    ],
+    8.10: [
+      { diameter: 10.0, quality: '1010', priority: 0 }
+    ]
   };
 
   /**
@@ -3594,99 +3839,27 @@ const GalvanizliTelNetsis = () => {
   };
 
   /**
-   * Parse matrix CSV and return structure:
-   * {
-   *   columns: [1.20, 1.30, 1.40, ...],
-   *   sources: [
-   *     { diameter: 5.5, quality: "1006", priorities: {1.20: 1, 1.30: 1, ...} },
-   *     { diameter: 6.0, quality: "1006", priorities: {1.20: 0, 1.30: 0, ...} },
-   *     ...
-   *   ]
-   * }
-   */
-  const parseMatrixCSV = (csvContent) => {
-    const lines = csvContent.trim().split('\n');
-    if (lines.length < 2) return null;
-
-    // Parse header row (columns = target diameters)
-    const headerParts = lines[0].split(';');
-    const columns = headerParts.slice(1).map(col => {
-      const match = col.match(/(\d+\.\d+)\s*mm/);
-      return match ? parseFloat(match[1]) : null;
-    }).filter(c => c !== null);
-
-    // Parse data rows (filmaşin sources with priorities)
-    const sources = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const parts = line.split(';');
-      const sourceInfo = parseFilmasinSource(parts[0]);
-      if (!sourceInfo) continue;
-
-      // Build priorities map for this source
-      const priorities = {};
-      for (let j = 0; j < columns.length && j + 1 < parts.length; j++) {
-        const priorityStr = parts[j + 1].trim();
-        if (priorityStr !== '') {
-          priorities[columns[j]] = parseInt(priorityStr);
-        }
-      }
-
-      sources.push({
-        diameter: sourceInfo.diameter,
-        quality: sourceInfo.quality,
-        priorities: priorities
-      });
-    }
-
-    return { columns, sources };
-  };
-
-  /**
    * Get filmaşin alternatives for a target diameter based on matrix priorities
    * Returns array sorted by priority: [{diameter, quality, priority}, ...]
    * priority: 0=Ana, 1=ALT_1, 2=ALT_2
    */
-  const getMatrixAlternatives = async (targetDiameter) => {
+  const getMatrixAlternatives = (targetDiameter) => {
     try {
-      // Load matrix file
-      const matrixPath = '/mnt/c/Users/Selman/Desktop/UBUNTU/gecici/GT_Son/Guncellenmis_Matris_Tel_1.csv';
-      const response = await fetch(matrixPath);
-      if (!response.ok) {
-        console.warn('Matrix file not found, using FILMASIN_MAPPING fallback');
-        return null;
-      }
-
-      const csvContent = await response.text();
-      const matrix = parseMatrixCSV(csvContent);
-      if (!matrix) {
-        console.warn('Failed to parse matrix, using FILMASIN_MAPPING fallback');
-        return null;
-      }
-
       // Round target diameter to nearest matrix column
       const columnDiameter = roundToMatrixColumn(targetDiameter);
 
-      // Find all sources with priorities for this column
-      const alternatives = [];
-      for (const source of matrix.sources) {
-        if (source.priorities[columnDiameter] !== undefined) {
-          alternatives.push({
-            diameter: source.diameter,
-            quality: source.quality,
-            priority: source.priorities[columnDiameter]
-          });
-        }
+      // Get alternatives for this diameter
+      const alternatives = FILMASIN_MATRIX[columnDiameter];
+
+      if (!alternatives || alternatives.length === 0) {
+        console.warn(`No matrix alternatives found for ${columnDiameter}mm, using FILMASIN_MAPPING fallback`);
+        return null;
       }
 
-      // Sort by priority (0 first, then 1, then 2)
-      alternatives.sort((a, b) => a.priority - b.priority);
-
-      return alternatives.length > 0 ? alternatives : null;
+      // Return sorted by priority (already sorted in the constant)
+      return alternatives;
     } catch (error) {
-      console.warn('Error loading matrix file:', error);
+      console.warn('Error reading matrix data:', error);
       return null;
     }
   };
