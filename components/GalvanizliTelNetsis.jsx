@@ -12309,8 +12309,8 @@ const GalvanizliTelNetsis = () => {
       mmGt.dis_cap, // Dış Çap
       '', // Çap2
       mmGt.shrink, // Shrink
-      formatDecimalForExcel(mmGt.tolerans_plus), // Tolerans(+) (NOKTA format, no trailing zeros)
-      formatDecimalForExcel(mmGt.tolerans_minus), // Tolerans(-) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+) (NOKTA format, no trailing zeros)
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-) (NOKTA format, no trailing zeros)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
@@ -12355,8 +12355,8 @@ const GalvanizliTelNetsis = () => {
       '052', // Menşei
       'Galvanizli Tel', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
-      formatDecimalForExcel(mmGt.tolerans_plus), // DIA TOL (MM) + (matching Turkish tolerans)
-      formatDecimalForExcel(mmGt.tolerans_minus), // DIA TOL (MM) - (matching Turkish tolerans)
+      formatDecimalForExcel(adjustedPlus), // DIA TOL (MM) + (matching Turkish tolerans)
+      formatDecimalForExcel(adjustedMinus), // DIA TOL (MM) - (matching Turkish tolerans)
       mmGt.kaplama, // ZING COATING (GR/M2)
       mmGt.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmGt.max_mukavemet, // TENSILE ST. (MPA) MAX
@@ -12563,8 +12563,8 @@ const GalvanizliTelNetsis = () => {
       disCap, // Dış Çap
       '', // Çap2
       ymGt.shrink || '', // Shrink
-      formatDecimalForExcel(ymGt.tolerans_plus), // Tolerans(+)
-      formatDecimalForExcel(ymGt.tolerans_minus), // Tolerans(-)
+      formatDecimalForExcel(adjustedPlus), // Tolerans(+)
+      formatDecimalForExcel(adjustedMinus), // Tolerans(-)
       '', // Ebat(En)
       '', // Göz Aralığı
       '', // Ebat(Boy)
