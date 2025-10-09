@@ -11090,9 +11090,9 @@ const GalvanizliTelNetsis = () => {
             : '';
 
           // Format tolerance values with proper signs (values are already signed in database)
-          const plusSign = toleransPlus >= 0 ? '+' : '';
-          const minusSign = toleransMinus >= 0 ? '+' : '';
-          const toleranceText = `${minusSign}${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(toleransPlus).toFixed(2).replace('.', ',')}`;
+          const formattedMinus = (toleransMinus >= 0 ? '+' : '') + toleransMinus.toFixed(2).replace('.', ',');
+          const formattedPlus = (toleransPlus >= 0 ? '+' : '') + toleransPlus.toFixed(2).replace('.', ',');
+          const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
           // Generate complete stok_adi with all the formatting
           const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmGtData.kaplama || '0'} gr/m² ${excelData.mmGtData.min_mukavemet || '0'}-${excelData.mmGtData.max_mukavemet || '0'} MPa ID:${excelData.mmGtData.ic_cap || '45'} cm OD:${excelData.mmGtData.dis_cap || '75'} cm ${excelData.mmGtData.kg || '0'}${bagAmount} kg`;
