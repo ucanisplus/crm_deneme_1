@@ -375,19 +375,23 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Excel icin ondalik formatla - Stok kartları için 2 ondalik basamak ile
+  // IMPORTANT: Preserves sign for tolerance values (e.g., -0.06 stays as -0,06, +0.05 stays as +0,05)
   const formatDecimalForExcel = (value) => {
     if (value === null || value === undefined || value === '') {
       return '';
     }
-    
+
     // Sayiya cevir
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(numValue)) {
       return String(value);
     }
-    
-    // 2 ondalik basamak ile formatla ve noktalari virgul yap
-    return numValue.toFixed(2).replace('.', ',');
+
+    // Preserve sign and format with 2 decimal places
+    const sign = numValue >= 0 ? '+' : ''; // Negative sign is automatic, add + for positive
+    const formatted = Math.abs(numValue).toFixed(2).replace('.', ',');
+
+    return sign + formatted;
   };
 
   // Reçete Excel icin ondalik formatla - 5 ondalik basamak ile
@@ -12509,6 +12513,11 @@ const GalvanizliTelNetsis = () => {
     const actualMinusValue = ymGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
     const adjustedPlus = actualPlusValue;
     const adjustedMinus = actualMinusValue;
+
+    // Get proper signs for tolerance display
+    const plusSign = adjustedPlus >= 0 ? '+' : '';
+    const minusSign = adjustedMinus >= 0 ? '+' : '';
+
     const kaplama = ymGt.kaplama || '0';
     const minMukavemet = ymGt.min_mukavemet || '0';
     const maxMukavemet = ymGt.max_mukavemet || '0';
@@ -12516,18 +12525,19 @@ const GalvanizliTelNetsis = () => {
     const disCap = ymGt.dis_cap || '75';
     const kg = ymGt.kg || '0';
     const castKont = ymGt.cast_kont;
-    
+
     // Determine if we need to append the bag amount (cast_kont) value
     const bagAmount = castKont && castKont.trim() !== '' ? `/${castKont}` : '';
-    
-    // Generate stok_adi - EXACT same format as individual export
-    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
-    
-    // Generate cari_adi
-    const cariAdi = `Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
-    
-    // Generate english name
-    const englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+
+    // Generate stok_adi with proper tolerance signs
+    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
+
+    // Generate cari_adi with proper tolerance signs
+    const cariAdi = `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
+
+    // Generate english name with proper tolerance signs
+    const englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     return [
       ymGt.stok_kodu, // Stok Kodu - use actual from database
@@ -12648,14 +12658,14 @@ const GalvanizliTelNetsis = () => {
     
     return [
       stokKodu, // Stok Kodu - sequence eşleştirme!
-      currentYmGtData.stok_adi || generateYmGtStokAdiForExcel(sequence), // Stok Adı - güncel sequence ile!
+      generateYmGtStokAdiForExcel(sequence), // Stok Adı - ALWAYS regenerate with adjusted tolerance values!
       'YM', // Grup Kodu
       'GT', // Kod-1
-      currentYmGtData.kod_2, // Kod-2
-      currentYmGtData.cari_adi || generateYmGtCariadiKodu(), // Cari/Satıcı Kodu
+      mmGtData.kod_2, // Kod-2 - Use mmGtData to get correct value (NIT, PAD, etc.)
+      generateYmGtCariadiKodu(), // Cari/Satıcı Kodu - ALWAYS regenerate with adjusted tolerance values!
       'Y', // Türü
       stokKodu, // Mamul Grup
-      currentYmGtData.ingilizce_isim || generateYmGtInglizceIsim(), // İngilizce İsim
+      generateYmGtInglizceIsim(), // İngilizce İsim - ALWAYS regenerate with adjusted tolerance values!
       '', // Satıcı İsmi
       '83', // Muh. Detay
       '35', // Depo Kodu
