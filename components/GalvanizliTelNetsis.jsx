@@ -6910,10 +6910,7 @@ const GalvanizliTelNetsis = () => {
     
     // Preserve the exact format in existing Excel files
     const capForExcel = capValue.toFixed(2);
-
-    // Get ABSOLUTE values for storage (signs stored separately)
-    const toleransPlusAbs = Math.abs(parseFloat(mmGtData.tolerans_plus) || 0);
-    const toleransMinusAbs = Math.abs(parseFloat(mmGtData.tolerans_minus) || 0);
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
     // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
     return {
@@ -6943,10 +6940,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string value
-      tolerans_plus: toleransPlusAbs, // Store ABSOLUTE value
-      tolerans_minus: toleransMinusAbs, // Store ABSOLUTE value
-      tolerans_max_sign: toleransMaxSign, // Store sign separately
-      tolerans_min_sign: toleransMinSign, // Store sign separately
+      tolerans_plus: adjustedPlus,
+      tolerans_minus: adjustedMinus,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -6990,10 +6985,7 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     const capForExcel = capValue.toFixed(2);
-
-    // Get ABSOLUTE values for storage (signs stored separately)
-    const toleransPlusAbs = Math.abs(parseFloat(mmGtData.tolerans_plus) || 0);
-    const toleransMinusAbs = Math.abs(parseFloat(mmGtData.tolerans_minus) || 0);
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
     // Sequence değerlerinin MMGT ile aynı olduğunu logla
 
@@ -7024,10 +7016,8 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string to match Excel
-      tolerans_plus: toleransPlusAbs, // Store ABSOLUTE value
-      tolerans_minus: toleransMinusAbs, // Store ABSOLUTE value
-      tolerans_max_sign: toleransMaxSign, // Store sign separately
-      tolerans_min_sign: toleransMinSign, // Store sign separately
+      tolerans_plus: adjustedPlus,
+      tolerans_minus: adjustedMinus,
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -8736,20 +8726,17 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Batch işlemleri için tolerans açıklama
-  const generateToleransAciklamaForBatch = (toleransPlus, toleransMinus, maxSign = '+', minSign = '-') => {
+  const generateToleransAciklamaForBatch = (toleransPlus, toleransMinus) => {
     const plus = parseFloat(toleransPlus) || 0;
     const minus = parseFloat(toleransMinus) || 0;
-    
-    // Apply signs to get actual values
-    const actualPlusValue = maxSign === '-' ? -Math.abs(plus) : Math.abs(plus);
-    const actualMinusValue = minSign === '-' ? -Math.abs(minus) : Math.abs(minus);
-    
+
+    // Values are already signed in database
     let explanation = '';
-    
-    // Check if values are non-standard (not standard +/- format)
-    if ((actualPlusValue < 0 && actualMinusValue < 0) || 
-        (actualPlusValue > 0 && actualMinusValue > 0) ||
-        (Math.abs(actualPlusValue) !== 0.05 || Math.abs(actualMinusValue) !== 0.06)) {
+
+    // Check if values are non-standard (not standard +0.05/-0.06 format)
+    if ((plus < 0 && minus < 0) ||
+        (plus > 0 && minus > 0) ||
+        (Math.abs(plus) !== 0.05 || Math.abs(minus) !== 0.06)) {
       explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
     
@@ -12264,12 +12251,10 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGt.cap);
     const toleransPlus = parseFloat(mmGt.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mmGt.tolerans_minus) || 0;
-    
-    // Get adjusted tolerance values using the same logic as the main component
-    const actualPlusValue = mmGt.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
-    const actualMinusValue = mmGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    const adjustedPlus = actualPlusValue;
-    const adjustedMinus = actualMinusValue;
+
+    // Tolerance values are already signed in database, use them directly
+    const adjustedPlus = toleransPlus;
+    const adjustedMinus = toleransMinus;
     
     // Check if stok_adi already has packaging suffixes
     const existingPackaging = extractPackagingFromStokAdi(mmGt.stok_adi);
@@ -12386,7 +12371,7 @@ const GalvanizliTelNetsis = () => {
       mmGt.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
       mmGt.kg, // COIL WEIGHT (KG) MAX - Copy the same value from COIL WEIGHT
-      generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus, mmGt.tolerans_max_sign, mmGt.tolerans_min_sign) // Tolerans Açıklama
+      generateToleransAciklamaForBatch(mmGt.tolerans_plus, mmGt.tolerans_minus) // Tolerans Açıklama
     ];
   };
 
@@ -12517,12 +12502,10 @@ const GalvanizliTelNetsis = () => {
     // Get values from YM GT data
     const toleransPlus = parseFloat(ymGt.tolerans_plus) || 0;
     const toleransMinus = parseFloat(ymGt.tolerans_minus) || 0;
-    
-    // Apply sign handling logic similar to MM GT
-    const actualPlusValue = ymGt.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
-    const actualMinusValue = ymGt.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    const adjustedPlus = actualPlusValue;
-    const adjustedMinus = actualMinusValue;
+
+    // Tolerance values are already signed in database, use them directly
+    const adjustedPlus = toleransPlus;
+    const adjustedMinus = toleransMinus;
 
     // Get proper signs for tolerance display
     const plusSign = adjustedPlus >= 0 ? '+' : '';
@@ -12624,7 +12607,7 @@ const GalvanizliTelNetsis = () => {
       getGumrukTarifeKoduForCap(cap), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
-      generateToleransAciklamaForBatch(ymGt.tolerans_plus, ymGt.tolerans_minus, ymGt.tolerans_max_sign, ymGt.tolerans_min_sign) // Tolerans Açıklama
+      generateToleransAciklamaForBatch(ymGt.tolerans_plus, ymGt.tolerans_minus) // Tolerans Açıklama
     ];
   };
 
