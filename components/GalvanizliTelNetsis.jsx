@@ -7018,6 +7018,8 @@ const GalvanizliTelNetsis = () => {
       cap2: capForExcel, // Use formatted string to match Excel
       tolerans_plus: adjustedPlus,
       tolerans_minus: adjustedMinus,
+      tolerans_max_sign: toleransMaxSign, // Store sign for tolerance max
+      tolerans_min_sign: toleransMinSign, // Store sign for tolerance min
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
