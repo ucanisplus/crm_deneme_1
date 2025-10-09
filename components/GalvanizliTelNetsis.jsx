@@ -8666,19 +8666,22 @@ const GalvanizliTelNetsis = () => {
   // YM GT için tolerans açıklama (matematiksel düzeltme tespiti için)
   const getYmGtToleransAciklama = (ymGtData) => {
     if (!ymGtData) return '';
-    
+
     const toleransPlus = parseFloat(ymGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(ymGtData.tolerans_minus) || 0;
-    const actualPlusValue = ymGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
-    const actualMinusValue = ymGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    
+    // Values are already signed in database
+    const actualPlusValue = toleransPlus;
+    const actualMinusValue = toleransMinus;
+
     let explanation = '';
-    
-    // Standart + ve - dışında bir değer seçilmişse açıklama ekle
-    if (ymGtData.tolerans_max_sign !== '+' || ymGtData.tolerans_min_sign !== '-') {
+
+    // Check if values are non-standard (not +0.05/-0.06 format)
+    if ((actualPlusValue < 0 && actualMinusValue < 0) ||
+        (actualPlusValue > 0 && actualMinusValue > 0) ||
+        (Math.abs(actualPlusValue) !== 0.05 || Math.abs(actualMinusValue) !== 0.06)) {
       explanation = 'Tolerans değerleri müşterinin talebi doğrultusunda standart -/+\'nın dışında girilmiştir.';
     }
-    
+
     // Matematik olarak düzeltilmişse açıklama ekle
     if (actualPlusValue < actualMinusValue) {
       if (explanation) {
@@ -12278,12 +12281,16 @@ const GalvanizliTelNetsis = () => {
     
     // If stok_adi is not in database, generate it (shouldn't happen with proper data)
     if (!stokAdi) {
-      stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+      stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     }
-    
+
     // If English name is not in database, generate it
     if (!englishName) {
-      englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm -${Math.abs(toleransMinus).toFixed(2)}/+${toleransPlus.toFixed(2)} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+      englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${formattedMinus}/${formattedPlus} ${mmGt.kaplama || '0'} gr/m² ${mmGt.min_mukavemet || '0'}-${mmGt.max_mukavemet || '0'} MPa ID:${mmGt.ic_cap || '45'} cm OD:${mmGt.dis_cap || '75'} cm ${mmGt.kg || '0'}${bagAmount} kg`;
     }
     
     return [
@@ -12531,7 +12538,9 @@ const GalvanizliTelNetsis = () => {
     const bagAmount = castKont && castKont.trim() !== '' ? `/${castKont}` : '';
 
     // Generate stok_adi with proper tolerance signs
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
     const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
 
     // Generate cari_adi with proper tolerance signs
@@ -12637,20 +12646,19 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     const stokKodu = `YM.GT.${currentYmGtData.kod_2}.${capFormatted}.${sequence}`;
     
-    // Use YM GT tolerance data for proper calculation with mathematical correction
+    // Use YM GT tolerance data - values are already signed in database
     const toleransPlus = parseFloat(currentYmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(currentYmGtData.tolerans_minus) || 0;
-    const actualPlusValue = currentYmGtData.tolerans_max_sign === '-' ? -Math.abs(toleransPlus) : Math.abs(toleransPlus);
-    const actualMinusValue = currentYmGtData.tolerans_min_sign === '-' ? -Math.abs(toleransMinus) : Math.abs(toleransMinus);
-    
+    // Values are already signed, use them directly
+    let adjustedPlus = toleransPlus;
+    let adjustedMinus = toleransMinus;
+
     // Apply mathematical correction if needed (same logic as getAdjustedToleranceValues)
-    let adjustedPlus = actualPlusValue;
-    let adjustedMinus = actualMinusValue;
-    
-    if (actualPlusValue < actualMinusValue) {
+    if (adjustedPlus < adjustedMinus) {
       // Swap values if mathematically incorrect
-      adjustedPlus = actualMinusValue;
-      adjustedMinus = actualPlusValue;
+      const temp = adjustedPlus;
+      adjustedPlus = adjustedMinus;
+      adjustedMinus = temp;
       console.log('YM GT: Mathematical correction applied - tolerance values swapped');
     }
     
@@ -13069,16 +13077,18 @@ const GalvanizliTelNetsis = () => {
   // Database version - uses POINT format
   const generateStokAdi = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
-    
+
+    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base stok adı
     let stokAdi = `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13099,16 +13109,18 @@ const GalvanizliTelNetsis = () => {
   // Excel version - uses COMMA format  
   const generateStokAdiForExcel = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
-    
+
+    // Format with proper signs and comma for Excel
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base stok adı
     let stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13129,16 +13141,18 @@ const GalvanizliTelNetsis = () => {
   // Database version for YM GT - uses POINT format
   const generateYmGtStokAdi = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
-    
+
+    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base stok adı
     let stokAdi = `YM Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13159,16 +13173,18 @@ const GalvanizliTelNetsis = () => {
   // Excel version for YM GT - uses COMMA format
   const generateYmGtStokAdiForExcel = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
-    
+
+    // Format with proper signs and comma for Excel
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base stok adı
     let stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13188,11 +13204,13 @@ const GalvanizliTelNetsis = () => {
 
   const generateYmGtCariadiKodu = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
-    // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
+    // Format with proper signs and comma for Excel
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base cari/satıcı kodu
     let carriKodu = `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'} kg`;
     
@@ -13211,16 +13229,18 @@ const GalvanizliTelNetsis = () => {
 
   const generateYmGtInglizceIsim = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
-    
+
+    // Format with proper signs and comma for Excel
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base ingilizce isim
     let ingilizceIsim = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13240,16 +13260,18 @@ const GalvanizliTelNetsis = () => {
   // Database version - uses POINT format
   const generateEnglishName = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2)}/${plusSign}${Math.abs(adjustedPlus).toFixed(2)}`;
-    
+
+    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
     // Base english name
     let englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
     
@@ -13270,15 +13292,17 @@ const GalvanizliTelNetsis = () => {
   // Excel version - uses COMMA format
   const generateEnglishNameForExcel = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
-    const { adjustedPlus, adjustedMinus, plusSign, minusSign } = getAdjustedToleranceValues();
-    
+    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
     // Determine if we need to append the bag amount (cast_kont) value
-    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
-      ? `/${mmGtData.cast_kont}` 
+    const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
+      ? `/${mmGtData.cast_kont}`
       : '';
-    
-    // Use actual tolerance signs from state with adjusted values and comma format for Excel
-    const toleranceText = `${minusSign}${Math.abs(adjustedMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(adjustedPlus).toFixed(2).replace('.', ',')}`;
+
+    // Format with proper signs and comma for Excel
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const toleranceText = `${formattedMinus}/${formattedPlus}`;
     
     // Base english name
     let englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
