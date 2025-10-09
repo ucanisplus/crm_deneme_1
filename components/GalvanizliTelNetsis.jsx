@@ -2718,8 +2718,8 @@ const GalvanizliTelNetsis = () => {
         kg: mmGt.kg ? normalizeDecimalDisplay(mmGt.kg) : '',
         ic_cap: mmGt.ic_cap || 45,
         dis_cap: mmGt.dis_cap || 75,
-        tolerans_plus: mmGt.tolerans_plus ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_plus)) : '',
-        tolerans_minus: mmGt.tolerans_minus ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_minus)) : '',
+        tolerans_plus: mmGt.tolerans_plus !== undefined && mmGt.tolerans_plus !== null ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_plus)) : '',
+        tolerans_minus: mmGt.tolerans_minus !== undefined && mmGt.tolerans_minus !== null ? normalizeDecimalDisplay(Math.abs(mmGt.tolerans_minus)) : '',
         shrink: mmGt.shrink || 'evet',
         unwinding: mmGt.unwinding || '',
         cast_kont: mmGt.cast_kont || '',
@@ -6911,7 +6911,6 @@ const GalvanizliTelNetsis = () => {
     // Preserve the exact format in existing Excel files
     const capForExcel = capValue.toFixed(2);
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
-    console.log(`💾 generateMmGtDatabaseData - SAVING TO DATABASE: tolerans_plus=${adjustedPlus}, tolerans_minus=${adjustedMinus}`);
 
     // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
     return {
@@ -8699,12 +8698,12 @@ const GalvanizliTelNetsis = () => {
   const getAdjustedToleranceValues = () => {
     const plusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const minusValue = parseFloat(mmGtData.tolerans_minus) || 0;
-    console.log(`🔍 getAdjustedToleranceValues - INPUT: plusValue=${plusValue}, minusValue=${minusValue}, toleransMaxSign=${toleransMaxSign}, toleransMinSign=${toleransMinSign}`);
+    console.log(`🔧 getAdjustedToleranceValues - INPUT: plusValue=${plusValue}, minusValue=${minusValue}, toleransMaxSign=${toleransMaxSign}, toleransMinSign=${toleransMinSign}`);
 
     // Apply signs to get the actual values
     const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
     const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
-    console.log(`🔍 getAdjustedToleranceValues - AFTER SIGN APPLICATION: actualPlusValue=${actualPlusValue}, actualMinusValue=${actualMinusValue}`);
+    console.log(`🔧 getAdjustedToleranceValues - AFTER SIGN: actualPlusValue=${actualPlusValue}, actualMinusValue=${actualMinusValue}`);
     
     // Check if mathematical correction is needed
     let adjustedPlusValue = actualPlusValue;
@@ -8716,7 +8715,7 @@ const GalvanizliTelNetsis = () => {
       adjustedPlusValue = actualMinusValue;
       adjustedMinusValue = actualPlusValue;
       mathematicallySwapped = true;
-      console.log(`🔄 getAdjustedToleranceValues - VALUES SWAPPED! New: adjustedPlus=${adjustedPlusValue}, adjustedMinus=${adjustedMinusValue}`);
+      console.log(`🔄 getAdjustedToleranceValues - SWAPPED! New: adjustedPlus=${adjustedPlusValue}, adjustedMinus=${adjustedMinusValue}`);
     }
 
     console.log(`✅ getAdjustedToleranceValues - FINAL OUTPUT: adjustedPlus=${adjustedPlusValue}, adjustedMinus=${adjustedMinusValue}`);
@@ -11091,11 +11090,11 @@ const GalvanizliTelNetsis = () => {
         // If stok_adi is undefined, generate it from the saved data
         if (!excelData.mmGtData.stok_adi) {
           console.log(`⚠️ MM GT stok_adi is undefined, generating from saved data...`);
-          console.log(`🔍 RAW DATABASE VALUES - tolerans_plus: ${excelData.mmGtData.tolerans_plus}, tolerans_minus: ${excelData.mmGtData.tolerans_minus}`);
+          console.log(`🔍 [Post-Save Excel] RAW excelData.mmGtData tolerances - plus: ${excelData.mmGtData.tolerans_plus}, minus: ${excelData.mmGtData.tolerans_minus}`);
           const cap = parseFloat(excelData.mmGtData.cap);
           const toleransPlus = parseFloat(excelData.mmGtData.tolerans_plus) || 0;
           const toleransMinus = parseFloat(excelData.mmGtData.tolerans_minus) || 0;
-          console.log(`🔍 PARSED VALUES - toleransPlus: ${toleransPlus}, toleransMinus: ${toleransMinus}`);
+          console.log(`🔍 [Post-Save Excel] PARSED VALUES - toleransPlus: ${toleransPlus}, toleransMinus: ${toleransMinus}`);
           const bagAmount = excelData.mmGtData.cast_kont && excelData.mmGtData.cast_kont.trim() !== ''
             ? `/${excelData.mmGtData.cast_kont}`
             : '';
@@ -11104,7 +11103,7 @@ const GalvanizliTelNetsis = () => {
           const formattedMinus = (toleransMinus >= 0 ? '+' : '') + toleransMinus.toFixed(2).replace('.', ',');
           const formattedPlus = (toleransPlus >= 0 ? '+' : '') + toleransPlus.toFixed(2).replace('.', ',');
           const toleranceText = `${formattedMinus}/${formattedPlus}`;
-          console.log(`🔍 FORMATTED - formattedMinus: "${formattedMinus}", formattedPlus: "${formattedPlus}", toleranceText: "${toleranceText}"`);
+          console.log(`✅ [Post-Save Excel] FINAL FORMATTED - formattedMinus: "${formattedMinus}", formattedPlus: "${formattedPlus}", toleranceText: "${toleranceText}"`);
 
           // Generate complete stok_adi with all the formatting
           const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmGtData.kaplama || '0'} gr/m² ${excelData.mmGtData.min_mukavemet || '0'}-${excelData.mmGtData.max_mukavemet || '0'} MPa ID:${excelData.mmGtData.ic_cap || '45'} cm OD:${excelData.mmGtData.dis_cap || '75'} cm ${excelData.mmGtData.kg || '0'}${bagAmount} kg`;
@@ -13087,7 +13086,6 @@ const GalvanizliTelNetsis = () => {
   const generateStokAdi = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
-    console.log(`📝 generateStokAdi - RECEIVED FROM getAdjustedToleranceValues: adjustedPlus=${adjustedPlus}, adjustedMinus=${adjustedMinus}`);
 
     // Determine if we need to append the bag amount (cast_kont) value
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
@@ -13098,7 +13096,6 @@ const GalvanizliTelNetsis = () => {
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
-    console.log(`📝 generateStokAdi - FORMATTED: formattedMinus="${formattedMinus}", formattedPlus="${formattedPlus}", toleranceText="${toleranceText}"`);
 
     // Base stok adı
     let stokAdi = `Galvanizli Tel ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.kaplama || '0'} gr/m² ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
@@ -15005,13 +15002,18 @@ const GalvanizliTelNetsis = () => {
                             // ✅ Return success with excel data since both save and approval succeeded
                             const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
                             const finalStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
-                            
+
+                            // Get signed tolerance values for Excel generation
+                            const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+                            console.log(`🔧 [Queue Task 1] Creating excelData - adjustedPlus: ${adjustedPlus}, adjustedMinus: ${adjustedMinus}`);
+                            console.log(`🔧 [Queue Task 1] Form state - tolerans_plus: ${mmGtData.tolerans_plus}, tolerans_minus: ${mmGtData.tolerans_minus}`);
+
                             const excelData = {
                               stok_kodu: finalStokKodu,
                               kod_2: mmGtData.kod_2,
                               cap: mmGtData.cap,
                               sequence: actualSequence,
-                              mmGtData: { ...mmGtData, stok_kodu: finalStokKodu },
+                              mmGtData: { ...mmGtData, stok_kodu: finalStokKodu, tolerans_plus: adjustedPlus, tolerans_minus: adjustedMinus },
                               selectedYmSts: [...selectedYmSts],
                               autoGeneratedYmSts: [...autoGeneratedYmSts],
                               mainYmStIndex: mainYmStIndex,
@@ -15039,13 +15041,18 @@ const GalvanizliTelNetsis = () => {
                       if (saveResult) {
                         const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
                         const finalStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
-                        
+
+                        // Get signed tolerance values for Excel generation
+                        const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+                        console.log(`🔧 [Queue Task 2] Creating excelData - adjustedPlus: ${adjustedPlus}, adjustedMinus: ${adjustedMinus}`);
+                        console.log(`🔧 [Queue Task 2] Form state - tolerans_plus: ${mmGtData.tolerans_plus}, tolerans_minus: ${mmGtData.tolerans_minus}`);
+
                         const excelData = {
                           stok_kodu: finalStokKodu,
                           kod_2: mmGtData.kod_2,
                           cap: mmGtData.cap,
                           sequence: actualSequence,
-                          mmGtData: { ...mmGtData, stok_kodu: finalStokKodu },
+                          mmGtData: { ...mmGtData, stok_kodu: finalStokKodu, tolerans_plus: adjustedPlus, tolerans_minus: adjustedMinus },
                           selectedYmSts: [...selectedYmSts],
                           autoGeneratedYmSts: [...autoGeneratedYmSts],
                           mainYmStIndex: mainYmStIndex,
