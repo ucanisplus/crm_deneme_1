@@ -1384,6 +1384,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
+        // Parse göz aralığı from database if available, otherwise calculate
+        const dbGozAraligi = product.goz_araligi || '';
+        let boyAraligi, enAraligi, gozAraligi;
+
+        if (dbGozAraligi && dbGozAraligi.includes('x')) {
+          // Use database value (e.g., "7.5x15", "15x25")
+          const parts = dbGozAraligi.split('x');
+          boyAraligi = parseFloat(parts[0]) || calculateGozAraligi(actualHasirTipi, 'boy');
+          enAraligi = parseFloat(parts[1]) || calculateGozAraligi(actualHasirTipi, 'en');
+          gozAraligi = dbGozAraligi;
+        } else {
+          // Fallback to calculation if database value missing
+          boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
+          enAraligi = calculateGozAraligi(actualHasirTipi, 'en');
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
+        }
+
         return {
           ...product,
           hasirTipi: actualHasirTipi,
@@ -1393,9 +1410,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enCap: product.cap2 || product.en_cap || 0,
           totalKg: product.kg || product.total_kg || 0,
           adetKg: product.kg || product.adet_kg || 0,
-          boyAraligi: calculateGozAraligi(actualHasirTipi, 'boy'),
-          enAraligi: calculateGozAraligi(actualHasirTipi, 'en'),
-          gozAraligi: `${calculateGozAraligi(actualHasirTipi, 'boy')}x${calculateGozAraligi(actualHasirTipi, 'en')}`,
+          boyAraligi: boyAraligi,
+          enAraligi: enAraligi,
+          gozAraligi: gozAraligi,
           existingStokKodu: product.stok_kodu,
           // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
           isOptimized: true,
