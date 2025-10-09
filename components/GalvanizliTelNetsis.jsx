@@ -11085,12 +11085,17 @@ const GalvanizliTelNetsis = () => {
           const cap = parseFloat(excelData.mmGtData.cap);
           const toleransPlus = parseFloat(excelData.mmGtData.tolerans_plus) || 0;
           const toleransMinus = parseFloat(excelData.mmGtData.tolerans_minus) || 0;
-          const bagAmount = excelData.mmGtData.cast_kont && excelData.mmGtData.cast_kont.trim() !== '' 
-            ? `/${excelData.mmGtData.cast_kont}` 
+          const bagAmount = excelData.mmGtData.cast_kont && excelData.mmGtData.cast_kont.trim() !== ''
+            ? `/${excelData.mmGtData.cast_kont}`
             : '';
-            
+
+          // Format tolerance values with proper signs (values are already signed in database)
+          const plusSign = toleransPlus >= 0 ? '+' : '';
+          const minusSign = toleransMinus >= 0 ? '+' : '';
+          const toleranceText = `${minusSign}${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/${plusSign}${Math.abs(toleransPlus).toFixed(2).replace('.', ',')}`;
+
           // Generate complete stok_adi with all the formatting
-          const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm -${Math.abs(toleransMinus).toFixed(2).replace('.', ',')}/+${toleransPlus.toFixed(2).replace('.', ',')} ${excelData.mmGtData.kaplama || '0'} gr/m² ${excelData.mmGtData.min_mukavemet || '0'}-${excelData.mmGtData.max_mukavemet || '0'} MPa ID:${excelData.mmGtData.ic_cap || '45'} cm OD:${excelData.mmGtData.dis_cap || '75'} cm ${excelData.mmGtData.kg || '0'}${bagAmount} kg`;
+          const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmGtData.kaplama || '0'} gr/m² ${excelData.mmGtData.min_mukavemet || '0'}-${excelData.mmGtData.max_mukavemet || '0'} MPa ID:${excelData.mmGtData.ic_cap || '45'} cm OD:${excelData.mmGtData.dis_cap || '75'} cm ${excelData.mmGtData.kg || '0'}${bagAmount} kg`;
           
           // Extract packaging suffixes from the saved task data
           const suffixes = [];
@@ -11145,6 +11150,9 @@ const GalvanizliTelNetsis = () => {
           dis_cap: excelData.mmGtData.dis_cap,
           kg: excelData.mmGtData.kg,
           cast_kont: excelData.mmGtData.cast_kont,
+          tolerans_plus: excelData.mmGtData.tolerans_plus,
+          tolerans_minus: excelData.mmGtData.tolerans_minus,
+          shrink: excelData.mmGtData.shrink,
           // Generate proper stok_adi with complete formatting
           stok_adi: generateYmGtStokAdi(excelData.mmGtData, excelData.sequence),
           ingilizce_isim: generateYmGtEnglishName(excelData.mmGtData, excelData.sequence)
