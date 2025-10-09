@@ -7,103 +7,104 @@ import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// YM ST Wire Drawing Matrix (for products >= 1.50mm using TLC01 direct drawing)
-// Products < 1.50mm use COTLC01 two-step method (not in matrix)
-// Priority: 0 = Ana (Main), 1 = ALT_1, 2 = ALT_2
+// YM ST Wire Drawing Matrix (UPDATED: 2025-10-09 from revised matrix CSV)
+// Products >= 1.50mm use TLC01 direct drawing, < 1.50mm use COTLC01 two-step method with YM.ST (not Filmaşin)
+// Priority: 0 = Ana (Main), 1 = ALT_1, 2 = ALT_2, etc.
 // NOTE: Each key represents a RANGE (e.g., 1.50 covers 1.50-1.59mm, 7.20 covers 7.20-7.29mm)
+// NOTE: Matrix only includes >= 1.50mm targets (< 1.50mm products use YM.ST sources, not Filmaşin)
 const YM_ST_FILMASIN_PRIORITY_MAP = {
   // 1.50-1.59mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
   1.50: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
   // 1.60-1.69mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
   1.60: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
-  // 1.70-1.79mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
-  1.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
-  // 1.80-1.89mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
-  1.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
-  // 1.90-1.99mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
-  1.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
-  // 2.00-2.09mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
-  2.00: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
-  // 2.10-2.19mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
-  2.10: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
-  // 2.20-2.29mm range: Ana=6.0/1008, ALT_1=6.0/1006, ALT_2=5.5/1006
-  2.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }],
-  // 2.30-2.39mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.30: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.40-2.49mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.40: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.50-2.59mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.50: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.60-2.69mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.60: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.70-2.79mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.70: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.80-2.89mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 2.90-2.99mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  2.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 3.00-3.09mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  3.00: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 3.10-3.19mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  3.10: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 3.20-3.29mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  3.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 3.30-3.39mm range: Ana=6.0/1008, ALT_1=6.0/1006
-  3.30: [{ diameter: 6.0, quality: '1008' }, { diameter: 6.0, quality: '1006' }],
-  // 3.40-3.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 3.50-3.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 3.60-3.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 3.70-3.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 3.80-3.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 3.90-3.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  3.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.00-4.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.10-4.19mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.10: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.20-4.29mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.20: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.30-4.39mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.30: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.40-4.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.50-4.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.60-4.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.70-4.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.80-4.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 4.90-4.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  4.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.00-5.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.10-5.19mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.10: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.20-5.29mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.20: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.30-5.39mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.30: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.40-5.49mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.40: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.50-5.59mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.50: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.60-5.69mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.60: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.70-5.79mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.70: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.80-5.89mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.80: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 5.90-5.99mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  5.90: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
-  // 6.00-6.09mm range: Ana=7.0/1010, ALT_1=7.0/1008, ALT_2=6.0/1008
-  6.00: [{ diameter: 7.0, quality: '1010' }, { diameter: 7.0, quality: '1008' }, { diameter: 6.0, quality: '1008' }],
+  // 1.70-1.79mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.80-1.89mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.80: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.90-1.99mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.90: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.00-2.09mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.00: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.10-2.19mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.10: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.20-2.29mm range: Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006
+  2.20: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1006' }],
+  // 2.30-2.39mm range: Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006
+  2.30: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1006' }],
+  // 2.40-2.49mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.40: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.50-2.59mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.50: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.60-2.69mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.60: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.70-2.79mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.80-2.89mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.80: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.90-2.99mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.90: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.00-3.09mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.00: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.10-3.19mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.10: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.20-3.29mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.20: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.30-3.39mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.30: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.40-3.49mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.40: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.50-3.59mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.50: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.60-3.69mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.60: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.70-3.79mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.70: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.80-3.89mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.90-3.99mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.00-4.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.10-4.19mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.10: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.20-4.29mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.20: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.30-4.39mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.30: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.40-4.49mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.40: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.50-4.59mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.60-4.69mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.60: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.70-4.79mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.70: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.80-4.89mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.80: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.90-4.99mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.90: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.00-5.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.10-5.19mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.10: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.20-5.29mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.20: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.30-5.39mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.30: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.40-5.49mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.40: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.50-5.59mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.60-5.69mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.60: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.70-5.79mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.70: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.80-5.89mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.80: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.90-5.99mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.90: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 6.00-6.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  6.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
   // 6.10-6.19mm range: Ana=8.0/1010
   6.10: [{ diameter: 8.0, quality: '1010' }],
   // 6.20-6.29mm range: Ana=8.0/1010
@@ -122,27 +123,28 @@ const YM_ST_FILMASIN_PRIORITY_MAP = {
   6.80: [{ diameter: 8.0, quality: '1010' }],
   // 6.90-6.99mm range: Ana=8.0/1010
   6.90: [{ diameter: 8.0, quality: '1010' }],
-  // 7.00-7.09mm range: Ana=9.0/1010
-  7.00: [{ diameter: 9.0, quality: '1010' }],
-  // 7.10-7.19mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  7.10: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
-  // 7.20-7.29mm range: Ana=9.0/1010
-  7.20: [{ diameter: 9.0, quality: '1010' }],
-  // 7.30-7.39mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  7.30: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
-  // 7.40-7.49mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  7.40: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
-  // 7.50-7.59mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  7.50: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
-  // 8.00-8.09mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  8.00: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }],
-  // 8.10-8.19mm range: Ana=10.0/1010, ALT_1=9.0/1010
-  8.10: [{ diameter: 10.0, quality: '1010' }, { diameter: 9.0, quality: '1010' }]
+  // 7.00-7.09mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.00: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.10-7.19mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.10: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.20-7.29mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.20: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.30-7.39mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.30: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.40-7.49mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.40: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.50-7.59mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.50: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 8.00-8.09mm range: Ana=10.0/1010
+  8.00: [{ diameter: 10.0, quality: '1010' }],
+  // 8.10-8.19mm range: Ana=10.0/1010
+  8.10: [{ diameter: 10.0, quality: '1010' }]
 };
 
 // Helper: Floor diameter to matrix range (e.g., 7.29 → 7.20, 4.18 → 4.10)
 const getMatrixRangeKey = (targetDiameter) => {
-  if (targetDiameter < 1.50) return null; // COTLC01 products
+  // Matrix only for products >= 1.50mm (products < 1.50mm use COTLC01 with YM.ST, not Filmaşin)
+  if (targetDiameter < 1.50) return null;
 
   // Floor to 0.10mm range: Math.floor(diameter * 10) / 10
   const rangeKey = Math.floor(targetDiameter * 10) / 10;
@@ -156,7 +158,7 @@ const getMatrixRangeKey = (targetDiameter) => {
 
 // Helper: Get filmaşin by priority for YM ST
 const getYmStFilmasinByPriority = (targetDiameter, priority) => {
-  // Products < 1.50mm use COTLC01 method, not in matrix
+  // Products < 1.50mm use COTLC01 method with YM.ST (not Filmaşin from matrix)
   if (targetDiameter < 1.50) {
     return null;
   }
