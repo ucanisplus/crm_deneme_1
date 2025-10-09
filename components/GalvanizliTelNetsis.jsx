@@ -388,10 +388,10 @@ const GalvanizliTelNetsis = () => {
     }
 
     // Preserve sign and format with 2 decimal places
-    const sign = numValue >= 0 ? '+' : ''; // Negative sign is automatic, add + for positive
-    const formatted = Math.abs(numValue).toFixed(2).replace('.', ',');
+    const formatted = numValue.toFixed(2).replace('.', ',');
 
-    return sign + formatted;
+    // Add + prefix for positive numbers (negative sign is automatic from toFixed)
+    return numValue >= 0 ? '+' + formatted : formatted;
   };
 
   // Reçete Excel icin ondalik formatla - 5 ondalik basamak ile
