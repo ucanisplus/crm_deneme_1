@@ -6910,7 +6910,10 @@ const GalvanizliTelNetsis = () => {
     
     // Preserve the exact format in existing Excel files
     const capForExcel = capValue.toFixed(2);
-    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
+    // Get ABSOLUTE values for storage (signs stored separately)
+    const toleransPlusAbs = Math.abs(parseFloat(mmGtData.tolerans_plus) || 0);
+    const toleransMinusAbs = Math.abs(parseFloat(mmGtData.tolerans_minus) || 0);
 
     // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
     return {
@@ -6940,8 +6943,10 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string value
-      tolerans_plus: adjustedPlus,
-      tolerans_minus: adjustedMinus,
+      tolerans_plus: toleransPlusAbs, // Store ABSOLUTE value
+      tolerans_minus: toleransMinusAbs, // Store ABSOLUTE value
+      tolerans_max_sign: toleransMaxSign, // Store sign separately
+      tolerans_min_sign: toleransMinSign, // Store sign separately
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
@@ -6985,10 +6990,13 @@ const GalvanizliTelNetsis = () => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
     const capForExcel = capValue.toFixed(2);
-    const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
-    
+
+    // Get ABSOLUTE values for storage (signs stored separately)
+    const toleransPlusAbs = Math.abs(parseFloat(mmGtData.tolerans_plus) || 0);
+    const toleransMinusAbs = Math.abs(parseFloat(mmGtData.tolerans_minus) || 0);
+
     // Sequence değerlerinin MMGT ile aynı olduğunu logla
-    
+
     return {
       stok_kodu: `YM.GT.${mmGtData.kod_2}.${capFormatted}.${validSequence}`,
       stok_adi: generateYmGtStokAdi(validSequence),
@@ -7016,10 +7024,10 @@ const GalvanizliTelNetsis = () => {
       ic_cap: parseInt(mmGtData.ic_cap),
       dis_cap: parseInt(mmGtData.dis_cap),
       cap2: capForExcel, // Use formatted string to match Excel
-      tolerans_plus: adjustedPlus,
-      tolerans_minus: adjustedMinus,
-      tolerans_max_sign: toleransMaxSign, // Store sign for tolerance max
-      tolerans_min_sign: toleransMinSign, // Store sign for tolerance min
+      tolerans_plus: toleransPlusAbs, // Store ABSOLUTE value
+      tolerans_minus: toleransMinusAbs, // Store ABSOLUTE value
+      tolerans_max_sign: toleransMaxSign, // Store sign separately
+      tolerans_min_sign: toleransMinSign, // Store sign separately
       shrink: mmGtData.shrink,
       unwinding: mmGtData.unwinding || '',
       cast_kont: mmGtData.cast_kont || '',
