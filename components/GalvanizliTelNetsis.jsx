@@ -282,6 +282,11 @@ const GalvanizliTelNetsis = () => {
   const [allYmStsForSelection, setAllYmStsForSelection] = useState([]);
   const [ymStSearchQuery, setYmStSearchQuery] = useState('');
   const [selectedYmStsForAdd, setSelectedYmStsForAdd] = useState([]);
+
+  // Manuel Oluştur modal state'leri
+  const [showManuelOlusturModal, setShowManuelOlusturModal] = useState(false);
+  const [manuelFilmasinSelection, setManuelFilmasinSelection] = useState('');
+  const [manuelYmStSelection, setManuelYmStSelection] = useState('');
   
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
@@ -691,9 +696,9 @@ const GalvanizliTelNetsis = () => {
       const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
 
       const actualToleranceMinus = Math.abs(toleransMinus);
-      const coatingReduction = Math.floor(kaplama / 35) / 100;
+      const coatingReduction = (kaplama / 35) * 0.01; // Changed from Math.floor to match user's formula
 
-      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction;
+      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01; // Added +0.01 as per user's formula
       const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
 
       setCalculatedYmStDiameter(ymStDiameter);
@@ -3316,9 +3321,9 @@ const GalvanizliTelNetsis = () => {
     const toleransMinSign = mmGtData.tolerans_min_sign || '-';
 
     const actualToleranceMinus = Math.abs(toleransMinus);
-    const coatingReduction = Math.floor(kaplama / 35) / 100;
+    const coatingReduction = (kaplama / 35) * 0.01; // Changed from Math.floor to match user's formula
 
-    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction;
+    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01; // Added +0.01 as per user's formula
     const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1); // Minimum 0.1mm, round to 2 decimals
 
     console.log(`🔧 YM ST Diameter Calculation:`, {
@@ -3521,6 +3526,148 @@ const GalvanizliTelNetsis = () => {
     setTimeout(() => {
       calculateAutoRecipeValues();
     }, 100);
+  };
+
+  // Manuel YM ST oluştur - kullanıcı tarafından seçilen Filmaşin/YM ST ile
+  const handleManuelOlustur = async () => {
+    try {
+      // Validate based on diameter
+      const ymStDiam = calculatedYmStDiameter || 0;
+
+      console.log('🔧 Manuel Oluştur - Calculated YM ST Diameter:', ymStDiam);
+      console.log('Selected Filmaşin:', manuelFilmasinSelection);
+      console.log('Selected YM ST:', manuelYmStSelection);
+
+      if (ymStDiam < 1.5 && !manuelYmStSelection) {
+        toast.error('YM ST seçimi gerekli (çap < 1.5mm)');
+        return;
+      }
+
+      if (ymStDiam >= 1.5 && ymStDiam < 1.8 && (!manuelFilmasinSelection || !manuelYmStSelection)) {
+        toast.error('Hem Filmaşin hem YM ST seçimi gerekli (çap 1.5-1.8mm)');
+        return;
+      }
+
+      if (ymStDiam >= 1.8 && !manuelFilmasinSelection) {
+        toast.error('Filmaşin seçimi gerekli (çap >= 1.8mm)');
+        return;
+      }
+
+      const cap = parseFloat(mmGtData.cap) || 0;
+      const kaplama = parseInt(mmGtData.kaplama) || 0;
+
+      // Get tolerances for calculation
+      const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
+      const actualToleranceMinus = Math.abs(toleransMinus);
+      const coatingReduction = (kaplama / 35) * 0.01;
+      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01;
+      const calculatedCap = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
+
+      const manuelYmSts = [];
+
+      // Case 1: < 1.5mm - Only YM ST product
+      if (ymStDiam < 1.5 && manuelYmStSelection) {
+        const selectedYmSt = await fetchWithAuth(`${API_URLS.galYmSt}/${manuelYmStSelection}`);
+        if (selectedYmSt && selectedYmSt.ok) {
+          const ymStData = await selectedYmSt.json();
+          manuelYmSts.push({
+            ...ymStData,
+            source: 'manual-selected',
+            priority: 0,
+            isMain: true
+          });
+        }
+      }
+      // Case 2: 1.5-1.8mm - Both Filmaşin (Ana) and YM ST (ALT)
+      else if (ymStDiam >= 1.5 && ymStDiam < 1.8 && manuelFilmasinSelection && manuelYmStSelection) {
+        // Add Filmaşin-based product (Ana)
+        const filmasinResponse = await fetchWithAuth(`${API_URLS.galFilmasin}/${manuelFilmasinSelection}`);
+        if (filmasinResponse && filmasinResponse.ok) {
+          const filmasinData = await filmasinResponse.json();
+          const capStr = Math.round(calculatedCap * 100).toString().padStart(4, '0');
+          const filmasinStr = (parseFloat(filmasinData.cap) * 100).toString().padStart(4, '0');
+          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${filmasinData.kalite}`;
+
+          manuelYmSts.push({
+            stok_kodu: stokKodu,
+            stok_adi: `YM Siyah Tel ${calculatedCap.toFixed(2)} mm HM:${filmasinStr}.${filmasinData.kalite}`,
+            cap: calculatedCap,
+            filmasin: Math.round(parseFloat(filmasinData.cap) * 100),
+            quality: filmasinData.kalite,
+            payda_1: 1,
+            kaplama: kaplama,
+            source: 'manual-created-filmasin',
+            priority: 0,
+            isMain: true
+          });
+        }
+
+        // Add YM ST product (ALT_1)
+        const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${manuelYmStSelection}`);
+        if (ymStResponse && ymStResponse.ok) {
+          const ymStData = await ymStResponse.json();
+          manuelYmSts.push({
+            ...ymStData,
+            source: 'manual-selected',
+            priority: 1
+          });
+        }
+      }
+      // Case 3: >= 1.8mm - Only Filmaşin-based product
+      else if (ymStDiam >= 1.8 && manuelFilmasinSelection) {
+        const filmasinResponse = await fetchWithAuth(`${API_URLS.galFilmasin}/${manuelFilmasinSelection}`);
+        if (filmasinResponse && filmasinResponse.ok) {
+          const filmasinData = await filmasinResponse.json();
+          const capStr = Math.round(calculatedCap * 100).toString().padStart(4, '0');
+          const filmasinStr = (parseFloat(filmasinData.cap) * 100).toString().padStart(4, '0');
+          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${filmasinData.kalite}`;
+
+          manuelYmSts.push({
+            stok_kodu: stokKodu,
+            stok_adi: `YM Siyah Tel ${calculatedCap.toFixed(2)} mm HM:${filmasinStr}.${filmasinData.kalite}`,
+            cap: calculatedCap,
+            filmasin: Math.round(parseFloat(filmasinData.cap) * 100),
+            quality: filmasinData.kalite,
+            payda_1: 1,
+            kaplama: kaplama,
+            source: 'manual-created-filmasin',
+            priority: 0,
+            isMain: true
+          });
+        }
+      }
+
+      if (manuelYmSts.length === 0) {
+        toast.error('Manuel YM ST oluşturulamadı - lütfen seçimleri kontrol edin');
+        return;
+      }
+
+      console.log(`✅ Manually created ${manuelYmSts.length} YM ST products:`, manuelYmSts.map(y => y.stok_kodu));
+
+      // Add to selected YM STs
+      setSelectedYmSts(prev => [...prev, ...manuelYmSts]);
+
+      // Set main YM ST index if this is the first selection
+      if (selectedYmSts.length === 0 && manuelYmSts.length > 0) {
+        setMainYmStIndex(0);
+      }
+
+      // Close modal and reset selections
+      setShowManuelOlusturModal(false);
+      setManuelFilmasinSelection('');
+      setManuelYmStSelection('');
+
+      toast.success(`${manuelYmSts.length} YM ST manuel olarak eklendi`);
+
+      // Calculate recipes
+      setTimeout(() => {
+        calculateAutoRecipeValues();
+      }, 100);
+
+    } catch (error) {
+      console.error('Error in handleManuelOlustur:', error);
+      toast.error('Manuel YM ST oluşturma hatası: ' + error.message);
+    }
   };
 
   // Filmaşin mapping from Excel data (Hammadde_tuketimleri.xlsx)
@@ -7438,8 +7585,8 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            // Excel format requires GTPKT01 to be marked as Operasyon, all others as Bileşen
-            const operasyonBilesen = key === 'GTPKT01' ? 'Operasyon' : 'Bileşen';
+            // Excel format requires GTPKT01 to be marked as Operasyon (O), all others as Bileşen (B)
+            const operasyonBilesen = key === 'GTPKT01' ? 'O' : 'B';
             
             // We don't need isSpecialCode check anymore, all handling is in operasyonBilesen
             
@@ -7937,7 +8084,7 @@ const GalvanizliTelNetsis = () => {
                 miktar: formattedValue,
                 sira_no: siraNo++,
                 // DÜZELTME: YM.ST ve FLM kodları her zaman bileşen, sadece GLV01 ve TLC01 operasyon
-                operasyon_bilesen: key === 'GLV01' ? 'Operasyon' : 'Bileşen', // Only GLV01 is Operasyon in YMGT recipes
+                operasyon_bilesen: key === 'GLV01' ? 'O' : 'B', // Only GLV01 is Operasyon (O) in YMGT recipes
                 olcu_br: getOlcuBr(key),
               };
               console.log("YMGT REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
@@ -8197,7 +8344,7 @@ const GalvanizliTelNetsis = () => {
                 bilesen_kodu: key,
                 miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
-                operasyon_bilesen: key === 'TLC01' ? 'Operasyon' : 'Bileşen', // Only TLC01 is Operasyon in YMST recipes
+                operasyon_bilesen: key === 'TLC01' ? 'O' : 'B', // Only TLC01 is Operasyon (O) in YMST recipes
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
@@ -9735,7 +9882,7 @@ const GalvanizliTelNetsis = () => {
 
             // STEP 2: Extract YM GT stok_kodu from MM GT recipes
             const ymGtRecipe = mmGtRecipes.find(r =>
-              r.operasyon_bilesen === 'Bileşen' &&
+              (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
               r.bilesen_kodu &&
               r.bilesen_kodu.startsWith('YM.GT.')
             );
@@ -9793,7 +9940,7 @@ const GalvanizliTelNetsis = () => {
 
                     // STEP 4: Extract main YM ST from YM GT recipes
                     const mainYmStRecipe = ymGtRecipes.find(r =>
-                      r.operasyon_bilesen === 'Bileşen' &&
+                      (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                       r.bilesen_kodu &&
                       r.bilesen_kodu.startsWith('YM.ST.')
                     );
@@ -10360,85 +10507,75 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // YM ST REÇETE Sheet - EXACT same structure as individual
+    // YM ST REÇETE Sheet - CONSOLIDATED with all priorities (Ana, ALT 1, ALT 2)
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
-    
-    // FIXED: Add multiple YM ST recipe rows with per-product sequence numbering
-    const ymStByProduct = {};
+
+    console.log(`📋 Creating consolidated YM ST Reçete sheet with Ana (${ymStRecipes.length}), ALT 1 (${ymStAlt1Recipes ? ymStAlt1Recipes.length : 0}), ALT 2 (${ymStAlt2Recipes ? ymStAlt2Recipes.length : 0}) recipes`);
+
+    // Combine all YM ST recipes with priority information
+    const allYmStRecipesWithPriority = [];
+
+    // Add Ana recipes (priority 0)
     ymStRecipes.forEach(recipe => {
-      if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
-        ymStByProduct[recipe.ym_st_stok_kodu] = [];
-      }
-      ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      allYmStRecipesWithPriority.push({
+        ...recipe,
+        priority: 0
+      });
     });
-    
-    // Get stok codes from sorted product data to maintain diameter order
-    const sortedYmStStokCodes = sortedYmStData.map(product => product.stok_kodu);
-    
-    sortedYmStStokCodes.forEach(stokKodu => {
-      if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
+
+    // Add ALT 1 recipes (priority 1)
+    if (ymStAlt1Recipes && ymStAlt1Recipes.length > 0) {
+      ymStAlt1Recipes.forEach(recipe => {
+        allYmStRecipesWithPriority.push({
+          ...recipe,
+          priority: 1
+        });
+      });
+    }
+
+    // Add ALT 2 recipes (priority 2)
+    if (ymStAlt2Recipes && ymStAlt2Recipes.length > 0) {
+      ymStAlt2Recipes.forEach(recipe => {
+        allYmStRecipesWithPriority.push({
+          ...recipe,
+          priority: 2
+        });
+      });
+    }
+
+    // Group all recipes by product
+    const allYmStByProduct = {};
+    allYmStRecipesWithPriority.forEach(recipe => {
+      if (!allYmStByProduct[recipe.ym_st_stok_kodu]) {
+        allYmStByProduct[recipe.ym_st_stok_kodu] = [];
+      }
+      allYmStByProduct[recipe.ym_st_stok_kodu].push(recipe);
+    });
+
+    // Get all stok codes sorted by diameter (Ana first, then ALT 1, then ALT 2)
+    const allSortedYmStStokCodes = [
+      ...sortedYmStData.map(product => product.stok_kodu),
+      ...(sortedYmStAlt1Data || []).map(product => product.stok_kodu),
+      ...(sortedYmStAlt2Data || []).map(product => product.stok_kodu)
+    ];
+
+    // Add recipes for each product with priority column filled
+    allSortedYmStStokCodes.forEach(stokKodu => {
+      if (allYmStByProduct[stokKodu] && allYmStByProduct[stokKodu].length > 0) {
         let productSiraNo = 1; // Restart sequence for each product
-        ymStByProduct[stokKodu].forEach(recipe => {
-          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
+        allYmStByProduct[stokKodu].forEach(recipe => {
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(
+            recipe.bilesen_kodu,
+            recipe.miktar,
+            productSiraNo,
+            recipe.ym_st_stok_kodu,
+            recipe.priority // Pass priority to show 0, 1, or 2
+          ));
           productSiraNo++;
         });
       }
     });
-
-    // YM ST ALT 1 REÇETE Sheet - if there are ALT 1 products
-    if (ymStAlt1Recipes && ymStAlt1Recipes.length > 0) {
-      console.log(`📋 Creating YM ST Reçete ALT 1 sheet with ${ymStAlt1Recipes.length} recipes`);
-      const ymStAlt1ReceteSheet = workbook.addWorksheet('YM ST Reçete ALT 1');
-      ymStAlt1ReceteSheet.addRow(receteHeaders);
-
-      const ymStAlt1ByProduct = {};
-      ymStAlt1Recipes.forEach(recipe => {
-        if (!ymStAlt1ByProduct[recipe.ym_st_stok_kodu]) {
-          ymStAlt1ByProduct[recipe.ym_st_stok_kodu] = [];
-        }
-        ymStAlt1ByProduct[recipe.ym_st_stok_kodu].push(recipe);
-      });
-
-      const sortedYmStAlt1StokCodes = sortedYmStAlt1Data.map(product => product.stok_kodu);
-
-      sortedYmStAlt1StokCodes.forEach(stokKodu => {
-        if (ymStAlt1ByProduct[stokKodu] && ymStAlt1ByProduct[stokKodu].length > 0) {
-          let productSiraNo = 1;
-          ymStAlt1ByProduct[stokKodu].forEach(recipe => {
-            ymStAlt1ReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
-            productSiraNo++;
-          });
-        }
-      });
-    }
-
-    // YM ST ALT 2 REÇETE Sheet - if there are ALT 2 products
-    if (ymStAlt2Recipes && ymStAlt2Recipes.length > 0) {
-      console.log(`📋 Creating YM ST Reçete ALT 2 sheet with ${ymStAlt2Recipes.length} recipes`);
-      const ymStAlt2ReceteSheet = workbook.addWorksheet('YM ST Reçete ALT 2');
-      ymStAlt2ReceteSheet.addRow(receteHeaders);
-
-      const ymStAlt2ByProduct = {};
-      ymStAlt2Recipes.forEach(recipe => {
-        if (!ymStAlt2ByProduct[recipe.ym_st_stok_kodu]) {
-          ymStAlt2ByProduct[recipe.ym_st_stok_kodu] = [];
-        }
-        ymStAlt2ByProduct[recipe.ym_st_stok_kodu].push(recipe);
-      });
-
-      const sortedYmStAlt2StokCodes = sortedYmStAlt2Data.map(product => product.stok_kodu);
-
-      sortedYmStAlt2StokCodes.forEach(stokKodu => {
-        if (ymStAlt2ByProduct[stokKodu] && ymStAlt2ByProduct[stokKodu].length > 0) {
-          let productSiraNo = 1;
-          ymStAlt2ByProduct[stokKodu].forEach(recipe => {
-            ymStAlt2ReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_st_stok_kodu));
-            productSiraNo++;
-          });
-        }
-      });
-    }
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -12879,11 +13016,11 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  // Batch Excel için YM ST recipe row generator (stok_kodu parametreli)
-  const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu) => {
+  // Batch Excel için YM ST recipe row generator (stok_kodu ve priority parametreli)
+  const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu, priority = '') => {
     // Determine if this is an Operation row
     const isOperation = ['TLC01', 'COTLC01'].includes(bilesenKodu);
-    
+
     return [
       stokKodu, // Mamul Kodu - batch'de parametre olarak verilen stok kodu
       '1', // Reçete Top.
@@ -12905,7 +13042,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
-      '', // Öncelik
+      priority, // Öncelik - 0=Ana, 1=ALT_1, 2=ALT_2
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
       '', // Alternatif Politika - Ambar Ç. Fişi
@@ -13902,6 +14039,16 @@ const GalvanizliTelNetsis = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   Otomatik Oluştur
+                </button>
+                <button
+                  onClick={() => setShowManuelOlusturModal(true)}
+                  disabled={!calculatedYmStDiameter}
+                  className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Manuel Oluştur
                 </button>
               </div>
             </div>
@@ -17477,6 +17624,144 @@ const GalvanizliTelNetsis = () => {
         </div>
       )}
 
+      {/* Manuel Oluştur Modal */}
+      {showManuelOlusturModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Manuel YM ST Oluştur
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowManuelOlusturModal(false);
+                    setManuelFilmasinSelection('');
+                    setManuelYmStSelection('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Diameter Info */}
+              {calculatedYmStDiameter !== null && (
+                <div className={`mb-6 p-4 rounded-lg border-l-4 ${
+                  calculatedYmStDiameter < 1.5
+                    ? 'bg-blue-50 border-blue-500'
+                    : calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8
+                    ? 'bg-purple-50 border-purple-500'
+                    : 'bg-green-50 border-green-500'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        Hesaplanan YM ST Çapı: {calculatedYmStDiameter.toFixed(2)} mm
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {calculatedYmStDiameter < 1.5 && (
+                          <>
+                            <span className="font-semibold text-blue-700">Çap &lt; 1.5mm:</span> Sadece YM ST seçimi gerekli
+                          </>
+                        )}
+                        {calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8 && (
+                          <>
+                            <span className="font-semibold text-purple-700">1.5mm ≤ Çap &lt; 1.8mm:</span> Hem Filmaşin hem YM ST seçimi gerekli
+                          </>
+                        )}
+                        {calculatedYmStDiameter >= 1.8 && (
+                          <>
+                            <span className="font-semibold text-green-700">Çap ≥ 1.8mm:</span> Sadece Filmaşin seçimi gerekli
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Selection Fields */}
+              <div className="space-y-4">
+                {/* Filmaşin Selection - Show for >= 1.5mm */}
+                {calculatedYmStDiameter !== null && calculatedYmStDiameter >= 1.5 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Filmaşin Seçimi
+                      {calculatedYmStDiameter < 1.8 && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    <select
+                      value={manuelFilmasinSelection}
+                      onChange={(e) => setManuelFilmasinSelection(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">-- Filmaşin Seçin --</option>
+                      {/* Options will be loaded from API - for now placeholder */}
+                      <option value="1">FLM.0550.1006 (5.5mm, 1006)</option>
+                      <option value="2">FLM.0600.1006 (6.0mm, 1006)</option>
+                      <option value="3">FLM.0600.1008 (6.0mm, 1008)</option>
+                      <option value="4">FLM.0700.1008 (7.0mm, 1008)</option>
+                      <option value="5">FLM.0700.1010 (7.0mm, 1010)</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* YM ST Selection - Show for < 1.8mm */}
+                {calculatedYmStDiameter !== null && calculatedYmStDiameter < 1.8 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      YM ST Seçimi
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <select
+                      value={manuelYmStSelection}
+                      onChange={(e) => setManuelYmStSelection(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">-- YM ST Seçin --</option>
+                      {/* Options will be loaded from API - for now placeholder */}
+                      <option value="1">YM.ST.0100.ST (1.00mm)</option>
+                      <option value="2">YM.ST.0110.ST (1.10mm)</option>
+                      <option value="3">YM.ST.0120.ST (1.20mm)</option>
+                      <option value="4">YM.ST.0130.ST (1.30mm)</option>
+                      <option value="5">YM.ST.0140.ST (1.40mm)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowManuelOlusturModal(false);
+                    setManuelFilmasinSelection('');
+                    setManuelYmStSelection('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleManuelOlustur}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+                >
+                  Oluştur
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* YM ST Veritabani Secim Modali */}
       {showYmStSelectionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -17582,10 +17867,17 @@ const GalvanizliTelNetsis = () => {
                                (ymSt.stok_adi || '').toLowerCase().includes(query) ||
                                (ymSt.cap || '').toString().includes(query);
                       })
-                      .map(ymSt => {
+                      .map((ymSt, index) => {
                         const isSelected = selectedYmStsForAdd.find(selected => selected.stok_kodu === ymSt.stok_kodu);
                         const isAlreadyInMain = selectedYmSts.find(selected => selected.stok_kodu === ymSt.stok_kodu);
-                        
+
+                        // Determine if this is a suggested item
+                        // Suggested items are sorted first, so check cap difference
+                        const cap = parseFloat(mmGtData.cap) || 0;
+                        const ymStCap = parseFloat(ymSt.cap) || 0;
+                        const capDifference = Math.abs(ymStCap - cap);
+                        const isSuggested = capDifference <= 0.5;
+
                         return (
                           <div
                             key={ymSt.id}
@@ -17594,6 +17886,8 @@ const GalvanizliTelNetsis = () => {
                                 ? 'bg-green-50 border-green-300 opacity-50'
                                 : isSelected
                                 ? 'bg-purple-100 border-purple-500 shadow-lg'
+                                : isSuggested
+                                ? 'bg-blue-50 border-blue-300 hover:bg-blue-100 hover:border-blue-400'
                                 : 'bg-gray-50 border-gray-200 hover:bg-purple-50 hover:border-purple-300'
                             }`}
                             onClick={() => {
@@ -17607,7 +17901,17 @@ const GalvanizliTelNetsis = () => {
                           >
                             <div className="flex justify-between items-start mb-2">
                               <div className="flex-1">
-                                <p className="font-semibold text-gray-800 text-xs">{ymSt.stok_kodu || ''}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-gray-800 text-xs">{ymSt.stok_kodu || ''}</p>
+                                  {isSuggested && !isAlreadyInMain && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                      Önerilen
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs text-gray-600 line-clamp-2">{ymSt.stok_adi || ''}</p>
                               </div>
                               <div className={`ml-2 ${isAlreadyInMain ? 'text-green-600' : isSelected ? 'text-purple-600' : 'text-gray-400'}`}>

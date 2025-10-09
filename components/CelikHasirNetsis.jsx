@@ -2278,12 +2278,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             .trim();
         };
 
-        productExists = savedProducts.mm.some(p => 
+        productExists = savedProducts.mm.some(p =>
           normalizeHasirTipiForComparison(p.hasir_tipi) === normalizeHasirTipiForComparison(product.hasirTipi) &&
           Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
-          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01
+          Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01 &&
+          (p.goz_araligi || '') === (product.gozAraligi || '') // FIXED: Check göz aralığı to prevent wrong matches
         );
         
         if (productExists) {
