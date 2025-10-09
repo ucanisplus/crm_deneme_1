@@ -9785,6 +9785,7 @@ const GalvanizliTelNetsis = () => {
                       const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
                       ymGtRecipeMap.set(key, {
                         ...r,
+                        ym_gt_stok_kodu: ymGt.stok_kodu,
                         mm_gt_stok_kodu: mmGt.stok_kodu,
                         sequence: mmGt.stok_kodu?.split('.').pop() || '00',
                       });
