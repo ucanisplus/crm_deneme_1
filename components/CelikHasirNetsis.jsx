@@ -1410,6 +1410,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enCap: product.cap2 || product.en_cap || 0,
           totalKg: product.kg || product.total_kg || 0,
           adetKg: product.kg || product.adet_kg || 0,
+          cubukSayisiBoy: product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad || 0,
+          cubukSayisiEn: product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad || 0,
           boyAraligi: boyAraligi,
           enAraligi: enAraligi,
           gozAraligi: gozAraligi,
@@ -3522,7 +3524,24 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
             
             const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
-            
+
+            // Parse göz aralığı from database if available, otherwise calculate
+            const dbGozAraligi = product.goz_araligi || '';
+            let boyAraligi, enAraligi, gozAraligi;
+
+            if (dbGozAraligi && dbGozAraligi.includes('x')) {
+              // Use database value (e.g., "7.5x15", "15x25")
+              const parts = dbGozAraligi.split('x');
+              boyAraligi = parseFloat(parts[0]) || calculateGozAraligi(actualHasirTipi, 'boy');
+              enAraligi = parseFloat(parts[1]) || calculateGozAraligi(actualHasirTipi, 'en');
+              gozAraligi = dbGozAraligi;
+            } else {
+              // Fallback to calculation if database value missing
+              boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
+              enAraligi = calculateGozAraligi(actualHasirTipi, 'en');
+              gozAraligi = `${boyAraligi}x${enAraligi}`;
+            }
+
             return {
               ...product,
               hasirTipi: actualHasirTipi,
@@ -3532,11 +3551,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               enCap: product.cap2 || product.en_cap || 0,
               totalKg: product.kg || product.total_kg || 0,
               adetKg: product.kg || product.adet_kg || 0,
-              cubukSayisiBoy: product.ic_cap_boy_cubuk_ad || 0,
-              cubukSayisiEn: product.dis_cap_en_cubuk_ad || 0,
-              boyAraligi: calculateGozAraligi(actualHasirTipi, 'boy'),
-              enAraligi: calculateGozAraligi(actualHasirTipi, 'en'),
-              gozAraligi: `${calculateGozAraligi(actualHasirTipi, 'boy')}x${calculateGozAraligi(actualHasirTipi, 'en')}`,
+              cubukSayisiBoy: product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad || 0,
+              cubukSayisiEn: product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad || 0,
+              boyAraligi: boyAraligi,
+              enAraligi: enAraligi,
+              gozAraligi: gozAraligi,
               existingStokKodu: product.stok_kodu,
               existingIngilizceIsim: cleanIngilizceIsim,
               isOptimized: true,
@@ -3750,6 +3769,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         // Extract actual hasir_tipi from stok_adi if hasir_tipi is missing or 'MM'
         const extractedHasirTipi = extractHasirTipiFromStokAdi(product.stok_adi) || product.hasir_tipi || 'MM';
         
+        // Parse göz aralığı from database if available, otherwise calculate
+        const dbGozAraligi = product.goz_araligi || '';
+        let gozAraligiEn, gozAraligiBoy;
+
+        if (dbGozAraligi && dbGozAraligi.includes('x')) {
+          // Use database value (e.g., "7.5x15", "15x25")
+          const parts = dbGozAraligi.split('x');
+          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(extractedHasirTipi, 'boy');
+          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(extractedHasirTipi, 'en');
+        } else {
+          // Fallback to calculation if database value missing
+          gozAraligiBoy = calculateGozAraligi(extractedHasirTipi, 'boy');
+          gozAraligiEn = calculateGozAraligi(extractedHasirTipi, 'en');
+        }
+
         return {
           ...product,
           existingStokKodu: product.stok_kodu,
@@ -3762,13 +3796,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enCap: (product.cap2?.toString() || '0').replace(',', '.'),
           totalKg: product.kg?.toString() || '0',
           adetKg: product.kg?.toString() || '0',
-          // Use recipe data if available, otherwise use database values
-          cubukSayisiBoy: boyCubukSayisi || product.ic_cap_boy_cubuk_ad,
-          cubukSayisiEn: enCubukSayisi || product.dis_cap_en_cubuk_ad,
-          ic_cap_boy_cubuk_ad: boyCubukSayisi || product.ic_cap_boy_cubuk_ad,
-          dis_cap_en_cubuk_ad: enCubukSayisi || product.dis_cap_en_cubuk_ad,
-          gozAraligiEn: calculateGozAraligi(extractedHasirTipi, 'en'),
-          gozAraligiBoy: calculateGozAraligi(extractedHasirTipi, 'boy'),
+          // Use recipe data if available, otherwise use database values (check both old and new columns)
+          cubukSayisiBoy: boyCubukSayisi || product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad,
+          cubukSayisiEn: enCubukSayisi || product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad,
+          ic_cap_boy_cubuk_ad: boyCubukSayisi || product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad,
+          dis_cap_en_cubuk_ad: enCubukSayisi || product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad,
+          gozAraligiEn: gozAraligiEn,
+          gozAraligiBoy: gozAraligiBoy,
           yotochDuration: yotochDuration,
           recipeData: productRecipes,
           source: 'database',
@@ -3780,51 +3814,85 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
       
-      const processedNCBKProducts = (allNCBKProducts || []).map(dbProduct => ({
-        existingStokKodu: dbProduct.stok_kodu,
-        // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
-        hasirTipi: dbProduct.hasir_tipi || 'NCBK',
-        uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
-        uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        // FIXED: Normalize comma separators to periods for decimal values
-        boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
-        enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
-        totalKg: dbProduct.kg?.toString() || '0',
-        adetKg: dbProduct.kg?.toString() || '0',
-        cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
-        cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
-        ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        gozAraligiEn: calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en'),
-        gozAraligiBoy: calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy'),
-        source: 'database',
-        productType: 'NCBK',
-        ...dbProduct
-      }));
+      const processedNCBKProducts = (allNCBKProducts || []).map(dbProduct => {
+        // Parse göz aralığı from database if available, otherwise calculate
+        const dbGozAraligi = dbProduct.goz_araligi || '';
+        let gozAraligiEn, gozAraligiBoy;
+
+        if (dbGozAraligi && dbGozAraligi.includes('x')) {
+          // Use database value (e.g., "7.5x15", "15x25")
+          const parts = dbGozAraligi.split('x');
+          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
+          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+        } else {
+          // Fallback to calculation if database value missing
+          gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
+          gozAraligiEn = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+        }
+
+        return {
+          existingStokKodu: dbProduct.stok_kodu,
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          hasirTipi: dbProduct.hasir_tipi || 'NCBK',
+          uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
+          uzunlukEn: dbProduct.ebat_en?.toString() || '0',
+          // FIXED: Normalize comma separators to periods for decimal values
+          boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
+          enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
+          totalKg: dbProduct.kg?.toString() || '0',
+          adetKg: dbProduct.kg?.toString() || '0',
+          cubukSayisiBoy: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
+          cubukSayisiEn: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
+          ic_cap_boy_cubuk_ad: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
+          dis_cap_en_cubuk_ad: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
+          gozAraligiEn: gozAraligiEn,
+          gozAraligiBoy: gozAraligiBoy,
+          source: 'database',
+          productType: 'NCBK',
+          ...dbProduct
+        };
+      });
 
       setExcelProgress({ current: 5, total: 8, operation: 'NTEL ürünleri formatlanıyor...' });
       
-      const processedNTELProducts = (allNTELProducts || []).map(dbProduct => ({
-        existingStokKodu: dbProduct.stok_kodu,
-        // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
-        hasirTipi: dbProduct.hasir_tipi || 'NTEL',
-        uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
-        uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-        // FIXED: Normalize comma separators to periods for decimal values
-        boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
-        enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
-        totalKg: dbProduct.kg?.toString() || '0',
-        adetKg: dbProduct.kg?.toString() || '0',
-        cubukSayisiBoy: dbProduct.ic_cap_boy_cubuk_ad,
-        cubukSayisiEn: dbProduct.dis_cap_en_cubuk_ad,
-        ic_cap_boy_cubuk_ad: dbProduct.ic_cap_boy_cubuk_ad,
-        dis_cap_en_cubuk_ad: dbProduct.dis_cap_en_cubuk_ad,
-        gozAraligiEn: calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en'),
-        gozAraligiBoy: calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy'),
-        source: 'database',
-        productType: 'NTEL',
-        ...dbProduct
-      }));
+      const processedNTELProducts = (allNTELProducts || []).map(dbProduct => {
+        // Parse göz aralığı from database if available, otherwise calculate
+        const dbGozAraligi = dbProduct.goz_araligi || '';
+        let gozAraligiEn, gozAraligiBoy;
+
+        if (dbGozAraligi && dbGozAraligi.includes('x')) {
+          // Use database value (e.g., "7.5x15", "15x25")
+          const parts = dbGozAraligi.split('x');
+          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
+          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+        } else {
+          // Fallback to calculation if database value missing
+          gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
+          gozAraligiEn = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+        }
+
+        return {
+          existingStokKodu: dbProduct.stok_kodu,
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          hasirTipi: dbProduct.hasir_tipi || 'NTEL',
+          uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
+          uzunlukEn: dbProduct.ebat_en?.toString() || '0',
+          // FIXED: Normalize comma separators to periods for decimal values
+          boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
+          enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
+          totalKg: dbProduct.kg?.toString() || '0',
+          adetKg: dbProduct.kg?.toString() || '0',
+          cubukSayisiBoy: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
+          cubukSayisiEn: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
+          ic_cap_boy_cubuk_ad: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
+          dis_cap_en_cubuk_ad: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
+          gozAraligiEn: gozAraligiEn,
+          gozAraligiBoy: gozAraligiBoy,
+          source: 'database',
+          productType: 'NTEL',
+          ...dbProduct
+        };
+      });
 
       // Combine all products for Excel generation
       const allProcessedProducts = [...processedProducts, ...processedNCBKProducts, ...processedNTELProducts];
