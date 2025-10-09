@@ -3775,18 +3775,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         // Parse göz aralığı from database if available, otherwise calculate
         const dbGozAraligi = product.goz_araligi || '';
-        let gozAraligiEn, gozAraligiBoy;
+        let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
           // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
           // Replace Turkish comma with period before parsing
-          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'boy');
-          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'en');
+          boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'boy');
+          enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'en');
+          // Normalize to period format for Excel
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
           // Fallback to calculation if database value missing
-          gozAraligiBoy = calculateGozAraligi(extractedHasirTipi, 'boy');
-          gozAraligiEn = calculateGozAraligi(extractedHasirTipi, 'en');
+          boyAraligi = calculateGozAraligi(extractedHasirTipi, 'boy');
+          enAraligi = calculateGozAraligi(extractedHasirTipi, 'en');
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         }
 
         return {
@@ -3806,8 +3809,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: enCubukSayisi || product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad,
           ic_cap_boy_cubuk_ad: boyCubukSayisi || product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad,
           dis_cap_en_cubuk_ad: enCubukSayisi || product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad,
-          gozAraligiEn: gozAraligiEn,
-          gozAraligiBoy: gozAraligiBoy,
+          boyAraligi: boyAraligi,
+          enAraligi: enAraligi,
+          gozAraligi: gozAraligi,
           yotochDuration: yotochDuration,
           recipeData: productRecipes,
           source: 'database',
@@ -3822,18 +3826,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const processedNCBKProducts = (allNCBKProducts || []).map(dbProduct => {
         // Parse göz aralığı from database if available, otherwise calculate
         const dbGozAraligi = dbProduct.goz_araligi || '';
-        let gozAraligiEn, gozAraligiBoy;
+        let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
           // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
           // Replace Turkish comma with period before parsing
-          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
-          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+          boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
+          enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+          // Normalize to period format for Excel
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
           // Fallback to calculation if database value missing
-          gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
-          gozAraligiEn = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+          boyAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
+          enAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         }
 
         return {
@@ -3851,8 +3858,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
           ic_cap_boy_cubuk_ad: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
           dis_cap_en_cubuk_ad: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
-          gozAraligiEn: gozAraligiEn,
-          gozAraligiBoy: gozAraligiBoy,
+          boyAraligi: boyAraligi,
+          enAraligi: enAraligi,
+          gozAraligi: gozAraligi,
           source: 'database',
           productType: 'NCBK',
           ...dbProduct
@@ -3864,18 +3872,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const processedNTELProducts = (allNTELProducts || []).map(dbProduct => {
         // Parse göz aralığı from database if available, otherwise calculate
         const dbGozAraligi = dbProduct.goz_araligi || '';
-        let gozAraligiEn, gozAraligiBoy;
+        let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
           // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
           // Replace Turkish comma with period before parsing
-          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
-          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+          boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
+          enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+          // Normalize to period format for Excel
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
           // Fallback to calculation if database value missing
-          gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
-          gozAraligiEn = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+          boyAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
+          enAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         }
 
         return {
@@ -3893,8 +3904,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
           ic_cap_boy_cubuk_ad: dbProduct.cubuk_sayisi_boy || dbProduct.ic_cap_boy_cubuk_ad,
           dis_cap_en_cubuk_ad: dbProduct.cubuk_sayisi_en || dbProduct.dis_cap_en_cubuk_ad,
-          gozAraligiEn: gozAraligiEn,
-          gozAraligiBoy: gozAraligiBoy,
+          boyAraligi: boyAraligi,
+          enAraligi: enAraligi,
+          gozAraligi: gozAraligi,
           source: 'database',
           productType: 'NTEL',
           ...dbProduct
