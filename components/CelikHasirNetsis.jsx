@@ -1389,11 +1389,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25")
+          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          boyAraligi = parseFloat(parts[0]) || calculateGozAraligi(actualHasirTipi, 'boy');
-          enAraligi = parseFloat(parts[1]) || calculateGozAraligi(actualHasirTipi, 'en');
-          gozAraligi = dbGozAraligi;
+          // Replace Turkish comma with period before parsing
+          boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'boy');
+          enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'en');
+          // Normalize to period format for Excel
+          gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
           // Fallback to calculation if database value missing
           boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
@@ -3530,11 +3532,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             let boyAraligi, enAraligi, gozAraligi;
 
             if (dbGozAraligi && dbGozAraligi.includes('x')) {
-              // Use database value (e.g., "7.5x15", "15x25")
+              // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
               const parts = dbGozAraligi.split('x');
-              boyAraligi = parseFloat(parts[0]) || calculateGozAraligi(actualHasirTipi, 'boy');
-              enAraligi = parseFloat(parts[1]) || calculateGozAraligi(actualHasirTipi, 'en');
-              gozAraligi = dbGozAraligi;
+              // Replace Turkish comma with period before parsing
+              boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'boy');
+              enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'en');
+              // Normalize to period format for Excel
+              gozAraligi = `${boyAraligi}x${enAraligi}`;
             } else {
               // Fallback to calculation if database value missing
               boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
@@ -3774,10 +3778,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let gozAraligiEn, gozAraligiBoy;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25")
+          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(extractedHasirTipi, 'boy');
-          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(extractedHasirTipi, 'en');
+          // Replace Turkish comma with period before parsing
+          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'boy');
+          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'en');
         } else {
           // Fallback to calculation if database value missing
           gozAraligiBoy = calculateGozAraligi(extractedHasirTipi, 'boy');
@@ -3820,10 +3825,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let gozAraligiEn, gozAraligiBoy;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25")
+          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
-          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
+          // Replace Turkish comma with period before parsing
+          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
+          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
         } else {
           // Fallback to calculation if database value missing
           gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
@@ -3861,10 +3867,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         let gozAraligiEn, gozAraligiBoy;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25")
+          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          gozAraligiBoy = parseFloat(parts[0]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
-          gozAraligiEn = parseFloat(parts[1]) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
+          // Replace Turkish comma with period before parsing
+          gozAraligiBoy = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
+          gozAraligiEn = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
         } else {
           // Fallback to calculation if database value missing
           gozAraligiBoy = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
