@@ -9590,9 +9590,9 @@ const GalvanizliTelNetsis = () => {
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     });
     
-    // YM ST Sheet - Show ALL products (including alternatives) with priority column
+    // YM ST Sheet - Show ALL products (including alternatives) with Matris column
     const ymStSheet = stokWorkbook.addWorksheet('YM ST');
-    const ymStHeadersWithPriority = [...getYmStHeaders(), 'Alternatif']; // Add priority column
+    const ymStHeadersWithPriority = [...getYmStHeaders(), 'Matris']; // Add Matris column for priority
     ymStSheet.addRow(ymStHeadersWithPriority);
 
     // Add ALL YM ST products sorted by priority (0 first, then 1, 2, ...)
@@ -10445,17 +10445,11 @@ const GalvanizliTelNetsis = () => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
       } else {
-        // Alternative products (priority 1, 2, 3, ...) - ONLY for 1.5-1.8mm range
-        const alternativesInRange = ymSts.filter(ymSt => {
-          const diameter = parseFloat(ymSt.cap || 0);
-          return diameter >= 1.5 && diameter <= 1.8;
-        });
-
-        // Only create ALT sheet if there are alternatives in the 1.5-1.8mm range
-        if (alternativesInRange.length > 0) {
+        // Alternative products (priority 1, 2, 3, ...) - ALL diameters, organized by MATRIX priority
+        if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
-          alternativesInRange.forEach(ymSt => {
+          ymSts.forEach(ymSt => {
             altSheet.addRow(generateYmStStokKartiData(ymSt));
           });
         }
@@ -10547,48 +10541,24 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For 1.5-1.8mm alternatives (priority > 0)
-    // Filter YM GT recipes that use alternative YM ST products as bilesen (1.5-1.8mm)
-    const ymGtAltRecipes = [];
-
-    // Create a map of all YM ST products (main + alternatives) by stok_kodu
-    const allYmStMap = new Map();
-    sortedYmStData.forEach(ymSt => allYmStMap.set(ymSt.stok_kodu, ymSt));
-    if (sortedYmStAltDataObj) {
-      Object.values(sortedYmStAltDataObj).forEach(altArray => {
-        if (Array.isArray(altArray)) {
-          altArray.forEach(ymSt => allYmStMap.set(ymSt.stok_kodu, ymSt));
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm using .ST bilesen)
+    // Filter YM GT recipes that use YM ST bilesen codes ending in .ST (COILER system)
+    const ymGtAltRecipes = ymGtRecipes.filter(recipe => {
+      // Check if bilesen_kodu ends with .ST (COILER alternative)
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
+        // Extract diameter from YM GT mamul_kodu (e.g., YM.GT.PAD.0155.00 -> 0155 -> 1.55mm)
+        const ymGtCode = recipe.ym_gt_stok_kodu || '';
+        const match = ymGtCode.match(/\.(\d{4})\./);
+        if (match) {
+          const diameter = parseFloat(match[1]) / 100.0;
+          // Only include 1.5-1.8mm range
+          return diameter >= 1.5 && diameter <= 1.8;
         }
-      });
-    }
+      }
+      return false;
+    });
 
-    // Find YM GT recipes that use alternative YM ST products (priority > 0) for 1.5-1.8mm range
-    const alternativeYmStCodes = new Set();
-    if (sortedYmStAltDataObj && Object.keys(sortedYmStAltDataObj).length > 0) {
-      Object.values(sortedYmStAltDataObj).forEach(altArray => {
-        if (Array.isArray(altArray)) {
-          altArray.forEach(ymSt => {
-            const diameter = parseFloat(ymSt.cap || 0);
-            const priority = ymSt.priority || 0;
-            // Only include 1.5-1.8mm alternatives (priority > 0)
-            if (diameter >= 1.5 && diameter <= 1.8 && priority > 0) {
-              alternativeYmStCodes.add(ymSt.stok_kodu);
-            }
-          });
-        }
-      });
-
-      console.log(`📋 Found ${alternativeYmStCodes.size} alternative YM ST products for 1.5-1.8mm range:`, Array.from(alternativeYmStCodes));
-
-      // Find YM GT recipes that use these alternative YM ST products
-      ymGtRecipes.forEach(recipe => {
-        if (recipe.bilesen_kodu && alternativeYmStCodes.has(recipe.bilesen_kodu)) {
-          ymGtAltRecipes.push(recipe);
-        }
-      });
-
-      console.log(`📋 Found ${ymGtAltRecipes.length} YM GT ALT recipes for 1.5-1.8mm products`);
-    }
+    console.log(`📋 Found ${ymGtAltRecipes.length} YM GT COILER alternative recipes for 1.5-1.8mm products using .ST bilesen`);
 
     // Create YM GT REÇETE ALT 1 sheet if there are alternatives
     if (ymGtAltRecipes.length > 0) {
@@ -12069,18 +12039,11 @@ const GalvanizliTelNetsis = () => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
       } else {
-        // Alternative products (priority 1, 2, 3, ...) - ONLY for 1.5-1.8mm range
-        // Filter to only include 1.5-1.8mm alternatives (.ST versions)
-        const alternativesInRange = ymSts.filter(ymSt => {
-          const diameter = parseFloat(ymSt.cap || 0);
-          return diameter >= 1.5 && diameter <= 1.8;
-        });
-
-        // Only create ALT sheet if there are alternatives in the 1.5-1.8mm range
-        if (alternativesInRange.length > 0) {
+        // Alternative products (priority 1, 2, 3, ...) - ALL diameters, organized by MATRIX priority
+        if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
-          alternativesInRange.forEach(ymSt => {
+          ymSts.forEach(ymSt => {
             altSheet.addRow(generateYmStStokKartiData(ymSt));
           });
         }
