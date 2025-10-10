@@ -9616,7 +9616,7 @@ const GalvanizliTelNetsis = () => {
     const stokFilename = `Toplu_Stok_Kartlari_${stokTimestamp}.xlsx`;
     saveAs(new Blob([stokBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), stokFilename);
     
-    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${allYMSTProducts.length} YM ST products (all priorities with Alternatif column)`);
+    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${allYMSTProducts.length} YM ST products (all priorities with Matris column)`);
     
     
     // ===== 2. REÇETE EXCEL (3 sheets) =====
@@ -9686,7 +9686,56 @@ const GalvanizliTelNetsis = () => {
         });
       }
     });
-    
+
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm using .ST bilesen)
+    const ymGtAltRecipes = allYMGTRecetes.filter(recipe => {
+      // Check if bilesen_kodu ends with .ST (COILER alternative)
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
+        // Extract diameter from YM GT mamul_kodu (e.g., YM.GT.PAD.0155.00 -> 0155 -> 1.55mm)
+        const ymGtCode = recipe.mamul_kodu || '';
+        const match = ymGtCode.match(/\.(\d{4})\./);
+        if (match) {
+          const diameter = parseFloat(match[1]) / 100.0;
+          // Only include 1.5-1.8mm range
+          return diameter >= 1.5 && diameter <= 1.8;
+        }
+      }
+      return false;
+    });
+
+    console.log(`📋 BATCH: Found ${ymGtAltRecipes.length} YM GT COILER alternative recipes for 1.5-1.8mm products`);
+
+    // Create YM GT REÇETE ALT 1 sheet if there are COILER alternatives
+    if (ymGtAltRecipes.length > 0) {
+      const ymGtAltSheet = receteWorkbook.addWorksheet('YM GT REÇETE ALT 1');
+      ymGtAltSheet.addRow(receteHeaders);
+
+      // Group ALT recipes by mamul_kodu
+      const ymGtAltByProduct = {};
+      ymGtAltRecipes.forEach(recipe => {
+        if (!ymGtAltByProduct[recipe.mamul_kodu]) {
+          ymGtAltByProduct[recipe.mamul_kodu] = [];
+        }
+        ymGtAltByProduct[recipe.mamul_kodu].push(recipe);
+      });
+
+      // Add recipes sorted by mamul_kodu
+      const sortedYmGtAltCodes = Object.keys(ymGtAltByProduct).sort();
+      sortedYmGtAltCodes.forEach(stokKodu => {
+        if (ymGtAltByProduct[stokKodu] && ymGtAltByProduct[stokKodu].length > 0) {
+          let productSiraNo = 1;
+          ymGtAltByProduct[stokKodu].forEach(recipe => {
+            ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+            productSiraNo++;
+          });
+        }
+      });
+
+      console.log(`✅ BATCH: Created YM GT REÇETE ALT 1 sheet with ${ymGtAltRecipes.length} COILER alternative recipes`);
+    } else {
+      console.log(`ℹ️ BATCH: No YM GT COILER alternatives found for 1.5-1.8mm range`);
+    }
+
     // YM ST REÇETE Sheet
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
