@@ -2462,10 +2462,10 @@ if (row.modified && row.modified[field] &&
   };
 
 // Satırı Hasır Tipi'ne göre güncelleme - Düzeltilmiş Versiyon
-const updateRowFromHasirTipi = async (rows, rowIndex) => {
+const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
   const row = rows[rowIndex];
   const hasirTipi = row.hasirTipi;
-  console.log(`[DEBUG] updateRowFromHasirTipi STARTING for row ${rowIndex}: hasirTipi="${hasirTipi}"`);
+  console.log(`[DEBUG] updateRowFromHasirTipi STARTING for row ${rowIndex}: hasirTipi="${hasirTipi}", fromExcel=${fromExcel}`);
 
   // Yeni bir hasır tipi için modified bayraklarını sıfırla
   row.modified = {
@@ -2512,8 +2512,16 @@ const updateRowFromHasirTipi = async (rows, rowIndex) => {
   }
 
   // Gerekli alanlar doluysa hesaplama yap
+  // KRİTİK: Excel'den geliyorsa boyut değişikliği yapma, sadece çubuk/filiz/ağırlık hesapla
   if (isRowFilled(row)) {
-    calculateBasicValues(rows, rowIndex);
+    if (fromExcel) {
+      // Excel'den geliyorsa: SADECE çubuk sayısı, filiz ve ağırlık hesapla
+      // BOY, EN ve HASIR SAYISI asla değiştirilmez!
+      calculateBasicValuesWithoutDimensionFix(rows, rowIndex);
+    } else {
+      // Normal durumda: boyut iyileştirme dahil tüm hesaplamalar
+      calculateBasicValues(rows, rowIndex);
+    }
   }
 };
 
@@ -2623,24 +2631,56 @@ const updateRowFromHasirTipi = async (rows, rowIndex) => {
   };
 
   // Temel değerleri hesaplama (Çubuk sayıları, boyutlar vb.)
+  // Excel'den gelen veriler için: SADECE çubuk, filiz ve ağırlık hesapla
+  // Boy, En, Hasır Sayısı asla değiştirilmez!
+  const calculateBasicValuesWithoutDimensionFix = (rows, rowIndex) => {
+    const row = rows[rowIndex];
+
+    console.log(`🔒 EXCEL LOCK MODE: Calculating ONLY cubuk/filiz/weight for row ${rowIndex}. Dimensions LOCKED:`, {
+      hasirTipi: row.hasirTipi,
+      uzunlukBoy: row.uzunlukBoy,
+      uzunlukEn: row.uzunlukEn,
+      hasirSayisi: row.hasirSayisi
+    });
+
+    // Hasır türünü belirle
+    row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
+
+    // Çubuk sayısı hesapla
+    initializeCubukSayisi(row);
+
+    // Filiz değerlerini hesapla
+    calculateFilizValues(row);
+
+    // Ağırlık hesapla
+    calculateWeight(row);
+
+    console.log(`✅ EXCEL LOCK VERIFIED: Dimensions unchanged after calculation:`, {
+      hasirTipi: row.hasirTipi,
+      uzunlukBoy: row.uzunlukBoy,
+      uzunlukEn: row.uzunlukEn,
+      hasirSayisi: row.hasirSayisi
+    });
+  };
+
   const calculateBasicValues = (rows, rowIndex) => {
     const row = rows[rowIndex];
-    
+
     // Makine limitlerini kontrol et
     checkMachineLimits(row);
-    
+
     // Başlangıçta hasır türünü belirle
     row.hasirTuru = determineHasirTuru(row.hasirTipi, row.uzunlukBoy);
-    
+
     // Üretilemez durumundaysa hesaplama yapma
     if (row.uretilemez) return;
-    
+
     // Cubuk sayısı belirlenmemişse varsayılan değerleri hesapla
     initializeCubukSayisi(row);
-    
+
     // Filiz değerlerini hesapla - Eğer elle değiştirilmediyse
       calculateFilizValues(row);
-      
+
     // Ağırlık hesapla
     calculateWeight(row);
   };
@@ -6872,10 +6912,11 @@ const processValidPreviewData = (validData) => {
   // Her yeni satır için hasır tipine göre değerleri güncelle
   // ÖNEMLİ: Bu aşamada sadece hasır tipine göre özellikler dolduruluyor,
   // iyileştirme işlemi yapılmıyor (otomatik En ayarlama yok)
+  // Excel'den gelen 4 sütun (hasırTipi, uzunlukBoy, uzunlukEn, hasirSayisi) KİLİTLİ - DEĞİŞTİRİLMEZ
   newRows.forEach((_, index) => {
     const rowIndex = updatedRows.length === 1 && !isRowFilled(updatedRows[0]) ?
                     index : updatedRows.length + index;
-    updateRowFromHasirTipi(finalRows, rowIndex);
+    updateRowFromHasirTipi(finalRows, rowIndex, true); // Pass fromExcel=true flag
   });
   
   // Durumu güncelle
