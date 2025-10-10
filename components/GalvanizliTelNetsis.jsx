@@ -9590,15 +9590,24 @@ const GalvanizliTelNetsis = () => {
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     });
     
-    // YM ST Sheet
+    // YM ST Sheet - Show ALL products (including alternatives) with priority column
     const ymStSheet = stokWorkbook.addWorksheet('YM ST');
-    const ymStHeaders = getYmStHeaders();
-    ymStSheet.addRow(ymStHeaders);
+    const ymStHeadersWithPriority = [...getYmStHeaders(), 'Alternatif']; // Add priority column
+    ymStSheet.addRow(ymStHeadersWithPriority);
 
-    // Add ONLY main YM ST products (priority 0) - alternatives are NOT shown in batch stock Excel
-    const mainYmStProducts = allYMSTProducts.filter(ymSt => (ymSt.priority === 0 || ymSt.priority === null || ymSt.priority === undefined));
-    mainYmStProducts.forEach(ymSt => {
-      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+    // Add ALL YM ST products sorted by priority (0 first, then 1, 2, ...)
+    const sortedYmStProducts = allYMSTProducts.sort((a, b) => {
+      const priorityA = a.priority || 0;
+      const priorityB = b.priority || 0;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
+    });
+
+    sortedYmStProducts.forEach(ymSt => {
+      const rowData = generateYmStStokKartiData(ymSt);
+      const priority = ymSt.priority || 0;
+      rowData.push(priority); // Add priority column at the end
+      ymStSheet.addRow(rowData);
     });
     
     // Save Stok Kartları Excel
@@ -9607,7 +9616,7 @@ const GalvanizliTelNetsis = () => {
     const stokFilename = `Toplu_Stok_Kartlari_${stokTimestamp}.xlsx`;
     saveAs(new Blob([stokBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), stokFilename);
     
-    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${mainYmStProducts.length} YM ST main products (priority 0 only)`);
+    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${allYMSTProducts.length} YM ST products (all priorities with Alternatif column)`);
     
     
     // ===== 2. REÇETE EXCEL (3 sheets) =====
@@ -10538,30 +10547,42 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For 1.5-1.8mm alternatives (.ST versions)
-    // Filter YM GT recipes that use .ST bilesen (alternatives for 1.5-1.8mm)
+    // YM GT REÇETE ALT 1 Sheet - For 1.5-1.8mm alternatives (priority > 0)
+    // Filter YM GT recipes that use alternative YM ST products as bilesen (1.5-1.8mm)
     const ymGtAltRecipes = [];
 
-    // Find YM GT recipes that contain .ST versions (1.5-1.8mm alternatives)
-    if (sortedYmStAltDataObj && Object.keys(sortedYmStAltDataObj).length > 0) {
-      // Get all .ST stok codes (alternatives) for 1.5-1.8mm range
-      const stAlternativeCodes = new Set();
-
+    // Create a map of all YM ST products (main + alternatives) by stok_kodu
+    const allYmStMap = new Map();
+    sortedYmStData.forEach(ymSt => allYmStMap.set(ymSt.stok_kodu, ymSt));
+    if (sortedYmStAltDataObj) {
       Object.values(sortedYmStAltDataObj).forEach(altArray => {
-        altArray.forEach(ymSt => {
-          const diameter = parseFloat(ymSt.cap || 0);
-          // Only include 1.5-1.8mm .ST alternatives
-          if (diameter >= 1.5 && diameter <= 1.8 && ymSt.stok_kodu && ymSt.stok_kodu.endsWith('.ST')) {
-            stAlternativeCodes.add(ymSt.stok_kodu);
-          }
-        });
+        if (Array.isArray(altArray)) {
+          altArray.forEach(ymSt => allYmStMap.set(ymSt.stok_kodu, ymSt));
+        }
+      });
+    }
+
+    // Find YM GT recipes that use alternative YM ST products (priority > 0) for 1.5-1.8mm range
+    const alternativeYmStCodes = new Set();
+    if (sortedYmStAltDataObj && Object.keys(sortedYmStAltDataObj).length > 0) {
+      Object.values(sortedYmStAltDataObj).forEach(altArray => {
+        if (Array.isArray(altArray)) {
+          altArray.forEach(ymSt => {
+            const diameter = parseFloat(ymSt.cap || 0);
+            const priority = ymSt.priority || 0;
+            // Only include 1.5-1.8mm alternatives (priority > 0)
+            if (diameter >= 1.5 && diameter <= 1.8 && priority > 0) {
+              alternativeYmStCodes.add(ymSt.stok_kodu);
+            }
+          });
+        }
       });
 
-      console.log(`📋 Found ${stAlternativeCodes.size} .ST alternatives for 1.5-1.8mm range:`, Array.from(stAlternativeCodes));
+      console.log(`📋 Found ${alternativeYmStCodes.size} alternative YM ST products for 1.5-1.8mm range:`, Array.from(alternativeYmStCodes));
 
-      // Find YM GT recipes that use these .ST alternatives
+      // Find YM GT recipes that use these alternative YM ST products
       ymGtRecipes.forEach(recipe => {
-        if (recipe.bilesen_kodu && stAlternativeCodes.has(recipe.bilesen_kodu)) {
+        if (recipe.bilesen_kodu && alternativeYmStCodes.has(recipe.bilesen_kodu)) {
           ymGtAltRecipes.push(recipe);
         }
       });
