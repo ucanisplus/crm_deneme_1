@@ -270,15 +270,7 @@ const GalvanizliTelNetsis = () => {
   // Database detail modal for showing product details
   const [showDatabaseDetailModal, setShowDatabaseDetailModal] = useState(false);
   const [selectedDatabaseProduct, setSelectedDatabaseProduct] = useState(null);
-  
-  // YM ST ekleme modalı
-  const [showAddYmStModal, setShowAddYmStModal] = useState(false);
-  const [newYmStData, setNewYmStData] = useState({
-    cap: '',
-    filmasin: '',
-    quality: ''
-  });
-  
+
   // YM ST veritabani secim modali
   const [showYmStSelectionModal, setShowYmStSelectionModal] = useState(false);
   const [allYmStsForSelection, setAllYmStsForSelection] = useState([]);
@@ -5369,33 +5361,6 @@ const GalvanizliTelNetsis = () => {
     }));
   };
 
-  // Manuel YM ST ekleme işleyicisi
-  const handleAddYmSt = () => {
-    if (!newYmStData.cap || !newYmStData.filmasin || !newYmStData.quality) {
-      toast.error('Lütfen tüm alanları doldurun');
-      return;
-    }
-    
-    const capValue = parseFloat(newYmStData.cap);
-    const capStr = Math.round(capValue * 100).toString().padStart(4, '0');
-    const newYmSt = {
-      stok_kodu: `YM.ST.${capStr}.${newYmStData.filmasin}.${newYmStData.quality}`,
-      stok_adi: `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${newYmStData.filmasin}.${newYmStData.quality}`,
-      cap: capValue,
-      filmasin: parseInt(newYmStData.filmasin),
-      quality: newYmStData.quality,
-      source: 'manual-added'
-    };
-    
-    setSelectedYmSts(prev => [...prev, newYmSt]);
-    setShowAddYmStModal(false);
-    setNewYmStData({ cap: '', filmasin: '', quality: '' });
-    
-    // Yeni eklenen YM ST için reçeteleri hesapla
-    setTimeout(() => {
-      calculateAutoRecipeValues();
-    }, 100);
-  };
 
   // Comprehensive state reset function - used when switching between requests
   const resetApplicationState = () => {
@@ -9756,13 +9721,11 @@ const GalvanizliTelNetsis = () => {
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
     const ymStMap = new Map(); // key: stok_kodu, value: YM ST data (main only)
-    const ymStAlt1Map = new Map(); // key: stok_kodu, value: YM ST ALT 1 data
-    const ymStAlt2Map = new Map(); // key: stok_kodu, value: YM ST ALT 2 data
+    const ymStAltMaps = {}; // Dynamic: { 1: Map, 2: Map, 3: Map, ... } for unlimited alternatives
     const mmGtRecipeMap = new Map(); // key: `${mm_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymGtRecipeMap = new Map(); // key: `${ym_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymStRecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (main only)
-    const ymStAlt1RecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (ALT 1)
-    const ymStAlt2RecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (ALT 2)
+    const ymStAltRecipeMaps = {}; // Dynamic: { 1: Map, 2: Map, 3: Map, ... } for unlimited alternative recipes
 
     let totalApiCalls = 0;
     let successfulApiCalls = 0;
@@ -10140,17 +10103,17 @@ const GalvanizliTelNetsis = () => {
                           targetStockMap = ymStMap;
                           targetRecipeMap = ymStRecipeMap;
                           altLabel = 'Ana';
-                        } else if (!isMain && sequenceIndex === 1) {
-                          targetStockMap = ymStAlt1Map;
-                          targetRecipeMap = ymStAlt1RecipeMap;
-                          altLabel = 'ALT 1';
-                        } else if (!isMain && sequenceIndex === 2) {
-                          targetStockMap = ymStAlt2Map;
-                          targetRecipeMap = ymStAlt2RecipeMap;
-                          altLabel = 'ALT 2';
                         } else {
-                          console.warn(`⚠️ Unknown YM ST alternative type: is_main=${relation.is_main}, sequence_index=${sequenceIndex}`);
-                          return; // Skip unknown alternatives
+                          // Dynamic handling for alternatives (sequence_index 1, 2, 3, ...)
+                          if (!ymStAltMaps[sequenceIndex]) {
+                            ymStAltMaps[sequenceIndex] = new Map();
+                          }
+                          if (!ymStAltRecipeMaps[sequenceIndex]) {
+                            ymStAltRecipeMaps[sequenceIndex] = new Map();
+                          }
+                          targetStockMap = ymStAltMaps[sequenceIndex];
+                          targetRecipeMap = ymStAltRecipeMaps[sequenceIndex];
+                          altLabel = `ALT ${sequenceIndex}`;
                         }
 
                         console.log(`📦 Adding YM ST to ${altLabel}: ${ymSt.stok_kodu}`);
@@ -10212,19 +10175,31 @@ const GalvanizliTelNetsis = () => {
     console.log(`MM GT Map keys: [${Array.from(mmGtMap.keys()).join(', ')}]`);
     console.log(`YM GT Map keys: [${Array.from(ymGtMap.keys()).join(', ')}]`);
     console.log(`YM ST Map keys: [${Array.from(ymStMap.keys()).join(', ')}]`);
-    console.log(`YM ST ALT 1 Map keys: [${Array.from(ymStAlt1Map.keys()).join(', ')}]`);
-    console.log(`YM ST ALT 2 Map keys: [${Array.from(ymStAlt2Map.keys()).join(', ')}]`);
+
+    // Log alternative maps dynamically
+    Object.keys(ymStAltMaps).forEach(seqIndex => {
+      console.log(`YM ST ALT ${seqIndex} Map keys: [${Array.from(ymStAltMaps[seqIndex].keys()).join(', ')}]`);
+    });
 
     const allMmGtData = Array.from(mmGtMap.values());
     const allYmGtData = Array.from(ymGtMap.values());
     const allYmStData = Array.from(ymStMap.values());
-    const allYmStAlt1Data = Array.from(ymStAlt1Map.values());
-    const allYmStAlt2Data = Array.from(ymStAlt2Map.values());
+
+    // Convert alternative maps to arrays dynamically
+    const allYmStAltData = {}; // { 1: array, 2: array, 3: array, ... }
+    Object.keys(ymStAltMaps).forEach(seqIndex => {
+      allYmStAltData[seqIndex] = Array.from(ymStAltMaps[seqIndex].values());
+    });
+
     const allMmGtRecipes = Array.from(mmGtRecipeMap.values());
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
-    const allYmStAlt1Recipes = Array.from(ymStAlt1RecipeMap.values());
-    const allYmStAlt2Recipes = Array.from(ymStAlt2RecipeMap.values());
+
+    // Convert alternative recipe maps to arrays dynamically
+    const allYmStAltRecipes = {}; // { 1: array, 2: array, 3: array, ... }
+    Object.keys(ymStAltRecipeMaps).forEach(seqIndex => {
+      allYmStAltRecipes[seqIndex] = Array.from(ymStAltRecipeMaps[seqIndex].values());
+    });
 
     console.log('📊 === BATCH DATA COLLECTION SUMMARY ===');
     console.log(`MM GT Products: ${allMmGtData.length}`);
@@ -10232,11 +10207,13 @@ const GalvanizliTelNetsis = () => {
     console.log(`YM GT Products: ${allYmGtData.length}`);
     console.log(`YM GT Recipes: ${allYmGtRecipes.length}`);
     console.log(`YM ST Products (Ana): ${allYmStData.length}`);
-    console.log(`YM ST Products (ALT 1): ${allYmStAlt1Data.length}`);
-    console.log(`YM ST Products (ALT 2): ${allYmStAlt2Data.length}`);
     console.log(`YM ST Recipes (Ana): ${allYmStRecipes.length}`);
-    console.log(`YM ST Recipes (ALT 1): ${allYmStAlt1Recipes.length}`);
-    console.log(`YM ST Recipes (ALT 2): ${allYmStAlt2Recipes.length}`);
+
+    // Log alternatives dynamically
+    Object.keys(allYmStAltData).forEach(seqIndex => {
+      console.log(`YM ST Products (ALT ${seqIndex}): ${allYmStAltData[seqIndex].length}`);
+      console.log(`YM ST Recipes (ALT ${seqIndex}): ${(allYmStAltRecipes[seqIndex] || []).length}`);
+    });
     
     // Sort all products by diameter (cap) in ascending order (low to high)
     console.log('🔢 Sorting products by diameter (Çap) - ascending order...');
@@ -10274,22 +10251,17 @@ const GalvanizliTelNetsis = () => {
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
 
-    const sortedYmStAlt1Data = allYmStAlt1Data.sort((a, b) => {
-      const capA = parseFloat(a.cap) || 0;
-      const capB = parseFloat(b.cap) || 0;
-      if (capA !== capB) {
-        return capA - capB;
-      }
-      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
-    });
-
-    const sortedYmStAlt2Data = allYmStAlt2Data.sort((a, b) => {
-      const capA = parseFloat(a.cap) || 0;
-      const capB = parseFloat(b.cap) || 0;
-      if (capA !== capB) {
-        return capA - capB;
-      }
-      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
+    // Sort alternatives dynamically
+    const sortedYmStAltData = {};
+    Object.keys(allYmStAltData).forEach(seqIndex => {
+      sortedYmStAltData[seqIndex] = allYmStAltData[seqIndex].sort((a, b) => {
+        const capA = parseFloat(a.cap) || 0;
+        const capB = parseFloat(b.cap) || 0;
+        if (capA !== capB) {
+          return capA - capB;
+        }
+        return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
+      });
     });
 
     // Recipe order will be determined by sorted product data in generateBatchReceteExcel
@@ -10338,22 +10310,31 @@ const GalvanizliTelNetsis = () => {
 
     // Create two separate Excel files with EXACT same format as individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
+
+    // Calculate total alternative products for progress message
+    const altCounts = Object.keys(sortedYmStAltData).map(idx => `ALT ${idx}: ${sortedYmStAltData[idx].length}`).join(', ');
+
     setExcelProgress({
       current: requestsList.length + 1,
       total: totalSteps,
       operation: 'Stok Kartı Excel oluşturuluyor...',
-      currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST (Ana), ${sortedYmStAlt1Data.length} ALT 1, ${sortedYmStAlt2Data.length} ALT 2`
+      currentProduct: `${sortedMmGtData.length} MM GT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST (Ana)${altCounts ? ', ' + altCounts : ''}`
     });
-    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data);
+    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAltData);
 
     console.log('📄 Starting Reçete Excel generation...');
+
+    // Calculate total recipes
+    const totalRecipes = allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length +
+      Object.values(allYmStAltRecipes).reduce((sum, arr) => sum + arr.length, 0);
+
     setExcelProgress({
       current: requestsList.length + 2,
       total: totalSteps,
       operation: 'Reçete Excel oluşturuluyor...',
-      currentProduct: `${allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length + allYmStAlt1Recipes.length + allYmStAlt2Recipes.length} reçete`
+      currentProduct: `${totalRecipes} reçete`
     });
-    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, allYmStAlt1Recipes, allYmStAlt2Recipes, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data);
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, allYmStAltRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAltData);
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
     setExcelProgress({ 
@@ -10365,7 +10346,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
-  const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData, ymStAlt1Data, ymStAlt2Data) => {
+  const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData, ymStAltDataObj) => {
     console.log('📋 Batch Stok Kartı Excel - Input validation');
 
     if (!mmGtData || mmGtData.length === 0) {
@@ -10406,26 +10387,22 @@ const GalvanizliTelNetsis = () => {
       ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     }
 
-    // YM ST ALT 1 Sheet - if there are ALT 1 products
-    if (ymStAlt1Data && ymStAlt1Data.length > 0) {
-      console.log(`📋 Creating YM ST ALT 1 sheet with ${ymStAlt1Data.length} products`);
-      const ymStAlt1Sheet = workbook.addWorksheet('YM ST ALT 1');
-      ymStAlt1Sheet.addRow(ymStHeaders); // Same headers as main YM ST
+    // YM ST Alternative Sheets - Dynamic for unlimited alternatives
+    if (ymStAltDataObj) {
+      const altIndices = Object.keys(ymStAltDataObj).map(Number).sort((a, b) => a - b);
 
-      for (const ymSt of ymStAlt1Data) {
-        ymStAlt1Sheet.addRow(generateYmStStokKartiData(ymSt));
-      }
-    }
+      altIndices.forEach(altIndex => {
+        const altData = ymStAltDataObj[altIndex];
+        if (altData && altData.length > 0) {
+          console.log(`📋 Creating YM ST ALT ${altIndex} sheet with ${altData.length} products`);
+          const altSheet = workbook.addWorksheet(`YM ST ALT ${altIndex}`);
+          altSheet.addRow(ymStHeaders); // Same headers as main YM ST
 
-    // YM ST ALT 2 Sheet - if there are ALT 2 products
-    if (ymStAlt2Data && ymStAlt2Data.length > 0) {
-      console.log(`📋 Creating YM ST ALT 2 sheet with ${ymStAlt2Data.length} products`);
-      const ymStAlt2Sheet = workbook.addWorksheet('YM ST ALT 2');
-      ymStAlt2Sheet.addRow(ymStHeaders); // Same headers as main YM ST
-
-      for (const ymSt of ymStAlt2Data) {
-        ymStAlt2Sheet.addRow(generateYmStStokKartiData(ymSt));
-      }
+          for (const ymSt of altData) {
+            altSheet.addRow(generateYmStStokKartiData(ymSt));
+          }
+        }
+      });
     }
 
     // Save with timestamp filename
@@ -10436,7 +10413,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Generate batch recipe Excel - EXACT same format as individual, just multiple rows
-  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, ymStAlt1Recipes, ymStAlt2Recipes, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAlt1Data, sortedYmStAlt2Data) => {
+  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, ymStAltRecipesObj, sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAltDataObj) => {
     console.log('📋 Batch Reçete Excel - Input validation');
     
     const workbook = new ExcelJS.Workbook();
@@ -10517,7 +10494,12 @@ const GalvanizliTelNetsis = () => {
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
-    console.log(`📋 Creating consolidated YM ST Reçete sheet with Ana (${ymStRecipes.length}), ALT 1 (${ymStAlt1Recipes ? ymStAlt1Recipes.length : 0}), ALT 2 (${ymStAlt2Recipes ? ymStAlt2Recipes.length : 0}) recipes`);
+    // Calculate total alternative recipes for logging
+    const altRecipeCounts = Object.keys(ymStAltRecipesObj || {})
+      .map(idx => `ALT ${idx}: ${(ymStAltRecipesObj[idx] || []).length}`)
+      .join(', ');
+
+    console.log(`📋 Creating consolidated YM ST Reçete sheet with Ana (${ymStRecipes.length})${altRecipeCounts ? ', ' + altRecipeCounts : ''} recipes`);
 
     // Combine all YM ST recipes with priority information
     const allYmStRecipesWithPriority = [];
@@ -10530,23 +10512,18 @@ const GalvanizliTelNetsis = () => {
       });
     });
 
-    // Add ALT 1 recipes (priority 1)
-    if (ymStAlt1Recipes && ymStAlt1Recipes.length > 0) {
-      ymStAlt1Recipes.forEach(recipe => {
-        allYmStRecipesWithPriority.push({
-          ...recipe,
-          priority: 1
-        });
-      });
-    }
-
-    // Add ALT 2 recipes (priority 2)
-    if (ymStAlt2Recipes && ymStAlt2Recipes.length > 0) {
-      ymStAlt2Recipes.forEach(recipe => {
-        allYmStRecipesWithPriority.push({
-          ...recipe,
-          priority: 2
-        });
+    // Add alternative recipes dynamically (priority 1, 2, 3, ...)
+    if (ymStAltRecipesObj) {
+      Object.keys(ymStAltRecipesObj).forEach(altIndex => {
+        const altRecipes = ymStAltRecipesObj[altIndex];
+        if (altRecipes && altRecipes.length > 0) {
+          altRecipes.forEach(recipe => {
+            allYmStRecipesWithPriority.push({
+              ...recipe,
+              priority: parseInt(altIndex)
+            });
+          });
+        }
       });
     }
 
@@ -10559,12 +10536,21 @@ const GalvanizliTelNetsis = () => {
       allYmStByProduct[recipe.ym_st_stok_kodu].push(recipe);
     });
 
-    // Get all stok codes sorted by diameter (Ana first, then ALT 1, then ALT 2)
+    // Get all stok codes sorted by diameter (Ana first, then ALT 1, ALT 2, ALT 3, ...)
     const allSortedYmStStokCodes = [
-      ...sortedYmStData.map(product => product.stok_kodu),
-      ...(sortedYmStAlt1Data || []).map(product => product.stok_kodu),
-      ...(sortedYmStAlt2Data || []).map(product => product.stok_kodu)
+      ...sortedYmStData.map(product => product.stok_kodu)
     ];
+
+    // Add alternatives dynamically in order
+    if (sortedYmStAltDataObj) {
+      const altIndices = Object.keys(sortedYmStAltDataObj).map(Number).sort((a, b) => a - b);
+      altIndices.forEach(altIndex => {
+        const altData = sortedYmStAltDataObj[altIndex];
+        if (altData) {
+          allSortedYmStStokCodes.push(...altData.map(product => product.stok_kodu));
+        }
+      });
+    }
 
     // Add recipes for each product with priority column filled
     allSortedYmStStokCodes.forEach(stokKodu => {
@@ -11831,49 +11817,40 @@ const GalvanizliTelNetsis = () => {
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Categorize YM STs by priority/isMain
-    const mainYmSts = [];
-    const alt1YmSts = [];
-    const alt2YmSts = [];
+    // Categorize YM STs by priority/isMain - DYNAMIC VERSION (supports unlimited priorities)
+    const ymStsByPriority = {};
 
     allYmSts.forEach((ymSt, index) => {
       const isMain = ymSt.isMain !== false && (ymSt.priority === 0 || ymSt.priority === undefined || index === mainYmStIndex);
       const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex ? 0 : index);
 
-      if (isMain || priority === 0) {
-        mainYmSts.push(ymSt);
-      } else if (priority === 1) {
-        alt1YmSts.push(ymSt);
-      } else if (priority === 2) {
-        alt2YmSts.push(ymSt);
+      // Group by priority dynamically
+      if (!ymStsByPriority[priority]) {
+        ymStsByPriority[priority] = [];
+      }
+      ymStsByPriority[priority].push(ymSt);
+    });
+
+    // Add YM STs dynamically for each priority
+    const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
+
+    priorities.forEach(priority => {
+      const ymSts = ymStsByPriority[priority];
+
+      if (priority === 0) {
+        // Main products (priority 0) - add to main YM ST sheet
+        ymSts.forEach(ymSt => {
+          ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+        });
       } else {
-        // Fallback: add to main if unclear
-        mainYmSts.push(ymSt);
+        // Alternative products (priority 1, 2, 3, ...)
+        const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
+        altSheet.addRow(ymStHeaders);
+        ymSts.forEach(ymSt => {
+          altSheet.addRow(generateYmStStokKartiData(ymSt));
+        });
       }
     });
-
-    // Add main YM STs to main sheet
-    mainYmSts.forEach(ymSt => {
-      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
-    });
-
-    // Add YM ST ALT 1 sheet if alternatives exist
-    if (alt1YmSts.length > 0) {
-      const ymStAlt1Sheet = workbook.addWorksheet('YM ST ALT 1');
-      ymStAlt1Sheet.addRow(ymStHeaders);
-      alt1YmSts.forEach(ymSt => {
-        ymStAlt1Sheet.addRow(generateYmStStokKartiData(ymSt));
-      });
-    }
-
-    // Add YM ST ALT 2 sheet if alternatives exist
-    if (alt2YmSts.length > 0) {
-      const ymStAlt2Sheet = workbook.addWorksheet('YM ST ALT 2');
-      ymStAlt2Sheet.addRow(ymStHeaders);
-      alt2YmSts.forEach(ymSt => {
-        ymStAlt2Sheet.addRow(generateYmStStokKartiData(ymSt));
-      });
-    }
     
     try {
       // Validate data before writing
@@ -12069,10 +12046,8 @@ const GalvanizliTelNetsis = () => {
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
-    // Categorize YM STs by priority (reuse logic from stok karti)
-    const mainRecipeYmSts = [];
-    const alt1RecipeYmSts = [];
-    const alt2RecipeYmSts = [];
+    // Categorize YM STs by priority - DYNAMIC VERSION (supports unlimited priorities)
+    const ymStsByPriority = {};
 
     allYmSts.forEach((ymSt, index) => {
       const isMain = ymSt.isMain !== false && (ymSt.priority === 0 || ymSt.priority === undefined || index === mainYmStIndex_);
@@ -12080,15 +12055,11 @@ const GalvanizliTelNetsis = () => {
 
       const ymStWithIndex = { ...ymSt, originalIndex: index };
 
-      if (isMain || priority === 0) {
-        mainRecipeYmSts.push(ymStWithIndex);
-      } else if (priority === 1) {
-        alt1RecipeYmSts.push(ymStWithIndex);
-      } else if (priority === 2) {
-        alt2RecipeYmSts.push(ymStWithIndex);
-      } else {
-        mainRecipeYmSts.push(ymStWithIndex);
+      // Group by priority dynamically
+      if (!ymStsByPriority[priority]) {
+        ymStsByPriority[priority] = [];
       }
+      ymStsByPriority[priority].push(ymStWithIndex);
     });
 
     // Helper function to add YM ST recipe rows
@@ -12126,28 +12097,26 @@ const GalvanizliTelNetsis = () => {
       });
     };
 
-    // Add main YM ST recipes
-    mainRecipeYmSts.forEach(ymSt => {
-      addYmStRecipeRows(ymSt, ymStReceteSheet);
+    // Add YM ST recipes dynamically for each priority
+    const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
+
+    priorities.forEach(priority => {
+      const ymSts = ymStsByPriority[priority];
+
+      if (priority === 0) {
+        // Main recipes (priority 0)
+        ymSts.forEach(ymSt => {
+          addYmStRecipeRows(ymSt, ymStReceteSheet);
+        });
+      } else {
+        // Alternative recipes (priority 1, 2, 3, ...)
+        const altSheet = workbook.addWorksheet(`YM ST Reçete ALT ${priority}`);
+        altSheet.addRow(receteHeaders);
+        ymSts.forEach(ymSt => {
+          addYmStRecipeRows(ymSt, altSheet);
+        });
+      }
     });
-
-    // Add YM ST REÇETE ALT 1 sheet if alternatives exist
-    if (alt1RecipeYmSts.length > 0) {
-      const ymStReceteAlt1Sheet = workbook.addWorksheet('YM ST Reçete ALT 1');
-      ymStReceteAlt1Sheet.addRow(receteHeaders);
-      alt1RecipeYmSts.forEach(ymSt => {
-        addYmStRecipeRows(ymSt, ymStReceteAlt1Sheet);
-      });
-    }
-
-    // Add YM ST REÇETE ALT 2 sheet if alternatives exist
-    if (alt2RecipeYmSts.length > 0) {
-      const ymStReceteAlt2Sheet = workbook.addWorksheet('YM ST Reçete ALT 2');
-      ymStReceteAlt2Sheet.addRow(receteHeaders);
-      alt2RecipeYmSts.forEach(ymSt => {
-        addYmStRecipeRows(ymSt, ymStReceteAlt2Sheet);
-      });
-    }
     
     try {
       // Validate data before writing
@@ -14011,15 +13980,6 @@ const GalvanizliTelNetsis = () => {
               </h2>
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowAddYmStModal(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Manuel YM ST Oluştur
-                </button>
-                <button
                   onClick={async () => {
                     setShowYmStSelectionModal(true);
                     // Load all YM STs for selection with auto-suggested ones on top
@@ -15598,92 +15558,6 @@ const GalvanizliTelNetsis = () => {
       )}
 
       {/* YM ST Ekleme Modalı */}
-      {showAddYmStModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">YM ST Ekle</h2>
-                <button
-                  onClick={() => setShowAddYmStModal(false)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Çap (mm)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={normalizeDecimalDisplay(newYmStData.cap)}
-                    onChange={(e) => setNewYmStData(prev => ({ ...prev, cap: normalizeInputValue(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00000"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Filmaşin
-                  </label>
-                  <select
-                    value={newYmStData.filmasin}
-                    onChange={(e) => setNewYmStData(prev => ({ ...prev, filmasin: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seçin</option>
-                    <option value="0550">0550</option>
-                    <option value="0600">0600</option>
-                    <option value="0700">0700</option>
-                    <option value="0800">0800</option>
-                    <option value="0900">0900</option>
-                    <option value="1000">1000</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Kalite
-                  </label>
-                  <select
-                    value={newYmStData.quality}
-                    onChange={(e) => setNewYmStData(prev => ({ ...prev, quality: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seçin</option>
-                    <option value="1006">1006</option>
-                    <option value="1008">1008</option>
-                    <option value="1010">1010</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowAddYmStModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleAddYmSt}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Ekle
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Talepler Modalı */}
       {showRequestsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
