@@ -49,6 +49,31 @@ import UnknownMeshTypeModal from './UnknownMeshTypeModal';
 // Import mesh configuration service
 import meshConfigService from '../mesh-config-service';
 
+// KRİTİK: Excel'den okunan hasır tipi değerlerini temizle (FILE SCOPE - Tüm fonksiyonlar erişebilir)
+// Tüm boşlukları kaldır, büyük harfe çevir ve yaygın typo'ları düzelt
+const cleanHasirTipiFromExcel = (value) => {
+  if (!value) return '';
+
+  let cleaned = String(value).toUpperCase();
+
+  // TÜM boşlukları kaldır (trim sadece baş/sondakileri kaldırır)
+  cleaned = cleaned.replace(/\s+/g, '');
+
+  // Yaygın typo düzeltmeleri:
+  // Q/257/257 → Q257/257
+  // Q//257//257 → Q257/257
+  // Q///257/257 → Q257/257
+  cleaned = cleaned.replace(/^Q\/+(\d)/g, 'Q$1');  // Q ile sayı arasındaki slashları temizle
+  cleaned = cleaned.replace(/^R\/+(\d)/g, 'R$1');  // R ile sayı arasındaki slashları temizle
+  cleaned = cleaned.replace(/^TR\/+(\d)/g, 'TR$1'); // TR ile sayı arasındaki slashları temizle
+
+  // Çoklu slashları tek slash'e çevir: Q257//257 → Q257/257
+  cleaned = cleaned.replace(/\/+/g, '/');
+
+  console.log(`[DEBUG] cleanHasirTipiFromExcel: "${value}" → "${cleaned}"`);
+  return cleaned;
+};
+
 // Başlık metinlerinden sütunları bulma - İyileştirilmiş versiyon
 const findColumnsByHeaderText = (headers, sheetData) => {
   const result = {
@@ -5549,31 +5574,6 @@ function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, e
   // En iyi sütunu döndür
   return bestCol;
 }
-
-// KRİTİK: Excel'den okunan hasır tipi değerlerini temizle (FILE SCOPE - Tüm fonksiyonlar erişebilir)
-// Tüm boşlukları kaldır, büyük harfe çevir ve yaygın typo'ları düzelt
-const cleanHasirTipiFromExcel = (value) => {
-  if (!value) return '';
-
-  let cleaned = String(value).toUpperCase();
-
-  // TÜM boşlukları kaldır (trim sadece baş/sondakileri kaldırır)
-  cleaned = cleaned.replace(/\s+/g, '');
-
-  // Yaygın typo düzeltmeleri:
-  // Q/257/257 → Q257/257
-  // Q//257//257 → Q257/257
-  // Q///257/257 → Q257/257
-  cleaned = cleaned.replace(/^Q\/+(\d)/g, 'Q$1');  // Q ile sayı arasındaki slashları temizle
-  cleaned = cleaned.replace(/^R\/+(\d)/g, 'R$1');  // R ile sayı arasındaki slashları temizle
-  cleaned = cleaned.replace(/^TR\/+(\d)/g, 'TR$1'); // TR ile sayı arasındaki slashları temizle
-
-  // Çoklu slashları tek slash'e çevir: Q257//257 → Q257/257
-  cleaned = cleaned.replace(/\/+/g, '/');
-
-  console.log(`[DEBUG] cleanHasirTipiFromExcel: "${value}" → "${cleaned}"`);
-  return cleaned;
-};
 
 // Excel veri analizi fonksiyonu
 const parseExcelData = (data, fileName = '') => {
