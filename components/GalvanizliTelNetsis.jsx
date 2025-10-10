@@ -10395,33 +10395,20 @@ const GalvanizliTelNetsis = () => {
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     }
 
-    // YM ST Sheet (Ana) - EXACT same structure as individual
+    // YM ST Sheet (Ana) - Batch stock card has NO alternative sheets
     const ymStSheet = workbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Add multiple YM ST rows (main products only)
+    // Add ONLY main YM ST rows (no alternatives in batch stock card)
     for (const ymSt of ymStData) {
       ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     }
 
-    // YM ST Alternative Sheets - Dynamic for unlimited alternatives
-    if (ymStAltDataObj) {
-      const altIndices = Object.keys(ymStAltDataObj).map(Number).sort((a, b) => a - b);
-
-      altIndices.forEach(altIndex => {
-        const altData = ymStAltDataObj[altIndex];
-        if (altData && altData.length > 0) {
-          console.log(`📋 Creating YM ST ALT ${altIndex} sheet with ${altData.length} products`);
-          const altSheet = workbook.addWorksheet(`YM ST ALT ${altIndex}`);
-          altSheet.addRow(ymStHeaders); // Same headers as main YM ST
-
-          for (const ymSt of altData) {
-            altSheet.addRow(generateYmStStokKartiData(ymSt));
-          }
-        }
-      });
-    }
+    // Note: NO YM ST Alternative Sheets in batch stock card
+    // Alternatives are only shown in:
+    // 1. Individual/Multiple product stock cards (1.5-1.8mm only)
+    // 2. Recipe Excel (with Alternatif column)
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -10507,7 +10494,81 @@ const GalvanizliTelNetsis = () => {
         });
       }
     });
-    
+
+    // YM GT REÇETE ALT 1 Sheet - For 1.5-1.8mm alternatives (.ST versions)
+    // Filter YM GT recipes that use .ST bilesen (alternatives for 1.5-1.8mm)
+    const ymGtAltRecipes = [];
+
+    // Find YM GT recipes that contain .ST versions (1.5-1.8mm alternatives)
+    if (sortedYmStAltDataObj && Object.keys(sortedYmStAltDataObj).length > 0) {
+      // Get all .ST stok codes (alternatives) for 1.5-1.8mm range
+      const stAlternativeCodes = new Set();
+
+      Object.values(sortedYmStAltDataObj).forEach(altArray => {
+        altArray.forEach(ymSt => {
+          const diameter = parseFloat(ymSt.cap || 0);
+          // Only include 1.5-1.8mm .ST alternatives
+          if (diameter >= 1.5 && diameter <= 1.8 && ymSt.stok_kodu && ymSt.stok_kodu.endsWith('.ST')) {
+            stAlternativeCodes.add(ymSt.stok_kodu);
+          }
+        });
+      });
+
+      console.log(`📋 Found ${stAlternativeCodes.size} .ST alternatives for 1.5-1.8mm range:`, Array.from(stAlternativeCodes));
+
+      // Find YM GT recipes that use these .ST alternatives
+      ymGtRecipes.forEach(recipe => {
+        if (recipe.bilesen_kodu && stAlternativeCodes.has(recipe.bilesen_kodu)) {
+          ymGtAltRecipes.push(recipe);
+        }
+      });
+
+      console.log(`📋 Found ${ymGtAltRecipes.length} YM GT ALT recipes for 1.5-1.8mm products`);
+    }
+
+    // Create YM GT REÇETE ALT 1 sheet if there are alternatives
+    if (ymGtAltRecipes.length > 0) {
+      const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
+      ymGtAltSheet.addRow(receteHeaders);
+
+      // Group ALT recipes by YM GT stok kodu for proper sequencing
+      const ymGtAltByProduct = {};
+      ymGtAltRecipes.forEach(recipe => {
+        if (!ymGtAltByProduct[recipe.ym_gt_stok_kodu]) {
+          ymGtAltByProduct[recipe.ym_gt_stok_kodu] = [];
+        }
+        ymGtAltByProduct[recipe.ym_gt_stok_kodu].push(recipe);
+      });
+
+      // Sort by YM GT stok kodu
+      const sortedYmGtAltStokCodes = Object.keys(ymGtAltByProduct).sort();
+
+      sortedYmGtAltStokCodes.forEach(stokKodu => {
+        if (ymGtAltByProduct[stokKodu] && ymGtAltByProduct[stokKodu].length > 0) {
+          let productSiraNo = 1; // Restart sequence for each product
+
+          // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
+          const zincRecipe = ymGtAltByProduct[stokKodu].find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
+
+          ymGtAltByProduct[stokKodu].forEach(recipe => {
+            let finalMiktar = recipe.miktar;
+
+            // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+            if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
+              finalMiktar = 1 - parseFloat(zincRecipe.miktar);
+            }
+
+            ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+            productSiraNo++;
+          });
+        }
+      });
+
+      console.log(`✅ Created YM GT REÇETE ALT 1 sheet with ${ymGtAltRecipes.length} recipes for ${sortedYmGtAltStokCodes.length} products`);
+    } else {
+      console.log(`ℹ️ No YM GT alternatives found for 1.5-1.8mm range - skipping YM GT REÇETE ALT 1 sheet`);
+    }
+
     // YM ST REÇETE Sheet - CONSOLIDATED with all priorities (Ana, ALT 1, ALT 2)
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
@@ -10912,8 +10973,66 @@ const GalvanizliTelNetsis = () => {
         siraNo2++;
       }
     });
-    
-    // YM ST REÇETE Sheet - Tüm YM ST'ler için reçeteleri oluştur
+
+    // YM GT REÇETE ALT Sheets - For 1.5-1.8mm alternatives (.ST versions)
+    // Check if there are alternatives in 1.5-1.8mm range
+    const ymGtAlternatives = allYmSts.filter((ymSt, index) => {
+      const diameter = parseFloat(ymSt.cap || 0);
+      const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex_ ? 0 : 999);
+      return diameter >= 1.5 && diameter <= 1.8 && priority > 0;
+    });
+
+    if (ymGtAlternatives.length > 0) {
+      // Group alternatives by priority
+      const altsByPriority = {};
+      ymGtAlternatives.forEach(ymSt => {
+        const priority = ymSt.priority || 1;
+        if (!altsByPriority[priority]) {
+          altsByPriority[priority] = [];
+        }
+        altsByPriority[priority].push(ymSt);
+      });
+
+      // Create sheet for each priority
+      Object.keys(altsByPriority).sort((a, b) => Number(a) - Number(b)).forEach(priority => {
+        const altYmSts = altsByPriority[priority];
+        const altSheet = workbook.addWorksheet(`YM GT REÇETE ALT ${priority}`);
+        altSheet.addRow(receteHeaders);
+
+        // For each alternative, create YM GT recipe using its .ST version
+        altYmSts.forEach(altYmSt => {
+          const altYmGtRecipe = excelData.allRecipes.ymGtRecipe; // Same recipe but with .ST version
+          let altSiraNo = 1;
+
+          // Create YM GT recipe entries using .ST stok_kodu
+          const altYmGtEntries = Object.entries(altYmGtRecipe);
+          const altYmStEntry = altYmGtEntries.find(([key]) => key.includes(altYmSt.stok_kodu));
+          const altGlv01Entry = altYmGtEntries.find(([key]) => key === 'GLV01');
+          const altZincEntry = altYmGtEntries.find(([key]) => key === '150 03');
+          const altAsitEntry = altYmGtEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
+
+          const altOrderedEntries = [
+            altYmStEntry || [altYmSt.stok_kodu, 1 - parseFloat(altZincEntry?.[1] || 0)],
+            altGlv01Entry,
+            altZincEntry,
+            altAsitEntry
+          ].filter(Boolean);
+
+          altOrderedEntries.forEach(([key, value]) => {
+            if (value > 0) {
+              let finalValue = value;
+              if (key.includes('YM.ST.') && altZincEntry && altZincEntry[1]) {
+                finalValue = 1 - parseFloat(altZincEntry[1]);
+              }
+              altSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
+              altSiraNo++;
+            }
+          });
+        });
+      });
+    }
+
+    // YM ST REÇETE Sheet - Main YM ST recipes
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
     
@@ -10948,40 +11067,61 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // Diğer YM ST'lerin reçetelerini ekle
+    // YM ST REÇETE ALT Sheets - For matrix alternatives (all priorities > 0)
+    // Group alternatives by priority
+    const ymStAltsByPriority = {};
     allYmSts.forEach((ymSt, index) => {
-      // Ana YM ST'yi atla (zaten ekledik)
-      if (index !== mainYmStIndex_) {
+      const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex_ ? 0 : 999);
+      if (priority > 0) {
+        if (!ymStAltsByPriority[priority]) {
+          ymStAltsByPriority[priority] = [];
+        }
+        ymStAltsByPriority[priority].push({ ymSt, index });
+      }
+    });
+
+    // Create separate ALT sheet for each priority
+    Object.keys(ymStAltsByPriority).sort((a, b) => Number(a) - Number(b)).forEach(priority => {
+      const alts = ymStAltsByPriority[priority];
+      const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
+      altSheet.addRow(receteHeaders);
+
+      // Add all alternatives for this priority
+      alts.forEach(({ ymSt, index }) => {
         const ymStRecipe = excelData.allRecipes.ymStRecipes[index] || {};
         let siraNo = 1;
-        
-        // YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
+
+        // YMST reçete sıralaması: fixed exact order
         const recipeEntries = Object.entries(ymStRecipe);
-        
-        // Fixed order: FLM.*.*, TLC01
+
+        // Fixed order: FLM/YM.ST source, TLC01/COTLC01
         const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+        const ymStSourceEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && key !== ymSt.stok_kodu);
         const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
-        
-        // Any other entries that might exist but aren't in the fixed order
-        const otherEntries = recipeEntries.filter(([key]) => 
-          !key.includes('FLM.') && 
-          key !== 'TLC01'
+        const cotlc01Entry = recipeEntries.find(([key]) => key === 'COTLC01');
+
+        // Any other entries
+        const otherEntries = recipeEntries.filter(([key]) =>
+          !key.includes('FLM.') &&
+          !(key.includes('YM.ST.') && key !== ymSt.stok_kodu) &&
+          key !== 'TLC01' &&
+          key !== 'COTLC01'
         );
-        
+
         // Sırayla ekle - exact order
         const orderedEntries = [
-          flmEntry,
-          tlc01Entry,
+          flmEntry || ymStSourceEntry,
+          tlc01Entry || cotlc01Entry,
           ...otherEntries
         ].filter(Boolean);
-        
+
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            ymStReceteSheet.addRow(generateYmStReceteRow(key, value, siraNo, ymSt));
+            altSheet.addRow(generateYmStReceteRow(key, value, siraNo, ymSt));
             siraNo++;
           }
         });
-      }
+      });
     });
     
     try {
@@ -11861,12 +12001,21 @@ const GalvanizliTelNetsis = () => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
       } else {
-        // Alternative products (priority 1, 2, 3, ...)
-        const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
-        altSheet.addRow(ymStHeaders);
-        ymSts.forEach(ymSt => {
-          altSheet.addRow(generateYmStStokKartiData(ymSt));
+        // Alternative products (priority 1, 2, 3, ...) - ONLY for 1.5-1.8mm range
+        // Filter to only include 1.5-1.8mm alternatives (.ST versions)
+        const alternativesInRange = ymSts.filter(ymSt => {
+          const diameter = parseFloat(ymSt.cap || 0);
+          return diameter >= 1.5 && diameter <= 1.8;
         });
+
+        // Only create ALT sheet if there are alternatives in the 1.5-1.8mm range
+        if (alternativesInRange.length > 0) {
+          const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
+          altSheet.addRow(ymStHeaders);
+          alternativesInRange.forEach(ymSt => {
+            altSheet.addRow(generateYmStStokKartiData(ymSt));
+          });
+        }
       }
     });
     
