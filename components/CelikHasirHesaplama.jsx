@@ -213,7 +213,7 @@ const findColumnsByHeaderText = (headers, sheetData) => {
     for (let rowIndex = 0; rowIndex < Math.min(10, sampleData.length); rowIndex++) {
       const row = sampleData[rowIndex];
       if (row && row[i]) {
-        const cellValue = String(row[i]).trim();
+        const cellValue = cleanHasirTipiFromExcel(row[i]);
         if (/^(Q|R|TR)\d+/i.test(cellValue)) {
           hasQRTRPattern = true;
           break;
@@ -1253,9 +1253,9 @@ const processExcelWithMapping = (sheets, mapping) => {
       // Hasır Tipi'ni sadece kullanıcının seçtiği sütundan çıkar
       let hasirTipi = '';
       if (hasirTipiCol !== -1 && hasirTipiCol < row.length) {
-        hasirTipi = String(row[hasirTipiCol] || '').trim();
+        hasirTipi = cleanHasirTipiFromExcel(row[hasirTipiCol]);
       }
-      
+
       // Hasır Tipi geçersizse satırı atla (sadece kullanıcının seçtiği sütuna güven)
       if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
         continue;
@@ -1669,6 +1669,31 @@ const processExcelWithMapping = (sheets, mapping) => {
   };
 
   // Hasır tipini standartlaştırma - Updated to handle combination Q-types
+  // KRİTİK: Excel'den okunan hasır tipi değerlerini temizle
+  // Tüm boşlukları kaldır, büyük harfe çevir ve yaygın typo'ları düzelt
+  const cleanHasirTipiFromExcel = (value) => {
+    if (!value) return '';
+
+    let cleaned = String(value).toUpperCase();
+
+    // TÜM boşlukları kaldır (trim sadece baş/sondakileri kaldırır)
+    cleaned = cleaned.replace(/\s+/g, '');
+
+    // Yaygın typo düzeltmeleri:
+    // Q/257/257 → Q257/257
+    // Q//257//257 → Q257/257
+    // Q///257/257 → Q257/257
+    cleaned = cleaned.replace(/^Q\/+(\d)/g, 'Q$1');  // Q ile sayı arasındaki slashları temizle
+    cleaned = cleaned.replace(/^R\/+(\d)/g, 'R$1');  // R ile sayı arasındaki slashları temizle
+    cleaned = cleaned.replace(/^TR\/+(\d)/g, 'TR$1'); // TR ile sayı arasındaki slashları temizle
+
+    // Çoklu slashları tek slash'e çevir: Q257//257 → Q257/257
+    cleaned = cleaned.replace(/\/+/g, '/');
+
+    console.log(`[DEBUG] cleanHasirTipiFromExcel: "${value}" → "${cleaned}"`);
+    return cleaned;
+  };
+
   const standardizeHasirTipi = (value) => {
     console.log(`[DEBUG] standardizeHasirTipi INPUT: "${value}"`);
     if (!value) return '';
@@ -1988,10 +2013,11 @@ const processExcelWithMapping = (sheets, mapping) => {
       
       for (let colIndex = 0; colIndex < sampleRows[0].length; colIndex++) {
         hasirTipiCounts[colIndex] = 0;
-        
+
+
         for (const row of sampleRows) {
           if (colIndex < row.length) {
-            const value = String(row[colIndex]).toUpperCase().trim();
+            const value = cleanHasirTipiFromExcel(row[colIndex]);
             if (/^(Q|R|TR)\d+/.test(value)) {
               hasirTipiCounts[colIndex]++;
             }
@@ -5099,7 +5125,7 @@ const processExtractedTextFromOCR = (extractedText) => {
           newRow.stokKodu = String(row[mapping.stokKodu] || '');
         }
         if (mapping.hasirTipi >= 0 && row[mapping.hasirTipi] !== undefined) {
-          newRow.hasirTipi = String(row[mapping.hasirTipi] || '');
+          newRow.hasirTipi = cleanHasirTipiFromExcel(row[mapping.hasirTipi]);
         }
         if (mapping.boyCap >= 0 && row[mapping.boyCap] !== undefined) {
           newRow.boyCap = parseFloat(row[mapping.boyCap]) || 0;
@@ -5591,16 +5617,16 @@ const parseExcelData = (data, fileName = '') => {
       // Birkaç satırda deseni kontrol et
       for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, jsonData.length); rowIndex++) {
         const row = jsonData[rowIndex];
-        
+
         for (let colIndex = 0; colIndex < row.length; colIndex++) {
-          const cellValue = String(row[colIndex] || '').trim().toUpperCase();
-          
+          const cellValue = cleanHasirTipiFromExcel(row[colIndex]);
+
           if (/^(Q|R|TR)\d+/.test(cellValue)) {
             hasirTipiCol = colIndex;
             break;
           }
         }
-        
+
         if (hasirTipiCol !== -1) break;
       }
       
@@ -5667,9 +5693,9 @@ const analyzeColumnData = (data, hasHeaders) => {
     for (let i = 0; i < maxSampleRows; i++) {
       const rowIndex = startRow + i;
       if (rowIndex >= data.length || !data[rowIndex] || col >= data[rowIndex].length) continue;
-      
-      const cellValue = String(data[rowIndex][col] || '').trim();
-      
+
+      const cellValue = cleanHasirTipiFromExcel(data[rowIndex][col]);
+
       // Q, R, TR kalıbı var mı?
       if (/^(Q|R|TR)\d+/i.test(cellValue)) {
         stats.hasQRTRPattern = true;
@@ -5927,9 +5953,9 @@ const analyzeColumnsAdvanced = (data, headers) => {
     
     for (let row = startRow; row < Math.min(data.length, startRow + 20); row++) {
       if (!data[row] || !data[row][col]) continue;
-      
-      const cellValue = String(data[row][col]).trim();
-      
+
+      const cellValue = cleanHasirTipiFromExcel(data[row][col]);
+
       // Q, R, TR kalıbını kontrol et
       if (/^(Q|R|TR)\d+/i.test(cellValue)) {
         columnCharacteristics[col].hasQRTRPattern = true;
@@ -6080,16 +6106,16 @@ const analyzeColumnsAdvanced = (data, headers) => {
 const extractRowData = (row, columnAnalysis) => {
   // Hasır Tipi kontrolü - öncelikle özel belirlenen sütundan al
   let hasirTipi = '';
-  
+
   if (columnAnalysis.hasirTipi >= 0 && columnAnalysis.hasirTipi < row.length) {
-    hasirTipi = String(row[columnAnalysis.hasirTipi] || '').trim();
+    hasirTipi = cleanHasirTipiFromExcel(row[columnAnalysis.hasirTipi]);
   }
-  
+
   // Eğer özel sütundan alınamadıysa, tüm hücrelerde Q, R, TR kalıbını ara
   if (!hasirTipi || !/^(Q|R|TR)\d+/i.test(hasirTipi)) {
     for (const cell of row) {
       if (!cell) continue;
-      const cellValue = String(cell).trim();
+      const cellValue = cleanHasirTipiFromExcel(cell);
       if (/^(Q|R|TR)\d+/i.test(cellValue)) {
         hasirTipi = cellValue;
         break;
@@ -6199,10 +6225,10 @@ const parseCsvData = (data) => {
         // Birkaç satırda deseni kontrol et
         for (let rowIndex = dataStartRow; rowIndex < Math.min(dataStartRow + 5, jsonData.length); rowIndex++) {
           const row = jsonData[rowIndex];
-          
+
           for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const cellValue = String(row[colIndex] || '').trim().toUpperCase();
-            
+            const cellValue = cleanHasirTipiFromExcel(row[colIndex]);
+
             if (/^(Q|R|TR)\d+/.test(cellValue)) {
               hasirTipiCol = colIndex;
               break;
@@ -6331,10 +6357,11 @@ const parseCsvData = (data) => {
       for (let i = startRow; i < cleanedData.length; i++) {
         const row = cleanedData[i];
         if (!row) continue;
-        
+
+
         for (const cell of row) {
           if (!cell) continue;
-          const cellValue = String(cell).trim().toUpperCase();
+          const cellValue = cleanHasirTipiFromExcel(cell);
           if (/^(Q|R|TR)\d+/.test(cellValue)) {
             anyValidData = true;
             break;
@@ -6388,7 +6415,7 @@ const parseCsvData = (data) => {
         // Hasır Tipi için her hücreyi kontrol et (sütun haritasından bağımsız)
         for (const cell of rowData) {
           if (!cell) continue;
-          const cellValue = String(cell).trim().toUpperCase();
+          const cellValue = cleanHasirTipiFromExcel(cell);
           if (/^(Q|R|TR)\d+/.test(cellValue)) {
             hasirTipi = cellValue;
             break;
@@ -6720,10 +6747,10 @@ const guessIfHasHeaders = (data) => {
     // İkinci satırda sayısal değerler ve Q/R/TR desenleri var mı kontrol et
     let numericDataCount = 0;
     let hasirTipiPatternCount = 0;
-    
+
     for (let i = 0; i < nextRow.length; i++) {
-      const value = String(nextRow[i] || '').trim();
-      
+      const value = cleanHasirTipiFromExcel(nextRow[i]);
+
       // Hasır tipi deseni ara (Q, R, TR ile başlayan)
       if (/^(Q|R|TR)\d+/i.test(value)) {
         hasirTipiPatternCount++;
@@ -6752,11 +6779,12 @@ const guessIfHasHeaders = (data) => {
   for (let i = 0; i < Math.min(10, data.length); i++) {
     const row = data[i];
     if (!row) continue;
-    
+
+
     for (const cell of row) {
       if (!cell) continue;
-      const cellValue = String(cell).trim();
-      
+      const cellValue = cleanHasirTipiFromExcel(cell);
+
       if (/^(Q|R|TR)\d+/i.test(cellValue) && i > 0) {
         // Bir önceki satır muhtemelen başlık
         return true;
