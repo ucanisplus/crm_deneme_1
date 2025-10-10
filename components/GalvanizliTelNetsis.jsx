@@ -11061,62 +11061,37 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT Sheets - For 1.5-1.8mm alternatives (.ST versions)
-    // Check if there are alternatives in 1.5-1.8mm range
-    const ymGtAlternatives = allYmSts.filter((ymSt, index) => {
-      const diameter = parseFloat(ymSt.cap || 0);
-      const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex_ ? 0 : 999);
-      return diameter >= 1.5 && diameter <= 1.8 && priority > 0;
-    });
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm using .ST bilesen)
+    // Check if this product uses COILER alternative (bilesen ends with .ST) and is in 1.5-1.8mm range
+    const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
+    const mmGtDiameter = parseFloat(excelData.mmGtData.cap || 0);
+    const isInCoilerRange = mmGtDiameter >= 1.5 && mmGtDiameter <= 1.8;
 
-    if (ymGtAlternatives.length > 0) {
-      // Group alternatives by priority
-      const altsByPriority = {};
-      ymGtAlternatives.forEach(ymSt => {
-        const priority = ymSt.priority || 1;
-        if (!altsByPriority[priority]) {
-          altsByPriority[priority] = [];
+    if (hasCoilerAlternative && isInCoilerRange) {
+      console.log(`📋 SINGLE: YM GT recipe uses COILER alternative ${ymStEntry[0]} for ${mmGtDiameter}mm product`);
+
+      const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
+      ymGtAltSheet.addRow(receteHeaders);
+
+      // Create same YM GT recipe structure with .ST bilesen
+      let altSiraNo = 1;
+
+      orderedYmGtEntries.forEach(([key, value]) => {
+        if (value > 0) {
+          let finalValue = value;
+          if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+            finalValue = 1 - parseFloat(zincEntry[1]);
+          }
+          ymGtAltSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
+          altSiraNo++;
         }
-        altsByPriority[priority].push(ymSt);
       });
 
-      // Create sheet for each priority
-      Object.keys(altsByPriority).sort((a, b) => Number(a) - Number(b)).forEach(priority => {
-        const altYmSts = altsByPriority[priority];
-        const altSheet = workbook.addWorksheet(`YM GT REÇETE ALT ${priority}`);
-        altSheet.addRow(receteHeaders);
-
-        // For each alternative, create YM GT recipe using its .ST version
-        altYmSts.forEach(altYmSt => {
-          const altYmGtRecipe = excelData.allRecipes.ymGtRecipe; // Same recipe but with .ST version
-          let altSiraNo = 1;
-
-          // Create YM GT recipe entries using .ST stok_kodu
-          const altYmGtEntries = Object.entries(altYmGtRecipe);
-          const altYmStEntry = altYmGtEntries.find(([key]) => key.includes(altYmSt.stok_kodu));
-          const altGlv01Entry = altYmGtEntries.find(([key]) => key === 'GLV01');
-          const altZincEntry = altYmGtEntries.find(([key]) => key === '150 03');
-          const altAsitEntry = altYmGtEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
-
-          const altOrderedEntries = [
-            altYmStEntry || [altYmSt.stok_kodu, 1 - parseFloat(altZincEntry?.[1] || 0)],
-            altGlv01Entry,
-            altZincEntry,
-            altAsitEntry
-          ].filter(Boolean);
-
-          altOrderedEntries.forEach(([key, value]) => {
-            if (value > 0) {
-              let finalValue = value;
-              if (key.includes('YM.ST.') && altZincEntry && altZincEntry[1]) {
-                finalValue = 1 - parseFloat(altZincEntry[1]);
-              }
-              altSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
-              altSiraNo++;
-            }
-          });
-        });
-      });
+      console.log(`✅ SINGLE: Created YM GT REÇETE ALT 1 sheet for COILER alternative`);
+    } else if (!hasCoilerAlternative && isInCoilerRange) {
+      console.log(`ℹ️ SINGLE: Product in 1.5-1.8mm range but uses standard bilesen (not .ST)`);
+    } else if (hasCoilerAlternative && !isInCoilerRange) {
+      console.log(`ℹ️ SINGLE: Product uses .ST bilesen but outside 1.5-1.8mm range (${mmGtDiameter}mm)`);
     }
 
     // YM ST REÇETE Sheet - Main YM ST recipes
@@ -11623,7 +11598,85 @@ const GalvanizliTelNetsis = () => {
           }
         });
       }
-      
+
+      // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm using .ST bilesen)
+      const ymGtAltRecipes = [];
+      for (const task of tasks) {
+        const { excelData } = task;
+
+        // Validate excelData structure
+        if (!excelData || !excelData.allRecipes || !excelData.allRecipes.ymGtRecipe) {
+          continue;
+        }
+
+        const sequence = excelData.sequence;
+        const ymGtRecipeEntries = Object.entries(excelData.allRecipes.ymGtRecipe);
+
+        // Check if YM GT recipe uses .ST bilesen (COILER alternative)
+        const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
+        const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
+
+        // Check if MM GT diameter is in 1.5-1.8mm range
+        const mmGtDiameter = parseFloat(excelData.mmGtData.cap || 0);
+        const isInCoilerRange = mmGtDiameter >= 1.5 && mmGtDiameter <= 1.8;
+
+        if (hasCoilerAlternative && isInCoilerRange) {
+          console.log(`📋 COMBINED: Found COILER alternative for ${mmGtDiameter}mm product using ${ymStEntry[0]}`);
+
+          // Store recipe data for ALT sheet
+          const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
+          const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
+          const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
+          const otherYmGtEntries = ymGtRecipeEntries.filter(([key]) =>
+            !key.includes('YM.ST.') &&
+            key !== 'GLV01' &&
+            key !== '150 03' &&
+            key !== 'SM.HİDROLİK.ASİT'
+          );
+
+          const orderedEntries = [
+            ymStEntry,
+            glv01Entry,
+            zincEntry,
+            asitEntry,
+            ...otherYmGtEntries
+          ].filter(Boolean);
+
+          const ymGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
+
+          ymGtAltRecipes.push({
+            orderedEntries,
+            zincEntry,
+            sequence,
+            ymGtStokKodu
+          });
+        }
+      }
+
+      // Create YM GT REÇETE ALT 1 sheet if there are COILER alternatives
+      if (ymGtAltRecipes.length > 0) {
+        const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
+        ymGtAltSheet.addRow(receteHeaders);
+
+        ymGtAltRecipes.forEach(recipeData => {
+          let altSiraNo = 1;
+          recipeData.orderedEntries.forEach(([key, value]) => {
+            if (value > 0) {
+              let finalValue = value;
+              if (key.includes('YM.ST.') && recipeData.zincEntry && recipeData.zincEntry[1]) {
+                finalValue = 1 - parseFloat(recipeData.zincEntry[1]);
+              }
+              ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(key, finalValue, altSiraNo, recipeData.sequence, recipeData.ymGtStokKodu));
+              altSiraNo++;
+            }
+          });
+        });
+
+        console.log(`✅ COMBINED: Created YM GT REÇETE ALT 1 sheet with ${ymGtAltRecipes.length} COILER alternative recipes`);
+      } else {
+        console.log(`ℹ️ COMBINED: No YM GT COILER alternatives found for 1.5-1.8mm range`);
+      }
+
       // YM ST REÇETE Sheet - Use PERFECTED format
       const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
       ymStReceteSheet.addRow(receteHeaders);
@@ -12288,7 +12341,40 @@ const GalvanizliTelNetsis = () => {
         siraNo2++;
       }
     });
-    
+
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm using .ST bilesen)
+    // Check if this product uses COILER alternative (bilesen ends with .ST) and is in 1.5-1.8mm range
+    const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
+    const mmGtDiameter = parseFloat(mmGtData.cap || 0);
+    const isInCoilerRange = mmGtDiameter >= 1.5 && mmGtDiameter <= 1.8;
+
+    if (hasCoilerAlternative && isInCoilerRange) {
+      console.log(`📋 SINGLE RECIPE: YM GT recipe uses COILER alternative ${ymStEntry[0]} for ${mmGtDiameter}mm product`);
+
+      const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
+      ymGtAltSheet.addRow(receteHeaders);
+
+      // Create same YM GT recipe structure with .ST bilesen
+      let altSiraNo = 1;
+
+      orderedYmGtEntries.forEach(([key, value]) => {
+        if (value > 0) {
+          let finalValue = value;
+          if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+            finalValue = 1 - parseFloat(zincEntry[1]);
+          }
+          ymGtAltSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
+          altSiraNo++;
+        }
+      });
+
+      console.log(`✅ SINGLE RECIPE: Created YM GT REÇETE ALT 1 sheet for COILER alternative`);
+    } else if (!hasCoilerAlternative && isInCoilerRange) {
+      console.log(`ℹ️ SINGLE RECIPE: Product in 1.5-1.8mm range but uses standard bilesen (not .ST)`);
+    } else if (hasCoilerAlternative && !isInCoilerRange) {
+      console.log(`ℹ️ SINGLE RECIPE: Product uses .ST bilesen but outside 1.5-1.8mm range (${mmGtDiameter}mm)`);
+    }
+
     // YM ST REÇETE Sheet - Main products only
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
