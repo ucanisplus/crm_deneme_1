@@ -7629,25 +7629,25 @@ const GalvanizliTelNetsis = () => {
                   ...receteParams,
                   olcu_br_bilesen: '1',
                   aciklama: getReceteAciklama(key),
-                  ua_dahil_edilsin: 'evet',
-                  son_operasyon: 'evet',
+                  ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
+                  son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
                   recete_top: 1,
                   fire_orani: 0.0004, // Match Excel format
-                  // Additional fields for better Netsis compatibility - match Excel
-                  miktar_sabitle: 'H',
-                  stok_maliyet: 'S',
-                  fire_mik: '0',
-                  sabit_fire_mik: '0',
+                  // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                  miktar_sabitle: '',
+                  stok_maliyet: '',
+                  fire_mik: null, // NUMERIC
+                  sabit_fire_mik: null, // NUMERIC
                   istasyon_kodu: '',
-                  hazirlik_suresi: key.includes('01') ? 0 : null,
-                  uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                  oncelik: '0',
-                  planlama_orani: '100',
-                  alt_pol_da_transfer: 'H',
-                  alt_pol_ambar_cikis: 'H',
-                  alt_pol_uretim_kaydi: 'H',
-                  alt_pol_mrp: 'H',
-                  ic_dis: 'I'
+                  hazirlik_suresi: null, // NUMERIC
+                  uretim_suresi: operasyonBilesen === 'O' ? formattedValue : null, // NUMERIC
+                  oncelik: null, // INT
+                  planlama_orani: null, // NUMERIC
+                  alt_pol_da_transfer: '',
+                  alt_pol_ambar_cikis: '',
+                  alt_pol_uretim_kaydi: '',
+                  alt_pol_mrp: '',
+                  ic_dis: ''
                 })
               });
               
@@ -8097,23 +8097,23 @@ const GalvanizliTelNetsis = () => {
                     aciklama: getReceteAciklama(key),
                     recete_top: 1,
                     fire_orani: 0.0004, // Match Excel format
-                    ua_dahil_edilsin: 'evet',
-                    son_operasyon: 'evet',
-                    // Additional fields for better Netsis compatibility - match Excel format
-                    miktar_sabitle: 'H',
-                    stok_maliyet: 'S',
-                    fire_mik: '0',
-                    sabit_fire_mik: '0',
+                    ua_dahil_edilsin: receteParams.operasyon_bilesen === 'O' ? 'E' : '',
+                    son_operasyon: receteParams.operasyon_bilesen === 'O' ? 'E' : '',
+                    // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                    miktar_sabitle: '',
+                    stok_maliyet: '',
+                    fire_mik: null, // NUMERIC
+                    sabit_fire_mik: null, // NUMERIC
                     istasyon_kodu: '',
-                    hazirlik_suresi: key.includes('01') ? 0 : null,
-                    uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                    oncelik: '0',
-                    planlama_orani: '100',
-                    alt_pol_da_transfer: 'H',
-                    alt_pol_ambar_cikis: 'H',
-                    alt_pol_uretim_kaydi: 'H',
-                    alt_pol_mrp: 'H',
-                    ic_dis: 'I'
+                    hazirlik_suresi: null, // NUMERIC
+                    uretim_suresi: receteParams.operasyon_bilesen === 'O' ? formattedValue : null, // NUMERIC
+                    oncelik: null, // INT
+                    planlama_orani: null, // NUMERIC
+                    alt_pol_da_transfer: '',
+                    alt_pol_ambar_cikis: '',
+                    alt_pol_uretim_kaydi: '',
+                    alt_pol_mrp: '',
+                    ic_dis: ''
                   })
                 });
                 
@@ -8327,35 +8327,36 @@ const GalvanizliTelNetsis = () => {
               }
               
               
+              const operasyonBilesen = key === 'TLC01' ? 'O' : 'B'; // Only TLC01 is Operasyon (O) in YMST recipes
               const receteParams = {
                 ym_st_id: ymStId,
                 mamul_kodu: ymSt.stok_kodu,
                 bilesen_kodu: key,
                 miktar: formattedValue, // Use formatted value to match Excel
                 sira_no: siraNo++,
-                operasyon_bilesen: key === 'TLC01' ? 'O' : 'B', // Only TLC01 is Operasyon (O) in YMST recipes
+                operasyon_bilesen: operasyonBilesen,
                 olcu_br: getOlcuBr(key),
                 olcu_br_bilesen: '1',
                 aciklama: getReceteAciklama(key),
                 recete_top: 1,
                 fire_orani: 0.0004, // Match Excel format
-                ua_dahil_edilsin: 'evet',
-                son_operasyon: 'evet',
-                // Additional fields for better Netsis compatibility - match Excel
-                miktar_sabitle: 'H',
-                stok_maliyet: 'S',
-                fire_mik: '0',
-                sabit_fire_mik: '0',
+                ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
+                son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
+                // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                miktar_sabitle: '',
+                stok_maliyet: '',
+                fire_mik: null, // NUMERIC
+                sabit_fire_mik: null, // NUMERIC
                 istasyon_kodu: '',
-                hazirlik_suresi: key.includes('01') ? 0 : null,
-                uretim_suresi: key.includes('01') ? formattedValue : null, // Use formatted value
-                oncelik: '0',
-                planlama_orani: '100',
-                alt_pol_da_transfer: 'H',
-                alt_pol_ambar_cikis: 'H',
-                alt_pol_uretim_kaydi: 'H',
-                alt_pol_mrp: 'H',
-                ic_dis: 'I'
+                hazirlik_suresi: null, // NUMERIC
+                uretim_suresi: operasyonBilesen === 'O' ? formattedValue : null, // NUMERIC
+                oncelik: null, // INT
+                planlama_orani: null, // NUMERIC
+                alt_pol_da_transfer: '',
+                alt_pol_ambar_cikis: '',
+                alt_pol_uretim_kaydi: '',
+                alt_pol_mrp: '',
+                ic_dis: ''
               };
               
               // Parametre kontrolü
@@ -9594,8 +9595,9 @@ const GalvanizliTelNetsis = () => {
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Add all YM ST products (including alternatives - they have different stok_kodu)
-    allYMSTProducts.forEach(ymSt => {
+    // Add ONLY main YM ST products (priority 0) - alternatives are NOT shown in batch stock Excel
+    const mainYmStProducts = allYMSTProducts.filter(ymSt => (ymSt.priority === 0 || ymSt.priority === null || ymSt.priority === undefined));
+    mainYmStProducts.forEach(ymSt => {
       ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     });
     
@@ -9605,7 +9607,7 @@ const GalvanizliTelNetsis = () => {
     const stokFilename = `Toplu_Stok_Kartlari_${stokTimestamp}.xlsx`;
     saveAs(new Blob([stokBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), stokFilename);
     
-    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${allYMSTProducts.length} YM ST products`);
+    console.log(`✅ BULK EXCEL GT: Generated Stock Excel with ${allMMGTProducts.length} MM GT, ${allYMGTProducts.length} YM GT, ${mainYmStProducts.length} YM ST main products (priority 0 only)`);
     
     
     // ===== 2. REÇETE EXCEL (3 sheets) =====
@@ -9689,13 +9691,15 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // Add YM ST recipes with proper sequencing per product
+    // Add YM ST recipes with proper sequencing per product and priority in Matris column
     const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
     sortedYmStStokCodes.forEach(stokKodu => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymStByProduct[stokKodu].forEach(recipe => {
-          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu));
+          // Get priority from recipe (0=Ana, 1=ALT 1, 2=ALT 2, etc.)
+          const priority = recipe.priority || 0;
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
           productSiraNo++;
         });
       }
@@ -10395,20 +10399,59 @@ const GalvanizliTelNetsis = () => {
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     }
 
-    // YM ST Sheet (Ana) - Batch stock card has NO alternative sheets
+    // YM ST Sheet (Ana) - Main products only
     const ymStSheet = workbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Add ONLY main YM ST rows (no alternatives in batch stock card)
-    for (const ymSt of ymStData) {
-      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+    // Categorize all YM STs by priority (from ymStData and ymStAltDataObj)
+    const allYmSts = [...ymStData];
+    if (ymStAltDataObj) {
+      Object.values(ymStAltDataObj).forEach(altArray => {
+        if (Array.isArray(altArray)) {
+          allYmSts.push(...altArray);
+        }
+      });
     }
 
-    // Note: NO YM ST Alternative Sheets in batch stock card
-    // Alternatives are only shown in:
-    // 1. Individual/Multiple product stock cards (1.5-1.8mm only)
-    // 2. Recipe Excel (with Alternatif column)
+    // Group by priority
+    const ymStsByPriority = {};
+    allYmSts.forEach(ymSt => {
+      const priority = ymSt.priority !== undefined ? ymSt.priority : 0;
+      if (!ymStsByPriority[priority]) {
+        ymStsByPriority[priority] = [];
+      }
+      ymStsByPriority[priority].push(ymSt);
+    });
+
+    // Add YM STs dynamically for each priority
+    const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
+
+    priorities.forEach(priority => {
+      const ymSts = ymStsByPriority[priority];
+
+      if (priority === 0) {
+        // Main products (priority 0) - add to main YM ST sheet
+        ymSts.forEach(ymSt => {
+          ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+        });
+      } else {
+        // Alternative products (priority 1, 2, 3, ...) - ONLY for 1.5-1.8mm range
+        const alternativesInRange = ymSts.filter(ymSt => {
+          const diameter = parseFloat(ymSt.cap || 0);
+          return diameter >= 1.5 && diameter <= 1.8;
+        });
+
+        // Only create ALT sheet if there are alternatives in the 1.5-1.8mm range
+        if (alternativesInRange.length > 0) {
+          const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
+          altSheet.addRow(ymStHeaders);
+          alternativesInRange.forEach(ymSt => {
+            altSheet.addRow(generateYmStStokKartiData(ymSt));
+          });
+        }
+      }
+    });
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -10569,7 +10612,7 @@ const GalvanizliTelNetsis = () => {
       console.log(`ℹ️ No YM GT alternatives found for 1.5-1.8mm range - skipping YM GT REÇETE ALT 1 sheet`);
     }
 
-    // YM ST REÇETE Sheet - CONSOLIDATED with all priorities (Ana, ALT 1, ALT 2)
+    // YM ST REÇETE Sheet - Main products (priority 0)
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
@@ -10578,75 +10621,79 @@ const GalvanizliTelNetsis = () => {
       .map(idx => `ALT ${idx}: ${(ymStAltRecipesObj[idx] || []).length}`)
       .join(', ');
 
-    console.log(`📋 Creating consolidated YM ST Reçete sheet with Ana (${ymStRecipes.length})${altRecipeCounts ? ', ' + altRecipeCounts : ''} recipes`);
+    console.log(`📋 Creating separate YM ST Reçete sheets with Ana (${ymStRecipes.length})${altRecipeCounts ? ', ' + altRecipeCounts : ''} recipes`);
 
-    // Combine all YM ST recipes with priority information
-    const allYmStRecipesWithPriority = [];
-
-    // Add Ana recipes (priority 0)
+    // Group main recipes by product
+    const ymStByProduct = {};
     ymStRecipes.forEach(recipe => {
-      allYmStRecipesWithPriority.push({
-        ...recipe,
-        priority: 0
-      });
-    });
-
-    // Add alternative recipes dynamically (priority 1, 2, 3, ...)
-    if (ymStAltRecipesObj) {
-      Object.keys(ymStAltRecipesObj).forEach(altIndex => {
-        const altRecipes = ymStAltRecipesObj[altIndex];
-        if (altRecipes && altRecipes.length > 0) {
-          altRecipes.forEach(recipe => {
-            allYmStRecipesWithPriority.push({
-              ...recipe,
-              priority: parseInt(altIndex)
-            });
-          });
-        }
-      });
-    }
-
-    // Group all recipes by product
-    const allYmStByProduct = {};
-    allYmStRecipesWithPriority.forEach(recipe => {
-      if (!allYmStByProduct[recipe.ym_st_stok_kodu]) {
-        allYmStByProduct[recipe.ym_st_stok_kodu] = [];
+      if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
+        ymStByProduct[recipe.ym_st_stok_kodu] = [];
       }
-      allYmStByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
     });
 
-    // Get all stok codes sorted by diameter (Ana first, then ALT 1, ALT 2, ALT 3, ...)
-    const allSortedYmStStokCodes = [
-      ...sortedYmStData.map(product => product.stok_kodu)
-    ];
-
-    // Add alternatives dynamically in order
-    if (sortedYmStAltDataObj) {
-      const altIndices = Object.keys(sortedYmStAltDataObj).map(Number).sort((a, b) => a - b);
-      altIndices.forEach(altIndex => {
-        const altData = sortedYmStAltDataObj[altIndex];
-        if (altData) {
-          allSortedYmStStokCodes.push(...altData.map(product => product.stok_kodu));
-        }
-      });
-    }
-
-    // Add recipes for each product with priority column filled
-    allSortedYmStStokCodes.forEach(stokKodu => {
-      if (allYmStByProduct[stokKodu] && allYmStByProduct[stokKodu].length > 0) {
-        let productSiraNo = 1; // Restart sequence for each product
-        allYmStByProduct[stokKodu].forEach(recipe => {
+    // Add main recipes (priority 0)
+    const sortedYmStStokCodes = sortedYmStData.map(product => product.stok_kodu);
+    sortedYmStStokCodes.forEach(stokKodu => {
+      if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1;
+        ymStByProduct[stokKodu].forEach(recipe => {
           ymStReceteSheet.addRow(generateYmStReceteRowForBatch(
             recipe.bilesen_kodu,
             recipe.miktar,
             productSiraNo,
             recipe.ym_st_stok_kodu,
-            recipe.priority // Pass priority to show 0, 1, or 2
+            0 // Priority 0 for main sheet
           ));
           productSiraNo++;
         });
       }
     });
+
+    // Create separate YM ST REÇETE ALT sheets for each priority (1, 2, 3, ...)
+    if (ymStAltRecipesObj) {
+      const altPriorities = Object.keys(ymStAltRecipesObj).map(Number).sort((a, b) => a - b);
+
+      altPriorities.forEach(priority => {
+        const altRecipes = ymStAltRecipesObj[priority];
+        if (altRecipes && altRecipes.length > 0) {
+          // Create separate sheet for this priority
+          const altSheet = workbook.addWorksheet(`YM ST Reçete ALT ${priority}`);
+          altSheet.addRow(receteHeaders);
+
+          // Group alternative recipes by product
+          const ymStAltByProduct = {};
+          altRecipes.forEach(recipe => {
+            if (!ymStAltByProduct[recipe.ym_st_stok_kodu]) {
+              ymStAltByProduct[recipe.ym_st_stok_kodu] = [];
+            }
+            ymStAltByProduct[recipe.ym_st_stok_kodu].push(recipe);
+          });
+
+          // Add alternative recipes to their sheet
+          const sortedAltData = sortedYmStAltDataObj && sortedYmStAltDataObj[priority] ? sortedYmStAltDataObj[priority] : [];
+          const sortedAltStokCodes = sortedAltData.map(product => product.stok_kodu);
+
+          sortedAltStokCodes.forEach(stokKodu => {
+            if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
+              let productSiraNo = 1;
+              ymStAltByProduct[stokKodu].forEach(recipe => {
+                altSheet.addRow(generateYmStReceteRowForBatch(
+                  recipe.bilesen_kodu,
+                  recipe.miktar,
+                  productSiraNo,
+                  recipe.ym_st_stok_kodu,
+                  priority // Show actual priority
+                ));
+                productSiraNo++;
+              });
+            }
+          });
+
+          console.log(`✅ Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
+        }
+      });
+    }
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -12372,7 +12419,7 @@ const GalvanizliTelNetsis = () => {
     'Sıra No(*)', 'Operasyon Bileşen', 'Bileşen Kodu(*)', 'Ölçü Br. - Bileşen',
     'Miktar(*)', 'Açıklama', 'Miktar Sabitle', 'Stok/Maliyet', 'Fire Mik.',
     'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
-    'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Öncelik', 'Planlama Oranı',
+    'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Matris', 'Planlama Oranı',
     'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
     'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ'
   ];
@@ -13199,7 +13246,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
-      priority, // Öncelik - 0=Ana, 1=ALT_1, 2=ALT_2
+      priority, // Matris - 0=Ana, 1=ALT_1, 2=ALT_2
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
       '', // Alternatif Politika - Ambar Ç. Fişi
