@@ -1676,13 +1676,13 @@ const processExcelWithMapping = (sheets, mapping) => {
     // Boşlukları kaldır ve büyük harfe çevir
     let standardized = value.toUpperCase().replace(/\s+/g, '');
     console.log(`[DEBUG] standardizeHasirTipi AFTER CLEANING: "${standardized}"`);
-    
+
     // Q, R veya TR ile başladığını kontrol et
     if (!/^(Q|R|TR)/.test(standardized)) {
       console.log(`[DEBUG] standardizeHasirTipi NOT Q/R/TR TYPE, RETURNING: "${value}"`);
       return value;
     }
-    
+
     // For Q-types with slash format, preserve exactly as-is (both Q221/443 and Q221/221)
     const qTypeMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
     if (qTypeMatch) {
@@ -1692,14 +1692,24 @@ const processExcelWithMapping = (sheets, mapping) => {
       console.log(`[DEBUG] standardizeHasirTipi Q-TYPE COMBINATION DETECTED: "${standardized}" -> "${result}"`);
       return result;  // Always preserve full format
     }
-    
+
+    // KRİTİK FIX: For single Q-types like "Q221", expand to "Q221/Q221" format
+    // This means Q221 (same mesh on both directions)
+    const singleQMatch = standardized.match(/^Q(\d+)$/);
+    if (singleQMatch) {
+      const num = singleQMatch[1];
+      const result = `Q${num}/${num}`;
+      console.log(`[DEBUG] standardizeHasirTipi SINGLE Q-TYPE EXPANDED: "${standardized}" -> "${result}"`);
+      return result;
+    }
+
     // For R and TR types, still simplify duplicate suffixes: TR257/257 -> TR257
     const nonQDuplicateMatch = standardized.match(/^(R|TR)(\d+)\/\2$/);
     if (nonQDuplicateMatch) {
       standardized = nonQDuplicateMatch[1] + nonQDuplicateMatch[2]; // R + 257
       console.log(`[DEBUG] standardizeHasirTipi R/TR TYPE SIMPLIFIED: "${value}" -> "${standardized}"`);
     }
-    
+
     console.log(`[DEBUG] standardizeHasirTipi FINAL OUTPUT: "${standardized}"`);
     return standardized;
   };
@@ -2488,22 +2498,26 @@ const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
   // Hasır Türünü belirle
   row.hasirTuru = determineHasirTuru(hasirTipi, row.uzunlukBoy);
 
+  // KRİTİK: Hasır tipini standardize et (Q221 -> Q221/221 gibi)
+  const standardizedHasirTipi = standardizeHasirTipi(hasirTipi);
+  console.log(`[DEBUG] updateRowFromHasirTipi - Original: "${hasirTipi}" -> Standardized: "${standardizedHasirTipi}"`);
+
   // Boy ve en çap değerlerini ayarla - Karmaşık hasır tipleri için yeni işleme
-  if (hasirTipi.includes('/')) {
-    // Q257/131 gibi kombinasyonları işleme
-    await processComplexHasirType(row, hasirTipi);
+  if (standardizedHasirTipi.includes('/')) {
+    // Q257/131 gibi kombinasyonları işleme (standardize edilmiş versiyonu kullan)
+    await processComplexHasirType(row, standardizedHasirTipi);
   } else {
-    // Use database lookup with unknown mesh type detection
-    const meshConfig = await getMeshConfig(hasirTipi);
+    // Use database lookup with unknown mesh type detection (standardize edilmiş versiyonu kullan)
+    const meshConfig = await getMeshConfig(standardizedHasirTipi);
     if (meshConfig) {
       row.boyCap = meshConfig.boyCap;
       row.enCap = meshConfig.enCap;
       row.boyAraligi = meshConfig.boyAralik;
       row.enAraligi = meshConfig.enAralik;
-      console.log(`Applied database config for ${hasirTipi}:`, meshConfig);
+      console.log(`Applied database config for ${standardizedHasirTipi}:`, meshConfig);
     } else {
       // Unknown mesh type - set default values (0) to allow processing to continue
-      console.log(`Unknown mesh type detected: ${hasirTipi} - using default values (0)`);
+      console.log(`Unknown mesh type detected: ${standardizedHasirTipi} - using default values (0)`);
       row.boyCap = 0;
       row.enCap = 0;
       row.boyAraligi = 0;
