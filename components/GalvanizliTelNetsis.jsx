@@ -9688,21 +9688,26 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    const ymGtAltRecipes = allYMGTRecetes.filter(recipe => {
-      // Check if bilesen_kodu ends with .ST (COILER alternative)
+    // Step 1: Identify YM GT products (mamul_kodu) that use .ST bilesen in 1.5-1.8mm range
+    const ymGtAltProductCodes = new Set();
+    allYMGTRecetes.forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
-        // Extract diameter from YM.ST bilesen code (e.g., YM.ST.0154.ST -> 1.54mm)
         const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.ST/);
         if (bilesenMatch) {
           const ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-          // Only include YM ST 1.5-1.8mm range
-          return ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8;
+          if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
+            ymGtAltProductCodes.add(recipe.mamul_kodu);
+          }
         }
       }
-      return false;
     });
 
-    console.log(`📋 BATCH: Found ${ymGtAltRecipes.length} YM GT COILER alternative recipes for YM ST 1.5-1.8mm products`);
+    // Step 2: Fetch ALL recipe rows for those YM GT products (4 rows each: YM.ST, GLV01, Çinko, Asit)
+    const ymGtAltRecipes = allYMGTRecetes.filter(recipe =>
+      ymGtAltProductCodes.has(recipe.mamul_kodu)
+    );
+
+    console.log(`📋 BATCH: Found ${ymGtAltProductCodes.size} YM GT products using COILER alternatives (YM ST 1.5-1.8mm), total ${ymGtAltRecipes.length} recipe rows`);
 
     // Create YM GT REÇETE ALT 1 sheet if there are COILER alternatives
     if (ymGtAltRecipes.length > 0) {
@@ -9718,7 +9723,7 @@ const GalvanizliTelNetsis = () => {
         ymGtAltByProduct[recipe.mamul_kodu].push(recipe);
       });
 
-      // Add recipes sorted by mamul_kodu
+      // Add recipes sorted by mamul_kodu (each product gets 4 rows)
       const sortedYmGtAltCodes = Object.keys(ymGtAltByProduct).sort();
       sortedYmGtAltCodes.forEach(stokKodu => {
         if (ymGtAltByProduct[stokKodu] && ymGtAltByProduct[stokKodu].length > 0) {
@@ -9730,9 +9735,9 @@ const GalvanizliTelNetsis = () => {
         }
       });
 
-      console.log(`✅ BATCH: Created YM GT REÇETE ALT 1 sheet with ${ymGtAltRecipes.length} COILER alternative recipes`);
+      console.log(`✅ BATCH: Created YM GT REÇETE ALT 1 sheet with ${ymGtAltProductCodes.size} products, ${ymGtAltRecipes.length} total rows`);
     } else {
-      console.log(`ℹ️ BATCH: No YM GT COILER alternatives found for 1.5-1.8mm range`);
+      console.log(`ℹ️ BATCH: No YM GT COILER alternatives found for YM ST 1.5-1.8mm range`);
     }
 
     // YM ST REÇETE Sheet
@@ -10590,22 +10595,26 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    // Filter YM GT recipes that use YM ST bilesen codes ending in .ST (COILER system)
-    const ymGtAltRecipes = ymGtRecipes.filter(recipe => {
-      // Check if bilesen_kodu ends with .ST (COILER alternative)
+    // Step 1: Identify YM GT products that use .ST bilesen in 1.5-1.8mm range
+    const ymGtAltProductCodes = new Set();
+    ymGtRecipes.forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
-        // Extract diameter from YM.ST bilesen code (e.g., YM.ST.0154.ST -> 1.54mm)
         const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.ST/);
         if (bilesenMatch) {
           const ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-          // Only include YM ST 1.5-1.8mm range
-          return ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8;
+          if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
+            ymGtAltProductCodes.add(recipe.ym_gt_stok_kodu);
+          }
         }
       }
-      return false;
     });
 
-    console.log(`📋 Found ${ymGtAltRecipes.length} YM GT COILER alternative recipes for YM ST 1.5-1.8mm products using .ST bilesen`);
+    // Step 2: Fetch ALL recipe rows for those YM GT products (4 rows each: YM.ST, GLV01, Çinko, Asit)
+    const ymGtAltRecipes = ymGtRecipes.filter(recipe =>
+      ymGtAltProductCodes.has(recipe.ym_gt_stok_kodu)
+    );
+
+    console.log(`📋 Found ${ymGtAltProductCodes.size} YM GT products using COILER alternatives (YM ST 1.5-1.8mm), total ${ymGtAltRecipes.length} recipe rows`);
 
     // Create YM GT REÇETE ALT 1 sheet if there are alternatives
     if (ymGtAltRecipes.length > 0) {
@@ -10645,9 +10654,9 @@ const GalvanizliTelNetsis = () => {
         }
       });
 
-      console.log(`✅ Created YM GT REÇETE ALT 1 sheet with ${ymGtAltRecipes.length} recipes for ${sortedYmGtAltStokCodes.length} products`);
+      console.log(`✅ Created YM GT REÇETE ALT 1 sheet with ${ymGtAltProductCodes.size} products, ${ymGtAltRecipes.length} total rows`);
     } else {
-      console.log(`ℹ️ No YM GT alternatives found for 1.5-1.8mm range - skipping YM GT REÇETE ALT 1 sheet`);
+      console.log(`ℹ️ No YM GT COILER alternatives found for YM ST 1.5-1.8mm range - skipping YM GT REÇETE ALT 1 sheet`);
     }
 
     // YM ST REÇETE Sheet - Main products (priority 0)
