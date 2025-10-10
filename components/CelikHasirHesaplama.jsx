@@ -6844,18 +6844,20 @@ const processPreviewData = async () => {
   for (const row of validPreviewData) {
     const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
-    console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${meshConfigs.has(hasirTipi)}`);
 
-    // Check if it's a Q combination (Q221/667)
+    // Check if it's a Q combination (Q221/667 or Q221/221)
     const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const firstNum = combinationMatch[1];
       const secondNum = combinationMatch[2];
 
-      // If same numbers (Q221/221), only check Q221
+      // If same numbers (Q221/221), only check Q221 (the base type)
       if (firstNum === secondNum) {
         const singleType = `Q${firstNum}`;
-        if (!meshConfigs.has(singleType) && !unknownTypes.includes(singleType)) {
+        const exists = meshConfigs.has(singleType);
+        console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> checking base type: "${singleType}" -> exists in DB: ${exists}`);
+
+        if (!exists && !unknownTypes.includes(singleType)) {
           unknownTypes.push(singleType);
           console.log(`Unknown base type found: ${singleType} (from ${hasirTipi})`);
         }
@@ -6863,6 +6865,8 @@ const processPreviewData = async () => {
         // Different numbers (Q221/667), check both base types
         const firstType = `Q${firstNum}`;
         const secondType = `Q${secondNum}`;
+
+        console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> checking both: "${firstType}" and "${secondType}"`);
 
         if (!meshConfigs.has(firstType) && !unknownTypes.includes(firstType)) {
           unknownTypes.push(firstType);
@@ -6875,7 +6879,10 @@ const processPreviewData = async () => {
       }
     } else {
       // For non-combination types, check normally
-      if (!meshConfigs.has(hasirTipi) && !unknownTypes.includes(hasirTipi)) {
+      const exists = meshConfigs.has(hasirTipi);
+      console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${exists}`);
+
+      if (!exists && !unknownTypes.includes(hasirTipi)) {
         unknownTypes.push(hasirTipi);
         console.log(`Unknown type found: ${hasirTipi}`);
       }
