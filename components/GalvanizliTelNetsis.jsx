@@ -6891,8 +6891,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact format as in Excel
-      cevrim_degeri_1: 0,
+      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
+      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -6967,8 +6967,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact Excel format
-      cevrim_degeri_1: 0,
+      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
+      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -7012,15 +7012,15 @@ const GalvanizliTelNetsis = () => {
       stok_adi: ymSt.stok_adi,
       grup_kodu: 'YM',
       kod_1: 'ST',
-      kod_2: ymSt.filmasin.toString(), // Store filmasin value in kod_2 to match Excel
+      kod_2: ymSt.filmasin.toString().padStart(4, '0'), // ✅ FIXED - Ensure 4-digit format (600 → "0600")
       kod_3: ymSt.quality, // Store quality value in kod_3 to match Excel
       muh_detay: '28',
       depo_kodu: '35',
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1.000, // Keep exact Excel format
-      cevrim_degeri_1: 0,
+      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
+      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -7029,7 +7029,7 @@ const GalvanizliTelNetsis = () => {
       cap: ymSt.cap,
       filmasin: parseInt(ymSt.filmasin),
       quality: ymSt.quality,
-      ozel_saha_1_say: parseInt(ymSt.filmasin), // This stores the filmasin value as in Excel
+      ozel_saha_1_say: 1, // ✅ FIXED - Must ALWAYS be 1 for all YM ST products (NOT filmasin value!)
       birim_agirlik: ymSt.kg || 0,
       fiyat_birimi: 1,
       doviz_tip: 1,
