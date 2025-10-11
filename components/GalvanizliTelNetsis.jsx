@@ -10528,8 +10528,8 @@ const GalvanizliTelNetsis = () => {
         ymSts.forEach(ymSt => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
-      } else {
-        // Alternative products (priority 1, 2, 3, ...) - ALL diameters, organized by MATRIX priority
+      } else if (priority > 0) {
+        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only create ALT sheets for priority >= 1
         if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
@@ -10761,12 +10761,12 @@ const GalvanizliTelNetsis = () => {
 
     // Create separate YM ST REÇETE ALT sheets for each priority (1, 2, 3, ...)
     if (ymStAltRecipesObj) {
-      const altPriorities = Object.keys(ymStAltRecipesObj).map(Number).sort((a, b) => a - b);
+      const altPriorities = Object.keys(ymStAltRecipesObj).map(Number).filter(p => p > 0).sort((a, b) => a - b);
 
       altPriorities.forEach(priority => {
         const altRecipes = ymStAltRecipesObj[priority];
         if (altRecipes && altRecipes.length > 0) {
-          // Create separate sheet for this priority
+          // ✅ FIXED: Create separate sheet for this priority (only >= 1, not 0)
           const altSheet = workbook.addWorksheet(`YM ST Reçete ALT ${priority}`);
           altSheet.addRow(receteHeaders);
 
@@ -12243,8 +12243,8 @@ const GalvanizliTelNetsis = () => {
         ymSts.forEach(ymSt => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
-      } else {
-        // Alternative products (priority 1, 2, 3, ...) - ALL diameters, organized by MATRIX priority
+      } else if (priority > 0) {
+        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only create ALT sheets for priority >= 1
         if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
