@@ -9687,27 +9687,51 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    // Step 1: Identify YM GT products (mamul_kodu) that use .ST bilesen in 1.5-1.8mm range
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
+    // Step 1: Identify YM GT products that use FILMAŞIN YM ST bilesen in 1.5-1.8mm range
+    // These will get ALTERNATIVE recipes using .ST versions (alternatives NOT in database)
     const ymGtAltProductCodes = new Set();
+    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
+
     allYMGTRecetes.forEach(recipe => {
-      if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
-        const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.ST/);
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
+        // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
+        const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
         if (bilesenMatch) {
           const ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
+          // Check if diameter is in 1.5-1.8mm range (inclusive)
           if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
             ymGtAltProductCodes.add(recipe.mamul_kodu);
+            if (!ymGtAltOriginalRecipes[recipe.mamul_kodu]) {
+              ymGtAltOriginalRecipes[recipe.mamul_kodu] = [];
+            }
+            ymGtAltOriginalRecipes[recipe.mamul_kodu].push(recipe);
           }
         }
       }
     });
 
-    // Step 2: Fetch ALL recipe rows for those YM GT products (4 rows each: YM.ST, GLV01, Çinko, Asit)
-    const ymGtAltRecipes = allYMGTRecetes.filter(recipe =>
-      ymGtAltProductCodes.has(recipe.mamul_kodu)
-    );
+    // Step 2: Generate ALTERNATIVE recipes by replacing filmaşin with .ST version
+    const ymGtAltRecipes = [];
+    Object.keys(ymGtAltOriginalRecipes).forEach(mamulKodu => {
+      ymGtAltOriginalRecipes[mamulKodu].forEach(recipe => {
+        // Clone the recipe
+        const altRecipe = { ...recipe };
 
-    console.log(`📋 BATCH: Found ${ymGtAltProductCodes.size} YM GT products using COILER alternatives (YM ST 1.5-1.8mm), total ${ymGtAltRecipes.length} recipe rows`);
+        // If this is the YM.ST bilesen row, replace filmaşin with .ST version
+        if (recipe.bilesen_kodu && recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
+          const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
+          if (match) {
+            const diameter = match[1];
+            altRecipe.bilesen_kodu = `YM.ST.${diameter}.ST`;
+          }
+        }
+
+        ymGtAltRecipes.push(altRecipe);
+      });
+    });
+
+    console.log(`📋 BATCH: Found ${ymGtAltProductCodes.size} YM GT products with filmaşin YM ST (1.5-1.8mm), generating ${ymGtAltRecipes.length} ALTERNATIVE recipe rows`);
 
     // Create YM GT REÇETE ALT 1 sheet if there are COILER alternatives
     if (ymGtAltRecipes.length > 0) {
@@ -10594,27 +10618,51 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    // Step 1: Identify YM GT products that use .ST bilesen in 1.5-1.8mm range
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
+    // Step 1: Identify YM GT products that use FILMAŞIN YM ST bilesen in 1.5-1.8mm range
+    // These will get ALTERNATIVE recipes using .ST versions (alternatives NOT in database)
     const ymGtAltProductCodes = new Set();
+    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
+
     ymGtRecipes.forEach(recipe => {
-      if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.ST')) {
-        const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.ST/);
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
+        // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
+        const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
         if (bilesenMatch) {
           const ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
+          // Check if diameter is in 1.5-1.8mm range (inclusive)
           if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
             ymGtAltProductCodes.add(recipe.ym_gt_stok_kodu);
+            if (!ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu]) {
+              ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu] = [];
+            }
+            ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu].push(recipe);
           }
         }
       }
     });
 
-    // Step 2: Fetch ALL recipe rows for those YM GT products (4 rows each: YM.ST, GLV01, Çinko, Asit)
-    const ymGtAltRecipes = ymGtRecipes.filter(recipe =>
-      ymGtAltProductCodes.has(recipe.ym_gt_stok_kodu)
-    );
+    // Step 2: Generate ALTERNATIVE recipes by replacing filmaşin with .ST version
+    const ymGtAltRecipes = [];
+    Object.keys(ymGtAltOriginalRecipes).forEach(stokKodu => {
+      ymGtAltOriginalRecipes[stokKodu].forEach(recipe => {
+        // Clone the recipe
+        const altRecipe = { ...recipe };
 
-    console.log(`📋 Found ${ymGtAltProductCodes.size} YM GT products using COILER alternatives (YM ST 1.5-1.8mm), total ${ymGtAltRecipes.length} recipe rows`);
+        // If this is the YM.ST bilesen row, replace filmaşin with .ST version
+        if (recipe.bilesen_kodu && recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
+          const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
+          if (match) {
+            const diameter = match[1];
+            altRecipe.bilesen_kodu = `YM.ST.${diameter}.ST`;
+          }
+        }
+
+        ymGtAltRecipes.push(altRecipe);
+      });
+    });
+
+    console.log(`📋 Found ${ymGtAltProductCodes.size} YM GT products with filmaşin YM ST (1.5-1.8mm), generating ${ymGtAltRecipes.length} ALTERNATIVE recipe rows`);
 
     // Create YM GT REÇETE ALT 1 sheet if there are alternatives
     if (ymGtAltRecipes.length > 0) {
@@ -11068,45 +11116,57 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    // Check if this product uses COILER alternative (bilesen ends with .ST) and YM ST diameter is in 1.5-1.8mm range
-    const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
-
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
+    // Check if this product uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
+    let hasFilmasinInCoilerRange = false;
     let ymStBilesenDiameter = 0;
-    let isInCoilerRange = false;
+    let alternativeBilesenKodu = '';
 
-    if (hasCoilerAlternative && ymStEntry && ymStEntry[0]) {
-      // Extract diameter from YM.ST bilesen code (e.g., YM.ST.0154.ST -> 1.54mm)
-      const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.ST/);
+    if (ymStEntry && ymStEntry[0] && ymStEntry[0].startsWith('YM.ST.')) {
+      // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
+      const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
       if (bilesenMatch) {
         ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-        isInCoilerRange = ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8;
+        // Check if diameter is in 1.5-1.8mm range (inclusive)
+        if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
+          hasFilmasinInCoilerRange = true;
+          // Generate alternative bilesen code (replace filmaşin with .ST)
+          const diameter = bilesenMatch[1];
+          alternativeBilesenKodu = `YM.ST.${diameter}.ST`;
+        }
       }
     }
 
-    if (hasCoilerAlternative && isInCoilerRange) {
-      console.log(`📋 SINGLE: YM GT recipe uses COILER alternative ${ymStEntry[0]} (YM ST diameter: ${ymStBilesenDiameter}mm)`);
+    if (hasFilmasinInCoilerRange) {
+      console.log(`📋 SINGLE: YM GT recipe uses filmaşin ${ymStEntry[0]} (${ymStBilesenDiameter}mm), generating .ST alternative: ${alternativeBilesenKodu}`);
 
       const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
       ymGtAltSheet.addRow(receteHeaders);
 
-      // Create same YM GT recipe structure with .ST bilesen (4 rows: YM.ST, GLV01, Çinko, Asit)
+      // Create ALTERNATIVE YM GT recipe structure with .ST bilesen (4 rows: YM.ST.*.ST, GLV01, Çinko, Asit)
       let altSiraNo = 1;
 
       orderedYmGtEntries.forEach(([key, value]) => {
         if (value > 0) {
+          let finalKey = key;
           let finalValue = value;
-          if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+
+          // Replace filmaşin YM.ST with .ST version
+          if (key.includes('YM.ST.') && key.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
+            finalKey = alternativeBilesenKodu;
+            if (zincEntry && zincEntry[1]) {
+              finalValue = 1 - parseFloat(zincEntry[1]);
+            }
+          } else if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
-          ymGtAltSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
+
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence));
           altSiraNo++;
         }
       });
 
-      console.log(`✅ SINGLE: Created YM GT REÇETE ALT 1 sheet for COILER alternative (YM ST ${ymStBilesenDiameter}mm)`);
-    } else if (hasCoilerAlternative && !isInCoilerRange) {
-      console.log(`ℹ️ SINGLE: Product uses .ST bilesen but YM ST diameter ${ymStBilesenDiameter}mm is outside 1.5-1.8mm range`);
+      console.log(`✅ SINGLE: Created YM GT REÇETE ALT 1 sheet with .ST alternative (${ymStBilesenDiameter}mm)`);
     }
 
     // YM ST REÇETE Sheet - Main YM ST recipes
@@ -11614,7 +11674,7 @@ const GalvanizliTelNetsis = () => {
         });
       }
 
-      // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
+      // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
       const ymGtAltRecipes = [];
       for (const task of tasks) {
         const { excelData } = task;
@@ -11627,27 +11687,31 @@ const GalvanizliTelNetsis = () => {
         const sequence = excelData.sequence;
         const ymGtRecipeEntries = Object.entries(excelData.allRecipes.ymGtRecipe);
 
-        // Check if YM GT recipe uses .ST bilesen (COILER alternative)
+        // Check if YM GT recipe uses FILMAŞIN YM ST bilesen in 1.5-1.8mm range
         const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
-        const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
-
-        // Extract YM ST bilesen diameter and check if in 1.5-1.8mm range
+        let hasFilmasinInCoilerRange = false;
         let ymStBilesenDiameter = 0;
-        let isInCoilerRange = false;
+        let alternativeBilesenKodu = '';
 
-        if (hasCoilerAlternative && ymStEntry && ymStEntry[0]) {
-          // Extract diameter from YM.ST bilesen code (e.g., YM.ST.0154.ST -> 1.54mm)
-          const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.ST/);
+        if (ymStEntry && ymStEntry[0] && ymStEntry[0].startsWith('YM.ST.')) {
+          // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
+          const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
           if (bilesenMatch) {
             ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-            isInCoilerRange = ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8;
+            // Check if diameter is in 1.5-1.8mm range (inclusive)
+            if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
+              hasFilmasinInCoilerRange = true;
+              // Generate alternative bilesen code (replace filmaşin with .ST)
+              const diameter = bilesenMatch[1];
+              alternativeBilesenKodu = `YM.ST.${diameter}.ST`;
+            }
           }
         }
 
-        if (hasCoilerAlternative && isInCoilerRange) {
-          console.log(`📋 COMBINED: Found COILER alternative using ${ymStEntry[0]} (YM ST diameter: ${ymStBilesenDiameter}mm)`);
+        if (hasFilmasinInCoilerRange) {
+          console.log(`📋 COMBINED: Found filmaşin YM ST ${ymStEntry[0]} (${ymStBilesenDiameter}mm), generating .ST alternative: ${alternativeBilesenKodu}`);
 
-          // Store recipe data for ALT sheet
+          // Store recipe data for ALT sheet with .ST alternative
           const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
           const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
           const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
@@ -11658,8 +11722,9 @@ const GalvanizliTelNetsis = () => {
             key !== 'SM.HİDROLİK.ASİT'
           );
 
+          // Replace filmaşin with .ST in the ordered entries
           const orderedEntries = [
-            ymStEntry,
+            [alternativeBilesenKodu, ymStEntry[1]], // Use .ST alternative
             glv01Entry,
             zincEntry,
             asitEntry,
@@ -12366,45 +12431,57 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST bilesen with .ST ending)
-    // Check if this product uses COILER alternative (bilesen ends with .ST) and YM ST diameter is in 1.5-1.8mm range
-    const hasCoilerAlternative = ymStEntry && ymStEntry[0] && ymStEntry[0].endsWith('.ST');
-
+    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
+    // Check if this product uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
+    let hasFilmasinInCoilerRange = false;
     let ymStBilesenDiameter = 0;
-    let isInCoilerRange = false;
+    let alternativeBilesenKodu = '';
 
-    if (hasCoilerAlternative && ymStEntry && ymStEntry[0]) {
-      // Extract diameter from YM.ST bilesen code (e.g., YM.ST.0154.ST -> 1.54mm)
-      const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.ST/);
+    if (ymStEntry && ymStEntry[0] && ymStEntry[0].startsWith('YM.ST.')) {
+      // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
+      const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
       if (bilesenMatch) {
         ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-        isInCoilerRange = ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8;
+        // Check if diameter is in 1.5-1.8mm range (inclusive)
+        if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
+          hasFilmasinInCoilerRange = true;
+          // Generate alternative bilesen code (replace filmaşin with .ST)
+          const diameter = bilesenMatch[1];
+          alternativeBilesenKodu = `YM.ST.${diameter}.ST`;
+        }
       }
     }
 
-    if (hasCoilerAlternative && isInCoilerRange) {
-      console.log(`📋 SINGLE RECIPE: YM GT recipe uses COILER alternative ${ymStEntry[0]} (YM ST diameter: ${ymStBilesenDiameter}mm)`);
+    if (hasFilmasinInCoilerRange) {
+      console.log(`📋 SINGLE RECIPE: YM GT recipe uses filmaşin ${ymStEntry[0]} (${ymStBilesenDiameter}mm), generating .ST alternative: ${alternativeBilesenKodu}`);
 
       const ymGtAltSheet = workbook.addWorksheet('YM GT REÇETE ALT 1');
       ymGtAltSheet.addRow(receteHeaders);
 
-      // Create same YM GT recipe structure with .ST bilesen (4 rows: YM.ST, GLV01, Çinko, Asit)
+      // Create ALTERNATIVE YM GT recipe structure with .ST bilesen (4 rows: YM.ST.*.ST, GLV01, Çinko, Asit)
       let altSiraNo = 1;
 
       orderedYmGtEntries.forEach(([key, value]) => {
         if (value > 0) {
+          let finalKey = key;
           let finalValue = value;
-          if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
+
+          // Replace filmaşin YM.ST with .ST version
+          if (key.includes('YM.ST.') && key.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
+            finalKey = alternativeBilesenKodu;
+            if (zincEntry && zincEntry[1]) {
+              finalValue = 1 - parseFloat(zincEntry[1]);
+            }
+          } else if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
-          ymGtAltSheet.addRow(generateYmGtReceteRow(key, finalValue, altSiraNo, sequence));
+
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence));
           altSiraNo++;
         }
       });
 
-      console.log(`✅ SINGLE RECIPE: Created YM GT REÇETE ALT 1 sheet for COILER alternative (YM ST ${ymStBilesenDiameter}mm)`);
-    } else if (hasCoilerAlternative && !isInCoilerRange) {
-      console.log(`ℹ️ SINGLE RECIPE: Product uses .ST bilesen but YM ST diameter ${ymStBilesenDiameter}mm is outside 1.5-1.8mm range`);
+      console.log(`✅ SINGLE RECIPE: Created YM GT REÇETE ALT 1 sheet with .ST alternative (${ymStBilesenDiameter}mm)`);
     }
 
     // YM ST REÇETE Sheet - Main products only
