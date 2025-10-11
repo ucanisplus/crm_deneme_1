@@ -9691,8 +9691,8 @@ const GalvanizliTelNetsis = () => {
     // Step 1: Identify YM GT products that use FILMAŞIN YM ST bilesen in 1.5-1.8mm range
     // These will get ALTERNATIVE recipes using .ST versions (alternatives NOT in database)
     const ymGtAltProductCodes = new Set();
-    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
 
+    // First pass: Find products with filmaşin in 1.5-1.8mm range
     allYMGTRecetes.forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
         // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
@@ -9702,12 +9702,19 @@ const GalvanizliTelNetsis = () => {
           // Check if diameter is in 1.5-1.8mm range (inclusive)
           if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
             ymGtAltProductCodes.add(recipe.mamul_kodu);
-            if (!ymGtAltOriginalRecipes[recipe.mamul_kodu]) {
-              ymGtAltOriginalRecipes[recipe.mamul_kodu] = [];
-            }
-            ymGtAltOriginalRecipes[recipe.mamul_kodu].push(recipe);
           }
         }
+      }
+    });
+
+    // Second pass: Get ALL recipe rows for these products (not just YM.ST row!)
+    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
+    allYMGTRecetes.forEach(recipe => {
+      if (ymGtAltProductCodes.has(recipe.mamul_kodu)) {
+        if (!ymGtAltOriginalRecipes[recipe.mamul_kodu]) {
+          ymGtAltOriginalRecipes[recipe.mamul_kodu] = [];
+        }
+        ymGtAltOriginalRecipes[recipe.mamul_kodu].push(recipe);
       }
     });
 
@@ -10622,8 +10629,8 @@ const GalvanizliTelNetsis = () => {
     // Step 1: Identify YM GT products that use FILMAŞIN YM ST bilesen in 1.5-1.8mm range
     // These will get ALTERNATIVE recipes using .ST versions (alternatives NOT in database)
     const ymGtAltProductCodes = new Set();
-    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
 
+    // First pass: Find products with filmaşin in 1.5-1.8mm range
     ymGtRecipes.forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
         // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
@@ -10633,12 +10640,19 @@ const GalvanizliTelNetsis = () => {
           // Check if diameter is in 1.5-1.8mm range (inclusive)
           if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
             ymGtAltProductCodes.add(recipe.ym_gt_stok_kodu);
-            if (!ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu]) {
-              ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu] = [];
-            }
-            ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu].push(recipe);
           }
         }
+      }
+    });
+
+    // Second pass: Get ALL recipe rows for these products (not just YM.ST row!)
+    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
+    ymGtRecipes.forEach(recipe => {
+      if (ymGtAltProductCodes.has(recipe.ym_gt_stok_kodu)) {
+        if (!ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu]) {
+          ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu] = [];
+        }
+        ymGtAltOriginalRecipes[recipe.ym_gt_stok_kodu].push(recipe);
       }
     });
 
