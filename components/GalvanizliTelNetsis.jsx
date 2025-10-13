@@ -9719,6 +9719,12 @@ const GalvanizliTelNetsis = () => {
       });
 
       console.log(`✅ BATCH: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter-quality combinations`);
+
+      // Debug: Show some priority map entries
+      const sampleKeys = Object.keys(ymStPriorityMap).slice(0, 5);
+      sampleKeys.forEach(key => {
+        console.log(`  Map[${key}]:`, ymStPriorityMap[key]);
+      });
     }
 
     // Step 2: Identify COILER products (1.5-1.8mm filmaşin → .ST)
@@ -9760,7 +9766,10 @@ const GalvanizliTelNetsis = () => {
       const ymStRecipe = recipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
       if (!ymStRecipe) return;
 
-      const ymStMatch = ymStRecipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.(?:(\d{4})\.)?(\d{4}|ST)$/);
+      // Skip .ST products (they're coiler products, handled separately)
+      if (ymStRecipe.bilesen_kodu.endsWith('.ST')) return;
+
+      const ymStMatch = ymStRecipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})$/);
       if (!ymStMatch) return;
 
       const targetCap = parseInt(ymStMatch[1], 10);
@@ -9768,7 +9777,10 @@ const GalvanizliTelNetsis = () => {
       const mapKey = `${targetCap}_${quality}`;
 
       const priorities = ymStPriorityMap[mapKey];
-      if (!priorities) return;
+      if (!priorities) {
+        console.log(`⚠️ BATCH: No priority map found for ${ymStRecipe.bilesen_kodu} (key: ${mapKey})`);
+        return;
+      }
 
       // For each priority (excluding 0), create alternative recipes
       Object.keys(priorities).forEach(priorityStr => {
@@ -9794,6 +9806,11 @@ const GalvanizliTelNetsis = () => {
           ymGtAltRecipesByPriority[priority][mamulKodu].recipes.push(altRecipe);
         });
       });
+    });
+
+    console.log(`📋 BATCH: Generated matrix priority alternatives for priorities:`, Object.keys(ymGtAltRecipesByPriority));
+    Object.keys(ymGtAltRecipesByPriority).forEach(pri => {
+      console.log(`  Priority ${pri}: ${Object.keys(ymGtAltRecipesByPriority[pri]).length} products`);
     });
 
     // Step 4: Add COILER products to ALT 1
