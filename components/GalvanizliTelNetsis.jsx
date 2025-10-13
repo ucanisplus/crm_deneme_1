@@ -9788,8 +9788,11 @@ const GalvanizliTelNetsis = () => {
       const priorities = ymStPriorityMap[mapKey];
       if (!priorities) return;
 
-      // For each available priority, create alternative recipes
-      availablePriorities.forEach(priority => {
+      // For each priority available for THIS specific diameter/quality, create alternative recipes
+      Object.keys(priorities).forEach(priorityStr => {
+        const priority = parseInt(priorityStr);
+        if (priority === 0) return; // Skip main priority
+
         const altYmStCode = priorities[priority];
         if (!altYmStCode) return;
 
@@ -9865,13 +9868,13 @@ const GalvanizliTelNetsis = () => {
         recipes.forEach(recipe => {
           const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
 
-          // Color cells for COILER products (yellow background)
+          // Color cells for COILER products (light yellow/cream background)
           if (isCoiler) {
             row.eachCell((cell, colNumber) => {
               cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFFFFF00' } // Yellow
+                fgColor: { argb: 'FFFFEEAA' } // Light yellow/cream
               };
             });
           }
@@ -10828,7 +10831,11 @@ const GalvanizliTelNetsis = () => {
       const priorities = ymStPriorityMap[mapKey];
       if (!priorities) return;
 
-      sortedPriorities.forEach(priority => {
+      // For each priority available for THIS specific diameter/quality
+      Object.keys(priorities).forEach(priorityStr => {
+        const priority = parseInt(priorityStr);
+        if (priority === 0) return; // Skip main priority
+
         const altYmStCode = priorities[priority];
         if (!altYmStCode) return;
 
@@ -10905,13 +10912,13 @@ const GalvanizliTelNetsis = () => {
 
           const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
 
-          // Color cells for COILER products (yellow)
+          // Color cells for COILER products (light yellow/cream)
           if (isCoiler) {
             row.eachCell((cell) => {
               cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFFFFF00' }
+                fgColor: { argb: 'FFFFEEAA' }
               };
             });
           }
