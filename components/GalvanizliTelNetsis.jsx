@@ -9810,7 +9810,11 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH: Generated matrix priority alternatives for priorities:`, Object.keys(ymGtAltRecipesByPriority));
     Object.keys(ymGtAltRecipesByPriority).forEach(pri => {
-      console.log(`  Priority ${pri}: ${Object.keys(ymGtAltRecipesByPriority[pri]).length} products`);
+      const products = Object.keys(ymGtAltRecipesByPriority[pri]);
+      console.log(`  Priority ${pri}: ${products.length} products`);
+      if (products.length <= 20) {
+        console.log(`    Products:`, products.join(', '));
+      }
     });
 
     // Step 4: Add COILER products to ALT 1
@@ -9818,8 +9822,13 @@ const GalvanizliTelNetsis = () => {
       ymGtAltRecipesByPriority[1] = {};
     }
 
+    let coilerReplacedMatrix = 0;
     coilerProducts.forEach((data, mamulKodu) => {
       // Coiler products REPLACE any matrix priority products (coiler takes precedence)
+      if (ymGtAltRecipesByPriority[1][mamulKodu]) {
+        coilerReplacedMatrix++;
+      }
+
       ymGtAltRecipesByPriority[1][mamulKodu] = { recipes: [], isCoiler: true };
 
       // Generate .ST replacement recipes
@@ -9831,6 +9840,8 @@ const GalvanizliTelNetsis = () => {
         ymGtAltRecipesByPriority[1][mamulKodu].recipes.push(altRecipe);
       });
     });
+
+    console.log(`📋 BATCH: Coiler products replaced ${coilerReplacedMatrix} matrix priority 1 products`);
 
     // Step 5: Create ALT sheets for each priority
     const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
