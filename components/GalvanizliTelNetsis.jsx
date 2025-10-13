@@ -9696,89 +9696,169 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
-    // Step 1: Identify YM GT products that use FILMAŞIN YM ST bilesen in 1.5-1.8mm range
-    // These will get ALTERNATIVE recipes using .ST versions (alternatives NOT in database)
-    const ymGtAltProductCodes = new Set();
+    // YM GT REÇETE ALT Sheets - OPTION 2: Coiler (1.5-1.8mm → .ST) + Matrix Priority Alternatives
+    // Step 1: Build YM ST priority mapping from database
+    const ymStPriorityMap = {}; // {diameter_quality: {priority: stok_kodu}}
 
-    // First pass: Find products with filmaşin in 1.5-1.8mm range
+    console.log('📋 BATCH: Fetching all YM ST products for priority mapping...');
+    const allYmStForPriorityResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`);
+    if (allYmStForPriorityResponse && allYmStForPriorityResponse.ok) {
+      const allYmStsForPriority = await allYmStForPriorityResponse.json();
+
+      // Build priority map grouped by target diameter and quality
+      allYmStsForPriority.forEach(ymSt => {
+        const cap = parseFloat(ymSt.cap);
+        const quality = ymSt.quality;
+        const priority = ymSt.priority || 0;
+        const key = `${Math.round(cap * 100)}_${quality}`;
+
+        if (!ymStPriorityMap[key]) {
+          ymStPriorityMap[key] = {};
+        }
+        ymStPriorityMap[key][priority] = ymSt.stok_kodu;
+      });
+
+      console.log(`✅ BATCH: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter-quality combinations`);
+    }
+
+    // Step 2: Identify COILER products (1.5-1.8mm filmaşin → .ST)
+    const coilerProducts = new Map(); // {mamul_kodu: {ymStBilesen, replacementCode, recipes}}
+
     allYMGTRecetes.forEach(recipe => {
-      if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-        // Match filmaşin pattern: YM.ST.XXXX.YYYY.ZZZZ (not .ST ending)
-        const bilesenMatch = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
-        if (bilesenMatch) {
-          const ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-          // Check if diameter is in 1.5-1.8mm range (inclusive)
-          if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
-            ymGtAltProductCodes.add(recipe.mamul_kodu);
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
+        const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
+        if (match) {
+          const diameter = parseFloat(match[1]) / 100.0;
+          if (diameter >= 1.5 && diameter <= 1.8) {
+            const replacementCode = `YM.ST.${match[1]}.ST`;
+            if (!coilerProducts.has(recipe.mamul_kodu)) {
+              coilerProducts.set(recipe.mamul_kodu, {
+                ymStBilesen: recipe.bilesen_kodu,
+                replacementCode,
+                recipes: []
+              });
+            }
           }
         }
       }
     });
 
-    // Second pass: Get ALL recipe rows for these products (not just YM.ST row!)
-    const ymGtAltOriginalRecipes = {}; // Store original recipes to generate alternatives
+    // Collect all recipes for coiler products
     allYMGTRecetes.forEach(recipe => {
-      if (ymGtAltProductCodes.has(recipe.mamul_kodu)) {
-        if (!ymGtAltOriginalRecipes[recipe.mamul_kodu]) {
-          ymGtAltOriginalRecipes[recipe.mamul_kodu] = [];
-        }
-        ymGtAltOriginalRecipes[recipe.mamul_kodu].push(recipe);
+      if (coilerProducts.has(recipe.mamul_kodu)) {
+        coilerProducts.get(recipe.mamul_kodu).recipes.push(recipe);
       }
     });
 
-    // Step 2: Generate ALTERNATIVE recipes by replacing filmaşin with .ST version
-    const ymGtAltRecipes = [];
-    Object.keys(ymGtAltOriginalRecipes).forEach(mamulKodu => {
-      ymGtAltOriginalRecipes[mamulKodu].forEach(recipe => {
-        // Clone the recipe
-        const altRecipe = { ...recipe };
+    console.log(`📋 BATCH: Found ${coilerProducts.size} COILER products (1.5-1.8mm)`);
 
-        // If this is the YM.ST bilesen row, replace filmaşin with .ST version
-        if (recipe.bilesen_kodu && recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
-          const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
-          if (match) {
-            const diameter = match[1];
-            altRecipe.bilesen_kodu = `YM.ST.${diameter}.ST`;
-          }
+    // Step 3: Generate MATRIX priority alternatives for ALL YM GT products
+    const ymGtAltRecipesByPriority = {}; // {priority: {mamul_kodu: {recipes, isCoiler}}}
+
+    Object.keys(ymGtByProduct).forEach(mamulKodu => {
+      const recipes = ymGtByProduct[mamulKodu];
+      const ymStRecipe = recipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
+      if (!ymStRecipe) return;
+
+      const ymStMatch = ymStRecipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.(?:(\d{4})\.)?(\d{4}|ST)$/);
+      if (!ymStMatch) return;
+
+      const targetCap = parseInt(ymStMatch[1], 10);
+      const quality = ymStMatch[3];
+      const mapKey = `${targetCap}_${quality}`;
+
+      const priorities = ymStPriorityMap[mapKey];
+      if (!priorities) return;
+
+      // For each priority (excluding 0), create alternative recipes
+      Object.keys(priorities).forEach(priorityStr => {
+        const priority = parseInt(priorityStr);
+        if (priority === 0) return; // Skip main priority
+
+        const altYmStCode = priorities[priority];
+        if (!altYmStCode) return;
+
+        if (!ymGtAltRecipesByPriority[priority]) {
+          ymGtAltRecipesByPriority[priority] = {};
         }
 
-        ymGtAltRecipes.push(altRecipe);
+        if (!ymGtAltRecipesByPriority[priority][mamulKodu]) {
+          ymGtAltRecipesByPriority[priority][mamulKodu] = { recipes: [], isCoiler: false };
+        }
+
+        recipes.forEach(recipe => {
+          const altRecipe = { ...recipe };
+          if (recipe.bilesen_kodu === ymStRecipe.bilesen_kodu) {
+            altRecipe.bilesen_kodu = altYmStCode;
+          }
+          ymGtAltRecipesByPriority[priority][mamulKodu].recipes.push(altRecipe);
+        });
       });
     });
 
-    console.log(`📋 BATCH: Found ${ymGtAltProductCodes.size} YM GT products with filmaşin YM ST (1.5-1.8mm), generating ${ymGtAltRecipes.length} ALTERNATIVE recipe rows`);
+    // Step 4: Add COILER products to ALT 1
+    if (!ymGtAltRecipesByPriority[1]) {
+      ymGtAltRecipesByPriority[1] = {};
+    }
 
-    // Create YM GT REÇETE ALT 1 sheet if there are COILER alternatives
-    if (ymGtAltRecipes.length > 0) {
-      const ymGtAltSheet = receteWorkbook.addWorksheet('YM GT REÇETE ALT 1');
+    coilerProducts.forEach((data, mamulKodu) => {
+      if (!ymGtAltRecipesByPriority[1][mamulKodu]) {
+        ymGtAltRecipesByPriority[1][mamulKodu] = { recipes: [], isCoiler: true };
+        // Generate .ST replacement recipes
+        data.recipes.forEach(recipe => {
+          const altRecipe = { ...recipe };
+          if (recipe.bilesen_kodu === data.ymStBilesen) {
+            altRecipe.bilesen_kodu = data.replacementCode;
+          }
+          ymGtAltRecipesByPriority[1][mamulKodu].recipes.push(altRecipe);
+        });
+      } else {
+        // Mark existing as coiler too
+        ymGtAltRecipesByPriority[1][mamulKodu].isCoiler = true;
+      }
+    });
+
+    // Step 5: Create ALT sheets for each priority
+    const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
+      .map(p => parseInt(p))
+      .sort((a, b) => a - b);
+
+    console.log(`📋 BATCH: Found priorities for YM GT ALT sheets: ${foundPriorities.join(', ')}`);
+
+    foundPriorities.forEach(priority => {
+      const altProducts = ymGtAltRecipesByPriority[priority];
+      if (!altProducts || Object.keys(altProducts).length === 0) return;
+
+      const sheetName = `YM GT REÇETE ALT ${priority}`;
+      const ymGtAltSheet = receteWorkbook.addWorksheet(sheetName);
       ymGtAltSheet.addRow(receteHeaders);
 
-      // Group ALT recipes by mamul_kodu
-      const ymGtAltByProduct = {};
-      ymGtAltRecipes.forEach(recipe => {
-        if (!ymGtAltByProduct[recipe.mamul_kodu]) {
-          ymGtAltByProduct[recipe.mamul_kodu] = [];
-        }
-        ymGtAltByProduct[recipe.mamul_kodu].push(recipe);
+      const sortedMamulCodes = Object.keys(altProducts).sort();
+      sortedMamulCodes.forEach(mamulKodu => {
+        const { recipes, isCoiler } = altProducts[mamulKodu];
+        if (!recipes || recipes.length === 0) return;
+
+        let productSiraNo = 1;
+        recipes.forEach(recipe => {
+          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+
+          // Color COILER products with light cream
+          if (isCoiler) {
+            row.eachCell((cell) => {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFEEAA' } // Light cream
+              };
+            });
+          }
+
+          productSiraNo++;
+        });
       });
 
-      // Add recipes sorted by mamul_kodu (each product gets 4 rows)
-      const sortedYmGtAltCodes = Object.keys(ymGtAltByProduct).sort();
-      sortedYmGtAltCodes.forEach(stokKodu => {
-        if (ymGtAltByProduct[stokKodu] && ymGtAltByProduct[stokKodu].length > 0) {
-          let productSiraNo = 1;
-          ymGtAltByProduct[stokKodu].forEach(recipe => {
-            ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
-            productSiraNo++;
-          });
-        }
-      });
-
-      console.log(`✅ BATCH: Created YM GT REÇETE ALT 1 sheet with ${ymGtAltProductCodes.size} products, ${ymGtAltRecipes.length} total rows`);
-    } else {
-      console.log(`ℹ️ BATCH: No YM GT COILER alternatives found for YM ST 1.5-1.8mm range`);
-    }
+      console.log(`✅ BATCH: Created ${sheetName} with ${sortedMamulCodes.length} products (${coilerProducts.size} coiler, ${sortedMamulCodes.length - coilerProducts.size} matrix)`);
+    });
 
     // YM ST REÇETE Sheet
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
