@@ -11386,7 +11386,11 @@ const GalvanizliTelNetsis = () => {
           console.log(`📋 SINGLE: Found ${availablePriorities.length} alternative priorities for YM GT: ${availablePriorities.join(', ')}`);
 
           // Step 3: Create ALT sheets for each priority
-          availablePriorities.forEach(priority => {
+          // ✅ FIX: Iterate over all priorities for THIS product (not pre-collected availablePriorities)
+          Object.keys(priorities).forEach(priorityStr => {
+            const priority = parseInt(priorityStr);
+            if (priority === 0) return; // Skip main priority
+
             const altYmStCode = priorities[priority];
             if (!altYmStCode) return;
 
@@ -11954,23 +11958,9 @@ const GalvanizliTelNetsis = () => {
         console.log(`✅ COMBINED: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter-quality combinations`);
       }
 
-      // Step 2: Get all unique priorities available (excluding 0)
-      const availablePriorities = new Set();
-      Object.values(ymStPriorityMap).forEach(priorities => {
-        Object.keys(priorities).forEach(pri => {
-          const priority = parseInt(pri);
-          if (priority > 0) availablePriorities.add(priority);
-        });
-      });
-
-      const sortedPriorities = Array.from(availablePriorities).sort((a, b) => a - b);
-      console.log(`📋 COMBINED: Found priorities for YM GT ALT sheets: ${sortedPriorities.join(', ')}`);
-
-      // Step 3: Collect alternative recipes grouped by priority
+      // Step 2: Collect alternative recipes grouped by priority
+      // ✅ FIX: Don't pre-initialize with global priorities, let each product add its own
       const ymGtAltRecipesByPriority = {}; // {priority: [recipeData, ...]}
-      sortedPriorities.forEach(priority => {
-        ymGtAltRecipesByPriority[priority] = [];
-      });
 
       for (const task of tasks) {
         const { excelData } = task;
@@ -11997,10 +11987,18 @@ const GalvanizliTelNetsis = () => {
             const priorities = ymStPriorityMap[mapKey];
 
             if (priorities) {
-              // For each priority, create alternative recipe
-              sortedPriorities.forEach(priority => {
+              // ✅ FIX: Iterate over all priorities for THIS product (not global sortedPriorities)
+              Object.keys(priorities).forEach(priorityStr => {
+                const priority = parseInt(priorityStr);
+                if (priority === 0) return; // Skip main priority
+
                 const altYmStCode = priorities[priority];
                 if (!altYmStCode) return;
+
+                // Ensure priority exists in the map
+                if (!ymGtAltRecipesByPriority[priority]) {
+                  ymGtAltRecipesByPriority[priority] = [];
+                }
 
                 // Get all YM GT recipe components
                 const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
@@ -12036,11 +12034,18 @@ const GalvanizliTelNetsis = () => {
         }
       }
 
-      // Step 4: Create YM GT REÇETE ALT sheets for each priority
-      sortedPriorities.forEach(priority => {
+      // Step 3: Create YM GT REÇETE ALT sheets for each priority found
+      // ✅ FIX: Iterate over actual priorities found in the data
+      const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
+        .map(p => parseInt(p))
+        .sort((a, b) => a - b);
+
+      console.log(`📋 COMBINED: Found priorities for YM GT ALT sheets: ${foundPriorities.join(', ')}`);
+
+      foundPriorities.forEach(priority => {
         const altRecipes = ymGtAltRecipesByPriority[priority];
 
-        if (altRecipes.length === 0) {
+        if (!altRecipes || altRecipes.length === 0) {
           console.log(`ℹ️ COMBINED: No YM GT alternatives found for priority ${priority} - skipping ALT ${priority} sheet`);
           return;
         }
@@ -12777,7 +12782,11 @@ const GalvanizliTelNetsis = () => {
           console.log(`📋 SINGLE RECIPE: Found ${availablePriorities.length} alternative priorities for YM GT: ${availablePriorities.join(', ')}`);
 
           // Step 3: Create ALT sheets for each priority
-          availablePriorities.forEach(priority => {
+          // ✅ FIX: Iterate over all priorities for THIS product (not pre-collected availablePriorities)
+          Object.keys(priorities).forEach(priorityStr => {
+            const priority = parseInt(priorityStr);
+            if (priority === 0) return; // Skip main priority
+
             const altYmStCode = priorities[priority];
             if (!altYmStCode) return;
 
