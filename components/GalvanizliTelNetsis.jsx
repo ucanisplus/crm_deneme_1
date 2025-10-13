@@ -9819,20 +9819,17 @@ const GalvanizliTelNetsis = () => {
     }
 
     coilerProducts.forEach((data, mamulKodu) => {
-      if (!ymGtAltRecipesByPriority[1][mamulKodu]) {
-        ymGtAltRecipesByPriority[1][mamulKodu] = { recipes: [], isCoiler: true };
-        // Generate .ST replacement recipes
-        data.recipes.forEach(recipe => {
-          const altRecipe = { ...recipe };
-          if (recipe.bilesen_kodu === data.ymStBilesen) {
-            altRecipe.bilesen_kodu = data.replacementCode;
-          }
-          ymGtAltRecipesByPriority[1][mamulKodu].recipes.push(altRecipe);
-        });
-      } else {
-        // Mark existing as coiler too
-        ymGtAltRecipesByPriority[1][mamulKodu].isCoiler = true;
-      }
+      // Coiler products REPLACE any matrix priority products (coiler takes precedence)
+      ymGtAltRecipesByPriority[1][mamulKodu] = { recipes: [], isCoiler: true };
+
+      // Generate .ST replacement recipes
+      data.recipes.forEach(recipe => {
+        const altRecipe = { ...recipe };
+        if (recipe.bilesen_kodu === data.ymStBilesen) {
+          altRecipe.bilesen_kodu = data.replacementCode;
+        }
+        ymGtAltRecipesByPriority[1][mamulKodu].recipes.push(altRecipe);
+      });
     });
 
     // Step 5: Create ALT sheets for each priority
@@ -9851,9 +9848,19 @@ const GalvanizliTelNetsis = () => {
       ymGtAltSheet.addRow(receteHeaders);
 
       const sortedMamulCodes = Object.keys(altProducts).sort();
+      let coilerCount = 0;
+      let matrixCount = 0;
+
       sortedMamulCodes.forEach(mamulKodu => {
         const { recipes, isCoiler } = altProducts[mamulKodu];
         if (!recipes || recipes.length === 0) return;
+
+        // Count coiler vs matrix products in this priority
+        if (isCoiler) {
+          coilerCount++;
+        } else {
+          matrixCount++;
+        }
 
         let productSiraNo = 1;
         recipes.forEach(recipe => {
@@ -9874,7 +9881,7 @@ const GalvanizliTelNetsis = () => {
         });
       });
 
-      console.log(`✅ BATCH: Created ${sheetName} with ${sortedMamulCodes.length} products (${coilerProducts.size} coiler, ${sortedMamulCodes.length - coilerProducts.size} matrix)`);
+      console.log(`✅ BATCH: Created ${sheetName} with ${sortedMamulCodes.length} products (${coilerCount} coiler, ${matrixCount} matrix)`);
     });
 
     // YM ST REÇETE Sheet
