@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS crm_notifications (
     icon VARCHAR(50),
     action_link VARCHAR(255),
     is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for faster queries
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS crm_user_preferences (
     system_notifications BOOLEAN DEFAULT TRUE,
     language VARCHAR(5) DEFAULT 'tr',
     theme VARCHAR(10) DEFAULT 'light',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 3. User Profiles Extended Table (for additional profile info)
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS crm_user_profiles (
     last_login_ip VARCHAR(45),
     last_login_device VARCHAR(255),
     two_factor_enabled BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. Search History Table
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS crm_search_history (
     search_term VARCHAR(255) NOT NULL,
     search_category VARCHAR(50),
     results_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for search history
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS crm_activity_logs (
     module VARCHAR(50),
     ip_address VARCHAR(45),
     user_agent TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for activity logs
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS crm_user_favorites (
     icon VARCHAR(50),
     category VARCHAR(50),
     order_index INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for favorites
@@ -167,7 +167,7 @@ CREATE POLICY "Users can manage their own favorites"
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = TIMEZONE('utc', NOW());
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ language 'plpgsql';

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS crm_permissions (
     permission_name VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     category VARCHAR(50), -- 'maliyet', 'access', 'page', 'admin', etc.
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. User permissions junction table
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS crm_user_permissions (
     user_id UUID NOT NULL,
     permission_id UUID NOT NULL REFERENCES crm_permissions(id) ON DELETE CASCADE,
     granted_by UUID,
-    granted_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, permission_id)
 );
 
