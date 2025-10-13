@@ -8262,15 +8262,23 @@ const GalvanizliTelNetsis = () => {
           }
           
           const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
-          
+          const cotlc01Entry = recipeEntries.find(([key]) => key === 'COTLC01');
+          const ymStSourceEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && key !== ymSt.stok_kodu);
+
           // Diğer bileşenler - normalde yoktur ama güvenlik için
-          const otherEntries = recipeEntries.filter(([key]) => 
-            !key.includes('FLM.') && key !== 'TLC01'
+          const otherEntries = recipeEntries.filter(([key]) =>
+            !key.includes('FLM.') &&
+            key !== 'TLC01' &&
+            key !== 'COTLC01' &&
+            !(key.includes('YM.ST.') && key !== ymSt.stok_kodu)
           );
-          
-          // Kesinlikle Excel sıralamasına uygun olacak şekilde ekle
-          // FLM her zaman önce, TLC01 her zaman ikinci sırada
-          const orderedEntries = [flmEntry, tlc01Entry, ...otherEntries].filter(Boolean);
+
+          // ✅ FIXED: Correct order - Material first (sira_no 1), Operation second (sira_no 2)
+          // Material: FLM or YM.ST source
+          // Operation: TLC01 or COTLC01
+          const materialEntry = flmEntry || ymStSourceEntry;
+          const operationEntry = tlc01Entry || cotlc01Entry;
+          const orderedEntries = [materialEntry, operationEntry, ...otherEntries].filter(Boolean);
 
           // Eğer orderedEntries içinde sadece bir tane FLM ve bir tane TLC01 yoksa uyarı ver
           // ANCAK: < 1.5mm çaplı ürünler için FLM/TLC01 yerine Coiler/COTLC01 kullanılır
@@ -8319,15 +8327,15 @@ const GalvanizliTelNetsis = () => {
               
               // Reçete parametrelerini hazırla
               // DÜZELTME: YM.ST.xxxx formatındaki kodlar yanlışlıkla Operasyon olarak işaretlenmesin
-              // DÜZELTME: YM.ST ve FLM kodları her zaman Bileşen olmalı, sadece TLC01 ve GLV01 Operasyon olmalı
-              const isOperation = key === 'TLC01' || key === 'GLV01';
-              
+              // DÜZELTME: YM.ST ve FLM kodları her zaman Bileşen olmalı, sadece TLC01/COTLC01 ve GLV01 Operasyon olmalı
+              const isOperation = key === 'TLC01' || key === 'COTLC01' || key === 'GLV01';
+
               // YM.ST içeren kodları kesinlikle Bileşen olarak işaretle
               if (key.includes('YM.ST.')) {
               }
-              
-              
-              const operasyonBilesen = key === 'TLC01' ? 'O' : 'B'; // Only TLC01 is Operasyon (O) in YMST recipes
+
+
+              const operasyonBilesen = (key === 'TLC01' || key === 'COTLC01') ? 'O' : 'B'; // ✅ FIXED: TLC01 and COTLC01 are Operasyon (O) in YMST recipes
               const receteParams = {
                 ym_st_id: ymStId,
                 mamul_kodu: ymSt.stok_kodu,
@@ -8735,6 +8743,7 @@ const GalvanizliTelNetsis = () => {
     if (bilesen === 'GTPKT01') return 'Paketleme Operasyonu';
     if (bilesen === 'GLV01') return 'Galvanizleme Operasyonu';
     if (bilesen === 'TLC01') return 'Tel Çekme Operasyonu';
+    if (bilesen === 'COTLC01') return 'Coil Tel Çekme Operasyonu'; // ✅ FIXED: Added missing COTLC01 case
     if (bilesen === '150 03' || bilesen === 'HM-000001') return 'Çinko Tüketim Miktarı';
     if (bilesen === 'SM.HİDROLİK.ASİT' || bilesen === 'SM-KMY-000096') return 'Asit Tüketim Miktarı';
     if (bilesen.includes('FLM.')) return 'Filmaşin Tüketimi';
@@ -10214,12 +10223,13 @@ const GalvanizliTelNetsis = () => {
 
                         let targetStockMap, targetRecipeMap, altLabel;
 
-                        if (isMain && sequenceIndex === 0) {
+                        if (isMain) {
+                          // ✅ FIXED: Main products always go to Ana sheet (regardless of sequence_index)
                           targetStockMap = ymStMap;
                           targetRecipeMap = ymStRecipeMap;
                           altLabel = 'Ana';
-                        } else {
-                          // Dynamic handling for alternatives (sequence_index 1, 2, 3, ...)
+                        } else if (sequenceIndex > 0) {
+                          // ✅ FIXED: Alternative products ONLY for sequence_index >= 1 (ALT 1, ALT 2, ALT 3, ...)
                           if (!ymStAltMaps[sequenceIndex]) {
                             ymStAltMaps[sequenceIndex] = new Map();
                           }
@@ -10229,6 +10239,10 @@ const GalvanizliTelNetsis = () => {
                           targetStockMap = ymStAltMaps[sequenceIndex];
                           targetRecipeMap = ymStAltRecipeMaps[sequenceIndex];
                           altLabel = `ALT ${sequenceIndex}`;
+                        } else {
+                          // ✅ FIXED: Skip inconsistent data (is_main=false AND sequence_index=0)
+                          console.warn(`⚠️ Skipping YM ST ${ymSt.stok_kodu}: is_main=false but sequence_index=0 (inconsistent data)`);
+                          continue; // Skip this product
                         }
 
                         console.log(`📦 Adding YM ST to ${altLabel}: ${ymSt.stok_kodu}`);
