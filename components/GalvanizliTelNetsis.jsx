@@ -7057,8 +7057,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
-      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
+      payda_1: 1.000, // KG to TN conversion - matches database format
+      cevrim_degeri_1: 0.00, // Conversion rate - matches database format
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -7133,8 +7133,8 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
-      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
+      payda_1: 1.000, // KG to TN conversion - matches database format
+      cevrim_degeri_1: 0.00, // Conversion rate - matches database format
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
@@ -7185,15 +7185,15 @@ const GalvanizliTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1000.000, // ✅ FIXED - KG to TN conversion (1 TN = 1000 KG)
-      cevrim_degeri_1: 0.001, // ✅ FIXED - Conversion rate for KG to TN
+      payda_1: 1000.000, // KG to TN conversion - CORRECT for YM ST (differs from MM GT/YM GT)
+      cevrim_degeri_1: 0.00, // Conversion rate - matches database format
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20', // Match Excel format as string
       cap: ymSt.cap,
-      filmasin: parseInt(ymSt.filmasin),
+      filmasin: parseFloat(ymSt.filmasin).toFixed(4), // Database uses decimal with 4 decimal places (e.g., 6.0000)
       quality: ymSt.quality,
       ozel_saha_1_say: 1, // ✅ FIXED - Must ALWAYS be 1 for all YM ST products (NOT filmasin value!)
       birim_agirlik: ymSt.kg || 0,
@@ -7202,7 +7202,8 @@ const GalvanizliTelNetsis = () => {
       stok_turu: 'D',
       ingilizce_isim: `YM Black Wire ${capForExcel} mm Quality: ${ymSt.quality}`,
       esnek_yapilandir: 'H',
-      super_recete_kullanilsin: 'H'
+      super_recete_kullanilsin: 'H',
+      priority: ymSt.priority !== undefined ? ymSt.priority : 0 // Default to 0 for main products
     };
   };
 
@@ -7747,12 +7748,37 @@ const GalvanizliTelNetsis = () => {
             
             
             // BURADA ÖNEMLİ: MMGT reçeteleri için her zaman doğru sequence'i içeren mamul_kodu kullanmak çok önemli
-            
+
+            // Update YM.GT bilesen codes to use current sequence
+            let bilesenKodu = key;
+            if (key.includes('YM.GT.')) {
+              const parts = key.split('.');
+              if (parts.length >= 5) {
+                // Replace old sequence with current MM GT sequence
+                parts[parts.length - 1] = mmGtSequence;
+                bilesenKodu = parts.join('.');
+                console.log(`Updated YM.GT bilesen sequence: ${key} → ${bilesenKodu}`);
+              }
+            }
+
+            // Map display codes to database codes (e.g., 'AMB.APEX CEMBER' → 'SM-AMB-000017')
+            const bilesenMapping = {
+              'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
+              'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
+              'SM.7MMHALKA': 'SM-AMB-000023',
+              'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019',
+              'AMB.SHRİNK.200*140CM': 'SM-AMB-000027',
+              'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
+              'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
+              'SM.DESİ.PAK': 'SM-KMY-000102'
+            };
+            bilesenKodu = bilesenMapping[bilesenKodu] || bilesenKodu;
+
             // Tüm parametreleri logla
             const receteParams = {
               mm_gt_id: mmGtId,
               mamul_kodu: mamulKodu, // ÖNEMLİ: Her zaman doğru sequence ile güncel mamul_kodu
-              bilesen_kodu: key,
+              bilesen_kodu: bilesenKodu, // Use mapped database code
               miktar: formattedValue,
               sira_no: siraNo++,
               operasyon_bilesen: operasyonBilesen,
@@ -7765,7 +7791,7 @@ const GalvanizliTelNetsis = () => {
               const checkResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGtId}`);
               if (checkResponse && checkResponse.ok) {
                 const existingRecipes = await checkResponse.json();
-                const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== mamulKodu);
+                const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === bilesenKodu && r.mamul_kodu !== mamulKodu);
                 if (conflictRecipe) {
                   console.error(`ÇAKIŞMA! Farklı mamul_kodu ile reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
                   try {
@@ -8213,11 +8239,18 @@ const GalvanizliTelNetsis = () => {
                 console.warn(`UYARI: YMGT stok kaydına erişilemedi!`);
               }
               
+              // Map display codes to database codes (e.g., '150 03' → 'HM-000001')
+              const bilesenMapping = {
+                '150 03': 'HM-000001',
+                'SM.HİDROLİK.ASİT': 'SM-KMY-000096'
+              };
+              const dbBilesenKodu = bilesenMapping[key] || key;
+
               // Tüm parametreleri logla
               const receteParams = {
                 ym_gt_id: existingYmGt.id,
                 mamul_kodu: ymGtStokKodu, // ÖNEMLİ: Her zaman doğru sequence ile güncel mamul_kodu
-                bilesen_kodu: key,
+                bilesen_kodu: dbBilesenKodu, // Use database code, not display code
                 miktar: formattedValue,
                 sira_no: siraNo++,
                 // DÜZELTME: YM.ST ve FLM kodları her zaman bileşen, sadece GLV01 ve TLC01 operasyon
@@ -8231,7 +8264,7 @@ const GalvanizliTelNetsis = () => {
                 const checkResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?ym_gt_id=${existingYmGt.id}`);
                 if (checkResponse && checkResponse.ok) {
                   const existingRecipes = await checkResponse.json();
-                  const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== ymGtStokKodu);
+                  const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === dbBilesenKodu && r.mamul_kodu !== ymGtStokKodu);
                   if (conflictRecipe) {
                     console.error(`ÇAKIŞMA! Farklı mamul_kodu ile YMGT reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
                     try {
