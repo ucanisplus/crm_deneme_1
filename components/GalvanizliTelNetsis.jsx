@@ -146,22 +146,67 @@ const YM_ST_FILMASIN_PRIORITY_MAP = {
 // For .ST products (COTLC01 method) that use classical YM.ST products as sources
 // Main (0) uses xxx.0600.1006, ALT 1 uses xxx.0600.1008, ALT 2 uses xxx.0550.1006
 // NOTE: Only for diameters 2.00-2.30mm (.ST product final diameters)
-const YM_ST_COILER_ALTERNATIVE_MAP = {
-  // For all .ST products in 2.00-2.30mm range
-  // Main: 6.00mm 1006 quality → ALT 1: 6.00mm 1008 quality → ALT 2: 5.50mm 1006 quality
-  2.00: { alt1: { filmasin: 6.0, quality: '1008' }, alt2: { filmasin: 5.5, quality: '1006' } },
-  2.10: { alt1: { filmasin: 6.0, quality: '1008' }, alt2: { filmasin: 5.5, quality: '1006' } },
-  2.20: { alt1: { filmasin: 6.0, quality: '1008' }, alt2: { filmasin: 5.5, quality: '1006' } },
-  2.30: { alt1: { filmasin: 6.0, quality: '1008' }, alt2: { filmasin: 5.5, quality: '1006' } }
+// ============================================================================
+// COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
+// Based on: C:\Users\Selman\Desktop\UBUNTU\genel_csv\COİL ALTERNATİF.csv
+// ============================================================================
+const COILER_ALTERNATIVE_MATRIX = {
+  // Category 1: 0.84mm ONLY (YM.ST.084.ST)
+  '0.84': [
+    { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+  ],
+
+  // Category 2: 1.49mm and below (excluding 0.84mm)
+  '≤1.49': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+  ],
+
+  // Category 3: 1.50mm to 1.79mm
+  '1.50-1.79': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
+    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
+    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
+  ]
+};
+
+// Helper: Determine which COILER category a .ST product belongs to
+const getCoilerCategory = (stokKodu) => {
+  // Extract diameter from YM.ST.084.ST -> 0.84mm
+  const match = stokKodu.match(/YM\.ST\.(\d{4})\.ST/);
+  if (!match) return null;
+
+  const diameter = parseInt(match[1], 10) / 100; // 084 -> 0.84
+
+  if (diameter === 0.84) return '0.84';
+  if (diameter <= 1.49) return '≤1.49';
+  if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
+
+  return null; // Outside COILER range
 };
 
 // Helper: Generate alternative recipes for .ST COILER products
-// Uses YM_ST_COILER_ALTERNATIVE_MAP matrix to generate alternatives
+// Uses COILER_ALTERNATIVE_MATRIX to generate up to 8 alternatives
 const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
-  console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives for ALL .ST products using matrix...`);
+  console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives (up to 8) for .ST products using new matrix...`);
 
-  const alt1Recipes = [];
-  const alt2Recipes = [];
+  // Structure: { 1: [...], 2: [...], ..., 8: [...] }
+  const alternativesByPriority = {};
 
   // Group recipes by product
   const recipesByProduct = {};
@@ -185,93 +230,79 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 
     stProductCount++;
     const productRecipes = recipesByProduct[stokKodu];
-    console.log(`🔄 Generating alternatives for ${stokKodu} (${productRecipes.length} recipe rows)`);
 
-    // Track filmasin change for duration recalculation
-    let currentFilmasinRatio = 1.0; // Will be set when we process the B row
+    // Determine which COILER category this product belongs to
+    const category = getCoilerCategory(stokKodu);
+    if (!category) {
+      console.log(`⚠️ ${stokKodu}: Not in COILER matrix range, skipping`);
+      return;
+    }
 
-    // Generate ALT 1 and ALT 2 recipes
-    productRecipes.forEach(recipe => {
-      if (recipe.operasyon_bilesen === 'B') {
-        // BILESEN ROW: Change bilesen_kodu, keep miktar the same
-        const oldBilesenKodu = recipe.bilesen_kodu;
+    const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+    console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
 
-        // Check if this is a YM.ST bilesen with .0600.1006 pattern
-        if (oldBilesenKodu.includes('.0600.1006')) {
-          // Extract diameter from bilesen code (e.g., YM.ST.0226.0600.1006 -> 2.26mm)
-          const bilesenParts = oldBilesenKodu.split('.');
-          if (bilesenParts.length >= 5) {
-            const bilesenDiameterStr = bilesenParts[2]; // e.g., "0226"
-            const bilesenDiameterNum = parseInt(bilesenDiameterStr, 10); // e.g., 226
-            const bilesenDiameter = bilesenDiameterNum / 100; // e.g., 2.26mm
+    // For each alternative priority (1-8)
+    for (let priority = 1; priority <= 8; priority++) {
+      // Find the alternative definition for this priority
+      const altDef = alternatives.find(a => a.priority === priority);
+      if (!altDef) {
+        // This priority doesn't exist for this category (e.g., priority 6-8 for ≤1.49mm products)
+        continue;
+      }
 
-            // Round UP to nearest 0.10mm to get matrix key
-            const matrixKey = Math.ceil(bilesenDiameter * 10) / 10; // e.g., 2.26mm → 2.30
+      // Get the main bilesen (priority 0) definition
+      const mainDef = alternatives.find(a => a.priority === 0);
 
-            // Look up alternatives in matrix
-            const alternatives = YM_ST_COILER_ALTERNATIVE_MAP[matrixKey];
+      // Calculate duration adjustment ratio
+      // Duration is inversely proportional to cross-sectional area: (oldFilmasin/newFilmasin)²
+      const durationRatio = Math.pow(mainDef.filmasin / altDef.filmasin, 2);
 
-            if (alternatives) {
-              // ALT 1: Change quality according to matrix (filmasin stays same)
-              const alt1FilmasinStr = String(Math.round(alternatives.alt1.filmasin * 100)).padStart(4, '0');
-              const alt1Quality = alternatives.alt1.quality;
-              const alt1BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt1FilmasinStr + '.' + alt1Quality;
+      // Initialize priority array if needed
+      if (!alternativesByPriority[priority]) {
+        alternativesByPriority[priority] = [];
+      }
 
-              alt1Recipes.push({
-                ...recipe,
-                bilesen_kodu: alt1BilesenKodu
-                // Miktar stays the same (weight in KG unchanged)
-              });
-              console.log(`  ✅ ALT 1 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt1BilesenKodu} (miktar unchanged)`);
+      // Generate alternative recipes for this product at this priority
+      productRecipes.forEach(recipe => {
+        if (recipe.operasyon_bilesen === 'B') {
+          // BILESEN ROW: Replace bilesen_kodu with alternative
+          const oldBilesenKodu = recipe.bilesen_kodu;
 
-              // ALT 2: Change filmasin and quality according to matrix
-              const alt2FilmasinStr = String(Math.round(alternatives.alt2.filmasin * 100)).padStart(4, '0');
-              const alt2Quality = alternatives.alt2.quality;
-              const alt2BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt2FilmasinStr + '.' + alt2Quality;
+          // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
+          const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+          const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
 
-              // Calculate duration adjustment ratio for operation rows
-              // Thinner wire = more length for same weight = longer duration
-              // Duration is inversely proportional to cross-sectional area
-              const oldFilmasin = 6.0;
-              const newFilmasin = alternatives.alt2.filmasin;
-              currentFilmasinRatio = Math.pow(oldFilmasin / newFilmasin, 2); // e.g., (6.0/5.5)² ≈ 1.1901
+          alternativesByPriority[priority].push({
+            ...recipe,
+            bilesen_kodu: newBilesenKodu
+            // Miktar stays the same (weight in KG unchanged)
+          });
 
-              alt2Recipes.push({
-                ...recipe,
-                bilesen_kodu: alt2BilesenKodu
-                // Miktar stays the same (weight in KG unchanged)
-              });
-              console.log(`  ✅ ALT 2 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt2BilesenKodu} (miktar unchanged, duration ratio: ${currentFilmasinRatio.toFixed(4)})`);
-            } else {
-              console.log(`  ⚠️ No matrix entry for bilesen diameter ${bilesenDiameter}mm (key: ${matrixKey})`);
-            }
+          console.log(`  ✅ ALT ${priority}: ${oldBilesenKodu} → ${newBilesenKodu} (ratio: ${durationRatio.toFixed(4)})`);
+        } else {
+          // OPERATION ROW: Adjust duration based on filmasin change
+          if (recipe.miktar && durationRatio !== 1.0) {
+            const oldDuration = parseFloat(recipe.miktar);
+            const newDuration = oldDuration * durationRatio;
+            alternativesByPriority[priority].push({
+              ...recipe,
+              miktar: newDuration.toFixed(5)
+            });
+          } else {
+            alternativesByPriority[priority].push({ ...recipe });
           }
         }
-      } else {
-        // OPERATION ROW: Keep everything same for ALT 1, adjust duration for ALT 2
-
-        // ALT 1: No changes
-        alt1Recipes.push({ ...recipe });
-
-        // ALT 2: Recalculate miktar (which is the duration for O rows) based on filmasin change
-        if (recipe.miktar && currentFilmasinRatio !== 1.0) {
-          const oldDuration = parseFloat(recipe.miktar);
-          const newDuration = oldDuration * currentFilmasinRatio;
-          alt2Recipes.push({
-            ...recipe,
-            miktar: newDuration.toFixed(5)
-          });
-          console.log(`  ⏱️ ALT 2 duration adjusted: ${oldDuration} → ${newDuration.toFixed(5)} (ratio: ${currentFilmasinRatio.toFixed(4)})`);
-        } else {
-          alt2Recipes.push({ ...recipe });
-        }
-      }
-    });
+      });
+    }
   });
 
   console.log(`📋 TÜM ÜRÜNLER: Processed ${stProductCount} .ST products`);
-  console.log(`📋 TÜM ÜRÜNLER: Created ${alt1Recipes.length} ALT 1 recipes and ${alt2Recipes.length} ALT 2 recipes for COILER products`);
-  return { alt1Recipes, alt2Recipes };
+  Object.keys(alternativesByPriority).forEach(priority => {
+    console.log(`  ALT ${priority}: ${alternativesByPriority[priority].length} recipes`);
+  });
+
+  return alternativesByPriority;
 };
 
 const getMatrixRangeKey = (targetDiameter) => {
@@ -10069,66 +10100,42 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // 🆕 Generate COILER alternatives dynamically for .ST products
+    // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
     console.log('🔄 TÜM ÜRÜNLER: Generating COILER alternatives for .ST products...');
-    const { alt1Recipes, alt2Recipes } = generateCoilerAlternatives(mainYmStRecetes, allYMSTProducts);
-    console.log(`📋 TÜM ÜRÜNLER: Created ${alt1Recipes.length} ALT 1 recipes and ${alt2Recipes.length} ALT 2 recipes for COILER products`);
+    const coilerAlternatives = generateCoilerAlternatives(mainYmStRecetes, allYMSTProducts);
+    const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
+    console.log(`📋 TÜM ÜRÜNLER: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // 🆕 Create YM ST REÇETE ALT 1 sheet (for .ST products with xxx.0600.1008)
-    if (alt1Recipes.length > 0) {
-      const alt1Sheet = receteWorkbook.addWorksheet('YM ST REÇETE ALT 1');
-      alt1Sheet.addRow(receteHeaders);
+    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on available alternatives
+    altPriorities.forEach(priority => {
+      const altRecipes = coilerAlternatives[priority];
+      if (!altRecipes || altRecipes.length === 0) return;
 
-      // Group ALT 1 recipes by product
-      const ymStAlt1ByProduct = {};
-      alt1Recipes.forEach(recipe => {
-        if (!ymStAlt1ByProduct[recipe.mamul_kodu]) {
-          ymStAlt1ByProduct[recipe.mamul_kodu] = [];
+      const altSheet = receteWorkbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
+      altSheet.addRow(receteHeaders);
+
+      // Group recipes by product
+      const ymStAltByProduct = {};
+      altRecipes.forEach(recipe => {
+        if (!ymStAltByProduct[recipe.mamul_kodu]) {
+          ymStAltByProduct[recipe.mamul_kodu] = [];
         }
-        ymStAlt1ByProduct[recipe.mamul_kodu].push(recipe);
+        ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
 
-      // Add ALT 1 recipes
-      Object.keys(ymStAlt1ByProduct).sort().forEach(stokKodu => {
-        if (ymStAlt1ByProduct[stokKodu] && ymStAlt1ByProduct[stokKodu].length > 0) {
+      // Add recipes sorted by product code
+      Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
+        if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           let productSiraNo = 1;
-          ymStAlt1ByProduct[stokKodu].forEach(recipe => {
-            alt1Sheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, 1));
+          ymStAltByProduct[stokKodu].forEach(recipe => {
+            altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
             productSiraNo++;
           });
         }
       });
 
-      console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT 1 sheet with ${alt1Recipes.length} recipes`);
-    }
-
-    // 🆕 Create YM ST REÇETE ALT 2 sheet (for .ST products with xxx.0550.1006)
-    if (alt2Recipes.length > 0) {
-      const alt2Sheet = receteWorkbook.addWorksheet('YM ST REÇETE ALT 2');
-      alt2Sheet.addRow(receteHeaders);
-
-      // Group ALT 2 recipes by product
-      const ymStAlt2ByProduct = {};
-      alt2Recipes.forEach(recipe => {
-        if (!ymStAlt2ByProduct[recipe.mamul_kodu]) {
-          ymStAlt2ByProduct[recipe.mamul_kodu] = [];
-        }
-        ymStAlt2ByProduct[recipe.mamul_kodu].push(recipe);
-      });
-
-      // Add ALT 2 recipes
-      Object.keys(ymStAlt2ByProduct).sort().forEach(stokKodu => {
-        if (ymStAlt2ByProduct[stokKodu] && ymStAlt2ByProduct[stokKodu].length > 0) {
-          let productSiraNo = 1;
-          ymStAlt2ByProduct[stokKodu].forEach(recipe => {
-            alt2Sheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, 2));
-            productSiraNo++;
-          });
-        }
-      });
-
-      console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT 2 sheet with ${alt2Recipes.length} recipes`);
-    }
+      console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
+    });
     
     // Save Reçete Excel
     const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
