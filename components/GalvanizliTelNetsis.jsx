@@ -157,8 +157,15 @@ const YM_ST_COILER_ALTERNATIVE_MAP = {
 
 // Helper: Generate alternative recipes for .ST COILER products
 const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
+  console.log(`🔍 DEBUG: Starting generateCoilerAlternatives with ${mainRecipes.length} recipes and ${ymStProducts.length} products`);
+
   const alt1Recipes = [];
   const alt2Recipes = [];
+
+  // Debug: Show first recipe structure
+  if (mainRecipes.length > 0) {
+    console.log('🔍 DEBUG: First recipe structure:', JSON.stringify(mainRecipes[0], null, 2));
+  }
 
   // Group recipes by product
   const recipesByProduct = {};
@@ -169,31 +176,55 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     recipesByProduct[recipe.ym_st_stok_kodu].push(recipe);
   });
 
+  console.log(`🔍 DEBUG: Grouped into ${Object.keys(recipesByProduct).length} unique products`);
+  console.log(`🔍 DEBUG: Product codes (first 10):`, Object.keys(recipesByProduct).slice(0, 10));
+
   // For each .ST product, generate alternatives
   Object.keys(recipesByProduct).forEach(stokKodu => {
     // Check if it's a .ST product (COTLC01 method)
-    if (!stokKodu.endsWith('.ST')) return;
+    if (!stokKodu.endsWith('.ST')) {
+      return; // Skip non-.ST products silently
+    }
+
+    console.log(`✅ DEBUG: Found .ST product: ${stokKodu}`);
 
     const productRecipes = recipesByProduct[stokKodu];
 
     // Find the product data to get diameter
     const product = ymStProducts.find(p => p.stok_kodu === stokKodu);
-    if (!product || !product.cap) return;
+    if (!product) {
+      console.log(`❌ DEBUG: No product data found for ${stokKodu}`);
+      return;
+    }
+    if (!product.cap) {
+      console.log(`❌ DEBUG: Product ${stokKodu} has no cap (diameter) value. Product data:`, product);
+      return;
+    }
 
     const diameter = parseFloat(product.cap);
+    console.log(`📏 DEBUG: ${stokKodu} diameter: ${diameter}mm`);
 
     // Check if diameter is in COILER range (2.00-2.30mm)
-    if (diameter < 2.00 || diameter > 2.30) return;
+    if (diameter < 2.00 || diameter > 2.30) {
+      console.log(`❌ DEBUG: ${stokKodu} diameter ${diameter}mm is outside COILER range (2.00-2.30mm)`);
+      return;
+    }
 
     // Get matrix key (round to nearest 0.10mm)
     const matrixKey = Math.floor(diameter * 10) / 10;
     const alternatives = YM_ST_COILER_ALTERNATIVE_MAP[matrixKey];
-    if (!alternatives) return;
+    if (!alternatives) {
+      console.log(`❌ DEBUG: No matrix entry for ${stokKodu} with matrixKey ${matrixKey}`);
+      return;
+    }
 
     console.log(`🔄 Generating COILER alternatives for ${stokKodu} (${diameter}mm)`);
+    console.log(`🔍 DEBUG: ${stokKodu} has ${productRecipes.length} recipe rows`);
 
     // Generate ALT 1 and ALT 2 recipes
     productRecipes.forEach(recipe => {
+      console.log(`🔍 DEBUG: Processing recipe row - operasyon_bilesen: ${recipe.operasyon_bilesen}, bilesen_kodu: ${recipe.bilesen_kodu}`);
+
       // Only modify bilesen (B) rows, keep operations (O) as is
       if (recipe.operasyon_bilesen === 'B') {
         const oldBilesenKodu = recipe.bilesen_kodu;
@@ -206,6 +237,8 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
             bilesen_kodu: alt1BilesenKodu
           });
           console.log(`  ALT 1: ${oldBilesenKodu} → ${alt1BilesenKodu}`);
+        } else {
+          console.log(`  ⚠️ DEBUG: Bilesen ${oldBilesenKodu} does NOT contain '.0600.1006'`);
         }
 
         // ALT 2: Replace xxx.0600.1006 with xxx.0550.1006
@@ -225,6 +258,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     });
   });
 
+  console.log(`🔍 DEBUG: Final results - ALT1: ${alt1Recipes.length} recipes, ALT2: ${alt2Recipes.length} recipes`);
   return { alt1Recipes, alt2Recipes };
 };
 
