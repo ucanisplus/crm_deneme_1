@@ -187,10 +187,13 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     const productRecipes = recipesByProduct[stokKodu];
     console.log(`🔄 Generating alternatives for ${stokKodu} (${productRecipes.length} recipe rows)`);
 
+    // Track filmasin change for duration recalculation
+    let currentFilmasinRatio = 1.0; // Will be set when we process the B row
+
     // Generate ALT 1 and ALT 2 recipes
     productRecipes.forEach(recipe => {
-      // Only modify bilesen (B) rows, keep operations (O) as is
       if (recipe.operasyon_bilesen === 'B') {
+        // BILESEN ROW: Change bilesen_kodu, keep miktar the same
         const oldBilesenKodu = recipe.bilesen_kodu;
 
         // Check if this is a YM.ST bilesen with .0600.1006 pattern
@@ -212,47 +215,56 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
               // ALT 1: Change quality according to matrix (filmasin stays same)
               const alt1FilmasinStr = String(Math.round(alternatives.alt1.filmasin * 100)).padStart(4, '0');
               const alt1Quality = alternatives.alt1.quality;
-
-              // Replace filmasin and quality parts
               const alt1BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt1FilmasinStr + '.' + alt1Quality;
 
               alt1Recipes.push({
                 ...recipe,
                 bilesen_kodu: alt1BilesenKodu
-                // Miktar stays the same for ALT 1 (same filmasin, only quality changes)
+                // Miktar stays the same (weight in KG unchanged)
               });
-              console.log(`  ✅ ALT 1 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt1BilesenKodu}`);
+              console.log(`  ✅ ALT 1 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt1BilesenKodu} (miktar unchanged)`);
 
-              // ALT 2: Change filmasin and quality according to matrix, recalculate miktar
+              // ALT 2: Change filmasin and quality according to matrix
               const alt2FilmasinStr = String(Math.round(alternatives.alt2.filmasin * 100)).padStart(4, '0');
               const alt2Quality = alternatives.alt2.quality;
-
-              // Replace filmasin and quality parts
               const alt2BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt2FilmasinStr + '.' + alt2Quality;
 
-              // Recalculate miktar based on filmasin change
-              // Weight is proportional to cross-sectional area (diameter squared)
+              // Calculate duration adjustment ratio for operation rows
+              // Thinner wire = more length for same weight = longer duration
+              // Duration is inversely proportional to cross-sectional area
               const oldFilmasin = 6.0;
               const newFilmasin = alternatives.alt2.filmasin;
-              const oldMiktar = parseFloat(recipe.miktar);
-              const weightRatio = Math.pow(newFilmasin / oldFilmasin, 2);
-              const newMiktar = oldMiktar * weightRatio;
+              currentFilmasinRatio = Math.pow(oldFilmasin / newFilmasin, 2); // e.g., (6.0/5.5)² ≈ 1.1901
 
               alt2Recipes.push({
                 ...recipe,
-                bilesen_kodu: alt2BilesenKodu,
-                miktar: newMiktar.toFixed(6)
+                bilesen_kodu: alt2BilesenKodu
+                // Miktar stays the same (weight in KG unchanged)
               });
-              console.log(`  ✅ ALT 2 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt2BilesenKodu} (miktar: ${oldMiktar} → ${newMiktar.toFixed(6)}, ratio: ${weightRatio.toFixed(4)})`);
+              console.log(`  ✅ ALT 2 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt2BilesenKodu} (miktar unchanged, duration ratio: ${currentFilmasinRatio.toFixed(4)})`);
             } else {
               console.log(`  ⚠️ No matrix entry for bilesen diameter ${bilesenDiameter}mm (key: ${matrixKey})`);
             }
           }
         }
       } else {
-        // Keep operation rows unchanged for both alternatives
+        // OPERATION ROW: Keep everything same for ALT 1, adjust duration for ALT 2
+
+        // ALT 1: No changes
         alt1Recipes.push({ ...recipe });
-        alt2Recipes.push({ ...recipe });
+
+        // ALT 2: Recalculate uretim_suresi (production duration) based on filmasin change
+        if (recipe.uretim_suresi && currentFilmasinRatio !== 1.0) {
+          const oldDuration = parseFloat(recipe.uretim_suresi);
+          const newDuration = oldDuration * currentFilmasinRatio;
+          alt2Recipes.push({
+            ...recipe,
+            uretim_suresi: newDuration.toFixed(5)
+          });
+          console.log(`  ⏱️ ALT 2 duration adjusted: ${oldDuration} → ${newDuration.toFixed(5)} (ratio: ${currentFilmasinRatio.toFixed(4)})`);
+        } else {
+          alt2Recipes.push({ ...recipe });
+        }
       }
     });
   });
