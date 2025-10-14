@@ -9830,32 +9830,49 @@ const GalvanizliTelNetsis = () => {
 
     // YM GT REÇETE ALT Sheets - OPTION 2: Coiler (1.5-1.8mm → .ST) + Matrix Priority Alternatives
     // Step 1: Build YM ST priority mapping from database
-    const ymStPriorityMap = {}; // {diameter_quality: {priority: stok_kodu}}
+    const ymStPriorityMap = {}; // {diameter: [{stok_kodu, quality, priority, filmasin}]}
 
     console.log('📋 BATCH: Fetching all YM ST products for priority mapping...');
     const allYmStForPriorityResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`);
     if (allYmStForPriorityResponse && allYmStForPriorityResponse.ok) {
       const allYmStsForPriority = await allYmStForPriorityResponse.json();
 
-      // Build priority map grouped by target diameter and quality
+      // Build priority map grouped by target diameter ONLY (not quality!)
+      // Alternatives can have different qualities than the main product
       allYmStsForPriority.forEach(ymSt => {
-        const cap = parseFloat(ymSt.cap);
-        const quality = ymSt.quality;
-        const priority = ymSt.priority || 0;
-        const key = `${Math.round(cap * 100)}_${quality}`;
+        // Extract cap from stok_kodu (e.g., YM.ST.0390 → 3.90mm)
+        const stokKoduMatch = ymSt.stok_kodu.match(/YM\.ST\.(\d{4})/);
+        if (!stokKoduMatch) return;
 
-        if (!ymStPriorityMap[key]) {
-          ymStPriorityMap[key] = {};
+        const capRaw = parseInt(stokKoduMatch[1], 10); // 0390 → 390
+        const quality = ymSt.kod_3 || ymSt.quality; // Use kod_3 if quality field is empty
+        const priority = ymSt.priority || 0;
+
+        // Extract filmasin from stok_kodu if available
+        const filmasinMatch = ymSt.stok_kodu.match(/YM\.ST\.\d{4}\.(\d{4})\./);
+        const filmasin = filmasinMatch ? parseInt(filmasinMatch[1], 10) / 100 : 0;
+
+        if (!ymStPriorityMap[capRaw]) {
+          ymStPriorityMap[capRaw] = [];
         }
-        ymStPriorityMap[key][priority] = ymSt.stok_kodu;
+        ymStPriorityMap[capRaw].push({
+          stok_kodu: ymSt.stok_kodu,
+          quality: quality,
+          priority: priority,
+          filmasin: filmasin
+        });
       });
 
-      console.log(`✅ BATCH: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter-quality combinations`);
+      console.log(`✅ BATCH: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter groups`);
 
       // Debug: Show some priority map entries
-      const sampleKeys = Object.keys(ymStPriorityMap).slice(0, 5);
-      sampleKeys.forEach(key => {
-        console.log(`  Map[${key}]:`, ymStPriorityMap[key]);
+      const sampleDiameters = Object.keys(ymStPriorityMap).sort((a, b) => a - b).slice(0, 5);
+      sampleDiameters.forEach(cap => {
+        const entries = ymStPriorityMap[cap].sort((a, b) => a.priority - b.priority);
+        console.log(`  Diameter ${cap/100}mm: ${entries.length} options`);
+        entries.slice(0, 3).forEach(e => {
+          console.log(`    Priority ${e.priority}: ${e.stok_kodu} (quality: ${e.quality})`);
+        });
       });
     }
 
@@ -9904,30 +9921,29 @@ const GalvanizliTelNetsis = () => {
       const ymStMatch = ymStRecipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})$/);
       if (!ymStMatch) return;
 
-      const targetCap = parseInt(ymStMatch[1], 10);
-      const quality = ymStMatch[3];
-      const mapKey = `${targetCap}_${quality}`;
+      const targetCapRaw = parseInt(ymStMatch[1], 10); // e.g., 0390 → 390
 
-      const priorities = ymStPriorityMap[mapKey];
-      if (!priorities) {
-        console.log(`⚠️ BATCH: No priority map found for ${ymStRecipe.bilesen_kodu} (key: ${mapKey})`);
+      const alternativesForDiameter = ymStPriorityMap[targetCapRaw];
+      if (!alternativesForDiameter) {
+        console.log(`⚠️ BATCH: No priority map found for ${ymStRecipe.bilesen_kodu} (diameter: ${targetCapRaw})`);
         return;
       }
 
-      // For each priority (excluding 0), create alternative recipes
-      Object.keys(priorities).forEach(priorityStr => {
-        const priority = parseInt(priorityStr);
-        if (priority === 0) return; // Skip main priority
+      // For each priority level (1, 2, ...), find the alternative with that priority
+      // NOTE: Alternatives can have DIFFERENT qualities than the main product!
+      [1, 2].forEach(targetPriority => {
+        // Find the alternative with this priority for this diameter
+        const altOption = alternativesForDiameter.find(opt => opt.priority === targetPriority);
+        if (!altOption) return; // No alternative at this priority level
 
-        const altYmStCode = priorities[priority];
-        if (!altYmStCode) return;
+        const altYmStCode = altOption.stok_kodu;
 
-        if (!ymGtAltRecipesByPriority[priority]) {
-          ymGtAltRecipesByPriority[priority] = {};
+        if (!ymGtAltRecipesByPriority[targetPriority]) {
+          ymGtAltRecipesByPriority[targetPriority] = {};
         }
 
-        if (!ymGtAltRecipesByPriority[priority][mamulKodu]) {
-          ymGtAltRecipesByPriority[priority][mamulKodu] = { recipes: [], isCoiler: false };
+        if (!ymGtAltRecipesByPriority[targetPriority][mamulKodu]) {
+          ymGtAltRecipesByPriority[targetPriority][mamulKodu] = { recipes: [], isCoiler: false };
         }
 
         recipes.forEach(recipe => {
@@ -9935,7 +9951,7 @@ const GalvanizliTelNetsis = () => {
           if (recipe.bilesen_kodu === ymStRecipe.bilesen_kodu) {
             altRecipe.bilesen_kodu = altYmStCode;
           }
-          ymGtAltRecipesByPriority[priority][mamulKodu].recipes.push(altRecipe);
+          ymGtAltRecipesByPriority[targetPriority][mamulKodu].recipes.push(altRecipe);
         });
       });
     });
