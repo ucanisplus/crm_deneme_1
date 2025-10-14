@@ -12473,6 +12473,114 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Generate Excel files from database (ensures Excel matches what was saved)
+  const generateExcelFilesFromDatabase = async (mmGtStokKodu) => {
+    try {
+      console.log(`📋 Generating Excel from database for: ${mmGtStokKodu}`);
+
+      // 1. Fetch MM GT from database
+      const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
+      if (!mmGtResponse || !mmGtResponse.ok) {
+        throw new Error('MM GT verisi yüklenemedi');
+      }
+      const allMmGt = await mmGtResponse.json();
+      const mmGt = allMmGt.find(p => p.stok_kodu === mmGtStokKodu);
+
+      if (!mmGt) {
+        throw new Error(`MM GT bulunamadı: ${mmGtStokKodu}`);
+      }
+
+      // 2. Fetch YM GT from database (same pattern as MM GT but with YM.GT prefix)
+      const ymGtStokKodu = mmGtStokKodu.replace('GT.', 'YM.GT.');
+      const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+      if (!ymGtResponse || !ymGtResponse.ok) {
+        throw new Error('YM GT verisi yüklenemedi');
+      }
+      const allYmGt = await ymGtResponse.json();
+      const ymGt = allYmGt.find(p => p.stok_kodu === ymGtStokKodu);
+
+      if (!ymGt) {
+        throw new Error(`YM GT bulunamadı: ${ymGtStokKodu}`);
+      }
+
+      // 3. Fetch YM ST products via relationship table
+      const relationshipResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
+      if (!relationshipResponse || !relationshipResponse.ok) {
+        throw new Error('İlişki verileri yüklenemedi');
+      }
+      const relationships = await relationshipResponse.json();
+
+      const ymStProducts = [];
+      const ymStAltDataObj = {}; // Group alternatives by priority
+
+      for (const rel of relationships) {
+        const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${rel.ym_st_id}`);
+        if (ymStResponse && ymStResponse.ok) {
+          const ymSt = await ymStResponse.json();
+          ymSt.priority = rel.is_main ? 0 : (ymSt.priority || ymStProducts.filter(p => !p.is_main).length + 1);
+
+          if (ymSt.priority === 0) {
+            ymStProducts.push(ymSt);
+          } else {
+            if (!ymStAltDataObj[ymSt.priority]) {
+              ymStAltDataObj[ymSt.priority] = [];
+            }
+            ymStAltDataObj[ymSt.priority].push(ymSt);
+          }
+        }
+      }
+
+      // 4. Fetch recipes from database
+      const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
+      const mmGtRecipes = (mmGtRecipeResponse && mmGtRecipeResponse.ok) ? await mmGtRecipeResponse.json() : [];
+
+      // Add mm_gt_stok_kodu and sequence to each recipe
+      mmGtRecipes.forEach(recipe => {
+        recipe.mm_gt_stok_kodu = mmGtStokKodu;
+        recipe.sequence = mmGtStokKodu.split('.').pop();
+      });
+
+      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+      let ymGtRecipes = [];
+      if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
+        const allYmGtRecipes = await ymGtRecipeResponse.json();
+        ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
+      }
+
+      // Add ym_gt_stok_kodu and sequence to each recipe
+      ymGtRecipes.forEach(recipe => {
+        recipe.ym_gt_stok_kodu = ymGtStokKodu;
+        recipe.sequence = ymGtStokKodu.split('.').pop();
+      });
+
+      // Fetch YM ST recipes for all YM ST products (main and alternatives)
+      const allYmStProducts = [...ymStProducts, ...Object.values(ymStAltDataObj).flat()];
+      const ymStRecipes = [];
+
+      for (const ymSt of allYmStProducts) {
+        const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
+        if (ymStRecipeResponse && ymStRecipeResponse.ok) {
+          const recipes = await ymStRecipeResponse.json();
+          recipes.forEach(recipe => {
+            recipe.ym_st_stok_kodu = ymSt.stok_kodu;
+            recipe.ym_st_priority = ymSt.priority;
+          });
+          ymStRecipes.push(...recipes);
+        }
+      }
+
+      // 5. Generate Excel using batch functions (ensures format matches database reality)
+      await generateBatchStokKartiExcel([mmGt], [ymGt], ymStProducts, ymStAltDataObj);
+      await generateBatchReceteExcel(mmGtRecipes, ymGtRecipes, ymStRecipes, [mmGt], [ymGt], allYmStProducts);
+
+      console.log('✅ Excel files generated from database successfully');
+
+    } catch (error) {
+      console.error('Excel generation from database failed:', error);
+      throw error;
+    }
+  };
+
   // Excel dosyalarını oluştur
   const generateExcelFiles = async () => {
     try {
@@ -12539,21 +12647,13 @@ const GalvanizliTelNetsis = () => {
       if (!sequenceToUse || sequenceToUse === '00') {
       }
       
-      // Her iki Excel'de de aynı sequence'i kullan
-      // Stok Kartı Excel
+      // Generate Excel from database (ensures Excel matches what was actually saved)
       try {
-        await generateStokKartiExcel(sequenceToUse);
+        await generateExcelFilesFromDatabase(expectedStokKodu);
+        console.log(`✅ Excel files generated from database for: ${expectedStokKodu}`);
       } catch (excelError) {
-        console.error('Stok kartı Excel oluşturma hatası:', excelError);
-        toast.error('Stok kartı Excel oluşturulamadı: ' + excelError.message);
-        throw excelError; // Rethrow to stop the process
-      }
-      
-      try {
-        await generateReceteExcel(sequenceToUse);
-      } catch (excelError) {
-        console.error('Reçete Excel oluşturma hatası:', excelError);
-        toast.error('Reçete Excel oluşturulamadı: ' + excelError.message);
+        console.error('Excel generation from database failed:', excelError);
+        toast.error('Excel oluşturulamadı: ' + excelError.message);
         throw excelError; // Rethrow to stop the process
       }
       
