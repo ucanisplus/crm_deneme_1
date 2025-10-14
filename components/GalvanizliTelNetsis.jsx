@@ -253,13 +253,13 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
         // ALT 1: No changes
         alt1Recipes.push({ ...recipe });
 
-        // ALT 2: Recalculate uretim_suresi (production duration) based on filmasin change
-        if (recipe.uretim_suresi && currentFilmasinRatio !== 1.0) {
-          const oldDuration = parseFloat(recipe.uretim_suresi);
+        // ALT 2: Recalculate miktar (which is the duration for O rows) based on filmasin change
+        if (recipe.miktar && currentFilmasinRatio !== 1.0) {
+          const oldDuration = parseFloat(recipe.miktar);
           const newDuration = oldDuration * currentFilmasinRatio;
           alt2Recipes.push({
             ...recipe,
-            uretim_suresi: newDuration.toFixed(5)
+            miktar: newDuration.toFixed(5)
           });
           console.log(`  ⏱️ ALT 2 duration adjusted: ${oldDuration} → ${newDuration.toFixed(5)} (ratio: ${currentFilmasinRatio.toFixed(4)})`);
         } else {
