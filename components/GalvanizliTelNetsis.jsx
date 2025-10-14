@@ -156,9 +156,9 @@ const YM_ST_COILER_ALTERNATIVE_MAP = {
 };
 
 // Helper: Generate alternative recipes for .ST COILER products
-// For ALL .ST products: Replace bilesen .0600.1006 → .0600.1008 (ALT 1) and → .0550.1006 (ALT 2)
+// Uses YM_ST_COILER_ALTERNATIVE_MAP matrix to generate alternatives
 const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
-  console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives for ALL .ST products...`);
+  console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives for ALL .ST products using matrix...`);
 
   const alt1Recipes = [];
   const alt2Recipes = [];
@@ -193,24 +193,61 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       if (recipe.operasyon_bilesen === 'B') {
         const oldBilesenKodu = recipe.bilesen_kodu;
 
-        // ALT 1: Replace xxx.0600.1006 with xxx.0600.1008 (change quality from 1006 to 1008)
+        // Check if this is a YM.ST bilesen with .0600.1006 pattern
         if (oldBilesenKodu.includes('.0600.1006')) {
-          const alt1BilesenKodu = oldBilesenKodu.replace('.0600.1006', '.0600.1008');
-          alt1Recipes.push({
-            ...recipe,
-            bilesen_kodu: alt1BilesenKodu
-          });
-          console.log(`  ✅ ALT 1: ${oldBilesenKodu} → ${alt1BilesenKodu}`);
-        }
+          // Extract diameter from bilesen code (e.g., YM.ST.0226.0600.1006 -> 2.26mm)
+          const bilesenParts = oldBilesenKodu.split('.');
+          if (bilesenParts.length >= 5) {
+            const bilesenDiameterStr = bilesenParts[2]; // e.g., "0226"
+            const bilesenDiameterNum = parseInt(bilesenDiameterStr, 10); // e.g., 226
+            const bilesenDiameter = bilesenDiameterNum / 100; // e.g., 2.26mm
 
-        // ALT 2: Replace xxx.0600.1006 with xxx.0550.1006 (change filmasin from 6.00mm to 5.50mm)
-        if (oldBilesenKodu.includes('.0600.1006')) {
-          const alt2BilesenKodu = oldBilesenKodu.replace('.0600.1006', '.0550.1006');
-          alt2Recipes.push({
-            ...recipe,
-            bilesen_kodu: alt2BilesenKodu
-          });
-          console.log(`  ✅ ALT 2: ${oldBilesenKodu} → ${alt2BilesenKodu}`);
+            // Round UP to nearest 0.10mm to get matrix key
+            const matrixKey = Math.ceil(bilesenDiameter * 10) / 10; // e.g., 2.26mm → 2.30
+
+            // Look up alternatives in matrix
+            const alternatives = YM_ST_COILER_ALTERNATIVE_MAP[matrixKey];
+
+            if (alternatives) {
+              // ALT 1: Change quality according to matrix (filmasin stays same)
+              const alt1FilmasinStr = String(Math.round(alternatives.alt1.filmasin * 100)).padStart(4, '0');
+              const alt1Quality = alternatives.alt1.quality;
+
+              // Replace filmasin and quality parts
+              const alt1BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt1FilmasinStr + '.' + alt1Quality;
+
+              alt1Recipes.push({
+                ...recipe,
+                bilesen_kodu: alt1BilesenKodu
+                // Miktar stays the same for ALT 1 (same filmasin, only quality changes)
+              });
+              console.log(`  ✅ ALT 1 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt1BilesenKodu}`);
+
+              // ALT 2: Change filmasin and quality according to matrix, recalculate miktar
+              const alt2FilmasinStr = String(Math.round(alternatives.alt2.filmasin * 100)).padStart(4, '0');
+              const alt2Quality = alternatives.alt2.quality;
+
+              // Replace filmasin and quality parts
+              const alt2BilesenKodu = bilesenParts[0] + '.' + bilesenParts[1] + '.' + bilesenParts[2] + '.' + alt2FilmasinStr + '.' + alt2Quality;
+
+              // Recalculate miktar based on filmasin change
+              // Weight is proportional to cross-sectional area (diameter squared)
+              const oldFilmasin = 6.0;
+              const newFilmasin = alternatives.alt2.filmasin;
+              const oldMiktar = parseFloat(recipe.miktar);
+              const weightRatio = Math.pow(newFilmasin / oldFilmasin, 2);
+              const newMiktar = oldMiktar * weightRatio;
+
+              alt2Recipes.push({
+                ...recipe,
+                bilesen_kodu: alt2BilesenKodu,
+                miktar: newMiktar.toFixed(6)
+              });
+              console.log(`  ✅ ALT 2 (matrix ${matrixKey}): ${oldBilesenKodu} → ${alt2BilesenKodu} (miktar: ${oldMiktar} → ${newMiktar.toFixed(6)}, ratio: ${weightRatio.toFixed(4)})`);
+            } else {
+              console.log(`  ⚠️ No matrix entry for bilesen diameter ${bilesenDiameter}mm (key: ${matrixKey})`);
+            }
+          }
         }
       } else {
         // Keep operation rows unchanged for both alternatives
