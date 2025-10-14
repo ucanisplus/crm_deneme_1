@@ -254,8 +254,11 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       const mainDef = alternatives.find(a => a.priority === 0);
 
       // Calculate duration adjustment ratio
-      // Duration is inversely proportional to cross-sectional area: (oldFilmasin/newFilmasin)²
-      const durationRatio = Math.pow(mainDef.filmasin / altDef.filmasin, 2);
+      // Based on database analysis: duration ∝ 1/cap²
+      // Thicker bilesen cap (larger cap) → SHORTER duration (less reduction needed)
+      // Thinner bilesen cap (smaller cap) → LONGER duration (more reduction needed)
+      // Formula: (oldCap/newCap)² - INVERSE relationship!
+      const durationRatio = Math.pow(mainDef.cap / altDef.cap, 2);
 
       // Initialize priority array if needed
       if (!alternativesByPriority[priority]) {
@@ -279,9 +282,9 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
             // Miktar stays the same (weight in KG unchanged)
           });
 
-          console.log(`  ✅ ALT ${priority}: ${oldBilesenKodu} → ${newBilesenKodu} (ratio: ${durationRatio.toFixed(4)})`);
+          console.log(`  ✅ ALT ${priority}: ${oldBilesenKodu} → ${newBilesenKodu} (cap ratio: ${durationRatio.toFixed(4)})`);
         } else {
-          // OPERATION ROW: Adjust duration based on filmasin change
+          // OPERATION ROW: Adjust duration based on cap (wire diameter) change
           if (recipe.miktar && durationRatio !== 1.0) {
             const oldDuration = parseFloat(recipe.miktar);
             const newDuration = oldDuration * durationRatio;
