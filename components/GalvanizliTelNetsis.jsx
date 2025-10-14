@@ -170,10 +170,10 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
   // Group recipes by product
   const recipesByProduct = {};
   mainRecipes.forEach(recipe => {
-    if (!recipesByProduct[recipe.ym_st_stok_kodu]) {
-      recipesByProduct[recipe.ym_st_stok_kodu] = [];
+    if (!recipesByProduct[recipe.mamul_kodu]) {
+      recipesByProduct[recipe.mamul_kodu] = [];
     }
-    recipesByProduct[recipe.ym_st_stok_kodu].push(recipe);
+    recipesByProduct[recipe.mamul_kodu].push(recipe);
   });
 
   console.log(`🔍 DEBUG: Grouped into ${Object.keys(recipesByProduct).length} unique products`);
