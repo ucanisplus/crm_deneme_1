@@ -10138,6 +10138,18 @@ const GalvanizliTelNetsis = () => {
 
     // 🆕 Get COILER alternatives from database (priorities 1-8)
     console.log('🔄 TÜM ÜRÜNLER: Processing COILER alternatives from database (priorities 1-8)...');
+    console.log(`📊 DEBUG: Total allYMSTRecetes count: ${allYMSTRecetes.length}`);
+
+    // Log sample of recipes to see structure
+    if (allYMSTRecetes.length > 0) {
+      console.log('📊 DEBUG: Sample YM ST recipe:', {
+        mamul_kodu: allYMSTRecetes[0].mamul_kodu,
+        bilesen_kodu: allYMSTRecetes[0].bilesen_kodu,
+        priority: allYMSTRecetes[0].priority,
+        miktar: allYMSTRecetes[0].miktar
+      });
+    }
+
     const altRecipesByPriority = {};
     allYMSTRecetes.forEach(recipe => {
       const priority = recipe.priority || 0;
@@ -10152,10 +10164,23 @@ const GalvanizliTelNetsis = () => {
     const altPriorities = Object.keys(altRecipesByPriority).map(Number).sort((a, b) => a - b);
     console.log(`📋 TÜM ÜRÜNLER: Found COILER alternative priorities in database: ${altPriorities.join(', ')}`);
 
+    // Log details of what was found
+    altPriorities.forEach(priority => {
+      const recipes = altRecipesByPriority[priority];
+      console.log(`  📋 Priority ${priority}: ${recipes.length} recipes`);
+      if (recipes.length > 0) {
+        console.log(`    Sample: ${recipes[0].mamul_kodu} - ${recipes[0].bilesen_kodu}`);
+      }
+    });
+
     // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on available alternatives
+    console.log(`📊 DEBUG: Creating ${altPriorities.length} YM ST REÇETE ALT sheets...`);
+
     altPriorities.forEach(priority => {
       const altRecipes = altRecipesByPriority[priority];
       if (!altRecipes || altRecipes.length === 0) return;
+
+      console.log(`📊 DEBUG: Creating sheet 'YM ST REÇETE ALT ${priority}' with ${altRecipes.length} recipes`);
 
       const altSheet = receteWorkbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
@@ -10168,6 +10193,8 @@ const GalvanizliTelNetsis = () => {
         }
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
+
+      console.log(`📊 DEBUG: Grouped into ${Object.keys(ymStAltByProduct).length} products for ALT ${priority}`);
 
       // Add recipes sorted by product code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
@@ -10182,6 +10209,8 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
     });
+
+    console.log(`📊 DEBUG: Finished creating all YM ST REÇETE ALT sheets. Total sheets created: ${altPriorities.length}`);
     
     // Save Reçete Excel
     const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
