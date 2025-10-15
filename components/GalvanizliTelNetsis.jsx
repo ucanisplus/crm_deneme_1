@@ -10136,51 +10136,16 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // 🆕 Get COILER alternatives from database (priorities 1-8)
-    console.log('🔄 TÜM ÜRÜNLER: Processing COILER alternatives from database (priorities 1-8)...');
-    console.log(`📊 DEBUG: Total allYMSTRecetes count: ${allYMSTRecetes.length}`);
-
-    // Log sample of recipes to see structure
-    if (allYMSTRecetes.length > 0) {
-      console.log('📊 DEBUG: Sample YM ST recipe:', {
-        mamul_kodu: allYMSTRecetes[0].mamul_kodu,
-        bilesen_kodu: allYMSTRecetes[0].bilesen_kodu,
-        priority: allYMSTRecetes[0].priority,
-        miktar: allYMSTRecetes[0].miktar
-      });
-    }
-
-    const altRecipesByPriority = {};
-    allYMSTRecetes.forEach(recipe => {
-      const priority = recipe.priority || 0;
-      if (priority > 0) { // Only alternatives (priority 1+)
-        if (!altRecipesByPriority[priority]) {
-          altRecipesByPriority[priority] = [];
-        }
-        altRecipesByPriority[priority].push(recipe);
-      }
-    });
-
-    const altPriorities = Object.keys(altRecipesByPriority).map(Number).sort((a, b) => a - b);
-    console.log(`📋 TÜM ÜRÜNLER: Found COILER alternative priorities in database: ${altPriorities.join(', ')}`);
-
-    // Log details of what was found
-    altPriorities.forEach(priority => {
-      const recipes = altRecipesByPriority[priority];
-      console.log(`  📋 Priority ${priority}: ${recipes.length} recipes`);
-      if (recipes.length > 0) {
-        console.log(`    Sample: ${recipes[0].mamul_kodu} - ${recipes[0].bilesen_kodu}`);
-      }
-    });
+    // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
+    console.log('🔄 TÜM ÜRÜNLER: Generating COILER alternatives for .ST products...');
+    const coilerAlternatives = generateCoilerAlternatives(mainYmStRecetes, allYMSTProducts);
+    const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
+    console.log(`📋 TÜM ÜRÜNLER: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
     // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on available alternatives
-    console.log(`📊 DEBUG: Creating ${altPriorities.length} YM ST REÇETE ALT sheets...`);
-
     altPriorities.forEach(priority => {
-      const altRecipes = altRecipesByPriority[priority];
+      const altRecipes = coilerAlternatives[priority];
       if (!altRecipes || altRecipes.length === 0) return;
-
-      console.log(`📊 DEBUG: Creating sheet 'YM ST REÇETE ALT ${priority}' with ${altRecipes.length} recipes`);
 
       const altSheet = receteWorkbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
@@ -10193,8 +10158,6 @@ const GalvanizliTelNetsis = () => {
         }
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
-
-      console.log(`📊 DEBUG: Grouped into ${Object.keys(ymStAltByProduct).length} products for ALT ${priority}`);
 
       // Add recipes sorted by product code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
@@ -10209,8 +10172,6 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
     });
-
-    console.log(`📊 DEBUG: Finished creating all YM ST REÇETE ALT sheets. Total sheets created: ${altPriorities.length}`);
     
     // Save Reçete Excel
     const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
@@ -10867,8 +10828,8 @@ const GalvanizliTelNetsis = () => {
       operation: 'Reçete Excel oluşturuluyor...',
       currentProduct: `${totalRecipes} ana reçete (ALT reçeteler dinamik olarak oluşturulacak)`
     });
-    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData, allYmStAltRecipes);
-
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData);
+    
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
     setExcelProgress({ 
       current: totalSteps, 
@@ -10966,9 +10927,8 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Generate batch recipe Excel - EXACT same format as individual, just multiple rows
-  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData, ymStAltRecipes = {}) => {
+  const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData) => {
     console.log('📋 Batch Reçete Excel - Input validation');
-    console.log(`📋 Received ${Object.keys(ymStAltRecipes).length} alternative recipe groups:`, Object.keys(ymStAltRecipes).map(k => `ALT ${k}: ${ymStAltRecipes[k].length} recipes`).join(', '));
     
     const workbook = new ExcelJS.Workbook();
     
@@ -11144,6 +11104,13 @@ const GalvanizliTelNetsis = () => {
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
+    // 🆕 Generate COILER alternatives dynamically for .ST products
+    console.log('🔄 Generating COILER alternatives for .ST products...');
+    const { alt1Recipes, alt2Recipes } = generateCoilerAlternatives(ymStRecipes, sortedYmStData);
+    console.log(`📋 Created ${alt1Recipes.length} ALT 1 recipes and ${alt2Recipes.length} ALT 2 recipes for COILER products`);
+
+    console.log(`📋 Creating YM ST Reçete sheets: Ana (${ymStRecipes.length}), ALT 1 (${alt1Recipes.length}), ALT 2 (${alt2Recipes.length}) recipes`);
+
     // Group main recipes by product
     const ymStByProduct = {};
     ymStRecipes.forEach(recipe => {
@@ -11171,50 +11138,73 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // 🆕 Create YM ST REÇETE ALT sheets dynamically from database alternatives (priorities 1-8)
-    console.log('🔄 Processing YM ST alternative recipes from database...');
-    const altPriorities = Object.keys(ymStAltRecipes).map(Number).sort((a, b) => a - b);
-    console.log(`📋 Found alternative priorities: ${altPriorities.join(', ')}`);
+    // 🆕 Create YM ST REÇETE ALT 1 sheet (for .ST products with xxx.0600.1008)
+    if (alt1Recipes.length > 0) {
+      const alt1Sheet = workbook.addWorksheet('YM ST REÇETE ALT 1');
+      alt1Sheet.addRow(receteHeaders);
 
-    altPriorities.forEach(priority => {
-      const altRecipes = ymStAltRecipes[priority];
-      if (!altRecipes || altRecipes.length === 0) {
-        console.log(`⚠️ No recipes found for ALT ${priority}, skipping sheet`);
-        return;
-      }
-
-      console.log(`✅ Creating YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
-      const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
-      altSheet.addRow(receteHeaders);
-
-      // Group alternative recipes by product
-      const ymStAltByProduct = {};
-      altRecipes.forEach(recipe => {
-        if (!ymStAltByProduct[recipe.ym_st_stok_kodu]) {
-          ymStAltByProduct[recipe.ym_st_stok_kodu] = [];
+      // Group ALT 1 recipes by product
+      const ymStAlt1ByProduct = {};
+      alt1Recipes.forEach(recipe => {
+        if (!ymStAlt1ByProduct[recipe.ym_st_stok_kodu]) {
+          ymStAlt1ByProduct[recipe.ym_st_stok_kodu] = [];
         }
-        ymStAltByProduct[recipe.ym_st_stok_kodu].push(recipe);
+        ymStAlt1ByProduct[recipe.ym_st_stok_kodu].push(recipe);
       });
 
-      // Add alternative recipes sorted by product
-      Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
-        if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
+      // Add ALT 1 recipes (only for .ST products)
+      sortedYmStStokCodes.forEach(stokKodu => {
+        if (ymStAlt1ByProduct[stokKodu] && ymStAlt1ByProduct[stokKodu].length > 0) {
           let productSiraNo = 1;
-          ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(
+          ymStAlt1ByProduct[stokKodu].forEach(recipe => {
+            alt1Sheet.addRow(generateYmStReceteRowForBatch(
               recipe.bilesen_kodu,
               recipe.miktar,
               productSiraNo,
               recipe.ym_st_stok_kodu,
-              priority // Use the actual priority from database
+              1 // Priority 1 for ALT 1
             ));
             productSiraNo++;
           });
         }
       });
 
-      console.log(`✅ Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
-    });
+      console.log(`✅ Created YM ST REÇETE ALT 1 sheet with ${alt1Recipes.length} recipes`);
+    }
+
+    // 🆕 Create YM ST REÇETE ALT 2 sheet (for .ST products with xxx.0550.1006)
+    if (alt2Recipes.length > 0) {
+      const alt2Sheet = workbook.addWorksheet('YM ST REÇETE ALT 2');
+      alt2Sheet.addRow(receteHeaders);
+
+      // Group ALT 2 recipes by product
+      const ymStAlt2ByProduct = {};
+      alt2Recipes.forEach(recipe => {
+        if (!ymStAlt2ByProduct[recipe.ym_st_stok_kodu]) {
+          ymStAlt2ByProduct[recipe.ym_st_stok_kodu] = [];
+        }
+        ymStAlt2ByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      });
+
+      // Add ALT 2 recipes (only for .ST products)
+      sortedYmStStokCodes.forEach(stokKodu => {
+        if (ymStAlt2ByProduct[stokKodu] && ymStAlt2ByProduct[stokKodu].length > 0) {
+          let productSiraNo = 1;
+          ymStAlt2ByProduct[stokKodu].forEach(recipe => {
+            alt2Sheet.addRow(generateYmStReceteRowForBatch(
+              recipe.bilesen_kodu,
+              recipe.miktar,
+              productSiraNo,
+              recipe.ym_st_stok_kodu,
+              2 // Priority 2 for ALT 2
+            ));
+            productSiraNo++;
+          });
+        }
+      });
+
+      console.log(`✅ Created YM ST REÇETE ALT 2 sheet with ${alt2Recipes.length} recipes`);
+    }
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -12565,8 +12555,7 @@ const GalvanizliTelNetsis = () => {
 
       // Fetch YM ST recipes for all YM ST products (main and alternatives)
       const allYmStProducts = [...ymStProducts, ...Object.values(ymStAltDataObj).flat()];
-      const ymStRecipes = []; // Main recipes (priority 0)
-      const ymStAltRecipes = {}; // Alternative recipes grouped by priority
+      const ymStRecipes = [];
 
       for (const ymSt of allYmStProducts) {
         const ymStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymSt.id}`);
@@ -12576,24 +12565,13 @@ const GalvanizliTelNetsis = () => {
             recipe.ym_st_stok_kodu = ymSt.stok_kodu;
             recipe.ym_st_priority = ymSt.priority;
           });
-
-          // Group by priority
-          if (ymSt.priority === 0) {
-            ymStRecipes.push(...recipes);
-          } else {
-            if (!ymStAltRecipes[ymSt.priority]) {
-              ymStAltRecipes[ymSt.priority] = [];
-            }
-            ymStAltRecipes[ymSt.priority].push(...recipes);
-          }
+          ymStRecipes.push(...recipes);
         }
       }
 
-      console.log(`📋 Single Product Excel - Main recipes: ${ymStRecipes.length}, Alternative groups: ${Object.keys(ymStAltRecipes).length}`);
-
       // 5. Generate Excel using batch functions (ensures format matches database reality)
       await generateBatchStokKartiExcel([mmGt], [ymGt], ymStProducts, ymStAltDataObj);
-      await generateBatchReceteExcel(mmGtRecipes, ymGtRecipes, ymStRecipes, [mmGt], [ymGt], allYmStProducts, ymStAltRecipes);
+      await generateBatchReceteExcel(mmGtRecipes, ymGtRecipes, ymStRecipes, [mmGt], [ymGt], allYmStProducts);
 
       console.log('✅ Excel files generated from database successfully');
 
