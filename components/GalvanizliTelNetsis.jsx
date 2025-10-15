@@ -864,10 +864,8 @@ const GalvanizliTelNetsis = () => {
       const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
 
       setCalculatedYmStDiameter(ymStDiameter);
-      // Also update user editable value if it's empty or was auto-calculated
-      if (!userYmStDiameter || userYmStDiameter === '') {
-        setUserYmStDiameter(ymStDiameter.toFixed(2));
-      }
+      // Don't auto-fill the input - let user enter manually
+      // The suggested value is shown above the input field
     } else {
       setCalculatedYmStDiameter(null);
     }
@@ -15134,7 +15132,7 @@ const GalvanizliTelNetsis = () => {
                           value={userYmStDiameter}
                           onChange={(e) => setUserYmStDiameter(e.target.value)}
                           className="flex-1 px-4 py-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-lg font-semibold"
-                          placeholder="Örn: 2.78"
+                          placeholder={calculatedYmStDiameter !== null ? `Önerilen: ${calculatedYmStDiameter.toFixed(2)} mm` : "YM ST çapını giriniz"}
                         />
                         <span className="text-gray-700 font-medium">mm</span>
                       </div>
