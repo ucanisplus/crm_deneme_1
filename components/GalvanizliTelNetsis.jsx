@@ -442,11 +442,6 @@ const GalvanizliTelNetsis = () => {
   const [allYmStsForSelection, setAllYmStsForSelection] = useState([]);
   const [ymStSearchQuery, setYmStSearchQuery] = useState('');
   const [selectedYmStsForAdd, setSelectedYmStsForAdd] = useState([]);
-
-  // Manuel Oluştur modal state'leri
-  const [showManuelOlusturModal, setShowManuelOlusturModal] = useState(false);
-  const [manuelFilmasinSelection, setManuelFilmasinSelection] = useState('');
-  const [manuelYmStSelection, setManuelYmStSelection] = useState('');
   
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
@@ -620,6 +615,9 @@ const GalvanizliTelNetsis = () => {
 
   // Calculated YM ST diameter for conditional UI rendering
   const [calculatedYmStDiameter, setCalculatedYmStDiameter] = useState(null);
+
+  // User-editable YM ST diameter (initialized from calculated value)
+  const [userYmStDiameter, setUserYmStDiameter] = useState('');
 
   // Hesaplanan/oluşturulan veriler
   const [ymGtData, setYmGtData] = useState(null);
@@ -860,12 +858,16 @@ const GalvanizliTelNetsis = () => {
       const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
 
       const actualToleranceMinus = Math.abs(toleransMinus);
-      const coatingReduction = (kaplama / 35) * 0.01; // Changed from Math.floor to match user's formula
+      const coatingReduction = (kaplama / 35) * 0.01;
 
-      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01; // Added +0.01 as per user's formula
+      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.02;
       const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
 
       setCalculatedYmStDiameter(ymStDiameter);
+      // Also update user editable value if it's empty or was auto-calculated
+      if (!userYmStDiameter || userYmStDiameter === '') {
+        setUserYmStDiameter(ymStDiameter.toFixed(2));
+      }
     } else {
       setCalculatedYmStDiameter(null);
     }
@@ -3480,14 +3482,14 @@ const GalvanizliTelNetsis = () => {
     const kodType = mmGtData.kod_2; // 'PAD' or 'NIT'
 
     // ========== STEP 1: Calculate YM ST diameter with CORRECT formula ==========
-    // Formula: YM_ST_diameter = YM_GT_nominal - abs(min_tolerance) - coating_reduction
+    // Formula: YM_ST_diameter = YM_GT_nominal - abs(min_tolerance) - coating_reduction + 0.02
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     const toleransMinSign = mmGtData.tolerans_min_sign || '-';
 
     const actualToleranceMinus = Math.abs(toleransMinus);
-    const coatingReduction = (kaplama / 35) * 0.01; // Changed from Math.floor to match user's formula
+    const coatingReduction = (kaplama / 35) * 0.01;
 
-    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01; // Added +0.01 as per user's formula
+    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.02;
     const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1); // Minimum 0.1mm, round to 2 decimals
 
     console.log(`🔧 YM ST Diameter Calculation:`, {
@@ -3692,146 +3694,201 @@ const GalvanizliTelNetsis = () => {
     }, 100);
   };
 
-  // Manuel YM ST oluştur - kullanıcı tarafından seçilen Filmaşin/YM ST ile
-  const handleManuelOlustur = async () => {
-    try {
-      // Validate based on diameter
-      const ymStDiam = calculatedYmStDiameter || 0;
+  // Simplified YM ST creation based on user-entered diameter
+  const handleCreateYmStFromDiameter = async () => {
+    const ymStDiameter = parseFloat(userYmStDiameter);
 
-      console.log('🔧 Manuel Oluştur - Calculated YM ST Diameter:', ymStDiam);
-      console.log('Selected Filmaşin:', manuelFilmasinSelection);
-      console.log('Selected YM ST:', manuelYmStSelection);
-
-      if (ymStDiam < 1.5 && !manuelYmStSelection) {
-        toast.error('YM ST seçimi gerekli (çap < 1.5mm)');
-        return;
-      }
-
-      if (ymStDiam >= 1.5 && ymStDiam < 1.8 && (!manuelFilmasinSelection || !manuelYmStSelection)) {
-        toast.error('Hem Filmaşin hem YM ST seçimi gerekli (çap 1.5-1.8mm)');
-        return;
-      }
-
-      if (ymStDiam >= 1.8 && !manuelFilmasinSelection) {
-        toast.error('Filmaşin seçimi gerekli (çap >= 1.8mm)');
-        return;
-      }
-
-      const cap = parseFloat(mmGtData.cap) || 0;
-      const kaplama = parseInt(mmGtData.kaplama) || 0;
-
-      // Get tolerances for calculation
-      const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
-      const actualToleranceMinus = Math.abs(toleransMinus);
-      const coatingReduction = (kaplama / 35) * 0.01;
-      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.01;
-      const calculatedCap = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
-
-      const manuelYmSts = [];
-
-      // Case 1: < 1.5mm - Only YM ST product
-      if (ymStDiam < 1.5 && manuelYmStSelection) {
-        const selectedYmSt = await fetchWithAuth(`${API_URLS.galYmSt}/${manuelYmStSelection}`);
-        if (selectedYmSt && selectedYmSt.ok) {
-          const ymStData = await selectedYmSt.json();
-          manuelYmSts.push({
-            ...ymStData,
-            source: 'manual-selected',
-            priority: 0,
-            isMain: true
-          });
-        }
-      }
-      // Case 2: 1.5-1.8mm - Both Filmaşin (Ana) and YM ST (ALT)
-      else if (ymStDiam >= 1.5 && ymStDiam < 1.8 && manuelFilmasinSelection && manuelYmStSelection) {
-        // Add Filmaşin-based product (Ana)
-        const filmasinResponse = await fetchWithAuth(`${API_URLS.galFilmasin}/${manuelFilmasinSelection}`);
-        if (filmasinResponse && filmasinResponse.ok) {
-          const filmasinData = await filmasinResponse.json();
-          const capStr = Math.round(calculatedCap * 100).toString().padStart(4, '0');
-          const filmasinStr = (parseFloat(filmasinData.cap) * 100).toString().padStart(4, '0');
-          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${filmasinData.kalite}`;
-
-          manuelYmSts.push({
-            stok_kodu: stokKodu,
-            stok_adi: `YM Siyah Tel ${calculatedCap.toFixed(2)} mm HM:${filmasinStr}.${filmasinData.kalite}`,
-            cap: calculatedCap,
-            filmasin: Math.round(parseFloat(filmasinData.cap) * 100),
-            quality: filmasinData.kalite,
-            payda_1: 1,
-            kaplama: kaplama,
-            source: 'manual-created-filmasin',
-            priority: 0,
-            isMain: true
-          });
-        }
-
-        // Add YM ST product (ALT_1)
-        const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${manuelYmStSelection}`);
-        if (ymStResponse && ymStResponse.ok) {
-          const ymStData = await ymStResponse.json();
-          manuelYmSts.push({
-            ...ymStData,
-            source: 'manual-selected',
-            priority: 1
-          });
-        }
-      }
-      // Case 3: >= 1.8mm - Only Filmaşin-based product
-      else if (ymStDiam >= 1.8 && manuelFilmasinSelection) {
-        const filmasinResponse = await fetchWithAuth(`${API_URLS.galFilmasin}/${manuelFilmasinSelection}`);
-        if (filmasinResponse && filmasinResponse.ok) {
-          const filmasinData = await filmasinResponse.json();
-          const capStr = Math.round(calculatedCap * 100).toString().padStart(4, '0');
-          const filmasinStr = (parseFloat(filmasinData.cap) * 100).toString().padStart(4, '0');
-          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${filmasinData.kalite}`;
-
-          manuelYmSts.push({
-            stok_kodu: stokKodu,
-            stok_adi: `YM Siyah Tel ${calculatedCap.toFixed(2)} mm HM:${filmasinStr}.${filmasinData.kalite}`,
-            cap: calculatedCap,
-            filmasin: Math.round(parseFloat(filmasinData.cap) * 100),
-            quality: filmasinData.kalite,
-            payda_1: 1,
-            kaplama: kaplama,
-            source: 'manual-created-filmasin',
-            priority: 0,
-            isMain: true
-          });
-        }
-      }
-
-      if (manuelYmSts.length === 0) {
-        toast.error('Manuel YM ST oluşturulamadı - lütfen seçimleri kontrol edin');
-        return;
-      }
-
-      console.log(`✅ Manually created ${manuelYmSts.length} YM ST products:`, manuelYmSts.map(y => y.stok_kodu));
-
-      // Add to selected YM STs
-      setSelectedYmSts(prev => [...prev, ...manuelYmSts]);
-
-      // Set main YM ST index if this is the first selection
-      if (selectedYmSts.length === 0 && manuelYmSts.length > 0) {
-        setMainYmStIndex(0);
-      }
-
-      // Close modal and reset selections
-      setShowManuelOlusturModal(false);
-      setManuelFilmasinSelection('');
-      setManuelYmStSelection('');
-
-      toast.success(`${manuelYmSts.length} YM ST manuel olarak eklendi`);
-
-      // Calculate recipes
-      setTimeout(() => {
-        calculateAutoRecipeValues();
-      }, 100);
-
-    } catch (error) {
-      console.error('Error in handleManuelOlustur:', error);
-      toast.error('Manuel YM ST oluşturma hatası: ' + error.message);
+    if (!ymStDiameter || ymStDiameter <= 0) {
+      toast.error('Geçerli bir YM ST çapı giriniz');
+      return;
     }
+
+    const kaplama = parseInt(mmGtData.kaplama) || 0;
+    const autoYmSts = [];
+
+    console.log(`🔧 Creating YM ST products for diameter: ${ymStDiameter}mm`);
+
+    if (ymStDiameter < 1.5) {
+      // ========== CASE 1: < 1.5mm → Only .ST products ==========
+      console.log('📍 YM ST < 1.5mm: Creating .ST product only');
+
+      const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+      const stokKodu = `YM.ST.${capStr}.ST`;
+
+      try {
+        const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+        if (existing) {
+          setExistingYmStsForModal([existing]);
+          setShowYmStExistsModal(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking existing .ST product:', error);
+      }
+
+      autoYmSts.push({
+        stok_kodu: stokKodu,
+        stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler)`,
+        cap: ymStDiameter,
+        filmasin: 0,
+        quality: 'ST',
+        payda_1: 1000,
+        kaplama: kaplama,
+        source: 'auto-generated',
+        isStProduct: true
+      });
+
+    } else if (ymStDiameter >= 1.5 && ymStDiameter < 1.8) {
+      // ========== CASE 2: 1.5-1.8mm → BOTH filmaşin (Ana) + .ST (ALT_1) ==========
+      console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
+
+      const matrixAlts = getMatrixAlternatives(ymStDiameter);
+      const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
+        ? matrixAlts[0]
+        : null;
+
+      if (anaAlt) {
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const filmasinStr = (anaAlt.diameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${anaAlt.quality}`;
+
+        try {
+          const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+          if (!existing) {
+            autoYmSts.push({
+              stok_kodu: stokKodu,
+              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${anaAlt.quality}`,
+              cap: ymStDiameter,
+              filmasin: Math.round(anaAlt.diameter * 100),
+              quality: anaAlt.quality,
+              payda_1: 1,
+              kaplama: kaplama,
+              source: 'auto-generated',
+              priority: 0,
+              isMain: true
+            });
+          }
+        } catch (error) {
+          console.error('Error checking Ana product:', error);
+        }
+      } else {
+        console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
+        const filmasinCap = getFilmasinForCap(ymStDiameter);
+        const quality = getQualityForCap(ymStDiameter);
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinCap}.${quality}`;
+
+        autoYmSts.push({
+          stok_kodu: stokKodu,
+          stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+          cap: ymStDiameter,
+          filmasin: parseInt(filmasinCap),
+          quality: quality,
+          payda_1: 1,
+          kaplama: kaplama,
+          source: 'auto-generated',
+          priority: 0,
+          isMain: true
+        });
+      }
+
+      // ALT_1: .ST product
+      const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+      const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
+
+      try {
+        const existing = await checkExistingProduct(API_URLS.galYmSt, stokKoduAlt);
+        if (!existing) {
+          autoYmSts.push({
+            stok_kodu: stokKoduAlt,
+            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler ALT)`,
+            cap: ymStDiameter,
+            filmasin: 0,
+            quality: 'ST',
+            payda_1: 1000,
+            kaplama: kaplama,
+            source: 'auto-generated',
+            priority: 1,
+            isStProduct: true,
+            isMain: false
+          });
+        }
+      } catch (error) {
+        console.error('Error checking .ST alternative:', error);
+      }
+
+    } else {
+      // ========== CASE 3: >= 1.8mm → Only filmaşin products ==========
+      console.log('📍 YM ST >= 1.8mm: Creating filmaşin product only');
+
+      const matrixAlts = getMatrixAlternatives(ymStDiameter);
+
+      if (matrixAlts && matrixAlts.length > 0) {
+        for (const alt of matrixAlts) {
+          const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+          const filmasinStr = (alt.diameter * 100).toString().padStart(4, '0');
+          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${alt.quality}`;
+
+          try {
+            const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+            if (!existing) {
+              autoYmSts.push({
+                stok_kodu: stokKodu,
+                stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${alt.quality}`,
+                cap: ymStDiameter,
+                filmasin: Math.round(alt.diameter * 100),
+                quality: alt.quality,
+                payda_1: 1,
+                kaplama: kaplama,
+                source: 'auto-generated',
+                priority: alt.priority,
+                isMain: alt.priority === 0
+              });
+            }
+          } catch (error) {
+            console.error(`Error checking alternative priority ${alt.priority}:`, error);
+          }
+        }
+      } else {
+        console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
+        const filmasinCap = getFilmasinForCap(ymStDiameter);
+        const quality = getQualityForCap(ymStDiameter);
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinCap}.${quality}`;
+
+        autoYmSts.push({
+          stok_kodu: stokKodu,
+          stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
+          cap: ymStDiameter,
+          filmasin: parseInt(filmasinCap),
+          quality: quality,
+          payda_1: 1,
+          kaplama: kaplama,
+          source: 'auto-generated',
+          priority: 0,
+          isMain: true
+        });
+      }
+    }
+
+    if (autoYmSts.length === 0) {
+      toast.warning('YM ST oluşturulamadı - tüm ürünler zaten mevcut');
+      return;
+    }
+
+    console.log(`✅ Generated ${autoYmSts.length} YM ST products:`, autoYmSts.map(y => y.stok_kodu));
+
+    setAutoGeneratedYmSts(autoYmSts);
+
+    if (selectedYmSts.length === 0 && autoYmSts.length > 0) {
+      setMainYmStIndex(0);
+    }
+
+    setTimeout(() => {
+      calculateAutoRecipeValues();
+    }, 100);
+
+    toast.success(`${autoYmSts.length} YM ST ürün oluşturuldu`);
   };
 
   // Filmaşin mapping from Excel data (Hammadde_tuketimleri.xlsx)
@@ -14898,82 +14955,90 @@ const GalvanizliTelNetsis = () => {
               </div>
             )}
 
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
+            {/* Simplified YM ST Creation UI */}
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                   <span className="text-green-600 font-bold">ST</span>
                 </div>
-                YM ST Seçimi ve Yönetimi
+                YM ST Ürün Oluşturma
               </h2>
-              <div className="flex gap-3">
-                <button
-                  onClick={async () => {
-                    setShowYmStSelectionModal(true);
-                    // Load all YM STs for selection with auto-suggested ones on top
-                    try {
-                      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
-                      if (response && response.ok) {
-                        const allYmSts = await response.json();
-                        if (Array.isArray(allYmSts)) {
-                          // Get suggested YM STs using the same logic as Otomatik Oluştur
-                          const cap = parseFloat(mmGtData.cap) || 0;
-                          const suggestedYmSts = [];
-                          const otherYmSts = [];
-                          
-                          allYmSts.forEach(ymSt => {
-                            const ymStCap = parseFloat(ymSt.cap) || 0;
-                            const capDifference = Math.abs(ymStCap - cap);
-                            // Use same suggestion logic as Otomatik Oluştur
-                            if (capDifference <= 0.5) {
-                              suggestedYmSts.push(ymSt);
-                            } else {
-                              otherYmSts.push(ymSt);
-                            }
-                          });
-                          
-                          // Sort suggested ones by closest cap match
-                          suggestedYmSts.sort((a, b) => {
-                            const aDiff = Math.abs(parseFloat(a.cap || 0) - cap);
-                            const bDiff = Math.abs(parseFloat(b.cap || 0) - cap);
-                            return aDiff - bDiff;
-                          });
-                          
-                          // Combine: suggested ones first, then others
-                          setAllYmStsForSelection([...suggestedYmSts, ...otherYmSts]);
-                        }
-                      }
-                    } catch (error) {
-                      console.error('YM ST verileri yüklenemedi:', error);
-                      toast.error('YM ST verileri yüklenemedi');
-                    }
-                  }}
-                  disabled={isLoading || isLoadingRecipes}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                  </svg>
-                  Kayıtlılardan Seç
-                </button>
-                <button
-                  onClick={generateAutoYmSts}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  Otomatik Oluştur
-                </button>
-                <button
-                  onClick={() => setShowManuelOlusturModal(true)}
-                  disabled={!calculatedYmStDiameter}
-                  className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Manuel Oluştur
-                </button>
+
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg border border-blue-200">
+                <div className="space-y-4">
+                  {/* Suggested Diameter Display */}
+                  {calculatedYmStDiameter !== null && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <span>Önerilen YM ST Çapı: <strong className="text-blue-700">{calculatedYmStDiameter.toFixed(2)} mm</strong></span>
+                    </div>
+                  )}
+
+                  {/* Editable Diameter Input */}
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        YM ST Çapı (manuel düzeltme yapabilirsiniz)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.1"
+                          value={userYmStDiameter}
+                          onChange={(e) => setUserYmStDiameter(e.target.value)}
+                          className="flex-1 px-4 py-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-lg font-semibold"
+                          placeholder="Örn: 2.78"
+                        />
+                        <span className="text-gray-700 font-medium">mm</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleCreateYmStFromDiameter}
+                      disabled={!userYmStDiameter || isLoading || isLoadingRecipes}
+                      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Oluştur
+                    </button>
+                  </div>
+
+                  {/* Info Text Based on Diameter */}
+                  {userYmStDiameter && parseFloat(userYmStDiameter) > 0 && (
+                    <div className="mt-3 text-sm space-y-1">
+                      {parseFloat(userYmStDiameter) < 1.5 && (
+                        <p className="text-blue-700">
+                          <span className="font-semibold">ℹ️ Çap &lt; 1.5mm:</span> Sadece .ST (Coiler) ürünü oluşturulur. COTLC01 operasyonu kullanılır.
+                        </p>
+                      )}
+                      {parseFloat(userYmStDiameter) >= 1.5 && parseFloat(userYmStDiameter) < 1.8 && (
+                        <div className="text-purple-700 space-y-1">
+                          <p className="font-semibold">ℹ️ 1.5mm ≤ Çap &lt; 1.8mm:</p>
+                          <ul className="ml-6 list-disc space-y-0.5">
+                            <li>Filmaşin ürünü (Ana) oluşturulur</li>
+                            <li>.ST (Coiler) ürünü (Alternatif) oluşturulur</li>
+                            <li>Excel çıktısında YM ST REÇETE ALT 1-8 sayfaları oluşturulur</li>
+                          </ul>
+                        </div>
+                      )}
+                      {parseFloat(userYmStDiameter) >= 1.8 && (
+                        <div className="text-green-700 space-y-1">
+                          <p className="font-semibold">ℹ️ Çap ≥ 1.8mm:</p>
+                          <ul className="ml-6 list-disc space-y-0.5">
+                            <li>Sadece filmaşin ürünleri oluşturulur</li>
+                            <li>Matris bazlı alternatifler kullanılır</li>
+                            <li>Excel çıktısında YM ST REÇETE ALT sayfaları oluşturulmaz</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -18372,144 +18437,6 @@ const GalvanizliTelNetsis = () => {
                     YM ST Güncellemeden Devam Et
                   </button>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Manuel Oluştur Modal */}
-      {showManuelOlusturModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Manuel YM ST Oluştur
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowManuelOlusturModal(false);
-                    setManuelFilmasinSelection('');
-                    setManuelYmStSelection('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Diameter Info */}
-              {calculatedYmStDiameter !== null && (
-                <div className={`mb-6 p-4 rounded-lg border-l-4 ${
-                  calculatedYmStDiameter < 1.5
-                    ? 'bg-blue-50 border-blue-500'
-                    : calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8
-                    ? 'bg-purple-50 border-purple-500'
-                    : 'bg-green-50 border-green-500'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold text-gray-800">
-                        Hesaplanan YM ST Çapı: {calculatedYmStDiameter.toFixed(2)} mm
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {calculatedYmStDiameter < 1.5 && (
-                          <>
-                            <span className="font-semibold text-blue-700">Çap &lt; 1.5mm:</span> Sadece YM ST seçimi gerekli
-                          </>
-                        )}
-                        {calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8 && (
-                          <>
-                            <span className="font-semibold text-purple-700">1.5mm ≤ Çap &lt; 1.8mm:</span> Hem Filmaşin hem YM ST seçimi gerekli
-                          </>
-                        )}
-                        {calculatedYmStDiameter >= 1.8 && (
-                          <>
-                            <span className="font-semibold text-green-700">Çap ≥ 1.8mm:</span> Sadece Filmaşin seçimi gerekli
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Selection Fields */}
-              <div className="space-y-4">
-                {/* Filmaşin Selection - Show for >= 1.5mm */}
-                {calculatedYmStDiameter !== null && calculatedYmStDiameter >= 1.5 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Filmaşin Seçimi
-                      {calculatedYmStDiameter < 1.8 && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    <select
-                      value={manuelFilmasinSelection}
-                      onChange={(e) => setManuelFilmasinSelection(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="">-- Filmaşin Seçin --</option>
-                      {/* Options will be loaded from API - for now placeholder */}
-                      <option value="1">FLM.0550.1006 (5.5mm, 1006)</option>
-                      <option value="2">FLM.0600.1006 (6.0mm, 1006)</option>
-                      <option value="3">FLM.0600.1008 (6.0mm, 1008)</option>
-                      <option value="4">FLM.0700.1008 (7.0mm, 1008)</option>
-                      <option value="5">FLM.0700.1010 (7.0mm, 1010)</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* YM ST Selection - Show for < 1.8mm */}
-                {calculatedYmStDiameter !== null && calculatedYmStDiameter < 1.8 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      YM ST Seçimi
-                      <span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <select
-                      value={manuelYmStSelection}
-                      onChange={(e) => setManuelYmStSelection(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="">-- YM ST Seçin --</option>
-                      {/* Options will be loaded from API - for now placeholder */}
-                      <option value="1">YM.ST.0100.ST (1.00mm)</option>
-                      <option value="2">YM.ST.0110.ST (1.10mm)</option>
-                      <option value="3">YM.ST.0120.ST (1.20mm)</option>
-                      <option value="4">YM.ST.0130.ST (1.30mm)</option>
-                      <option value="5">YM.ST.0140.ST (1.40mm)</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button
-                  onClick={() => {
-                    setShowManuelOlusturModal(false);
-                    setManuelFilmasinSelection('');
-                    setManuelYmStSelection('');
-                  }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                >
-                  İptal
-                </button>
-                <button
-                  onClick={handleManuelOlustur}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
-                >
-                  Oluştur
-                </button>
               </div>
             </div>
           </div>
