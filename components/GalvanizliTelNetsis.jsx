@@ -163,7 +163,8 @@ const COILER_ALTERNATIVE_MATRIX = {
 
   // Category 1.5: 1.16mm ONLY (Special ZIRH TELİ product)
   '1.16': [
-    { priority: 0, cap: 2.16, filmasin: 5.5, quality: '1005' }
+    { priority: 0, cap: 2.26, filmasin: 5.5, quality: '1005' },  // Main: YM.ST.0226.0550.1005
+    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1005' }   // Alt 1: YM.ST.0216.0550.1005
   ],
 
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
@@ -4056,7 +4057,8 @@ const GalvanizliTelNetsis = () => {
     ],
     2.30: [
       { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 6.0, quality: '1008', priority: 1 }
+      { diameter: 6.0, quality: '1008', priority: 1 },
+      { diameter: 5.5, quality: '1006', priority: 2 }
     ],
     // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0241.00
     // ONLY 5.5mm 1005 filmaşin, no alternatives
@@ -4104,9 +4106,8 @@ const GalvanizliTelNetsis = () => {
       { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     3.40: [
-      { diameter: 6.0, quality: '1008', priority: 0 },
-      { diameter: 7.0, quality: '1008', priority: 1 },
-      { diameter: 7.0, quality: '1010', priority: 2 }
+      { diameter: 6.0, quality: '1006', priority: 0 },
+      { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     3.50: [
       { diameter: 6.0, quality: '1008', priority: 0 },
@@ -4129,8 +4130,9 @@ const GalvanizliTelNetsis = () => {
       { diameter: 7.0, quality: '1010', priority: 2 }
     ],
     3.90: [
-      { diameter: 7.0, quality: '1008', priority: 0 },
-      { diameter: 7.0, quality: '1010', priority: 1 }
+      { diameter: 6.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1008', priority: 1 },
+      { diameter: 7.0, quality: '1010', priority: 2 }
     ],
     4.00: [
       { diameter: 7.0, quality: '1008', priority: 0 },
@@ -4205,13 +4207,16 @@ const GalvanizliTelNetsis = () => {
       { diameter: 7.0, quality: '1010', priority: 1 }
     ],
     5.80: [
-      { diameter: 8.0, quality: '1010', priority: 0 }
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
     ],
     5.90: [
-      { diameter: 8.0, quality: '1010', priority: 0 }
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
     ],
     6.00: [
-      { diameter: 8.0, quality: '1010', priority: 0 }
+      { diameter: 7.0, quality: '1008', priority: 0 },
+      { diameter: 7.0, quality: '1010', priority: 1 }
     ],
     6.10: [
       { diameter: 8.0, quality: '1010', priority: 0 }
@@ -4241,22 +4246,28 @@ const GalvanizliTelNetsis = () => {
       { diameter: 8.0, quality: '1010', priority: 0 }
     ],
     7.00: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     7.10: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     7.20: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     7.30: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     7.40: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     7.50: [
-      { diameter: 9.0, quality: '1010', priority: 0 }
+      { diameter: 9.0, quality: '1010', priority: 0 },
+      { diameter: 9.0, quality: '1008', priority: 1 }
     ],
     8.00: [
       { diameter: 10.0, quality: '1010', priority: 0 }
