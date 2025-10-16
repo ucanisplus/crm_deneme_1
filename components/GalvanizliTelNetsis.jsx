@@ -161,7 +161,12 @@ const COILER_ALTERNATIVE_MATRIX = {
     { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
 
-  // Category 2: 1.49mm and below (excluding 0.84mm)
+  // Category 1.5: 1.16mm ONLY (Special ZIRH TELİ product)
+  '1.16': [
+    { priority: 0, cap: 2.16, filmasin: 5.5, quality: '1005' }
+  ],
+
+  // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
   '≤1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
@@ -194,6 +199,7 @@ const getCoilerCategory = (stokKodu) => {
   const diameter = parseInt(match[1], 10) / 100; // 084 -> 0.84
 
   if (diameter === 0.84) return '0.84';
+  if (diameter === 1.16) return '1.16'; // Special ZIRH TELİ product
   if (diameter <= 1.49) return '≤1.49';
   if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
 
@@ -4025,6 +4031,11 @@ const GalvanizliTelNetsis = () => {
       { diameter: 6.0, quality: '1006', priority: 0 },
       { diameter: 6.0, quality: '1008', priority: 2 }
     ],
+    // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0193.00
+    // ONLY 5.5mm 1005 filmaşin, no alternatives
+    1.88: [
+      { diameter: 5.5, quality: '1005', priority: 0 }
+    ],
     1.90: [
       { diameter: 6.0, quality: '1006', priority: 0 },
       { diameter: 6.0, quality: '1008', priority: 2 }
@@ -4046,6 +4057,11 @@ const GalvanizliTelNetsis = () => {
     2.30: [
       { diameter: 6.0, quality: '1006', priority: 0 },
       { diameter: 6.0, quality: '1008', priority: 1 }
+    ],
+    // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0241.00
+    // ONLY 5.5mm 1005 filmaşin, no alternatives
+    2.37: [
+      { diameter: 5.5, quality: '1005', priority: 0 }
     ],
     2.40: [
       { diameter: 6.0, quality: '1006', priority: 0 },
@@ -4255,6 +4271,11 @@ const GalvanizliTelNetsis = () => {
    * Example: 3.39 → 3.40, 1.53 → 1.50
    */
   const roundToMatrixColumn = (diameter) => {
+    // Preserve special ZIRH TELİ (Armored wire) diameters - must be exact matches
+    // These special products: YM.GT.NIT.0193.00 (1.88mm) and YM.GT.NIT.0241.00 (2.37mm)
+    if (diameter === 1.88 || diameter === 2.37) {
+      return diameter;
+    }
     return Math.round(diameter * 10) / 10;
   };
 
