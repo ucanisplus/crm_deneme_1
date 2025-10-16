@@ -4002,18 +4002,7 @@ const GalvanizliTelNetsis = () => {
   // Priority: 0=Ana, 1=ALT_1, 2=ALT_2
   const FILMASIN_MATRIX = {
     // Each key is target diameter, value is array of {diameter, quality, priority}
-    1.20: [
-      { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 5.5, quality: '1006', priority: 1 }
-    ],
-    1.30: [
-      { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 5.5, quality: '1006', priority: 1 }
-    ],
-    1.40: [
-      { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 5.5, quality: '1006', priority: 1 }
-    ],
+    // NOTE: 1.20-1.40mm removed - these are COILER range, handled by COILER_ALTERNATIVE_MATRIX
     1.50: [
       { diameter: 6.0, quality: '1006', priority: 0 },
       { diameter: 5.5, quality: '1006', priority: 1 },
@@ -4047,8 +4036,7 @@ const GalvanizliTelNetsis = () => {
     ],
     2.10: [
       { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 6.0, quality: '1008', priority: 1 },
-      { diameter: 5.5, quality: '1006', priority: 2 }
+      { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     2.20: [
       { diameter: 6.0, quality: '1006', priority: 0 },
