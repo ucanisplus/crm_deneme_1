@@ -4015,11 +4015,11 @@ const GalvanizliTelNetsis = () => {
     ],
     1.70: [
       { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 6.0, quality: '1008', priority: 2 }
+      { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     1.80: [
       { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 6.0, quality: '1008', priority: 2 }
+      { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0193.00
     // ONLY 5.5mm 1005 filmaşin, no alternatives
@@ -4028,7 +4028,7 @@ const GalvanizliTelNetsis = () => {
     ],
     1.90: [
       { diameter: 6.0, quality: '1006', priority: 0 },
-      { diameter: 6.0, quality: '1008', priority: 2 }
+      { diameter: 6.0, quality: '1008', priority: 1 }
     ],
     2.00: [
       { diameter: 6.0, quality: '1006', priority: 0 },
