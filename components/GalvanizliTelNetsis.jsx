@@ -10568,33 +10568,37 @@ const GalvanizliTelNetsis = () => {
             // ✅ FIXED: STEP 5: Handle alternatives using PRIORITY column (not relationship table)
             console.log(`📋 BATCH: Using priority-based method for MM GT ${mmGt.stok_kodu}`);
 
-            // Build YM GT by stok_kodu pattern
-            const ymGtStokKodu = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
-            const ymGt = ymGtData.find(yg => yg.stok_kodu === ymGtStokKodu);
+            // Reuse YM GT stok_kodu from above (already calculated at line 10472-10488)
+            const ymGtForPriority = ymGtData.find(yg => yg.stok_kodu === ymGtStokKodu);
 
-            if (ymGt) {
-              console.log(`✅ BATCH: Found YM GT: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
-              const ymGtId = ymGt.id;
-                
-              // Add YM GT to map
-              ymGtMap.set(ymGt.stok_kodu, ymGt);
+            if (ymGtForPriority) {
+              console.log(`✅ BATCH: Found YM GT for priority check: ${ymGtForPriority.stok_kodu} (ID: ${ymGtForPriority.id})`);
+              const ymGtIdForPriority = ymGtForPriority.id;
 
-              // Add YM GT recipes
-              const ymGtRecipes = ymGtRecipeData.filter(r => r.ym_gt_id == ymGtId);
-              console.log(`📖 BATCH: Found ${ymGtRecipes.length} YM GT recipes for ${ymGt.stok_kodu}`);
+              // Add YM GT to map (if not already added)
+              if (!ymGtMap.has(ymGtForPriority.stok_kodu)) {
+                ymGtMap.set(ymGtForPriority.stok_kodu, ymGtForPriority);
+              }
 
-              ymGtRecipes.forEach(r => {
-                const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
-                ymGtRecipeMap.set(key, {
-                  ...r,
-                  mm_gt_stok_kodu: mmGt.stok_kodu,
-                  sequence: mmGt.stok_kodu?.split('.').pop() || '00',
-                  ym_gt_stok_kodu: ymGt.stok_kodu
-                });
+              // Get YM GT recipes (might already be in map from above)
+              const ymGtRecipesForPriority = ymGtRecipeData.filter(r => r.ym_gt_id == ymGtIdForPriority);
+              console.log(`📖 BATCH: Found ${ymGtRecipesForPriority.length} YM GT recipes for priority check`);
+
+              // Store recipes if not already stored
+              ymGtRecipesForPriority.forEach(r => {
+                const key = `${ymGtForPriority.stok_kodu}-${r.bilesen_kodu}`;
+                if (!ymGtRecipeMap.has(key)) {
+                  ymGtRecipeMap.set(key, {
+                    ...r,
+                    mm_gt_stok_kodu: mmGt.stok_kodu,
+                    sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                    ym_gt_stok_kodu: ymGtForPriority.stok_kodu
+                  });
+                }
               });
 
               // ✅ FIXED: Find YM ST bilesen from YM GT recipe
-              const ymStRecipe = ymGtRecipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
+              const ymStRecipe = ymGtRecipesForPriority.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
               if (ymStRecipe) {
                 const mainYmStCode = ymStRecipe.bilesen_kodu;
                 console.log(`📋 BATCH: Main YM ST bilesen: ${mainYmStCode}`);
@@ -10670,10 +10674,10 @@ const GalvanizliTelNetsis = () => {
                   console.warn(`⚠️ BATCH: Main YM ST not found: ${mainYmStCode}`);
                 }
               } else {
-                console.warn(`⚠️ BATCH: No YM ST bilesen found in YM GT recipes for ${ymGt.stok_kodu}`);
+                console.warn(`⚠️ BATCH: No YM ST bilesen found in YM GT recipes for ${ymGtForPriority.stok_kodu}`);
               }
             } else {
-              console.warn(`⚠️ BATCH: YM GT not found: ${ymGtStokKodu}`);
+              console.warn(`⚠️ BATCH: YM GT not found for priority check: ${ymGtStokKodu}`);
             }
           }
         } else {
