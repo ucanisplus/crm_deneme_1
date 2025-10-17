@@ -10313,7 +10313,23 @@ const GalvanizliTelNetsis = () => {
     // Initialize progress tracking
     const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
     setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
-    
+
+    // ✅ FIXED: Fetch ALL data upfront for priority-based logic (same as bulk function)
+    console.log('📋 BATCH: Fetching all YM GT, YM ST, and recipe data for priority-based alternative matching...');
+    const [ymGtResponse, ymStResponse, ymGtRecetesResponse, ymStRecetesResponse] = await Promise.all([
+      fetchWithAuth(`${API_URLS.galYmGt}?limit=5000`),
+      fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`),
+      fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=10000`),
+      fetchWithAuth(`${API_URLS.galYmStRecete}?limit=10000`)
+    ]);
+
+    const ymGtData = (ymGtResponse && ymGtResponse.ok) ? await ymGtResponse.json() : [];
+    const ymStData = (ymStResponse && ymStResponse.ok) ? await ymStResponse.json() : [];
+    const ymGtRecipeData = (ymGtRecetesResponse && ymGtRecetesResponse.ok) ? await ymGtRecetesResponse.json() : [];
+    const ymStRecipeData = (ymStRecetesResponse && ymStRecetesResponse.ok) ? await ymStRecetesResponse.json() : [];
+
+    console.log(`📋 BATCH: Fetched YM GT(${ymGtData.length}), YM ST(${ymStData.length}), YM GT Recipes(${ymGtRecipeData.length}), YM ST Recipes(${ymStRecipeData.length})`);
+
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
@@ -10549,212 +10565,115 @@ const GalvanizliTelNetsis = () => {
               }
             }
 
-            // STEP 5: Handle alternatives from relationship table (if any)
-            let relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-            
-            // If relation fetch fails due to parameter error, fetch all and filter client-side
-            if (!relationResponse || !relationResponse.ok) {
-              console.log(`🔗 Relation fetch failed for mm_gt_id=${mmGt.id}, fetching all relations and filtering...`);
-              const allRelationsResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?limit=1000`);
-              if (allRelationsResponse && allRelationsResponse.ok) {
-                const allRelations = await allRelationsResponse.json();
-                const filteredRelations = allRelations.filter(r => r.mm_gt_id === mmGt.id);
-                console.log(`🔗 Found ${filteredRelations.length} relations for MM GT ${mmGt.stok_kodu}`);
+            // ✅ FIXED: STEP 5: Handle alternatives using PRIORITY column (not relationship table)
+            console.log(`📋 BATCH: Using priority-based method for MM GT ${mmGt.stok_kodu}`);
+
+            // Build YM GT by stok_kodu pattern
+            const ymGtStokKodu = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
+            const ymGt = ymGtData.find(yg => yg.stok_kodu === ymGtStokKodu);
+
+            if (ymGt) {
+              console.log(`✅ BATCH: Found YM GT: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
+              const ymGtId = ymGt.id;
                 
-                // Create mock response
-                relationResponse = {
-                  ok: true,
-                  json: async () => filteredRelations
-                };
-              }
-            }
-            
-            if (relationResponse && relationResponse.ok) {
-              const relations = await relationResponse.json();
-              
-              if (relations.length > 0) {
-                console.log(`Relationship data for MM GT ${mmGt.id}:`, relations);
-                const ymGtId = relations[0].ym_gt_id;
-                
-                // Add YM GT data if it exists
-                if (ymGtId) {
-                  try {
-                    console.log(`📖 Excel: Fetching all YM GT products and filtering for id=${ymGtId}...`);
-                    const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
-                    let ymGtResponse = null;
-                    
-                    if (allYmGtResponse && allYmGtResponse.ok) {
-                      const allYmGt = await allYmGtResponse.json();
-                      const filteredYmGt = allYmGt.filter(r => r.id == ymGtId); // Use == for type coercion
-                      console.log(`📖 Excel: Found ${filteredYmGt.length} YM GT products for id=${ymGtId}`);
-                      
-                      // FALLBACK: If not found by ID, try searching by stok_kodu pattern
-                      if (filteredYmGt.length === 0) {
-                        console.log(`⚠️ YM GT not found by ID ${ymGtId}, trying stok_kodu fallback...`);
-                        
-                        // Construct expected YM GT stok_kodu from MM GT stok_kodu
-                        const mmGtStokKodu = mmGt.stok_kodu; // e.g., "GT.PAD.0120.01"
-                        const expectedYmGtStokKodu = mmGtStokKodu.replace('GT.', 'YM.GT.'); // e.g., "YM.GT.PAD.0120.01"
-                        
-                        console.log(`🔍 Searching for YM GT with stok_kodu: ${expectedYmGtStokKodu}`);
-                        
-                        const fallbackYmGt = allYmGt.filter(r => r.stok_kodu === expectedYmGtStokKodu);
-                        if (fallbackYmGt.length > 0) {
-                          console.log(`✅ Found YM GT by stok_kodu fallback: ${fallbackYmGt[0].stok_kodu} (ID: ${fallbackYmGt[0].id})`);
-                          ymGtResponse = {
-                            ok: true,
-                            json: async () => fallbackYmGt[0]
-                          };
-                        } else {
-                          console.log(`❌ YM GT not found by stok_kodu either: ${expectedYmGtStokKodu}`);
-                          ymGtResponse = {
-                            ok: true,
-                            json: async () => []
-                          };
-                        }
-                      } else {
-                        // Create mock response - return first match
-                        ymGtResponse = {
-                          ok: true,
-                          json: async () => filteredYmGt.length > 0 ? filteredYmGt[0] : []
-                        };
+              // Add YM GT to map
+              ymGtMap.set(ymGt.stok_kodu, ymGt);
+
+              // Add YM GT recipes
+              const ymGtRecipes = ymGtRecipeData.filter(r => r.ym_gt_id == ymGtId);
+              console.log(`📖 BATCH: Found ${ymGtRecipes.length} YM GT recipes for ${ymGt.stok_kodu}`);
+
+              ymGtRecipes.forEach(r => {
+                const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
+                ymGtRecipeMap.set(key, {
+                  ...r,
+                  mm_gt_stok_kodu: mmGt.stok_kodu,
+                  sequence: mmGt.stok_kodu?.split('.').pop() || '00',
+                  ym_gt_stok_kodu: ymGt.stok_kodu
+                });
+              });
+
+              // ✅ FIXED: Find YM ST bilesen from YM GT recipe
+              const ymStRecipe = ymGtRecipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
+              if (ymStRecipe) {
+                const mainYmStCode = ymStRecipe.bilesen_kodu;
+                console.log(`📋 BATCH: Main YM ST bilesen: ${mainYmStCode}`);
+
+                // Find main YM ST product
+                const mainYmSt = ymStData.find(ym => ym.stok_kodu === mainYmStCode);
+                if (mainYmSt) {
+                  console.log(`✅ BATCH: Adding main YM ST: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
+                  ymStMap.set(mainYmSt.stok_kodu, mainYmSt);
+
+                  // Add main YM ST recipes
+                  const mainYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == mainYmSt.id);
+                  mainYmStRecipes.forEach(r => {
+                    const key = `${mainYmSt.stok_kodu}-${r.bilesen_kodu}`;
+                    ymStRecipeMap.set(key, {
+                      ...r,
+                      ym_st_stok_kodu: mainYmSt.stok_kodu
+                    });
+                  });
+
+                  // ✅ FIXED: Find alternatives using PRIORITY column
+                  let targetDiameter = null;
+                  const stMatch = mainYmStCode.match(/YM\.ST\.(\d{4})/);
+                  if (stMatch) {
+                    targetDiameter = parseInt(stMatch[1], 10);
+                  }
+
+                  if (targetDiameter) {
+                    console.log(`📋 BATCH: Searching for alternatives for diameter ${targetDiameter/100}mm`);
+
+                    // Find all YM ST with same diameter and priority > 0
+                    const alternatives = ymStData.filter(ym => {
+                      const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
+                      if (!ymMatch) return false;
+                      const ymDiameter = parseInt(ymMatch[1], 10);
+                      if (ymDiameter !== targetDiameter) return false;
+
+                      const priority = ym.priority || 0;
+                      return priority > 0;
+                    });
+
+                    console.log(`📋 BATCH: Found ${alternatives.length} alternatives using priority column`);
+
+                    // Group alternatives by priority
+                    alternatives.forEach(ymSt => {
+                      const priority = ymSt.priority || 1;
+
+                      // Initialize maps for this priority if needed
+                      if (!ymStAltMaps[priority]) {
+                        ymStAltMaps[priority] = new Map();
                       }
-                    }
-                    
-                    if (ymGtResponse && ymGtResponse.ok) {
-                      const ymGtData = await ymGtResponse.json();
-                      console.log(`YM GT data received:`, ymGtData);
-                      const ymGt = Array.isArray(ymGtData) ? ymGtData[0] : ymGtData;
-                      if (ymGt) {
-                        ymGtMap.set(ymGt.stok_kodu, ymGt);
-                        
-                        // Add YM GT recipes
-                        console.log(`📖 Excel: Fetching all YM GT recipes and filtering for ym_gt_id=${ymGtId}...`);
-                        const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
-                        let ymGtRecipeResponse = null;
-                        
-                        if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
-                          const allYmGtRecipes = await allYmGtRecipesResponse.json();
-                          const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
-                          console.log(`📖 Excel: Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
-                          
-                          // Create mock response
-                          ymGtRecipeResponse = {
-                            ok: true,
-                            json: async () => filteredYmGtRecipes
-                          };
-                        }
-                        
-                        if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-                          const ymGtRecipes = await ymGtRecipeResponse.json();
-                          ymGtRecipes.forEach(r => {
-                            const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
-                            ymGtRecipeMap.set(key, {
-                              ...r,
-                              mm_gt_stok_kodu: mmGt.stok_kodu,
-                              sequence: mmGt.stok_kodu?.split('.').pop() || '00',
-                              ym_gt_stok_kodu: ymGt.stok_kodu
-                            });
-                          });
-                        }
+                      if (!ymStAltRecipeMaps[priority]) {
+                        ymStAltRecipeMaps[priority] = new Map();
                       }
-                    }
-                  } catch (error) {
-                    console.error(`YM GT ${ymGtId} might be deleted, skipping:`, error);
+
+                      console.log(`📦 BATCH: Adding YM ST to ALT ${priority}: ${ymSt.stok_kodu}`);
+                      ymStAltMaps[priority].set(ymSt.stok_kodu, ymSt);
+
+                      // Add alternative YM ST recipes
+                      const altRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
+                      altRecipes.forEach(r => {
+                        const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                        ymStAltRecipeMaps[priority].set(key, {
+                          ...r,
+                          ym_st_stok_kodu: ymSt.stok_kodu
+                        });
+                      });
+                    });
+                  } else {
+                    console.warn(`⚠️ BATCH: Could not extract diameter from ${mainYmStCode}`);
                   }
                 } else {
-                  console.warn(`No YM GT ID found in relationship for MM GT ${mmGt.id}`);
+                  console.warn(`⚠️ BATCH: Main YM ST not found: ${mainYmStCode}`);
                 }
-                
-                // Only add YM STs that were specifically selected for this request
-                // Filter by checking if they were part of the approved calculation for this MM GT
-                for (const relation of relations) {
-                  try {
-                    console.log(`📖 Excel: Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
-                    const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
-                    let ymStResponse = null;
-                    
-                    if (allYmStResponse && allYmStResponse.ok) {
-                      const allYmSt = await allYmStResponse.json();
-                      const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
-                      console.log(`📖 Excel: Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
-                      
-                      // Create mock response - return first match or empty array
-                      ymStResponse = {
-                        ok: true,
-                        json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
-                      };
-                    }
-                    
-                    if (ymStResponse && ymStResponse.ok) {
-                      const ymStData = await ymStResponse.json();
-                      const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
-                      if (ymSt) {
-                        // Determine which map to use based on is_main and sequence_index
-                        const isMain = relation.is_main === true || relation.is_main === 1;
-                        const sequenceIndex = parseInt(relation.sequence_index) || 0;
-
-                        let targetStockMap, targetRecipeMap, altLabel;
-
-                        if (isMain) {
-                          // ✅ FIXED: Main products always go to Ana sheet (regardless of sequence_index)
-                          targetStockMap = ymStMap;
-                          targetRecipeMap = ymStRecipeMap;
-                          altLabel = 'Ana';
-                        } else if (sequenceIndex > 0) {
-                          // ✅ FIXED: Alternative products ONLY for sequence_index >= 1 (ALT 1, ALT 2, ALT 3, ...)
-                          if (!ymStAltMaps[sequenceIndex]) {
-                            ymStAltMaps[sequenceIndex] = new Map();
-                          }
-                          if (!ymStAltRecipeMaps[sequenceIndex]) {
-                            ymStAltRecipeMaps[sequenceIndex] = new Map();
-                          }
-                          targetStockMap = ymStAltMaps[sequenceIndex];
-                          targetRecipeMap = ymStAltRecipeMaps[sequenceIndex];
-                          altLabel = `ALT ${sequenceIndex}`;
-                        } else {
-                          // ✅ FIXED: Skip inconsistent data (is_main=false AND sequence_index=0)
-                          console.warn(`⚠️ Skipping YM ST ${ymSt.stok_kodu}: is_main=false but sequence_index=0 (inconsistent data)`);
-                          continue; // Skip this product
-                        }
-
-                        console.log(`📦 Adding YM ST to ${altLabel}: ${ymSt.stok_kodu}`);
-                        targetStockMap.set(ymSt.stok_kodu, ymSt);
-
-                        // Add YM ST recipes to appropriate map
-                        console.log(`📖 Excel: Fetching all YM ST recipes and filtering for ym_st_id=${relation.ym_st_id}...`);
-                        const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
-                        let ymStRecipeResponse = null;
-
-                        if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                          const allYmStRecipes = await allYmStRecipesResponse.json();
-                          const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == relation.ym_st_id); // Use == for type coercion
-                          console.log(`📖 Excel: Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${relation.ym_st_id} (${altLabel})`);
-
-                          // Create mock response
-                          ymStRecipeResponse = {
-                            ok: true,
-                            json: async () => filteredYmStRecipes
-                          };
-                        }
-
-                        if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                          const ymStRecipes = await ymStRecipeResponse.json();
-                          ymStRecipes.forEach(r => {
-                            const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                            targetRecipeMap.set(key, {
-                              ...r,
-                              ym_st_stok_kodu: ymSt.stok_kodu
-                            });
-                          });
-                        }
-                      }
-                    }
-                  } catch (error) {
-                    console.error(`YM ST ${relation.ym_st_id} might be deleted, skipping:`, error);
-                  }
-                }
+              } else {
+                console.warn(`⚠️ BATCH: No YM ST bilesen found in YM GT recipes for ${ymGt.stok_kodu}`);
               }
+            } else {
+              console.warn(`⚠️ BATCH: YM GT not found: ${ymGtStokKodu}`);
             }
           }
         } else {
@@ -12867,31 +12786,92 @@ const GalvanizliTelNetsis = () => {
         throw new Error(`YM GT bulunamadı: ${ymGtStokKodu}`);
       }
 
-      // 3. Fetch YM ST products via relationship table
-      const relationshipResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
-      if (!relationshipResponse || !relationshipResponse.ok) {
-        throw new Error('İlişki verileri yüklenemedi');
-      }
-      const relationships = await relationshipResponse.json();
+      // 3. ✅ FIXED: Fetch YM ST products using PRIORITY column (not relationship table)
+      console.log(`📋 SINGLE PRODUCT: Using priority-based method to find YM ST alternatives for ${ymGtStokKodu}`);
 
-      const ymStProducts = [];
+      // First, get YM GT recipes to find which YM ST is used
+      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+      if (!ymGtRecipeResponse || !ymGtRecipeResponse.ok) {
+        throw new Error('YM GT reçete verileri yüklenemedi');
+      }
+      const allYmGtRecipes = await ymGtRecipeResponse.json();
+      const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
+
+      // Find the YM ST bilesen in the YM GT recipe
+      const ymStRecipe = ymGtRecipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
+      if (!ymStRecipe) {
+        throw new Error(`YM GT reçetesinde YM ST bileşeni bulunamadı: ${ymGtStokKodu}`);
+      }
+
+      const mainYmStCode = ymStRecipe.bilesen_kodu;
+      console.log(`📋 SINGLE PRODUCT: Main YM ST bilesen found: ${mainYmStCode}`);
+
+      // Fetch ALL YM ST products to build priority map
+      const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`);
+      if (!allYmStResponse || !allYmStResponse.ok) {
+        throw new Error('YM ST verileri yüklenemedi');
+      }
+      const allYmSts = await allYmStResponse.json();
+
+      // Find the main YM ST product
+      const mainYmSt = allYmSts.find(ym => ym.stok_kodu === mainYmStCode);
+      if (!mainYmSt) {
+        throw new Error(`YM ST bulunamadı: ${mainYmStCode}`);
+      }
+
+      const ymStProducts = [mainYmSt]; // Priority 0 (main)
       const ymStAltDataObj = {}; // Group alternatives by priority
 
-      for (const rel of relationships) {
-        const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${rel.ym_st_id}`);
-        if (ymStResponse && ymStResponse.ok) {
-          const ymSt = await ymStResponse.json();
-          ymSt.priority = rel.is_main ? 0 : (ymSt.priority || ymStProducts.filter(p => !p.is_main).length + 1);
+      // Extract diameter and quality from main YM ST
+      let targetDiameter = null;
+      let isCoilerProduct = false;
 
-          if (ymSt.priority === 0) {
-            ymStProducts.push(ymSt);
-          } else {
-            if (!ymStAltDataObj[ymSt.priority]) {
-              ymStAltDataObj[ymSt.priority] = [];
-            }
-            ymStAltDataObj[ymSt.priority].push(ymSt);
-          }
+      if (mainYmStCode.endsWith('.ST')) {
+        // This is a .ST product (coiler range)
+        const match = mainYmStCode.match(/YM\.ST\.(\d{4})\.ST/);
+        if (match) {
+          targetDiameter = parseInt(match[1], 10); // e.g., 0150 → 150
+          isCoilerProduct = true;
         }
+      } else {
+        // This is a filmasin product
+        const match = mainYmStCode.match(/YM\.ST\.(\d{4})\./);
+        if (match) {
+          targetDiameter = parseInt(match[1], 10); // e.g., 0390 → 390
+        }
+      }
+
+      if (!targetDiameter) {
+        console.warn(`⚠️ Could not extract diameter from ${mainYmStCode}, skipping alternatives`);
+      } else {
+        console.log(`📋 SINGLE PRODUCT: Target diameter: ${targetDiameter/100}mm, isCoiler: ${isCoilerProduct}`);
+
+        // Find alternatives based on priority column
+        const alternativesForDiameter = allYmSts.filter(ym => {
+          // Must have same target diameter
+          const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
+          if (!ymMatch) return false;
+          const ymDiameter = parseInt(ymMatch[1], 10);
+          if (ymDiameter !== targetDiameter) return false;
+
+          // Must have priority > 0
+          const priority = ym.priority || 0;
+          if (priority === 0) return false;
+
+          return true;
+        });
+
+        console.log(`📋 SINGLE PRODUCT: Found ${alternativesForDiameter.length} alternatives for diameter ${targetDiameter/100}mm`);
+
+        // Group alternatives by priority
+        alternativesForDiameter.forEach(ymSt => {
+          const priority = ymSt.priority || 1;
+          if (!ymStAltDataObj[priority]) {
+            ymStAltDataObj[priority] = [];
+          }
+          ymStAltDataObj[priority].push(ymSt);
+          console.log(`  Priority ${priority}: ${ymSt.stok_kodu}`);
+        });
       }
 
       // 4. Fetch recipes from database
@@ -12904,12 +12884,7 @@ const GalvanizliTelNetsis = () => {
         recipe.sequence = mmGtStokKodu.split('.').pop();
       });
 
-      const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
-      let ymGtRecipes = [];
-      if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
-        const allYmGtRecipes = await ymGtRecipeResponse.json();
-        ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
-      }
+      // YM GT recipes already fetched above (no need to fetch again)
 
       // Add ym_gt_stok_kodu and sequence to each recipe
       ymGtRecipes.forEach(recipe => {
