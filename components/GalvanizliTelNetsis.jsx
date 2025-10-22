@@ -10568,8 +10568,9 @@ const GalvanizliTelNetsis = () => {
             // ✅ FIXED: STEP 5: Handle alternatives using PRIORITY column (not relationship table)
             console.log(`📋 BATCH: Using priority-based method for MM GT ${mmGt.stok_kodu}`);
 
-            // Reuse YM GT stok_kodu from above (already calculated at line 10472-10488)
-            const ymGtForPriority = ymGtData.find(yg => yg.stok_kodu === ymGtStokKodu);
+            // Use YM GT that was already fetched and added to map (from line 10501)
+            // Don't rely on ymGtData array which might be empty due to API timeout
+            const ymGtForPriority = ymGtMap.get(ymGtStokKodu);
 
             if (ymGtForPriority) {
               console.log(`✅ BATCH: Found YM GT for priority check: ${ymGtForPriority.stok_kodu} (ID: ${ymGtForPriority.id})`);
@@ -10603,20 +10604,29 @@ const GalvanizliTelNetsis = () => {
                 const mainYmStCode = ymStRecipe.bilesen_kodu;
                 console.log(`📋 BATCH: Main YM ST bilesen: ${mainYmStCode}`);
 
-                // Find main YM ST product
-                const mainYmSt = ymStData.find(ym => ym.stok_kodu === mainYmStCode);
-                if (mainYmSt) {
-                  console.log(`✅ BATCH: Adding main YM ST: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
-                  ymStMap.set(mainYmSt.stok_kodu, mainYmSt);
+                // Find main YM ST product (might already be in map from earlier code)
+                let mainYmSt = ymStMap.get(mainYmStCode);
+                if (!mainYmSt) {
+                  mainYmSt = ymStData.find(ym => ym.stok_kodu === mainYmStCode);
+                  if (mainYmSt) {
+                    console.log(`✅ BATCH: Adding main YM ST from ymStData: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
+                    ymStMap.set(mainYmSt.stok_kodu, mainYmSt);
+                  }
+                } else {
+                  console.log(`✅ BATCH: Main YM ST already in map: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
+                }
 
-                  // Add main YM ST recipes
+                if (mainYmSt) {
+                  // Add main YM ST recipes (if not already added)
                   const mainYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == mainYmSt.id);
                   mainYmStRecipes.forEach(r => {
                     const key = `${mainYmSt.stok_kodu}-${r.bilesen_kodu}`;
-                    ymStRecipeMap.set(key, {
-                      ...r,
-                      ym_st_stok_kodu: mainYmSt.stok_kodu
-                    });
+                    if (!ymStRecipeMap.has(key)) {
+                      ymStRecipeMap.set(key, {
+                        ...r,
+                        ym_st_stok_kodu: mainYmSt.stok_kodu
+                      });
+                    }
                   });
 
                   // ✅ FIXED: Find alternatives using PRIORITY column
