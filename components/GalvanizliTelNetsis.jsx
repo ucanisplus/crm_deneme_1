@@ -8926,10 +8926,10 @@ const GalvanizliTelNetsis = () => {
   const getOlcuBr = (bilesen) => {
     // For YM GT readonly component always show KG
     if (bilesen === 'readonly') return 'KG';
-    
-    // For process codes with 01 suffix, typically times
-    if (bilesen === 'GTPKT01' || bilesen === 'TLC01' || bilesen === 'GLV01') return 'DK';
-    
+
+    // For process codes with 01 suffix, typically times (operations = dakika/minutes)
+    if (bilesen === 'GTPKT01' || bilesen === 'TLC01' || bilesen === 'COTLC01' || bilesen === 'GLV01') return 'DK';
+
     // All other cases return KG for material weight
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';

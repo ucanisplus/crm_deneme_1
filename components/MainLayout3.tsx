@@ -119,9 +119,11 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       }
     } else if (path.includes('/satis')) {
       setActiveMainCategory('satis');
-      
+
       if (path.includes('/galvaniz-talebi')) {
         setActiveSubCategory('galvaniz-talebi');
+      } else if (path.includes('/tavli-talebi')) {
+        setActiveSubCategory('tavli-talebi');
       }
     } else if (path.includes('/crm')) {
       setActiveMainCategory('crm');
@@ -219,14 +221,15 @@ const MainLayout3: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         },
       ]
     },
-    { 
-      id: 'satis', 
-      name: 'Satış', 
-      icon: <ShoppingCart size={20} />, 
+    {
+      id: 'satis',
+      name: 'Satış',
+      icon: <ShoppingCart size={20} />,
       path: '/satis',
       hasSubCategories: true,
       subCategories: [
-        { id: 'galvaniz-talebi', name: 'Galvaniz Talebi', icon: <PlusCircle size={18} />, path: '/satis/galvaniz-talebi', hasSubItems: false },
+        { id: 'galvaniz-talebi', name: 'Galvanizli Tel Talebi', icon: <PlusCircle size={18} />, path: '/satis/galvaniz-talebi', hasSubItems: false },
+        { id: 'tavli-talebi', name: 'Balya/Tavlı Tel Talebi', icon: <PlusCircle size={18} />, path: '/satis/tavli-talebi', hasSubItems: false },
       ]
     },
     { 

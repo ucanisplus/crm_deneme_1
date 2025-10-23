@@ -29,6 +29,20 @@ export const API_URLS = {
   // TLC Hizlar data
   galTlcHizlar: 'https://crm-deneme-backend.vercel.app/api/gal_cost_cal_user_tlc_hizlar',
 
+  // Tavlı Tel / Balya Teli
+  tavliBalyaMm: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm',
+  tavliBalyaMmRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm_recete',
+  tavliBalyaMmYmSt: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm_ym_st',
+  tavliBalyaSalRequests: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sal_requests',
+  tavliBalyaSequence: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sequence',
+  // Tavlı Netsis - Intermediates
+  tavliNetsisYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt',
+  tavliNetsisYmTtRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete',
+  tavliNetsisYmYb: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_yb',
+  tavliNetsisYmYbRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_yb_recete',
+  tavliNetsisYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp',
+  tavliNetsisYmStpRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete',
+
   // Çelik Hasır Netsis (MIGRATED TO RENDER for performance!)
   celikHasirMm: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_mm',
   celikHasirNcbk: 'https://crm-factory-backend.onrender.com/api/celik_hasir_netsis_ym_ncbk',
