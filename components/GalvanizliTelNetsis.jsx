@@ -1395,7 +1395,8 @@ const GalvanizliTelNetsis = () => {
               }
             }
 
-            console.log(`Bulk delete: Found ${productsToDelete.length} products to delete`);
+            console.log(`Bulk delete: Found ${productsToDelete.length} products to delete:`, productsToDelete.map(p => ({id: p.id, stok_kodu: p.stok_kodu, stok_adi: p.stok_adi})));
+            console.log(`Bulk delete: Found ${allRequests.length} total requests to check`);
 
             // Find requests matching ONLY the products to be deleted (forward matching)
             for (const request of allRequests) {
@@ -1403,36 +1404,41 @@ const GalvanizliTelNetsis = () => {
 
               for (const product of productsToDelete) {
                 let matches = false;
+                let matchReason = '';
 
                 // Strategy 1: Match by final_stok_adi
                 if (request.final_stok_adi && product.stok_adi && request.final_stok_adi === product.stok_adi) {
                   matches = true;
-                  console.log(`✓ Request ${request.id} matches product ${product.id} by stok_adi: ${product.stok_adi}`);
+                  matchReason = `stok_adi: ${product.stok_adi}`;
                 }
                 // Strategy 2: Match by stok_kodu
                 else if (request.stok_kodu && product.stok_kodu && request.stok_kodu === product.stok_kodu) {
                   matches = true;
-                  console.log(`✓ Request ${request.id} matches product ${product.id} by stok_kodu: ${product.stok_kodu}`);
+                  matchReason = `stok_kodu: ${product.stok_kodu}`;
                 }
                 // Strategy 3: Match by specifications (all must match)
                 else {
-                  const specsMatch = (
-                    Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
-                    product.kod_2 === request.kod_2 &&
-                    Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
-                    Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
-                    Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
-                    Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
-                    Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
-                    Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
-                  );
+                  const capMatch = Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01;
+                  const kod2Match = product.kod_2 === request.kod_2;
+                  const kaplamaMatch = Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1;
+                  const minMukavemetMatch = Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1;
+                  const maxMukavemetMatch = Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1;
+                  const kgMatch = Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1;
+                  const icCapMatch = Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1;
+                  const disCapMatch = Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1;
+
+                  const specsMatch = capMatch && kod2Match && kaplamaMatch && minMukavemetMatch && maxMukavemetMatch && kgMatch && icCapMatch && disCapMatch;
+
                   if (specsMatch) {
                     matches = true;
-                    console.log(`✓ Request ${request.id} matches product ${product.id} by specifications`);
+                    matchReason = 'specifications';
+                  } else {
+                    console.log(`✗ Request ${request.id} vs Product ${product.id}: cap=${capMatch}, kod2=${kod2Match}, kaplama=${kaplamaMatch}, mukavemet=${minMukavemetMatch}/${maxMukavemetMatch}, kg=${kgMatch}, caps=${icCapMatch}/${disCapMatch}`);
                   }
                 }
 
                 if (matches) {
+                  console.log(`✓ Request ${request.id} matches product ${product.id} by ${matchReason}`);
                   requestsToMark.push(request.id);
                   break; // Found a match, move to next request
                 }
@@ -1581,27 +1587,45 @@ const GalvanizliTelNetsis = () => {
 
       // Mark related requests as "silinmiş" for deleted MM GT products
       // Uses forward matching: only marks requests identified BEFORE deletion
+      console.log(`🔍 Bulk delete: Checking marking condition - requestsToMark.length=${requestsToMark.length}, successCount=${successCount}`);
+
       if (requestsToMark.length > 0 && successCount > 0) {
         try {
-          console.log(`Bulk delete: Marking ${requestsToMark.length} identified requests as silinmiş`);
+          console.log(`✅ Bulk delete: Marking ${requestsToMark.length} identified requests as silinmiş:`, requestsToMark);
 
           for (const requestId of requestsToMark) {
             try {
-              await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+              console.log(`📝 Marking request ${requestId} as silinmiş...`);
+              const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'silinmis' })
               });
+              if (updateResponse && updateResponse.ok) {
+                console.log(`✅ Successfully marked request ${requestId} as silinmiş`);
+              } else {
+                console.error(`❌ Failed to mark request ${requestId}, status: ${updateResponse?.status}`);
+              }
             } catch (updateError) {
-              console.error(`Failed to update request ${requestId} status:`, updateError);
+              console.error(`❌ Failed to update request ${requestId} status:`, updateError);
             }
           }
 
           // Refresh requests to show updated statuses
+          console.log('🔄 Refreshing requests list...');
           await fetchRequests();
+          console.log('✅ Requests list refreshed');
         } catch (error) {
-          console.error('Error marking related requests:', error);
+          console.error('❌ Error marking related requests:', error);
           // Continue without failing the deletion
+        }
+      } else {
+        console.warn(`⚠️ Bulk delete: NOT marking requests - requestsToMark.length=${requestsToMark.length}, successCount=${successCount}`);
+        if (requestsToMark.length === 0) {
+          console.warn('⚠️ No requests were identified for marking. Check the matching logic above.');
+        }
+        if (successCount === 0) {
+          console.warn('⚠️ No products were successfully deleted.');
         }
       }
 
@@ -12479,18 +12503,29 @@ const GalvanizliTelNetsis = () => {
         const mainYmStRecipe = excelData.allRecipes.ymStRecipes[mainYmStIndex] || {};
         const mainRecipeEntries = Object.entries(mainYmStRecipe);
 
+        console.log(`🔍 POST-SAVE MAIN: mainYmStIndex=${mainYmStIndex}, recipe keys:`, Object.keys(mainYmStRecipe));
+        console.log(`🔍 POST-SAVE MAIN: Full recipe:`, mainYmStRecipe);
+
         // FIXED: Support BOTH FLM/TLC01 (>=1.5mm) AND YM.ST/COTLC01 (<1.5mm)
         const mainBilesenEntry = mainRecipeEntries.find(([key]) => key.includes('FLM.') || key.includes('YM.ST.'));
         const mainOperationEntry = mainRecipeEntries.find(([key]) => key === 'TLC01' || key === 'COTLC01');
 
+        console.log(`🔍 POST-SAVE MAIN: Found bilesen entry:`, mainBilesenEntry);
+        console.log(`🔍 POST-SAVE MAIN: Found operation entry:`, mainOperationEntry);
+
         const mainOrderedEntries = [mainBilesenEntry, mainOperationEntry].filter(Boolean);
+
+        console.log(`🔍 POST-SAVE MAIN: Ordered entries to add:`, mainOrderedEntries);
 
         mainOrderedEntries.forEach(([key, value]) => {
           if (value > 0) {
             const mainYmSt = allYmSts[mainYmStIndex];
+            console.log(`✅ POST-SAVE MAIN: Adding recipe entry - key: ${key}, value: ${value}, stok_kodu: ${mainYmSt.stok_kodu}`);
             ymStReceteSheet.addRow(generateYmStReceteRowForBatch(key, value, siraNoMain, mainYmSt.stok_kodu));
             siraNoMain++;
             totalMainRecipesAdded++;
+          } else {
+            console.log(`⚠️ POST-SAVE MAIN: Skipping entry with value <= 0 - key: ${key}, value: ${value}`);
           }
         });
 
