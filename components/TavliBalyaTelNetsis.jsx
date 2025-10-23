@@ -4283,12 +4283,12 @@ const TavliBalyaTelNetsis = () => {
       return errors;
     }
     
-    // Çap validation: 0.8 - 8 arasında olmalı
+    // Çap validation: 0.90 - 4.00 arasında olmalı
     const capValue = parseFloat(mmGtData.cap);
     if (isNaN(capValue)) {
-      errors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
-    } else if (capValue < 0.8 || capValue > 8.1) {
-      errors.push(`Çap değeri 0.8 ile 8 arasında olmalıdır. Girilen değer: ${mmGtData.cap}`);
+      errors.push('Çap için geçerli bir sayısal değer giriniz (0.90 ile 4.00 arasında).');
+    } else if (capValue < 0.90 || capValue > 4.00) {
+      errors.push(`Çap değeri 0.90 ile 4.00 arasında olmalıdır. Girilen değer: ${mmGtData.cap}`);
     }
     
     // Kaplama validation: PAD için 50, NIT için 100-400 arasında
@@ -12236,7 +12236,7 @@ const TavliBalyaTelNetsis = () => {
                 lang="en-US" // Force EN-US locale with point decimal separator
                 onKeyDown={(e) => handleCommaToPoint(e, 'cap')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8.1 mm</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.90 - 4.00 mm</p>
             </div>
 
             <div className="space-y-2">
@@ -12315,39 +12315,32 @@ const TavliBalyaTelNetsis = () => {
                 value={normalizeDecimalDisplay(mmGtData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="250-20000"
+                placeholder="5-750"
                 onKeyDown={(e) => handleCommaToPoint(e, 'kg')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 20000 kg</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 5 - 750 kg</p>
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                İç Çap (cm)
+                Bobin Boyutu (İç Çap - Dış Çap)
               </label>
               <select
-                value={mmGtData.ic_cap}
-                onChange={(e) => handleInputChange('ic_cap', parseInt(e.target.value))}
+                value={`${mmGtData.ic_cap}-${mmGtData.dis_cap}`}
+                onChange={(e) => {
+                  const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
+                  handleInputChange('ic_cap', ic);
+                  handleInputChange('dis_cap', dis);
+                }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               >
-                <option value={45}>45</option>
-                <option value={50}>50</option>
-                <option value={55}>55</option>
+                <option value="21-34">ID: 21 cm - OD: 34 cm</option>
+                <option value="21-35">ID: 21 cm - OD: 35 cm</option>
+                <option value="25-35">ID: 25 cm - OD: 35 cm</option>
+                <option value="40-75">ID: 40 cm - OD: 75 cm</option>
+                <option value="45-75">ID: 45 cm - OD: 75 cm (Varsayılan)</option>
               </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Dış Çap (cm)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={normalizeDecimalDisplay(mmGtData.dis_cap || '')}
-                onChange={(e) => handleInputChange('dis_cap', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all bg-gray-50"
-                readOnly
-              />
+              <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>
             </div>
 
             <div className="space-y-2">

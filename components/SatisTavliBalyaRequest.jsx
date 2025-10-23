@@ -74,8 +74,8 @@ const SatisTavliBalyaRequest = () => {
     min_mukavemet: '350',  // Default: 350 MPa
     max_mukavemet: '550',  // Default: 550 MPa
     kg: '500',             // Default: 500 kg (valid range: 250-20000)
-    ic_cap: 45,            // Default: 45 cm
-    dis_cap: 75,           // Default: 75 cm
+    ic_cap: 45,            // Default: 45 cm (from combination 45-75)
+    dis_cap: 75,           // Default: 75 cm (from combination 45-75)
     tolerans_plus: '0.05', // Default: ±0.05 mm (valid range: 0-0.10)
     tolerans_minus: '0.06', // Default: ±0.06 mm (valid range: 0-0.10)
     shrink: 'evet',         // Default: Yes
@@ -817,9 +817,9 @@ const SatisTavliBalyaRequest = () => {
     // Validate diameter (cap)
     const capValue = parseFloat(requestData.cap);
     if (isNaN(capValue)) {
-      validationErrors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
-    } else if (capValue < 0.8 || capValue > 8.1) {
-      validationErrors.push(`Çap değeri 0.8 ile 8.1 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
+      validationErrors.push('Çap için geçerli bir sayısal değer giriniz (0.90 ile 4.00 arasında).');
+    } else if (capValue < 0.90 || capValue > 4.00) {
+      validationErrors.push(`Çap değeri 0.90 ile 4.00 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
     }
 
     // Validate product type
@@ -1790,7 +1790,7 @@ const SatisTavliBalyaRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 2.50"
                 />
-                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8.1 mm</p>
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.90 - 4.00 mm</p>
               </div>
 
               {/* Info: Raw material selection by production team */}
@@ -1863,35 +1863,34 @@ const SatisTavliBalyaRequest = () => {
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Örn: 500"
                 />
-                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 20000 kg</p>
+                <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 5 - 750 kg</p>
               </div>
             </div>
             
             {/* Right column - Additional details */}
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">İç Çap (cm)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bobın Boyutu (İç Çap - Dış Çap)</label>
                 <select
-                  name="ic_cap"
-                  value={requestData.ic_cap}
-                  onChange={handleIcCapChange}
+                  name="coil_size"
+                  value={`${requestData.ic_cap}-${requestData.dis_cap}`}
+                  onChange={(e) => {
+                    const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
+                    setRequestData(prev => ({
+                      ...prev,
+                      ic_cap: ic,
+                      dis_cap: dis
+                    }));
+                  }}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value={45}>45 cm</option>
-                  <option value={50}>50 cm</option>
-                  <option value={55}>55 cm</option>
+                  <option value="21-34">ID: 21 cm - OD: 34 cm</option>
+                  <option value="21-35">ID: 21 cm - OD: 35 cm</option>
+                  <option value="25-35">ID: 25 cm - OD: 35 cm</option>
+                  <option value="40-75">ID: 40 cm - OD: 75 cm</option>
+                  <option value="45-75">ID: 45 cm - OD: 75 cm (Varsayılan)</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dış Çap (cm)</label>
-                <input
-                  type="text"
-                  name="dis_cap"
-                  value={requestData.dis_cap}
-                  disabled
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">Dış çap, iç çap ve tel çapına göre otomatik hesaplanır.</p>
+                <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>
               </div>
               <div className="space-y-4">
                 <div>
