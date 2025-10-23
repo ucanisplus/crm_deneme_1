@@ -3921,11 +3921,6 @@ const TavliBalyaTelNetsis = () => {
     // Başarılı hesaplama mesajı
     if (Object.keys(newMmGtRecipes).length > 0) {
       toast.success(`${Object.keys(newMmGtRecipes).length} MM reçete başarıyla hesaplandı!`);
-    }
-      
-      // Hesaplama özetini logla
-      
-      // Filmaşin dropdown değerlerinin güncellendiğini logla
     } else {
       console.warn('Hiçbir reçete hesaplanamadı - giriş değerlerini kontrol edin');
       toast.warning('Reçete hesaplaması yapılamadı. Lütfen giriş değerlerini kontrol edin.');
