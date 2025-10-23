@@ -10291,6 +10291,14 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
+    // FIXED: Sort recipes within each product by sequence field from database
+    // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    Object.keys(ymStByProduct).forEach(productCode => {
+      ymStByProduct[productCode].sort((a, b) => {
+        return (a.sequence || 0) - (b.sequence || 0);
+      });
+    });
+
     // Add main YM ST recipes (priority 0)
     const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
     sortedYmStStokCodes.forEach(stokKodu => {
@@ -10324,6 +10332,20 @@ const GalvanizliTelNetsis = () => {
           ymStAltByProduct[recipe.mamul_kodu] = [];
         }
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
+      });
+
+      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
+      Object.keys(ymStAltByProduct).forEach(productCode => {
+        ymStAltByProduct[productCode].sort((a, b) => {
+          const aIsMainBilesen = a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.');
+          const bIsMainBilesen = b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.');
+
+          // Main bilesen first (Sira 1), then operation (Sira 2)
+          if (aIsMainBilesen && !bIsMainBilesen) return -1;
+          if (!aIsMainBilesen && bIsMainBilesen) return 1;
+          return 0;
+        });
       });
 
       // Add recipes sorted by product code
@@ -11337,6 +11359,14 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[productCode].push(recipe);
     });
 
+    // FIXED: Sort recipes within each product by sequence field from database
+    // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    Object.keys(ymStByProduct).forEach(productCode => {
+      ymStByProduct[productCode].sort((a, b) => {
+        return (a.sequence || 0) - (b.sequence || 0);
+      });
+    });
+
     // Add main recipes (priority 0)
     const sortedYmStStokCodes = sortedYmStData.map(product => product.stok_kodu);
     sortedYmStStokCodes.forEach(stokKodu => {
@@ -11370,6 +11400,20 @@ const GalvanizliTelNetsis = () => {
           ymStAltByProduct[recipe.mamul_kodu] = [];
         }
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
+      });
+
+      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
+      Object.keys(ymStAltByProduct).forEach(productCode => {
+        ymStAltByProduct[productCode].sort((a, b) => {
+          const aIsMainBilesen = a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.');
+          const bIsMainBilesen = b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.');
+
+          // Main bilesen first (Sira 1), then operation (Sira 2)
+          if (aIsMainBilesen && !bIsMainBilesen) return -1;
+          if (!aIsMainBilesen && bIsMainBilesen) return 1;
+          return 0;
+        });
       });
 
       // Add recipes sorted by product code
@@ -13474,6 +13518,17 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
+    // FIXED: Sort recipes within each product - bilesen ('B') first, then operations ('O')
+    Object.keys(ymStByProduct).forEach(productCode => {
+      ymStByProduct[productCode].sort((a, b) => {
+        // 'B' (bilesen) comes before 'O' (operation)
+        if (a.operasyon_bilesen === 'B' && b.operasyon_bilesen !== 'B') return -1;
+        if (a.operasyon_bilesen !== 'B' && b.operasyon_bilesen === 'B') return 1;
+        // If both are same type, maintain original order
+        return 0;
+      });
+    });
+
     const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
     sortedYmStStokCodes.forEach(stokKodu => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
@@ -13507,6 +13562,20 @@ const GalvanizliTelNetsis = () => {
           ymStAltByProduct[recipe.mamul_kodu] = [];
         }
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
+      });
+
+      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
+      Object.keys(ymStAltByProduct).forEach(productCode => {
+        ymStAltByProduct[productCode].sort((a, b) => {
+          const aIsMainBilesen = a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.');
+          const bIsMainBilesen = b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.');
+
+          // Main bilesen first (Sira 1), then operation (Sira 2)
+          if (aIsMainBilesen && !bIsMainBilesen) return -1;
+          if (!aIsMainBilesen && bIsMainBilesen) return 1;
+          return 0;
+        });
       });
 
       // Add recipes sorted by product code

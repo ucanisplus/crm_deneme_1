@@ -130,7 +130,26 @@ const TavliBalyaTelNetsis = () => {
   // Stub functions for Coiler modal (unused in Tavlı Tel)
   const toggleSourceYmStSelection = () => {};
   const generateCoilerExcel = () => {};
-  
+
+  // ========== STUB FUNCTIONS - TODO: Implement properly for Tavlı Tel ==========
+  // These functions need proper Tavlı/Balya Tel implementation
+
+  const generateYmGtData = () => {
+    // TODO: For Tavlı/Balya, this should generate YM.TT (Tavlı Tel) data from MM data
+    // For now, this is a stub to prevent crashes
+    console.log('generateYmGtData called - STUB - needs Tavlı/Balya implementation');
+    return [];
+  };
+
+  const generateYmGtDatabaseData = (sequence) => {
+    // TODO: For Tavlı/Balya, format YM.TT data for database
+    // For now, return empty object
+    console.log('generateYmGtDatabaseData called - STUB - needs Tavlı/Balya implementation');
+    return {};
+  };
+
+  // ========== END STUB FUNCTIONS ==========
+
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
   // REMOVED: activeDbTab (only one tab for TT products, no intermediate products)
@@ -396,7 +415,7 @@ const TavliBalyaTelNetsis = () => {
     fetchRequests();
     fetchExistingMmGts();
     fetchExistingYmSts();
-    fetchUserInputValues();
+    // REMOVED: fetchUserInputValues() - Not used in Tavlı/Balya Tel
     fetchUsers(); // Kullanici adi arama icin kullanicilari getir
   }, []);
   
@@ -574,10 +593,10 @@ const TavliBalyaTelNetsis = () => {
     }
   }, [mmGtData.cap, mmGtData.kaplama, mmGtData.tolerans_minus]);
 
-  // Component yuklendikten sonra TLC_Hizlar verisini veritabanindan yukle
-  useEffect(() => {
-    fetchTlcHizlarData();
-  }, []);
+  // REMOVED: fetchTlcHizlarData() - Not used in Tavlı/Balya Tel (specific to Galvanizli)
+  // useEffect(() => {
+  //   fetchTlcHizlarData();
+  // }, []);
   
   // Component kaldirildiginda sessionStorage temizligi
   useEffect(() => {
@@ -629,91 +648,14 @@ const TavliBalyaTelNetsis = () => {
   }
 
   // Veritabanindan kullanici girdi degerlerini getir
+  // Stub function - Not used in Tavlı/Balya Tel (specific to Galvanizli)
   const fetchUserInputValues = async () => {
-    try {
-      // API endpoint URL tanimli mi kontrol et
-      if (!API_URLS.galUserInputValues) {
-        console.warn('galUserInputValues API endpoint is not defined, using default values');
-        return;
-      }
-      
-      const response = await fetch(API_URLS.galUserInputValues);
-      if (response && response.ok) {
-        const data = await response.json();
-        // En son kaydi al
-        if (data && data.length > 0) {
-          // En son kaydi almak icin tarihe gore sirala
-          const sortedData = data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-          const latestValues = sortedData[0];
-          
-          setUserInputValues({
-            ash: parseFloat(latestValues.ash) || 5.54,
-            lapa: parseFloat(latestValues.lapa) || 2.73,
-            uretim_kapasitesi_aylik: parseFloat(latestValues.uretim_kapasitesi_aylik) || 2800,
-            toplam_tuketilen_asit: parseFloat(latestValues.toplam_tuketilen_asit) || 30000,
-            ortalama_uretim_capi: parseFloat(latestValues.ortalama_uretim_capi) || 3.08,
-            paketlemeDkAdet: parseFloat(latestValues.paketlemeDkAdet) || 10
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user input values:', error);
-    }
+    console.log('fetchUserInputValues called - STUB - Not used in Tavlı/Balya Tel');
   };
   
-  // Kullanici girdi degerlerini veritabanina kaydet
+  // Stub function - Not used in Tavlı/Balya Tel (specific to Galvanizli)
   const saveUserInputValues = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Tum girdilerin gecerli sayi oldugunu kontrol et
-      const validatedInputs = {
-        ash: parseFloat(userInputValues.ash) || 5.54,
-        lapa: parseFloat(userInputValues.lapa) || 2.73,
-        uretim_kapasitesi_aylik: parseFloat(userInputValues.uretim_kapasitesi_aylik) || 2800,
-        toplam_tuketilen_asit: parseFloat(userInputValues.toplam_tuketilen_asit) || 30000,
-        ortalama_uretim_capi: parseFloat(userInputValues.ortalama_uretim_capi) || 3.08,
-        paketlemeDkAdet: parseFloat(userInputValues.paketlemeDkAdet) || 10
-      };
-      
-      // Dogrulanan degerlerle state'i guncelle
-      setUserInputValues(validatedInputs);
-      
-      // API endpoint tanimli mi kontrol et
-      if (API_URLS.galUserInputValues) {
-        // Endpoint varsa veritabanina kaydet
-        const response = await fetch(API_URLS.galUserInputValues, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(validatedInputs)
-        });
-        
-        if (response.ok) {
-          toast.success('Hesaplama değerleri başarıyla kaydedildi.');
-        } else {
-          toast.error('Hesaplama değerleri kaydedilirken bir hata oluştu.');
-        }
-      } else {
-        // Endpoint yoksa sadece yerel state guncelle
-        toast.success('Hesaplama değerleri güncellendi.');
-      }
-      
-      // Modali kapat
-      setShowSettingsModal(false);
-      
-      // Eger mevcut degerler varsa yeni degerlerle receteleri yeniden hesapla
-      if (Object.keys(allRecipes.ymGtRecipe).length > 0 || 
-          Object.keys(allRecipes.ymStRecipes).length > 0) {
-        calculateAutoRecipeValues();
-      }
-    } catch (error) {
-      console.error('Error saving user input values:', error);
-      toast.error('Hesaplama değerleri kaydedilirken bir hata oluştu.');
-    } finally {
-      setIsLoading(false);
-    }
+    console.log('saveUserInputValues called - STUB - Not used in Tavlı/Balya Tel');
   };
 
 
@@ -3603,7 +3545,7 @@ const TavliBalyaTelNetsis = () => {
                     
                     // Load YM GT recipes if relation has ym_gt_id
                     if (relation.ym_gt_id) {
-                      const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+                      const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
                       let ymGtRecipeResponse = null;
                       
                       if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
@@ -4742,7 +4684,7 @@ const TavliBalyaTelNetsis = () => {
       // Search both MMGT and YMGT to find the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
         fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
-        fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`)
+        fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`)
       ]);
       
       const allProducts = [];
@@ -4883,7 +4825,7 @@ const TavliBalyaTelNetsis = () => {
       
       // Sadece 1 YM GT'yi güncelle
       if (sessionSavedProducts.ymGtId) {
-        await fetchWithAuth(`${API_URLS.galYmGt}/${sessionSavedProducts.ymGtId}`, {
+        await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}/${sessionSavedProducts.ymGtId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(generateYmGtDatabaseData(sequence))
@@ -7044,7 +6986,7 @@ const TavliBalyaTelNetsis = () => {
       apiUrl = API_URLS.tavliBalyaMmRecete;
       paramName = 'mm_gt_id';
     } else if (productType === 'ymgt') {
-      apiUrl = API_URLS.galYmGtRecete;
+      apiUrl = API_URLS.tavliNetsisYmTtRecete;
       paramName = 'ym_gt_id';
     } else {
       console.error(`Geçersiz ürün tipi: ${productType}`);
@@ -7125,7 +7067,7 @@ const TavliBalyaTelNetsis = () => {
         paramName = 'mm_gt_id';
         typeLabel = 'MMGT';
       } else if (type === 'ymgt') {
-        apiUrl = API_URLS.galYmGtRecete;
+        apiUrl = API_URLS.tavliNetsisYmTtRecete;
         paramName = 'ym_gt_id';
         typeLabel = 'YMGT';
       } else if (type === 'ymst') {
@@ -7433,7 +7375,12 @@ const TavliBalyaTelNetsis = () => {
 
   
   // Function to fetch TLC_Hizlar data from the database
+  // STUB: Not used in Tavlı/Balya Tel (specific to Galvanizli wire drawing speeds)
   const fetchTlcHizlarData = async () => {
+    // Early return - TLC Hızlar data is not used in Tavlı/Balya Tel
+    console.log('fetchTlcHizlarData called - STUB - Not used in Tavlı/Balya Tel');
+    return;
+
     try {
       setTlcHizlarLoading(true);
       console.log('Fetching TLC Hızlar data from database...');
@@ -8309,9 +8256,9 @@ const TavliBalyaTelNetsis = () => {
 
     // ✅ FIXED: Fetch ALL data upfront for priority-based logic (same as bulk function)
     const [ymGtResponse, ymStResponse, ymGtRecetesResponse, ymStRecetesResponse] = await Promise.all([
-      fetchWithAuth(`${API_URLS.galYmGt}?limit=5000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=5000`),
       fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`),
-      fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=10000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=10000`),
       fetchWithAuth(`${API_URLS.galYmStRecete}?limit=10000`)
     ]);
 
@@ -8478,7 +8425,7 @@ const TavliBalyaTelNetsis = () => {
 
             // STEP 3: Fetch YM GT by stok_kodu
             if (ymGtStokKodu) {
-              const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
+              const allYmGtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
 
               if (allYmGtResponse && allYmGtResponse.ok) {
                 const allYmGt = await allYmGtResponse.json();
@@ -8488,7 +8435,7 @@ const TavliBalyaTelNetsis = () => {
                   ymGtMap.set(ymGt.stok_kodu, ymGt);
 
                   // Fetch YM GT recipes
-                  const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
+                  const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
 
                   if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
                     const allYmGtRecipes = await allYmGtRecipesResponse.json();
