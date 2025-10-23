@@ -874,10 +874,14 @@ const GalvanizliTelNetsis = () => {
       const kaplama = parseInt(mmGtData.kaplama) || 0;
       const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
 
-      const actualToleranceMinus = Math.abs(toleransMinus);
+      // Apply the correct sign to the tolerance based on toleransMinSign
+      // If +0.05 → add 0.05 (wire will be thicker)
+      // If -0.05 → subtract 0.05 (wire will be thinner)
+      const toleransMinusValue = Math.abs(toleransMinus);
+      const signedToleranceMinus = toleransMinSign === '+' ? toleransMinusValue : -toleransMinusValue;
       const coatingReduction = (kaplama / 35) * 0.01;
 
-      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.02;
+      const baseAdjustedCap = cap + signedToleranceMinus - coatingReduction + 0.02;
       const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
 
       setCalculatedYmStDiameter(ymStDiameter);
@@ -886,7 +890,7 @@ const GalvanizliTelNetsis = () => {
     } else {
       setCalculatedYmStDiameter(null);
     }
-  }, [mmGtData.cap, mmGtData.kaplama, mmGtData.tolerans_minus]);
+  }, [mmGtData.cap, mmGtData.kaplama, mmGtData.tolerans_minus, toleransMinSign]);
 
   // Component yuklendikten sonra TLC_Hizlar verisini veritabanindan yukle
   useEffect(() => {
@@ -3497,19 +3501,24 @@ const GalvanizliTelNetsis = () => {
     const kodType = mmGtData.kod_2; // 'PAD' or 'NIT'
 
     // ========== STEP 1: Calculate YM ST diameter with CORRECT formula ==========
-    // Formula: YM_ST_diameter = YM_GT_nominal - abs(min_tolerance) - coating_reduction + 0.02
+    // Formula: YM_ST_diameter = YM_GT_nominal + signed_min_tolerance - coating_reduction + 0.02
+    // If tolerance is +0.05: add 0.05 (final wire is thicker, need thicker YM ST)
+    // If tolerance is -0.05: subtract 0.05 (final wire is thinner, need thinner YM ST)
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     const toleransMinSign = mmGtData.tolerans_min_sign || '-';
 
-    const actualToleranceMinus = Math.abs(toleransMinus);
+    const toleransMinusValue = Math.abs(toleransMinus);
+    const signedToleranceMinus = toleransMinSign === '+' ? toleransMinusValue : -toleransMinusValue;
     const coatingReduction = (kaplama / 35) * 0.01;
 
-    const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.02;
+    const baseAdjustedCap = cap + signedToleranceMinus - coatingReduction + 0.02;
     const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1); // Minimum 0.1mm, round to 2 decimals
 
     console.log(`🔧 YM ST Diameter Calculation:`, {
       mmGtCap: cap,
-      tolerance: actualToleranceMinus,
+      toleranceSign: toleransMinSign,
+      toleranceValue: toleransMinusValue,
+      signedTolerance: signedToleranceMinus,
       coating: coatingReduction,
       result: ymStDiameter
     });
