@@ -11362,9 +11362,20 @@ const GalvanizliTelNetsis = () => {
     // FIXED: Sort recipes within each product by sequence field from database
     // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
+      console.log(`🔍 BATCH: Sorting ${productCode} recipes:`, ymStByProduct[productCode].map(r => ({bilesen: r.bilesen_kodu, seq: r.sequence})));
       ymStByProduct[productCode].sort((a, b) => {
-        return (a.sequence || 0) - (b.sequence || 0);
+        // Sort by sequence field if both have it
+        if (a.sequence && b.sequence) {
+          return a.sequence - b.sequence;
+        }
+        // If sequence is missing, use bilesen_kodu type as fallback
+        const aIsMainBilesen = a.bilesen_kodu && (a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.'));
+        const bIsMainBilesen = b.bilesen_kodu && (b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.'));
+        if (aIsMainBilesen && !bIsMainBilesen) return -1;
+        if (!aIsMainBilesen && bIsMainBilesen) return 1;
+        return 0;
       });
+      console.log(`✅ BATCH: After sorting ${productCode}:`, ymStByProduct[productCode].map(r => ({bilesen: r.bilesen_kodu, seq: r.sequence})));
     });
 
     // Add main recipes (priority 0)

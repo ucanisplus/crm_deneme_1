@@ -663,7 +663,8 @@ const TavliBalyaTelNetsis = () => {
   // Kullanıcı listesi getir
   const fetchUsers = async () => {
     try {
-      const response = await fetchWithAuth(API_URLS.crmUsers);
+      // Use API_URLS.users instead of crmUsers (which was removed)
+      const response = await fetchWithAuth(API_URLS.users);
       if (response && response.ok) {
         const data = await response.json();
         const userMap = {};
@@ -12152,6 +12153,39 @@ const TavliBalyaTelNetsis = () => {
             )}
           </button>
           
+        </div>
+      </div>
+
+      {/* Product Type Selector - TAVLI vs BALYA */}
+      <div className="mb-6 bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">Ürün Tipi:</label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setMmGtData(prev => ({ ...prev, product_type: 'TAVLI' }));
+              }}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                mmGtData.product_type === 'TAVLI'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              🔥 Tavlı Tel (TT.BAG)
+            </button>
+            <button
+              onClick={() => {
+                setMmGtData(prev => ({ ...prev, product_type: 'BALYA' }));
+              }}
+              className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                mmGtData.product_type === 'BALYA'
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              💧 Yağlı Balya Teli (TT.BALYA)
+            </button>
+          </div>
         </div>
       </div>
 
