@@ -18,6 +18,11 @@ const CelikHasirHesaplama = dynamic(
   { ssr: false }
 );
 
+const TavliBalyaTelNetsis = dynamic(
+  () => import('@/components/TavliBalyaTelNetsis'),
+  { ssr: false }
+);
+
 const HesaplamalarPageRestricted = () => {
   const { hasPermission, user } = useAuth();
 
@@ -33,6 +38,7 @@ const HesaplamalarPageRestricted = () => {
     { id: 'panel-cit', name: 'Panel Çit', icon: <Grid size={16} />, permission: 'access:panel-cit' },
     { id: 'celik-hasir', name: 'Çelik Hasır', icon: <Grid size={16} />, permission: 'access:celik-hasir' },
     { id: 'galvanizli-tel', name: 'Galvanizli Tel', icon: <Link size={16} />, permission: 'access:galvanizli-tel' },
+    { id: 'tavli-tel', name: 'Tavlı Tel', icon: <Link2 size={16} />, permission: 'access:tavli-tel' },
   ];
 
   const [activeTab, setActiveTab] = useState(null);
@@ -88,6 +94,7 @@ const HesaplamalarPageRestricted = () => {
               {activeTab === 'panel-cit' && <PanelCitHesaplamaRestricted />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
               {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
+              {activeTab === 'tavli-tel' && <TavliBalyaTelNetsis />}
             </>
           )}
         </div>

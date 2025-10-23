@@ -125,28 +125,6 @@ const SatisTavliBalyaRequest = () => {
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
-  // Suggest YM.ST products matching the entered diameter (within ±0.2mm tolerance)
-  const suggestedYmStProducts = useMemo(() => {
-    if (!requestData.cap || ymStProducts.length === 0) {
-      return ymStProducts; // Show all if no diameter entered
-    }
-
-    const targetCap = parseFloat(requestData.cap);
-    if (isNaN(targetCap)) {
-      return ymStProducts; // Show all if invalid diameter
-    }
-
-    // Filter products within ±0.2mm of target diameter
-    const tolerance = 0.2;
-    const filtered = ymStProducts.filter(product => {
-      const productCap = parseFloat(product.cap);
-      return Math.abs(productCap - targetCap) <= tolerance;
-    });
-
-    // If no matches found, return all products for manual selection
-    return filtered.length > 0 ? filtered : ymStProducts;
-  }, [requestData.cap, ymStProducts]);
-
   // Save form data to sessionStorage whenever it changes
   useEffect(() => {
     try {
@@ -555,18 +533,6 @@ const SatisTavliBalyaRequest = () => {
         dis_cap: disCap
       };
     });
-  };
-
-  // Handle YM.ST selection
-  const handleYmStChange = (e) => {
-    const stokKodu = e.target.value;
-    const selectedProduct = ymStProducts.find(p => p.stok_kodu === stokKodu);
-
-    setSelectedYmSt(selectedProduct || null);
-    setRequestData(prev => ({
-      ...prev,
-      ym_st_kodu: stokKodu
-    }));
   };
 
   // Comma to point conversion handler for onKeyDown

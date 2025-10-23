@@ -118,6 +118,18 @@ const TavliBalyaTelNetsis = () => {
   const [allYmStsForSelection, setAllYmStsForSelection] = useState([]);
   const [ymStSearchQuery, setYmStSearchQuery] = useState('');
   const [selectedYmStsForAdd, setSelectedYmStsForAdd] = useState([]);
+
+  // Coiler modal states (unused in Tavlı Tel but needed for legacy modal code)
+  const [showCoilerReceteModal, setShowCoilerReceteModal] = useState(false);
+  const [showYmStReceteModal, setShowYmStReceteModal] = useState(false);
+  const [coilerTargetDiameter, setCoilerTargetDiameter] = useState('');
+  const [coilerSourceYmSts, setCoilerSourceYmSts] = useState([]);
+  const [coilerSourceYmStSearch, setCoilerSourceYmStSearch] = useState('');
+  const [isGeneratingCoilerExcel, setIsGeneratingCoilerExcel] = useState(false);
+
+  // Stub functions for Coiler modal (unused in Tavlı Tel)
+  const toggleSourceYmStSelection = () => {};
+  const generateCoilerExcel = () => {};
   
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
@@ -13800,8 +13812,8 @@ const TavliBalyaTelNetsis = () => {
         </div>
       )}
 
-      {/* Coiler Recete Modalı */}
-      {showCoilerReceteModal && (
+      {/* YM ST Reçete Modalı (Standalone - Filmaşinden YM ST) */}
+      {showYmStReceteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
             <div className="p-6">
