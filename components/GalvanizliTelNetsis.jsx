@@ -11362,7 +11362,12 @@ const GalvanizliTelNetsis = () => {
     // FIXED: Sort recipes within each product by sequence field from database
     // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
-      console.log(`🔍 BATCH: Sorting ${productCode} recipes:`, ymStByProduct[productCode].map(r => ({bilesen: r.bilesen_kodu, seq: r.sequence})));
+      const recipes = ymStByProduct[productCode];
+      console.log(`🔍 BATCH: Before sorting ${productCode} (${recipes.length} recipes):`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sequence=${r.sequence}, operasyon_bilesen=${r.operasyon_bilesen}`);
+      });
+
       ymStByProduct[productCode].sort((a, b) => {
         // Sort by sequence field if both have it
         if (a.sequence && b.sequence) {
@@ -11375,7 +11380,11 @@ const GalvanizliTelNetsis = () => {
         if (!aIsMainBilesen && bIsMainBilesen) return 1;
         return 0;
       });
-      console.log(`✅ BATCH: After sorting ${productCode}:`, ymStByProduct[productCode].map(r => ({bilesen: r.bilesen_kodu, seq: r.sequence})));
+
+      console.log(`✅ BATCH: After sorting ${productCode}:`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sequence=${r.sequence}, operasyon_bilesen=${r.operasyon_bilesen}`);
+      });
     });
 
     // Add main recipes (priority 0)
