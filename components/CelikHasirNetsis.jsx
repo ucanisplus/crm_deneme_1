@@ -1729,7 +1729,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         if (response?.ok) {
           const data = await response.json();
           data.forEach(seq => {
-            const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
+            // Normalize cap_code: convert null/undefined to empty string to prevent duplicate keys
+            const normalizedCapCode = seq.cap_code || '';
+            const key = `${seq.product_type}_${seq.kod_2}_${normalizedCapCode}`;
             currentSequences[key] = seq.last_sequence;
           });
           console.log('*** Fresh sequences loaded:', Object.keys(currentSequences));
@@ -1737,10 +1739,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } catch (error) {
         console.error('*** Error fetching fresh sequences:', error);
       }
-      
-      // Check if backup sequence exists
-      const ozlSequenceKey = Object.keys(currentSequences).find(key => key.startsWith('CH_OZL_'));
-      const ozlBackupKey = Object.keys(currentSequences).find(key => key.startsWith('CH_OZL_BACKUP'));
+
+      // Check if backup sequence exists - use exact key match to avoid picking up wrong rows
+      const ozlSequenceKey = 'CH_OZL_';
+      const ozlBackupKey = 'CH_OZL_BACKUP_';
       
       let actualSequence = 2443; // Default fallback
       let backupSequence = 2443; // Default fallback
@@ -1900,20 +1902,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
 
     let maxSequence = 2443; // Default fallback
-    
-    // Use the higher of actual or backup sequence
-    const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
-    const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
-    
+
+    // Use exact key match to avoid picking up rows with NULL cap_code
+    const ozlSequenceKey = 'CH_OZL_';
+    const ozlBackupKey = 'CH_OZL_BACKUP_';
+
     let actualSequence = 2443;
     let backupSequence = 2443;
-    
-    if (ozlSequenceKey && sequences[ozlSequenceKey]) {
+
+    if (sequences[ozlSequenceKey]) {
       actualSequence = sequences[ozlSequenceKey];
       console.log('*** Actual sequence from table:', ozlSequenceKey, 'value:', actualSequence);
     }
-    
-    if (ozlBackupKey && sequences[ozlBackupKey]) {
+
+    if (sequences[ozlBackupKey]) {
       backupSequence = sequences[ozlBackupKey];
       console.log('*** Backup sequence from table:', ozlBackupKey, 'value:', backupSequence);
     }
@@ -2066,21 +2068,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Batch should already be initialized by initializeBatchSequence()
       if (!batchSequenceInitialized) {
         console.error('*** ERROR: Batch sequence not initialized! Call initializeBatchSequence() first.');
-        // Fallback - use basic sequence table lookup without database check
-        const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_'));
-        const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP'));
-        
+        // Fallback - use basic sequence table lookup without database check - use exact key match
+        const ozlSequenceKey = 'CH_OZL_';
+        const ozlBackupKey = 'CH_OZL_BACKUP_';
+
         let actualSequence = 2443;
         let backupSequence = 2443;
-        
-        if (ozlSequenceKey && sequences[ozlSequenceKey]) {
+
+        if (sequences[ozlSequenceKey]) {
           actualSequence = sequences[ozlSequenceKey];
         }
-        
-        if (ozlBackupKey && sequences[ozlBackupKey]) {
+
+        if (sequences[ozlBackupKey]) {
           backupSequence = sequences[ozlBackupKey];
         }
-        
+
         batchSequenceCounter = Math.max(actualSequence, backupSequence);
         batchSequenceInitialized = true;
         console.log('*** FALLBACK: Batch initialized with sequence table only:', batchSequenceCounter);
@@ -6430,11 +6432,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // For OZL products, implement dual sequence check and update
       if (kod2 === 'OZL' && actualSequenceNumber) {
         console.log('*** OZL product - checking both backup and actual sequences');
-        
-        // Get current sequences from state
-        const ozlSequenceKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_')) || 'CH_OZL_';
-        const ozlBackupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP')) || 'CH_OZL_BACKUP_';
-        
+
+        // Use exact key match to avoid picking up rows with NULL cap_code
+        const ozlSequenceKey = 'CH_OZL_';
+        const ozlBackupKey = 'CH_OZL_BACKUP_';
+
         let currentActual = sequences[ozlSequenceKey] || 2443;
         let currentBackup = sequences[ozlBackupKey] || 2443;
         
@@ -8144,12 +8146,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         
         await Promise.all(updateTasks);
-        
-        // Update local sequence state
+
+        // Update local sequence state - use exact key match
         const updatedSequences = { ...sequences };
-        const ozlKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_')) || 'CH_OZL_';
-        const backupKey = Object.keys(sequences).find(key => key.startsWith('CH_OZL_BACKUP')) || 'CH_OZL_BACKUP_';
-        
+        const ozlKey = 'CH_OZL_';
+        const backupKey = 'CH_OZL_BACKUP_';
+
         if (sequences[ozlKey] > newMaxSequence) updatedSequences[ozlKey] = newMaxSequence;
         if (sequences[backupKey] > newMaxSequence) updatedSequences[backupKey] = newMaxSequence;
         

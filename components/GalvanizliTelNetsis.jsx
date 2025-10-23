@@ -211,20 +211,29 @@ const getCoilerCategory = (stokKodu) => {
 // Uses COILER_ALTERNATIVE_MATRIX to generate up to 8 alternatives
 const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
   console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives (up to 8) for .ST products using new matrix...`);
+  console.log(`📊 Input: ${mainRecipes.length} recipes, ${ymStProducts.length} products`);
 
   // Structure: { 1: [...], 2: [...], ..., 8: [...] }
   const alternativesByPriority = {};
 
-  // Group recipes by product
+  // Group recipes by product - support both mamul_kodu and ym_st_stok_kodu
   const recipesByProduct = {};
   mainRecipes.forEach(recipe => {
-    if (!recipesByProduct[recipe.mamul_kodu]) {
-      recipesByProduct[recipe.mamul_kodu] = [];
+    // Support both database field names (mamul_kodu) and runtime field names (ym_st_stok_kodu)
+    const productCode = recipe.mamul_kodu || recipe.ym_st_stok_kodu;
+    if (!productCode) {
+      console.warn('⚠️ Recipe missing both mamul_kodu and ym_st_stok_kodu:', recipe);
+      return;
     }
-    recipesByProduct[recipe.mamul_kodu].push(recipe);
+
+    if (!recipesByProduct[productCode]) {
+      recipesByProduct[productCode] = [];
+    }
+    recipesByProduct[productCode].push(recipe);
   });
 
   console.log(`📋 TÜM ÜRÜNLER: Processing ${Object.keys(recipesByProduct).length} unique YM ST products`);
+  console.log(`🔍 Product codes found:`, Object.keys(recipesByProduct).slice(0, 5));
 
   let stProductCount = 0;
 
@@ -261,11 +270,12 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       const mainDef = alternatives.find(a => a.priority === 0);
 
       // Calculate duration adjustment ratio
-      // Based on database analysis: duration ∝ 1/cap²
-      // Thicker bilesen cap (larger cap) → SHORTER duration (less reduction needed)
-      // Thinner bilesen cap (smaller cap) → LONGER duration (more reduction needed)
-      // Formula: (oldCap/newCap)² - INVERSE relationship!
-      const durationRatio = Math.pow(mainDef.cap / altDef.cap, 2);
+      // Logic: Less reduction needed = Less time
+      // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER duration
+      // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER duration
+      // Example: To produce 0.73mm, starting from 2.16mm is faster than starting from 2.26mm
+      // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter duration)
+      const durationRatio = Math.pow(altDef.cap / mainDef.cap, 2);
 
       // Initialize priority array if needed
       if (!alternativesByPriority[priority]) {
@@ -11257,18 +11267,24 @@ const GalvanizliTelNetsis = () => {
     ymStReceteSheet.addRow(receteHeaders);
 
     // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
+    // IMPORTANT: Only pass priority 0 (main) recipes to generate alternatives!
+    console.log('🔄 BATCH RECETE: Filtering recipes for main products only (priority 0)...');
+    const mainYmStRecipes = ymStRecipes.filter(r => (r.ym_st_priority || 0) === 0);
+    console.log(`📊 BATCH RECETE: Filtered ${ymStRecipes.length} total recipes → ${mainYmStRecipes.length} main recipes`);
+
     console.log('🔄 BATCH RECETE: Generating COILER alternatives for .ST products...');
-    const coilerAlternatives = generateCoilerAlternatives(ymStRecipes, sortedYmStData);
+    const coilerAlternatives = generateCoilerAlternatives(mainYmStRecipes, sortedYmStData);
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 BATCH RECETE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // Group main recipes by product
+    // Group ONLY main recipes (priority 0) by product for the main sheet
     const ymStByProduct = {};
-    ymStRecipes.forEach(recipe => {
-      if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
-        ymStByProduct[recipe.ym_st_stok_kodu] = [];
+    mainYmStRecipes.forEach(recipe => {
+      const productCode = recipe.ym_st_stok_kodu || recipe.mamul_kodu;
+      if (!ymStByProduct[productCode]) {
+        ymStByProduct[productCode] = [];
       }
-      ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
+      ymStByProduct[productCode].push(recipe);
     });
 
     // Add main recipes (priority 0)
