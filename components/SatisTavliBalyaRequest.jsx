@@ -66,15 +66,9 @@ const SatisTavliBalyaRequest = () => {
   const [duplicateProduct, setDuplicateProduct] = useState(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
-  // YM.ST (Siyah Tel) selection state
-  const [ymStProducts, setYmStProducts] = useState([]);
-  const [isLoadingYmSt, setIsLoadingYmSt] = useState(false);
-  const [selectedYmSt, setSelectedYmSt] = useState(null);
-
   // Default form values
   const defaultRequestData = {
     cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
-    ym_st_kodu: '',        // Selected YM.ST product code (required)
     product_type: 'TAVLI', // Default: TAVLI (Tavlı Tel)
     yaglama_tipi: '',      // For Balya Teli only (Püskürtme/Normal)
     min_mukavemet: '350',  // Default: 350 MPa
@@ -192,32 +186,7 @@ const SatisTavliBalyaRequest = () => {
     setCurrentPage(1);
   }, [statusFilter, searchQuery, sortField, sortDirection]);
 
-  // Fetch YM.ST products on component mount
-  useEffect(() => {
-    fetchYmStProducts();
-  }, []);
-
-  // Fetch YM.ST products from database
-  const fetchYmStProducts = async () => {
-    try {
-      setIsLoadingYmSt(true);
-      const response = await fetchWithAuth(API_URLS.galYmSt); // Using existing YM.ST endpoint
-
-      if (!response || !response.ok) {
-        throw new Error('YM.ST ürünleri alınamadı');
-      }
-
-      const data = await response.json();
-      // Sort by diameter for easier selection
-      const sortedData = (data || []).sort((a, b) => parseFloat(a.cap) - parseFloat(b.cap));
-      setYmStProducts(sortedData);
-    } catch (error) {
-      console.error('YM.ST ürünleri alınırken hata:', error);
-      toast.error('YM.ST ürünleri alınamadı: ' + error.message);
-    } finally {
-      setIsLoadingYmSt(false);
-    }
-  };
+  // YM.ST selection removed from sales page - production team handles this
 
   // Remove real-time duplicate checking - will check on submit instead
   
@@ -892,10 +861,7 @@ const SatisTavliBalyaRequest = () => {
       validationErrors.push('Ürün tipi seçilmelidir (Tavlı Tel veya Yağlı Balya Teli).');
     }
 
-    // Validate YM.ST selection (required)
-    if (!requestData.ym_st_kodu || requestData.ym_st_kodu.trim() === '') {
-      validationErrors.push('Ham madde (YM.ST - Siyah Tel) seçimi zorunludur. Üretim ekibi onayı için lütfen bir YM.ST ürünü seçiniz.');
-    }
+    // Note: YM.ST selection removed - production team will select during approval
 
     // Validate yaglama_tipi for BALYA products
     if (requestData.product_type === 'BALYA' && (!requestData.yaglama_tipi || requestData.yaglama_tipi.trim() === '')) {
@@ -1861,57 +1827,21 @@ const SatisTavliBalyaRequest = () => {
                 <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.8 - 8.1 mm</p>
               </div>
 
-              {/* YM.ST (Siyah Tel) Selection - Required */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ham Madde (YM.ST - Siyah Tel) <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="ym_st_kodu"
-                  value={requestData.ym_st_kodu || ''}
-                  onChange={handleYmStChange}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                  disabled={isLoadingYmSt}
-                >
-                  <option value="">
-                    {isLoadingYmSt ? 'Yükleniyor...' : 'Lütfen YM.ST ürünü seçiniz...'}
-                  </option>
-                  {suggestedYmStProducts.length > 0 && suggestedYmStProducts.length < ymStProducts.length && (
-                    <optgroup label="Önerilen Ürünler (Çapa Uygun)">
-                      {suggestedYmStProducts.map(product => (
-                        <option key={product.id} value={product.stok_kodu}>
-                          {product.stok_kodu} - {product.stok_adi} - Çap: {parseFloat(product.cap).toFixed(2)} mm
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {suggestedYmStProducts.length < ymStProducts.length && (
-                    <optgroup label="Diğer Ürünler">
-                      {ymStProducts
-                        .filter(p => !suggestedYmStProducts.find(sp => sp.id === p.id))
-                        .map(product => (
-                          <option key={product.id} value={product.stok_kodu}>
-                            {product.stok_kodu} - {product.stok_adi} - Çap: {parseFloat(product.cap).toFixed(2)} mm
-                          </option>
-                        ))}
-                    </optgroup>
-                  )}
-                  {suggestedYmStProducts.length === ymStProducts.length && (
-                    <>
-                      {ymStProducts.map(product => (
-                        <option key={product.id} value={product.stok_kodu}>
-                          {product.stok_kodu} - {product.stok_adi} - Çap: {parseFloat(product.cap).toFixed(2)} mm
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  {suggestedYmStProducts.length > 0 && suggestedYmStProducts.length < ymStProducts.length
-                    ? `Girilen çapa (${requestData.cap} mm) uygun ${suggestedYmStProducts.length} ürün önerildi`
-                    : 'Üretim ekibi talep onayı için YM.ST seçimi zorunludur'}
-                </p>
+              {/* Info: Raw material selection by production team */}
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-blue-800">Ham Madde Seçimi</p>
+                    <p className="mt-1 text-sm text-blue-700">
+                      Ham madde (YM.ST - Siyah Tel) seçimi üretim ekibi tarafından talep onayı sırasında yapılacaktır.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Yağlama Tipi - Only for Balya Teli */}
@@ -2284,12 +2214,6 @@ const SatisTavliBalyaRequest = () => {
                     <p className="text-sm font-medium text-gray-500">Ürün Tipi</p>
                     <p className="text-base text-gray-900">
                       {selectedRequest.product_type === 'BALYA' ? 'Yağlı Balya Teli' : 'Tavlı Tel'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Ham Madde (YM.ST)</p>
-                    <p className="text-base text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">
-                      {selectedRequest.ym_st_kodu || '-'}
                     </p>
                   </div>
                   {selectedRequest.product_type === 'BALYA' && selectedRequest.yaglama_tipi && (

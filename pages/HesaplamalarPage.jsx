@@ -12,6 +12,12 @@ const GalvanizliTelNetsis = dynamic(
   { ssr: false }
 );
 
+// Dynamic import ile TavliBalyaTelNetsis componentını yükle
+const TavliBalyaTelNetsis = dynamic(
+  () => import('@/components/TavliBalyaTelNetsis'),
+  { ssr: false }
+);
+
 const HesaplamalarPage = () => {
   const { hasPermission, user } = useAuth();
 
@@ -93,13 +99,7 @@ const HesaplamalarPage = () => {
               {activeTab === 'panel-cit' && <PanelCitHesaplama />}
               {activeTab === 'celik-hasir' && <CelikHasirHesaplama />}
               {activeTab === 'galvanizli-tel' && <GalvanizliTelNetsis />}
-
-              {activeTab === 'tavli-tel' && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Tavlı Tel Maliyet Hesaplama</h3>
-                  <p className="text-gray-600">Tavlı Tel için maliyet hesaplama ve analiz verileri burada görüntülenecektir.</p>
-                </div>
-              )}
+              {activeTab === 'tavli-tel' && <TavliBalyaTelNetsis />}
 
               {activeTab === 'civi' && (
                 <div className="space-y-4">
