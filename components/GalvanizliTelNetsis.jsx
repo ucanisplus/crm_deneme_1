@@ -1369,7 +1369,84 @@ const GalvanizliTelNetsis = () => {
 
     try {
       console.log('Bulk delete starting for tab:', activeDbTab, 'Items:', selectedDbItems);
-      
+
+      // STEP 0: Identify requests related to products being deleted (BEFORE deletion)
+      const requestsToMark = [];
+      if (activeDbTab === 'mmgt') {
+        try {
+          console.log('Bulk delete: Identifying requests for products to be deleted...');
+
+          // Get all requests
+          const allRequestsResponse = await fetchWithAuth(`${API_URLS.galSalRequests}?limit=200&sort_by=created_at&sort_order=desc`);
+          if (allRequestsResponse && allRequestsResponse.ok) {
+            const allRequests = await allRequestsResponse.json();
+
+            // Get products that will be deleted
+            const productsToDelete = [];
+            for (const itemId of selectedDbItems) {
+              try {
+                const productResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${itemId}`);
+                if (productResponse && productResponse.ok) {
+                  const product = await productResponse.json();
+                  productsToDelete.push(product);
+                }
+              } catch (fetchError) {
+                console.error(`Error fetching product ${itemId}:`, fetchError);
+              }
+            }
+
+            console.log(`Bulk delete: Found ${productsToDelete.length} products to delete`);
+
+            // Find requests matching ONLY the products to be deleted (forward matching)
+            for (const request of allRequests) {
+              if (request.status === 'silinmis') continue;
+
+              for (const product of productsToDelete) {
+                let matches = false;
+
+                // Strategy 1: Match by final_stok_adi
+                if (request.final_stok_adi && product.stok_adi && request.final_stok_adi === product.stok_adi) {
+                  matches = true;
+                  console.log(`✓ Request ${request.id} matches product ${product.id} by stok_adi: ${product.stok_adi}`);
+                }
+                // Strategy 2: Match by stok_kodu
+                else if (request.stok_kodu && product.stok_kodu && request.stok_kodu === product.stok_kodu) {
+                  matches = true;
+                  console.log(`✓ Request ${request.id} matches product ${product.id} by stok_kodu: ${product.stok_kodu}`);
+                }
+                // Strategy 3: Match by specifications (all must match)
+                else {
+                  const specsMatch = (
+                    Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
+                    product.kod_2 === request.kod_2 &&
+                    Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+                    Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
+                    Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
+                    Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
+                    Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
+                    Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
+                  );
+                  if (specsMatch) {
+                    matches = true;
+                    console.log(`✓ Request ${request.id} matches product ${product.id} by specifications`);
+                  }
+                }
+
+                if (matches) {
+                  requestsToMark.push(request.id);
+                  break; // Found a match, move to next request
+                }
+              }
+            }
+
+            console.log(`Bulk delete: Identified ${requestsToMark.length} requests to mark as silinmiş`);
+          }
+        } catch (error) {
+          console.error('Error identifying requests to mark:', error);
+          // Continue with deletion even if request identification fails
+        }
+      }
+
       if (activeDbTab === 'mmgt') {
         // For MM GT, we need cascade deletion including YM GT
         for (const itemId of selectedDbItems) {
@@ -1503,87 +1580,27 @@ const GalvanizliTelNetsis = () => {
       }
 
       // Mark related requests as "silinmiş" for deleted MM GT products
-      if (activeDbTab === 'mmgt' && successCount > 0) {
+      // Uses forward matching: only marks requests identified BEFORE deletion
+      if (requestsToMark.length > 0 && successCount > 0) {
         try {
-          // Get requests to check for related ones (limit for performance)
-          const allRequestsResponse = await fetchWithAuth(`${API_URLS.galSalRequests}?limit=200&sort_by=created_at&sort_order=desc`);
-          if (allRequestsResponse && allRequestsResponse.ok) {
-            const allRequests = await allRequestsResponse.json();
-            const requestsToUpdate = [];
-            
-            // Get current MM GT products to see which ones are missing (deleted)
-            const currentProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000`);
-            let currentProducts = [];
-            if (currentProductsResponse && currentProductsResponse.ok) {
-              currentProducts = await currentProductsResponse.json();
-            }
-            
-            // Find requests that no longer have matching products
-            for (const request of allRequests) {
-              if (request.status === 'silinmis') continue; // Skip already marked
-              
-              let hasMatchingProduct = false;
-              
-              // Check if any current product matches this request
-              for (const product of currentProducts) {
-                // Strategy 1: Match by final_stok_adi
-                if (request.final_stok_adi === product.stok_adi) {
-                  hasMatchingProduct = true;
-                  break;
-                }
-                
-                // Strategy 2: Match by stok_kodu
-                if (request.stok_kodu === product.stok_kodu) {
-                  hasMatchingProduct = true;
-                  break;
-                }
-                
-                // Strategy 3: Match by specifications
-                const specsMatch = (
-                  Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
-                  product.kod_2 === request.kod_2 &&
-                  Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
-                  Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
-                  Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
-                  Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
-                  Math.abs(parseFloat(product.ic_cap || 0) - parseFloat(request.ic_cap || 0)) < 0.1 &&
-                  Math.abs(parseFloat(product.dis_cap || 0) - parseFloat(request.dis_cap || 0)) < 0.1
-                );
-                
-                if (specsMatch) {
-                  hasMatchingProduct = true;
-                  break;
-                }
-              }
-              
-              // If no matching product found, mark request as silinmiş
-              if (!hasMatchingProduct) {
-                requestsToUpdate.push(request.id);
-              }
-            }
-            
-            // Update related requests to "silinmiş" status
-            if (requestsToUpdate.length > 0) {
-              console.log(`Bulk delete: Marking ${requestsToUpdate.length} related requests as silinmiş`);
-              
-              for (const requestId of requestsToUpdate) {
-                try {
-                  await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'silinmis' })
-                  });
-                } catch (updateError) {
-                  console.error(`Failed to update request ${requestId} status:`, updateError);
-                }
-              }
-              
-              // Refresh requests to show updated statuses
-              await fetchRequests();
+          console.log(`Bulk delete: Marking ${requestsToMark.length} identified requests as silinmiş`);
+
+          for (const requestId of requestsToMark) {
+            try {
+              await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'silinmis' })
+              });
+            } catch (updateError) {
+              console.error(`Failed to update request ${requestId} status:`, updateError);
             }
           }
+
+          // Refresh requests to show updated statuses
+          await fetchRequests();
         } catch (error) {
-          console.error('Error updating related request statuses in bulk delete:', error);
+          console.error('Error marking related requests:', error);
           // Continue without failing the deletion
         }
       }
