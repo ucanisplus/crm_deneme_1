@@ -12522,10 +12522,16 @@ const GalvanizliTelNetsis = () => {
 
           // Convert to array format expected by generateCoilerAlternatives
           recipeEntries.forEach(([bilesen_kodu, miktar]) => {
+            if (bilesen_kodu === 'NOTE' || miktar === 0) return; // Skip NOTE entries and zero values
+
+            // FIXED: Add operasyon_bilesen field so generateCoilerAlternatives knows which to replace
+            const operasyon_bilesen = (bilesen_kodu.includes('FLM.') || bilesen_kodu.includes('YM.ST.')) ? 'B' : 'O';
+
             ymStRecipesForAlternatives.push({
               mamul_kodu: ymSt.stok_kodu,
               bilesen_kodu,
-              miktar
+              miktar,
+              operasyon_bilesen // CRITICAL FIX: This tells which entries are bilesen vs operations
             });
           });
 
