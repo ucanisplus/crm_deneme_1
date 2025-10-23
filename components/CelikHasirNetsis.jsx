@@ -1707,7 +1707,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const data = await response.json();
         const sequenceMap = {};
         data.forEach(seq => {
-          const key = `${seq.product_type}_${seq.kod_2}_${seq.cap_code}`;
+          // BULLETPROOF cap_code normalization - handle NULL, undefined, "null", whitespace, etc.
+          let normalizedCapCode = '';
+          if (seq.cap_code !== null && seq.cap_code !== undefined && seq.cap_code !== 'null' && seq.cap_code !== 'NULL') {
+            normalizedCapCode = String(seq.cap_code).trim();
+          }
+          const key = `${seq.product_type}_${seq.kod_2}_${normalizedCapCode}`;
           sequenceMap[key] = seq.last_sequence;
         });
         setSequences(sequenceMap);
