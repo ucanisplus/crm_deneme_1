@@ -1728,11 +1728,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const response = await fetchWithAuth(API_URLS.celikHasirSequence);
         if (response?.ok) {
           const data = await response.json();
+          console.log('*** RAW SEQUENCE DATA:', JSON.stringify(data.filter(s => s.kod_2 && s.kod_2.includes('OZL')), null, 2));
           data.forEach(seq => {
-            // Normalize cap_code: convert null/undefined to empty string to prevent duplicate keys
-            const normalizedCapCode = seq.cap_code || '';
+            // BULLETPROOF cap_code normalization - handle NULL, undefined, "null", whitespace, etc.
+            let normalizedCapCode = '';
+            if (seq.cap_code !== null && seq.cap_code !== undefined && seq.cap_code !== 'null' && seq.cap_code !== 'NULL') {
+              normalizedCapCode = String(seq.cap_code).trim();
+            }
             const key = `${seq.product_type}_${seq.kod_2}_${normalizedCapCode}`;
             currentSequences[key] = seq.last_sequence;
+            if (seq.kod_2 && seq.kod_2.includes('OZL')) {
+              console.log(`*** OZL SEQUENCE: key="${key}", cap_code type=${typeof seq.cap_code}, value="${seq.cap_code}", normalized="${normalizedCapCode}", last_sequence=${seq.last_sequence}`);
+            }
           });
           console.log('*** Fresh sequences loaded:', Object.keys(currentSequences));
         }
