@@ -10295,7 +10295,7 @@ const GalvanizliTelNetsis = () => {
     // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       ymStByProduct[productCode].sort((a, b) => {
-        return (a.sequence || 0) - (b.sequence || 0);
+        return (a.sira_no || 0) - (b.sira_no || 0);
       });
     });
 
@@ -11359,21 +11359,21 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[productCode].push(recipe);
     });
 
-    // FIXED: Sort recipes within each product by sequence field from database
-    // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    // FIXED: Sort recipes within each product by sira_no field from database
+    // sira_no field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       const recipes = ymStByProduct[productCode];
       console.log(`🔍 BATCH: Before sorting ${productCode} (${recipes.length} recipes):`);
       recipes.forEach((r, idx) => {
-        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sequence=${r.sequence}, operasyon_bilesen=${r.operasyon_bilesen}`);
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
       });
 
       ymStByProduct[productCode].sort((a, b) => {
-        // Sort by sequence field if both have it
-        if (a.sequence && b.sequence) {
-          return a.sequence - b.sequence;
+        // Sort by sira_no field if both have it
+        if (a.sira_no && b.sira_no) {
+          return a.sira_no - b.sira_no;
         }
-        // If sequence is missing, use bilesen_kodu type as fallback
+        // If sira_no is missing, use bilesen_kodu type as fallback
         const aIsMainBilesen = a.bilesen_kodu && (a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.'));
         const bIsMainBilesen = b.bilesen_kodu && (b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.'));
         if (aIsMainBilesen && !bIsMainBilesen) return -1;
@@ -11383,7 +11383,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`✅ BATCH: After sorting ${productCode}:`);
       recipes.forEach((r, idx) => {
-        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sequence=${r.sequence}, operasyon_bilesen=${r.operasyon_bilesen}`);
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
       });
     });
 
@@ -13538,13 +13538,19 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // FIXED: Sort recipes within each product - bilesen ('B') first, then operations ('O')
+    // FIXED: Sort recipes within each product by sira_no field from database
+    // sira_no field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       ymStByProduct[productCode].sort((a, b) => {
-        // 'B' (bilesen) comes before 'O' (operation)
-        if (a.operasyon_bilesen === 'B' && b.operasyon_bilesen !== 'B') return -1;
-        if (a.operasyon_bilesen !== 'B' && b.operasyon_bilesen === 'B') return 1;
-        // If both are same type, maintain original order
+        // Sort by sira_no field if both have it
+        if (a.sira_no && b.sira_no) {
+          return a.sira_no - b.sira_no;
+        }
+        // If sira_no is missing, use bilesen_kodu type as fallback
+        const aIsMainBilesen = a.bilesen_kodu && (a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.'));
+        const bIsMainBilesen = b.bilesen_kodu && (b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.'));
+        if (aIsMainBilesen && !bIsMainBilesen) return -1;
+        if (!aIsMainBilesen && bIsMainBilesen) return 1;
         return 0;
       });
     });
