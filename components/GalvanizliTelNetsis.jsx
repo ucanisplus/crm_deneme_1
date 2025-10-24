@@ -10049,10 +10049,28 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.mamul_kodu].push(recipe);
     });
 
+    // DEBUG: Check if sira_no field exists in API response
+    if (allYMGTRecetes.length > 0) {
+      const sampleRecipe = allYMGTRecetes[0];
+      console.log(`🔍 BULK YM GT: Sample recipe fields:`, Object.keys(sampleRecipe));
+      console.log(`🔍 BULK YM GT: Sample recipe data:`, sampleRecipe);
+    }
+
     // Sort recipes within each product by sira_no field from database
     Object.keys(ymGtByProduct).forEach(productCode => {
+      const recipes = ymGtByProduct[productCode];
+      console.log(`🔍 BULK YM GT: Before sorting ${productCode} (${recipes.length} recipes):`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
+      });
+
       ymGtByProduct[productCode].sort((a, b) => {
         return (a.sira_no || 0) - (b.sira_no || 0);
+      });
+
+      console.log(`✅ BULK YM GT: After sorting ${productCode}:`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
       });
     });
 
@@ -11109,10 +11127,28 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
     });
 
+    // DEBUG: Check if sira_no field exists in API response
+    if (ymGtRecipes.length > 0) {
+      const sampleRecipe = ymGtRecipes[0];
+      console.log(`🔍 MULTI YM GT: Sample recipe fields:`, Object.keys(sampleRecipe));
+      console.log(`🔍 MULTI YM GT: Sample recipe data:`, sampleRecipe);
+    }
+
     // Sort recipes within each product by sira_no field from database
     Object.keys(ymGtByProduct).forEach(productCode => {
+      const recipes = ymGtByProduct[productCode];
+      console.log(`🔍 MULTI YM GT: Before sorting ${productCode} (${recipes.length} recipes):`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
+      });
+
       ymGtByProduct[productCode].sort((a, b) => {
         return (a.sira_no || 0) - (b.sira_no || 0);
+      });
+
+      console.log(`✅ MULTI YM GT: After sorting ${productCode}:`);
+      recipes.forEach((r, idx) => {
+        console.log(`  [${idx}] bilesen=${r.bilesen_kodu}, sira_no=${r.sira_no}, operasyon_bilesen=${r.operasyon_bilesen}`);
       });
     });
 
