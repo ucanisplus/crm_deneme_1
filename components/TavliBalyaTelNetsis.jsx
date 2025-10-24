@@ -40,6 +40,51 @@ const AUXILIARY_COMPONENTS = {
   'AMB.KALDIRMA.KANCASI': 'SM-AMB-000997' // Placeholder
 };
 
+// STOCK CODE GENERATION HELPERS
+// ============================================================================
+/**
+ * Generates the product prefix based on product type
+ * @param {string} productType - 'TAVLI' or 'BALYA'
+ * @returns {string} - 'TT.BAG' or 'TT.BALYA'
+ */
+const getProductPrefix = (productType) => {
+  return productType === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+};
+
+/**
+ * Formats diameter to 4-digit code (e.g., 1.20 → "0120")
+ * @param {number|string} diameter - Diameter in mm
+ * @returns {string} - Formatted 4-digit code
+ */
+const formatDiameterCode = (diameter) => {
+  return Math.round(parseFloat(diameter) * 100).toString().padStart(4, '0');
+};
+
+/**
+ * Generates finished product stock code (MM)
+ * @param {string} productType - 'TAVLI' or 'BALYA'
+ * @param {number|string} diameter - Diameter in mm
+ * @param {string} sequence - Sequence number (e.g., '00', '01')
+ * @returns {string} - Stock code (e.g., 'TT.BAG.0120.00')
+ */
+const generateMmStokKodu = (productType, diameter, sequence = '00') => {
+  const prefix = getProductPrefix(productType);
+  const capCode = formatDiameterCode(diameter);
+  return `${prefix}.${capCode}.${sequence}`;
+};
+
+/**
+ * Generates intermediate product stock code (YM)
+ * @param {string} intermediateType - 'TT' (annealed) or 'YB' (oiled bale) or 'STP' (pressed)
+ * @param {number|string} diameter - Diameter in mm
+ * @param {string} sequence - Sequence number
+ * @returns {string} - Stock code (e.g., 'YM.TT.0120.00')
+ */
+const generateYmStokKodu = (intermediateType, diameter, sequence = '00') => {
+  const capCode = formatDiameterCode(diameter);
+  return `YM.${intermediateType}.${capCode}.${sequence}`;
+};
+
 const TavliBalyaTelNetsis = () => {
   const { user, hasPermission } = useAuth();
   
@@ -126,6 +171,10 @@ const TavliBalyaTelNetsis = () => {
   const [coilerSourceYmSts, setCoilerSourceYmSts] = useState([]);
   const [coilerSourceYmStSearch, setCoilerSourceYmStSearch] = useState('');
   const [isGeneratingCoilerExcel, setIsGeneratingCoilerExcel] = useState(false);
+
+  // Intermediate product modal states
+  const [showYmTtModal, setShowYmTtModal] = useState(false);
+  const [showYmYbModal, setShowYmYbModal] = useState(false);
 
   // Stub functions for Coiler modal (unused in Tavlı Tel)
   const toggleSourceYmStSelection = () => {};
@@ -292,10 +341,8 @@ const TavliBalyaTelNetsis = () => {
   // Form verileri - NOKTA kullan decimal için
   const [mmGtData, setMmGtData] = useState({
     cap: '2.50', // Nokta ondalik ayracini garantile
-    kod_2: 'NIT',
     product_type: 'TAVLI', // TAVLI (TT.BAG) or BALYA (TT.BALYA)
     yaglama_tipi: '', // Püskürtme/Normal for BALYA only
-    kaplama: '50', // Tam sayi degeri
     min_mukavemet: '350', // Tam sayi degeri
     max_mukavemet: '550', // Tam sayi degeri
     kg: '500', // Tam sayi degeri
@@ -314,7 +361,7 @@ const TavliBalyaTelNetsis = () => {
   const [paketlemeSecenekleri, setPaketlemeSecenekleri] = useState({
     shrink: true, // Default olarak seçili
     paletli: false,
-    sepetli: false
+    karton: false // Changed from karton to karton for Tavlı Tel
   });
   
   // Tolerans işaret durumları
@@ -846,11 +893,22 @@ const TavliBalyaTelNetsis = () => {
       const response = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (response && response.ok) {
         const data = await response.json();
-        setExistingMmGts(Array.isArray(data) ? data : []);
+        const products = Array.isArray(data) ? data : [];
+        setExistingMms(products);
+        console.log(`✅ ${products.length} adet Tavlı/Balya Tel ürün yüklendi`);
+      } else {
+        console.warn('⚠️ MM ürün listesi yanıtı başarısız:', response?.status, response?.statusText);
+        setExistingMms([]);
+        // Don't show error toast for empty results - it's normal for new system
+        if (response && !response.ok && response.status !== 404) {
+          toast.warn('Ürün listesi yüklenemedi, lütfen sayfayı yenileyin');
+        }
       }
     } catch (error) {
-      console.error('Mevcut MM GT listesi getirilirken hata:', error);
-      toast.error('Mevcut MM GT listesi getirilemedi');
+      console.error('❌ Mevcut MM listesi getirilirken hata:', error);
+      setExistingMms([]);
+      // Only show error toast for actual errors, not for empty results
+      toast.error('Veritabanı bağlantı hatası. Lütfen sayfayı yenileyin.');
     }
   };
 
@@ -860,11 +918,20 @@ const TavliBalyaTelNetsis = () => {
       const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (response && response.ok) {
         const data = await response.json();
-        setExistingYmSts(Array.isArray(data) ? data : []);
+        const products = Array.isArray(data) ? data : [];
+        setExistingYmSts(products);
+        console.log(`✅ ${products.length} adet YM ST (Filmaşin) yüklendi`);
+      } else {
+        console.warn('⚠️ YM ST listesi yanıtı başarısız:', response?.status, response?.statusText);
+        setExistingYmSts([]);
+        if (response && !response.ok && response.status !== 404) {
+          toast.warn('Filmaşin listesi yüklenemedi, lütfen sayfayı yenileyin');
+        }
       }
     } catch (error) {
-      console.error('Mevcut YM ST listesi getirilirken hata:', error);
-      toast.error('Mevcut YM ST listesi getirilemedi');
+      console.error('❌ Mevcut YM ST listesi getirilirken hata:', error);
+      setExistingYmSts([]);
+      toast.error('Veritabanı bağlantı hatası. Lütfen sayfayı yenileyin.');
     }
   };
 
@@ -1259,10 +1326,9 @@ const TavliBalyaTelNetsis = () => {
         return;
       }
       
-      // Mevcut form verilerine gore MM GT bulmaya calis
-      const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
+      // Mevcut form verilerine gore MM bulmaya calis
       const sequence = processSequence || '00';
-      const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
+      const mmGtStokKodu = generateMmStokKodu(mmGtData.product_type, mmGtData.cap, sequence);
       
       
       // Find MM GT
@@ -1946,11 +2012,11 @@ const TavliBalyaTelNetsis = () => {
         const packaging = {
           shrink: selectedRequest.stok_adi.includes('-Shrink'),
           paletli: selectedRequest.stok_adi.includes('-Plt'),
-          sepetli: selectedRequest.stok_adi.includes('-Spt')
+          karton: selectedRequest.stok_adi.includes('-Krt')
         };
         
         // If no packaging suffixes found, fallback to legacy shrink field
-        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
+        if (!packaging.shrink && !packaging.paletli && !packaging.karton && selectedRequest.shrink) {
           packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
         }
         
@@ -2024,11 +2090,11 @@ const TavliBalyaTelNetsis = () => {
         const packaging = {
           shrink: selectedRequest.stok_adi.includes('-Shrink'),
           paletli: selectedRequest.stok_adi.includes('-Plt'),
-          sepetli: selectedRequest.stok_adi.includes('-Spt')
+          karton: selectedRequest.stok_adi.includes('-Krt')
         };
         
         // If no packaging suffixes found, fallback to legacy shrink field
-        if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
+        if (!packaging.shrink && !packaging.paletli && !packaging.karton && selectedRequest.shrink) {
           packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
         }
         
@@ -2333,7 +2399,7 @@ const TavliBalyaTelNetsis = () => {
       
       
       // Stay on input step for editing, or move to summary for viewing
-      setShowExistingMmGtModal(false);
+      setShowExistingMmModal(false);
       // Keep on input step when editing so user can modify basic product details
       setCurrentStep('input');
       
@@ -2455,16 +2521,16 @@ const TavliBalyaTelNetsis = () => {
     const originalPackaging = {
       shrink: original.stok_adi?.includes('-Shrink') || original.shrink === 'evet',
       paletli: original.stok_adi?.includes('-Plt'),
-      sepetli: original.stok_adi?.includes('-Spt')
+      karton: original.stok_adi?.includes('-Krt')
     };
     
     if (originalPackaging.shrink !== paketlemeSecenekleri.shrink ||
         originalPackaging.paletli !== paketlemeSecenekleri.paletli ||
-        originalPackaging.sepetli !== paketlemeSecenekleri.sepetli) {
+        originalPackaging.karton !== paketlemeSecenekleri.karton) {
       changes.push({
         field: 'Paketleme Seçenekleri',
-        oldValue: `Shrink: ${originalPackaging.shrink ? 'Evet' : 'Hayır'}, Paletli: ${originalPackaging.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${originalPackaging.sepetli ? 'Evet' : 'Hayır'}`,
-        newValue: `Shrink: ${paketlemeSecenekleri.shrink ? 'Evet' : 'Hayır'}, Paletli: ${paketlemeSecenekleri.paletli ? 'Evet' : 'Hayır'}, Sepetli: ${paketlemeSecenekleri.sepetli ? 'Evet' : 'Hayır'}`
+        oldValue: `Shrink: ${originalPackaging.shrink ? 'Evet' : 'Hayır'}, Paletli: ${originalPackaging.paletli ? 'Evet' : 'Hayır'}, Karton: ${originalPackaging.karton ? 'Evet' : 'Hayır'}`,
+        newValue: `Shrink: ${paketlemeSecenekleri.shrink ? 'Evet' : 'Hayır'}, Paletli: ${paketlemeSecenekleri.paletli ? 'Evet' : 'Hayır'}, Karton: ${paketlemeSecenekleri.karton ? 'Evet' : 'Hayır'}`
       });
     }
     
@@ -4233,19 +4299,12 @@ const TavliBalyaTelNetsis = () => {
     } else if (capValue < 0.90 || capValue > 4.00) {
       errors.push(`Çap değeri 0.90 ile 4.00 arasında olmalıdır. Girilen değer: ${mmGtData.cap}`);
     }
-    
-    // Kaplama validation: PAD için 50, NIT için 100-400 arasında
-    const kaplamaValue = parseFloat(mmGtData.kaplama);
-    if (isNaN(kaplamaValue)) {
-      errors.push('Kaplama için geçerli bir sayısal değer giriniz.');
-    } else {
-      if (mmGtData.kod_2 === 'PAD' && (kaplamaValue < 50 || kaplamaValue > 80)) {
-        errors.push(`PAD kaplama türü için kaplama değeri 50 ile 80 arasında olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
-      } else if (mmGtData.kod_2 === 'NIT' && (kaplamaValue < 100 || kaplamaValue > 400)) {
-        errors.push(`NIT kaplama türü için kaplama değeri 100 ile 400 arasında olmalıdır. Girilen değer: ${mmGtData.kaplama}`);
-      }
+
+    // Yağlama Tipi validation: BALYA products MUST have yaglama_tipi
+    if (mmGtData.product_type === 'BALYA' && !mmGtData.yaglama_tipi) {
+      errors.push('Yağlı Balya Teli için yağlama tipini seçmelisiniz (Püskürtme veya Normal).');
     }
-    
+
     // Tolerans validation and mathematical correction
     let toleransPlusValue = null;
     let toleransMinusValue = null;
@@ -9461,19 +9520,19 @@ const TavliBalyaTelNetsis = () => {
             console.log(`📦 Using task packaging: ${JSON.stringify(task.packaging)}`);
             if (task.packaging.shrink) suffixes.push('Shrink');
             if (task.packaging.paletli) suffixes.push('Plt');
-            if (task.packaging.sepetli) suffixes.push('Spt');
+            if (task.packaging.karton) suffixes.push('Spt');
           } else if (excelData.packaging) {
             // Check if packaging is stored in excelData
             console.log(`📦 Using excelData packaging: ${JSON.stringify(excelData.packaging)}`);
             if (excelData.packaging.shrink) suffixes.push('Shrink');
             if (excelData.packaging.paletli) suffixes.push('Plt');
-            if (excelData.packaging.sepetli) suffixes.push('Spt');
+            if (excelData.packaging.karton) suffixes.push('Spt');
           } else {
             // Fallback: use current form state (this shouldn't happen with the fix above)
             console.log(`⚠️ No packaging info found in task data, using current form state as fallback`);
             if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
             if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-            if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+            if (paketlemeSecenekleri.karton) suffixes.push('Spt');
           }
           
           let finalStokAdi = generatedStokAdi;
@@ -10768,16 +10827,16 @@ const TavliBalyaTelNetsis = () => {
 
   // Helper function to extract packaging options from stok_adi
   const extractPackagingFromStokAdi = (stokAdi) => {
-    if (!stokAdi) return { shrink: false, paletli: false, sepetli: false };
+    if (!stokAdi) return { shrink: false, paletli: false, karton: false };
     
     const parts = stokAdi.split(' kg');
-    if (parts.length < 2) return { shrink: false, paletli: false, sepetli: false };
+    if (parts.length < 2) return { shrink: false, paletli: false, karton: false };
     
     const suffixPart = parts[1]; // Everything after "kg"
     return {
       shrink: suffixPart.includes('-Shrink'),
       paletli: suffixPart.includes('-Plt'),
-      sepetli: suffixPart.includes('-Spt')
+      karton: suffixPart.includes('-Krt')
     };
   };
 
@@ -11845,13 +11904,19 @@ const TavliBalyaTelNetsis = () => {
 
     // Base stok adı - PRODUCT-SPECIFIC NAMES
     const productName = mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli';
-    let stokAdi = `${productName} ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
+
+    // Add yaglama_tipi for BALYA products
+    const yaglamaSuffix = mmGtData.product_type === 'BALYA' && mmGtData.yaglama_tipi
+      ? ` (${mmGtData.yaglama_tipi})`
+      : '';
+
+    let stokAdi = `${productName}${yaglamaSuffix} ${cap.toFixed(2)} mm ${toleranceText} ${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa ID:${mmGtData.ic_cap || '45'} cm OD:${mmGtData.dis_cap || '75'} cm ${mmGtData.kg || '0'}${bagAmount} kg`;
 
     // Paketleme suffixes ekle
     const suffixes = [];
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    if (paketlemeSecenekleri.karton) suffixes.push('Krt'); // Changed from karton to karton
 
     if (suffixes.length > 0) {
       stokAdi += '-' + suffixes.join('-');
@@ -11884,7 +11949,7 @@ const TavliBalyaTelNetsis = () => {
     const suffixes = [];
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    if (paketlemeSecenekleri.karton) suffixes.push('Spt');
 
     if (suffixes.length > 0) {
       stokAdi += '-' + suffixes.join('-');
@@ -11918,7 +11983,7 @@ const TavliBalyaTelNetsis = () => {
     const suffixes = [];
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    if (paketlemeSecenekleri.karton) suffixes.push('Spt');
 
     if (suffixes.length > 0) {
       englishName += '-' + suffixes.join('-');
@@ -11951,7 +12016,7 @@ const TavliBalyaTelNetsis = () => {
     const suffixes = [];
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.sepetli) suffixes.push('Spt');
+    if (paketlemeSecenekleri.karton) suffixes.push('Spt');
     
     if (suffixes.length > 0) {
       englishName += '-' + suffixes.join('-');
@@ -12086,119 +12151,228 @@ const TavliBalyaTelNetsis = () => {
         </div>
       )}
       
-      {/* Ana Başlık ve Butonlar */}
-      <div className="flex justify-between items-center mb-8">
+      {/* Ana Başlık */}
+      <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <div className={`w-8 h-8 ${isViewingExistingProduct ? 'bg-yellow-600' : 'bg-red-600'} rounded-lg flex items-center justify-center`}>
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`w-10 h-10 ${isViewingExistingProduct ? 'bg-yellow-600' : 'bg-gradient-to-br from-blue-600 to-green-600'} rounded-xl flex items-center justify-center shadow-lg`}>
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          Tavlı Tel / Balya Teli Netsis Entegrasyonu {isViewingExistingProduct && '(Düzenleme)'}
+          Balya & Tavlı Tel - Netsis Entegrasyonu {isViewingExistingProduct && '(Düzenleme)'}
         </h1>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-3 py-2 bg-gray-800 text-white rounded-md text-sm flex items-center"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <p className="text-gray-600 mt-2 ml-13">Tavlanmış tel ve yağlı balya teli ürünleri için maliyet hesaplama ve Netsis entegrasyonu</p>
+      </div>
+
+      {/* Sticky Product Type Indicator Bar */}
+      <div className={`sticky top-0 z-40 mb-6 ${
+        mmGtData.product_type === 'TAVLI'
+          ? 'bg-gradient-to-r from-blue-600 to-blue-700'
+          : 'bg-gradient-to-r from-green-600 to-green-700'
+      } text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-300`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">{mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}</div>
+            <div>
+              <h3 className="text-lg font-bold">
+                {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli'}
+              </h3>
+              <p className="text-xs opacity-90">
+                {mmGtData.product_type === 'TAVLI' ? 'Annealed Wire (TT.BAG)' : 'Oiled Bale Wire (TT.BALYA)'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm opacity-90">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Hesaplama Değerleri
-          </button>
+            <span>Aktif ürün tipi</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Product Type Selector - PROMINENT DESIGN */}
+      <div className={`mb-6 rounded-2xl shadow-lg p-8 border-4 transition-all duration-300 ${
+        mmGtData.product_type === 'TAVLI'
+          ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-400'
+          : 'bg-gradient-to-r from-green-50 to-green-100 border-green-400'
+      }`}>
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            <span className={`inline-block px-4 py-2 rounded-lg ${
+              mmGtData.product_type === 'TAVLI' ? 'bg-blue-200' : 'bg-green-200'
+            }`}>
+              Ürün Tipi Seçimi
+            </span>
+          </h2>
+          <p className="text-gray-700 text-sm mt-3 font-medium">Hesaplama yapmak istediğiniz ürün tipini seçiniz</p>
+        </div>
+        <div className="flex justify-center gap-8">
           <button
-            onClick={() => setShowCoilerReceteModal(true)}
-            className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm flex items-center"
+            onClick={() => {
+              setMmGtData(prev => ({ ...prev, product_type: 'TAVLI', yaglama_tipi: '' }));
+              toast.success('🔥 Tavlı Tel seçildi');
+            }}
+            className={`group relative flex flex-col items-center px-14 py-10 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 ${
+              mmGtData.product_type === 'TAVLI'
+                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-2xl ring-4 ring-blue-300 scale-105'
+                : 'bg-white text-gray-700 hover:bg-blue-50 shadow-md border-2 border-gray-300 hover:border-blue-300'
+            }`}
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Coiler Reçete
-          </button>
-          <button
-            onClick={() => setShowYmStReceteModal(true)}
-            className="px-3 py-2 bg-green-600 text-white rounded-md text-sm flex items-center"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            YM ST Reçete
-          </button>
-          <button
-            onClick={() => setShowExistingMmGtModal(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Veritabanı
+            {mmGtData.product_type === 'TAVLI' && (
+              <div className="absolute -top-3 -right-3 bg-blue-500 text-white rounded-full p-2 shadow-lg animate-pulse">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            )}
+            <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">🔥</div>
+            <div className="text-2xl mb-2">Tavlı Tel</div>
+            <div className={`text-sm font-medium ${mmGtData.product_type === 'TAVLI' ? 'text-blue-100' : 'text-gray-500'}`}>
+              Annealed Wire
+            </div>
+            <div className={`text-xs mt-1 ${mmGtData.product_type === 'TAVLI' ? 'text-blue-200' : 'text-gray-400'}`}>
+              TT.BAG.XXXX.XX
+            </div>
           </button>
           <button
             onClick={() => {
-              setShowRequestsModal(true);
-              fetchRequests(); // Auto-refresh when opening modal
+              setMmGtData(prev => ({ ...prev, product_type: 'BALYA' }));
+              toast.success('💧 Yağlı Balya Teli seçildi');
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg relative flex items-center gap-2"
+            className={`group relative flex flex-col items-center px-14 py-10 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 ${
+              mmGtData.product_type === 'BALYA'
+                ? 'bg-gradient-to-br from-green-600 to-green-700 text-white shadow-2xl ring-4 ring-green-300 scale-105'
+                : 'bg-white text-gray-700 hover:bg-green-50 shadow-md border-2 border-gray-300 hover:border-green-300'
+            }`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {mmGtData.product_type === 'BALYA' && (
+              <div className="absolute -top-3 -right-3 bg-green-500 text-white rounded-full p-2 shadow-lg animate-pulse">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            )}
+            <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">💧</div>
+            <div className="text-2xl mb-2">Yağlı Balya Teli</div>
+            <div className={`text-sm font-medium ${mmGtData.product_type === 'BALYA' ? 'text-green-100' : 'text-gray-500'}`}>
+              Oiled Bale Wire
+            </div>
+            <div className={`text-xs mt-1 ${mmGtData.product_type === 'BALYA' ? 'text-green-200' : 'text-gray-400'}`}>
+              TT.BALYA.XXXX.XX
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Product-Specific Action Buttons */}
+      <div className="mb-6 bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-lg ${mmGtData.product_type === 'TAVLI' ? 'bg-blue-600' : 'bg-green-600'} flex items-center justify-center`}>
+              <span className="text-white text-xs">
+                {mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}
+              </span>
+            </div>
+            {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli'} - İşlemler
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Veritabanı Button */}
+          <button
+            onClick={() => setShowExistingMmModal(true)}
+            className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+              mmGtData.product_type === 'TAVLI'
+                ? 'border-blue-300 hover:bg-blue-50'
+                : 'border-green-300 hover:bg-green-50'
+            }`}
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+            </svg>
+            <span className="text-sm font-medium text-gray-700">Veritabanı</span>
+            <span className="text-xs text-gray-500">Mamul Ürünler</span>
+          </button>
+
+          {/* Talepler Button */}
+          <button
+            onClick={() => {
+              setShowRequestsModal(true);
+              fetchRequests();
+            }}
+            className={`relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+              mmGtData.product_type === 'TAVLI'
+                ? 'border-blue-300 hover:bg-blue-50'
+                : 'border-green-300 hover:bg-green-50'
+            }`}
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            Talepler
+            <span className="text-sm font-medium text-gray-700">Talepler</span>
+            <span className="text-xs text-gray-500">Satış Talepleri</span>
             {requests.filter(r => r.status === 'pending').length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
                 {requests.filter(r => r.status === 'pending').length}
               </span>
             )}
           </button>
-          
-        </div>
-      </div>
 
-      {/* Product Type Selector - TAVLI vs BALYA */}
-      <div className="mb-6 bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Ürün Tipi:</label>
-          <div className="flex gap-3">
+          {/* YM TT Ara Mamul */}
+          <button
+            onClick={() => setShowYmTtModal(true)}
+            className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+              mmGtData.product_type === 'TAVLI'
+                ? 'border-blue-300 hover:bg-blue-50'
+                : 'border-green-300 hover:bg-green-50'
+            }`}
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span className="text-sm font-medium text-gray-700">YM TT</span>
+            <span className="text-xs text-gray-500">Tavlı Tel Ara Mamul</span>
+          </button>
+
+          {/* YM YB Ara Mamul - ONLY FOR BALYA */}
+          {mmGtData.product_type === 'BALYA' && (
             <button
-              onClick={() => {
-                setMmGtData(prev => ({ ...prev, product_type: 'TAVLI' }));
-              }}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                mmGtData.product_type === 'TAVLI'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              onClick={() => setShowYmYbModal(true)}
+              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-green-300 hover:bg-green-50 transition-all hover:shadow-md"
             >
-              🔥 Tavlı Tel (TT.BAG)
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span className="text-sm font-medium text-gray-700">YM YB</span>
+              <span className="text-xs text-gray-500">Yağlı Balya Ara Mamul</span>
             </button>
-            <button
-              onClick={() => {
-                setMmGtData(prev => ({ ...prev, product_type: 'BALYA' }));
-              }}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                mmGtData.product_type === 'BALYA'
-                  ? 'bg-green-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              💧 Yağlı Balya Teli (TT.BALYA)
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Ana İçerik */}
       {currentStep === 'input' && (
-        <div className={`${isViewingExistingProduct ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-white'} rounded-xl shadow-lg p-8`}>
+        <div className={`${
+          isViewingExistingProduct
+            ? 'bg-yellow-50 border-4 border-yellow-400'
+            : mmGtData.product_type === 'TAVLI'
+            ? 'bg-white border-4 border-blue-300'
+            : 'bg-white border-4 border-green-300'
+        } rounded-xl shadow-xl p-8 transition-all duration-300`}>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">
-              {isViewingExistingProduct ? 'MM GT Ürün Düzenleme' : 'MM GT Ürün Bilgileri'}
+            <h2 className={`text-2xl font-bold flex items-center gap-3 ${
+              mmGtData.product_type === 'TAVLI' ? 'text-blue-800' : 'text-green-800'
+            }`}>
+              <div className={`w-8 h-8 rounded-lg ${
+                mmGtData.product_type === 'TAVLI' ? 'bg-blue-500' : 'bg-green-500'
+              } flex items-center justify-center text-white text-xl`}>
+                {mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}
+              </div>
+              {isViewingExistingProduct ? 'Ürün Düzenleme' : 'Ürün Bilgileri'}
             </h2>
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              <span>Zorunlu Alanlar</span>
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span className="font-medium">Zorunlu Alanlar</span>
             </div>
           </div>
           
@@ -12220,39 +12394,35 @@ const TavliBalyaTelNetsis = () => {
               <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.90 - 4.00 mm</p>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Kaplama Türü <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={mmGtData.kod_2}
-                onChange={(e) => handleInputChange('kod_2', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-              >
-                <option value="NIT">NIT</option>
-                <option value="PAD">PAD</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Kaplama (gr/m²) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={normalizeDecimalDisplay(mmGtData.kaplama)}
-                onChange={(e) => handleInputChange('kaplama', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder={mmGtData.kod_2 === 'PAD' ? '50-80' : '100-400'}
-                onKeyDown={(e) => handleCommaToPoint(e, 'kaplama')}
-              />
-              {mmGtData.kod_2 === 'PAD' ? (
-                <p className="text-xs text-gray-500 mt-1">PAD kaplama için izin verilen aralık: 50 - 80 g/m²</p>
-              ) : (
-                <p className="text-xs text-gray-500 mt-1">NIT kaplama için izin verilen aralık: 100 - 400 g/m²</p>
-              )}
-            </div>
+            {/* Yağlama Tipi - PROMINENT for BALYA products */}
+            {mmGtData.product_type === 'BALYA' && (
+              <div className="space-y-2 bg-green-50 p-4 rounded-xl border-2 border-green-300 shadow-sm">
+                <label className="block text-sm font-bold text-green-800 flex items-center gap-2">
+                  <span className="text-xl">💧</span>
+                  Yağlama Tipi <span className="text-red-500">*</span>
+                  <span className="ml-auto text-xs font-normal bg-green-200 px-2 py-1 rounded-full">BALYA Özel</span>
+                </label>
+                <select
+                  value={mmGtData.yaglama_tipi}
+                  onChange={(e) => handleInputChange('yaglama_tipi', e.target.value)}
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium ${
+                    mmGtData.yaglama_tipi
+                      ? 'border-green-400 bg-white'
+                      : 'border-red-300 bg-red-50'
+                  }`}
+                >
+                  <option value="">⚠️ Seçiniz...</option>
+                  <option value="Püskürtme">💨 Püskürtme Yağlama</option>
+                  <option value="Normal">🔧 Normal Yağlama</option>
+                </select>
+                <div className="flex items-start gap-2 mt-2">
+                  <svg className="w-4 h-4 text-green-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-xs text-green-700 font-medium">Yağlı balya teli için yağlama yöntemini seçiniz. Bu alan zorunludur.</p>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -12399,7 +12569,7 @@ const TavliBalyaTelNetsis = () => {
                   <span className="text-sm">Shrink</span>
                 </label>
                 
-                {/* Paletli ve Sepetli - Radio buttons (mutually exclusive) */}
+                {/* Paletli ve Karton - Radio buttons (mutually exclusive) */}
                 <div className="pl-6 space-y-2">
                   <label className="flex items-center space-x-3 cursor-pointer">
                     <input
@@ -12410,7 +12580,7 @@ const TavliBalyaTelNetsis = () => {
                         setPaketlemeSecenekleri(prev => ({
                           ...prev,
                           paletli: true,
-                          sepetli: false
+                          karton: false
                         }));
                       }}
                       className="w-4 h-4 text-red-600 focus:ring-red-500"
@@ -12422,29 +12592,29 @@ const TavliBalyaTelNetsis = () => {
                     <input
                       type="radio"
                       name="paletSepet"
-                      checked={paketlemeSecenekleri.sepetli}
+                      checked={paketlemeSecenekleri.karton}
                       onChange={() => {
                         setPaketlemeSecenekleri(prev => ({
                           ...prev,
                           paletli: false,
-                          sepetli: true
+                          karton: true
                         }));
                       }}
                       className="w-4 h-4 text-red-600 focus:ring-red-500"
                     />
-                    <span className="text-sm">Sepetli</span>
+                    <span className="text-sm">Karton</span>
                   </label>
                   
                   <label className="flex items-center space-x-3 cursor-pointer">
                     <input
                       type="radio"
                       name="paletSepet"
-                      checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.sepetli}
+                      checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.karton}
                       onChange={() => {
                         setPaketlemeSecenekleri(prev => ({
                           ...prev,
                           paletli: false,
-                          sepetli: false
+                          karton: false
                         }));
                       }}
                       className="w-4 h-4 text-red-600 focus:ring-red-500"
@@ -12583,19 +12753,24 @@ const TavliBalyaTelNetsis = () => {
           {/* MM GT Özet */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <span className="text-red-600 font-bold">MM</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                mmGtData.product_type === 'TAVLI' ? 'bg-blue-100' : 'bg-green-100'
+              }`}>
+                <span className={`font-bold ${
+                  mmGtData.product_type === 'TAVLI' ? 'text-blue-600' : 'text-green-600'
+                }`}>MM</span>
               </div>
-              MM GT Ürün Özeti
+              {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli'} - Mamul Ürün Özeti
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { label: 'Stok Kodu', value: `GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap || 0) * 100).toString().padStart(4, '0')}.${processSequence}` },
+                { label: 'Stok Kodu', value: generateMmStokKodu(mmGtData.product_type, mmGtData.cap, processSequence) },
                 { label: 'Çap', value: `${mmGtData.cap || '0'} mm` },
-                { label: 'Kaplama Türü', value: mmGtData.kod_2 },
-                { label: 'Kaplama', value: `${mmGtData.kaplama || '0'} gr/m²` },
+                ...(mmGtData.product_type === 'BALYA' ? [{ label: 'Yağlama Tipi', value: mmGtData.yaglama_tipi || 'Belirtilmedi' }] : []),
                 { label: 'Mukavemet', value: `${mmGtData.min_mukavemet || '0'}-${mmGtData.max_mukavemet || '0'} MPa` },
-                { label: 'Ağırlık', value: `${mmGtData.kg || '0'} kg` }
+                { label: 'Ağırlık', value: `${mmGtData.kg || '0'} kg` },
+                { label: 'İç Çap', value: `${mmGtData.ic_cap || '0'} cm` },
+                { label: 'Dış Çap', value: `${mmGtData.dis_cap || '0'} cm` }
               ].map((item, index) => (
                 <div key={index} className="bg-gray-50 p-4 rounded-lg">
                   <span className="text-sm text-gray-500 block">{item.label}:</span>
@@ -14715,7 +14890,7 @@ const TavliBalyaTelNetsis = () => {
                         if (selectedRequest.stok_adi) {
                           if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
                           if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
-                          if (selectedRequest.stok_adi.includes('-Spt')) packaging.push('Sepetli');
+                          if (selectedRequest.stok_adi.includes('-Krt')) packaging.push('Karton');
                         }
                         
                         // Fallback to legacy shrink field if no packaging suffixes found
@@ -15422,7 +15597,7 @@ const TavliBalyaTelNetsis = () => {
                   </button>
                   
                   <button
-                    onClick={() => setShowExistingMmGtModal(false)}
+                    onClick={() => setShowExistingMmModal(false)}
                     className="text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -16023,7 +16198,7 @@ const TavliBalyaTelNetsis = () => {
                       // User clicked on a specific product
                       setShowDuplicateConfirmModal(false);
                       handleSelectExistingMmGt(product);
-                      setShowExistingMmGtModal(false);
+                      setShowExistingMmModal(false);
                     }}
                   >
                     <div className="flex items-center justify-between">
@@ -16420,7 +16595,7 @@ const TavliBalyaTelNetsis = () => {
                     setShowProductConflictModal(false);
                     setConflictProduct(null);
                     setConflictType('');
-                    setShowExistingMmGtModal(true);
+                    setShowExistingMmModal(true);
                   }}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -17042,6 +17217,76 @@ const TavliBalyaTelNetsis = () => {
               >
                 Tamam
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YM TT (Tavlı Tel) Ara Mamul Modal */}
+      {showYmTtModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-3">
+                    <span className="text-3xl">🔥</span>
+                    YM TT - Tavlı Tel Ara Mamul Ürünleri
+                  </h2>
+                  <p className="text-blue-100 text-sm mt-1">Tavlanmış tel yarı mamul ürünlerinin listesi</p>
+                </div>
+                <button
+                  onClick={() => setShowYmTtModal(false)}
+                  className="text-white hover:bg-blue-800 rounded-lg p-2 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🚧</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Yakında Gelecek</h3>
+                <p className="text-gray-600">YM TT ara mamul ürün yönetimi şu anda geliştirme aşamasındadır.</p>
+                <p className="text-gray-500 text-sm mt-2">Tavlı tel ara mamul ürünlerini buradan görüntüleyebilecek ve yönetebileceksiniz.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YM YB (Yağlı Balya) Ara Mamul Modal */}
+      {showYmYbModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-3">
+                    <span className="text-3xl">💧</span>
+                    YM YB - Yağlı Balya Ara Mamul Ürünleri
+                  </h2>
+                  <p className="text-green-100 text-sm mt-1">Yağlanmış balya teli yarı mamul ürünlerinin listesi</p>
+                </div>
+                <button
+                  onClick={() => setShowYmYbModal(false)}
+                  className="text-white hover:bg-green-800 rounded-lg p-2 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">🚧</div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Yakında Gelecek</h3>
+                <p className="text-gray-600">YM YB ara mamul ürün yönetimi şu anda geliştirme aşamasındadır.</p>
+                <p className="text-gray-500 text-sm mt-2">Yağlı balya teli ara mamul ürünlerini buradan görüntüleyebilecek ve yönetebileceksiniz.</p>
+              </div>
             </div>
           </div>
         </div>

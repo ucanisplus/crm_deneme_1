@@ -263,8 +263,9 @@ const SatisTavliBalyaRequest = () => {
           productExists = allProducts.some(product => {
             return (
               Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
-              product.kod_2 === request.kod_2 &&
-              Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+              product.product_type === request.product_type &&
+              // For BALYA, also check yaglama_tipi
+              (product.product_type === 'TAVLI' || product.yaglama_tipi === request.yaglama_tipi) &&
               Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
               Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
               Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
@@ -310,7 +311,7 @@ const SatisTavliBalyaRequest = () => {
   const generateProductKeyFromProduct = (product) => {
     if (!product) return '';
     
-    return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
+    return `${product.cap || ''}_${product.product_type || ''}_${product.yaglama_tipi || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
   
   // Fetch existing products from MM GT database
@@ -418,8 +419,8 @@ const SatisTavliBalyaRequest = () => {
               stok_kodu: matchingRequest.stok_kodu || 'Beklemede',
               stok_adi: matchingRequest.stok_adi,
               cap: matchingRequest.cap,
-              kod_2: matchingRequest.kod_2,
-              kaplama: matchingRequest.kaplama,
+              product_type: matchingRequest.product_type,
+              yaglama_tipi: matchingRequest.yaglama_tipi,
               min_mukavemet: matchingRequest.min_mukavemet,
               max_mukavemet: matchingRequest.max_mukavemet,
               kg: matchingRequest.kg,
@@ -462,23 +463,12 @@ const SatisTavliBalyaRequest = () => {
     let normalizedValue = value;
     
     // Convert comma to point for decimal values and ensure proper format
-    if (name === 'cap' || name === 'kaplama' || name === 'min_mukavemet' || 
-        name === 'max_mukavemet' || name === 'kg' || 
+    if (name === 'cap' || name === 'min_mukavemet' ||
+        name === 'max_mukavemet' || name === 'kg' ||
         name === 'tolerans_plus' || name === 'tolerans_minus') {
       normalizedValue = normalizeInputValue(value);
     }
-    
-    // Special case: When coating type changes to PAD, set kaplama value to 50 if it's default NIT value
-    if (name === 'kod_2' && value === 'PAD' && requestData.kaplama === '100') {
-      toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
-      setRequestData({
-        ...requestData,
-        [name]: value,
-        kaplama: '50'
-      });
-      return;
-    }
-    
+
     // Update state without validation - we'll validate on form submission
     setRequestData({
       ...requestData,
@@ -581,8 +571,8 @@ const SatisTavliBalyaRequest = () => {
       const query = searchQuery.toLowerCase();
       filteredRequests = filteredRequests.filter(request => 
         request.cap.toString().startsWith(query) ||
-        request.kod_2.toLowerCase().includes(query) ||
-        request.kaplama.toString().startsWith(query) ||
+        request.product_type.toLowerCase().includes(query) ||
+        (request.yaglama_tipi && request.yaglama_tipi.toLowerCase().includes(query)) ||
         request.id.toLowerCase().includes(query) ||
         request.min_mukavemet.toString().startsWith(query) ||
         request.max_mukavemet.toString().startsWith(query) ||
@@ -610,7 +600,7 @@ const SatisTavliBalyaRequest = () => {
       }
       
       // Handle numeric fields
-      if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg' || sortField === 'cast_kont') {
+      if (sortField === 'cap' || sortField === 'kg' || sortField === 'cast_kont') {
         aValue = parseFloat(aValue);
         bValue = parseFloat(bValue);
       }
@@ -1253,15 +1243,12 @@ const SatisTavliBalyaRequest = () => {
       );
     }
     
-    if (productFilter.kod_2 !== 'all') {
-      filtered = filtered.filter(product => product.kod_2 === productFilter.kod_2);
+    if (productFilter.product_type !== 'all') {
+      filtered = filtered.filter(product => product.product_type === productFilter.product_type);
     }
-    
-    if (productFilter.kaplama !== '') {
-      // Allow partial matching for kaplama - convert to string and check if it starts with the filter value
-      filtered = filtered.filter(product => 
-        product.kaplama.toString().startsWith(productFilter.kaplama)
-      );
+
+    if (productFilter.yaglama_tipi && productFilter.yaglama_tipi !== 'all') {
+      filtered = filtered.filter(product => product.yaglama_tipi === productFilter.yaglama_tipi);
     }
     
     // Sort by stok_kodu
@@ -1331,7 +1318,7 @@ const SatisTavliBalyaRequest = () => {
                   id="searchQuery"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Çap, kaplama, açıklama vb."
+                  placeholder="Çap, ürün tipi, açıklama vb."
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -1372,8 +1359,8 @@ const SatisTavliBalyaRequest = () => {
                   <option value="created_at">Oluşturma Tarihi</option>
                   <option value="status">Durum</option>
                   <option value="cap">Çap</option>
-                  <option value="kod_2">Kaplama Türü</option>
-                  <option value="kaplama">Kaplama Miktarı</option>
+                  <option value="product_type">Ürün Tipi</option>
+                  <option value="yaglama_tipi">Yağlama Tipi</option>
                   <option value="kg">Ağırlık</option>
                   <option value="cast_kont">Bağ Miktarı</option>
                   <option value="unwinding">Unwinding</option>
@@ -2341,7 +2328,7 @@ const SatisTavliBalyaRequest = () => {
               </div>
               <h3 className="text-lg font-medium text-center text-gray-900 mb-4">Talebi Silmeyi Onaylayın</h3>
               <p className="text-center text-gray-700 mb-6">
-                <span className="font-semibold">{requestToDelete.cap}mm {requestToDelete.kod_2} {requestToDelete.kaplama}g/m²</span> talebini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                <span className="font-semibold">{requestToDelete.cap}mm {requestToDelete.product_type} {requestToDelete.yaglama_tipi && `(${requestToDelete.yaglama_tipi})`}</span> talebini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
               </p>
               <div className="flex justify-center space-x-4">
                 <button
@@ -2436,8 +2423,8 @@ const SatisTavliBalyaRequest = () => {
                     <label htmlFor="filterKod2" className="block text-sm font-medium text-gray-700 mb-1">Kaplama Türü</label>
                     <select
                       id="filterKod2"
-                      value={productFilter.kod_2}
-                      onChange={(e) => setProductFilter({ ...productFilter, kod_2: e.target.value })}
+                      value={productFilter.product_type}
+                      onChange={(e) => setProductFilter({ ...productFilter, product_type: e.target.value })}
                       className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">Tümü</option>
@@ -2451,19 +2438,19 @@ const SatisTavliBalyaRequest = () => {
                     <input
                       type="text"
                       id="filterKaplama"
-                      value={productFilter.kaplama}
-                      onChange={(e) => setProductFilter({ ...productFilter, kaplama: e.target.value })}
+                      value={productFilter.yaglama_tipi}
+                      onChange={(e) => setProductFilter({ ...productFilter, yaglama_tipi: e.target.value })}
                       placeholder="Örn: 100"
                       className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
                 
-                {(productSearchQuery || productFilter.cap || productFilter.kod_2 !== 'all' || productFilter.kaplama) && (
+                {(productSearchQuery || productFilter.cap || productFilter.product_type !== 'all' || productFilter.yaglama_tipi !== 'all') && (
                   <button
                     onClick={() => {
                       setProductSearchQuery('');
-                      setProductFilter({ cap: '', kod_2: 'all', kaplama: '' });
+                      setProductFilter({ cap: '', product_type: 'all', yaglama_tipi: 'all' });
                     }}
                     className="text-sm text-blue-600 hover:text-blue-800"
                   >
@@ -2483,7 +2470,7 @@ const SatisTavliBalyaRequest = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                   <p className="mt-4 text-gray-600">
-                    {productSearchQuery || productFilter.cap || productFilter.kod_2 !== 'all' || productFilter.kaplama
+                    {productSearchQuery || productFilter.cap || productFilter.product_type !== 'all' || productFilter.yaglama_tipi !== 'all'
                       ? 'Arama kriterlerine uygun ürün bulunamadı.'
                       : 'Henüz kayıtlı ürün bulunmamaktadır.'}
                   </p>
@@ -2610,7 +2597,7 @@ const SatisTavliBalyaRequest = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Kaplama</p>
-                    <p className="text-base text-gray-900">{selectedProduct.kod_2} {selectedProduct.kaplama} g/m²</p>
+                    <p className="text-base text-gray-900">{selectedProduct.product_type} {selectedProduct.yaglama_tipi && `(${selectedProduct.yaglama_tipi})`}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Mukavemet</p>
@@ -2725,7 +2712,7 @@ const SatisTavliBalyaRequest = () => {
                     <span className="font-medium">Stok Adı:</span> {duplicateProduct.stok_adi}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Özellikler:</span> {duplicateProduct.cap}mm, {duplicateProduct.kod_2} {duplicateProduct.kaplama}g/m², {duplicateProduct.min_mukavemet}-{duplicateProduct.max_mukavemet} MPa, {duplicateProduct.kg}kg
+                    <span className="font-medium">Özellikler:</span> {duplicateProduct.cap}mm, {duplicateProduct.product_type} {duplicateProduct.yaglama_tipi && `(${duplicateProduct.yaglama_tipi})`}, {duplicateProduct.min_mukavemet}-{duplicateProduct.max_mukavemet} MPa, {duplicateProduct.kg}kg
                   </p>
                   {duplicateProduct.source === 'pending_request' && (
                     <>
