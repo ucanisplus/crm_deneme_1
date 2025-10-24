@@ -35,11 +35,9 @@ export const API_URLS = {
   tavliBalyaMmYmSt: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm_ym_st',
   tavliBalyaSalRequests: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sal_requests',
   tavliBalyaSequence: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sequence',
-  // Tavlı Netsis - Intermediates
+  // Tavlı Netsis - Intermediates (YM YB removed - both TAVLI and BALYA use YM TT)
   tavliNetsisYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt',
   tavliNetsisYmTtRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete',
-  tavliNetsisYmYb: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_yb',
-  tavliNetsisYmYbRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_yb_recete',
   tavliNetsisYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp',
   tavliNetsisYmStpRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete',
 

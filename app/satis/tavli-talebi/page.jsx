@@ -40,7 +40,7 @@ export default function TavliBalyaRequestPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Balya/Tavlı Tel Talep Yönetimi</h1>
-            <p className="text-gray-600">Satış ekibi tarafından tavlı tel ve yağlı balya teli ürün talepleri oluşturma ve takibi</p>
+            <p className="text-gray-600">Satış ekibi tarafından tavlı tel ve balya teli ürün talepleri oluşturma ve takibi</p>
           </div>
 
           <div className="bg-white rounded-lg shadow">

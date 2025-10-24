@@ -5,7 +5,8 @@ import { API_URLS, fetchWithAuth, normalizeInputValue } from '@/api-config';
 import { toast } from 'react-toastify';
 
 /**
- * Sales team request form component for Tavlı Tel (Annealed Wire) and Yağlı Balya Teli (Oiled Bale Wire) products
+ * Sales team request form component for Tavlı Tel (Annealed Wire) and Balya Teli (Bale Wire) products
+ * Both product types can be Yagli (Püskürtme/Daldırma) or Yagsiz
  * This component allows sales team to create requests for the production team
  * and view existing requests
  */
@@ -18,7 +19,7 @@ const SatisTavliBalyaRequest = () => {
     [hasPermission]
   );
 
-  // Product type state - TAVLI (Tavlı Tel) or BALYA (Yağlı Balya Teli)
+  // Product type state - TAVLI (Tavlı Tel) or BALYA (Balya Teli)
   const [productType, setProductType] = useState('TAVLI');
   
   // State variables
@@ -70,7 +71,7 @@ const SatisTavliBalyaRequest = () => {
   const defaultRequestData = {
     cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
     product_type: 'TAVLI', // Default: TAVLI (Tavlı Tel)
-    yaglama_tipi: '',      // For Balya Teli only (Püskürtme/Normal)
+    yaglama_tipi: '',      // For both TAVLI and BALYA (Püskürtme/Daldırma or empty for Yagsiz)
     min_mukavemet: '350',  // Default: 350 MPa
     max_mukavemet: '550',  // Default: 550 MPa
     kg: '500',             // Default: 500 kg (valid range: 250-20000)
@@ -364,16 +365,22 @@ const SatisTavliBalyaRequest = () => {
       const lowerValue = Math.min(actualPlusValue, actualMinusValue);
       const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
 
-      // Build stok adi based on product type
-      let currentStokAdi;
-      if (requestData.product_type === 'BALYA') {
-        // Yağlı Balya Teli format
-        const yaglamaText = requestData.yaglama_tipi === 'Püskürtme' ? 'Pskrtme' : 'Normal';
-        currentStokAdi = `Yagli Balya Teli ${parseFloat(requestData.cap).toFixed(2)} mm ${toleranceText} ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg-${yaglamaText}${paketlemeEkleri}`;
+      // Build stok adi based on product type with oil information
+      // Oil type goes BEFORE Shrink in the format: Yagli(PSK), Yagli(DLD), or Yagsiz
+      let yaglamaText = '';
+      if (requestData.yaglama_tipi === 'Püskürtme') {
+        yaglamaText = '-Yagli(PSK)';
+      } else if (requestData.yaglama_tipi === 'Daldırma') {
+        yaglamaText = '-Yagli(DLD)';
       } else {
-        // Tavlı Tel format
-        currentStokAdi = `Tavli Tel ${parseFloat(requestData.cap).toFixed(2)} mm ${toleranceText} ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
+        yaglamaText = '-Yagsiz';
       }
+
+      // Product name based on type
+      const productName = requestData.product_type === 'BALYA' ? 'Balya Teli' : 'Tavli Tel';
+
+      // Full stock name with oil type BEFORE paketlemeEkleri (which includes Shrink)
+      const currentStokAdi = `${productName} ${parseFloat(requestData.cap).toFixed(2)} mm ${toleranceText} ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${yaglamaText}${paketlemeEkleri}`;
       
       // Check 1: Find matching products in existing MM GT database by stok_adi
       console.log('🔍 Duplicate check - Current stok_adi:', currentStokAdi);
@@ -814,15 +821,12 @@ const SatisTavliBalyaRequest = () => {
 
     // Validate product type
     if (!requestData.product_type || (requestData.product_type !== 'TAVLI' && requestData.product_type !== 'BALYA')) {
-      validationErrors.push('Ürün tipi seçilmelidir (Tavlı Tel veya Yağlı Balya Teli).');
+      validationErrors.push('Ürün tipi seçilmelidir (Tavlı Tel veya Balya Teli).');
     }
 
     // Note: YM.ST selection removed - production team will select during approval
 
-    // Validate yaglama_tipi for BALYA products
-    if (requestData.product_type === 'BALYA' && (!requestData.yaglama_tipi || requestData.yaglama_tipi.trim() === '')) {
-      validationErrors.push('Yağlı Balya Teli için Yağlama Tipi seçimi zorunludur.');
-    }
+    // Note: yaglama_tipi is optional for both TAVLI and BALYA (can be NULL for Yagsiz)
 
     // Validate tolerances
     const toleransPlusValue = parseFloat(requestData.tolerans_plus);
@@ -1017,15 +1021,22 @@ const SatisTavliBalyaRequest = () => {
       }
 
       // Generate stok adi based on product type
-      let stokAdi;
-      if (data.product_type === 'BALYA') {
-        // Yağlı Balya Teli format with yaglama_tipi
-        const yaglamaText = data.yaglama_tipi === 'Püskürtme' ? 'Pskrtme' : 'Normal';
-        stokAdi = `Yagli Balya Teli ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg-${yaglamaText}${paketlemeEkleri}`;
+      // Build stok adi with oil information
+      // Oil type goes BEFORE Shrink in the format: Yagli(PSK), Yagli(DLD), or Yagsiz
+      let yaglamaText = '';
+      if (data.yaglama_tipi === 'Püskürtme') {
+        yaglamaText = '-Yagli(PSK)';
+      } else if (data.yaglama_tipi === 'Daldırma') {
+        yaglamaText = '-Yagli(DLD)';
       } else {
-        // Tavlı Tel format (no coating info)
-        stokAdi = `Tavli Tel ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg${paketlemeEkleri}`;
+        yaglamaText = '-Yagsiz';
       }
+
+      // Product name based on type
+      const productName = data.product_type === 'BALYA' ? 'Balya Teli' : 'Tavli Tel';
+
+      // Full stock name with oil type BEFORE paketlemeEkleri (which includes Shrink)
+      const stokAdi = `${productName} ${parseFloat(data.cap).toFixed(2)} mm ${toleranceText} ${data.min_mukavemet}-${data.max_mukavemet} MPa ID:${data.ic_cap} cm OD:${data.dis_cap} cm ${data.kg}${bagAmount} kg${yaglamaText}${paketlemeEkleri}`;
 
       return { stokKodu, stokAdi };
     } catch (error) {
@@ -1529,8 +1540,8 @@ const SatisTavliBalyaRequest = () => {
                             {request.cap} mm
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.product_type === 'BALYA' ? 'Yağlı Balya' : 'Tavlı Tel'}
-                            {request.product_type === 'BALYA' && request.yaglama_tipi && (
+                            {request.product_type === 'BALYA' ? 'Balya Teli' : 'Tavlı Tel'}
+                            {request.yaglama_tipi && (
                               <span className="text-xs ml-1">({request.yaglama_tipi})</span>
                             )}
                           </td>
@@ -1758,7 +1769,7 @@ const SatisTavliBalyaRequest = () => {
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 />
                 <label htmlFor="product-type-balya" className="ml-2 text-sm text-gray-900">
-                  Yağlı Balya Teli (Oiled Bale Wire)
+                  Balya Teli (Bale Wire)
                 </label>
               </div>
             </div>
@@ -1797,26 +1808,23 @@ const SatisTavliBalyaRequest = () => {
                 </div>
               </div>
 
-              {/* Yağlama Tipi - Only for Balya Teli */}
-              {productType === 'BALYA' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Yağlama Tipi <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="yaglama_tipi"
-                    value={requestData.yaglama_tipi || ''}
-                    onChange={handleInputChange}
-                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required={productType === 'BALYA'}
-                  >
-                    <option value="">Seçiniz...</option>
-                    <option value="Püskürtme">Püskürtme (Spray)</option>
-                    <option value="Normal">Normal</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Yağlı Balya Teli için yağlama tipi zorunludur</p>
-                </div>
-              )}
+              {/* Yağlama Tipi - For both TAVLI and BALYA */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Yağlama Tipi
+                </label>
+                <select
+                  name="yaglama_tipi"
+                  value={requestData.yaglama_tipi || ''}
+                  onChange={handleInputChange}
+                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Yağsız (No Oil)</option>
+                  <option value="Püskürtme">Yağlı - Püskürtme (PSK - Slightly Oiled)</option>
+                  <option value="Daldırma">Yağlı - Daldırma (DLD - Dipped Oiled)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Hem Tavlı Tel hem de Balya Teli yağlı veya yağsız olabilir</p>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Mukavemet (MPa)</label>
@@ -2165,13 +2173,19 @@ const SatisTavliBalyaRequest = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ürün Tipi</p>
                     <p className="text-base text-gray-900">
-                      {selectedRequest.product_type === 'BALYA' ? 'Yağlı Balya Teli' : 'Tavlı Tel'}
+                      {selectedRequest.product_type === 'BALYA' ? 'Balya Teli' : 'Tavlı Tel'}
                     </p>
                   </div>
-                  {selectedRequest.product_type === 'BALYA' && selectedRequest.yaglama_tipi && (
+                  {selectedRequest.yaglama_tipi && (
                     <div>
                       <p className="text-sm font-medium text-gray-500">Yağlama Tipi</p>
                       <p className="text-base text-gray-900">{selectedRequest.yaglama_tipi}</p>
+                    </div>
+                  )}
+                  {!selectedRequest.yaglama_tipi && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Yağlama Tipi</p>
+                      <p className="text-base text-gray-900">Yağsız (No Oil)</p>
                     </div>
                   )}
                   <div>
@@ -2502,8 +2516,8 @@ const SatisTavliBalyaRequest = () => {
                             {product.cap} mm
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {product.product_type === 'BALYA' ? 'Yağlı Balya' : 'Tavlı Tel'}
-                            {product.product_type === 'BALYA' && product.yaglama_tipi && (
+                            {product.product_type === 'BALYA' ? 'Balya Teli' : 'Tavlı Tel'}
+                            {product.yaglama_tipi && (
                               <span className="text-xs ml-1">({product.yaglama_tipi})</span>
                             )}
                           </td>
