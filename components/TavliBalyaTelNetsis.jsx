@@ -143,6 +143,7 @@ const TavliBalyaTelNetsis = () => {
   const [deleteType, setDeleteType] = useState('mm'); // Only 'mm' (no intermediate products)
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
+  const [activeDbTab, setActiveDbTab] = useState('mm'); // Database tab: 'mm' for finished products
   
   // Kullanici girdi degerleri icin ayarlar modali
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -12151,227 +12152,104 @@ const TavliBalyaTelNetsis = () => {
         </div>
       )}
       
-      {/* Ana Başlık */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-          <div className={`w-10 h-10 ${isViewingExistingProduct ? 'bg-yellow-600' : 'bg-gradient-to-br from-blue-600 to-green-600'} rounded-xl flex items-center justify-center shadow-lg`}>
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          Balya & Tavlı Tel - Netsis Entegrasyonu {isViewingExistingProduct && '(Düzenleme)'}
-        </h1>
-        <p className="text-gray-600 mt-2 ml-13">Tavlanmış tel ve yağlı balya teli ürünleri için maliyet hesaplama ve Netsis entegrasyonu</p>
-      </div>
-
-      {/* Sticky Product Type Indicator Bar */}
-      <div className={`sticky top-0 z-40 mb-6 ${
-        mmGtData.product_type === 'TAVLI'
-          ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-          : 'bg-gradient-to-r from-green-600 to-green-700'
-      } text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-300`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">{mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}</div>
-            <div>
-              <h3 className="text-lg font-bold">
-                {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli'}
-              </h3>
-              <p className="text-xs opacity-90">
-                {mmGtData.product_type === 'TAVLI' ? 'Annealed Wire (TT.BAG)' : 'Oiled Bale Wire (TT.BALYA)'}
-              </p>
+      {/* Ana Başlık ve Butonlar */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+            <div className={`w-8 h-8 ${isViewingExistingProduct ? 'bg-yellow-600' : 'bg-red-600'} rounded-lg flex items-center justify-center`}>
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm opacity-90">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Aktif ürün tipi</span>
-          </div>
+            Tavlı & Balya Tel Netsis Entegrasyonu {isViewingExistingProduct && '(Düzenleme)'}
+          </h1>
+          <p className="text-gray-600 text-sm mt-2">
+            {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel (Annealed Wire)' : mmGtData.product_type === 'BALYA' ? 'Yağlı Balya Teli (Oiled Bale Wire)' : 'Ürün tipi seçiniz'}
+          </p>
         </div>
-      </div>
 
-      {/* Product Type Selector - PROMINENT DESIGN */}
-      <div className={`mb-6 rounded-2xl shadow-lg p-8 border-4 transition-all duration-300 ${
-        mmGtData.product_type === 'TAVLI'
-          ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-400'
-          : 'bg-gradient-to-r from-green-50 to-green-100 border-green-400'
-      }`}>
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            <span className={`inline-block px-4 py-2 rounded-lg ${
-              mmGtData.product_type === 'TAVLI' ? 'bg-blue-200' : 'bg-green-200'
-            }`}>
-              Ürün Tipi Seçimi
-            </span>
-          </h2>
-          <p className="text-gray-700 text-sm mt-3 font-medium">Hesaplama yapmak istediğiniz ürün tipini seçiniz</p>
-        </div>
-        <div className="flex justify-center gap-8">
+        <div className="flex gap-3">
+          {/* Product Type Selector */}
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => {
+                setMmGtData(prev => ({ ...prev, product_type: 'TAVLI', yaglama_tipi: '' }));
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                mmGtData.product_type === 'TAVLI'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Tavlı Tel
+            </button>
+            <button
+              onClick={() => {
+                setMmGtData(prev => ({ ...prev, product_type: 'BALYA' }));
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                mmGtData.product_type === 'BALYA'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Balya Teli
+            </button>
+          </div>
+
+          {/* Settings Button */}
           <button
-            onClick={() => {
-              setMmGtData(prev => ({ ...prev, product_type: 'TAVLI', yaglama_tipi: '' }));
-              toast.success('🔥 Tavlı Tel seçildi');
-            }}
-            className={`group relative flex flex-col items-center px-14 py-10 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-              mmGtData.product_type === 'TAVLI'
-                ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-2xl ring-4 ring-blue-300 scale-105'
-                : 'bg-white text-gray-700 hover:bg-blue-50 shadow-md border-2 border-gray-300 hover:border-blue-300'
-            }`}
+            onClick={() => setShowSettingsModal(true)}
+            className="px-3 py-2 bg-gray-800 text-white rounded-md text-sm flex items-center"
           >
-            {mmGtData.product_type === 'TAVLI' && (
-              <div className="absolute -top-3 -right-3 bg-blue-500 text-white rounded-full p-2 shadow-lg animate-pulse">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            )}
-            <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">🔥</div>
-            <div className="text-2xl mb-2">Tavlı Tel</div>
-            <div className={`text-sm font-medium ${mmGtData.product_type === 'TAVLI' ? 'text-blue-100' : 'text-gray-500'}`}>
-              Annealed Wire
-            </div>
-            <div className={`text-xs mt-1 ${mmGtData.product_type === 'TAVLI' ? 'text-blue-200' : 'text-gray-400'}`}>
-              TT.BAG.XXXX.XX
-            </div>
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Hesaplama
           </button>
-          <button
-            onClick={() => {
-              setMmGtData(prev => ({ ...prev, product_type: 'BALYA' }));
-              toast.success('💧 Yağlı Balya Teli seçildi');
-            }}
-            className={`group relative flex flex-col items-center px-14 py-10 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-              mmGtData.product_type === 'BALYA'
-                ? 'bg-gradient-to-br from-green-600 to-green-700 text-white shadow-2xl ring-4 ring-green-300 scale-105'
-                : 'bg-white text-gray-700 hover:bg-green-50 shadow-md border-2 border-gray-300 hover:border-green-300'
-            }`}
-          >
-            {mmGtData.product_type === 'BALYA' && (
-              <div className="absolute -top-3 -right-3 bg-green-500 text-white rounded-full p-2 shadow-lg animate-pulse">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            )}
-            <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">💧</div>
-            <div className="text-2xl mb-2">Yağlı Balya Teli</div>
-            <div className={`text-sm font-medium ${mmGtData.product_type === 'BALYA' ? 'text-green-100' : 'text-gray-500'}`}>
-              Oiled Bale Wire
-            </div>
-            <div className={`text-xs mt-1 ${mmGtData.product_type === 'BALYA' ? 'text-green-200' : 'text-gray-400'}`}>
-              TT.BALYA.XXXX.XX
-            </div>
-          </button>
-        </div>
-      </div>
 
-      {/* Product-Specific Action Buttons */}
-      <div className="mb-6 bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-lg ${mmGtData.product_type === 'TAVLI' ? 'bg-blue-600' : 'bg-green-600'} flex items-center justify-center`}>
-              <span className="text-white text-xs">
-                {mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}
-              </span>
-            </div>
-            {mmGtData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Yağlı Balya Teli'} - İşlemler
-          </h3>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Veritabanı Button */}
+          {/* Database Button */}
           <button
             onClick={() => setShowExistingMmModal(true)}
-            className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-              mmGtData.product_type === 'TAVLI'
-                ? 'border-blue-300 hover:bg-blue-50'
-                : 'border-green-300 hover:bg-green-50'
-            }`}
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
           >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
             </svg>
-            <span className="text-sm font-medium text-gray-700">Veritabanı</span>
-            <span className="text-xs text-gray-500">Mamul Ürünler</span>
+            Veritabanı
           </button>
 
-          {/* Talepler Button */}
+          {/* Requests Button */}
           <button
             onClick={() => {
               setShowRequestsModal(true);
               fetchRequests();
             }}
-            className={`relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-              mmGtData.product_type === 'TAVLI'
-                ? 'border-blue-300 hover:bg-blue-50'
-                : 'border-green-300 hover:bg-green-50'
-            }`}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg relative flex items-center gap-2"
           >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
-            <span className="text-sm font-medium text-gray-700">Talepler</span>
-            <span className="text-xs text-gray-500">Satış Talepleri</span>
+            Talepler
             {requests.filter(r => r.status === 'pending').length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 {requests.filter(r => r.status === 'pending').length}
               </span>
             )}
           </button>
-
-          {/* YM TT Ara Mamul */}
-          <button
-            onClick={() => setShowYmTtModal(true)}
-            className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-              mmGtData.product_type === 'TAVLI'
-                ? 'border-blue-300 hover:bg-blue-50'
-                : 'border-green-300 hover:bg-green-50'
-            }`}
-          >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <span className="text-sm font-medium text-gray-700">YM TT</span>
-            <span className="text-xs text-gray-500">Tavlı Tel Ara Mamul</span>
-          </button>
-
-          {/* YM YB Ara Mamul - ONLY FOR BALYA */}
-          {mmGtData.product_type === 'BALYA' && (
-            <button
-              onClick={() => setShowYmYbModal(true)}
-              className="flex flex-col items-center gap-2 p-4 rounded-lg border-2 border-green-300 hover:bg-green-50 transition-all hover:shadow-md"
-            >
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <span className="text-sm font-medium text-gray-700">YM YB</span>
-              <span className="text-xs text-gray-500">Yağlı Balya Ara Mamul</span>
-            </button>
-          )}
         </div>
       </div>
 
       {/* Ana İçerik */}
       {currentStep === 'input' && (
-        <div className={`${
-          isViewingExistingProduct
-            ? 'bg-yellow-50 border-4 border-yellow-400'
-            : mmGtData.product_type === 'TAVLI'
-            ? 'bg-white border-4 border-blue-300'
-            : 'bg-white border-4 border-green-300'
-        } rounded-xl shadow-xl p-8 transition-all duration-300`}>
+        <div className={`${isViewingExistingProduct ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-white'} rounded-xl shadow-lg p-8`}>
           <div className="flex justify-between items-center mb-6">
-            <h2 className={`text-2xl font-bold flex items-center gap-3 ${
-              mmGtData.product_type === 'TAVLI' ? 'text-blue-800' : 'text-green-800'
-            }`}>
-              <div className={`w-8 h-8 rounded-lg ${
-                mmGtData.product_type === 'TAVLI' ? 'bg-blue-500' : 'bg-green-500'
-              } flex items-center justify-center text-white text-xl`}>
-                {mmGtData.product_type === 'TAVLI' ? '🔥' : '💧'}
-              </div>
+            <h2 className="text-xl font-semibold text-gray-800">
               {isViewingExistingProduct ? 'Ürün Düzenleme' : 'Ürün Bilgileri'}
             </h2>
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
               <span className="font-medium">Zorunlu Alanlar</span>
             </div>
           </div>
