@@ -10048,7 +10048,14 @@ const GalvanizliTelNetsis = () => {
       }
       ymGtByProduct[recipe.mamul_kodu].push(recipe);
     });
-    
+
+    // Sort recipes within each product by sira_no field from database
+    Object.keys(ymGtByProduct).forEach(productCode => {
+      ymGtByProduct[productCode].sort((a, b) => {
+        return (a.sira_no || 0) - (b.sira_no || 0);
+      });
+    });
+
     // Add YM GT recipes with proper sequencing per product
     const sortedYmGtStokCodes = Object.keys(ymGtByProduct).sort();
     sortedYmGtStokCodes.forEach(stokKodu => {
@@ -11101,7 +11108,14 @@ const GalvanizliTelNetsis = () => {
       }
       ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
     });
-    
+
+    // Sort recipes within each product by sira_no field from database
+    Object.keys(ymGtByProduct).forEach(productCode => {
+      ymGtByProduct[productCode].sort((a, b) => {
+        return (a.sira_no || 0) - (b.sira_no || 0);
+      });
+    });
+
     // Get stok codes from sorted product data to maintain diameter order
     const sortedYmGtStokCodes = sortedYmGtData.map(product => product.stok_kodu);
     
