@@ -2287,14 +2287,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Check if product exists using multiple strategies
       let productExists = false;
       
-      // Strategy 1: Match by exact Stok Adı
-      productExists = savedProducts.mm.some(p => p.stok_adi === productStokAdi);
-      
-      // Strategy 2: Match by normalized Stok Adı (handles decimal variations)
+      // Strategy 1: Match by exact Stok Adı AND wire counts
+      productExists = savedProducts.mm.some(p =>
+        p.stok_adi === productStokAdi &&
+        parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+        parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
+      );
+
+      // Strategy 2: Match by normalized Stok Adı AND wire counts (handles decimal variations)
       if (!productExists) {
         productExists = savedProducts.mm.some(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
-          return normalizedDbStokAdi === normalizedProductStokAdi;
+          return normalizedDbStokAdi === normalizedProductStokAdi &&
+                 parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+                 parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0);
         });
         
         if (productExists) {
@@ -2319,7 +2325,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01 &&
-          (p.goz_araligi || '') === (product.gozAraligi || '') // FIXED: Check göz aralığı to prevent wrong matches
+          (p.goz_araligi || '') === (product.gozAraligi || '') && // FIXED: Check göz aralığı to prevent wrong matches
+          parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+          parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
         );
         
         if (productExists) {
@@ -2512,8 +2520,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
-      // Find ALL existing products by exact Stok Adı using FRESH data
-      let allMatchingProducts = freshSavedProducts.mm.filter(p => p.stok_adi === productStokAdi);
+      // Find ALL existing products by exact Stok Adı AND wire counts using FRESH data
+      let allMatchingProducts = freshSavedProducts.mm.filter(p =>
+        p.stok_adi === productStokAdi &&
+        parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+        parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
+      );
       let existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
 
       // Debug: Show all exact matches
@@ -2524,12 +2536,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
       }
       
-      // Try normalized Stok Adı if exact match not found
+      // Try normalized Stok Adı AND wire counts if exact match not found
       if (!existingProduct) {
         const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
         allMatchingProducts = freshSavedProducts.mm.filter(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
-          return normalizedDbStokAdi === normalizedProductStokAdi;
+          return normalizedDbStokAdi === normalizedProductStokAdi &&
+                 parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+                 parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0);
         });
         existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
         
@@ -2572,7 +2586,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap || 0) - parseFloat(product.boyCap || 0)) < 0.01 &&
           Math.abs(parseFloat(p.cap2 || 0) - parseFloat(product.enCap || 0)) < 0.01 &&
-          (p.goz_araligi || '') === (product.gozAraligi || '') // FIXED: Check göz aralığı to prevent wrong matches
+          (p.goz_araligi || '') === (product.gozAraligi || '') && // FIXED: Check göz aralığı to prevent wrong matches
+          parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+          parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
         );
       }
       
