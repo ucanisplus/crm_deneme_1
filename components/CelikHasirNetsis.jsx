@@ -3313,24 +3313,46 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         toast.warn('Kaynak Programı oluşturmak için önce ürün listesini doldurun.');
         return;
       }
-      
+
       // Reset cancellation flag and start progress indicator
       setCancelExcelGeneration(false);
       setIsGeneratingExcel(true);
       setExcelProgress({ current: 0, total: 4, operation: 'Veritabanı analizi yapılıyor...' });
-      
-      // Get stock codes from save confirmation analysis (reuse existing analysis)
-      const analysisResult = await analyzeProductsForConfirmation();
-      
+
+      // CRITICAL FIX: Reuse cached analysis from preSaveConfirmData to avoid inconsistent results
+      // If preSaveConfirmData is empty or stale, then perform fresh analysis
+      let analysisResult;
+      if (preSaveConfirmData && (preSaveConfirmData.newProducts?.length > 0 || preSaveConfirmData.existingProducts?.length > 0)) {
+        console.log('KAYNAK PROGRAMI: Reusing cached analysis from preSaveConfirmData');
+        analysisResult = {
+          existingProducts: preSaveConfirmData.existingProducts || [],
+          newProducts: preSaveConfirmData.newProducts || []
+        };
+      } else {
+        console.log('KAYNAK PROGRAMI: No cached analysis found, performing fresh analysis');
+        analysisResult = await analyzeProductsForConfirmation();
+      }
+
       // Check for cancellation
       if (cancelExcelGeneration) {
         console.log('Excel generation cancelled during analysis');
         return;
       }
-      
+
       // Use the returned result directly instead of relying on state
       const existingProductsData = analysisResult?.existingProducts || [];
       const newProductsData = analysisResult?.newProducts || [];
+
+      console.log('KAYNAK PROGRAMI: Using analysis data:', {
+        existingProducts: existingProductsData.length,
+        newProducts: newProductsData.length,
+        firstExisting: existingProductsData[0] ? {
+          hasirTipi: existingProductsData[0].hasirTipi,
+          existingStokKodus: existingProductsData[0].existingStokKodus,
+          cubukSayisiBoy: existingProductsData[0].cubukSayisiBoy,
+          cubukSayisiEn: existingProductsData[0].cubukSayisiEn
+        } : null
+      });
       
       // Update progress
       setExcelProgress({ current: 1, total: 4, operation: 'Mevcut veriler işleniyor...' });
@@ -3342,23 +3364,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const enhancedProducts = await Promise.all(validProducts.map(async (product) => {
         // Find matching stock code from analysis
         let stokKodu = '';
-        
-        // Check existing products first
+
+        // Check existing products first - MUST include wire count matching
         const existingMatch = existingProductsData.find(existing => {
           const hasirTipiMatch = existing.hasirTipi === product.hasirTipi;
           const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
           const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
-          return hasirTipiMatch && boyMatch && enMatch;
+          // CRITICAL FIX: Add wire count matching to prevent wrong product selection
+          const wireCountBoyMatch = parseInt(existing.cubukSayisiBoy || 0) === parseInt(product.cubukSayisiBoy || 0);
+          const wireCountEnMatch = parseInt(existing.cubukSayisiEn || 0) === parseInt(product.cubukSayisiEn || 0);
+          return hasirTipiMatch && boyMatch && enMatch && wireCountBoyMatch && wireCountEnMatch;
         });
-        
+
         if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
+          // Use the first matched stock code (already filtered by wire counts in analyzeProductsForConfirmation)
           const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
             const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
             const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
             return numB - numA;
           });
           stokKodu = sortedCodes[0];
-          
+
+          console.log(`✅ KAYNAK PROGRAMI MATCH: Found existing product ${stokKodu} for ${product.hasirTipi} with wire counts Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
+
           // Try to find saved product data for cubuk sayisi values
           const savedProduct = savedProducts.mm?.find(p => p.stok_kodu === stokKodu);
           if (savedProduct && savedProduct.cubuk_sayisi_boy && savedProduct.cubuk_sayisi_en) {
@@ -3371,16 +3399,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             };
           }
         } else {
-          // Check new products
+          // Check new products - also include wire count matching
           const newMatch = newProductsData.find(newProd => {
             const hasirTipiMatch = newProd.hasirTipi === product.hasirTipi;
             const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
             const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
-            return hasirTipiMatch && boyMatch && enMatch;
+            // CRITICAL FIX: Add wire count matching for new products too
+            const wireCountBoyMatch = parseInt(newProd.cubukSayisiBoy || 0) === parseInt(product.cubukSayisiBoy || 0);
+            const wireCountEnMatch = parseInt(newProd.cubukSayisiEn || 0) === parseInt(product.cubukSayisiEn || 0);
+            return hasirTipiMatch && boyMatch && enMatch && wireCountBoyMatch && wireCountEnMatch;
           });
-          
+
           if (newMatch && newMatch.newStokKodu) {
             stokKodu = newMatch.newStokKodu;
+            console.log(`✅ KAYNAK PROGRAMI MATCH: Using new product code ${stokKodu} for ${product.hasirTipi} with wire counts Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
           }
         }
         

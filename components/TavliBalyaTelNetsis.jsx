@@ -5700,7 +5700,8 @@ const TavliBalyaTelNetsis = () => {
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       cap: capValue, // Store as number for calculations
-      kaplama: parseInt(mmData.kaplama),
+      product_type: mmData.product_type, // ✅ FIXED: TAVLI or BALYA (not kaplama)
+      yaglama_tipi: mmData.yaglama_tipi || '', // ✅ FIXED: Püskürtme/Daldırma or empty
       min_mukavemet: parseInt(mmData.min_mukavemet),
       max_mukavemet: parseInt(mmData.max_mukavemet),
       kg: parseInt(mmData.kg),
