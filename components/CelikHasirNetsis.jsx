@@ -1482,8 +1482,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   }, [savedProducts, validProducts]);
 
   // OPTIMIZED: Veritabanından kayıtlı ürünleri getir with caching and request cancellation
-  const fetchSavedProducts = async (isRetry = false, resetData = false) => {
-    console.log(`🔄 FETCH SAVED PRODUCTS - Called with isRetry: ${isRetry}, resetData: ${resetData}`);
+  const fetchSavedProducts = async (isRetry = false, resetData = false, isCritical = false) => {
+    console.log(`🔄 FETCH SAVED PRODUCTS - Called with isRetry: ${isRetry}, resetData: ${resetData}, isCritical: ${isCritical}`);
     
     // Cancel previous request if exists
     if (fetchControllerRef.current) {
@@ -1591,9 +1591,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         failedAPIs.push('NTEL');
       }
 
-      // Only throw error if all APIs fail or MM (critical) fails
-      if (mmResult.status === 'rejected') {
-        throw new Error(`Critical MM API failed: ${mmResult.reason}`);
+      // CRITICAL FIX: During critical operations (save/analysis), ALL APIs must succeed
+      // During normal browsing, we can tolerate partial failures
+      if (isCritical) {
+        // For critical operations, any API failure is unacceptable
+        if (failedAPIs.length > 0) {
+          const errorMsg = `Veritabanı bağlantı hatası: ${failedAPIs.join(', ')} verileri yüklenemedi. Lütfen tekrar deneyin.`;
+          toast.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+      } else {
+        // For non-critical operations, only throw if MM (most important) fails
+        if (mmResult.status === 'rejected') {
+          throw new Error(`Critical MM API failed: ${mmResult.reason}`);
+        }
       }
 
       // Extract data and total counts from responses
@@ -1654,7 +1665,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (resetData) {
         console.log('🔄 State forced to update with resetData=true');
       }
-      
+
+      // CRITICAL FIX: Return the fetched data directly to avoid stale state reads
+      return allData;
+
     } catch (error) {
       console.error('❌ Veritabanı bağlantı hatası:', error);
       
@@ -2471,13 +2485,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // CRITICAL FIX: Force fresh data fetch before analysis to avoid stale cache
     // This prevents deleted products from appearing as "existing" when trying to re-add them
     console.log('DEBUG: Fetching FRESH data for product analysis to avoid stale cache...');
-    await fetchSavedProducts(false, true); // Force fresh data with cache busting - updates savedProducts state
-    
-    // CRITICAL: Wait a moment for React state to be updated after async fetch
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Use the freshly updated savedProducts state after timeout
-    const freshSavedProducts = savedProducts;
+    const freshSavedProducts = await fetchSavedProducts(false, true, true); // Force fresh data with cache busting AND mark as critical - returns data directly to avoid stale state
     
     // Debug: Log the fresh savedProducts structure and check for CHOZL2448 specifically
     console.log('DEBUG: freshSavedProducts in analyzeProductsForConfirmation:', {
@@ -8429,18 +8437,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             try {
               // Refresh saved products state to ensure accurate counts
               await fetchSavedProducts();
-              
+
               // Show analysis count
               const newProductsCount = getProductsToSave().length;
               const existingProductsCount = validProducts.length - newProductsCount;
               toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilecek`);
-              
+
               if (validProducts.length === 0) {
                 setShowDatabaseModal(true);
               } else {
                 // Check for unoptimized products and show warning for Netsis operations only
                 const hasUnoptimized = hasUnoptimizedProducts();
-                
+
                 if (hasUnoptimized) {
                   const shouldContinue = window.confirm(
                     `UYARI: Bazı ürünler henüz optimize edilmedi!\n\n` +
@@ -8448,18 +8456,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     `DEVAM: Optimize edilmemiş tablo ile devam et\n` +
                     `IPTAL: İşlemi iptal et`
                   );
-                  
+
                   if (!shouldContinue) {
                     setIsLoading(false);
                     return;
                   }
                 }
-                
+
                 // Analyze products and show pre-save confirmation
                 const analysisData = await analyzeProductsForConfirmation();
                 setPreSaveConfirmData(analysisData);
                 setShowPreSaveConfirmModal(true);
               }
+            } catch (error) {
+              // CRITICAL FIX: Catch database connection errors and show user-friendly message
+              console.error('❌ Veritabanı analizi hatası:', error);
+              toast.error(error.message || 'Veritabanı bağlantı hatası oluştu. Lütfen tekrar deneyin.');
+              setIsLoading(false);
             } finally {
               setIsLoading(false); // Hide loading when modal appears
             }

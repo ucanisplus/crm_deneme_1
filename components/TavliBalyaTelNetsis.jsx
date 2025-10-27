@@ -2400,9 +2400,9 @@ const TavliBalyaTelNetsis = () => {
       stok_adi: data.stok_adi || '',
       cap: data.cap || '',
       kalinlik: data.kalinlik || '',
-      kod_2: data.kod_2 || '',
+      product_type: data.product_type || '', // ✅ FIXED: TAVLI or BALYA (not kod_2)
       kalite: data.kalite || '',
-      kaplama: data.kaplama || '',
+      yaglama_tipi: data.yaglama_tipi || '', // ✅ FIXED: Püskürtme/Daldırma (not kaplama)
       tensile_min: data.tensile_min || '',
       tensile_max: data.tensile_max || ''
     });
@@ -2430,8 +2430,8 @@ const TavliBalyaTelNetsis = () => {
     // Check each field for changes
     const fieldsToCheck = [
       { key: 'cap', label: 'Çap' },
-      { key: 'kod_2', label: 'Kod' },
-      { key: 'kaplama', label: 'Kaplama' },
+      { key: 'product_type', label: 'Ürün Tipi' }, // ✅ FIXED: TAVLI or BALYA (not kod_2)
+      { key: 'yaglama_tipi', label: 'Yağlama Tipi' }, // ✅ FIXED: Püskürtme/Daldırma (not kaplama)
       { key: 'min_mukavemet', label: 'Min Mukavemet' },
       { key: 'max_mukavemet', label: 'Max Mukavemet' },
       { key: 'kg', label: 'Ağırlık (kg)' },
@@ -4072,7 +4072,7 @@ const TavliBalyaTelNetsis = () => {
 
   const handleInputChange = (field, value) => {
     // Key fields that affect stock code generation
-    const keyFields = ['cap', 'kod_2', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg'];
+    const keyFields = ['cap', 'product_type', 'yaglama_tipi', 'min_mukavemet', 'max_mukavemet', 'kg']; // ✅ FIXED: Use product_type and yaglama_tipi
     
     // If a key field is being changed and we haven't saved to database yet, reset sequence
     if (keyFields.includes(field) && !savedToDatabase) {
@@ -4104,7 +4104,8 @@ const TavliBalyaTelNetsis = () => {
     }
     
     // For numeric fields, ensure we store with point decimal separator but keep as strings
-    if (['cap', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
+    // ✅ FIXED: Removed 'kaplama' (not used for Tavlı/Balya), yaglama_tipi is string not numeric
+    if (['cap', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
       if (typeof normalizedValue === 'string' && normalizedValue !== '') {
         // Remove any commas first and replace with points to be sure
         const valueWithPoints = normalizedValue.replace(/,/g, '.');
@@ -4181,8 +4182,8 @@ const TavliBalyaTelNetsis = () => {
     // Clear MM TT form data - reset to DEFAULT VALUES (same as initial page load)
     setMmData({
       cap: '2.50',           // Default cap value
-      kod_2: 'NIT',          // Default to NIT not PAD
-      kaplama: '50',         // Default kaplama value
+      product_type: 'TAVLI', // ✅ FIXED: Default to TAVLI (not kod_2: 'NIT')
+      yaglama_tipi: '',      // ✅ FIXED: Empty yaglama (not kaplama: '50')
       min_mukavemet: '350',  // Default min strength
       max_mukavemet: '550',  // Default max strength
       kg: '500',             // Default weight
@@ -4206,7 +4207,8 @@ const TavliBalyaTelNetsis = () => {
     // Check required fields
     const requiredFields = {
       'cap': 'Çap',
-      'kaplama': 'Kaplama Miktarı',
+      'product_type': 'Ürün Tipi', // ✅ FIXED: TAVLI or BALYA (not kaplama)
+      // yaglama_tipi is optional (can be empty for Yagsiz/no oil)
       'min_mukavemet': 'Min Mukavemet',
       'max_mukavemet': 'Max Mukavemet',
       'kg': 'Ağırlık'
@@ -5730,9 +5732,9 @@ const TavliBalyaTelNetsis = () => {
       // Technical spec columns - match Excel format exactly
       metarial: 'Low Carbon Steel Wire',
       dia_mm: capForExcel, // Use formatted string value
-      dia_tol_mm_plus: adjustedPlus, 
+      dia_tol_mm_plus: adjustedPlus,
       dia_tol_mm_minus: adjustedMinus,
-      zing_coating: `${mmData.kaplama} gr/m²`,
+      zing_coating: 'NONE', // ✅ FIXED: Tavlı/Balya products don't have zinc coating (not mmData.kaplama)
       tensile_st_min: `${mmData.min_mukavemet} MPa`,
       tensile_st_max: `${mmData.max_mukavemet} MPa`,
       wax: mmData.product_type === 'BALYA' ? '+' : 'NONE', // '+' for BALYA, 'NONE' for TAVLI
@@ -13925,7 +13927,7 @@ const TavliBalyaTelNetsis = () => {
                       id="searchQuery"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Çap, kaplama, açıklama vb."
+                      placeholder="Çap, ürün tipi, yağlama tipi, açıklama vb."
                       className="block w-full border border-gray-300 rounded-md shadow-sm py-2 pl-3 pr-10 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -15440,28 +15442,28 @@ const TavliBalyaTelNetsis = () => {
                                 )}
                               </div>
                             </th>
-                            <th 
+                            <th
                               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                              onClick={() => handleDbSort('kaplama')}
-                              title="Filmaşine göre sırala"
+                              onClick={() => handleDbSort('product_type')}
+                              title="Ürün tipine göre sırala"
                             >
                               <div className="flex items-center gap-1">
-                                Filmaşin
-                                {dbSortField === 'kaplama' && (
+                                Ürün Tipi
+                                {dbSortField === 'product_type' && (
                                   <span className="text-purple-600">
                                     {dbSortDirection === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th 
+                            <th
                               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                              onClick={() => handleDbSort('kod_2')}
-                              title="Kaliteye göre sırala"
+                              onClick={() => handleDbSort('yaglama_tipi')}
+                              title="Yağlama tipine göre sırala"
                             >
                               <div className="flex items-center gap-1">
-                                Kalite
-                                {dbSortField === 'kod_2' && (
+                                Yağlama Tipi
+                                {dbSortField === 'yaglama_tipi' && (
                                   <span className="text-purple-600">
                                     {dbSortDirection === 'asc' ? '↑' : '↓'}
                                   </span>
