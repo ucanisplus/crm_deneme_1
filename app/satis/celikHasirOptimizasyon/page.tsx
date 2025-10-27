@@ -895,9 +895,10 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     });
     
     // FALLBACK OPTIONS: If no good options found, add risky/extreme alternatives
-    if (uniqueOptions.length === 0) {
+    // IMPORTANT: Fallback options REQUIRE allowTypeChanges to be true
+    if (uniqueOptions.length === 0 && allowTypeChanges) {
       console.log(`⚠️ No standard merge options found for ${product1.hasirTipi} ↔ ${product2.hasirTipi}, adding fallback options`);
-      
+
       // FALLBACK 1: Force merge with new bigger dimensions (creates new larger product)
       const maxBoy = Math.max(boy1, boy2);
       const maxEn = Math.max(en1, en2);
