@@ -638,23 +638,27 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         const tolerance = Math.max(boyDiff, enDiff);
         
         if (boyDiff >= enDiff) {
+          const safety = getSafetyLevel(tolerance);
           options.push({
             type: 'boydan',
             source: product1,
             target: product2,
             explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (boydan ${tolerance}cm)`,
             tolerance,
-            safetyLevel: getSafetyLevel(tolerance).category,
+            safetyLevel: safety.category,
+            safetyLevelNumber: safety.level,
             priority: 1
           });
         } else {
+          const safety = getSafetyLevel(tolerance);
           options.push({
             type: 'enden',
             source: product1,
             target: product2,
             explanation: `${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (enden ${tolerance}cm)`,
             tolerance,
-            safetyLevel: getSafetyLevel(tolerance).category,
+            safetyLevel: safety.category,
+            safetyLevelNumber: safety.level,
             priority: 1
           });
         }
@@ -667,23 +671,27 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         const tolerance = Math.max(boyDiff, enDiff);
         
         if (boyDiff >= enDiff) {
+          const safety = getSafetyLevel(tolerance);
           options.push({
             type: 'boydan',
             source: product2,
             target: product1,
             explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (boydan ${tolerance}cm)`,
             tolerance,
-            safetyLevel: getSafetyLevel(tolerance).category,
+            safetyLevel: safety.category,
+            safetyLevelNumber: safety.level,
             priority: 1
           });
         } else {
+          const safety = getSafetyLevel(tolerance);
           options.push({
             type: 'enden',
             source: product2,
             target: product1,
             explanation: `${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (enden ${tolerance}cm)`,
             tolerance,
-            safetyLevel: getSafetyLevel(tolerance).category,
+            safetyLevel: safety.category,
+            safetyLevelNumber: safety.level,
             priority: 1
           });
         }
@@ -713,6 +721,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product1.hasirTipi} -> ${product2.hasirTipi}`,
           aciklama: product2.aciklama || `Tip değişikliği: ${product1.id} -> ${product2.id}`
         };
+        const safety = getSafetyLevel(tolerance, true);
         options.push({
           type: 'tipi_degisiklik_same',
           source: product1,
@@ -720,7 +729,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           result: result,
           explanation: `Tip değişikliği (aynı grup): ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
           tolerance,
-          safetyLevel: getSafetyLevel(tolerance, true).category,
+          safetyLevel: safety.category,
+          safetyLevelNumber: safety.level,
           priority: 4
         });
       }
@@ -739,6 +749,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product2.hasirTipi} -> ${product1.hasirTipi}`,
           aciklama: product1.aciklama || `Tip değişikliği: ${product2.id} -> ${product1.id}`
         };
+        const safety = getSafetyLevel(tolerance, true);
         options.push({
           type: 'tipi_degisiklik_same',
           source: product2,
@@ -746,7 +757,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           result: result,
           explanation: `Tip değişikliği (aynı grup): ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
           tolerance,
-          safetyLevel: getSafetyLevel(tolerance, true).category,
+          safetyLevel: safety.category,
+          safetyLevelNumber: safety.level,
           priority: 4
         });
       }
@@ -782,6 +794,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             explanation: `Tip değişikliği (GRUPLAR ARASI): ${product1.hasirSayisi}adet ${product1.hasirTipi} → ${product2.hasirTipi} (${tolerance}cm)`,
             tolerance,
             safetyLevel: 'risky',
+            safetyLevelNumber: 10,
             priority: 5
           });
         }
@@ -808,6 +821,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             explanation: `Tip değişikliği (GRUPLAR ARASI): ${product2.hasirSayisi}adet ${product2.hasirTipi} → ${product1.hasirTipi} (${tolerance}cm)`,
             tolerance,
             safetyLevel: 'risky',
+            safetyLevelNumber: 10,
             priority: 5
           });
         }
@@ -823,13 +837,15 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       
       if (boyDiff1to2 >= 0 && enDiff1to2 >= 0 && (boyDiff1to2 > 0 || enDiff1to2 > 0)) {
         const tolerance = Math.max(boyDiff1to2, enDiff1to2);
+        const safety = getSafetyLevel(tolerance);
         options.push({
           type: 'tamamla',
           source: product1,
           target: product2,
           explanation: `Üste tamamla: ${product1.hasirSayisi}adet ${boy1}x${en1} → ${boy2}x${en2} (+${tolerance}cm)`,
           tolerance,
-          safetyLevel: getSafetyLevel(tolerance).category,
+          safetyLevel: safety.category,
+          safetyLevelNumber: safety.level,
           priority: 3
         });
       }
@@ -840,13 +856,15 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       
       if (boyDiff2to1 >= 0 && enDiff2to1 >= 0 && (boyDiff2to1 > 0 || enDiff2to1 > 0)) {
         const tolerance = Math.max(boyDiff2to1, enDiff2to1);
+        const safety = getSafetyLevel(tolerance);
         options.push({
           type: 'tamamla',
           source: product2,
           target: product1,
           explanation: `Üste tamamla: ${product2.hasirSayisi}adet ${boy2}x${en2} → ${boy1}x${en1} (+${tolerance}cm)`,
           tolerance,
-          safetyLevel: getSafetyLevel(tolerance).category,
+          safetyLevel: safety.category,
+          safetyLevelNumber: safety.level,
           priority: 3
         });
       }
@@ -907,6 +925,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         explanation: `🚨 ZORLA BİRLEŞTİRME: Yeni büyük boyut yaratılacak ${newBoy}x${newEn} (ÇOK RİSKLİ!)`,
         tolerance: Math.max(newBoy - maxBoy, newEn - maxEn),
         safetyLevel: 'risky',
+        safetyLevelNumber: 10,
         priority: 9
       });
       
@@ -936,6 +955,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           explanation: `🚨 ÇAP DEĞİŞİKLİĞİ: ${product2.hasirTipi} çapı ${product2.boyCap}→${targetDiameter} (AŞIRI RİSKLİ!)`,
           tolerance: Math.abs(targetDiameter - product2.boyCap),
           safetyLevel: 'risky',
+          safetyLevelNumber: 10,
           priority: 10
         });
       }
@@ -973,6 +993,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             explanation: `🚨 AŞIRI TİP DEĞİŞİKLİĞİ: ${product1.hasirTipi} → ${product2.hasirTipi} + boyut artışı (TEHLİKELİ!)`,
             tolerance: Math.max(newBoySize - Math.max(boy1, boy2), newEnSize - Math.max(en1, en2)),
             safetyLevel: 'risky',
+            safetyLevelNumber: 10,
             priority: 11
           });
           break;
