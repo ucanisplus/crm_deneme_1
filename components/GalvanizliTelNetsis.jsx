@@ -18141,7 +18141,7 @@ const GalvanizliTelNetsis = () => {
                     <p className="text-base text-gray-900">
                       {selectedDatabaseProduct.tolerans_plus && selectedDatabaseProduct.tolerans_minus ? (
                         <>
-                          +{selectedDatabaseProduct.tolerans_plus} / -{selectedDatabaseProduct.tolerans_minus}
+                          {selectedDatabaseProduct.tolerans_plus} / {selectedDatabaseProduct.tolerans_minus}
                         </>
                       ) : (
                         'Belirtilmemiş'
@@ -18515,7 +18515,7 @@ const GalvanizliTelNetsis = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {mmGt.tolerans_plus && mmGt.tolerans_minus ? (
-                                  `+${mmGt.tolerans_plus} / -${mmGt.tolerans_minus}`
+                                  `${mmGt.tolerans_plus} / ${mmGt.tolerans_minus}`
                                 ) : (
                                   'Belirtilmemiş'
                                 )}
