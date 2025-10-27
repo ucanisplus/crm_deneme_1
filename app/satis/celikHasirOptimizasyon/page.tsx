@@ -2013,90 +2013,92 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       }
     }
     
-    // 4. Check hasir tipi changes (same group) - only if includeTypeChanges is true
+    // 4. Check hasir tipi changes (same group AND cross group) - only if includeTypeChanges is true
     if (includeTypeChanges) {
       const currentType = sourceProduct.hasirTipi.charAt(0);
+
+      // 4a. Same group changes (Q->Q, T->T, R->R)
       if (targetProduct.hasirTipi.charAt(0) === currentType) {
-      const toleranceCm = tolerance;
-      const targetBoy = Number(targetProduct.uzunlukBoy);
-      const targetEn = Number(targetProduct.uzunlukEn);
-      const sourceBoy = Number(sourceProduct.uzunlukBoy);
-      const sourceEn = Number(sourceProduct.uzunlukEn);
-      
-      const boyDiff = targetBoy - sourceBoy;
-      const enDiff = targetEn - sourceEn;
-      
-      if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
-        const result = {
-          ...targetProduct,
-          id: `type_changed_same_${Date.now()}_${Math.random()}`,
-          hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
-          toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
-          mergeHistory: [
-            ...(targetProduct.mergeHistory || []),
-            `Tip değişikliği: ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
-          ],
-          advancedOptimizationNotes: `Hasır tipi değişikliği: ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
-          aciklama: targetProduct.aciklama || `Tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
-        };
-        
-        opportunities.push({
-          type: 'tipi_degisiklik_same',
-          source: sourceProduct,
-          target: targetProduct,
-          result: result,
-          explanation: `Hasır tipi değişikliği (aynı grup): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
-          toleranceUsed: Math.max(boyDiff, enDiff),
-          safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
-          safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
-        });
-      }
-    }
-    
-    // 5. Check hasir tipi changes (cross group)
-    let targetTypes: string[] = [];
-    if (currentType === 'Q') targetTypes = ['T'];
-    else if (currentType === 'T') targetTypes = ['R'];
-    
-    for (const targetType of targetTypes) {
-      if (targetProduct.hasirTipi.startsWith(targetType)) {
         const toleranceCm = tolerance;
         const targetBoy = Number(targetProduct.uzunlukBoy);
         const targetEn = Number(targetProduct.uzunlukEn);
         const sourceBoy = Number(sourceProduct.uzunlukBoy);
         const sourceEn = Number(sourceProduct.uzunlukEn);
-        
+
         const boyDiff = targetBoy - sourceBoy;
         const enDiff = targetEn - sourceEn;
-        
+
         if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
           const result = {
             ...targetProduct,
-            id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+            id: `type_changed_same_${Date.now()}_${Math.random()}`,
             hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
             toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
             mergeHistory: [
               ...(targetProduct.mergeHistory || []),
-              `Tip değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
+              `Tip değişikliği: ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
             ],
-            advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
-            aciklama: targetProduct.aciklama || `Gruplar arası tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
+            advancedOptimizationNotes: `Hasır tipi değişikliği: ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
+            aciklama: targetProduct.aciklama || `Tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
           };
-          
+
           opportunities.push({
-            type: 'tipi_degisiklik_cross',
+            type: 'tipi_degisiklik_same',
             source: sourceProduct,
             target: targetProduct,
             result: result,
-            explanation: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
+            explanation: `Hasır tipi değişikliği (aynı grup): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
             safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
             safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
           });
         }
       }
-    }
-    } // Close includeTypeChanges check
+
+      // 4b. Cross group changes (Q->T, T->R) - CRITICAL FIX: Move inside includeTypeChanges check
+      let targetTypes: string[] = [];
+      if (currentType === 'Q') targetTypes = ['T'];
+      else if (currentType === 'T') targetTypes = ['R'];
+
+      for (const targetType of targetTypes) {
+        if (targetProduct.hasirTipi.startsWith(targetType)) {
+          const toleranceCm = tolerance;
+          const targetBoy = Number(targetProduct.uzunlukBoy);
+          const targetEn = Number(targetProduct.uzunlukEn);
+          const sourceBoy = Number(sourceProduct.uzunlukBoy);
+          const sourceEn = Number(sourceProduct.uzunlukEn);
+
+          const boyDiff = targetBoy - sourceBoy;
+          const enDiff = targetEn - sourceEn;
+
+          if (boyDiff >= 0 && enDiff >= 0 && boyDiff <= toleranceCm && enDiff <= toleranceCm) {
+            const result = {
+              ...targetProduct,
+              id: `type_changed_cross_${Date.now()}_${Math.random()}`,
+              hasirSayisi: Number(sourceProduct.hasirSayisi) + Number(targetProduct.hasirSayisi),
+              toplamKg: Number(sourceProduct.toplamKg) + Number(targetProduct.toplamKg),
+              mergeHistory: [
+                ...(targetProduct.mergeHistory || []),
+                `Tip değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) -> ${targetProduct.hasirTipi}(+${sourceProduct.hasirSayisi})`
+              ],
+              advancedOptimizationNotes: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi} -> ${targetProduct.hasirTipi}`,
+              aciklama: targetProduct.aciklama || `Gruplar arası tip değişikliği: ${sourceProduct.id} -> ${targetProduct.id}`
+            };
+
+            opportunities.push({
+              type: 'tipi_degisiklik_cross',
+              source: sourceProduct,
+              target: targetProduct,
+              result: result,
+              explanation: `Hasır tipi değişikliği (gruplar arası): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
+              toleranceUsed: Math.max(boyDiff, enDiff),
+              safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+              safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+            });
+          }
+        }
+      }
+    } // Close includeTypeChanges check - FIXED: Now encompasses both same-group and cross-group changes
     
     // Return the safest (lowest safetyLevelNumber) opportunity if any found
     if (opportunities.length === 0) return null;
