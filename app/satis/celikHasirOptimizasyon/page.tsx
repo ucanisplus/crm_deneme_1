@@ -2223,20 +2223,51 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       }
     }
     
+    // VALIDATION: Ensure all operations have safetyLevelNumber
+    const validatedOpportunities = allOpportunities.map(op => {
+      if (op.safetyLevelNumber === undefined || op.safetyLevelNumber === null) {
+        console.warn(`⚠️ Operation missing safetyLevelNumber:`, op.type, op.explanation);
+        // Calculate safety level based on operation type and tolerance
+        let safetyLevel = 10; // Default to most dangerous
+        if (op.type === 'tipi_degisiklik_cross' || op.explanation.includes('GRUPLAR ARASI') || op.explanation.includes('AŞIRI')) {
+          safetyLevel = 10; // Cross-group changes are always level 10
+        } else if (op.type === 'tipi_degisiklik_same' || op.type === 'tipi_degisiklik') {
+          // Same-group changes use tolerance-based safety
+          safetyLevel = getSafetyLevel(op.toleranceUsed || 0, false).level;
+        } else {
+          // Regular operations use tolerance-based safety
+          safetyLevel = getSafetyLevel(op.toleranceUsed || 0, false).level;
+        }
+        return { ...op, safetyLevelNumber: safetyLevel };
+      }
+      return op;
+    });
+
     // Sort by safety level (safest first: 0 → 10)
-    const sortedOpportunities = allOpportunities.sort((a, b) => a.safetyLevelNumber - b.safetyLevelNumber);
-    
+    const sortedOpportunities = validatedOpportunities.sort((a, b) => {
+      const aLevel = a.safetyLevelNumber ?? 10;
+      const bLevel = b.safetyLevelNumber ?? 10;
+      if (aLevel !== bLevel) return aLevel - bLevel;
+      // Tiebreaker: tolerance
+      return (a.toleranceUsed || 0) - (b.toleranceUsed || 0);
+    });
+
     // Debug: Count operations by type and safety level
     const safeOps = sortedOpportunities.filter(op => op.safetyLevel === 'safe');
-    console.log(`🔍 Safe operations: ${safeOps.length}`);
+    const missingLevels = sortedOpportunities.filter(op => op.safetyLevelNumber === undefined);
+    console.log(`🔍 Safe operations: ${safeOps.length}, Missing safety levels: ${missingLevels.length}`);
     console.log('Safe operation types:', safeOps.map(op => `${op.type} (${op.toleranceUsed}cm)`));
-    
+
     const byType: Record<string, number> = {};
+    const byLevel: Record<number, number> = {};
     sortedOpportunities.forEach(op => {
       byType[op.type] = (byType[op.type] || 0) + 1;
+      const level = op.safetyLevelNumber ?? 10;
+      byLevel[level] = (byLevel[level] || 0) + 1;
     });
     console.log('Operations by type:', byType);
-    
+    console.log('Operations by safety level:', byLevel);
+
     console.log(`💡 Total unique opportunities: ${sortedOpportunities.length} (globally deduplicated)`);
     return sortedOpportunities;
   };
@@ -3576,13 +3607,27 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                 id="include-type-changes"
                 checked={includeTypeChanges}
                 onCheckedChange={(checked) => {
-                  setIncludeTypeChanges(checked as boolean);
-                  // Refilter operations when type change setting changes
-                  const updatedOps = findAllOptimizationOpportunities();
-                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
-                  setPendingOperations(sortedOps);
-                  setCurrentOperationIndex(0);
-                  toast(checked ? 'Hasır tipi değişiklikleri dahil edildi' : 'Hasır tipi değişiklikleri hariç tutuldu');
+                  const newValue = checked as boolean;
+                  console.log(`🔄 Checkbox changed: includeTypeChanges = ${includeTypeChanges} → ${newValue}`);
+                  setIncludeTypeChanges(newValue);
+
+                  // Use setTimeout to ensure state updates before recalculating
+                  setTimeout(() => {
+                    // Refilter operations when type change setting changes
+                    const updatedOps = findAllOptimizationOpportunities();
+                    const sortedOps = sortPendingOperations(updatedOps, sortMode);
+
+                    console.log(`✅ Operations recalculated: ${updatedOps.length} opportunities found`);
+                    console.log(`📊 First 3 operations:`, sortedOps.slice(0, 3).map(op => ({
+                      type: op.type,
+                      explanation: op.explanation.substring(0, 40)
+                    })));
+
+                    setPendingOperations(sortedOps);
+                    setCurrentOperationIndex(0);
+
+                    toast(newValue ? `✅ Hasır tipi değişiklikleri dahil edildi (${updatedOps.length} fırsat)` : `❌ Hasır tipi değişiklikleri hariç tutuldu (${updatedOps.length} fırsat)`);
+                  }, 0);
                 }}
               />
               <Label htmlFor="include-type-changes" className="text-sm cursor-pointer">
