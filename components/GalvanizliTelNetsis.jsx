@@ -9856,6 +9856,49 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
+  // Export selected database products to Excel (similar to Talepler's exportSelectedToExcel)
+  const exportSelectedDatabaseProductsToExcel = async () => {
+    try {
+      if (selectedDbItems.length === 0) {
+        toast.warning('Lütfen en az bir ürün seçin');
+        return;
+      }
+
+      setIsExportingExcel(true);
+
+      // Get selected MM GT products only (we don't export YM ST directly, only through MM GT relationships)
+      const selectedMmGtProducts = existingMmGts.filter(mmGt => selectedDbItems.includes(mmGt.id));
+
+      if (selectedMmGtProducts.length === 0) {
+        toast.warning('Seçilen ürünler arasında MM GT ürünü bulunamadı. Lütfen MM GT sekmesinden ürün seçin.');
+        return;
+      }
+
+      console.log('🔍 DEBUG: Selected MM GT products:');
+      selectedMmGtProducts.forEach((mmGt, index) => {
+        console.log(`Product ${index + 1} (ID: ${mmGt.id}): stok_kodu = "${mmGt.stok_kodu}", cap = "${mmGt.cap}"`);
+      });
+
+      // Create pseudo-requests from selected MM GT products to reuse existing logic
+      const pseudoRequests = selectedMmGtProducts.map(mmGt => ({
+        id: mmGt.id,
+        stok_kodu: mmGt.stok_kodu,
+        status: 'approved', // Treat as approved for Excel generation
+        created_at: mmGt.created_at
+      }));
+
+      console.log('🚀 Starting Excel generation for', pseudoRequests.length, 'selected products');
+      await generateBatchExcelFromRequests(pseudoRequests);
+      toast.success(`${selectedMmGtProducts.length} seçili ürün için Excel dosyaları oluşturuldu`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Excel dosyaları oluşturulurken hata oluştu: ' + error.message);
+    } finally {
+      setIsExportingExcel(false);
+      setExcelProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
+    }
+  };
+
   // Bulk Excel generation - download entire database and process locally (similar to Çelik Hasır pattern)
   const generateBulkExcelFromDatabase = useCallback(async () => {
     try {
@@ -18227,7 +18270,19 @@ const GalvanizliTelNetsis = () => {
                     </svg>
                     Tüm Ürünler Excel
                   </button>
-                  
+
+                  <button
+                    onClick={exportSelectedDatabaseProductsToExcel}
+                    disabled={isExportingExcel || selectedDbItems.length === 0}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    title={`${selectedDbItems.filter(id => existingMmGts.find(mmGt => mmGt.id === id)).length} seçili MM GT ürünü için Excel oluştur`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {isExportingExcel ? 'İşleniyor...' : `Seçili Ürünler Excel (${selectedDbItems.filter(id => existingMmGts.find(mmGt => mmGt.id === id)).length})`}
+                  </button>
+
                   <button
                     onClick={() => setShowExistingMmGtModal(false)}
                     className="text-gray-500 hover:text-gray-700 transition-colors"
