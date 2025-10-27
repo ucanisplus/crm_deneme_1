@@ -2131,17 +2131,19 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   // Comprehensive mega-function with global deduplication
-  const findAllOptimizationOpportunities = () => {
-    console.log('🚀 Starting comprehensive optimization analysis...');
-    
+  const findAllOptimizationOpportunities = (forceIncludeTypeChanges?: boolean) => {
+    // Use parameter if provided, otherwise use state
+    const shouldIncludeTypeChanges = forceIncludeTypeChanges !== undefined ? forceIncludeTypeChanges : includeTypeChanges;
+    console.log(`🚀 Starting comprehensive optimization analysis... (includeTypeChanges: ${shouldIncludeTypeChanges})`);
+
     const allOpportunities: MergeOperation[] = [];
     const globalProcessedPairs = new Set<string>();
     const operationSignatures = new Set<string>(); // Track unique operations to prevent duplicates
-    
-    const candidateProducts = products.filter(p => 
+
+    const candidateProducts = products.filter(p =>
       Number(p.hasirSayisi) <= maxHasirSayisi
     );
-    
+
     console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
     
     // Check ALL possible product pairs ONCE across all optimization types
@@ -2163,7 +2165,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         globalProcessedPairs.add(pairKey1);
         
         // Use getAllMergeOptions to get all possible merge options (including fallbacks)
-        const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct, includeTypeChanges);
+        const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct, shouldIncludeTypeChanges);
         
         // First, try to find options within tolerance
         const safeOptions = mergeOptions.filter(option => option.tolerance <= tolerance);
@@ -2419,46 +2421,54 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   // Approve current operation and apply immediately
   const approveCurrentOperation = () => {
     if (currentOperationIndex >= pendingOperations.length) return;
-    
+
     const operation = pendingOperations[currentOperationIndex];
-    
+
     // STEP 1: Apply the merge immediately to the products table
     const sourceExists = products.find(p => p.id === operation.source.id);
     const targetExists = products.find(p => p.id === operation.target.id);
-    
+
+    let updatedProducts = products;
     if (sourceExists && targetExists) {
       // Move source product to deleted list
       const sourceProduct = products.find(p => p.id === operation.source.id)!;
       moveToDeleted([sourceProduct], `Merged into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`, operation.result.id);
-      
+
       // Remove source and target, add merged result
-      const updatedProducts = products
+      updatedProducts = products
         .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
         .concat(operation.result);
-      
+
       setProductsWithDebug(updatedProducts);
       addToHistory(updatedProducts);
-      
+
       console.log(`✅ Applied merge: ${operation.source.id} + ${operation.target.id} = ${operation.result.id}`);
       console.log(`📊 Products count: ${products.length} → ${updatedProducts.length}`);
     }
-    
-    // STEP 2: Remove ALL operations involving the deleted product
-    const filteredOperations = removeConflictingOperations(operation, pendingOperations);
-    setPendingOperations(filteredOperations);
-    
-    // STEP 3: Move to next operation or close dialog
-    if (filteredOperations.length > 0 && currentOperationIndex < filteredOperations.length) {
-      // Find next available operation index
-      const nextIndex = Math.min(currentOperationIndex, filteredOperations.length - 1);
-      setCurrentOperationIndex(nextIndex);
-    } else {
-      // No more operations left
-      setShowApprovalDialog(false);
-      setPendingOperations([]);
-      setCurrentOperationIndex(0);
-      toast.success('Tüm işlemler tamamlandı!');
-    }
+
+    // STEP 2: Recalculate all opportunities with updated product list
+    // Use a small delay to ensure product state has updated
+    setTimeout(() => {
+      console.log('🔄 Recalculating opportunities after merge...');
+      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges);
+      const sortedOpportunities = sortPendingOperations(freshOpportunities, sortMode);
+
+      console.log(`📊 Recalculated: ${sortedOpportunities.length} opportunities (was ${pendingOperations.length})`);
+
+      setPendingOperations(sortedOpportunities);
+
+      // STEP 3: Move to next operation or close dialog
+      if (sortedOpportunities.length > 0) {
+        // Reset to first operation
+        setCurrentOperationIndex(0);
+      } else {
+        // No more operations left
+        setShowApprovalDialog(false);
+        setPendingOperations([]);
+        setCurrentOperationIndex(0);
+        toast.success('Tüm işlemler tamamlandı!');
+      }
+    }, 100);
   };
 
   // Apply all safe operations (only operations marked as 'safe')
@@ -2521,21 +2531,49 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   const rejectCurrentOperation = () => {
+    // Recalculate all opportunities (skip is essentially removing this operation)
+    console.log('⏭️ Skipping current operation, recalculating opportunities...');
+
+    setTimeout(() => {
+      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges);
+      const sortedOpportunities = sortPendingOperations(freshOpportunities, sortMode);
+
+      console.log(`📊 Recalculated: ${sortedOpportunities.length} opportunities (was ${pendingOperations.length})`);
+
+      setPendingOperations(sortedOpportunities);
+
+      // Move to next operation or close dialog
+      if (sortedOpportunities.length > 0) {
+        // Move to next operation (or stay at current index if at the end)
+        const nextIndex = Math.min(currentOperationIndex, sortedOpportunities.length - 1);
+        setCurrentOperationIndex(nextIndex);
+      } else {
+        // No more operations left
+        setShowApprovalDialog(false);
+        setPendingOperations([]);
+        setCurrentOperationIndex(0);
+        toast('Tüm işlemler atlandı!');
+      }
+    }, 100);
+  };
+
+  // Old reject handler code below - kept for reference but not used
+  const rejectCurrentOperationOld = () => {
     // Mark current operation as skipped
     const updatedOperations = [...pendingOperations];
-    updatedOperations[currentOperationIndex] = { 
-      ...updatedOperations[currentOperationIndex], 
-      skipped: true 
+    updatedOperations[currentOperationIndex] = {
+      ...updatedOperations[currentOperationIndex],
+      skipped: true
     };
     setPendingOperations(updatedOperations);
-    
+
     // Move to next unapproved/unskipped operation
     let nextIndex = currentOperationIndex + 1;
-    while (nextIndex < pendingOperations.length && 
+    while (nextIndex < pendingOperations.length &&
            (updatedOperations[nextIndex]?.approved || updatedOperations[nextIndex]?.skipped)) {
       nextIndex++;
     }
-    
+
     if (nextIndex < pendingOperations.length) {
       setCurrentOperationIndex(nextIndex);
     } else {
@@ -2545,16 +2583,16 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         setShowApprovalDialog(false);
         // Apply all approved operations in sequence
         const approvedOperations = updatedOperations.filter(op => op.approved);
-        
+
         if (approvedOperations.length > 0) {
           // Apply all approved operations sequentially
           let currentProducts = [...products];
-          
+
           for (const operation of approvedOperations) {
             // Check if source and target products still exist
             const sourceExists = currentProducts.find(p => p.id === operation.source.id);
             const targetExists = currentProducts.find(p => p.id === operation.target.id);
-            
+
             if (sourceExists && targetExists) {
               // Remove source and target, add result
               currentProducts = currentProducts
@@ -2562,7 +2600,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                 .concat(operation.result);
             }
           }
-          
+
           // Update products state with final result
           setProductsWithDebug(currentProducts);
           addToHistory(currentProducts);
@@ -3611,23 +3649,21 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                   console.log(`🔄 Checkbox changed: includeTypeChanges = ${includeTypeChanges} → ${newValue}`);
                   setIncludeTypeChanges(newValue);
 
-                  // Use setTimeout to ensure state updates before recalculating
-                  setTimeout(() => {
-                    // Refilter operations when type change setting changes
-                    const updatedOps = findAllOptimizationOpportunities();
-                    const sortedOps = sortPendingOperations(updatedOps, sortMode);
+                  // IMPORTANT: Pass newValue directly to avoid stale state
+                  const updatedOps = findAllOptimizationOpportunities(newValue);
+                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
 
-                    console.log(`✅ Operations recalculated: ${updatedOps.length} opportunities found`);
-                    console.log(`📊 First 3 operations:`, sortedOps.slice(0, 3).map(op => ({
-                      type: op.type,
-                      explanation: op.explanation.substring(0, 40)
-                    })));
+                  console.log(`✅ Operations recalculated: ${updatedOps.length} opportunities found`);
+                  console.log(`📊 First 5 operations:`, sortedOps.slice(0, 5).map(op => ({
+                    type: op.type,
+                    explanation: op.explanation.substring(0, 50),
+                    safetyLevel: op.safetyLevelNumber
+                  })));
 
-                    setPendingOperations(sortedOps);
-                    setCurrentOperationIndex(0);
+                  setPendingOperations(sortedOps);
+                  setCurrentOperationIndex(0);
 
-                    toast(newValue ? `✅ Hasır tipi değişiklikleri dahil edildi (${updatedOps.length} fırsat)` : `❌ Hasır tipi değişiklikleri hariç tutuldu (${updatedOps.length} fırsat)`);
-                  }, 0);
+                  toast(newValue ? `✅ Hasır tipi değişiklikleri dahil edildi (${updatedOps.length} fırsat)` : `❌ Hasır tipi değişiklikleri hariç tutuldu (${updatedOps.length} fırsat)`);
                 }}
               />
               <Label htmlFor="include-type-changes" className="text-sm cursor-pointer">
