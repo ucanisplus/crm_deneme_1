@@ -2675,7 +2675,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           };
           
           const gozMatch = enhancedNormalizeGozAraligi(p.goz_araligi) === enhancedNormalizeGozAraligi(formatGozAraligi(product));
-          
+
+          // Wire count matching - critical for distinguishing products with same specs but different wire counts
+          const wireCountsMatch = (
+            parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
+            parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
+          );
+
           // Enhanced Stok Adı similarity check (typo tolerance)
           const calculateSimilarity = (str1, str2) => {
             if (!str1 || !str2) return 0;
@@ -2740,8 +2746,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const similarityThreshold = isStandardProduct ? 0.60 : 0.80; // Lower threshold for standard products
           const stokAdiMatch = similarity > similarityThreshold;
           
-          // Combine all matching criteria
-          const overallMatch = hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch && stokAdiMatch;
+          // Combine all matching criteria - including wire counts to distinguish products
+          const overallMatch = hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch && wireCountsMatch && stokAdiMatch;
           
           // Enhanced debug for first product  
           if (p.stok_kodu === existingProduct.stok_kodu) {
@@ -2763,12 +2769,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               product: [normalizeDecimal(product.boyCap), normalizeDecimal(product.enCap)], 
               match: diameterMatch 
             });
-            console.log('  🕳️ GOZ ARALIGI:', { 
-              db: p.goz_araligi, 
-              product: formatGozAraligi(product), 
-              normalized_db: enhancedNormalizeGozAraligi(p.goz_araligi), 
-              normalized_product: enhancedNormalizeGozAraligi(formatGozAraligi(product)), 
-              match: gozMatch 
+            console.log('  🕳️ GOZ ARALIGI:', {
+              db: p.goz_araligi,
+              product: formatGozAraligi(product),
+              normalized_db: enhancedNormalizeGozAraligi(p.goz_araligi),
+              normalized_product: enhancedNormalizeGozAraligi(formatGozAraligi(product)),
+              match: gozMatch
+            });
+            console.log('  🔢 WIRE COUNTS:', {
+              db_boy: parseInt(p.ic_cap_boy_cubuk_ad || 0),
+              product_boy: parseInt(product.cubukSayisiBoy || 0),
+              db_en: parseInt(p.dis_cap_en_cubuk_ad || 0),
+              product_en: parseInt(product.cubukSayisiEn || 0),
+              match: wireCountsMatch
             });
             console.log('  📝 STOK ADI SIMILARITY:', {
               db: p.stok_adi,
@@ -2783,6 +2796,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log('    dimensionMatch:', dimensionMatch);
             console.log('    diameterMatch:', diameterMatch);
             console.log('    gozMatch:', gozMatch);
+            console.log('    wireCountsMatch:', wireCountsMatch);
             console.log('    stokAdiMatch:', stokAdiMatch);
             console.log('  ✅ OVERALL MATCH:', overallMatch);
           }
@@ -10055,8 +10069,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   <h4 className="font-medium text-gray-800 mb-2">Eklenecek Yeni Ürünler:</h4>
                   <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3">
                     {preSaveConfirmData.newProducts.map((product, index) => (
-                      <div key={index} className="text-sm mb-1">
-                        <span className="font-mono text-green-600">{product.newStokKodu}</span> - {product.stokAdi}
+                      <div key={index} className="text-sm mb-1 flex items-center gap-2">
+                        <span className="font-mono text-green-600">{product.newStokKodu}</span> -
+                        <span className="flex-1">{product.stokAdi}</span>
+                        <span className="text-xs text-gray-600">
+                          (Boy: {product.cubukSayisiBoy || 0}, En: {product.cubukSayisiEn || 0})
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -10071,6 +10089,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                         <tr>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">Ürün</th>
+                          <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">Çubuk Sayısı</th>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">CH Stok Kodları</th>
                           <th className="text-left p-2 font-medium text-gray-700 border-r border-gray-200">NCBK</th>
                           <th className="text-left p-2 font-medium text-gray-700">NTEL</th>
@@ -10082,6 +10101,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             <td className="p-2 border-r border-gray-200">
                               <div className="font-medium text-gray-800 max-w-xs break-words">
                                 {product.stokAdi}
+                              </div>
+                            </td>
+                            <td className="p-2 border-r border-gray-200">
+                              <div className="text-xs text-gray-700">
+                                <div className="font-medium">Boy: {product.cubukSayisiBoy || 0}</div>
+                                <div className="font-medium">En: {product.cubukSayisiEn || 0}</div>
                               </div>
                             </td>
                             <td className="p-2 border-r border-gray-200">

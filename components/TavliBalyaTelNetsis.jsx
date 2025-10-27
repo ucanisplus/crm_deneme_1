@@ -4912,23 +4912,26 @@ const TavliBalyaTelNetsis = () => {
       
       // First check if an exact duplicate exists (all fields match)
       const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const baseCode = `GT.${mmData.kod_2}.${capFormatted}`;
-      
+      // ✅ FIXED: Use TT.BAG/TT.BALYA format based on product_type
+      const productPrefix = mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+      const baseCode = `${productPrefix}.${capFormatted}`;
+
       // Get all existing products with same base code
       const response = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
       if (response && response.ok) {
         const existingProducts = await response.json();
-        
+
         if (existingProducts.length > 0) {
           // Check each existing product for matches
           for (const existingProduct of existingProducts) {
             // Check if ALL fields match (exact duplicate)
-            const allFieldsMatch = 
+            // ✅ FIXED: Use product_type and yaglama_tipi instead of kod_2 and kaplama
+            const allFieldsMatch =
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmData.cap)) < 0.001 &&
-              existingProduct.kod_2 === mmData.kod_2 &&
+              existingProduct.product_type === mmData.product_type &&
               Math.abs(parseFloat(existingProduct.tolerans_plus) - parseFloat(mmData.tolerans_plus)) < 0.001 &&
               Math.abs(parseFloat(existingProduct.tolerans_minus) - parseFloat(mmData.tolerans_minus)) < 0.001 &&
-              parseInt(existingProduct.kaplama) === parseInt(mmData.kaplama) &&
+              (existingProduct.yaglama_tipi || '') === (mmData.yaglama_tipi || '') &&
               parseInt(existingProduct.min_mukavemet) === parseInt(mmData.min_mukavemet) &&
               parseInt(existingProduct.max_mukavemet) === parseInt(mmData.max_mukavemet) &&
               parseInt(existingProduct.kg) === parseInt(mmData.kg) &&
@@ -4939,7 +4942,7 @@ const TavliBalyaTelNetsis = () => {
               (existingProduct.unwinding || '') === (mmData.unwinding || '') &&
               (existingProduct.helix_kont || 'hayır') === (mmData.helix_kont || 'hayır') &&
               (existingProduct.elongation || '') === (mmData.elongation || '');
-            
+
             if (allFieldsMatch) {
               // Exact duplicate found
               setConflictProduct(existingProduct);
@@ -4948,22 +4951,22 @@ const TavliBalyaTelNetsis = () => {
               setIsLoading(false);
               return false;
             }
-            
+
             // Check if only key fields match (key fields that affect stok_adi and stok_kodu)
-            // Key fields: cap, kod_2, tolerans_plus/minus, kaplama, min/max_mukavemet, kg, ic_cap, dis_cap, cast_kont
-            const keyFieldsMatch = 
+            // ✅ FIXED: Key fields for Tavlı/Balya: cap, product_type, tolerans, yaglama_tipi, mukavemet, kg, caps, cast_kont
+            const keyFieldsMatch =
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmData.cap)) < 0.001 &&
-              existingProduct.kod_2 === mmData.kod_2 &&
+              existingProduct.product_type === mmData.product_type &&
               Math.abs(parseFloat(existingProduct.tolerans_plus) - parseFloat(mmData.tolerans_plus)) < 0.001 &&
               Math.abs(parseFloat(existingProduct.tolerans_minus) - parseFloat(mmData.tolerans_minus)) < 0.001 &&
-              parseInt(existingProduct.kaplama) === parseInt(mmData.kaplama) &&
+              (existingProduct.yaglama_tipi || '') === (mmData.yaglama_tipi || '') &&
               parseInt(existingProduct.min_mukavemet) === parseInt(mmData.min_mukavemet) &&
               parseInt(existingProduct.max_mukavemet) === parseInt(mmData.max_mukavemet) &&
               parseInt(existingProduct.kg) === parseInt(mmData.kg) &&
               parseInt(existingProduct.ic_cap) === parseInt(mmData.ic_cap) &&
               parseInt(existingProduct.dis_cap) === parseInt(mmData.dis_cap) &&
               (existingProduct.cast_kont || 'hayır') === (mmData.cast_kont || 'hayır');
-            
+
             if (keyFieldsMatch) {
               // Key fields match but non-key fields are different
               setConflictProduct(existingProduct);
@@ -4973,21 +4976,21 @@ const TavliBalyaTelNetsis = () => {
               return false;
             }
           }
-          
+
           // If we get here, key fields are different, so create new product with incremented sequence
           const nextSequence = await checkForExistingProducts(
             mmData.cap,
-            mmData.kod_2,
-            mmData.kaplama,  
+            mmData.product_type,
+            mmData.yaglama_tipi,
             mmData.min_mukavemet,
             mmData.max_mukavemet,
             mmData.kg
           );
           const sequence = nextSequence.toString().padStart(2, '0');
-          
+
           // Store the sequence for Excel generation
           setProcessSequence(sequence);
-          
+
           // Proceed with save as new product
           return await proceedWithSave(allYmSts, nextSequence);
         } else {
@@ -4995,8 +4998,8 @@ const TavliBalyaTelNetsis = () => {
           // This should never happen now since checkForExistingProducts handles this
           const nextSequence = await checkForExistingProducts(
             mmData.cap,
-            mmData.kod_2, 
-            mmData.kaplama,
+            mmData.product_type,
+            mmData.yaglama_tipi,
             mmData.min_mukavemet,
             mmData.max_mukavemet,
             mmData.kg
@@ -5027,13 +5030,15 @@ const TavliBalyaTelNetsis = () => {
       
       // Generate the potential new stok_kodu based on current form data
       const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const baseCode = `GT.${mmData.kod_2}.${capFormatted}`;
-      
+      // ✅ FIXED: Use TT.BAG/TT.BALYA format based on product_type
+      const productPrefix = mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+      const baseCode = `${productPrefix}.${capFormatted}`;
+
       // Get all existing products with same base code
       const response = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
       if (response && response.ok) {
         const existingProducts = await response.json();
-        
+
         if (existingProducts.length > 0) {
           // Check each existing product for matches, excluding the current product being edited
           for (const existingProduct of existingProducts) {
@@ -5041,14 +5046,15 @@ const TavliBalyaTelNetsis = () => {
             if (selectedExistingMm && existingProduct.id === selectedExistingMm.id) {
               continue;
             }
-            
+
             // Check if ALL fields match (exact duplicate with a different product)
-            const allFieldsMatch = 
+            // ✅ FIXED: Use product_type and yaglama_tipi instead of kod_2 and kaplama
+            const allFieldsMatch =
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmData.cap)) < 0.001 &&
-              existingProduct.kod_2 === mmData.kod_2 &&
+              existingProduct.product_type === mmData.product_type &&
               Math.abs(parseFloat(existingProduct.tolerans_plus) - parseFloat(mmData.tolerans_plus)) < 0.001 &&
               Math.abs(parseFloat(existingProduct.tolerans_minus) - parseFloat(mmData.tolerans_minus)) < 0.001 &&
-              parseInt(existingProduct.kaplama) === parseInt(mmData.kaplama) &&
+              (existingProduct.yaglama_tipi || '') === (mmData.yaglama_tipi || '') &&
               parseInt(existingProduct.min_mukavemet) === parseInt(mmData.min_mukavemet) &&
               parseInt(existingProduct.max_mukavemet) === parseInt(mmData.max_mukavemet) &&
               parseInt(existingProduct.kg) === parseInt(mmData.kg) &&
@@ -5059,7 +5065,7 @@ const TavliBalyaTelNetsis = () => {
               (existingProduct.unwinding || '') === (mmData.unwinding || '') &&
               (existingProduct.helix_kont || 'hayır') === (mmData.helix_kont || 'hayır') &&
               (existingProduct.elongation || '') === (mmData.elongation || '');
-            
+
             if (allFieldsMatch) {
               // Exact duplicate found with a different product
               toast.error(`Bu ürün özellikleri zaten mevcut! Çakışan ürün: ${existingProduct.stok_kodu}. Lütfen değerleri gözden geçirin.`);
@@ -10192,9 +10198,10 @@ const TavliBalyaTelNetsis = () => {
         throw new Error('Stok Kartı Excel buffer boş - veri sorunu');
       }
       
-      // Generate filename using MMGT stok_kodu
+      // ✅ FIXED: Generate filename using MM TT stok_kodu (TT.BAG or TT.BALYA)
       const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const mmStokKodu = `GT.${mmData.kod_2}.${capFormatted}.${sequence}`;
+      const productPrefix = mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+      const mmStokKodu = `${productPrefix}.${capFormatted}.${sequence}`;
       const filename = `${mmStokKodu}_Stok_Karti.xlsx`;
       
       saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
@@ -10226,14 +10233,15 @@ const TavliBalyaTelNetsis = () => {
     // Sadece ana YMST için MM TT reçete satırları ekle
     const mmRecipe = { ...allRecipes.mmRecipes[mainYmStIndex_] } || {}; // Clone to avoid modifying the original
     
-    // DÜZELTME: Eğer YM.GT kodu yanlış sequence'e sahipse düzelt
-    // Doğru YM.GT kodu oluştur - MMGT ile aynı sequence kullanılmalı
-    const correctStokKodu = `YM.GT.${mmData.kod_2}.${Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
-    
-    // Reçetedeki YM.GT kodlarını düzelt - yeni bir obje oluşturarak
+    // ✅ FIXED: Tavlı/Balya uses YM.TT intermediates, not YM.GT
+    // Create correct YM.TT stok kodu - should match MM TT sequence
+    const productPrefix = mmData.product_type === 'TAVLI' ? 'YM.TT.BAG' : 'YM.TT.BALYA';
+    const correctStokKodu = `${productPrefix}.${Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
+
+    // Fix recipe YM.TT codes - create new object
     const fixedRecipe = {};
     Object.entries(mmRecipe).forEach(([key, value]) => {
-      if (key.includes('YM.GT.') && key !== correctStokKodu) {
+      if ((key.includes('YM.TT.BAG') || key.includes('YM.TT.BALYA')) && key !== correctStokKodu) {
         fixedRecipe[correctStokKodu] = value;
       } else {
         fixedRecipe[key] = value;
@@ -10271,23 +10279,25 @@ const TavliBalyaTelNetsis = () => {
       recipeEntries.push(...cleanedEntries);
     }
     
-    // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
-    // Düzeltme: YM.GT kodunu mamul_kodu ile aynı sequence'e sahip olacak şekilde ara
-    const correctYmGtStokKodu = `YM.GT.${mmData.kod_2}.${Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
-    const ymGtEntry = recipeEntries.find(([key]) => key === correctYmGtStokKodu) || 
-                      recipeEntries.find(([key]) => key.includes('YM.GT.'));
-    const gtpkt01Entry = recipeEntries.find(([key]) => key === 'GTPKT01');
+    // ✅ FIXED: Maintain fixed order with YM.TT (not YM.GT) for Tavlı/Balya
+    // Operations: TAV01 (tavlama), TVPKT01 (tavlı paketleme) or BAL01 (balya), etc.
+    const correctYmTtStokKodu = correctStokKodu; // Already defined above
+    const ymTtEntry = recipeEntries.find(([key]) => key === correctYmTtStokKodu) ||
+                      recipeEntries.find(([key]) => key.includes('YM.TT.BAG') || key.includes('YM.TT.BALYA'));
+    const tavlamaEntry = recipeEntries.find(([key]) => key === 'TAV01' || key === 'TVPKT01' || key === 'BAL01');
     const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
     const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
     const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
     const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
     const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
-    
+
     // Other entries that might exist but aren't in the fixed order
-    const otherEntries = recipeEntries.filter(([key]) => 
-      !key.includes('YM.GT.') && 
-      key !== 'GTPKT01' &&
+    const otherEntries = recipeEntries.filter(([key]) =>
+      !key.includes('YM.TT.') &&
+      key !== 'TAV01' &&
+      key !== 'TVPKT01' &&
+      key !== 'BAL01' &&
       key !== 'AMB.ÇEM.KARTON.GAL' &&
       !key.includes('AMB.SHRİNK.') &&
       key !== 'SM.7MMHALKA' &&
@@ -10295,11 +10305,11 @@ const TavliBalyaTelNetsis = () => {
       key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
       key !== 'SM.DESİ.PAK'
     );
-    
+
     // Sırayla ekle - exact order
     const orderedEntries = [
-      ymGtEntry, 
-      gtpkt01Entry, 
+      ymTtEntry,
+      tavlamaEntry, // TAV01, TVPKT01, or BAL01 
       kartonEntry,
       shrinkEntry,
       halkaEntry,
@@ -10418,9 +10428,10 @@ const TavliBalyaTelNetsis = () => {
         throw new Error('Excel buffer boş - veri sorunu');
       }
       
-      // Generate filename using MMGT stok_kodu
+      // ✅ FIXED: Generate filename using MM TT stok_kodu (TT.BAG or TT.BALYA)
       const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const mmStokKodu = `GT.${mmData.kod_2}.${capFormatted}.${sequence}`;
+      const productPrefix = mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+      const mmStokKodu = `${productPrefix}.${capFormatted}.${sequence}`;
       const filename = `${mmStokKodu}_Recete.xlsx`;
       
       saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
@@ -10430,12 +10441,12 @@ const TavliBalyaTelNetsis = () => {
     }
   };
 
-  // Excel header fonksiyonları
+  // ✅ FIXED: Excel header fonksiyonları (Tavlı/Balya Tel - removed Kaplama, updated Kod labels)
   const getStokKartiHeaders = () => [
-    'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'Cari/Satıcı Kodu',
+    'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Ürün Tipi', 'Cari/Satıcı Kodu',
     'Türü', 'Mamul Grup', 'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
     'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2',
-    'Çevrim Değeri-2', 'Çap', 'Kaplama', 'Min Mukavemet', 'Max Mukavemet', 'KG',
+    'Çevrim Değeri-2', 'Çap', 'Yağlama Tipi', 'Min Mukavemet', 'Max Mukavemet', 'KG',
     'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Çap2', 'Shrink', 'Tolerans(+)',
     'Tolerans(-)', 'Ebat(En)', 'Göz Aralığı', 'Ebat(Boy)', 'Hasır Tipi',
     'Özel Saha 8 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1',
@@ -10788,16 +10799,18 @@ const TavliBalyaTelNetsis = () => {
   const generateMmGtStokKartiData = (sequence = '00') => {
     const cap = parseFloat(mmData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
-    const stokKodu = `GT.${mmData.kod_2}.${capFormatted}.${sequence}`;
+    // ✅ FIXED: Use TT.BAG/TT.BALYA format based on product_type
+    const productPrefix = mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+    const stokKodu = `${productPrefix}.${capFormatted}.${sequence}`;
     const { adjustedPlus, adjustedMinus, adjustedPlusFormatted, adjustedMinusFormatted } = getAdjustedToleranceValues();
-    
-    
+
+
     return [
       stokKodu, // Stok Kodu
       generateStokAdiForExcel(), // Stok Adı
       'MM', // Grup Kodu
-      'GT', // Kod-1
-      mmData.kod_2, // Kod-2
+      mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA', // ✅ FIXED: Kod-1 (TT.BAG or TT.BALYA)
+      mmData.product_type, // ✅ FIXED: Kod-2 now shows product type (TAVLI/BALYA)
       '', // Cari/Satıcı Kodu
       'M', // Türü
       stokKodu, // Mamul Grup
