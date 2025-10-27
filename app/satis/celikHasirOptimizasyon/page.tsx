@@ -2272,6 +2272,16 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     
     // Apply initial sorting based on current sortMode (default is 'safety')
     const sortedOps = sortPendingOperations(opportunities, sortMode);
+
+    // Debug: Show first 10 operations with their sort keys
+    console.log(`📊 INITIAL SORT (${sortMode === 'safety' ? 'by safety' : 'by quantity'}):`, sortedOps.slice(0, 10).map(op => ({
+      type: op.type,
+      explanation: op.explanation.substring(0, 50),
+      safetyLevel: op.safetyLevelNumber,
+      tolerance: op.toleranceUsed,
+      hasirSayisi: op.source.hasirSayisi
+    })));
+
     setPendingOperations(sortedOps);
     setCurrentOperationIndex(0);
     setShowApprovalDialog(true);
@@ -2283,10 +2293,24 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     return [...operations].sort((a, b) => {
       if (mode === 'safety') {
         // Sort by safety level (safest first: 0 → 10)
-        return a.safetyLevelNumber - b.safetyLevelNumber;
+        const aLevel = a.safetyLevelNumber ?? 10; // Default to most dangerous if undefined
+        const bLevel = b.safetyLevelNumber ?? 10;
+        if (aLevel !== bLevel) {
+          return aLevel - bLevel;
+        }
+        // If safety levels are equal, sort by tolerance as tiebreaker
+        return a.toleranceUsed - b.toleranceUsed;
       } else {
-        // Sort by quantity (lowest first)
-        return Number(a.source.hasirSayisi) - Number(b.source.hasirSayisi);
+        // Sort by quantity (lowest hasir sayisi first)
+        const aQty = Number(a.source.hasirSayisi) || 0;
+        const bQty = Number(b.source.hasirSayisi) || 0;
+        if (aQty !== bQty) {
+          return aQty - bQty;
+        }
+        // If quantities are equal, sort by safety as tiebreaker
+        const aLevel = a.safetyLevelNumber ?? 10;
+        const bLevel = b.safetyLevelNumber ?? 10;
+        return aLevel - bLevel;
       }
     });
   };
@@ -2297,7 +2321,17 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     setSortMode(newSortMode);
     if (pendingOperations.length > 0) {
       const sortedOps = sortPendingOperations(pendingOperations, newSortMode);
-      console.log(`📊 SORTED OPS: ${pendingOperations.length} operations, first operation changed from ${pendingOperations[0]?.source.id} to ${sortedOps[0]?.source.id}`);
+
+      // Debug: Show first 5 operations with their sort keys
+      console.log(`📊 SORTED OPS (${sortMode === 'safety' ? 'by safety' : 'by quantity'}):`, sortedOps.slice(0, 5).map(op => ({
+        type: op.type,
+        source: `${op.source.hasirTipi}/${op.source.hasirSayisi}`,
+        target: `${op.target.hasirTipi}`,
+        safetyLevel: op.safetyLevelNumber,
+        tolerance: op.toleranceUsed,
+        hasirSayisi: op.source.hasirSayisi
+      })));
+
       // Force a new array reference to ensure React re-renders
       setPendingOperations([...sortedOps]);
       // Reset to first operation after sorting
