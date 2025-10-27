@@ -146,9 +146,6 @@ const TavliBalyaTelNetsis = () => {
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
   const [activeDbTab, setActiveDbTab] = useState('mm'); // Database tab: 'mm' for finished products
-  
-  // Kullanici girdi degerleri icin ayarlar modali
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // REMOVED: Coiler Recete and YM ST Recete modals (not needed for Tavli/Balya)
   // Tavli/Balya uses YM.ST directly without Filmaşin intermediates
@@ -11799,18 +11796,6 @@ const TavliBalyaTelNetsis = () => {
             </button>
           </div>
 
-          {/* Settings Button */}
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className="px-3 py-2 bg-gray-800 text-white rounded-md text-sm flex items-center"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Ayarlar
-          </button>
-
           {/* Database Button */}
           <button
             onClick={() => setShowExistingMmModal(true)}
@@ -11822,7 +11807,6 @@ const TavliBalyaTelNetsis = () => {
               </svg>
               <span>Veritabanı</span>
             </div>
-            <span className="text-xs text-gray-300 ml-6">Tavlı/Balya Ürünler</span>
           </button>
 
           {/* Requests Button */}
@@ -11844,7 +11828,6 @@ const TavliBalyaTelNetsis = () => {
                 </span>
               )}
             </div>
-            <span className="text-xs text-blue-200 ml-6">Tavlı/Balya Talepleri</span>
           </button>
         </div>
       </div>
@@ -11898,9 +11881,6 @@ const TavliBalyaTelNetsis = () => {
                 <option value="Püskürtme">Püskürtme</option>
                 <option value="Daldırma">Daldırma</option>
               </select>
-              {mmData.product_type === 'BALYA' && (
-                <p className="text-xs text-gray-500 mt-1">Balya teli için yağlama tipi zorunludur</p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -12031,10 +12011,11 @@ const TavliBalyaTelNetsis = () => {
                 Paketleme Seçenekleri
               </label>
               <div className="border border-gray-300 rounded-lg p-4 space-y-3">
-                {/* Shrink - Checkbox olarak */}
-                <label className="flex items-center space-x-3 cursor-pointer">
+                {/* Shrink - Checkbox */}
+                <div className="flex items-center">
                   <input
                     type="checkbox"
+                    id="shrink"
                     checked={paketlemeSecenekleri.shrink}
                     onChange={(e) => {
                       setPaketlemeSecenekleri(prev => ({
@@ -12043,62 +12024,44 @@ const TavliBalyaTelNetsis = () => {
                       }));
                       handleInputChange('shrink', e.target.checked ? 'evet' : 'hayır');
                     }}
-                    className="w-4 h-4 text-red-600 focus:ring-red-500 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-sm">Shrink</span>
-                </label>
-                
-                {/* Paletli ve Karton - Radio buttons (mutually exclusive) */}
-                <div className="pl-6 space-y-2">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paletSepet"
-                      checked={paketlemeSecenekleri.paletli}
-                      onChange={() => {
-                        setPaketlemeSecenekleri(prev => ({
-                          ...prev,
-                          paletli: true,
-                          karton: false
-                        }));
-                      }}
-                      className="w-4 h-4 text-red-600 focus:ring-red-500"
-                    />
-                    <span className="text-sm">Paletli</span>
+                  <label htmlFor="shrink" className="ml-2 text-sm text-gray-900">
+                    Shrink
                   </label>
-                  
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paletSepet"
-                      checked={paketlemeSecenekleri.karton}
-                      onChange={() => {
-                        setPaketlemeSecenekleri(prev => ({
-                          ...prev,
-                          paletli: false,
-                          karton: true
-                        }));
-                      }}
-                      className="w-4 h-4 text-red-600 focus:ring-red-500"
-                    />
-                    <span className="text-sm">Karton</span>
+                </div>
+
+                {/* Palet - Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="palet"
+                    checked={paketlemeSecenekleri.paletli}
+                    onChange={(e) => setPaketlemeSecenekleri(prev => ({
+                      ...prev,
+                      paletli: e.target.checked
+                    }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="palet" className="ml-2 text-sm text-gray-900">
+                    Palet
                   </label>
-                  
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paletSepet"
-                      checked={!paketlemeSecenekleri.paletli && !paketlemeSecenekleri.karton}
-                      onChange={() => {
-                        setPaketlemeSecenekleri(prev => ({
-                          ...prev,
-                          paletli: false,
-                          karton: false
-                        }));
-                      }}
-                      className="w-4 h-4 text-red-600 focus:ring-red-500"
-                    />
-                    <span className="text-sm">Hiçbiri</span>
+                </div>
+
+                {/* Karton - Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="karton"
+                    checked={paketlemeSecenekleri.karton}
+                    onChange={(e) => setPaketlemeSecenekleri(prev => ({
+                      ...prev,
+                      karton: e.target.checked
+                    }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="karton" className="ml-2 text-sm text-gray-900">
+                    Karton
                   </label>
                 </div>
               </div>
@@ -13276,169 +13239,6 @@ const TavliBalyaTelNetsis = () => {
         </div>
       )}
 
-      {/* Kullanici Girdi Degerleri icin Ayarlar Modali */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Hesaplama Değerleri
-                </h2>
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-6">
-                <p className="text-sm text-gray-600 mb-4">
-                  Bu değerler hesaplamalarda kullanılacak olan sabit değerlerdir. Değişiklik yaptıktan sonra "Kaydet" düğmesine basarak kaydedin.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Ash (Kül) (Kg/tonne)
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.ash}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        ash: e.target.value.replace(/,/g, '.') // Replace commas with points
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        ash: parseFloat(e.target.value.replace(/,/g, '.')) || prev.ash // Convert to number on blur
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Lapa (Kg/tonne)
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.lapa}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        lapa: e.target.value.replace(/,/g, '.') 
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        lapa: parseFloat(e.target.value.replace(/,/g, '.')) || prev.lapa
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Üretim Kapasitesi (Aylık)
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.uretim_kapasitesi_aylik}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        uretim_kapasitesi_aylik: e.target.value.replace(/,/g, '.') 
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        uretim_kapasitesi_aylik: parseFloat(e.target.value.replace(/,/g, '.')) || prev.uretim_kapasitesi_aylik
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Toplam Tüketilen Asit
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.toplam_tuketilen_asit}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        toplam_tuketilen_asit: e.target.value.replace(/,/g, '.') 
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        toplam_tuketilen_asit: parseFloat(e.target.value.replace(/,/g, '.')) || prev.toplam_tuketilen_asit
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Ortalama Üretim Çapı
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.ortalama_uretim_capi}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        ortalama_uretim_capi: e.target.value.replace(/,/g, '.') 
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        ortalama_uretim_capi: parseFloat(e.target.value.replace(/,/g, '.')) || prev.ortalama_uretim_capi
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Paketleme Dk. Adet
-                    </label>
-                    <input
-                      type="text"
-                      value={userInputValues.paketlemeDkAdet}
-                      onChange={(e) => setUserInputValues(prev => ({ 
-                        ...prev, 
-                        paketlemeDkAdet: e.target.value.replace(/,/g, '.') 
-                      }))}
-                      onBlur={(e) => setUserInputValues(prev => ({
-                        ...prev,
-                        paketlemeDkAdet: parseFloat(e.target.value.replace(/,/g, '.')) || prev.paketlemeDkAdet
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowSettingsModal(false)}
-                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    İptal
-                  </button>
-                  <button
-                    onClick={saveUserInputValues}
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
-                  >
-                    Kaydet
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* YM ST Reçete Modalı (Standalone - Filmaşinden YM ST) */}
       {showYmStReceteModal && (
@@ -14076,7 +13876,7 @@ const TavliBalyaTelNetsis = () => {
                           Tip
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                          Kaplama
+                          Yağlama
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                           Mukavemet
@@ -14124,7 +13924,7 @@ const TavliBalyaTelNetsis = () => {
                             </div>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
-                            {request.cap || 0}mm
+                            {parseFloat(request.cap || 0)}mm
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
                             <span className={`px-1 py-0.5 rounded text-xs font-medium ${
@@ -14137,10 +13937,10 @@ const TavliBalyaTelNetsis = () => {
                             {request.yaglama_tipi || 'Yağsız'}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
-                            {request.min_mukavemet || '0'}-{request.max_mukavemet || '0'}MPa
+                            {parseFloat(request.min_mukavemet || 0)}-{parseFloat(request.max_mukavemet || 0)}MPa
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
-                            {request.kg || '0'}kg
+                            {parseFloat(request.kg || 0)}kg
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
                             {(request.unwinding || 'Anti-Clockwise').slice(0, 8)}...
@@ -15103,7 +14903,7 @@ const TavliBalyaTelNetsis = () => {
                       : 'text-gray-600 hover:text-purple-600'
                   }`}
                 >
-                  Tavlı/Balya Ürünler
+                  MM Ürünler
                 </button>
                 <button
                   onClick={() => setActiveDbTab('ymst')}
