@@ -9663,7 +9663,7 @@ const TavliBalyaTelNetsis = () => {
         !key.includes('AMB.SHRİNK.') &&
         key !== 'SM.7MMHALKA' &&
         key !== 'AMB.APEX CEMBER 38X080' &&
-        key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+        key !== 'AMB.TOKA.SIGNODE.114P. DKP'
         // ✅ REMOVED: SM.DESİ.PAK exclusion - not in tavlı/balya specification
       );
 

@@ -120,7 +120,8 @@ interface MergeOperation {
 
 // Helper function to determine safety level based on tolerance used (0-10 scale)
 const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false, isFoldingOperation: boolean = false): { level: number; category: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky' } => {
-  // Hasır Tipi changes are always maximum risk
+  // Cross-group Hasır Tipi changes (Q→T, T→R) are always maximum risk
+  // Same-group changes (Q→Q, T→T, R→R) use normal tolerance-based safety
   if (isHasirTipiChange) return { level: 10, category: 'risky' };
   
   // Folding operations are never 'safe', even with 0 tolerance
@@ -617,6 +618,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       explanation: string;
       tolerance: number;
       safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky';
+      safetyLevelNumber?: number;
       priority: number;
       result?: Product;
     }> = [];
@@ -721,7 +723,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product1.hasirTipi} -> ${product2.hasirTipi}`,
           aciklama: product2.aciklama || `Tip değişikliği: ${product1.id} -> ${product2.id}`
         };
-        const safety = getSafetyLevel(tolerance, true);
+        const safety = getSafetyLevel(tolerance, false); // Same-group changes use normal tolerance-based safety
         options.push({
           type: 'tipi_degisiklik_same',
           source: product1,
@@ -749,7 +751,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           advancedOptimizationNotes: `Hasır tipi değişikliği (aynı grup): ${product2.hasirTipi} -> ${product1.hasirTipi}`,
           aciklama: product1.aciklama || `Tip değişikliği: ${product2.id} -> ${product1.id}`
         };
-        const safety = getSafetyLevel(tolerance, true);
+        const safety = getSafetyLevel(tolerance, false); // Same-group changes use normal tolerance-based safety
         options.push({
           type: 'tipi_degisiklik_same',
           source: product2,
@@ -1572,8 +1574,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             result: result,
             explanation: `Hasır tipi değişikliği (aynı grup): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
-            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
-            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), false).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), false).level
           });
         }
       }
@@ -2070,8 +2072,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             result: result,
             explanation: `Hasır tipi değişikliği (aynı grup): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
-            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
-            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), false).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), false).level
           });
         }
       }
@@ -2189,7 +2191,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               explanation: bestSafeOption.explanation,
               toleranceUsed: bestSafeOption.tolerance,
               safetyLevel: bestSafeOption.safetyLevel,
-              safetyLevelNumber: getSafetyLevel(bestSafeOption.tolerance).level
+              safetyLevelNumber: bestSafeOption.safetyLevelNumber || getSafetyLevel(bestSafeOption.tolerance).level
             });
           }
         } else if (mergeOptions.length > 0) {
@@ -2213,7 +2215,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               explanation: `⚠️ YEDEK SEÇENEK: ${safestRiskyOption.explanation}`,
               toleranceUsed: safestRiskyOption.tolerance,
               safetyLevel: safestRiskyOption.safetyLevel,
-              safetyLevelNumber: getSafetyLevel(safestRiskyOption.tolerance).level
+              safetyLevelNumber: safestRiskyOption.safetyLevelNumber || getSafetyLevel(safestRiskyOption.tolerance).level
             });
           }
         }
