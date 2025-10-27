@@ -605,41 +605,8 @@ const TavliBalyaTelNetsis = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [taskQueue, showQueueCompletionPopup]);
 
-  // Kod-2 değişikliğinde kaplama değerini güncelle
-  useEffect(() => {
-    if (mmGtData.kod_2 === 'PAD' && mmGtData.kaplama === '100') {
-      // Only auto-set if it's the default NIT value (100)
-      setMmGtData(prev => ({ ...prev, kaplama: '50' }));
-    }
-  }, [mmGtData.kod_2]);
-
-  // MM GT verileri değiştiğinde YM GT verilerini otomatik güncelle
-  useEffect(() => {
-    if (mmGtData.cap && mmGtData.kod_2) {
-      generateYmGtData();
-    }
-  }, [mmGtData.cap, mmGtData.kod_2, mmGtData.kaplama, mmGtData.min_mukavemet, mmGtData.max_mukavemet, mmGtData.kg, mmGtData.ic_cap, mmGtData.dis_cap, mmGtData.tolerans_plus, mmGtData.tolerans_minus]);
-
-  // Calculate YM ST diameter for UI conditional rendering
-  useEffect(() => {
-    if (mmGtData.cap && mmGtData.kaplama && mmGtData.tolerans_minus) {
-      const cap = parseFloat(mmGtData.cap) || 0;
-      const kaplama = parseInt(mmGtData.kaplama) || 0;
-      const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
-
-      const actualToleranceMinus = Math.abs(toleransMinus);
-      const coatingReduction = (kaplama / 35) * 0.01;
-
-      const baseAdjustedCap = cap - actualToleranceMinus - coatingReduction + 0.02;
-      const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
-
-      setCalculatedYmStDiameter(ymStDiameter);
-      // Don't auto-fill the input - let user enter manually
-      // The suggested value is shown above the input field
-    } else {
-      setCalculatedYmStDiameter(null);
-    }
-  }, [mmGtData.cap, mmGtData.kaplama, mmGtData.tolerans_minus]);
+  // REMOVED: Galvanizli-specific kod_2/kaplama logic - not applicable to Tavlı/Balya Tel
+  // Tavlı/Balya uses product_type (TAVLI/BALYA) and yaglama_tipi instead
 
   // REMOVED: fetchTlcHizlarData() - Not used in Tavlı/Balya Tel (specific to Galvanizli)
   // useEffect(() => {
@@ -806,8 +773,8 @@ const TavliBalyaTelNetsis = () => {
           productExists = allProducts.some(product => {
             return (
               Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
-              product.kod_2 === request.kod_2 &&
-              Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+              product.product_type === request.product_type &&
+              (product.yaglama_tipi || '') === (request.yaglama_tipi || '') &&
               Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
               Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
               Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
@@ -852,8 +819,8 @@ const TavliBalyaTelNetsis = () => {
   // Generate product key from product data for comparison
   const generateProductKeyFromProduct = (product) => {
     if (!product) return '';
-    
-    return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
+
+    return `${product.cap || ''}_${product.product_type || ''}_${product.yaglama_tipi || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
 
   // Permanently delete "Silinmiş" request from database
@@ -959,9 +926,9 @@ const TavliBalyaTelNetsis = () => {
         if (!product.cap.toString().includes(dbCapFilter)) return false;
       }
       
-      // Kaplama filtresi (sadece MM GT için)
-      if (type === 'mmgt' && dbKaplamaFilter !== 'all' && product.kod_2) {
-        if (product.kod_2 !== dbKaplamaFilter) return false;
+      // Product type filtresi (sadece MM için)
+      if (type === 'mmgt' && dbProductTypeFilter !== 'all' && product.product_type) {
+        if (product.product_type !== dbProductTypeFilter) return false;
       }
       
       return true;
@@ -976,14 +943,20 @@ const TavliBalyaTelNetsis = () => {
           aValue = parseFloat(a.cap) || 0;
           bValue = parseFloat(b.cap) || 0;
           break;
-        case 'kod_2':
-          aValue = (a.kod_2 || '').toString();
-          bValue = (b.kod_2 || '').toString();
-          break;
-        case 'kaplama':
+        case 'product_type':
           if (type === 'mmgt') {
-            aValue = parseFloat(a.kaplama) || 0;
-            bValue = parseFloat(b.kaplama) || 0;
+            aValue = (a.product_type || '').toString();
+            bValue = (b.product_type || '').toString();
+          } else {
+            // YM ST için kod_2 (kalite)
+            aValue = (a.kod_2 || '').toString();
+            bValue = (b.kod_2 || '').toString();
+          }
+          break;
+        case 'yaglama_tipi':
+          if (type === 'mmgt') {
+            aValue = (a.yaglama_tipi || '').toString();
+            bValue = (b.yaglama_tipi || '').toString();
           } else {
             // YM ST için filmasin
             aValue = parseFloat(a.filmasin) || 0;
@@ -1168,8 +1141,8 @@ const TavliBalyaTelNetsis = () => {
                 // Strategy 3: Match by specifications
                 const specsMatch = (
                   Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
-                  product.kod_2 === request.kod_2 &&
-                  Math.abs(parseFloat(product.kaplama || 0) - parseFloat(request.kaplama || 0)) < 1 &&
+                  product.product_type === request.product_type &&
+                  (product.yaglama_tipi || '') === (request.yaglama_tipi || '') &&
                   Math.abs(parseFloat(product.min_mukavemet || 0) - parseFloat(request.min_mukavemet || 0)) < 1 &&
                   Math.abs(parseFloat(product.max_mukavemet || 0) - parseFloat(request.max_mukavemet || 0)) < 1 &&
                   Math.abs(parseFloat(product.kg || 0) - parseFloat(request.kg || 0)) < 1 &&
@@ -1894,8 +1867,8 @@ const TavliBalyaTelNetsis = () => {
       const query = searchQuery.toLowerCase();
       filteredRequests = filteredRequests.filter(request => 
         (request.cap && request.cap.toString().includes(query)) ||
-        (request.kod_2 && request.kod_2.toLowerCase().includes(query)) ||
-        (request.kaplama && request.kaplama.toString().includes(query)) ||
+        (request.product_type && request.product_type.toLowerCase().includes(query)) ||
+        (request.yaglama_tipi && request.yaglama_tipi.toLowerCase().includes(query)) ||
         (request.id && request.id.toLowerCase().includes(query)) ||
         (request.cast_kont && request.cast_kont.toString().includes(query)) ||
         (request.unwinding && request.unwinding.toLowerCase().includes(query)) ||
@@ -1920,7 +1893,7 @@ const TavliBalyaTelNetsis = () => {
       }
       
       // Sayisal alanlari isle
-      if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg' || sortField === 'cast_kont') {
+      if (sortField === 'cap' || sortField === 'kg' || sortField === 'cast_kont') {
         aValue = parseFloat(aValue);
         bValue = parseFloat(bValue);
       }
@@ -4735,36 +4708,28 @@ const TavliBalyaTelNetsis = () => {
     }
   };
 
-  // İnkremental ürün oluşturma kontrolü - Değişen mantık: Sadece stok_kodu veya stok_adı etkileyen değerler değişirse
-  const checkForExistingProducts = async (cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg) => {
-    console.log('🚨 checkForExistingProducts CALLED with params:', { cap, kod_2, kaplama, minMukavemet, maxMukavemet, kg });
+  // İnkremental ürün oluşturma kontrolü - Tavlı/Balya Tel için
+  const checkForExistingProducts = async (cap, product_type, yaglama_tipi, minMukavemet, maxMukavemet, kg) => {
+    console.log('🚨 checkForExistingProducts CALLED with params:', { cap, product_type, yaglama_tipi, minMukavemet, maxMukavemet, kg });
     try {
       const capFormatted = Math.round(parseFloat(cap) * 100).toString().padStart(4, '0');
-      const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
-      const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
+      const productPrefix = product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA';
+      const mmBaseCode = `${productPrefix}.${capFormatted}`;
       
-      // Search both MMGT and YMGT to find the highest sequence
-      const [mmGtResponse, ymGtResponse] = await Promise.all([
-        fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
-        fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`)
-      ]);
-      
+      // Search tavli/balya products to find the highest sequence
+      const mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu_like=${encodeURIComponent(mmBaseCode)}`);
+
       const allProducts = [];
-      
-      if (mmGtResponse && mmGtResponse.ok) {
-        const mmGtProducts = await mmGtResponse.json();
-        allProducts.push(...mmGtProducts);
+
+      if (mmResponse && mmResponse.ok) {
+        const mmProducts = await mmResponse.json();
+        allProducts.push(...mmProducts);
       }
-      
-      if (ymGtResponse && ymGtResponse.ok) {
-        const ymGtProducts = await ymGtResponse.json();
-        allProducts.push(...ymGtProducts);
-      }
-      
+
       // Filter products to only include those with the exact base code pattern
       const filteredProducts = allProducts.filter(product => {
         const productBaseCode = product.stok_kodu.substring(0, product.stok_kodu.lastIndexOf('.'));
-        return productBaseCode === mmGtBaseCode || productBaseCode === ymGtBaseCode;
+        return productBaseCode === mmBaseCode;
       });
       
       console.log('🔍 checkForExistingProducts search:');
@@ -4857,8 +4822,8 @@ const TavliBalyaTelNetsis = () => {
             // Key değişmişse yeni sequence hesapla using the unified checkForExistingProducts function
             const nextSequence = await checkForExistingProducts(
               mmGtData.cap,
-              mmGtData.kod_2,
-              mmGtData.kaplama,
+              mmGtData.product_type,
+              mmGtData.yaglama_tipi,
               mmGtData.min_mukavemet,
               mmGtData.max_mukavemet,
               mmGtData.kg
@@ -4957,8 +4922,8 @@ const TavliBalyaTelNetsis = () => {
       // Use the existing sequence logic without popups
       const nextSequence = await checkForExistingProducts(
         mmGtData.cap,
-        mmGtData.kod_2, 
-        mmGtData.kaplama,
+        mmGtData.product_type,
+        mmGtData.yaglama_tipi,
         mmGtData.min_mukavemet,
         mmGtData.max_mukavemet,
         mmGtData.kg
@@ -11837,18 +11802,21 @@ const TavliBalyaTelNetsis = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Hesaplama
+            Ayarlar
           </button>
 
           {/* Database Button */}
           <button
             onClick={() => setShowExistingMmModal(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-lg flex flex-col items-start gap-0.5"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-            </svg>
-            Veritabanı
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              </svg>
+              <span>Veritabanı</span>
+            </div>
+            <span className="text-xs text-gray-300 ml-6">Tavlı/Balya Ürünler</span>
           </button>
 
           {/* Requests Button */}
@@ -11857,17 +11825,20 @@ const TavliBalyaTelNetsis = () => {
               setShowRequestsModal(true);
               fetchRequests();
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg relative flex items-center gap-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-lg relative flex flex-col items-start gap-0.5"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
-            Talepler
-            {requests.filter(r => r.status === 'pending').length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {requests.filter(r => r.status === 'pending').length}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+              <span>Talepler</span>
+              {requests.filter(r => r.status === 'pending').length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {requests.filter(r => r.status === 'pending').length}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-blue-200 ml-6">Tavlı/Balya Talepleri</span>
           </button>
         </div>
       </div>
@@ -11903,35 +11874,28 @@ const TavliBalyaTelNetsis = () => {
               <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 0.90 - 4.00 mm</p>
             </div>
 
-            {/* Yağlama Tipi - PROMINENT for BALYA products */}
-            {mmGtData.product_type === 'BALYA' && (
-              <div className="space-y-2 bg-green-50 p-4 rounded-xl border-2 border-green-300 shadow-sm">
-                <label className="block text-sm font-bold text-green-800 flex items-center gap-2">
-                  <span className="text-xl">💧</span>
-                  Yağlama Tipi <span className="text-red-500">*</span>
-                  <span className="ml-auto text-xs font-normal bg-green-200 px-2 py-1 rounded-full">BALYA Özel</span>
-                </label>
-                <select
-                  value={mmGtData.yaglama_tipi}
-                  onChange={(e) => handleInputChange('yaglama_tipi', e.target.value)}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium ${
-                    mmGtData.yaglama_tipi
-                      ? 'border-green-400 bg-white'
-                      : 'border-red-300 bg-red-50'
-                  }`}
-                >
-                  <option value="">⚠️ Seçiniz...</option>
-                  <option value="Püskürtme">💨 Püskürtme Yağlama</option>
-                  <option value="Normal">🔧 Normal Yağlama</option>
-                </select>
-                <div className="flex items-start gap-2 mt-2">
-                  <svg className="w-4 h-4 text-green-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <p className="text-xs text-green-700 font-medium">Yağlı balya teli için yağlama yöntemini seçiniz. Bu alan zorunludur.</p>
-                </div>
-              </div>
-            )}
+            {/* Yağlama Tipi - For both TAVLI and BALYA products */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Yağlama Tipi {mmGtData.product_type === 'BALYA' && <span className="text-red-500">*</span>}
+              </label>
+              <select
+                value={mmGtData.yaglama_tipi}
+                onChange={(e) => handleInputChange('yaglama_tipi', e.target.value)}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                  mmGtData.product_type === 'BALYA' && !mmGtData.yaglama_tipi
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-300'
+                }`}
+              >
+                <option value="">Yağsız</option>
+                <option value="Püskürtme">Püskürtme</option>
+                <option value="Daldırma">Daldırma</option>
+              </select>
+              {mmGtData.product_type === 'BALYA' && (
+                <p className="text-xs text-gray-500 mt-1">Balya teli için yağlama tipi zorunludur</p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -13999,8 +13963,8 @@ const TavliBalyaTelNetsis = () => {
                       <option value="updated_at">Onaylanma Tarihi</option>
                       <option value="status">Durum</option>
                       <option value="cap">Çap</option>
-                      <option value="kod_2">Kaplama Türü</option>
-                      <option value="kaplama">Kaplama Miktarı</option>
+                      <option value="product_type">Ürün Tipi</option>
+                      <option value="yaglama_tipi">Yağlama Tipi</option>
                       <option value="kg">Ağırlık</option>
                       <option value="cast_kont">Bağ Miktarı</option>
                       <option value="unwinding">Unwinding</option>
@@ -14158,13 +14122,13 @@ const TavliBalyaTelNetsis = () => {
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
                             <span className={`px-1 py-0.5 rounded text-xs font-medium ${
-                              request.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                              request.product_type === 'TAVLI' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                             }`}>
-                              {request.kod_2 || ''}
+                              {request.product_type === 'TAVLI' ? 'Tavlı' : 'Balya'}
                             </span>
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
-                            {request.kaplama || '0'}g/m²
+                            {request.yaglama_tipi || 'Yağsız'}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500">
                             {request.min_mukavemet || '0'}-{request.max_mukavemet || '0'}MPa
@@ -14973,19 +14937,19 @@ const TavliBalyaTelNetsis = () => {
                   </div>
                   
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Kaplama Türü</p>
+                    <p className="text-sm font-medium text-gray-500">Ürün Tipi</p>
                     <p className="text-base text-gray-900">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        selectedDatabaseProduct.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                        selectedDatabaseProduct.product_type === 'TAVLI' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                       }`}>
-                        {selectedDatabaseProduct.kod_2 || 'Belirtilmemiş'}
+                        {selectedDatabaseProduct.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli'}
                       </span>
                     </p>
                   </div>
-                  
+
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Kaplama</p>
-                    <p className="text-base text-gray-900">{selectedDatabaseProduct.kaplama || '0'} gr/m²</p>
+                    <p className="text-sm font-medium text-gray-500">Yağlama Tipi</p>
+                    <p className="text-base text-gray-900">{selectedDatabaseProduct.yaglama_tipi || 'Yağsız'}</p>
                   </div>
                   
                   <div>
@@ -15126,7 +15090,7 @@ const TavliBalyaTelNetsis = () => {
                       : 'text-gray-600 hover:text-purple-600'
                   }`}
                 >
-                  MM GT
+                  Tavlı/Balya Ürünler
                 </button>
                 <button
                   onClick={() => setActiveDbTab('ymst')}
@@ -15136,7 +15100,7 @@ const TavliBalyaTelNetsis = () => {
                       : 'text-gray-600 hover:text-purple-600'
                   }`}
                 >
-                  YM ST
+                  YM ST (Ham Madde)
                 </button>
               </div>
               
@@ -15148,7 +15112,7 @@ const TavliBalyaTelNetsis = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Arama</label>
                     <input
                       type="text"
-                      placeholder="Stok kodu, çap, kaplama türü..."
+                      placeholder="Stok kodu, çap, ürün tipi..."
                       value={dbSearchQuery}
                       onChange={(e) => setDbSearchQuery(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -15167,18 +15131,18 @@ const TavliBalyaTelNetsis = () => {
                     />
                   </div>
                   
-                  {/* Kaplama Filtresi (sadece MM GT için) */}
+                  {/* Ürün Tipi Filtresi (sadece Tavlı/Balya için) */}
                   {activeDbTab === 'mmgt' && (
                     <div className="min-w-[120px]">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Kaplama</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ürün Tipi</label>
                       <select
-                        value={dbKaplamaFilter}
-                        onChange={(e) => setDbKaplamaFilter(e.target.value)}
+                        value={dbProductTypeFilter}
+                        onChange={(e) => setDbProductTypeFilter(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="all">Tümü</option>
-                        <option value="NIT">NIT</option>
-                        <option value="PAD">PAD</option>
+                        <option value="TAVLI">Tavlı Tel</option>
+                        <option value="BALYA">Balya Teli</option>
                       </select>
                     </div>
                   )}
@@ -15192,8 +15156,8 @@ const TavliBalyaTelNetsis = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="cap">Çap</option>
-                      <option value="kod_2">{activeDbTab === 'mmgt' ? 'Kaplama Türü' : 'Kalite'}</option>
-                      <option value="kaplama">{activeDbTab === 'mmgt' ? 'Kaplama' : 'Filmaşin'}</option>
+                      <option value="product_type">{activeDbTab === 'mmgt' ? 'Ürün Tipi' : 'Kalite'}</option>
+                      <option value="yaglama_tipi">{activeDbTab === 'mmgt' ? 'Yağlama Tipi' : 'Filmaşin'}</option>
                       <option value="created_at">Oluşturma Tarihi</option>
                     </select>
                   </div>
@@ -15218,7 +15182,7 @@ const TavliBalyaTelNetsis = () => {
                       onClick={() => {
                         setDbSearchQuery('');
                         setDbCapFilter('');
-                        setDbKaplamaFilter('all');
+                        setDbProductTypeFilter('all');
                         setDbSortField('cap');
                         setDbSortDirection('asc');
                       }}
@@ -15315,28 +15279,28 @@ const TavliBalyaTelNetsis = () => {
                                 )}
                               </div>
                             </th>
-                            <th 
+                            <th
                               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                              onClick={() => handleDbSort('kod_2')}
-                              title="Kaplama türüne göre sırala"
+                              onClick={() => handleDbSort('product_type')}
+                              title="Ürün tipine göre sırala"
                             >
                               <div className="flex items-center gap-1">
-                                Kaplama Türü
-                                {dbSortField === 'kod_2' && (
+                                Ürün Tipi
+                                {dbSortField === 'product_type' && (
                                   <span className="text-purple-600">
                                     {dbSortDirection === 'asc' ? '↑' : '↓'}
                                   </span>
                                 )}
                               </div>
                             </th>
-                            <th 
+                            <th
                               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                              onClick={() => handleDbSort('kaplama')}
-                              title="Kaplamaya göre sırala"
+                              onClick={() => handleDbSort('yaglama_tipi')}
+                              title="Yağlama tipine göre sırala"
                             >
                               <div className="flex items-center gap-1">
-                                Kaplama
-                                {dbSortField === 'kaplama' && (
+                                Yağlama Tipi
+                                {dbSortField === 'yaglama_tipi' && (
                                   <span className="text-purple-600">
                                     {dbSortDirection === 'asc' ? '↑' : '↓'}
                                   </span>
@@ -15373,13 +15337,13 @@ const TavliBalyaTelNetsis = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  mmGt.kod_2 === 'NIT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                                  mmGt.product_type === 'TAVLI' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                                 }`}>
-                                  {mmGt.kod_2 || ''}
+                                  {mmGt.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli'}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {mmGt.kaplama || '0'} gr/m²
+                                {mmGt.yaglama_tipi || 'Yağsız'}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {mmGt.min_mukavemet || '0'}-{mmGt.max_mukavemet || '0'} MPa

@@ -18058,7 +18058,7 @@ const GalvanizliTelNetsis = () => {
       
       {/* Database Detail Modal */}
       {showDatabaseDetailModal && selectedDatabaseProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -18139,9 +18139,9 @@ const GalvanizliTelNetsis = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
                     <p className="text-base text-gray-900">
-                      {selectedDatabaseProduct.tolerance_plus && selectedDatabaseProduct.tolerance_minus ? (
+                      {selectedDatabaseProduct.tolerans_plus && selectedDatabaseProduct.tolerans_minus ? (
                         <>
-                          +{selectedDatabaseProduct.tolerance_plus} / -{selectedDatabaseProduct.tolerance_minus}
+                          +{selectedDatabaseProduct.tolerans_plus} / -{selectedDatabaseProduct.tolerans_minus}
                         </>
                       ) : (
                         'Belirtilmemiş'
@@ -18473,6 +18473,9 @@ const GalvanizliTelNetsis = () => {
                               Ağırlık
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Tolerans
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               İşlem
                             </th>
                           </tr>
@@ -18509,6 +18512,13 @@ const GalvanizliTelNetsis = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {mmGt.kg || '0'} kg
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {mmGt.tolerans_plus && mmGt.tolerans_minus ? (
+                                  `+${mmGt.tolerans_plus} / -${mmGt.tolerans_minus}`
+                                ) : (
+                                  'Belirtilmemiş'
+                                )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex gap-2">
