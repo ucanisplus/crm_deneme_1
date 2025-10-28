@@ -1627,8 +1627,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             result: result,
             explanation: `Hasır tipi değişikliği (aynı grup): ${product.hasirTipi}(${product.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${target.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
-            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), false).category,
-            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), false).level
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
           });
         }
       }
@@ -2124,8 +2124,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             result: result,
             explanation: `Hasır tipi değişikliği (aynı grup): ${sourceProduct.hasirTipi}(${sourceProduct.hasirSayisi}) ${sourceBoy}x${sourceEn} -> ${targetProduct.hasirTipi}(${targetBoy}x${targetEn})`,
             toleranceUsed: Math.max(boyDiff, enDiff),
-            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), false).category,
-            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), false).level
+            safetyLevel: getSafetyLevel(Math.max(boyDiff, enDiff), true).category,
+            safetyLevelNumber: getSafetyLevel(Math.max(boyDiff, enDiff), true).level
           });
         }
       }
@@ -2332,7 +2332,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
 
     // Use setTimeout to allow UI to update with loading state
     setTimeout(() => {
-      const opportunities = findAllOptimizationOpportunities(includeTypeChanges);
+      const opportunities = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
     console.log('Comprehensive opportunities:', opportunities.length, opportunities);
     
     // Debug: Count operations by type and safety level
@@ -2503,7 +2503,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     // Use a small delay to ensure product state has updated
     setTimeout(() => {
       console.log('🔄 Recalculating opportunities after merge...');
-      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges);
+      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
       const sortedOpportunities = sortPendingOperations(freshOpportunities, sortMode);
 
       console.log(`📊 Recalculated: ${sortedOpportunities.length} opportunities (was ${pendingOperations.length})`);
@@ -2529,7 +2529,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     console.log('⏭️ Skipping current operation, recalculating opportunities...');
 
     setTimeout(() => {
-      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges);
+      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
       const sortedOpportunities = sortPendingOperations(freshOpportunities, sortMode);
 
       console.log(`📊 Recalculated: ${sortedOpportunities.length} opportunities (was ${pendingOperations.length})`);
@@ -4131,7 +4131,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                   setIncludeTypeChanges(newValue);
 
                   // IMPORTANT: Pass newValue directly to avoid stale state
-                  const updatedOps = findAllOptimizationOpportunities(newValue);
+                  const updatedOps = findAllOptimizationOpportunities(newValue, tolerance);
                   const sortedOps = sortPendingOperations(updatedOps, sortMode);
 
                   console.log(`✅ Operations recalculated: ${updatedOps.length} opportunities found`);
