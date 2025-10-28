@@ -2182,29 +2182,30 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   // Comprehensive mega-function with global deduplication
-  const findAllOptimizationOpportunities = (forceIncludeTypeChanges?: boolean, forceTolerance?: number) => {
+  const findAllOptimizationOpportunities = (forceIncludeTypeChanges?: boolean, forceTolerance?: number, forceProducts?: Product[]) => {
     // Use parameters if provided, otherwise use state
     const shouldIncludeTypeChanges = forceIncludeTypeChanges !== undefined ? forceIncludeTypeChanges : includeTypeChanges;
     const currentTolerance = forceTolerance !== undefined ? forceTolerance : tolerance;
-    console.log(`🚀 Starting comprehensive optimization analysis... (includeTypeChanges: ${shouldIncludeTypeChanges}, tolerance: ${currentTolerance}cm)`);
+    const currentProducts = forceProducts !== undefined ? forceProducts : products;
+    console.log(`🚀 Starting comprehensive optimization analysis... (includeTypeChanges: ${shouldIncludeTypeChanges}, tolerance: ${currentTolerance}cm, products: ${currentProducts.length})`);
 
     const allOpportunities: MergeOperation[] = [];
     const globalProcessedPairs = new Set<string>();
     const operationSignatures = new Set<string>(); // Track unique operations to prevent duplicates
 
-    const candidateProducts = products.filter(p =>
+    const candidateProducts = currentProducts.filter(p =>
       Number(p.hasirSayisi) > 0 // All products are candidates
     );
 
-    console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
+    console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${currentProducts.length} products`);
     console.log(`🎚️ Tolerance filter: ${currentTolerance}cm`);
 
     // Check ALL possible product pairs ONCE across all optimization types
     for (let i = 0; i < candidateProducts.length; i++) {
       const sourceProduct = candidateProducts[i];
-      
-      for (let j = 0; j < products.length; j++) {
-        const targetProduct = products[j];
+
+      for (let j = 0; j < currentProducts.length; j++) {
+        const targetProduct = currentProducts[j];
         
         if (sourceProduct.id === targetProduct.id) continue;
         
@@ -2487,9 +2488,10 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
 
     // STEP 2: Recalculate all opportunities with updated product list
     // Use a small delay to ensure product state has updated
+    // CRITICAL: Pass updatedProducts directly to avoid stale state!
     setTimeout(() => {
       console.log('🔄 Recalculating opportunities after merge...');
-      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+      const freshOpportunities = findAllOptimizationOpportunities(includeTypeChanges, tolerance, updatedProducts);
       const sortedOpportunities = sortPendingOperations(freshOpportunities, sortMode);
 
       console.log(`📊 Recalculated: ${sortedOpportunities.length} opportunities (was ${pendingOperations.length})`);
@@ -2609,11 +2611,19 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       return;
     }
 
+    // STEP 1: Immediately clear applied operations from table
+    const selectedIndices = Array.from(selectedOperations);
+    const remainingOps = pendingOperations.filter((_, idx) => !selectedIndices.includes(idx));
+    setPendingOperations(remainingOps);
+    setSelectedOperations(new Set());
+    setIsCalculating(true);
+
     console.log(`🚀 Applying ${selected.length} selected operations`);
     let currentProducts = [...products];
     let appliedCount = 0;
     let skippedCount = 0;
 
+    // STEP 2: Apply all selected operations
     for (const operation of selected) {
       const sourceExists = currentProducts.find(p => p.id === operation.source.id);
       const targetExists = currentProducts.find(p => p.id === operation.target.id);
@@ -2625,7 +2635,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           ...sourceProduct,
           deletedAt: new Date(),
           mergedInto: operation.result.id,
-          reason: `Selected Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
+          reason: `İleri Optimizasyon (Toplu): ${operation.source.hasirTipi} → ${operation.target.hasirTipi}`
         }];
         setDeletedProducts(prev => [...prev, ...deletedItems]);
 
@@ -2641,20 +2651,28 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
 
     setProductsWithDebug(currentProducts);
     addToHistory(currentProducts);
-    setSelectedOperations(new Set());
 
-    // Recalculate opportunities with updated products
+    // STEP 3: Show immediate feedback
+    toast.success(`✓ ${appliedCount} işlem uygulandı!`, { duration: 3000 });
+
+    // STEP 4: Recalculate opportunities with updated products
+    // CRITICAL: Pass currentProducts directly to avoid stale state!
     setTimeout(() => {
-      setIsCalculating(true);
-      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance, currentProducts);
       const sortedOps = sortPendingOperations(freshOps, sortMode);
       setPendingOperations(sortedOps);
       setIsCalculating(false);
 
+      // Show summary
       if (freshOps.length > 0) {
-        toast.success(`${appliedCount} işlem uygulandı! ${freshOps.length} fırsat kaldı. (${skippedCount} atlandı)`);
+        toast(`${freshOps.length} fırsat kaldı${skippedCount > 0 ? ` (${skippedCount} atlandı)` : ''}`, {
+          icon: '📊',
+          duration: 2000
+        });
       } else {
-        toast.success(`${appliedCount} işlem uygulandı! Tüm fırsatlar tamamlandı. (${skippedCount} atlandı)`);
+        toast.success(`🎉 Tüm fırsatlar tamamlandı!${skippedCount > 0 ? ` (${skippedCount} atlandı)` : ''}`, {
+          duration: 4000
+        });
       }
     }, 100);
   };
@@ -2667,11 +2685,18 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       return;
     }
 
+    // STEP 1: Immediately clear safe operations from table
+    const remainingOps = pendingOperations.filter(op => op.safetyLevelNumber === undefined || op.safetyLevelNumber > 2);
+    setPendingOperations(remainingOps);
+    setSelectedOperations(new Set());
+    setIsCalculating(true);
+
     console.log(`🚀 Applying ${safeOps.length} safe operations automatically`);
     let currentProducts = [...products];
     let appliedCount = 0;
     let skippedCount = 0;
 
+    // STEP 2: Apply all safe operations
     for (const operation of safeOps) {
       const sourceExists = currentProducts.find(p => p.id === operation.source.id);
       const targetExists = currentProducts.find(p => p.id === operation.target.id);
@@ -2683,7 +2708,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           ...sourceProduct,
           deletedAt: new Date(),
           mergedInto: operation.result.id,
-          reason: `Auto Safe Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
+          reason: `İleri Optimizasyon (Güvenli): ${operation.source.hasirTipi} → ${operation.target.hasirTipi}`
         }];
         setDeletedProducts(prev => [...prev, ...deletedItems]);
 
@@ -2699,20 +2724,28 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
 
     setProductsWithDebug(currentProducts);
     addToHistory(currentProducts);
-    setSelectedOperations(new Set());
 
-    // Recalculate opportunities with updated products
+    // STEP 3: Show immediate feedback
+    toast.success(`✓ ${appliedCount} güvenli işlem uygulandı!`, { duration: 3000 });
+
+    // STEP 4: Recalculate opportunities with updated products
+    // CRITICAL: Pass currentProducts directly to avoid stale state!
     setTimeout(() => {
-      setIsCalculating(true);
-      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance, currentProducts);
       const sortedOps = sortPendingOperations(freshOps, sortMode);
       setPendingOperations(sortedOps);
       setIsCalculating(false);
 
+      // Show summary
       if (freshOps.length > 0) {
-        toast.success(`${appliedCount} güvenli işlem uygulandı! ${freshOps.length} fırsat kaldı. (${skippedCount} atlandı)`);
+        toast(`${freshOps.length} fırsat kaldı${skippedCount > 0 ? ` (${skippedCount} atlandı)` : ''}`, {
+          icon: '📊',
+          duration: 2000
+        });
       } else {
-        toast.success(`${appliedCount} güvenli işlem uygulandı! Tüm fırsatlar tamamlandı. (${skippedCount} atlandı)`);
+        toast.success(`🎉 Tüm fırsatlar tamamlandı!${skippedCount > 0 ? ` (${skippedCount} atlandı)` : ''}`, {
+          duration: 4000
+        });
       }
     }, 100);
   };
@@ -3670,16 +3703,16 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Button
                     onClick={applySelectedOperations}
-                    disabled={selectedOperations.size === 0}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={selectedOperations.size === 0 || isCalculating}
+                    className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                   >
                     <Check className="h-4 w-4 mr-1" />
                     Seçilenleri Uygula ({selectedOperations.size})
                   </Button>
                   <Button
                     onClick={applyAllSafeOperations}
-                    disabled={pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) <= 2).length === 0}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) <= 2).length === 0 || isCalculating}
+                    className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
                   >
                     <Check className="h-4 w-4 mr-1" />
                     Tüm Güvenlileri Uygula
@@ -3801,18 +3834,28 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                disabled={isCalculating}
                                 onClick={() => {
                                   // Apply single operation
                                   const sourceExists = products.find(p => p.id === op.source.id);
                                   const targetExists = products.find(p => p.id === op.target.id);
 
                                   if (sourceExists && targetExists) {
+                                    // STEP 1: Immediately remove this operation from the table
+                                    const currentIndex = pendingOperations.indexOf(op);
+                                    const remainingOps = pendingOperations.filter((_, i) => i !== currentIndex);
+                                    setPendingOperations(remainingOps);
+
+                                    // Show loading state
+                                    setIsCalculating(true);
+
+                                    // STEP 2: Apply the merge
                                     const sourceProduct = products.find(p => p.id === op.source.id)!;
                                     const deletedItems = [{
                                       ...sourceProduct,
                                       deletedAt: new Date(),
                                       mergedInto: op.result.id,
-                                      reason: `Manual Merge: Into ${op.target.hasirTipi}`
+                                      reason: `İleri Optimizasyon: ${op.source.hasirTipi} → ${op.target.hasirTipi}`
                                     }];
                                     setDeletedProducts(prev => [...prev, ...deletedItems]);
 
@@ -3823,29 +3866,34 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                                     setProductsWithDebug(updatedProducts);
                                     addToHistory(updatedProducts);
 
-                                    toast.success('İşlem uygulandı!');
+                                    // STEP 3: Show immediate feedback
+                                    toast.success(`✓ ${op.source.hasirTipi} birleştirildi! (${op.source.hasirSayisi} adet)`, {
+                                      duration: 3000
+                                    });
 
-                                    // Recalculate opportunities with updated products
-                                    // Use longer delay to ensure state has updated
+                                    // STEP 4: Recalculate opportunities with updated products
+                                    // CRITICAL: Pass updatedProducts directly to avoid stale state!
                                     setTimeout(() => {
-                                      setIsCalculating(true);
-                                      // Need another small delay to let isCalculating render
-                                      setTimeout(() => {
-                                        const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
-                                        const sortedOps = sortPendingOperations(freshOps, sortMode);
-                                        setPendingOperations(sortedOps);
-                                        setSelectedOperations(new Set());
-                                        setIsCalculating(false);
+                                      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance, updatedProducts);
+                                      const sortedOps = sortPendingOperations(freshOps, sortMode);
+                                      setPendingOperations(sortedOps);
+                                      setSelectedOperations(new Set());
+                                      setIsCalculating(false);
 
-                                        if (freshOps.length > 0) {
-                                          toast(`${freshOps.length} fırsat kaldı`, { icon: 'ℹ️' });
-                                        } else {
-                                          toast.success('Tüm fırsatlar tamamlandı!');
-                                        }
-                                      }, 50);
-                                    }, 150);
+                                      // Show summary
+                                      if (freshOps.length > 0) {
+                                        toast(`${freshOps.length} fırsat kaldı`, {
+                                          icon: '📊',
+                                          duration: 2000
+                                        });
+                                      } else {
+                                        toast.success('🎉 Tüm fırsatlar tamamlandı!', {
+                                          duration: 4000
+                                        });
+                                      }
+                                    }, 100);
                                   } else {
-                                    toast.error('Ürünler bulunamadı');
+                                    toast.error('⚠️ Ürünler bulunamadı - birleştirme yapılamadı');
                                   }
                                 }}
                                 className="text-xs"
