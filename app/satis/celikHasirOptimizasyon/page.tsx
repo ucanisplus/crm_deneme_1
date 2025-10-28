@@ -305,16 +305,16 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       result?: Product;
     }>;
   } | null>(null);
-  const [tolerance, setTolerance] = useState(10); // Hidden - uses default value for main page operations
-  const [maxHasirSayisi, setMaxHasirSayisi] = useState(50); // Hidden - uses default value for main page operations
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [tolerance, setTolerance] = useState(40); // Tolerance filter for İleri Optimizasyon
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false); // DEPRECATED: Old modal system, kept for old code compatibility
+  const [currentOperationIndex, setCurrentOperationIndex] = useState(0); // DEPRECATED: Old modal system, kept for old code compatibility
   const [pendingOperations, setPendingOperations] = useState<MergeOperation[]>([]);
-  const [currentOperationIndex, setCurrentOperationIndex] = useState(0);
   const [sortMode, setSortMode] = useState<'safety' | 'quantity'>('safety');
   const [includeTypeChanges, setIncludeTypeChanges] = useState(false);
-  const [dialogTolerance, setDialogTolerance] = useState(10);
-  const [dialogMaxHasirSayisi, setDialogMaxHasirSayisi] = useState(50);
+  const [selectedOperations, setSelectedOperations] = useState<Set<number>>(new Set()); // Track selected rows by index
   const [showBackConfirmDialog, setShowBackConfirmDialog] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false); // Loading state for calculations
+  const [maxSafetyFilter, setMaxSafetyFilter] = useState<number | null>(null); // Filter by max safety level (null = show all)
 
   // Load initial data
   useEffect(() => {
@@ -1105,8 +1105,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     const processedPairs = new Set<string>();
     
     // STEP 1: Find all products that can be optimized
-    const candidateProducts = products.filter(p => 
-      Number(p.hasirSayisi) <= maxHasirSayisi // Only products under the threshold
+    const candidateProducts = products.filter(p =>
+      Number(p.hasirSayisi) > 0 // All products with quantity are candidates
     );
     
     console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
@@ -1216,7 +1216,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
-      Number(p.hasirSayisi) <= maxHasirSayisi
+      Number(p.hasirSayisi) > 0
     );
     
     // Check ALL possible folding combinations
@@ -1402,7 +1402,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
-      Number(p.hasirSayisi) <= maxHasirSayisi
+      Number(p.hasirSayisi) > 0
     );
     
     for (let i = 0; i < candidateProducts.length; i++) {
@@ -1483,8 +1483,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     // Apply initial sorting based on current sortMode
     const sortedOps = sortPendingOperations(opportunities, sortMode);
     setPendingOperations(sortedOps);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
+    // Table will show automatically when pendingOperations has items
   };
 
   const executeFoldedImprovements = () => {
@@ -1498,8 +1497,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     }
     
     setPendingOperations(opportunities);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
+    // Table will show automatically when pendingOperations has items
   };
 
   const executeRoundingOperations = () => {
@@ -1513,8 +1511,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     }
     
     setPendingOperations(opportunities);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
+    // Table will show automatically when pendingOperations has items
   };
 
   // Find Hasir Tipi change opportunities - check ALL combinations
@@ -1523,7 +1520,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     const processedPairs = new Set<string>();
     
     const candidateProducts = products.filter(p => 
-      Number(p.hasirSayisi) <= maxHasirSayisi
+      Number(p.hasirSayisi) > 0
     );
     
     for (let i = 0; i < candidateProducts.length; i++) {
@@ -1660,7 +1657,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     const productGroups = new Map<string, Product[]>();
     
     products.forEach(product => {
-      if (Number(product.hasirSayisi) > maxHasirSayisi) return; // Skip high quantity products
+      if (Number(product.hasirSayisi) <= 0) return; // Skip zero quantity products
       
       const groupKey = `${product.hasirTipi}_${product.boyCap}_${product.enCap}`;
       if (!productGroups.has(groupKey)) {
@@ -1819,7 +1816,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       p.hasirTipi === operation.source.hasirTipi &&
       p.boyCap === operation.source.boyCap &&
       p.enCap === operation.source.enCap &&
-      Number(p.hasirSayisi) <= maxHasirSayisi
+      Number(p.hasirSayisi) > 0
     );
     
     // Try combinations with the current operation products
@@ -1897,8 +1894,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     }
     
     setPendingOperations(opportunities);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
+    // Table will show automatically when pendingOperations has items
     toast.success(`${opportunities.length} akıllı çoklu birleştirme fırsatı bulundu!`);
   };
 
@@ -2131,17 +2127,18 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   // Comprehensive mega-function with global deduplication
-  const findAllOptimizationOpportunities = (forceIncludeTypeChanges?: boolean) => {
-    // Use parameter if provided, otherwise use state
+  const findAllOptimizationOpportunities = (forceIncludeTypeChanges?: boolean, forceTolerance?: number) => {
+    // Use parameters if provided, otherwise use state
     const shouldIncludeTypeChanges = forceIncludeTypeChanges !== undefined ? forceIncludeTypeChanges : includeTypeChanges;
-    console.log(`🚀 Starting comprehensive optimization analysis... (includeTypeChanges: ${shouldIncludeTypeChanges})`);
+    const currentTolerance = forceTolerance !== undefined ? forceTolerance : tolerance;
+    console.log(`🚀 Starting comprehensive optimization analysis... (includeTypeChanges: ${shouldIncludeTypeChanges}, tolerance: ${currentTolerance}cm)`);
 
     const allOpportunities: MergeOperation[] = [];
     const globalProcessedPairs = new Set<string>();
     const operationSignatures = new Set<string>(); // Track unique operations to prevent duplicates
 
     const candidateProducts = products.filter(p =>
-      Number(p.hasirSayisi) <= maxHasirSayisi
+      Number(p.hasirSayisi) > 0 // All products are candidates
     );
 
     console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
@@ -2166,9 +2163,9 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         
         // Use getAllMergeOptions to get all possible merge options (including fallbacks)
         const mergeOptions = getAllMergeOptions(sourceProduct, targetProduct, shouldIncludeTypeChanges);
-        
+
         // First, try to find options within tolerance
-        const safeOptions = mergeOptions.filter(option => option.tolerance <= tolerance);
+        const safeOptions = mergeOptions.filter(option => option.tolerance <= currentTolerance);
         
         if (safeOptions.length > 0) {
           // Convert to MergeOperation format and add safe options (take the best one)
@@ -2275,11 +2272,12 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
   };
 
   const executeComprehensiveOptimization = () => {
-    console.log('🎯 executeComprehensiveOptimization clicked - opening dialog with default values');
-    // Use default dialog values (no longer dependent on main page sliders)
-    setDialogTolerance(10); // Default tolerance
-    setDialogMaxHasirSayisi(50); // Default minimum hasır sayısı
-    const opportunities = findAllOptimizationOpportunities();
+    console.log('🎯 executeComprehensiveOptimization clicked - calculating opportunities');
+    setIsCalculating(true);
+
+    // Use setTimeout to allow UI to update with loading state
+    setTimeout(() => {
+      const opportunities = findAllOptimizationOpportunities(includeTypeChanges);
     console.log('Comprehensive opportunities:', opportunities.length, opportunities);
     
     // Debug: Count operations by type and safety level
@@ -2316,10 +2314,11 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       hasirSayisi: op.source.hasirSayisi
     })));
 
-    setPendingOperations(sortedOps);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
-    toast.success(`${opportunities.length} optimizasyon fırsatı bulundu! (${sortMode === 'safety' ? 'Güvenlik sırasına' : 'Hasır sayısına'} göre sıralandı)`);
+      setPendingOperations(sortedOps);
+      setSelectedOperations(new Set()); // Clear selection
+      setIsCalculating(false);
+      toast.success(`${opportunities.length} optimizasyon fırsatı bulundu! (${sortMode === 'safety' ? 'Güvenlik sırasına' : 'Hasır sayısına'} göre sıralandı)`);
+    }, 50);
   };
 
   // Sort pending operations based on selected mode
@@ -2369,7 +2368,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       // Force a new array reference to ensure React re-renders
       setPendingOperations([...sortedOps]);
       // Reset to first operation after sorting
-      setCurrentOperationIndex(0);
+      // Removed: setCurrentOperationIndex - no longer using modal
       // Force component re-render by updating state
       setTimeout(() => {
         console.log(`✅ SORT COMPLETE: Now showing operation for ${sortedOps[0]?.source.hasirTipi}`);
@@ -2388,8 +2387,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     }
     
     setPendingOperations(opportunities);
-    setCurrentOperationIndex(0);
-    setShowApprovalDialog(true);
+    // Table will show automatically when pendingOperations has items
   };
 
   // Remove ALL operations involving deleted products when an operation is approved
@@ -2460,74 +2458,15 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
       // STEP 3: Move to next operation or close dialog
       if (sortedOpportunities.length > 0) {
         // Reset to first operation
-        setCurrentOperationIndex(0);
+        // Removed: setCurrentOperationIndex - no longer using modal
       } else {
         // No more operations left
         setShowApprovalDialog(false);
         setPendingOperations([]);
-        setCurrentOperationIndex(0);
+        // Removed: setCurrentOperationIndex - no longer using modal
         toast.success('Tüm işlemler tamamlandı!');
       }
     }, 100);
-  };
-
-  // Apply all safe operations (only operations marked as 'safe')
-  const applyAllSafeOperations = () => {
-    // Only include operations with 'safe' safety level
-    const safeOperations = pendingOperations.filter(op => op.safetyLevel === 'safe');
-    
-    if (safeOperations.length === 0) {
-      toast.error('Güvenli işlem bulunamadı');
-      return;
-    }
-    
-    console.log(`🚀 Applying ${safeOperations.length} safe operations automatically`);
-    
-    // Apply all safe operations sequentially
-    let currentProducts = [...products];
-    let appliedCount = 0;
-    let skippedCount = 0;
-    
-    for (const operation of safeOperations) {
-      // Check if source and target still exist (might have been used in previous operation)
-      const sourceExists = currentProducts.find(p => p.id === operation.source.id);
-      const targetExists = currentProducts.find(p => p.id === operation.target.id);
-      
-      if (sourceExists && targetExists) {
-        // Move source product to deleted list
-        const sourceProduct = currentProducts.find(p => p.id === operation.source.id)!;
-        const deletedItems = [{
-          ...sourceProduct,
-          deletedAt: new Date(),
-          mergedInto: operation.result.id,
-          reason: `Auto Safe Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
-        }];
-        setDeletedProducts(prev => [...prev, ...deletedItems]);
-        
-        // Apply the merge
-        currentProducts = currentProducts
-          .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
-          .concat(operation.result);
-        appliedCount++;
-        console.log(`✅ Applied safe merge: ${operation.source.id} + ${operation.target.id}`);
-      } else {
-        skippedCount++;
-        if (!sourceExists) console.log(`⏭️ Skipped: Source ${operation.source.id} no longer exists`);
-        if (!targetExists) console.log(`⏭️ Skipped: Target ${operation.target.id} no longer exists`);
-      }
-    }
-    
-    console.log(`📊 Results: ${appliedCount} applied, ${skippedCount} skipped (products already merged)`);
-    console.log(`📈 Products: ${products.length} → ${currentProducts.length} (reduced by ${products.length - currentProducts.length})`);
-    
-    // Update products and close dialog
-    setProductsWithDebug(currentProducts);
-    addToHistory(currentProducts);
-    setShowApprovalDialog(false);
-    setPendingOperations([]);
-    setCurrentOperationIndex(0);
-    
-    toast.success(`${appliedCount} güvenli birleştirme uygulandı! (${skippedCount} zaten kullanılmış ürün atlandı)`);
   };
 
   const rejectCurrentOperation = () => {
@@ -2551,7 +2490,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         // No more operations left
         setShowApprovalDialog(false);
         setPendingOperations([]);
-        setCurrentOperationIndex(0);
+        // Removed: setCurrentOperationIndex - no longer using modal
         toast('Tüm işlemler atlandı!');
       }
     }, 100);
@@ -2610,7 +2549,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
           toast('Hiçbir işlem onaylanmadı');
         }
         setPendingOperations([]);
-        setCurrentOperationIndex(0);
+        // Removed: setCurrentOperationIndex - no longer using modal
       } else {
         // Find first unapproved/unskipped operation
         const firstRemainingIndex = updatedOperations.findIndex(op => !op.approved && !op.skipped);
@@ -2619,6 +2558,122 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
         }
       }
     }
+  };
+
+  // Batch operation handlers
+  const applySelectedOperations = () => {
+    const selected = Array.from(selectedOperations).map(idx => pendingOperations[idx]);
+    if (selected.length === 0) {
+      toast.error('Lütfen en az bir işlem seçin');
+      return;
+    }
+
+    console.log(`🚀 Applying ${selected.length} selected operations`);
+    let currentProducts = [...products];
+    let appliedCount = 0;
+    let skippedCount = 0;
+
+    for (const operation of selected) {
+      const sourceExists = currentProducts.find(p => p.id === operation.source.id);
+      const targetExists = currentProducts.find(p => p.id === operation.target.id);
+
+      if (sourceExists && targetExists) {
+        // Move source to deleted list
+        const sourceProduct = currentProducts.find(p => p.id === operation.source.id)!;
+        const deletedItems = [{
+          ...sourceProduct,
+          deletedAt: new Date(),
+          mergedInto: operation.result.id,
+          reason: `Selected Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
+        }];
+        setDeletedProducts(prev => [...prev, ...deletedItems]);
+
+        // Apply merge
+        currentProducts = currentProducts
+          .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+          .concat(operation.result);
+        appliedCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+
+    setProductsWithDebug(currentProducts);
+    addToHistory(currentProducts);
+    setSelectedOperations(new Set());
+
+    // Recalculate opportunities with updated products
+    setTimeout(() => {
+      setIsCalculating(true);
+      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+      const sortedOps = sortPendingOperations(freshOps, sortMode);
+      setPendingOperations(sortedOps);
+      setIsCalculating(false);
+
+      if (freshOps.length > 0) {
+        toast.success(`${appliedCount} işlem uygulandı! ${freshOps.length} fırsat kaldı. (${skippedCount} atlandı)`);
+      } else {
+        toast.success(`${appliedCount} işlem uygulandı! Tüm fırsatlar tamamlandı. (${skippedCount} atlandı)`);
+      }
+    }, 100);
+  };
+
+  const applyAllSafeOperations = () => {
+    const safeOps = pendingOperations.filter(op => op.safetyLevelNumber !== undefined && op.safetyLevelNumber <= 2);
+
+    if (safeOps.length === 0) {
+      toast.error('Güvenli işlem bulunamadı (seviye 0-2)');
+      return;
+    }
+
+    console.log(`🚀 Applying ${safeOps.length} safe operations automatically`);
+    let currentProducts = [...products];
+    let appliedCount = 0;
+    let skippedCount = 0;
+
+    for (const operation of safeOps) {
+      const sourceExists = currentProducts.find(p => p.id === operation.source.id);
+      const targetExists = currentProducts.find(p => p.id === operation.target.id);
+
+      if (sourceExists && targetExists) {
+        // Move source to deleted list
+        const sourceProduct = currentProducts.find(p => p.id === operation.source.id)!;
+        const deletedItems = [{
+          ...sourceProduct,
+          deletedAt: new Date(),
+          mergedInto: operation.result.id,
+          reason: `Auto Safe Merge: Into ${operation.target.hasirTipi} (${operation.target.uzunlukBoy}x${operation.target.uzunlukEn})`
+        }];
+        setDeletedProducts(prev => [...prev, ...deletedItems]);
+
+        // Apply merge
+        currentProducts = currentProducts
+          .filter(p => p.id !== operation.source.id && p.id !== operation.target.id)
+          .concat(operation.result);
+        appliedCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+
+    setProductsWithDebug(currentProducts);
+    addToHistory(currentProducts);
+    setSelectedOperations(new Set());
+
+    // Recalculate opportunities with updated products
+    setTimeout(() => {
+      setIsCalculating(true);
+      const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+      const sortedOps = sortPendingOperations(freshOps, sortMode);
+      setPendingOperations(sortedOps);
+      setIsCalculating(false);
+
+      if (freshOps.length > 0) {
+        toast.success(`${appliedCount} güvenli işlem uygulandı! ${freshOps.length} fırsat kaldı. (${skippedCount} atlandı)`);
+      } else {
+        toast.success(`${appliedCount} güvenli işlem uygulandı! Tüm fırsatlar tamamlandı. (${skippedCount} atlandı)`);
+      }
+    }, 100);
   };
 
   return (
@@ -3371,17 +3426,382 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
             <div className="flex items-center gap-4 mb-1 flex-wrap justify-center">
             </div>
             <div className="flex gap-4 justify-center">
-            <Button 
+            <Button
               variant="default"
               onClick={executeComprehensiveOptimization}
+              disabled={isCalculating}
               size="sm"
-              className="bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700 text-sm font-semibold px-6"
+              className="bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700 text-sm font-semibold px-6 disabled:opacity-50"
             >
-              <Settings className="w-4 h-4 mr-2" />
-              Otomatik Tüm Birleştirmeler
+              {isCalculating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Hesaplanıyor...
+                </>
+              ) : (
+                <>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Otomatik Tüm Birleştirmeler
+                </>
+              )}
             </Button>
             </div>
           </div>
+
+          {/* İleri Optimizasyon Summary Table */}
+          {pendingOperations.length > 0 && (
+            <div className="mt-4 p-4 bg-white rounded-lg border shadow-sm">
+              {/* Header with Stats and Controls */}
+              <div className="mb-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-800">Birleştirme Fırsatları</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPendingOperations([]);
+                      setSelectedOperations(new Set());
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Kapat
+                  </Button>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                    <p className="text-xs text-blue-600 font-medium">
+                      {maxSafetyFilter !== null ? 'Gösterilen / Toplam' : 'Toplam Fırsat'}
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {maxSafetyFilter !== null ? (
+                        <>
+                          {pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) <= maxSafetyFilter).length}
+                          <span className="text-lg text-blue-500"> / {pendingOperations.length}</span>
+                        </>
+                      ) : (
+                        pendingOperations.length
+                      )}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded border border-green-200">
+                    <p className="text-xs text-green-600 font-medium">Güvenli (≤2)</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) <= 2).length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded border border-orange-200">
+                    <p className="text-xs text-orange-600 font-medium">Orta Risk (3-6)</p>
+                    <p className="text-2xl font-bold text-orange-700">
+                      {pendingOperations.filter(op => {
+                        const level = op.safetyLevelNumber ?? 10;
+                        return level >= 3 && level <= 6;
+                      }).length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded border border-red-200">
+                    <p className="text-xs text-red-600 font-medium">Yüksek Risk (≥7)</p>
+                    <p className="text-2xl font-bold text-red-700">
+                      {pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) >= 7).length}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Filter and Sort Controls */}
+                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded">
+                  {/* Tolerance Slider */}
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium mb-1 block">Tolerans: {tolerance}cm</Label>
+                    <Slider
+                      value={[tolerance]}
+                      onValueChange={(value) => {
+                        const newTolerance = value[0];
+                        setTolerance(newTolerance);
+                        // Pass new tolerance directly to avoid stale state
+                        const updated = findAllOptimizationOpportunities(includeTypeChanges, newTolerance);
+                        const sorted = sortPendingOperations(updated, sortMode);
+                        setPendingOperations(sorted);
+                        setSelectedOperations(new Set());
+                      }}
+                      min={0}
+                      max={200}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Sort Mode */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Sıralama:</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={sortMode === 'safety' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          setSortMode('safety');
+                          const sorted = sortPendingOperations(pendingOperations, 'safety');
+                          setPendingOperations(sorted);
+                        }}
+                      >
+                        Güvenlik
+                      </Button>
+                      <Button
+                        variant={sortMode === 'quantity' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          setSortMode('quantity');
+                          const sorted = sortPendingOperations(pendingOperations, 'quantity');
+                          setPendingOperations(sorted);
+                        }}
+                      >
+                        Hasır Sayısı
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Type Changes Checkbox */}
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="table-type-changes"
+                      checked={includeTypeChanges}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked as boolean;
+                        setIncludeTypeChanges(newValue);
+                        const updated = findAllOptimizationOpportunities(newValue, tolerance);
+                        const sorted = sortPendingOperations(updated, sortMode);
+                        setPendingOperations(sorted);
+                        setSelectedOperations(new Set());
+                      }}
+                    />
+                    <Label htmlFor="table-type-changes" className="text-sm cursor-pointer">
+                      Tip Değişiklikleri
+                    </Label>
+                  </div>
+                </div>
+
+                {/* Safety Level Filter */}
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded border">
+                  <Label className="text-sm font-medium">Güvenlik Filtresi:</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={maxSafetyFilter === null ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setMaxSafetyFilter(null)}
+                    >
+                      Tümü
+                    </Button>
+                    <Button
+                      variant={maxSafetyFilter === 2 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setMaxSafetyFilter(2)}
+                      className="bg-green-50 hover:bg-green-100"
+                    >
+                      Sadece Güvenli (≤2)
+                    </Button>
+                    <Button
+                      variant={maxSafetyFilter === 6 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setMaxSafetyFilter(6)}
+                      className="bg-orange-50 hover:bg-orange-100"
+                    >
+                      Orta Risk Dahil (≤6)
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={applySelectedOperations}
+                    disabled={selectedOperations.size === 0}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Seçilenleri Uygula ({selectedOperations.size})
+                  </Button>
+                  <Button
+                    onClick={applyAllSafeOperations}
+                    disabled={pendingOperations.filter(op => (op.safetyLevelNumber ?? 10) <= 2).length === 0}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Tüm Güvenlileri Uygula
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (selectedOperations.size === pendingOperations.length) {
+                        setSelectedOperations(new Set());
+                      } else {
+                        setSelectedOperations(new Set(pendingOperations.map((_, idx) => idx)));
+                      }
+                    }}
+                  >
+                    {selectedOperations.size === pendingOperations.length ? 'Seçimi Temizle' : 'Tümünü Seç'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Operations Table */}
+              <div className="border rounded overflow-hidden">
+                <div className="max-h-[600px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        <th className="p-2 text-left border-b w-10">
+                          <Checkbox
+                            checked={selectedOperations.size === pendingOperations.length && pendingOperations.length > 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedOperations(new Set(pendingOperations.map((_, idx) => idx)));
+                              } else {
+                                setSelectedOperations(new Set());
+                              }
+                            }}
+                          />
+                        </th>
+                        <th className="p-2 text-left border-b font-semibold">Kaynak → Hedef</th>
+                        <th className="p-2 text-left border-b font-semibold">İşlem Açıklaması</th>
+                        <th className="p-2 text-center border-b font-semibold">Güvenlik</th>
+                        <th className="p-2 text-center border-b font-semibold">Tolerans</th>
+                        <th className="p-2 text-center border-b font-semibold">Hasır Sayısı</th>
+                        <th className="p-2 text-center border-b font-semibold w-24">Aksiyon</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingOperations
+                        .filter(op => {
+                          // Apply safety level filter
+                          if (maxSafetyFilter === null) return true;
+                          const level = op.safetyLevelNumber ?? 10;
+                          return level <= maxSafetyFilter;
+                        })
+                        .map((op, displayIdx) => {
+                          // Find original index for selection management
+                          const idx = pendingOperations.indexOf(op);
+                          const isSelected = selectedOperations.has(idx);
+                          const safetyLevel = op.safetyLevelNumber ?? 10;
+                          const safetyColor =
+                            safetyLevel <= 2 ? 'bg-green-100 text-green-800' :
+                            safetyLevel <= 6 ? 'bg-orange-100 text-orange-800' :
+                            'bg-red-100 text-red-800';
+                          const safetyIcon =
+                            safetyLevel <= 2 ? '✅' :
+                            safetyLevel <= 6 ? '⚠️' :
+                            '🚫';
+
+                        return (
+                          <tr
+                            key={idx}
+                            className={`border-b hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-100' : ''}`}
+                          >
+                            <td className="p-2">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  const newSelected = new Set(selectedOperations);
+                                  if (checked) {
+                                    newSelected.add(idx);
+                                  } else {
+                                    newSelected.delete(idx);
+                                  }
+                                  setSelectedOperations(newSelected);
+                                }}
+                              />
+                            </td>
+                            <td className="p-2">
+                              <div className="font-medium text-gray-900">
+                                {op.source.hasirTipi} → {op.target.hasirTipi}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {op.source.uzunlukBoy}x{op.source.uzunlukEn} → {op.target.uzunlukBoy}x{op.target.uzunlukEn}
+                              </div>
+                            </td>
+                            <td className="p-2 text-gray-700 max-w-md">
+                              <div className="line-clamp-2" title={op.explanation}>
+                                {op.explanation}
+                              </div>
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${safetyColor}`}>
+                                {safetyIcon} Seviye {safetyLevel}
+                              </span>
+                            </td>
+                            <td className="p-2 text-center font-medium text-gray-700">
+                              {op.toleranceUsed.toFixed(1)}cm
+                            </td>
+                            <td className="p-2 text-center font-medium text-gray-700">
+                              {op.source.hasirSayisi}
+                            </td>
+                            <td className="p-2 text-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  // Apply single operation
+                                  const sourceExists = products.find(p => p.id === op.source.id);
+                                  const targetExists = products.find(p => p.id === op.target.id);
+
+                                  if (sourceExists && targetExists) {
+                                    const sourceProduct = products.find(p => p.id === op.source.id)!;
+                                    const deletedItems = [{
+                                      ...sourceProduct,
+                                      deletedAt: new Date(),
+                                      mergedInto: op.result.id,
+                                      reason: `Manual Merge: Into ${op.target.hasirTipi}`
+                                    }];
+                                    setDeletedProducts(prev => [...prev, ...deletedItems]);
+
+                                    const updatedProducts = products
+                                      .filter(p => p.id !== op.source.id && p.id !== op.target.id)
+                                      .concat(op.result);
+
+                                    setProductsWithDebug(updatedProducts);
+                                    addToHistory(updatedProducts);
+
+                                    // Recalculate opportunities
+                                    setTimeout(() => {
+                                      const freshOps = findAllOptimizationOpportunities(includeTypeChanges);
+                                      const sortedOps = sortPendingOperations(freshOps, sortMode);
+                                      setPendingOperations(sortedOps);
+                                      setSelectedOperations(new Set());
+                                    }, 100);
+
+                                    toast.success('İşlem uygulandı!');
+                                  } else {
+                                    toast.error('Ürünler bulunamadı');
+                                  }
+                                }}
+                                className="text-xs"
+                              >
+                                Uygula
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {pendingOperations.filter(op => {
+                        if (maxSafetyFilter === null) return true;
+                        const level = op.safetyLevelNumber ?? 10;
+                        return level <= maxSafetyFilter;
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-gray-500">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="text-4xl">🔍</div>
+                              <p className="font-medium">Filtre kriterlerine uygun işlem bulunamadı</p>
+                              <p className="text-sm">Filtreleri değiştirerek daha fazla sonuç görebilirsiniz</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -3603,7 +4023,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                   const filteredOps = updatedOps.filter(op => op.toleranceUsed <= value[0]);
                   const sortedOps = sortPendingOperations(filteredOps, sortMode);
                   setPendingOperations(sortedOps);
-                  setCurrentOperationIndex(0);
+                  // Removed: setCurrentOperationIndex - no longer using modal
                   toast(`Tolerans güncellendi: ${value[0]}cm`);
                 }}
                 min={0}
@@ -3630,7 +4050,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                   const updatedOps = findAllOptimizationOpportunities();
                   const sortedOps = sortPendingOperations(updatedOps, sortMode);
                   setPendingOperations(sortedOps);
-                  setCurrentOperationIndex(0);
+                  // Removed: setCurrentOperationIndex - no longer using modal
                 }}
                 min={1}
                 max={400}
@@ -3661,7 +4081,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                   })));
 
                   setPendingOperations(sortedOps);
-                  setCurrentOperationIndex(0);
+                  // Removed: setCurrentOperationIndex - no longer using modal
 
                   toast(newValue ? `✅ Hasır tipi değişiklikleri dahil edildi (${updatedOps.length} fırsat)` : `❌ Hasır tipi değişiklikleri hariç tutuldu (${updatedOps.length} fırsat)`);
                 }}
