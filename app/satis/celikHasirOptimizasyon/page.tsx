@@ -120,26 +120,35 @@ interface MergeOperation {
 
 // Helper function to determine safety level based on tolerance used (0-10 scale)
 const getSafetyLevel = (toleranceUsed: number, isHasirTipiChange: boolean = false, isFoldingOperation: boolean = false): { level: number; category: 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'risky' } => {
-  // Cross-group Hasır Tipi changes (Q→T, T→R) are always maximum risk
-  // Same-group changes (Q→Q, T→T, R→R) use normal tolerance-based safety
-  if (isHasirTipiChange) return { level: 10, category: 'risky' };
-  
-  // Folding operations are never 'safe', even with 0 tolerance
-  if (isFoldingOperation) {
-    if (toleranceUsed === 0) return { level: 1, category: 'low_risk' };     // Exact folding - light green
-    if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };     // Low tolerance folding
-    if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };  // Medium tolerance folding
-    return { level: 6, category: 'high_risk' };                             // High tolerance folding
+  // Level 0: Perfect match - same type, same dimensions (toleranceUsed = 0)
+  if (toleranceUsed === 0 && !isHasirTipiChange && !isFoldingOperation) {
+    return { level: 0, category: 'safe' };
   }
-  
-  // Regular merge operations
-  if (toleranceUsed === 0) return { level: 0, category: 'safe' };           // Perfect match - dark green
-  if (toleranceUsed <= 5) return { level: 1, category: 'low_risk' };        // Very low tolerance  
-  if (toleranceUsed <= 10) return { level: 2, category: 'low_risk' };       // Low tolerance
-  if (toleranceUsed <= 20) return { level: 4, category: 'medium_risk' };    // Medium risk - yellow
-  if (toleranceUsed <= 30) return { level: 6, category: 'high_risk' };      // Higher risk - orange
-  if (toleranceUsed <= 50) return { level: 8, category: 'risky' };          // Risky - red
-  return { level: 10, category: 'risky' };                                  // Very risky - dark red
+
+  // Level 1: Multiplying operations (katlı) - same type, dimensions can multiply
+  // Example: 150x300 → 300x300 (double the boy dimension)
+  // Folding operations are level 1 (this is what "katlı" means per user clarification)
+  if (isFoldingOperation) {
+    return { level: 1, category: 'safe' };
+  }
+
+  // Levels 6-10: Type changes based on tolerance
+  // These are higher risk operations involving hasır tipi changes
+  if (isHasirTipiChange) {
+    if (toleranceUsed <= 10) return { level: 6, category: 'high_risk' };
+    if (toleranceUsed <= 30) return { level: 7, category: 'high_risk' };
+    if (toleranceUsed <= 50) return { level: 8, category: 'risky' };
+    if (toleranceUsed <= 100) return { level: 9, category: 'risky' };
+    return { level: 10, category: 'risky' };
+  }
+
+  // Levels 3-5: Dimension increases (same type, dimensions increase)
+  // Level 3: ≤10cm total increase
+  // Level 4: ≤50cm total increase
+  // Level 5: >50cm increase (before type changes)
+  if (toleranceUsed <= 10) return { level: 3, category: 'medium_risk' };
+  if (toleranceUsed <= 50) return { level: 4, category: 'medium_risk' };
+  return { level: 5, category: 'medium_risk' };
 };
 
 // Helper functions for standardized display  
@@ -159,6 +168,52 @@ const getSafetyDisplay = (safetyLevel: 'safe' | 'low_risk' | 'medium_risk' | 'hi
   return {
     ...configs[safetyLevel],
     fullText: `${configs[safetyLevel].icon} ${configs[safetyLevel].text.toUpperCase()}${levelDisplay} - ${toleranceUsed.toFixed(1)}cm tolerans`
+  };
+};
+
+// Helper function to get gradient color for safety levels 0-10
+// Level 0: Pure green (#10b981)
+// Level 5: Yellow (#fbbf24)
+// Level 10: Pure red (#ef4444)
+const getSafetyGradientColor = (level: number): { bg: string; text: string; border: string } => {
+  // Clamp level between 0-10
+  const clampedLevel = Math.max(0, Math.min(10, level));
+
+  // Define RGB values for each color point
+  const green = { r: 16, g: 185, b: 129 };    // #10b981
+  const yellow = { r: 251, g: 191, b: 36 };   // #fbbf24
+  const red = { r: 239, g: 68, b: 68 };       // #ef4444
+
+  let r: number, g: number, b: number;
+
+  if (clampedLevel <= 5) {
+    // Interpolate between green (0) and yellow (5)
+    const ratio = clampedLevel / 5;
+    r = Math.round(green.r + (yellow.r - green.r) * ratio);
+    g = Math.round(green.g + (yellow.g - green.g) * ratio);
+    b = Math.round(green.b + (yellow.b - green.b) * ratio);
+  } else {
+    // Interpolate between yellow (5) and red (10)
+    const ratio = (clampedLevel - 5) / 5;
+    r = Math.round(yellow.r + (red.r - yellow.r) * ratio);
+    g = Math.round(yellow.g + (red.g - yellow.g) * ratio);
+    b = Math.round(yellow.b + (red.b - yellow.b) * ratio);
+  }
+
+  // Calculate lighter version for background (add 80% white overlay)
+  const bgR = Math.round(r + (255 - r) * 0.85);
+  const bgG = Math.round(g + (255 - g) * 0.85);
+  const bgB = Math.round(b + (255 - b) * 0.85);
+
+  // Calculate border (50% darker)
+  const borderR = Math.round(r * 0.7);
+  const borderG = Math.round(g * 0.7);
+  const borderB = Math.round(b * 0.7);
+
+  return {
+    bg: `rgb(${bgR}, ${bgG}, ${bgB})`,
+    text: `rgb(${r}, ${g}, ${b})`,
+    border: `rgb(${borderR}, ${borderG}, ${borderB})`
   };
 };
 
@@ -3512,17 +3567,32 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                 <div className="flex items-center gap-4 p-3 bg-gray-50 rounded">
                   {/* Tolerance Slider */}
                   <div className="flex-1">
-                    <Label className="text-sm font-medium mb-1 block">Tolerans: {tolerance}cm</Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-sm font-medium">Tolerans: {tolerance}cm</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsCalculating(true);
+                          setTimeout(() => {
+                            const updated = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+                            const sorted = sortPendingOperations(updated, sortMode);
+                            setPendingOperations(sorted);
+                            setSelectedOperations(new Set());
+                            setIsCalculating(false);
+                            toast.success(`Tolerans uygulandı: ${tolerance}cm - ${updated.length} fırsat`);
+                          }, 50);
+                        }}
+                        disabled={isCalculating}
+                        className="text-xs"
+                      >
+                        Uygula
+                      </Button>
+                    </div>
                     <Slider
                       value={[tolerance]}
                       onValueChange={(value) => {
-                        const newTolerance = value[0];
-                        setTolerance(newTolerance);
-                        // Pass new tolerance directly to avoid stale state
-                        const updated = findAllOptimizationOpportunities(includeTypeChanges, newTolerance);
-                        const sorted = sortPendingOperations(updated, sortMode);
-                        setPendingOperations(sorted);
-                        setSelectedOperations(new Set());
+                        setTolerance(value[0]);
                       }}
                       min={0}
                       max={200}
@@ -3682,10 +3752,10 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                           const idx = pendingOperations.indexOf(op);
                           const isSelected = selectedOperations.has(idx);
                           const safetyLevel = op.safetyLevelNumber ?? 10;
-                          const safetyColor =
-                            safetyLevel <= 2 ? 'bg-green-100 text-green-800' :
-                            safetyLevel <= 6 ? 'bg-orange-100 text-orange-800' :
-                            'bg-red-100 text-red-800';
+
+                          // Get gradient colors for this safety level
+                          const gradientColors = getSafetyGradientColor(safetyLevel);
+
                           const safetyIcon =
                             safetyLevel <= 2 ? '✅' :
                             safetyLevel <= 6 ? '⚠️' :
@@ -3724,7 +3794,14 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                               </div>
                             </td>
                             <td className="p-2 text-center">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${safetyColor}`}>
+                              <span
+                                className="px-2 py-1 rounded text-xs font-medium border"
+                                style={{
+                                  backgroundColor: gradientColors.bg,
+                                  color: gradientColors.text,
+                                  borderColor: gradientColors.border
+                                }}
+                              >
                                 {safetyIcon} Seviye {safetyLevel}
                               </span>
                             </td>
@@ -3760,15 +3837,27 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                                     setProductsWithDebug(updatedProducts);
                                     addToHistory(updatedProducts);
 
-                                    // Recalculate opportunities
-                                    setTimeout(() => {
-                                      const freshOps = findAllOptimizationOpportunities(includeTypeChanges);
-                                      const sortedOps = sortPendingOperations(freshOps, sortMode);
-                                      setPendingOperations(sortedOps);
-                                      setSelectedOperations(new Set());
-                                    }, 100);
-
                                     toast.success('İşlem uygulandı!');
+
+                                    // Recalculate opportunities with updated products
+                                    // Use longer delay to ensure state has updated
+                                    setTimeout(() => {
+                                      setIsCalculating(true);
+                                      // Need another small delay to let isCalculating render
+                                      setTimeout(() => {
+                                        const freshOps = findAllOptimizationOpportunities(includeTypeChanges, tolerance);
+                                        const sortedOps = sortPendingOperations(freshOps, sortMode);
+                                        setPendingOperations(sortedOps);
+                                        setSelectedOperations(new Set());
+                                        setIsCalculating(false);
+
+                                        if (freshOps.length > 0) {
+                                          toast.info(`${freshOps.length} fırsat kaldı`);
+                                        } else {
+                                          toast.success('Tüm fırsatlar tamamlandı!');
+                                        }
+                                      }, 50);
+                                    }, 150);
                                   } else {
                                     toast.error('Ürünler bulunamadı');
                                   }
