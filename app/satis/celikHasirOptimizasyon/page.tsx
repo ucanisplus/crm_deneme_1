@@ -4010,50 +4010,22 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-medium">Tolerans (cm):</Label>
                 <span className="text-sm font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                  {dialogTolerance} cm
+                  {tolerance} cm
                 </span>
               </div>
               <Slider
-                value={[dialogTolerance]}
+                value={[tolerance]}
                 onValueChange={(value) => {
-                  setDialogTolerance(value[0]);
-                  setTolerance(value[0]); // Update main tolerance too
+                  setTolerance(value[0]); // Update main tolerance
                   // Refilter operations when tolerance changes
-                  const updatedOps = findAllOptimizationOpportunities();
-                  const filteredOps = updatedOps.filter(op => op.toleranceUsed <= value[0]);
-                  const sortedOps = sortPendingOperations(filteredOps, sortMode);
+                  const updatedOps = findAllOptimizationOpportunities(includeTypeChanges, value[0]);
+                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
                   setPendingOperations(sortedOps);
                   // Removed: setCurrentOperationIndex - no longer using modal
                   toast(`Tolerans güncellendi: ${value[0]}cm`);
                 }}
                 min={0}
                 max={200}
-                step={1}
-                className="w-full"
-              />
-            </div>
-
-            {/* Minimum Hasır Sayısı Slider */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-medium">Minimum Hasır Sayısı:</Label>
-                <span className="text-sm font-semibold bg-green-100 text-green-800 px-2 py-1 rounded">
-                  {dialogMaxHasirSayisi} adet
-                </span>
-              </div>
-              <Slider
-                value={[dialogMaxHasirSayisi]}
-                onValueChange={(value) => {
-                  setDialogMaxHasirSayisi(value[0]);
-                  setMaxHasirSayisi(value[0]);
-                  // Refilter operations when max hasır sayısı changes
-                  const updatedOps = findAllOptimizationOpportunities();
-                  const sortedOps = sortPendingOperations(updatedOps, sortMode);
-                  setPendingOperations(sortedOps);
-                  // Removed: setCurrentOperationIndex - no longer using modal
-                }}
-                min={1}
-                max={400}
                 step={1}
                 className="w-full"
               />
