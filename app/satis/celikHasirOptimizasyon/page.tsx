@@ -3852,7 +3852,7 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
                                         setIsCalculating(false);
 
                                         if (freshOps.length > 0) {
-                                          toast.info(`${freshOps.length} fırsat kaldı`);
+                                          toast(`${freshOps.length} fırsat kaldı`, { icon: 'ℹ️' });
                                         } else {
                                           toast.success('Tüm fırsatlar tamamlandı!');
                                         }
