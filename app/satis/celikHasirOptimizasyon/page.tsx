@@ -2197,7 +2197,8 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
     );
 
     console.log(`🔍 Candidates for elimination: ${candidateProducts.length}/${products.length} products`);
-    
+    console.log(`🎚️ Tolerance filter: ${currentTolerance}cm`);
+
     // Check ALL possible product pairs ONCE across all optimization types
     for (let i = 0; i < candidateProducts.length; i++) {
       const sourceProduct = candidateProducts[i];
@@ -2221,20 +2222,25 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
 
         // First, try to find options within tolerance
         const safeOptions = mergeOptions.filter(option => option.tolerance <= currentTolerance);
-        
+
+        // Debug: Log filtering if options were rejected
+        if (mergeOptions.length > 0 && safeOptions.length === 0) {
+          console.log(`❌ Filtered out ${mergeOptions.length} options for ${sourceProduct.hasirTipi} ↔ ${targetProduct.hasirTipi} (min tolerance: ${Math.min(...mergeOptions.map(o => o.tolerance))}cm > ${currentTolerance}cm)`);
+        }
+
         if (safeOptions.length > 0) {
           // Convert to MergeOperation format and add safe options (take the best one)
           const bestSafeOption = safeOptions[0]; // Already sorted by safety/tolerance
-          const result = bestSafeOption.result || 
-            (bestSafeOption.type === 'boydan' ? optimizeBoydan(bestSafeOption.source, bestSafeOption.target) : 
-             bestSafeOption.type === 'enden' ? optimizeEnden(bestSafeOption.source, bestSafeOption.target) : 
+          const result = bestSafeOption.result ||
+            (bestSafeOption.type === 'boydan' ? optimizeBoydan(bestSafeOption.source, bestSafeOption.target) :
+             bestSafeOption.type === 'enden' ? optimizeEnden(bestSafeOption.source, bestSafeOption.target) :
              bestSafeOption.target);
-          
+
           // Create a signature for this operation to prevent duplicates
           const sourceKey = `${bestSafeOption.source.hasirTipi}-${bestSafeOption.source.uzunlukBoy}x${bestSafeOption.source.uzunlukEn}-${bestSafeOption.source.hasirSayisi}`;
           const targetKey = `${bestSafeOption.target.hasirTipi}-${bestSafeOption.target.uzunlukBoy}x${bestSafeOption.target.uzunlukEn}`;
           const operationSig = `${bestSafeOption.type}:${sourceKey}→${targetKey}`;
-          
+
           // Only add if this exact operation hasn't been added before
           if (!operationSignatures.has(operationSig)) {
             operationSignatures.add(operationSig);
@@ -2249,31 +2255,11 @@ const CelikHasirOptimizasyonContent: React.FC = () => {
               safetyLevelNumber: bestSafeOption.safetyLevelNumber || getSafetyLevel(bestSafeOption.tolerance).level
             });
           }
-        } else if (mergeOptions.length > 0) {
-          // No safe options found, add the safest risky option as fallback
-          const safestRiskyOption = mergeOptions[0]; // getAllMergeOptions already sorts by safety
-          const result = safestRiskyOption.result || safestRiskyOption.target;
-          
-          // Create a signature for this operation to prevent duplicates
-          const sourceKey = `${safestRiskyOption.source.hasirTipi}-${safestRiskyOption.source.uzunlukBoy}x${safestRiskyOption.source.uzunlukEn}-${safestRiskyOption.source.hasirSayisi}`;
-          const targetKey = `${safestRiskyOption.target.hasirTipi}-${safestRiskyOption.target.uzunlukBoy}x${safestRiskyOption.target.uzunlukEn}`;
-          const operationSig = `${safestRiskyOption.type}:${sourceKey}→${targetKey}`;
-          
-          // Only add if this exact operation hasn't been added before
-          if (!operationSignatures.has(operationSig)) {
-            operationSignatures.add(operationSig);
-            allOpportunities.push({
-              type: safestRiskyOption.type,
-              source: safestRiskyOption.source,
-              target: safestRiskyOption.target,
-              result: result,
-              explanation: `⚠️ YEDEK SEÇENEK: ${safestRiskyOption.explanation}`,
-              toleranceUsed: safestRiskyOption.tolerance,
-              safetyLevel: safestRiskyOption.safetyLevel,
-              safetyLevelNumber: safestRiskyOption.safetyLevelNumber || getSafetyLevel(safestRiskyOption.tolerance).level
-            });
-          }
         }
+        // REMOVED: Fallback options that exceed tolerance
+        // Previously, we would add operations as "YEDEK SEÇENEK" even if they exceeded tolerance
+        // This caused the total count to always be the same regardless of tolerance setting
+        // Now we only include operations that are actually within the tolerance limit
       }
     }
     
