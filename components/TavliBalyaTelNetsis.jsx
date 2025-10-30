@@ -358,17 +358,20 @@ const OPERATION_DURATIONS = {
 // AUXILIARY COMPONENT MAPPINGS (Display code → Database code)
 const AUXILIARY_COMPONENTS = {
   // Reused from Galvanizli (UPDATED: Removed SM.DESİ.PAK - not in tavlı/balya CSV)
-  'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
-  'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
-  'SM.7MMHALKA': 'SM-AMB-000023',
-  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019',
+  'AMB.APEX CEMBER 38X080': 'SM-AMB-000017', // Çelik Çember (for YM TT and YM STP)
+  'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // Plastik Çember (for MM TAVLI/BALYA)
+  'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018', // Çember Tokası
+  'SM.7MMHALKA': 'SM-AMB-000023', // Kaldırma Kancası
+  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019', // Karton
   'AMB.SHRİNK.200*140CM': 'SM-AMB-000027',
   'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
   'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
-  // Pressing components (TODO: Update with actual database codes)
-  'AMB.ÇELIK.ÇEMBER': 'SM-AMB-000999', // Placeholder
-  'AMB.ÇEMBER.TOKASI': 'SM-AMB-000998', // Placeholder
-  'AMB.KALDIRMA.KANCASI': 'SM-AMB-000997' // Placeholder
+  'AMB.STREÇ': 'SM-AMB-000025', // Streç (for MM TAVLI/BALYA)
+  'AMB.PALET': 'SM-AMB-000026', // Palet (for MM products)
+  // YM STP and YM TT helper components (same codes as above, just for clarity)
+  'AMB.ÇELIK.ÇEMBER': 'SM-AMB-000017', // Çelik Çember (same as APEX CEMBER)
+  'AMB.ÇEMBER.TOKASI': 'SM-AMB-000018', // Çember Tokası (same as TOKA)
+  'AMB.KALDIRMA.KANCASI': 'SM-AMB-000023' // Kaldırma Kancası (same as HALKA)
 };
 
 // STOCK CODE GENERATION HELPERS
@@ -777,21 +780,27 @@ const TavliBalyaTelNetsis = () => {
 
     // Database codes (Excel output format - UPDATED: Removed silkajel, not in tavlı/balya CSV)
     'SM-AMB-000017': 'Çelik çember (SM-AMB-000017)',
+    'SM-AMB-000024': 'Plastik çember (SM-AMB-000024)',
     'SM-AMB-000018': 'Çember tokası (SM-AMB-000018)',
     'SM-AMB-000023': 'Kaldırma kancası (SM-AMB-000023)',
     'SM-AMB-000027': 'Shrink Tüketimi (KG)',
     'SM-AMB-000028': 'Shrink Tüketimi (KG)',
     'SM-AMB-000030': 'Shrink Tüketimi (KG)',
     'SM-AMB-000019': 'Karton (SM-AMB-000019)',
+    'SM-AMB-000025': 'Streç (SM-AMB-000025)',
+    'SM-AMB-000026': 'Palet (SM-AMB-000026)',
 
     // Legacy display codes (kept for backward compatibility with internal calculations)
     'AMB.APEX CEMBER 38X080': 'Çelik çember (SM-AMB-000017)',
+    'AMB.PLASTİK.ÇEMBER': 'Plastik çember (SM-AMB-000024)',
     'AMB.TOKA.SIGNODE.114P. DKP': 'Çember tokası (SM-AMB-000018)',
     'SM.7MMHALKA': 'Kaldırma kancası (SM-AMB-000023)',
     'AMB.SHRİNK.200*140CM': 'Shrink Tüketimi (KG)',
     'AMB.SHRİNK.200*160CM': 'Shrink Tüketimi (KG)',
     'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (KG)',
-    'AMB.ÇEM.KARTON.GAL': 'Karton (SM-AMB-000019)'
+    'AMB.ÇEM.KARTON.GAL': 'Karton (SM-AMB-000019)',
+    'AMB.STREÇ': 'Streç (SM-AMB-000025)',
+    'AMB.PALET': 'Palet (SM-AMB-000026)'
   };
 
   // Tum useEffect hooklar - Hook Kurallarina uymak icin izin kontrolunden once tasindi
@@ -4086,7 +4095,7 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // MM TT Packaging Recipe Components
-      // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
+      // Plastik Çember (for MM products): =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
       const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
       // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
@@ -4097,6 +4106,12 @@ const TavliBalyaTelNetsis = () => {
 
       // AMB.ÇEM.KARTON.GAL: =(8*(1000/'COIL WEIGHT (KG)'))/1000
       const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
+
+      // Streç: =(0.5*(1000/'COIL WEIGHT (KG)'))/1000 (estimated formula)
+      const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
+
+      // Palet: =(1*(1000/'COIL WEIGHT (KG)'))/1000 (estimated formula)
+      const paletValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
 
       // Packaging operation: TVPKT01 for TAVLI, BAL01 for BALYA
       const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
@@ -4111,8 +4126,10 @@ const TavliBalyaTelNetsis = () => {
         'AMB.ÇEM.KARTON.GAL': parseFloat(kartonValue.toFixed(5)),
         [shrinkCode]: parseFloat(shrinkAmount.toFixed(5)),
         'SM.7MMHALKA': parseFloat(halkaValue.toFixed(5)),
-        'AMB.APEX CEMBER 38X080': parseFloat(cemberValue.toFixed(5)),
-        'AMB.TOKA.SIGNODE.114P. DKP': parseFloat(tokaValue.toFixed(5))
+        'AMB.PLASTİK.ÇEMBER': parseFloat(cemberValue.toFixed(5)), // ✅ UPDATED: Plastik Çember for MM products
+        'AMB.TOKA.SIGNODE.114P. DKP': parseFloat(tokaValue.toFixed(5)),
+        'AMB.STREÇ': parseFloat(strecValue.toFixed(5)), // ✅ ADDED: Streç for MM TAVLI/BALYA
+        'AMB.PALET': parseFloat(paletValue.toFixed(5)) // ✅ ADDED: Palet for MM TAVLI/BALYA
         // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya specification
       };
 
@@ -6504,27 +6521,27 @@ const TavliBalyaTelNetsis = () => {
           olcu_br: 'DK',
           aciklama: 'Siyah Tel Presleme Operasyonu'
         },
-        // 3. Çelik Çember (Auxiliary - placeholder)
+        // 3. Çelik Çember (Auxiliary component)
         {
           bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇELIK.ÇEMBER'],
           operasyon_bilesen: 'B',
-          miktar: 0.999,
+          miktar: 2, // 2 pieces per coil
           olcu_br: 'AD',
           aciklama: 'Çelik Çember'
         },
-        // 4. Çember Tokası (Auxiliary - placeholder)
+        // 4. Çember Tokası (Auxiliary component)
         {
           bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇEMBER.TOKASI'],
           operasyon_bilesen: 'B',
-          miktar: 0.999,
+          miktar: 4, // 4 pieces per coil
           olcu_br: 'AD',
           aciklama: 'Çember Tokası'
         },
-        // 5. Kaldırma Kancası (Auxiliary - placeholder)
+        // 5. Kaldırma Kancası (Auxiliary component)
         {
           bilesen_kodu: AUXILIARY_COMPONENTS['AMB.KALDIRMA.KANCASI'],
           operasyon_bilesen: 'B',
-          miktar: 0.999,
+          miktar: 4, // 4 pieces per coil
           olcu_br: 'AD',
           aciklama: 'Kaldırma Kancası'
         }
@@ -6590,6 +6607,30 @@ const TavliBalyaTelNetsis = () => {
           miktar: OPERATION_DURATIONS.TAV01,
           olcu_br: 'DK',
           aciklama: 'Tavlama Operasyonu'
+        },
+        // 3. Çelik Çember (Auxiliary component)
+        {
+          bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇELIK.ÇEMBER'],
+          operasyon_bilesen: 'B',
+          miktar: 2, // 2 pieces per coil
+          olcu_br: 'AD',
+          aciklama: 'Çelik Çember'
+        },
+        // 4. Çember Tokası (Auxiliary component)
+        {
+          bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇEMBER.TOKASI'],
+          operasyon_bilesen: 'B',
+          miktar: 4, // 4 pieces per coil
+          olcu_br: 'AD',
+          aciklama: 'Çember Tokası'
+        },
+        // 5. Kaldırma Kancası (Auxiliary component)
+        {
+          bilesen_kodu: AUXILIARY_COMPONENTS['AMB.KALDIRMA.KANCASI'],
+          operasyon_bilesen: 'B',
+          miktar: 4, // 4 pieces per coil
+          olcu_br: 'AD',
+          aciklama: 'Kaldırma Kancası'
         }
       ];
 
@@ -6641,27 +6682,29 @@ const TavliBalyaTelNetsis = () => {
       // Get shrink size from mmData
       const shrinkCode = getShrinkCode(mmData.ic_cap);
 
-      // Recipe order: Source → Packaging Operation (TVPKT01/BAL01) → KARTON → HALKA → CEMBER → TOKA → DESİ → SHRINK
+      // Recipe order: Source → Packaging Operation (TVPKT01/BAL01) → KARTON → SHRINK → HALKA → CEMBER → TOKA → STREÇ → PALET
       const recipeEntries = Object.entries(mmRecipe);
 
       const sourceEntry = recipeEntries.find(([key]) => key === sourceStokKodu);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
-      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-      const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
-      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      // ✅ REMOVED: desiEntry - SM.DESİ.PAK not in tavlı/balya CSV specification
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
+      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+      const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ UPDATED: Plastik Çember for MM
+      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
+      const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED: Streç for MM
+      const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED: Palet for MM
 
       const orderedEntries = [
         sourceEntry,
         packagingEntry,
         kartonEntry,
+        shrinkEntry,
         halkaEntry,
-        cemberEntry,
+        plastikCemberEntry,
         tokaEntry,
-        // ✅ REMOVED: desiEntry - not in tavlı/balya specification
-        shrinkEntry
+        strecEntry,
+        paletEntry
       ].filter(Boolean);
 
       for (const [key, value] of orderedEntries) {
@@ -10966,18 +11009,20 @@ const TavliBalyaTelNetsis = () => {
       stokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
     }
 
-    // If English name is not in database, generate it
+    // If English name is not in database, generate it - FIXED for Tavli/Balya
     if (!englishName) {
       const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
       const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
-      englishName = `Galvanized Steel Wire ${cap.toFixed(2)} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      // Determine English product name based on product type
+      const englishProductName = mm.product_type === 'BALYA' ? 'Bale Wire' : 'Annealed Wire';
+      englishName = `${englishProductName} ${cap.toFixed(2)} mm ${formattedMinus}/${formattedPlus} ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
     }
-    
+
     return [
       mm.stok_kodu, // Stok Kodu - use actual stok_kodu from database
       stokAdi, // Stok Adı
       'MM', // Grup Kodu
-      'GT', // Kod-1
+      'TT', // Kod-1 - FIXED: TT for Tavli/Balya (was GT)
       mm.kod_2, // Kod-2
       '', // Cari/Satıcı Kodu
       'M', // Türü
