@@ -6051,7 +6051,7 @@ const TavliBalyaTelNetsis = () => {
       yaglama_tipi: mmData.product_type === 'BALYA' ? (mmData.yaglama_tipi || '') : null,
       grup_kodu: 'MM',
       kod_1: 'TT', // Changed from GT to TT
-      product_type: mmData.product_type,
+      // ❌ REMOVED duplicate product_type - already set above at line 6048
       turu: 'M',
       mamul_grup: stokKodu,
       muh_detay: '26',
@@ -6066,8 +6066,7 @@ const TavliBalyaTelNetsis = () => {
       cevrim_payda_2: 1,
       cevrim_degeri_2: 1,
       cap: capValue, // Store as number for calculations
-      product_type: mmData.product_type, // ✅ FIXED: TAVLI or BALYA (not kaplama)
-      yaglama_tipi: mmData.yaglama_tipi || '', // ✅ FIXED: Püskürtme/Daldırma or empty
+      // ❌ REMOVED duplicate product_type and yaglama_tipi - already set correctly above at lines 6048 and 6051
       min_mukavemet: parseInt(mmData.min_mukavemet),
       max_mukavemet: parseInt(mmData.max_mukavemet),
       kg: parseInt(mmData.kg),
