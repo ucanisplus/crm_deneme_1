@@ -219,6 +219,124 @@ const getCoilerCategory = (stokKodu) => {
   return null; // Outside COILER range
 };
 
+// Helper: Generate alternative recipes for .ST COILER products
+// Uses COILER_ALTERNATIVE_MATRIX to generate up to 8 alternatives
+const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
+  console.log(`🔄 TÜM ÜRÜNLER: Generating COILER alternatives (up to 8) for .ST products using new matrix...`);
+  console.log(`📊 Input: ${mainRecipes.length} recipes, ${ymStProducts.length} products`);
+
+  // Structure: { 1: [...], 2: [...], ..., 8: [...] }
+  const alternativesByPriority = {};
+
+  // Group recipes by product - support both mamul_kodu and ym_st_stok_kodu
+  const recipesByProduct = {};
+  mainRecipes.forEach(recipe => {
+    // Support both database field names (mamul_kodu) and runtime field names (ym_st_stok_kodu)
+    const productCode = recipe.mamul_kodu || recipe.ym_st_stok_kodu;
+    if (!productCode) {
+      console.warn('⚠️ Recipe missing both mamul_kodu and ym_st_stok_kodu:', recipe);
+      return;
+    }
+
+    if (!recipesByProduct[productCode]) {
+      recipesByProduct[productCode] = [];
+    }
+    recipesByProduct[productCode].push(recipe);
+  });
+
+  console.log(`📋 TÜM ÜRÜNLER: Processing ${Object.keys(recipesByProduct).length} unique YM ST products`);
+  console.log(`🔍 Product codes found:`, Object.keys(recipesByProduct).slice(0, 5));
+
+  let stProductCount = 0;
+
+  // For each .ST product, generate alternatives
+  Object.keys(recipesByProduct).forEach(stokKodu => {
+    // Check if it's a .ST product (COTLC01 method)
+    if (!stokKodu.endsWith('.ST')) {
+      return; // Skip non-.ST products silently
+    }
+
+    stProductCount++;
+    const productRecipes = recipesByProduct[stokKodu];
+
+    // Determine which COILER category this product belongs to
+    const category = getCoilerCategory(stokKodu);
+    if (!category) {
+      console.log(`⚠️ ${stokKodu}: Not in COILER matrix range, skipping`);
+      return;
+    }
+
+    const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+    console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
+
+    // For each alternative priority (1-8)
+    for (let priority = 1; priority <= 8; priority++) {
+      // Find the alternative definition for this priority
+      const altDef = alternatives.find(a => a.priority === priority);
+      if (!altDef) {
+        // This priority doesn't exist for this category (e.g., priority 6-8 for ≤1.49mm products)
+        continue;
+      }
+
+      // Get the main bilesen (priority 0) definition
+      const mainDef = alternatives.find(a => a.priority === 0);
+
+      // Calculate duration adjustment ratio
+      // Logic: Less reduction needed = Less time
+      // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER duration
+      // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER duration
+      // Example: To produce 0.73mm, starting from 2.16mm is faster than starting from 2.26mm
+      // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter duration)
+      const durationRatio = Math.pow(altDef.cap / mainDef.cap, 2);
+
+      // Initialize priority array if needed
+      if (!alternativesByPriority[priority]) {
+        alternativesByPriority[priority] = [];
+      }
+
+      // Generate alternative recipes for this product at this priority
+      productRecipes.forEach(recipe => {
+        if (recipe.operasyon_bilesen === 'B') {
+          // BILESEN ROW: Replace bilesen_kodu with alternative
+          const oldBilesenKodu = recipe.bilesen_kodu;
+
+          // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
+          const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+          const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+
+          alternativesByPriority[priority].push({
+            ...recipe,
+            bilesen_kodu: newBilesenKodu,
+            miktar: 1  // ALWAYS 1 kg: 1 kg source material → 1 kg final product
+          });
+
+          console.log(`  ✅ ALT ${priority}: ${oldBilesenKodu} → ${newBilesenKodu} (1 kg, duration ratio: ${durationRatio.toFixed(4)})`);
+        } else {
+          // OPERATION ROW: Adjust duration based on cap (wire diameter) change
+          if (recipe.miktar && durationRatio !== 1.0) {
+            const oldDuration = parseFloat(recipe.miktar);
+            const newDuration = oldDuration * durationRatio;
+            alternativesByPriority[priority].push({
+              ...recipe,
+              miktar: newDuration.toFixed(5)
+            });
+          } else {
+            alternativesByPriority[priority].push({ ...recipe });
+          }
+        }
+      });
+    }
+  });
+
+  console.log(`📋 TÜM ÜRÜNLER: Processed ${stProductCount} .ST products`);
+  Object.keys(alternativesByPriority).forEach(priority => {
+    console.log(`  ALT ${priority}: ${alternativesByPriority[priority].length} recipes`);
+  });
+
+  return alternativesByPriority;
+};
+
 // Tavlı Tel / Balya Teli Recipe Structure - 4 Production Flows with Intermediates
 // ============================================================================
 // CORRECTED FLOWS (YM YB does not exist - both use YM TT):
@@ -595,10 +713,10 @@ const TavliBalyaTelNetsis = () => {
   const [ymStpData, setYmStpData] = useState(null); // YM STP (Pressed Siyah Tel) - Only when cap > 2.0mm
   const [needsPressing, setNeedsPressing] = useState(false); // Pressing check (cap > 2.0mm)
 
-  // Recete verileri - Her YM ST icin MM TT, YM GT ve YM ST receteleri
+  // Recete verileri - Her YM ST icin MM TT, YM TT ve YM ST receteleri
   const [allRecipes, setAllRecipes] = useState({
     mmRecipes: {}, // { ymStIndex: { recete } }
-    ymGtRecipe: {}, // Tek YM GT recetesi (siralama eslestirme)
+    ymGtRecipe: {}, // Tek YM TT recetesi (siralama eslestirme) - NOTE: Variable name kept as ymGt for compatibility
     ymStRecipes: {} // { ymStIndex: { recete } }
   });
   
@@ -1270,7 +1388,7 @@ const TavliBalyaTelNetsis = () => {
       console.log('Bulk delete starting for tab:', activeDbTab, 'Items:', selectedDbItems);
       
       if (activeDbTab === 'mm') {
-        // For MM TT, we need cascade deletion including YM GT
+        // For MM TT, we need cascade deletion including YM TT
         for (const itemId of selectedDbItems) {
           try {
             console.log('Deleting MM TT with cascade:', itemId);
@@ -1545,7 +1663,7 @@ const TavliBalyaTelNetsis = () => {
         if (mmData.length > 0) {
           const mm = mmData[0];
           
-          // 🆕 YENI: YM GT ve YM ST bulmak icin gelistirilmis iliski tablosunu kullan
+          // 🆕 YENI: YM TT ve YM ST bulmak icin gelistirilmis iliski tablosunu kullan
           const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_gt_id=${mm.id}`);
           if (relationResponse && relationResponse.ok) {
             const relations = await relationResponse.json();
@@ -1621,11 +1739,12 @@ const TavliBalyaTelNetsis = () => {
                     const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
                     if (ymSt) {
                       loadedYmSts.push({ ...ymSt, source: 'database' });
-                      
-                      if (relation.is_main) {
+
+                      // Determine main index: use sequence_index if available, fallback to is_main
+                      if (relation.sequence_index === 0 || relation.is_main) {
                         mainIndex = i;
                       }
-                      
+
                     }
                   }
                 } catch (error) {
@@ -1995,7 +2114,7 @@ const TavliBalyaTelNetsis = () => {
       // Aktif sekmeye gore basari mesaji goster
       if (activeDbTab === 'mm') {
         const deletedCount = existingMms.length;
-        toast.success(`${deletedCount} MM TT ve ilişkili YM GT'ler ile tüm reçeteler başarıyla silindi`);
+        toast.success(`${deletedCount} MM TT ve ilişkili YM TT'ler ile tüm reçeteler başarıyla silindi`);
       } else {
         const deletedCount = existingYmSts.length;
         toast.success(`${deletedCount} YM ST ve reçeteleri başarıyla silindi`);
@@ -2240,7 +2359,7 @@ const TavliBalyaTelNetsis = () => {
       setShowRequestDetailModal(false);
       setCurrentStep('input');
       
-      // Trigger YM GT generation for the loaded data
+      // Trigger YM TT generation for the loaded data
       generateYmGtData();
       
       // Populate suitable YM STs if needed  
@@ -2434,7 +2553,7 @@ const TavliBalyaTelNetsis = () => {
         const mmYmStRelations = await mmYmStResponse.json();
         
         if (mmYmStRelations.length > 0) {
-          // 🆕 NEW: Get YM GT ID from the relationship (all relations should have the same ym_gt_id)
+          // 🆕 NEW: Get YM TT ID from the relationship (all relations should have the same ym_gt_id)
           relatedYmGtId = mmYmStRelations[0].ym_gt_id;
           
           // 🆕 NEW: Sort relations by sequence_index to maintain order
@@ -2465,12 +2584,12 @@ const TavliBalyaTelNetsis = () => {
                 const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
                 if (ymSt) {
                   loadedYmSts.push({ ...ymSt, source: 'database' });
-                  
-                  // 🆕 NEW: Track which YM ST is the main one
-                  if (relation.is_main) {
+
+                  // 🆕 NEW: Track which YM ST is the main one (use sequence_index if available, fallback to is_main)
+                  if (relation.sequence_index === 0 || relation.is_main) {
                     mainYmStIndex = i;
                   }
-                  
+
                         }
               } else {
                 console.warn('Failed to load YM ST with ID: ' + relation.ym_st_id);
@@ -2650,7 +2769,7 @@ const TavliBalyaTelNetsis = () => {
   };
 
   // Alias for compatibility with existing code (references the existing generateStokAdi function defined later)
-  const generateMmGtStokAdi = () => generateStokAdi();
+  const generateMmTtStokAdi = () => generateStokAdi();
 
   // Detect changes between original and current data
   const detectChanges = () => {
@@ -2772,8 +2891,9 @@ const TavliBalyaTelNetsis = () => {
   const findSuitableYmSts = async () => {
     try {
       setIsLoading(true);
-      // ✅ FIXED: Use tavliBalyaMmYmSt endpoint, not galYmSt (galvanized wire)
-      const response = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?limit=1000&sort_by=cap&sort_order=asc`);
+      // ✅ CORRECT: Use galYmSt (shared YM.ST product table used by all product types)
+      // tavliBalyaMmYmSt is only for MM↔YM.ST relationships, NOT for YM.ST products themselves
+      const response = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000&sort_by=cap&sort_order=asc`);
       if (response && response.ok) {
         const allYmSts = await response.json();
         const cap = parseFloat(mmData.cap) || 0;
@@ -2873,7 +2993,8 @@ const TavliBalyaTelNetsis = () => {
         payda_1: 1000, // .ST products use 1000 (not 1.000)
         kaplama: kaplama,
         source: 'auto-generated',
-        isStProduct: true // Mark as .ST product
+        isStProduct: true, // Mark as .ST product
+        isExisting: false
       });
 
     } else if (ymStDiameter >= 1.5 && ymStDiameter < 1.8) {
@@ -2905,7 +3026,8 @@ const TavliBalyaTelNetsis = () => {
               kaplama: kaplama,
               source: 'auto-generated',
               priority: 0,
-              isMain: true
+              isMain: true,
+              isExisting: false
             });
           }
         } catch (error) {
@@ -2929,7 +3051,8 @@ const TavliBalyaTelNetsis = () => {
           kaplama: kaplama,
           source: 'auto-generated',
           priority: 0,
-          isMain: true
+          isMain: true,
+          isExisting: false
         });
       }
 
@@ -2951,7 +3074,8 @@ const TavliBalyaTelNetsis = () => {
             source: 'auto-generated',
             priority: 1,
             isStProduct: true,
-            isMain: false
+            isMain: false,
+            isExisting: false
           });
         }
       } catch (error) {
@@ -2984,7 +3108,8 @@ const TavliBalyaTelNetsis = () => {
                 kaplama: kaplama,
                 source: 'auto-generated',
                 priority: alt.priority,
-                isMain: alt.priority === 0
+                isMain: alt.priority === 0,
+                isExisting: false
               });
             }
           } catch (error) {
@@ -3009,7 +3134,8 @@ const TavliBalyaTelNetsis = () => {
           kaplama: kaplama,
           source: 'auto-generated',
           priority: 0,
-          isMain: true
+          isMain: true,
+          isExisting: false
         });
       }
     }
@@ -3083,7 +3209,8 @@ const TavliBalyaTelNetsis = () => {
             payda_1: 1000,
             kaplama: kaplama,
             source: 'auto-generated',
-            isStProduct: true
+            isStProduct: true,
+            isExisting: false
           });
         }
       } catch (error) {
@@ -3119,7 +3246,8 @@ const TavliBalyaTelNetsis = () => {
               kaplama: kaplama,
               source: 'auto-generated',
               priority: 0,
-              isMain: true
+              isMain: true,
+              isExisting: false
             });
           }
         } catch (error) {
@@ -3147,7 +3275,8 @@ const TavliBalyaTelNetsis = () => {
               kaplama: kaplama,
               source: 'auto-generated',
               priority: 0,
-              isMain: true
+              isMain: true,
+              isExisting: false
             });
           }
         } catch (error) {
@@ -3162,7 +3291,10 @@ const TavliBalyaTelNetsis = () => {
 
       // Check if not already in selectedYmSts
       const existingStokKodus = selectedYmSts.map(y => y.stok_kodu);
-      const productsToAdd = existingProducts.filter(p => !existingStokKodus.includes(p.stok_kodu));
+      const productsToAdd = existingProducts.filter(p => !existingStokKodus.includes(p.stok_kodu)).map(p => ({
+        ...p,
+        isExisting: true // Flag to indicate this is an existing product
+      }));
 
       if (productsToAdd.length > 0) {
         setSelectedYmSts(prev => [...prev, ...productsToAdd]);
@@ -3671,7 +3803,7 @@ const TavliBalyaTelNetsis = () => {
           }
         }
         
-        // Now check if these YM STs have relationships with MM TT and YM GT
+        // Now check if these YM STs have relationships with MM TT and YM TT
         // and load their recipes as well
         for (let i = 0; i < selectedExisting.length; i++) {
           const ymSt = selectedExisting[i];
@@ -3683,7 +3815,7 @@ const TavliBalyaTelNetsis = () => {
                 const relations = await relationResponse.json();
                 
                 if (relations && relations.length > 0) {
-                  // Found relationships - load MM TT and YM GT recipes
+                  // Found relationships - load MM TT and YM TT recipes
                   for (const relation of relations) {
                     const ymStIndex = prevSelectedLength + i;
                     
@@ -3710,7 +3842,7 @@ const TavliBalyaTelNetsis = () => {
                       }
                     }
                     
-                    // Load YM GT recipes if relation has ym_gt_id
+                    // Load YM TT recipes if relation has ym_gt_id
                     if (relation.ym_gt_id) {
                       const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
                       let ymGtRecipeResponse = null;
@@ -4963,11 +5095,11 @@ const TavliBalyaTelNetsis = () => {
         await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${sessionSavedProducts.mmIds[0]}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          body: JSON.stringify(generateMmTtDatabaseData(sequence))
         });
       }
       
-      // Sadece 1 YM GT'yi güncelle
+      // Sadece 1 YM TT'yi güncelle
       if (sessionSavedProducts.ymGtId) {
         await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}/${sessionSavedProducts.ymGtId}`, {
           method: 'PUT',
@@ -5005,9 +5137,9 @@ const TavliBalyaTelNetsis = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               mm_gt_id: sessionSavedProducts.mmIds[0],
-              ym_gt_id: sessionSavedProducts.ymGtId, // Include YM GT ID
-              ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex],
-              is_main: true
+              ym_gt_id: sessionSavedProducts.ymGtId, // Include YM TT ID
+              ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex]
+              // is_main: Removed - not in database schema
             })
           });
         }
@@ -5276,7 +5408,7 @@ const TavliBalyaTelNetsis = () => {
         mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${selectedExistingMm.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          body: JSON.stringify(generateMmTtDatabaseData(sequence))
         });
         
         if (mmResponse && mmResponse.ok) {
@@ -5289,7 +5421,7 @@ const TavliBalyaTelNetsis = () => {
         mmResponse = await fetchWithAuth(API_URLS.tavliBalyaMm, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          body: JSON.stringify(generateMmTtDatabaseData(sequence))
         });
         
         if (mmResponse && mmResponse.ok) {
@@ -5332,7 +5464,7 @@ const TavliBalyaTelNetsis = () => {
           const relationshipData = {
             mm_gt_id: mmIds[0], // TT MM ID
             ym_st_id: ymStIds[i],
-            is_main: i === mainYmStIndex,
+            // is_main: Removed - not in database schema (use sequence_index to determine main)
             sequence_index: i
           };
           
@@ -5555,7 +5687,7 @@ const TavliBalyaTelNetsis = () => {
         const mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${existingMmGt.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          body: JSON.stringify(generateMmTtDatabaseData(sequence))
         });
         if (mmResponse && mmResponse.ok) {
           mmIds.push(existingMmGt.id);
@@ -5565,7 +5697,7 @@ const TavliBalyaTelNetsis = () => {
         const mmResponse = await fetchWithAuth(API_URLS.tavliBalyaMm, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmGtDatabaseData(sequence))
+          body: JSON.stringify(generateMmTtDatabaseData(sequence))
         });
         
         if (mmResponse && mmResponse.ok) {
@@ -5666,8 +5798,8 @@ const TavliBalyaTelNetsis = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             mm_gt_id: mmIds[0],
-            ym_st_id: ymStIds[mainYmStIndex],
-            is_main: true
+            ym_st_id: ymStIds[mainYmStIndex]
+            // is_main: Removed - not in database schema
           })
         });
       } catch (relationError) {
@@ -5824,7 +5956,7 @@ const TavliBalyaTelNetsis = () => {
     return nextVal.toString().padStart(2, '0');
   };
 
-  const generateMmGtDatabaseData = (sequence = '00') => {
+  const generateMmTtDatabaseData = (sequence = '00') => {
     // Sequence değerini doğrula
     const validSequence = validateSequence(sequence);
     const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
@@ -5925,7 +6057,7 @@ const TavliBalyaTelNetsis = () => {
       br_1: 'KG',
       br_2: 'TN',
       pay_1: 1,
-      payda_1: 1000.000, // KG to TN conversion - CORRECT for YM ST (differs from MM TT/YM GT)
+      payda_1: 1000.000, // KG to TN conversion - CORRECT for YM ST (differs from MM TT/YM TT)
       cevrim_degeri_1: 0.00, // Conversion rate - matches database format
       olcu_br_3: 'AD',
       cevrim_pay_2: 1,
@@ -6174,7 +6306,7 @@ const TavliBalyaTelNetsis = () => {
       
       // Prepare tracking data for the request update
       const currentProductKey = generateProductKey({
-        stok_adi: generateMmGtStokAdi(),
+        stok_adi: generateMmTtStokAdi(),
         cap: mmData.cap,
         kalinlik: mmData.kalinlik,
         product_type: mmData.product_type,
@@ -6195,7 +6327,7 @@ const TavliBalyaTelNetsis = () => {
         stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
         // Add tracking fields
         original_stok_adi: originalProductData?.mm?.stok_adi || selectedRequest.stok_adi || '',
-        final_stok_adi: generateMmGtStokAdi(),
+        final_stok_adi: generateMmTtStokAdi(),
         original_product_key: originalProductData ? generateProductKey(originalProductData.mm) : '',
         final_product_key: currentProductKey,
         changed_fields: JSON.stringify(changedFieldNames),
@@ -7138,7 +7270,7 @@ const TavliBalyaTelNetsis = () => {
 
   // Ölçü birimi alma fonksiyonu
   const getOlcuBr = (bilesen) => {
-    // For YM GT readonly component always show KG
+    // For YM TT readonly component always show KG
     if (bilesen === 'readonly') return 'KG';
 
     // For process codes with 01 suffix, typically times (in minutes - DK)
@@ -7148,7 +7280,7 @@ const TavliBalyaTelNetsis = () => {
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';
     if (bilesen.includes('CEMBER') || bilesen.includes('SHRİNK')) return 'KG';
-    if (bilesen.includes('YM.GT.')) return 'KG';
+    if (bilesen.includes('YM.GT.')) return 'KG'; // Note: YM.GT codes exist for special products (armored wire)
     if (bilesen.includes('FLM.')) return 'KG';
     return 'KG';
   };
@@ -8050,7 +8182,7 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`🚀 BULK EXCEL TT: Found TT MM(${allMMProducts.length}), YM ST(${allYMSTProducts.length}) products`);
 
-      // 2. Fetch all recipe data (NO YM.GT recipes for Tavli/Balya)
+      // 2. Fetch all recipe data (uses YM.TT intermediates for Tavli/Balya)
       setExcelProgress({ current: 2, total: 4, operation: 'Reçete verileri alınıyor...', currentProduct: '' });
 
       const [mmReceteResponse, ymstReceteResponse] = await Promise.all([
@@ -8094,7 +8226,7 @@ const TavliBalyaTelNetsis = () => {
     }
   }, []);
 
-  // Helper function to generate Excel files from bulk data - Simplified for Tavli/Balya (4 sheets total, no YM.GT)
+  // Helper function to generate Excel files from bulk data - Simplified for Tavli/Balya (4 sheets total, uses YM.TT intermediates)
   const generateBulkExcelFiles = async (allMMProducts, allYMSTProducts, allMMRecetes, allYMSTRecetes) => {
 
     // ===== 1. STOK KARTLARI EXCEL (2 sheets: TT MM + YM ST) =====
@@ -8244,7 +8376,7 @@ const TavliBalyaTelNetsis = () => {
 
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmMap = new Map(); // key: stok_kodu, value: MM TT data
-    const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
+    const ymGtMap = new Map(); // key: stok_kodu, value: YM TT data (variable name kept for compatibility)
     const ymStMap = new Map(); // key: stok_kodu, value: YM ST data (main only)
     const ymStAltMaps = {}; // Dynamic: { 1: Map, 2: Map, 3: Map, ... } for unlimited alternatives
     const mmRecipeMap = new Map(); // key: `${mm_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
@@ -8329,7 +8461,7 @@ const TavliBalyaTelNetsis = () => {
             console.log(`➕ [${request.id}] Adding MM TT to map: ${mm.stok_kodu} (ID: ${mm.id})`);
             mmMap.set(mm.stok_kodu, mm);
 
-            // STEP 1: Fetch MM TT recipes first to extract YM GT stok_kodu
+            // STEP 1: Fetch MM TT recipes first to extract YM TT stok_kodu
             console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching MM TT recipes for mm_gt_id=${mm.id} (stok_kodu: ${mm.stok_kodu})...`);
             const allRecipesResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?limit=10000`);
             let mmRecipes = [];
@@ -8374,7 +8506,7 @@ const TavliBalyaTelNetsis = () => {
               });
             }
 
-            // STEP 2: Extract YM GT stok_kodu from MM TT recipes
+            // STEP 2: Extract YM TT stok_kodu from MM TT recipes
             const ymGtRecipe = mmRecipes.find(r =>
               (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
               r.bilesen_kodu &&
@@ -8383,7 +8515,7 @@ const TavliBalyaTelNetsis = () => {
 
             let ymGtStokKodu = null;
             if (ymGtRecipe) {
-              // Extract and update YM GT stok_kodu with MM TT sequence
+              // Extract and update YM TT stok_kodu with MM TT sequence
               const mmSequence = mm.stok_kodu?.split('.').pop() || '00';
               const bilesenParts = ymGtRecipe.bilesen_kodu.split('.');
               if (bilesenParts.length >= 5) {
@@ -8393,11 +8525,11 @@ const TavliBalyaTelNetsis = () => {
                 ymGtStokKodu = ymGtRecipe.bilesen_kodu;
               }
             } else {
-              // Fallback: Construct YM GT stok_kodu from MM TT stok_kodu
-              ymGtStokKodu = mm.stok_kodu.replace('GT.', 'YM.GT.');
+              // Fallback: Construct YM TT stok_kodu from MM TT stok_kodu
+              ymGtStokKodu = mm.stok_kodu.replace('GT.', 'YM.GT.'); // Note: Variable name kept for compatibility
             }
 
-            // STEP 3: Fetch YM GT by stok_kodu
+            // STEP 3: Fetch YM TT by stok_kodu
             if (ymGtStokKodu) {
               const allYmGtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
 
@@ -8408,14 +8540,14 @@ const TavliBalyaTelNetsis = () => {
                 if (ymGt) {
                   ymGtMap.set(ymGt.stok_kodu, ymGt);
 
-                  // Fetch YM GT recipes
+                  // Fetch YM TT recipes
                   const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
 
                   if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
                     const allYmGtRecipes = await allYmGtRecipesResponse.json();
                     const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
 
-                    // Store YM GT recipes
+                    // Store YM TT recipes
                     ymGtRecipes.forEach(r => {
                       const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
                       ymGtRecipeMap.set(key, {
@@ -8426,7 +8558,7 @@ const TavliBalyaTelNetsis = () => {
                       });
                     });
 
-                    // STEP 4: Extract main YM ST from YM GT recipes
+                    // STEP 4: Extract main YM ST from YM TT recipes
                     const mainYmStRecipe = ymGtRecipes.find(r =>
                       (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                       r.bilesen_kodu &&
@@ -8472,19 +8604,19 @@ const TavliBalyaTelNetsis = () => {
             // ✅ FIXED: STEP 5: Handle alternatives using PRIORITY column (not relationship table)
             console.log(`📋 BATCH: Using priority-based method for MM TT ${mm.stok_kodu}`);
 
-            // Use YM GT that was already fetched and added to map (from line 10501)
+            // Use YM TT that was already fetched and added to map (from line 10501)
             // Don't rely on ymGtData array which might be empty due to API timeout
             const ymGtForPriority = ymGtMap.get(ymGtStokKodu);
 
             if (ymGtForPriority) {
               const ymGtIdForPriority = ymGtForPriority.id;
 
-              // Add YM GT to map (if not already added)
+              // Add YM TT to map (if not already added)
               if (!ymGtMap.has(ymGtForPriority.stok_kodu)) {
                 ymGtMap.set(ymGtForPriority.stok_kodu, ymGtForPriority);
               }
 
-              // Get YM GT recipes (might already be in map from above)
+              // Get YM TT recipes (might already be in map from above)
               const ymGtRecipesForPriority = ymGtRecipeData.filter(r => r.ym_gt_id == ymGtIdForPriority);
 
               // Store recipes if not already stored
@@ -8500,7 +8632,7 @@ const TavliBalyaTelNetsis = () => {
                 }
               });
 
-              // ✅ FIXED: Find YM ST bilesen from YM GT recipe
+              // ✅ FIXED: Find YM ST bilesen from YM TT recipe
               const ymStRecipe = ymGtRecipesForPriority.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
               if (ymStRecipe) {
                 const mainYmStCode = ymStRecipe.bilesen_kodu;
@@ -8713,7 +8845,7 @@ const TavliBalyaTelNetsis = () => {
       })));
     }
     if (sortedYmGtData.length > 0) {
-      console.log('📦 YM GT Products details (sorted by cap):', sortedYmGtData.map(y => ({
+      console.log('📦 YM TT Products details (sorted by cap):', sortedYmGtData.map(y => ({
         stok_kodu: y.stok_kodu,
         id: y.id,
         cap: y.cap
@@ -8750,7 +8882,7 @@ const TavliBalyaTelNetsis = () => {
       current: requestsList.length + 1,
       total: totalSteps,
       operation: 'Stok Kartı Excel oluşturuluyor...',
-      currentProduct: `${sortedMmGtData.length} MM TT, ${sortedYmGtData.length} YM GT, ${sortedYmStData.length} YM ST (Ana)${altCounts ? ', ' + altCounts : ''}`
+      currentProduct: `${sortedMmGtData.length} MM TT, ${sortedYmGtData.length} YM TT, ${sortedYmStData.length} YM ST (Ana)${altCounts ? ', ' + altCounts : ''}`
     });
     await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAltData);
 
@@ -8793,7 +8925,7 @@ const TavliBalyaTelNetsis = () => {
 
     // Add multiple MM TT rows (one per product)
     for (const mm of mmData) {
-      mmSheet.addRow(generateMmGtStokKartiDataForBatch(mm));
+      mmSheet.addRow(generateMmTtStokKartiDataForBatch(mm));
     }
 
     // YM TT Sheet (Annealed Intermediate - shared by both TAVLI and BALYA)
@@ -8902,7 +9034,7 @@ const TavliBalyaTelNetsis = () => {
         console.log(`✅ Adding ${mmByProduct[stokKodu].length} recipes for MM TT: ${stokKodu}`);
         let productSiraNo = 1; // Restart sequence for each product
         mmByProduct[stokKodu].forEach(recipe => {
-          mmReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
+          mmReceteSheet.addRow(generateMmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
           productSiraNo++;
         });
       } else {
@@ -9169,7 +9301,7 @@ const TavliBalyaTelNetsis = () => {
     mmSheet.addRow(stokKartiHeaders);
     
     // Sadece 1 MM TT ekle (doğru sequence ile)
-    mmSheet.addRow(generateMmGtStokKartiData(excelData.sequence));
+    mmSheet.addRow(generateMmTtStokKartiData(excelData.sequence));
     
     // YM ST Sheet - Ana YM ST'yi ilk sıraya ekle
     const ymStSheet = workbook.addWorksheet('YM ST');
@@ -9303,7 +9435,7 @@ const TavliBalyaTelNetsis = () => {
     // MM TT reçete satırlarını eklerken doğru sequence'i kullan - Sadece 8 satır olmalı
     orderedEntries.forEach(([key, value]) => {
       if (value > 0) {
-        mmReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+        mmReceteSheet.addRow(generateMmTtReceteRow(key, value, siraNo, sequence));
         siraNo++;
       }
     });
@@ -9386,7 +9518,11 @@ const TavliBalyaTelNetsis = () => {
           const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
           // Generate complete stok_adi with all the formatting
-          const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${excelData.mmData.min_mukavemet || '0'}-${excelData.mmData.max_mukavemet || '0'} MPa ID:${excelData.mmData.ic_cap || '45'} cm OD:${excelData.mmData.dis_cap || '75'} cm ${excelData.mmData.kg || '0'}${bagAmount} kg`;
+          // Use product_type to determine the correct product name
+          const productName = excelData.mmData.product_type === 'TAVLI' ? 'Tavlı Tel' :
+                              excelData.mmData.product_type === 'BALYA' ? 'Balya Teli' :
+                              'Tavlı Tel'; // Default to Tavlı Tel if not specified
+          const generatedStokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${excelData.mmData.min_mukavemet || '0'}-${excelData.mmData.max_mukavemet || '0'} MPa ID:${excelData.mmData.ic_cap || '45'} cm OD:${excelData.mmData.dis_cap || '75'} cm ${excelData.mmData.kg || '0'}${bagAmount} kg`;
           
           // Extract packaging suffixes from the saved task data
           const suffixes = [];
@@ -9492,28 +9628,9 @@ const TavliBalyaTelNetsis = () => {
     }
     
     // OLD CODE BELOW - keeping as fallback (should not reach here)
-    
+
     // Helper functions for direct Excel generation
-    // ⚠️ DEPRECATED: Old galvanizli functions - kept for backward compatibility
-    function generateYmGtStokAdi(mmData, sequence) {
-      const cap = parseFloat(mmData.cap);
-      const bagAmount = mmData.cast_kont && mmData.cast_kont.trim() !== ''
-        ? `/${mmData.cast_kont}`
-        : '';
-
-      return `Yumak Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${mmData.kaplama || '0'} gr/m² ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg Shrink`;
-    }
-
-    function generateYmGtEnglishName(mmData, sequence) {
-      const cap = parseFloat(mmData.cap);
-      const bagAmount = mmData.cast_kont && mmData.cast_kont.trim() !== ''
-        ? `/${mmData.cast_kont}`
-        : '';
-
-      return `Coil Galvanized Steel Wire ${cap.toFixed(2)} mm ${mmData.kaplama || '0'} gr/m² ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg Shrink`;
-    }
-
-    // ✅ NEW: Tavlı/Balya Tel name generators
+    // Tavlı/Balya Tel name generators
     function generateYmTtStokAdi(mmData, sequence) {
       const cap = parseFloat(mmData.cap);
       const bagAmount = mmData.cast_kont && mmData.cast_kont.trim() !== ''
@@ -9549,9 +9666,9 @@ const TavliBalyaTelNetsis = () => {
       const mmHeaders = getStokKartiHeaders();
       mmSheet.addRow(mmHeaders);
       
-      // Add MM TT data using the perfected generateMmGtStokKartiDataForBatch function
+      // Add MM TT data using the perfected generateMmTtStokKartiDataForBatch function
       for (const mm of mmData) {
-        mmSheet.addRow(generateMmGtStokKartiDataForBatch(mm));
+        mmSheet.addRow(generateMmTtStokKartiDataForBatch(mm));
       }
       
       
@@ -9633,11 +9750,11 @@ const TavliBalyaTelNetsis = () => {
         // Add entries in the PERFECTED fixed order (YM.TT then operations) - without desiEntry
         const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, cemberEntry, tokaEntry].filter(Boolean);
         
-        // Use the PERFECTED generateMmGtReceteRowForBatch function (which accepts parameters)
+        // Use the PERFECTED generateMmTtReceteRowForBatch function (which accepts parameters)
         let siraNo = 1;
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            mmReceteSheet.addRow(generateMmGtReceteRowForBatch(key, value, siraNo, sequence, excelData.mmData.stok_kodu));
+            mmReceteSheet.addRow(generateMmTtReceteRowForBatch(key, value, siraNo, sequence, excelData.mmData.stok_kodu));
             siraNo++;
           }
         });
@@ -9844,12 +9961,12 @@ const TavliBalyaTelNetsis = () => {
       let siraNo = 1;
       orderedEntries.forEach(([key, value]) => {
         if (value > 0) {
-          mmReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+          mmReceteSheet.addRow(generateMmTtReceteRow(key, value, siraNo, sequence));
           siraNo++;
         }
       });
       
-      // Add YM GT recipes
+      // Add YM TT recipes
       const ymGtRecipe = excelData.allRecipes.ymGtRecipe || {};
       const recipeEntries = Object.entries(ymGtRecipe);
       
@@ -10516,7 +10633,7 @@ const TavliBalyaTelNetsis = () => {
     // MM TT reçete satırlarını eklerken doğru sequence'i kullan - Sadece 8 satır olmalı
     orderedEntries.forEach(([key, value]) => {
       if (value > 0) {
-        mmReceteSheet.addRow(generateMmGtReceteRow(key, value, siraNo, sequence));
+        mmReceteSheet.addRow(generateMmTtReceteRow(key, value, siraNo, sequence));
         siraNo++;
       }
     });
@@ -10727,7 +10844,7 @@ const TavliBalyaTelNetsis = () => {
 
   // Excel veri oluşturma fonksiyonları - doğru formatlar ve COMMA usage
   // Batch version that takes MM TT data as parameter
-  const generateMmGtStokKartiDataForBatch = (mm) => {
+  const generateMmTtStokKartiDataForBatch = (mm) => {
     const cap = parseFloat(mm.cap);
     const toleransPlus = parseFloat(mm.tolerans_plus) || 0;
     const toleransMinus = parseFloat(mm.tolerans_minus) || 0;
@@ -10752,7 +10869,11 @@ const TavliBalyaTelNetsis = () => {
     if (!stokAdi) {
       const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
       const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
-      stokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      // Use product_type to determine the correct product name
+      const productName = mm.product_type === 'TAVLI' ? 'Tavlı Tel' :
+                          mm.product_type === 'BALYA' ? 'Balya Teli' :
+                          'Tavlı Tel'; // Default to Tavlı Tel
+      stokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
     }
 
     // If English name is not in database, generate it
@@ -10837,7 +10958,7 @@ const TavliBalyaTelNetsis = () => {
       getGumrukTarifeKoduForCap(cap), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
-      'Galvanizli Tel', // METARIAL
+      productName, // METARIAL (use same product name as stok_adi)
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
       formatDecimalForExcel(adjustedPlus), // DIA TOL (MM) + (matching Turkish tolerans)
       formatDecimalForExcel(adjustedMinus), // DIA TOL (MM) - (matching Turkish tolerans)
@@ -10990,7 +11111,7 @@ const TavliBalyaTelNetsis = () => {
     ];
   };
 
-  const generateMmGtStokKartiData = (sequence = '00') => {
+  const generateMmTtStokKartiData = (sequence = '00') => {
     const cap = parseFloat(mmData.cap);
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     // ✅ FIXED: Use TT.BAG/TT.BALYA format based on product_type
@@ -11074,7 +11195,7 @@ const TavliBalyaTelNetsis = () => {
       getGumrukTarifeKodu(), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
       '052', // Menşei
-      'Galvanizli Tel', // METARIAL
+      mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
       formatDecimalForExcel(adjustedPlus), // DIA TOL (MM) + (adjusted value matching Turkish tolerans)
       formatDecimalForExcel(adjustedMinus), // DIA TOL (MM) - (adjusted value matching Turkish tolerans)
@@ -11284,7 +11405,7 @@ const TavliBalyaTelNetsis = () => {
     ];
   };
 
-  // Batch version that takes YM GT data as parameter
+  // Batch version that takes YM TT data as parameter
 
   const generateYmStStokKartiData = (ymSt) => {
     return [
@@ -11356,7 +11477,7 @@ const TavliBalyaTelNetsis = () => {
 
   // Reçete satır oluşturma fonksiyonları
 
-  const generateMmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
+  const generateMmTtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
 
     // Map bilesen code to new standardized code
@@ -11445,7 +11566,7 @@ const TavliBalyaTelNetsis = () => {
       'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
       'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
       // ✅ REMOVED: 'SM.DESİ.PAK': 'SM-KMY-000102' - not in tavlı/balya specification
-      // YM GT bilesen mappings (galvanizli-specific)
+      // YM TT bilesen mappings (tavlı/balya-specific)
       '150 03': 'HM-000001',
       'SM.HİDROLİK.ASİT': 'SM-KMY-000096'
     };
@@ -11454,7 +11575,7 @@ const TavliBalyaTelNetsis = () => {
   };
 
   // Batch Excel için MM TT recipe row generator
-  const generateMmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmStokKodu) => {
+  const generateMmTtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmStokKodu) => {
     // FIXED: MM TT recipe should use MM TT stok kodu, not YM GT format
     // The mmStokKodu is already in correct format (GT.PAD.0087.00)
 
@@ -11608,7 +11729,7 @@ const TavliBalyaTelNetsis = () => {
     ];
   };
 
-  // Batch Excel için YM GT recipe row generator
+  // Batch Excel için YM TT recipe row generator
 
   // Batch Excel için YM ST recipe row generator (stok_kodu ve priority parametreli)
   const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu, priority = '') => {
@@ -12559,11 +12680,27 @@ const TavliBalyaTelNetsis = () => {
                                 onChange={() => setMainYmStIndex(selectedIndex)}
                                 className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500"
                               />
-                              <label htmlFor={`main-ymst-${index}`} className="font-semibold text-gray-800 text-sm">
+                              <label htmlFor={`main-ymst-${index}`} className="font-semibold text-gray-800 text-sm flex items-center gap-2">
                                 {isMain && (
                                   <span className="text-blue-700 font-bold mr-1">Ana YM ST - </span>
                                 )}
                                 {ymSt.stok_kodu || ''}
+                                {ymSt.isExisting === true && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    Mevcut
+                                  </span>
+                                )}
+                                {ymSt.isExisting === false && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 border border-orange-300">
+                                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                                    </svg>
+                                    Yeni
+                                  </span>
+                                )}
                               </label>
                             </div>
                             <p className="text-xs text-gray-600 mt-1 line-clamp-2 ml-6">{ymSt.stok_adi || ''}</p>
@@ -12632,11 +12769,27 @@ const TavliBalyaTelNetsis = () => {
                                 onChange={() => setMainYmStIndex(autoIndex)}
                                 className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500"
                               />
-                              <label htmlFor={`main-ymst-auto-${index}`} className="font-semibold text-gray-800 text-sm">
+                              <label htmlFor={`main-ymst-auto-${index}`} className="font-semibold text-gray-800 text-sm flex items-center gap-2">
                                 {isMain && (
                                   <span className="text-blue-700 font-bold mr-1">Ana YM ST - </span>
                                 )}
                                 {ymSt.stok_kodu || ''}
+                                {ymSt.isExisting === true && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    Mevcut
+                                  </span>
+                                )}
+                                {ymSt.isExisting === false && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 border border-orange-300">
+                                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                                    </svg>
+                                    Yeni
+                                  </span>
+                                )}
                               </label>
                             </div>
                             <p className="text-xs text-gray-600 mt-1 line-clamp-2 ml-6">{ymSt.stok_adi || ''}</p>
@@ -15495,7 +15648,7 @@ const TavliBalyaTelNetsis = () => {
               
               <p className="text-gray-600 mb-6">
                 {deleteType === 'mm' 
-                  ? 'Bu MM TT\'yi ve tüm bağlı verilerini (YM GT\'ler, reçeteler vb.) silmek istediğinizden emin misiniz?'
+                  ? 'Bu MM TT\'yi ve tüm bağlı verilerini (YM TT\'ler, reçeteler vb.) silmek istediğinizden emin misiniz?'
                   : 'Bu YM ST\'yi ve bağlı reçetelerini silmek istediğinizden emin misiniz?'
                 }
               </p>
@@ -15542,7 +15695,7 @@ const TavliBalyaTelNetsis = () => {
               
               <p className="text-gray-600 mb-4">
                 {activeDbTab === 'mm' 
-                  ? 'Tüm MM TT ve ilişkili YM GT verilerini ve bunların tüm reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'
+                  ? 'Tüm MM TT ve ilişkili YM TT verilerini ve bunların tüm reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'
                   : 'Tüm YM ST verilerini ve reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'}
               </p>
               

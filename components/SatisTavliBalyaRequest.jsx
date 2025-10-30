@@ -2190,7 +2190,7 @@ const SatisTavliBalyaRequest = () => {
                   )}
                   <div>
                     <p className="text-sm font-medium text-gray-500">Mukavemet</p>
-                    <p className="text-base text-gray-900">{selectedRequest.min_mukavemet} - {selectedRequest.max_mukavemet} MPa</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.min_mukavemet)} - {parseFloat(selectedRequest.max_mukavemet)} MPa</p>
                   </div>
                 </div>
                 
@@ -2198,15 +2198,15 @@ const SatisTavliBalyaRequest = () => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ağırlık</p>
-                    <p className="text-base text-gray-900">{selectedRequest.kg} kg</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.kg)} kg</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">İç Çap</p>
-                    <p className="text-base text-gray-900">{selectedRequest.ic_cap} cm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.ic_cap)} cm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Dış Çap</p>
-                    <p className="text-base text-gray-900">{selectedRequest.dis_cap} cm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.dis_cap)} cm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
