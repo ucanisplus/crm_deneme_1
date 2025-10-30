@@ -6574,8 +6574,8 @@ const TavliBalyaTelNetsis = () => {
             fire_orani: 0,
             olcu_br_bilesen: '1',
             ua_dahil_edilsin: recipe.operasyon_bilesen === 'O' ? 'E' : '',
-            son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : '',
-            uretim_suresi: recipe.operasyon_bilesen === 'O' ? recipe.miktar : null
+            son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : ''
+            // ✅ REMOVED: uretim_suresi - column doesn't exist in tavli_netsis_ym_stp_recete table
           })
         });
       }
@@ -7521,6 +7521,10 @@ const TavliBalyaTelNetsis = () => {
     if (bilesen.includes('KARTON') || bilesen === 'SM-AMB-000019') return 'Karton Tüketim Miktarı';
     if (bilesen.includes('SHRİNK') || bilesen === 'SM-AMB-000027' || bilesen === 'SM-AMB-000028' || bilesen === 'SM-AMB-000030') return 'Naylon Tüketim Miktarı';
     if (bilesen.includes('HALKA') || bilesen === 'SM-AMB-000023') return 'Kaldırma Kancası Tüketim Miktarı';
+    // ✅ FIXED: Check Plastik Çember BEFORE general CEMBER check
+    if (bilesen.includes('PLASTİK') || bilesen === 'SM-AMB-000024') return 'Plastik çember Tüketim Miktarı';
+    if (bilesen.includes('STREÇ') || bilesen === 'SM-AMB-000025') return 'Streç Tüketim Miktarı';
+    if (bilesen.includes('PALET') || bilesen === 'SM-AMB-000026') return 'Palet Tüketim Miktarı';
     if (bilesen.includes('CEMBER') || bilesen === 'SM-AMB-000017') return 'Çelik çember Tüketim Miktarı';
     if (bilesen.includes('TOKA') || bilesen === 'SM-AMB-000018') return 'Çember Tokası Tüketim Miktarı';
     // ✅ REMOVED: Silkajel (SM.DESİ.PAK / SM-KMY-000102) - not in tavlı/balya specification
@@ -11720,6 +11724,9 @@ const TavliBalyaTelNetsis = () => {
     const bilesenMapping = {
       // MM TT bilesen mappings
       'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
+      'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // ✅ ADDED: Plastik Çember for MM products
+      'AMB.STREÇ': 'SM-AMB-000025', // ✅ ADDED: Streç for MM products
+      'AMB.PALET': 'SM-AMB-000026', // ✅ ADDED: Palet for MM products
       'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
       'SM.7MMHALKA': 'SM-AMB-000023',
       'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019',
