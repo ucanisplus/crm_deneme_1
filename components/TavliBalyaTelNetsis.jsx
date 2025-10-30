@@ -7,6 +7,218 @@ import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+// YM ST Wire Drawing Matrix (from GalvanizliTel - REUSED for YM.ST product creation)
+// Products >= 1.50mm use TLC01 direct drawing, < 1.50mm use COTLC01 two-step method
+// Priority: 0 = Ana (Main), 1 = ALT_1, 2 = ALT_2, etc.
+// NOTE: Each key represents a RANGE (e.g., 1.50 covers 1.50-1.59mm, 7.20 covers 7.20-7.29mm)
+// NOTE: Matrix only includes >= 1.50mm targets (< 1.50mm products use YM.ST sources, not Filmaşin)
+const YM_ST_FILMASIN_PRIORITY_MAP = {
+  // 1.50-1.59mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
+  1.50: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.60-1.69mm range: Ana=6.0/1006, ALT_1=5.5/1006, ALT_2=6.0/1008
+  1.60: [{ diameter: 6.0, quality: '1006' }, { diameter: 5.5, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.70-1.79mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.80-1.89mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.80: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 1.90-1.99mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  1.90: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.00-2.09mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.00: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.10-2.19mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.10: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.20-2.29mm range: Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006
+  2.20: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1006' }],
+  // 2.30-2.39mm range: Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006
+  2.30: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1006' }],
+  // 2.40-2.49mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.40: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.50-2.59mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.50: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.60-2.69mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.60: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.70-2.79mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.70: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.80-2.89mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.80: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 2.90-2.99mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  2.90: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.00-3.09mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.00: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.10-3.19mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.10: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.20-3.29mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.20: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.30-3.39mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.30: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.40-3.49mm range: Ana=6.0/1006, ALT_1=6.0/1008
+  3.40: [{ diameter: 6.0, quality: '1006' }, { diameter: 6.0, quality: '1008' }],
+  // 3.50-3.59mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.50: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.60-3.69mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.60: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.70-3.79mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.70: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.80-3.89mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.80: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 3.90-3.99mm range: Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010
+  3.90: [{ diameter: 6.0, quality: '1008' }, { diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.00-4.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.10-4.19mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.10: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.20-4.29mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.20: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.30-4.39mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.30: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.40-4.49mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.40: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.50-4.59mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.60-4.69mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.60: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.70-4.79mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.70: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.80-4.89mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.80: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 4.90-4.99mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  4.90: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.00-5.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.10-5.19mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.10: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.20-5.29mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.20: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.30-5.39mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.30: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.40-5.49mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.40: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.50-5.59mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.50: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.60-5.69mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.60: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.70-5.79mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.70: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.80-5.89mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.80: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 5.90-5.99mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  5.90: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 6.00-6.09mm range: Ana=7.0/1008, ALT_1=7.0/1010
+  6.00: [{ diameter: 7.0, quality: '1008' }, { diameter: 7.0, quality: '1010' }],
+  // 6.10-6.19mm range: Ana=8.0/1010
+  6.10: [{ diameter: 8.0, quality: '1010' }],
+  // 6.20-6.29mm range: Ana=8.0/1010
+  6.20: [{ diameter: 8.0, quality: '1010' }],
+  // 6.30-6.39mm range: Ana=8.0/1010
+  6.30: [{ diameter: 8.0, quality: '1010' }],
+  // 6.40-6.49mm range: Ana=8.0/1010
+  6.40: [{ diameter: 8.0, quality: '1010' }],
+  // 6.50-6.59mm range: Ana=8.0/1010
+  6.50: [{ diameter: 8.0, quality: '1010' }],
+  // 6.60-6.69mm range: Ana=8.0/1010
+  6.60: [{ diameter: 8.0, quality: '1010' }],
+  // 6.70-6.79mm range: Ana=8.0/1010
+  6.70: [{ diameter: 8.0, quality: '1010' }],
+  // 6.80-6.89mm range: Ana=8.0/1010
+  6.80: [{ diameter: 8.0, quality: '1010' }],
+  // 6.90-6.99mm range: Ana=8.0/1010
+  6.90: [{ diameter: 8.0, quality: '1010' }],
+  // 7.00-7.09mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.00: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.10-7.19mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.10: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.20-7.29mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.20: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.30-7.39mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.30: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.40-7.49mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.40: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 7.50-7.59mm range: Ana=9.0/1010, ALT_1=9.0/1008
+  7.50: [{ diameter: 9.0, quality: '1010' }, { diameter: 9.0, quality: '1008' }],
+  // 8.00-8.09mm range: Ana=10.0/1010
+  8.00: [{ diameter: 10.0, quality: '1010' }],
+  // 8.10-8.19mm range: Ana=10.0/1010
+  8.10: [{ diameter: 10.0, quality: '1010' }]
+};
+
+// Helper: Floor diameter to matrix range (e.g., 7.29 → 7.20, 4.18 → 4.10)
+const floorToMatrixRange = (diameter) => {
+  const d = parseFloat(diameter);
+  if (d < 1.50) return null; // Below matrix range
+  if (d >= 8.10) return 8.10; // Max range
+
+  // Floor to nearest 0.10mm, except for ranges that jump (6.00→6.10, 7.50→8.00)
+  const floored = Math.floor(d * 10) / 10;
+  if (floored >= 6.00 && floored < 6.10) return 6.00;
+  if (floored >= 7.50 && floored < 8.00) return 7.50;
+  return floored;
+};
+
+// YM ST COILER (.ST) Products Alternative Matrix
+// For .ST products (COTLC01 method) that use classical YM.ST products as sources
+// Main (0) uses xxx.0600.1006, ALT 1 uses xxx.0600.1008, ALT 2 uses xxx.0550.1006
+// NOTE: Only for diameters 2.00-2.30mm (.ST product final diameters)
+// ============================================================================
+// COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
+// Based on: COİL ALTERNATİF.csv
+// ============================================================================
+const COILER_ALTERNATIVE_MATRIX = {
+  // Category 1: 0.84mm ONLY (YM.ST.084.ST)
+  '0.84': [
+    { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+  ],
+
+  // Category 1.5: 1.16mm ONLY (Special ZIRH TELİ product)
+  '1.16': [
+    { priority: 0, cap: 2.26, filmasin: 5.5, quality: '1005' },  // Main: YM.ST.0226.0550.1005
+    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1005' }   // Alt 1: YM.ST.0216.0550.1005
+  ],
+
+  // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
+  '≤1.49': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+  ],
+
+  // Category 3: 1.50mm to 1.79mm
+  '1.50-1.79': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
+    { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
+    { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
+    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
+    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
+  ]
+};
+
+// Helper: Determine which COILER category a .ST product belongs to
+const getCoilerCategory = (stokKodu) => {
+  // Extract diameter from YM.ST.084.ST -> 0.84mm
+  const match = stokKodu.match(/YM\.ST\.(\d{4})\.ST/);
+  if (!match) return null;
+
+  const diameter = parseInt(match[1], 10) / 100; // 084 -> 0.84
+
+  if (diameter === 0.84) return '0.84';
+  if (diameter === 1.16) return '1.16'; // Special ZIRH TELİ product
+  if (diameter <= 1.49) return '≤1.49';
+  if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
+
+  return null; // Outside COILER range
+};
+
 // Tavlı Tel / Balya Teli Recipe Structure - 4 Production Flows with Intermediates
 // ============================================================================
 // CORRECTED FLOWS (YM YB does not exist - both use YM TT):
@@ -499,6 +711,18 @@ const TavliBalyaTelNetsis = () => {
       const cap = parseFloat(mmData.cap) || 0;
       const needsPress = cap > 2.0;
       setNeedsPressing(needsPress);
+    }
+  }, [mmData.cap]);
+
+  // Calculate suggested YM.ST diameter (final diameter - 0.04mm)
+  useEffect(() => {
+    if (mmData.cap && parseFloat(mmData.cap) > 0) {
+      const finalDiameter = parseFloat(mmData.cap);
+      const suggestedYmStDiameter = finalDiameter - 0.04;
+      setCalculatedYmStDiameter(suggestedYmStDiameter);
+      console.log(`💡 Suggested YM.ST diameter for ${finalDiameter}mm Tavli/Balya: ${suggestedYmStDiameter.toFixed(2)}mm`);
+    } else {
+      setCalculatedYmStDiameter(null);
     }
   }, [mmData.cap]);
 
@@ -2812,7 +3036,8 @@ const TavliBalyaTelNetsis = () => {
     }, 100);
   };
 
-  // Simplified YM ST creation based on user-entered diameter
+  // Simplified YM ST creation for Tavli/Balya - Always creates ONE siyah tel product
+  // Tavli/Balya NEVER uses filmaşin - only siyah tel (YM.ST) which goes to TAV01 (annealing)
   const handleCreateYmStFromDiameter = async () => {
     const ymStDiameter = parseFloat(userYmStDiameter);
 
@@ -2821,15 +3046,22 @@ const TavliBalyaTelNetsis = () => {
       return;
     }
 
-    const kaplama = parseInt(mmData.kaplama) || 0;
-    const autoYmSts = [];
-    const existingProducts = []; // Collect all existing products
+    console.log(`🔧 Creating YM ST product for Tavli/Balya - diameter: ${ymStDiameter}mm`);
+    console.log(`📍 YM.ST products are intermediate products made FROM filmaşin`);
+    console.log(`📍 Will create ONLY the MAIN (priority 0) YM.ST product`);
 
-    console.log(`🔧 Creating YM ST products for diameter: ${ymStDiameter}mm`);
+    const autoYmSts = [];
+    const existingProducts = [];
+
+    // IMPORTANT: Create ONLY ONE YM.ST product - the MAIN (priority 0) from the matrix
+    // Alternatives will be generated in Excel recipes, not as separate products upfront
+    // Format: YM.ST.XXXX.YYYY.ZZZZ where:
+    // XXXX = cap (diameter)
+    // YYYY = filmaşin diameter (source material)
+    // ZZZZ = quality code
 
     if (ymStDiameter < 1.5) {
-      // ========== CASE 1: < 1.5mm → Only .ST products ==========
-      console.log('📍 YM ST < 1.5mm: Creating .ST product only');
+      console.log('📍 YM ST < 1.5mm: Creating simple .ST product');
 
       const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
       const stokKodu = `YM.ST.${capStr}.ST`;
@@ -2855,19 +3087,19 @@ const TavliBalyaTelNetsis = () => {
         console.error('Error checking existing .ST product:', error);
       }
 
-    } else if (ymStDiameter >= 1.5 && ymStDiameter < 1.8) {
-      // ========== CASE 2: 1.5-1.8mm → BOTH filmaşin (Ana) + .ST (ALT_1) ==========
-      console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
+    } else {
+      // ========== CASE 2: >= 1.5mm → Create ONLY the MAIN filmaşin product (priority 0) ==========
+      console.log(`📍 YM ST >= 1.5mm: Creating ONLY main filmaşin product (priority 0)`);
 
       const matrixAlts = getMatrixAlternatives(ymStDiameter);
-      const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
+      const mainAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
         ? matrixAlts[0]
         : null;
 
-      if (anaAlt) {
+      if (mainAlt) {
         const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
-        const filmasinStr = (anaAlt.diameter * 100).toString().padStart(4, '0');
-        const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${anaAlt.quality}`;
+        const filmasinStr = (mainAlt.diameter * 100).toString().padStart(4, '0');
+        const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${mainAlt.quality}`;
 
         try {
           const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
@@ -2876,10 +3108,10 @@ const TavliBalyaTelNetsis = () => {
           } else {
             autoYmSts.push({
               stok_kodu: stokKodu,
-              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${anaAlt.quality}`,
+              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${mainAlt.quality}`,
               cap: ymStDiameter,
-              filmasin: Math.round(anaAlt.diameter * 100),
-              quality: anaAlt.quality,
+              filmasin: Math.round(mainAlt.diameter * 100),
+              quality: mainAlt.quality,
               payda_1: 1,
               kaplama: kaplama,
               source: 'auto-generated',
@@ -2888,98 +3120,7 @@ const TavliBalyaTelNetsis = () => {
             });
           }
         } catch (error) {
-          console.error('Error checking Ana product:', error);
-        }
-      } else {
-        console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
-        const filmasinCap = getFilmasinForCap(ymStDiameter);
-        const quality = getQualityForCap(ymStDiameter);
-        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
-        const stokKodu = `YM.ST.${capStr}.${filmasinCap}.${quality}`;
-
-        try {
-          const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
-          if (existing) {
-            existingProducts.push(existing);
-          } else {
-            autoYmSts.push({
-              stok_kodu: stokKodu,
-              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinCap}.${quality}`,
-              cap: ymStDiameter,
-              filmasin: parseInt(filmasinCap),
-              quality: quality,
-              payda_1: 1,
-              kaplama: kaplama,
-              source: 'auto-generated',
-              priority: 0,
-              isMain: true
-            });
-          }
-        } catch (error) {
-          console.error('Error checking fallback filmasin product:', error);
-        }
-      }
-
-      // ALT_1: .ST product
-      const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
-      const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
-
-      try {
-        const existing = await checkExistingProduct(API_URLS.galYmSt, stokKoduAlt);
-        if (existing) {
-          existingProducts.push(existing);
-        } else {
-          autoYmSts.push({
-            stok_kodu: stokKoduAlt,
-            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler ALT)`,
-            cap: ymStDiameter,
-            filmasin: 0,
-            quality: 'ST',
-            payda_1: 1000,
-            kaplama: kaplama,
-            source: 'auto-generated',
-            priority: 1,
-            isStProduct: true,
-            isMain: false
-          });
-        }
-      } catch (error) {
-        console.error('Error checking .ST alternative:', error);
-      }
-
-    } else {
-      // ========== CASE 3: >= 1.8mm → Only filmaşin products ==========
-      console.log('📍 YM ST >= 1.8mm: Creating filmaşin product only');
-
-      const matrixAlts = getMatrixAlternatives(ymStDiameter);
-
-      if (matrixAlts && matrixAlts.length > 0) {
-        for (const alt of matrixAlts) {
-          const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
-          const filmasinStr = (alt.diameter * 100).toString().padStart(4, '0');
-          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${alt.quality}`;
-
-          try {
-            const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
-            if (existing) {
-              existingProducts.push(existing);
-            } else {
-              autoYmSts.push({
-                stok_kodu: stokKodu,
-                stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${alt.quality}`,
-                cap: ymStDiameter,
-                filmasin: Math.round(alt.diameter * 100),
-                quality: alt.quality,
-                payda_1: 1,
-                kaplama: kaplama,
-                source: 'auto-generated',
-                priority: alt.priority,
-                isMain: alt.priority === 0
-              });
-            }
-          } catch (error) {
-            console.error(`Error checking alternative priority ${alt.priority}:`, error);
-          }
+          console.error('Error checking main product:', error);
         }
       } else {
         console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
@@ -5905,7 +6046,8 @@ const TavliBalyaTelNetsis = () => {
     try {
       // Çap ve kod_2 değerleri için arama kriterleri oluştur
       const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const searchPattern = `GT.${mmData.kod_2}.${capFormatted}.`;
+      const productPrefix = getProductPrefix(mmData.product_type);
+      const searchPattern = `${productPrefix}.${capFormatted}.`;
       
       // Tüm MM TT ürünlerini getir
       const mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?limit=1000`);
@@ -6422,24 +6564,21 @@ const TavliBalyaTelNetsis = () => {
               } else {
               }
             } else {
-              console.error(`MMGT veritabanında bulunamadı veya stok_kodu eksik! ID: ${mmId}`);
+              console.error(`MM TT veritabanında bulunamadı veya stok_kodu eksik! ID: ${mmId}`);
               // Ürün bulunamadı durumunda otomatik kod oluştur
-              const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-              mmStokKodu = `GT.${mmData.kod_2}.${capFormatted}.00`;
+              mmStokKodu = generateMmStokKodu(mmData.product_type, mmData.cap, '00');
               mmSequence = '00';
             }
           } else {
-            console.error(`MMGT veritabanından alınamadı! ID: ${mmId}`);
+            console.error(`MM TT veritabanından alınamadı! ID: ${mmId}`);
             // API hatası durumunda otomatik kod oluştur
-            const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-            mmStokKodu = `GT.${mmData.kod_2}.${capFormatted}.00`;
+            mmStokKodu = generateMmStokKodu(mmData.product_type, mmData.cap, '00');
             mmSequence = '00';
           }
         } catch (error) {
-          console.error(`MMGT bilgileri alınırken hata: ${error.message}`);
+          console.error(`MM TT bilgileri alınırken hata: ${error.message}`);
           // Hata durumunda otomatik kod oluştur
-          const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-          mmStokKodu = `GT.${mmData.kod_2}.${capFormatted}.00`;
+          mmStokKodu = generateMmStokKodu(mmData.product_type, mmData.cap, '00');
           mmSequence = '00';
         }
       }
@@ -7940,8 +8079,8 @@ const TavliBalyaTelNetsis = () => {
     // ===== 1. STOK KARTLARI EXCEL (2 sheets: TT MM + YM ST) =====
     const stokWorkbook = new ExcelJS.Workbook();
 
-    // TT MM Sheet (Tavli/Balya finished products)
-    const mmSheet = stokWorkbook.addWorksheet('TT MM');
+    // MM TT Sheet (Tavli/Balya finished products)
+    const mmSheet = stokWorkbook.addWorksheet('MM TT');
     const mmHeaders = getTavliBalyaHeaders(); // Use specific headers for Tavli/Balya
     mmSheet.addRow(mmHeaders);
 
@@ -7982,8 +8121,8 @@ const TavliBalyaTelNetsis = () => {
     // ===== 2. REÇETE EXCEL (2 sheets: TT MM REÇETE + YM ST REÇETE) =====
     const receteWorkbook = new ExcelJS.Workbook();
 
-    // TT MM REÇETE Sheet (Tavli/Balya finished products)
-    const mmReceteSheet = receteWorkbook.addWorksheet('TT MM REÇETE');
+    // MM TT REÇETE Sheet (Tavli/Balya finished products)
+    const mmReceteSheet = receteWorkbook.addWorksheet('MM TT REÇETE');
     const receteHeaders = getReceteHeaders();
     mmReceteSheet.addRow(receteHeaders);
 
@@ -9815,15 +9954,16 @@ const TavliBalyaTelNetsis = () => {
       if (matchingRequests.length === 0) {
         console.log('🔍 No direct matches found, trying stok_kodu pattern...');
         
-        // Generate expected stok_kodu pattern
+        // Generate expected stok_kodu patterns for both TAVLI and BALYA
         const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
-        const expectedStokKoduPattern = `GT.${kod2}.${capFormatted}`;
-        console.log('🎯 Expected stok_kodu pattern:', expectedStokKoduPattern);
-        
+        const tavliPattern = `TT.BAG.${capFormatted}`;
+        const balyaPattern = `TT.BALYA.${capFormatted}`;
+        console.log('🎯 Expected stok_kodu patterns:', { tavliPattern, balyaPattern });
+
         const requestsByStokKodu = requests.filter(request => {
           if (!request || request.status !== 'approved' || !request.stok_kodu) return false;
-          
-          const matches = request.stok_kodu.startsWith(expectedStokKoduPattern);
+
+          const matches = request.stok_kodu.startsWith(tavliPattern) || request.stok_kodu.startsWith(balyaPattern);
           if (matches) {
             console.log('✅ Found matching request by stok_kodu:', { id: request.id, stok_kodu: request.stok_kodu });
           }
@@ -10112,8 +10252,7 @@ const TavliBalyaTelNetsis = () => {
       }
       
       // Calculate what the expected stok_kodu should be
-      const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-      const expectedStokKodu = `GT.${mmData.kod_2}.${capFormatted}.${sequenceToUse}`;
+      const expectedStokKodu = generateMmStokKodu(mmData.product_type, mmData.cap, sequenceToUse);
       
       if (!sequenceToUse || sequenceToUse === '00') {
       }
@@ -11206,7 +11345,7 @@ const TavliBalyaTelNetsis = () => {
     const isOperation = bilesenKodu === 'GTPKT01';
 
     return [
-      `GT.${mmData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
+      generateMmStokKodu(mmData.product_type, mmData.cap, sequence), // Mamul Kodu - TT.BAG or TT.BALYA based on product type
       '1', // Reçete Top.
       '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM TT
       '', // Oto.Reç.
@@ -12997,7 +13136,8 @@ const TavliBalyaTelNetsis = () => {
 
                         // Get next sequence for this product with atomic sequence generation
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmData.cap) * 100).toString().padStart(4, '0');
-                        const baseCode = `GT.${stateSnapshot.mmData.kod_2}.${capFormatted}`;
+                        const productPrefix = getProductPrefix(stateSnapshot.mmData.product_type);
+                        const baseCode = `${productPrefix}.${capFormatted}`;
                         
                         // Add task ID to sequence generation for atomic operation
                         const taskId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -13083,7 +13223,7 @@ const TavliBalyaTelNetsis = () => {
 
                         // Generate the actual stok_kodu that was used during database save
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmData.cap) * 100).toString().padStart(4, '0');
-                        const actualStokKodu = `GT.${stateSnapshot.mmData.kod_2}.${capFormatted}.${actualSequence}`;
+                        const actualStokKodu = generateMmStokKodu(stateSnapshot.mmData.product_type, stateSnapshot.mmData.cap, actualSequence);
                         console.log(`🎯 [Queue Approval] Using captured sequence: ${actualSequence} for stok_kodu: ${actualStokKodu}`);
 
                         // Check what action was pending
@@ -13127,7 +13267,7 @@ const TavliBalyaTelNetsis = () => {
                             
                             // ✅ Return success with excel data since both save and approval succeeded
                             const capFormatted = Math.round(parseFloat(stateSnapshot.mmData.cap) * 100).toString().padStart(4, '0');
-                            const finalStokKodu = `GT.${stateSnapshot.mmData.kod_2}.${capFormatted}.${actualSequence}`;
+                            const finalStokKodu = generateMmStokKodu(stateSnapshot.mmData.product_type, stateSnapshot.mmData.cap, actualSequence);
 
                             // Get signed tolerance values for Excel generation from snapshot
                             const adjustedPlus = stateSnapshot.toleransMaxSign === '+' ? stateSnapshot.mmData.tolerans_plus : `-${stateSnapshot.mmData.tolerans_plus}`;
@@ -13165,7 +13305,7 @@ const TavliBalyaTelNetsis = () => {
                       // If save was successful, prepare Excel data for instant generation
                       if (saveResult) {
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmData.cap) * 100).toString().padStart(4, '0');
-                        const finalStokKodu = `GT.${stateSnapshot.mmData.kod_2}.${capFormatted}.${actualSequence}`;
+                        const finalStokKodu = generateMmStokKodu(stateSnapshot.mmData.product_type, stateSnapshot.mmData.cap, actualSequence);
 
                         // Get signed tolerance values for Excel generation from snapshot
                         const adjustedPlus = stateSnapshot.toleransMaxSign === '+' ? stateSnapshot.mmData.tolerans_plus : `-${stateSnapshot.mmData.tolerans_plus}`;
