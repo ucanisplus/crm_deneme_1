@@ -9678,7 +9678,7 @@ const TavliBalyaTelNetsis = () => {
           const productName = excelData.mmData.product_type === 'TAVLI' ? 'Tavlı Tel' :
                               excelData.mmData.product_type === 'BALYA' ? 'Balya Teli' :
                               'Tavlı Tel'; // Default to Tavlı Tel if not specified
-          const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${excelData.mmData.min_mukavemet || '0'}-${excelData.mmData.max_mukavemet || '0'} MPa ID:${excelData.mmData.ic_cap || '45'} cm OD:${excelData.mmData.dis_cap || '75'} cm ${excelData.mmData.kg || '0'}${bagAmount} kg`;
+          const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${parseFloat(excelData.mmData.min_mukavemet) || '0'}-${parseFloat(excelData.mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(excelData.mmData.ic_cap) || '45'} cm OD:${parseFloat(excelData.mmData.dis_cap) || '75'} cm ${parseFloat(excelData.mmData.kg) || '0'}${bagAmount} kg`;
           
           // Extract packaging suffixes from the saved task data
           const suffixes = [];
@@ -9796,7 +9796,7 @@ const TavliBalyaTelNetsis = () => {
       const productName = mmData.product_type === 'TAVLI' ? 'Yumak Tavlı Tel' : 'Yumak Balya Teli';
       const yaglamaText = mmData.yaglama_tipi ? ` ${mmData.yaglama_tipi}` : '';
 
-      return `${productName}${yaglamaText} ${cap.toFixed(2).replace('.', ',')} mm ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg Shrink`;
+      return `${productName}${yaglamaText} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg Shrink`;
     }
 
     function generateYmTtEnglishName(mmData, sequence) {
@@ -9808,7 +9808,7 @@ const TavliBalyaTelNetsis = () => {
       const productNameEn = mmData.product_type === 'TAVLI' ? 'Coil Annealed Wire' : 'Coil Bale Wire';
       const yaglamaText = mmData.yaglama_tipi ? ` ${mmData.yaglama_tipi}` : '';
 
-      return `${productNameEn}${yaglamaText} ${cap.toFixed(2)} mm ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg Shrink`;
+      return `${productNameEn}${yaglamaText} ${parseFloat(cap.toFixed(2))} mm ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg Shrink`;
     }
 
     async function generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStData) {
@@ -13171,8 +13171,10 @@ const TavliBalyaTelNetsis = () => {
                           { key: 'AMB.ÇEM.KARTON.GAL', label: 'Karton', type: 'input', unit: 'AD' },
                           { key: 'shrink', label: 'Shrink', type: 'dropdown', unit: 'KG' },
                           { key: 'SM.7MMHALKA', label: '7mm Halka', type: 'input', unit: 'AD' },
-                          { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD' },
-                          { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD' }
+                          { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'AD' },
+                          { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD' },
+                          { key: 'AMB.STREÇ', label: 'Streç', type: 'input', unit: 'KG' },
+                          { key: 'AMB.PALET', label: 'Palet', type: 'input', unit: 'AD' }
                         ];
 
                         return components.map(({ key, label, type, unit }) => {
