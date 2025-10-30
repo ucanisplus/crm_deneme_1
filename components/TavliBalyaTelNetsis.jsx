@@ -6659,8 +6659,8 @@ const TavliBalyaTelNetsis = () => {
             fire_orani: 0,
             olcu_br_bilesen: '1',
             ua_dahil_edilsin: recipe.operasyon_bilesen === 'O' ? 'E' : '',
-            son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : '',
-            uretim_suresi: recipe.operasyon_bilesen === 'O' ? recipe.miktar : null
+            son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : ''
+            // ✅ REMOVED: uretim_suresi - column doesn't exist in tavli_netsis_ym_tt_recete table
           })
         });
       }
