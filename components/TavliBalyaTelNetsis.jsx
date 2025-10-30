@@ -319,7 +319,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
             const newDuration = oldDuration * durationRatio;
             alternativesByPriority[priority].push({
               ...recipe,
-              miktar: newDuration.toFixed(5)
+              miktar: parseFloat(newDuration.toFixed(5))
             });
           } else {
             alternativesByPriority[priority].push({ ...recipe });
@@ -644,9 +644,9 @@ const TavliBalyaTelNetsis = () => {
     if (isNaN(numValue)) {
       return String(value);
     }
-    
+
     // 5 ondalik basamak ile formatla ve noktalari virgul yap (sıfırları KALDIR!!!)
-    return numValue.toFixed(5).replace('.', ',');
+    return parseFloat(numValue.toFixed(5)).toString().replace('.', ',');
   };
   
   // Consistent database formatting function
@@ -6198,7 +6198,7 @@ const TavliBalyaTelNetsis = () => {
 
     return {
       stok_kodu: stokKodu,
-      stok_adi: `YM Tavlı Tel ${mmData.product_type === 'TAVLI' ? '(Bag)' : '(Balya)'} ${capValue.toFixed(2)} mm`,
+      stok_adi: `YM Tavlı Tel ${mmData.product_type === 'TAVLI' ? '(Bag)' : '(Balya)'} ${parseFloat(capValue.toFixed(2))} mm`,
       product_type: mmData.product_type,
       grup_kodu: 'YM',
       kod_1: 'TT',
@@ -9654,7 +9654,7 @@ const TavliBalyaTelNetsis = () => {
           const productName = excelData.mmData.product_type === 'TAVLI' ? 'Tavlı Tel' :
                               excelData.mmData.product_type === 'BALYA' ? 'Balya Teli' :
                               'Tavlı Tel'; // Default to Tavlı Tel if not specified
-          const generatedStokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${excelData.mmData.min_mukavemet || '0'}-${excelData.mmData.max_mukavemet || '0'} MPa ID:${excelData.mmData.ic_cap || '45'} cm OD:${excelData.mmData.dis_cap || '75'} cm ${excelData.mmData.kg || '0'}${bagAmount} kg`;
+          const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${excelData.mmData.min_mukavemet || '0'}-${excelData.mmData.max_mukavemet || '0'} MPa ID:${excelData.mmData.ic_cap || '45'} cm OD:${excelData.mmData.dis_cap || '75'} cm ${excelData.mmData.kg || '0'}${bagAmount} kg`;
           
           // Extract packaging suffixes from the saved task data
           const suffixes = [];
@@ -11004,18 +11004,18 @@ const TavliBalyaTelNetsis = () => {
 
     // If stok_adi is not in database, generate it (shouldn't happen with proper data)
     if (!stokAdi) {
-      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
-      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
-      stokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2)).toString().replace('.', ',');
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2)).toString().replace('.', ',');
+      stokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${parseFloat(mm.min_mukavemet) || '0'}-${parseFloat(mm.max_mukavemet) || '0'} MPa ID:${parseFloat(mm.ic_cap) || '45'} cm OD:${parseFloat(mm.dis_cap) || '75'} cm ${parseFloat(mm.kg) || '0'}${bagAmount} kg`;
     }
 
     // If English name is not in database, generate it - FIXED for Tavli/Balya
     if (!englishName) {
-      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
-      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2));
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2));
       // Determine English product name based on product type
       const englishProductName = mm.product_type === 'BALYA' ? 'Bale Wire' : 'Annealed Wire';
-      englishName = `${englishProductName} ${cap.toFixed(2)} mm ${formattedMinus}/${formattedPlus} ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      englishName = `${englishProductName} ${parseFloat(cap.toFixed(2))} mm ${formattedMinus}/${formattedPlus} ${parseFloat(mm.min_mukavemet) || '0'}-${parseFloat(mm.max_mukavemet) || '0'} MPa ID:${parseFloat(mm.ic_cap) || '45'} cm OD:${parseFloat(mm.dis_cap) || '75'} cm ${parseFloat(mm.kg) || '0'}${bagAmount} kg`;
     }
 
     return [
@@ -11136,18 +11136,18 @@ const TavliBalyaTelNetsis = () => {
 
     // If stok_adi is not in database, generate it
     if (!stokAdi) {
-      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
-      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2)).toString().replace('.', ',');
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2)).toString().replace('.', ',');
       const productName = mm.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
-      stokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      stokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${parseFloat(mm.min_mukavemet) || '0'}-${parseFloat(mm.max_mukavemet) || '0'} MPa ID:${parseFloat(mm.ic_cap) || '45'} cm OD:${parseFloat(mm.dis_cap) || '75'} cm ${parseFloat(mm.kg) || '0'}${bagAmount} kg`;
     }
 
     // If English name is not in database, generate it
     if (!englishName) {
-      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
-      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+      const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2));
+      const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2));
       const productName = mm.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
-      englishName = `${productName} ${cap.toFixed(2)} mm ${formattedMinus}/${formattedPlus} ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
+      englishName = `${productName} ${parseFloat(cap.toFixed(2))} mm ${formattedMinus}/${formattedPlus} ${parseFloat(mm.min_mukavemet) || '0'}-${parseFloat(mm.max_mukavemet) || '0'} MPa ID:${parseFloat(mm.ic_cap) || '45'} cm OD:${parseFloat(mm.dis_cap) || '75'} cm ${parseFloat(mm.kg) || '0'}${bagAmount} kg`;
     }
 
     return [
@@ -11361,7 +11361,7 @@ const TavliBalyaTelNetsis = () => {
 
     return [
       ymTt.stok_kodu, // Stok Kodu
-      ymTt.stok_adi || `Tavlı Tel ${cap.toFixed(2).replace('.', ',')} mm`, // Stok Adı
+      ymTt.stok_adi || `Tavlı Tel ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm`, // Stok Adı
       'YM', // Grup Kodu
       'TT', // Kod-1
       ymTt.kod_2 || '', // Kod-2
@@ -11990,15 +11990,15 @@ const TavliBalyaTelNetsis = () => {
       : '';
 
     // Format with proper signs and comma for Excel
-    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
-    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2)).toString().replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2)).toString().replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
     // Base stok adı - PRODUCT-SPECIFIC NAMES (Excel format with comma)
     const productName = mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
     // Add yaglama_tipi for BOTH TAVLI and BALYA products
     const yaglamaSuffix = mmData.yaglama_tipi ? ` (${mmData.yaglama_tipi})` : '';
-    let stokAdi = `${productName}${yaglamaSuffix} ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg`;
+    let stokAdi = `${productName}${yaglamaSuffix} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
     // Paketleme suffixes ekle
     const suffixes = [];
@@ -12026,13 +12026,13 @@ const TavliBalyaTelNetsis = () => {
       : '';
 
     // Format with proper signs (negative sign automatic from toFixed, add + for positive)
-    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
-    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2));
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2));
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
     // Base english name - PRODUCT-SPECIFIC NAMES
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
-    let englishName = `${productNameEn} ${cap.toFixed(2)} mm ${toleranceText} ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg`;
+    let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2))} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
     // Paketleme suffixes ekle
     const suffixes = [];
@@ -12059,13 +12059,13 @@ const TavliBalyaTelNetsis = () => {
       : '';
 
     // Format with proper signs and comma for Excel
-    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
-    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
+    const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + parseFloat(adjustedMinus.toFixed(2)).toString().replace('.', ',');
+    const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + parseFloat(adjustedPlus.toFixed(2)).toString().replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
-    
+
     // Base english name - PRODUCT-SPECIFIC NAMES (Excel format with comma)
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
-    let englishName = `${productNameEn} ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg`;
+    let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
     // Paketleme suffixes ekle
     const suffixes = [];
@@ -13406,7 +13406,7 @@ const TavliBalyaTelNetsis = () => {
                     // Get product name for task display - FIXED for Tavli/Balya
                     const productType = mmData.product_type || 'TAVLI';
                     const productPrefix = productType === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
-                    const productName = `${productPrefix} ${mmData.cap}mm`;
+                    const productName = `${productPrefix} ${parseFloat(mmData.cap)}mm`;
                     console.log('🏷️ Product name for queue:', productName);
                     const taskName = `${productName}`;
                     const taskId = Date.now().toString();
