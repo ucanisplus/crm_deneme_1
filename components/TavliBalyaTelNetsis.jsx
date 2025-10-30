@@ -4222,9 +4222,10 @@ const TavliBalyaTelNetsis = () => {
 
         // Tavlı/Balya specific packaging components (no NAYLON, GTPKT01, SM.DESİ.PAK per CSV)
         const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
-        const mmFields = ['AMB.APEX CEMBER 38X080', 'AMB.TOKA.SIGNODE.114P. DKP',
-                           'SM.7MMHALKA', 'AMB.ÇEM.KARTON.GAL', packagingOperation];
-        // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya CSV specification
+        const mmFields = ['AMB.PLASTİK.ÇEMBER', 'AMB.TOKA.SIGNODE.114P. DKP',
+                           'SM.7MMHALKA', 'AMB.ÇEM.KARTON.GAL', packagingOperation,
+                           'AMB.STREÇ', 'AMB.PALET']; // ✅ FIXED: Plastik Çember for MM products, added Streç and Palet
+        // ✅ REMOVED: 'SM.DESİ.PAK', 'AMB.APEX CEMBER 38X080' - not in tavlı/balya MM products
 
         const shrinkCode = getShrinkCode(mmData.ic_cap);
         if (shrinkCode) {
