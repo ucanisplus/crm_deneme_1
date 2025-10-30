@@ -11772,25 +11772,33 @@ const TavliBalyaTelNetsis = () => {
           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => {
-                setMmData(prev => ({ ...prev, product_type: 'TAVLI', yaglama_tipi: '' }));
+                if (!selectedRequest) {
+                  setMmData(prev => ({ ...prev, product_type: 'TAVLI', yaglama_tipi: '' }));
+                }
               }}
+              disabled={!!selectedRequest}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 mmData.product_type === 'TAVLI'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-gray-700 hover:bg-gray-200'
-              }`}
+              } ${selectedRequest ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={selectedRequest ? 'Talep seçiliyken ürün tipi değiştirilemez' : ''}
             >
               Tavlı Tel
             </button>
             <button
               onClick={() => {
-                setMmData(prev => ({ ...prev, product_type: 'BALYA' }));
+                if (!selectedRequest) {
+                  setMmData(prev => ({ ...prev, product_type: 'BALYA' }));
+                }
               }}
+              disabled={!!selectedRequest}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 mmData.product_type === 'BALYA'
                   ? 'bg-green-600 text-white shadow-sm'
                   : 'text-gray-700 hover:bg-gray-200'
-              }`}
+              } ${selectedRequest ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={selectedRequest ? 'Talep seçiliyken ürün tipi değiştirilemez' : ''}
             >
               Balya Teli
             </button>
@@ -12248,18 +12256,11 @@ const TavliBalyaTelNetsis = () => {
             </div>
           )}
 
-          {/* YM ST Yönetimi - HIDDEN: Handled automatically in background for Tavlı/Balya */}
-          {false && (
+          {/* YM ST Yönetimi - Siyah Tel Seçimi */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             {/* Diameter-based info banner */}
             {calculatedYmStDiameter !== null && (
-              <div className={`mb-4 p-4 rounded-lg border-l-4 ${
-                calculatedYmStDiameter < 1.5
-                  ? 'bg-blue-50 border-blue-500'
-                  : calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8
-                  ? 'bg-purple-50 border-purple-500'
-                  : 'bg-green-50 border-green-500'
-              }`}>
+              <div className="mb-4 p-4 rounded-lg border-l-4 bg-blue-50 border-blue-500">
                 <div className="flex items-center gap-3">
                   <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -12269,21 +12270,8 @@ const TavliBalyaTelNetsis = () => {
                       Hesaplanan YM ST Çapı: {calculatedYmStDiameter.toFixed(2)} mm
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {calculatedYmStDiameter < 1.5 && (
-                        <>
-                          <span className="font-semibold text-blue-700">Çap &lt; 1.5mm:</span> Sadece YM ST hammadde kullanılır (COTLC01 operasyonu)
-                        </>
-                      )}
-                      {calculatedYmStDiameter >= 1.5 && calculatedYmStDiameter < 1.8 && (
-                        <>
-                          <span className="font-semibold text-purple-700">1.5mm ≤ Çap &lt; 1.8mm:</span> Hem filmaşin (Ana) hem YM ST (ALT) alternatifleri oluşturulabilir
-                        </>
-                      )}
-                      {calculatedYmStDiameter >= 1.8 && (
-                        <>
-                          <span className="font-semibold text-green-700">Çap ≥ 1.8mm:</span> Filmaşin hammadde kullanılır (matris bazlı alternatifler)
-                        </>
-                      )}
+                      <span className="font-semibold text-blue-700">Siyah Tel:</span> Tavlı/Balya Tel için siyah tel (YM.ST) hammadde olarak kullanılır.
+                      {needsPressing && <span className="text-orange-600 font-semibold ml-1">(Çap &gt; 2.0mm - Presleme gereklidir)</span>}
                     </p>
                   </div>
                 </div>
@@ -12346,31 +12334,16 @@ const TavliBalyaTelNetsis = () => {
                   {/* Info Text Based on Diameter */}
                   {userYmStDiameter && parseFloat(userYmStDiameter) > 0 && (
                     <div className="mt-3 text-sm space-y-1">
-                      {parseFloat(userYmStDiameter) < 1.5 && (
-                        <p className="text-blue-700">
-                          <span className="font-semibold">ℹ️ Çap &lt; 1.5mm:</span> Sadece .ST (Coiler) ürünü oluşturulur. COTLC01 operasyonu kullanılır.
-                        </p>
-                      )}
-                      {parseFloat(userYmStDiameter) >= 1.5 && parseFloat(userYmStDiameter) < 1.8 && (
-                        <div className="text-purple-700 space-y-1">
-                          <p className="font-semibold">ℹ️ 1.5mm ≤ Çap &lt; 1.8mm:</p>
-                          <ul className="ml-6 list-disc space-y-0.5">
-                            <li>Filmaşin ürünü (Ana) oluşturulur</li>
-                            <li>.ST (Coiler) ürünü (Alternatif) oluşturulur</li>
-                            <li>Excel çıktısında YM ST REÇETE ALT 1-8 sayfaları oluşturulur</li>
-                          </ul>
-                        </div>
-                      )}
-                      {parseFloat(userYmStDiameter) >= 1.8 && (
-                        <div className="text-green-700 space-y-1">
-                          <p className="font-semibold">ℹ️ Çap ≥ 1.8mm:</p>
-                          <ul className="ml-6 list-disc space-y-0.5">
-                            <li>Sadece filmaşin ürünleri oluşturulur</li>
-                            <li>Matris bazlı alternatifler kullanılır</li>
-                            <li>Excel çıktısında YM ST REÇETE ALT sayfaları oluşturulmaz</li>
-                          </ul>
-                        </div>
-                      )}
+                      <div className="text-blue-700 space-y-1">
+                        <p className="font-semibold">ℹ️ Tavlı/Balya Tel Üretim Akışı:</p>
+                        <ul className="ml-6 list-disc space-y-0.5">
+                          <li>Siyah Tel (YM.ST) → Tavlama (TAV01) → Tavlı Tel (YM.TT)</li>
+                          {parseFloat(userYmStDiameter) > 2.0 && (
+                            <li className="text-orange-600">Çap &gt; 2.0mm: Presleme (STPRS01) işlemi eklenir</li>
+                          )}
+                          <li>YM.TT → {mmData.product_type === 'TAVLI' ? 'Paketleme (TVPKT01)' : 'Balyalama (BAL01)'} → Mamul Ürün</li>
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -12815,6 +12788,276 @@ const TavliBalyaTelNetsis = () => {
                           </p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reçete Bölümü - Mamul Ürün Bileşenleri */}
+          {(selectedYmSts.length > 0 || autoGeneratedYmSts.length > 0) && (
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <span className="text-purple-600 font-bold">R</span>
+                  </div>
+                  Reçete Bileşenleri
+                </h2>
+                <button
+                  onClick={() => {
+                    // Auto-fill recipe components with formulas
+                    const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+                    const kg = parseFloat(mmData.kg) || 0;
+
+                    if (kg <= 0) {
+                      toast.error('Lütfen geçerli bir ağırlık (kg) giriniz');
+                      return;
+                    }
+
+                    if (allYmSts.length === 0) {
+                      toast.error('Lütfen en az bir YM ST seçiniz veya oluşturunuz');
+                      return;
+                    }
+
+                    // Calculate shrink based on inner diameter
+                    const shrinkCode = getShrinkCode(mmData.ic_cap);
+                    const shrinkAmount = calculateShrinkAmount(kg);
+
+                    // Calculate auxiliary components using formulas
+                    // AMB.ÇEM.KARTON.GAL: =(8*(1000/kg))/1000
+                    const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // SM.7MMHALKA: =(4*(1000/kg))/1000
+                    const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // AMB.APEX CEMBER 38X080: =(1.2*(1000/kg))/1000
+                    const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/kg))/1000
+                    const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // Packaging operation duration
+                    const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
+                    const packagingDuration = mmData.product_type === 'TAVLI' ? OPERATION_DURATIONS.TVPKT01 : OPERATION_DURATIONS.BAL01;
+
+                    // Update recipes for all YM STs
+                    const updatedRecipes = { ...allRecipes };
+                    const updatedRecipeStatus = { ...recipeStatus };
+
+                    if (!updatedRecipes.mmRecipes) updatedRecipes.mmRecipes = {};
+                    if (!updatedRecipeStatus.mmRecipes) updatedRecipeStatus.mmRecipes = {};
+
+                    let updatedCount = 0;
+
+                    allYmSts.forEach((ymSt, index) => {
+                      if (!updatedRecipes.mmRecipes[index]) updatedRecipes.mmRecipes[index] = {};
+                      if (!updatedRecipeStatus.mmRecipes[index]) updatedRecipeStatus.mmRecipes[index] = {};
+
+                      // Only update if not from database
+                      const updateIfNotDb = (key, value) => {
+                        if (!recipeStatus.mmRecipes?.[index]?.[key] || recipeStatus.mmRecipes[index][key] !== 'database') {
+                          updatedRecipes.mmRecipes[index][key] = value;
+                          updatedRecipeStatus.mmRecipes[index][key] = 'auto';
+                          updatedCount++;
+                        }
+                      };
+
+                      updateIfNotDb(packagingOperation, parseFloat(packagingDuration.toFixed(5)));
+                      updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
+                      updateIfNotDb(shrinkCode, shrinkAmount);
+                      updateIfNotDb('SM.7MMHALKA', halkaValue);
+                      updateIfNotDb('AMB.APEX CEMBER 38X080', cemberValue);
+                      updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaValue);
+                    });
+
+                    setAllRecipes(updatedRecipes);
+                    setRecipeStatus(updatedRecipeStatus);
+
+                    if (updatedCount > 0) {
+                      toast.success(`${allYmSts.length} ürün için reçete bileşenleri otomatik dolduruldu`);
+                    } else {
+                      toast.info('Tüm bileşenler zaten veritabanından yüklendi');
+                    }
+                  }}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4 4 4m0 6l-4 4-4-4" />
+                  </svg>
+                  Otomatik Doldur
+                </button>
+              </div>
+
+              {/* YM ST Tabs - Show if multiple YM STs */}
+              {[...selectedYmSts, ...autoGeneratedYmSts].length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-6 border-b">
+                  {[...selectedYmSts, ...autoGeneratedYmSts].map((ymSt, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setActiveRecipeTab(index)}
+                      className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+                        activeRecipeTab === index
+                          ? 'bg-purple-100 text-purple-700 border-b-2 border-purple-600'
+                          : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                      }`}
+                    >
+                      YM ST #{index + 1}
+                      <span className="text-xs block">
+                        {parseFloat(ymSt.cap || 0).toFixed(2)} mm
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Recipe Components */}
+              {activeRecipeTab !== null && (
+                <div className="space-y-6">
+                  {/* MM Recipe - Packaging Components */}
+                  <div className="p-6 bg-blue-50 rounded-lg">
+                    <h3 className="text-lg font-medium mb-4 text-blue-700">
+                      {mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli'} Mamul Ürün Reçetesi #{activeRecipeTab + 1}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(() => {
+                        const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
+                        const packagingOp = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
+                        const packagingLabel = mmData.product_type === 'TAVLI' ? 'Paketleme (TVPKT01)' : 'Balyalama (BAL01)';
+
+                        const components = [
+                          { key: 'ymtt_source', label: 'YM.TT Kaynağı', type: 'readonly', unit: 'KG' },
+                          { key: packagingOp, label: packagingLabel, type: 'input', unit: 'DK' },
+                          { key: 'AMB.ÇEM.KARTON.GAL', label: 'Karton', type: 'input', unit: 'AD' },
+                          { key: 'shrink', label: 'Shrink', type: 'dropdown', unit: 'KG' },
+                          { key: 'SM.7MMHALKA', label: '7mm Halka', type: 'input', unit: 'AD' },
+                          { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD' },
+                          { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD' }
+                        ];
+
+                        return components.map(({ key, label, type, unit }) => {
+                          let currentValue = '';
+
+                          if (type === 'readonly') {
+                            const cap = parseFloat(allYmSts[activeRecipeTab]?.cap || 0);
+                            const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+                            const sequence = activeRecipeTab.toString().padStart(2, '0');
+                            const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
+                            currentValue = `YM.TT.${productPrefix}.${capFormatted}.${sequence}`;
+                          } else if (key === 'shrink') {
+                            const shrinkKeys = ['AMB.SHRİNK.200*140CM', 'AMB.SHRİNK.200*160CM', 'AMB.SHRİNK.200*190CM'];
+                            const currentShrinkKey = shrinkKeys.find(sk => allRecipes.mmRecipes?.[activeRecipeTab]?.[sk] > 0);
+                            currentValue = currentShrinkKey || '';
+                          } else {
+                            currentValue = allRecipes.mmRecipes?.[activeRecipeTab]?.[key] || '';
+                          }
+
+                          const isFromDatabase = recipeStatus.mmRecipes?.[activeRecipeTab]?.[key] === 'database';
+
+                          return (
+                            <div key={key} className="space-y-2">
+                              {type !== 'dropdown' && (
+                                <label className="block text-sm font-medium text-gray-700">
+                                  {label}
+                                  <span className="text-xs text-gray-500 ml-2">({unit})</span>
+                                </label>
+                              )}
+                              {type === 'readonly' ? (
+                                <input
+                                  type="text"
+                                  value={currentValue}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 focus:outline-none cursor-not-allowed"
+                                  readOnly
+                                />
+                              ) : type === 'dropdown' ? (
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Shrink Tipi
+                                    </label>
+                                    <select
+                                      value={currentValue}
+                                      onChange={(e) => {
+                                        const newShrinkType = e.target.value;
+                                        const updatedRecipes = { ...allRecipes };
+                                        if (!updatedRecipes.mmRecipes) updatedRecipes.mmRecipes = {};
+                                        if (!updatedRecipes.mmRecipes[activeRecipeTab]) updatedRecipes.mmRecipes[activeRecipeTab] = {};
+
+                                        // Remove old shrink types
+                                        ['AMB.SHRİNK.200*140CM', 'AMB.SHRİNK.200*160CM', 'AMB.SHRİNK.200*190CM'].forEach(sk => {
+                                          delete updatedRecipes.mmRecipes[activeRecipeTab][sk];
+                                        });
+
+                                        // Add new shrink type with default value
+                                        if (newShrinkType) {
+                                          const kg = parseFloat(mmData.kg) || 500;
+                                          const shrinkAmount = calculateShrinkAmount(kg);
+                                          updatedRecipes.mmRecipes[activeRecipeTab][newShrinkType] = shrinkAmount;
+                                        }
+
+                                        setAllRecipes(updatedRecipes);
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      disabled={isFromDatabase}
+                                    >
+                                      <option value="">Shrink Tipi Seçin</option>
+                                      <option value="AMB.SHRİNK.200*140CM">AMB.SHRİNK.200*140CM</option>
+                                      <option value="AMB.SHRİNK.200*160CM">AMB.SHRİNK.200*160CM</option>
+                                      <option value="AMB.SHRİNK.200*190CM">AMB.SHRİNK.200*190CM</option>
+                                    </select>
+                                  </div>
+                                  {currentValue && (
+                                    <div className="space-y-2">
+                                      <label className="block text-sm font-medium text-gray-700">
+                                        Shrink Tüketimi (KG)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={normalizeDecimalDisplay(allRecipes.mmRecipes?.[activeRecipeTab]?.[currentValue] || '')}
+                                        onChange={(e) => {
+                                          const value = normalizeInputValue(e.target.value);
+                                          const updatedRecipes = { ...allRecipes };
+                                          if (!updatedRecipes.mmRecipes) updatedRecipes.mmRecipes = {};
+                                          if (!updatedRecipes.mmRecipes[activeRecipeTab]) updatedRecipes.mmRecipes[activeRecipeTab] = {};
+                                          updatedRecipes.mmRecipes[activeRecipeTab][currentValue] = parseFloat(value) || 0;
+                                          setAllRecipes(updatedRecipes);
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        disabled={isFromDatabase}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={normalizeDecimalDisplay(currentValue || '')}
+                                  onChange={(e) => {
+                                    const value = normalizeInputValue(e.target.value);
+                                    const updatedRecipes = { ...allRecipes };
+                                    if (!updatedRecipes.mmRecipes) updatedRecipes.mmRecipes = {};
+                                    if (!updatedRecipes.mmRecipes[activeRecipeTab]) updatedRecipes.mmRecipes[activeRecipeTab] = {};
+                                    updatedRecipes.mmRecipes[activeRecipeTab][key] = parseFloat(value) || 0;
+                                    setAllRecipes(updatedRecipes);
+                                  }}
+                                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    isFromDatabase ? 'bg-gray-100 cursor-not-allowed' : ''
+                                  }`}
+                                  disabled={isFromDatabase}
+                                />
+                              )}
+                              <div className="h-4">
+                                {isFromDatabase && (
+                                  <p className="text-xs text-gray-500 italic">Veritabanından yüklendi</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>
