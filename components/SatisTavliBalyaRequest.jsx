@@ -2168,7 +2168,7 @@ const SatisTavliBalyaRequest = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tel Çapı</p>
-                    <p className="text-base text-gray-900">{selectedRequest.cap} mm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.cap)} mm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ürün Tipi</p>
@@ -2607,7 +2607,7 @@ const SatisTavliBalyaRequest = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tel Çapı</p>
-                    <p className="text-base text-gray-900">{selectedProduct.cap} mm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedProduct.cap)} mm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Kaplama</p>
