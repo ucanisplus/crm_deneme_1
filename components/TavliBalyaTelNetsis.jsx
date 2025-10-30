@@ -5418,10 +5418,20 @@ const TavliBalyaTelNetsis = () => {
       } else {
         // Create new MM TT
         console.log('🆕 Creating new MM TT');
+        const mmDataToSave = generateMmTtDatabaseData(sequence);
+        console.log('📤 MM TT data being sent to backend:', {
+          stok_kodu: mmDataToSave.stok_kodu,
+          stok_adi: mmDataToSave.stok_adi,
+          product_type: mmDataToSave.product_type,
+          cap: mmDataToSave.cap,
+          kaplama: mmDataToSave.kaplama,
+          hasZincCoating: 'zinc_coating' in mmDataToSave,
+          allKeys: Object.keys(mmDataToSave)
+        });
         mmResponse = await fetchWithAuth(API_URLS.tavliBalyaMm, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(generateMmTtDatabaseData(sequence))
+          body: JSON.stringify(mmDataToSave)
         });
         
         if (mmResponse && mmResponse.ok) {
@@ -5956,23 +5966,56 @@ const TavliBalyaTelNetsis = () => {
   };
 
   const generateMmTtDatabaseData = (sequence = '00') => {
+    console.log('🏗️ === generateMmTtDatabaseData CALLED ===');
+    console.log('🏗️ Input sequence:', sequence);
+    console.log('🏗️ mmData state:', {
+      cap: mmData.cap,
+      product_type: mmData.product_type,
+      yaglama_tipi: mmData.yaglama_tipi,
+      min_mukavemet: mmData.min_mukavemet,
+      max_mukavemet: mmData.max_mukavemet,
+      kg: mmData.kg,
+      ic_cap: mmData.ic_cap,
+      dis_cap: mmData.dis_cap,
+      tolerans_plus: mmData.tolerans_plus,
+      tolerans_minus: mmData.tolerans_minus,
+      shrink: mmData.shrink
+    });
+
     // Sequence değerini doğrula
     const validSequence = validateSequence(sequence);
     const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmData.cap);
 
+    console.log('🏗️ Formatted values:', {
+      validSequence,
+      capFormatted,
+      capValue
+    });
+
     // Preserve the exact format in existing Excel files
     const capForExcel = capValue.toFixed(2);
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
+    console.log('🏗️ Adjusted tolerances:', { adjustedPlus, adjustedMinus });
 
     // Determine product prefix based on product type
     const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
     const stokKodu = `TT.${productPrefix}.${capFormatted}.${validSequence}`;
 
+    console.log('🏗️ Generated stok_kodu:', stokKodu);
+
+    // Generate stok_adi and log it
+    const generatedStokAdi = generateStokAdi();
+    console.log('🏗️ Generated stok_adi:', generatedStokAdi);
+    console.log('🏗️ stok_adi length:', generatedStokAdi?.length || 0);
+    console.log('🏗️ stok_adi is undefined?', generatedStokAdi === undefined);
+    console.log('🏗️ stok_adi is null?', generatedStokAdi === null);
+
     // Hem stok_kodu'nda hem de içeride kullanılan sequence değerini güncel tut
     return {
       stok_kodu: stokKodu,
-      stok_adi: generateStokAdi(),
+      stok_adi: generatedStokAdi,
       product_type: mmData.product_type, // TAVLI or BALYA
       yaglama_tipi: mmData.yaglama_tipi || '', // Püskürtme/Normal for BALYA only
       grup_kodu: 'MM',
@@ -6024,7 +6067,7 @@ const TavliBalyaTelNetsis = () => {
       dia_mm: capForExcel, // Use formatted string value
       dia_tol_mm_plus: adjustedPlus,
       dia_tol_mm_minus: adjustedMinus,
-      zinc_coating: 'NONE', // ✅ FIXED: Tavlı/Balya products don't have zinc coating (was typo: zing_coating)
+      kaplama: '0', // ✅ FIXED: Database column is 'kaplama' not 'zinc_coating'. Tavlı/Balya has 0 coating
       tensile_st_min: `${mmData.min_mukavemet} MPa`,
       tensile_st_max: `${mmData.max_mukavemet} MPa`,
       wax: mmData.product_type === 'BALYA' ? '+' : 'NONE', // '+' for BALYA, 'NONE' for TAVLI
@@ -11817,8 +11860,24 @@ const TavliBalyaTelNetsis = () => {
   // String oluşturma fonksiyonları - COMMA Excel formatında
   // Database version - uses POINT format
   const generateStokAdi = () => {
+    console.log('📝 === generateStokAdi CALLED ===');
+    console.log('📝 mmData for stok_adi:', {
+      cap: mmData.cap,
+      product_type: mmData.product_type,
+      yaglama_tipi: mmData.yaglama_tipi,
+      min_mukavemet: mmData.min_mukavemet,
+      max_mukavemet: mmData.max_mukavemet,
+      ic_cap: mmData.ic_cap,
+      dis_cap: mmData.dis_cap,
+      kg: mmData.kg,
+      cast_kont: mmData.cast_kont
+    });
+    console.log('📝 paketlemeSecenekleri:', paketlemeSecenekleri);
+
     const cap = parseFloat(mmData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
+
+    console.log('📝 Tolerance values:', { adjustedPlus, adjustedMinus });
 
     // Determine if we need to append the bag amount (cast_kont) value
     const bagAmount = mmData.cast_kont && mmData.cast_kont.trim() !== ''
@@ -11830,15 +11889,23 @@ const TavliBalyaTelNetsis = () => {
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
+    console.log('📝 Formatted tolerance text:', toleranceText);
+
     // Base stok adı - PRODUCT-SPECIFIC NAMES
     const productName = mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
+
+    console.log('📝 Product name:', productName);
 
     // Add yaglama_tipi for BOTH TAVLI and BALYA products
     const yaglamaSuffix = mmData.yaglama_tipi
       ? ` (${mmData.yaglama_tipi})`
       : '';
 
+    console.log('📝 Yaglama suffix:', yaglamaSuffix);
+
     let stokAdi = `${productName}${yaglamaSuffix} ${cap.toFixed(2)} mm ${toleranceText} ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg`;
+
+    console.log('📝 Base stok_adi before packaging:', stokAdi);
 
     // Paketleme suffixes ekle
     const suffixes = [];
@@ -11846,9 +11913,14 @@ const TavliBalyaTelNetsis = () => {
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
     if (paketlemeSecenekleri.karton) suffixes.push('Krt'); // Changed from karton to karton
 
+    console.log('📝 Packaging suffixes:', suffixes);
+
     if (suffixes.length > 0) {
       stokAdi += '-' + suffixes.join('-');
     }
+
+    console.log('📝 FINAL stok_adi:', stokAdi);
+    console.log('📝 FINAL stok_adi length:', stokAdi.length);
 
     // Use point for database storage - NO comma replacement for database
     return stokAdi;
@@ -13277,12 +13349,15 @@ const TavliBalyaTelNetsis = () => {
                 <button
                   onClick={(e) => {
                     console.log("Sadece Kaydet - adding to queue");
-                    
-                    // Get product name for task display
-                    const productName = `${mmData.kod_2} ${mmData.cap}mm`;
+
+                    // Get product name for task display - FIXED for Tavli/Balya
+                    const productType = mmData.product_type || 'TAVLI';
+                    const productPrefix = productType === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
+                    const productName = `${productPrefix} ${mmData.cap}mm`;
+                    console.log('🏷️ Product name for queue:', productName);
                     const taskName = `${productName}`;
                     const taskId = Date.now().toString();
-                    
+
                     // ✅ CRITICAL FIX: Capture request ID when task is created, not when it runs
                     const currentRequestId = selectedRequest?.id;
                     console.log(`📝 Capturing request ID for queue task: ${currentRequestId}`);
