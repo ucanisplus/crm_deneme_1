@@ -6046,7 +6046,9 @@ const TavliBalyaTelNetsis = () => {
       stok_kodu: stokKodu,
       stok_adi: generatedStokAdi,
       product_type: mmData.product_type, // TAVLI or BALYA
-      yaglama_tipi: mmData.yaglama_tipi || '', // Püskürtme/Normal for BALYA only
+      // ✅ FIX: Database constraint chk_product_type_yaglama only allows yaglama_tipi for BALYA products
+      // TAVLI products must have NULL yaglama_tipi (yaglama info is already in stok_adi)
+      yaglama_tipi: mmData.product_type === 'BALYA' ? (mmData.yaglama_tipi || '') : null,
       grup_kodu: 'MM',
       kod_1: 'TT', // Changed from GT to TT
       product_type: mmData.product_type,
