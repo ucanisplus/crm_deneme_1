@@ -10864,15 +10864,16 @@ const TavliBalyaTelNetsis = () => {
     // Use stok_adi from database if available, otherwise generate it
     let stokAdi = mm.stok_adi;
     let englishName = mm.ingilizce_isim;
-    
+
+    // Define productName outside the if block so it's available for METARIAL field later
+    const productName = mm.product_type === 'TAVLI' ? 'Tavlı Tel' :
+                        mm.product_type === 'BALYA' ? 'Balya Teli' :
+                        'Tavlı Tel'; // Default to Tavlı Tel
+
     // If stok_adi is not in database, generate it (shouldn't happen with proper data)
     if (!stokAdi) {
       const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
       const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
-      // Use product_type to determine the correct product name
-      const productName = mm.product_type === 'TAVLI' ? 'Tavlı Tel' :
-                          mm.product_type === 'BALYA' ? 'Balya Teli' :
-                          'Tavlı Tel'; // Default to Tavlı Tel
       stokAdi = `${productName} ${cap.toFixed(2).replace('.', ',')} mm ${formattedMinus}/${formattedPlus} ${mm.kaplama || '0'} gr/m² ${mm.min_mukavemet || '0'}-${mm.max_mukavemet || '0'} MPa ID:${mm.ic_cap || '45'} cm OD:${mm.dis_cap || '75'} cm ${mm.kg || '0'}${bagAmount} kg`;
     }
 
