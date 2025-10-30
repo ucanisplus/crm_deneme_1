@@ -2226,10 +2226,10 @@ const SatisTavliBalyaRequest = () => {
                         const higherValue = Math.max(actualPlusValue, actualMinusValue);
                         const lowerValue = Math.min(actualPlusValue, actualMinusValue);
                         
-                        // Format with proper signs
-                        const lowerText = lowerValue >= 0 ? `+${lowerValue.toFixed(2)}` : lowerValue.toFixed(2);
-                        const higherText = higherValue >= 0 ? `+${higherValue.toFixed(2)}` : higherValue.toFixed(2);
-                        
+                        // Format with proper signs - remove trailing zeros by using parseFloat
+                        const lowerText = lowerValue >= 0 ? `+${parseFloat(lowerValue.toFixed(2))}` : parseFloat(lowerValue.toFixed(2));
+                        const higherText = higherValue >= 0 ? `+${parseFloat(higherValue.toFixed(2))}` : parseFloat(higherValue.toFixed(2));
+
                         return `${lowerText} mm / ${higherText} mm`;
                       })()}
                     </p>
