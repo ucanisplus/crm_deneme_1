@@ -14610,7 +14610,7 @@ const TavliBalyaTelNetsis = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tel Çapı</p>
-                    <p className="text-base text-gray-900">{selectedRequest.cap} mm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.cap)} mm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ürün Tipi</p>
@@ -14625,11 +14625,11 @@ const TavliBalyaTelNetsis = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Mukavemet</p>
-                    <p className="text-base text-gray-900">{selectedRequest.min_mukavemet} - {selectedRequest.max_mukavemet} MPa</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.min_mukavemet)} - {parseFloat(selectedRequest.max_mukavemet)} MPa</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ağırlık</p>
-                    <p className="text-base text-gray-900">{selectedRequest.kg} kg</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.kg)} kg</p>
                   </div>
                 </div>
                 
@@ -14637,11 +14637,11 @@ const TavliBalyaTelNetsis = () => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm font-medium text-gray-500">İç Çap</p>
-                    <p className="text-base text-gray-900">{selectedRequest.ic_cap} cm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.ic_cap)} cm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Dış Çap</p>
-                    <p className="text-base text-gray-900">{selectedRequest.dis_cap} cm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedRequest.dis_cap)} cm</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
@@ -15270,7 +15270,7 @@ const TavliBalyaTelNetsis = () => {
                   
                   <div>
                     <p className="text-sm font-medium text-gray-500">Ağırlık</p>
-                    <p className="text-base text-gray-900">{selectedDatabaseProduct.kg || '0'} kg</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedDatabaseProduct.kg || 0)} kg</p>
                   </div>
                 </div>
 
@@ -15279,18 +15279,18 @@ const TavliBalyaTelNetsis = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Mukavemet</p>
                     <p className="text-base text-gray-900">
-                      {selectedDatabaseProduct.min_mukavemet || '0'}-{selectedDatabaseProduct.max_mukavemet || '0'} MPa
+                      {parseFloat(selectedDatabaseProduct.min_mukavemet || 0)}-{parseFloat(selectedDatabaseProduct.max_mukavemet || 0)} MPa
                     </p>
                   </div>
                   
                   <div>
                     <p className="text-sm font-medium text-gray-500">İç Çap</p>
-                    <p className="text-base text-gray-900">{selectedDatabaseProduct.ic_cap || '0'} mm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedDatabaseProduct.ic_cap || 0)} mm</p>
                   </div>
                   
                   <div>
                     <p className="text-sm font-medium text-gray-500">Dış Çap</p>
-                    <p className="text-base text-gray-900">{selectedDatabaseProduct.dis_cap || '0'} mm</p>
+                    <p className="text-base text-gray-900">{parseFloat(selectedDatabaseProduct.dis_cap || 0)} mm</p>
                   </div>
                   
                   <div>
