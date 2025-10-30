@@ -9548,9 +9548,10 @@ const TavliBalyaTelNetsis = () => {
     const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
     const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
     const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-    const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-    // ✅ REMOVED: desiEntry - SM.DESİ.PAK not in tavlı/balya CSV specification
+    const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
+    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
 
     // Other entries that might exist but aren't in the fixed order
     const otherEntries = recipeEntries.filter(([key]) =>
@@ -9561,21 +9562,23 @@ const TavliBalyaTelNetsis = () => {
       key !== 'AMB.ÇEM.KARTON.GAL' &&
       !key.includes('AMB.SHRİNK.') &&
       key !== 'SM.7MMHALKA' &&
-      key !== 'AMB.APEX CEMBER 38X080' &&
-      key !== 'AMB.TOKA.SIGNODE.114P. DKP'
-      // ✅ REMOVED: SM.DESİ.PAK exclusion - not in tavlı/balya specification
+      key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+      key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+      key !== 'AMB.STREÇ' && // ✅ ADDED
+      key !== 'AMB.PALET' // ✅ ADDED
     );
-    
-    // Sırayla ekle - exact order (YM.TT then operations)
+
+    // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
     const orderedEntries = [
       ymTtEntry,
       tavlamaEntry, // TAV01, TVPKT01, or BAL01
       kartonEntry,
       shrinkEntry,
       halkaEntry,
-      cemberEntry,
+      plastikCemberEntry, // ✅ FIXED: Use Plastik Çember
       tokaEntry,
-      // ✅ REMOVED: desiEntry - not in tavlı/balya specification
+      strecEntry, // ✅ ADDED
+      paletEntry, // ✅ ADDED
       ...otherEntries
     ].filter(Boolean);
     
@@ -9903,12 +9906,13 @@ const TavliBalyaTelNetsis = () => {
         const kartonEntry = mmRecipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
         const shrinkEntry = mmRecipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
         const halkaEntry = mmRecipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-        const cemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+        const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
         const tokaEntry = mmRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-        // ✅ REMOVED: desiEntry - SM.DESİ.PAK not in tavlı/balya CSV specification
+        const strecEntry = mmRecipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
+        const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
 
-        // Add entries in the PERFECTED fixed order (YM.TT then operations) - without desiEntry
-        const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, cemberEntry, tokaEntry].filter(Boolean);
+        // Add entries in the PERFECTED fixed order (YM.TT then operations and auxiliaries)
+        const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, plastikCemberEntry, tokaEntry, strecEntry, paletEntry].filter(Boolean);
         
         // Use the PERFECTED generateMmTtReceteRowForBatch function (which accepts parameters)
         let siraNo = 1;
@@ -10086,9 +10090,10 @@ const TavliBalyaTelNetsis = () => {
       const kartonEntry = mmRecipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
       const shrinkEntry = mmRecipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
       const halkaEntry = mmRecipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-      const cemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+      const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
       const tokaEntry = mmRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      // ✅ REMOVED: desiEntry - SM.DESİ.PAK not in tavlı/balya CSV specification
+      const strecEntry = mmRecipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
+      const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
 
       // Other entries that might exist but aren't in the fixed order
       const otherEntries = mmRecipeEntries.filter(([key]) =>
@@ -10099,21 +10104,23 @@ const TavliBalyaTelNetsis = () => {
         key !== 'AMB.ÇEM.KARTON.GAL' &&
         !key.includes('AMB.SHRİNK.') &&
         key !== 'SM.7MMHALKA' &&
-        key !== 'AMB.APEX CEMBER 38X080' &&
-        key !== 'AMB.TOKA.SIGNODE.114P. DKP'
-        // ✅ REMOVED: SM.DESİ.PAK exclusion - not in tavlı/balya specification
+        key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+        key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+        key !== 'AMB.STREÇ' && // ✅ ADDED
+        key !== 'AMB.PALET' // ✅ ADDED
       );
 
-      // Sırayla ekle - exact order (YM.TT then operations)
+      // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
       const orderedEntries = [
         ymTtEntry,
         tavlamaEntry,
         kartonEntry,
         shrinkEntry,
         halkaEntry,
-        cemberEntry,
+        plastikCemberEntry, // ✅ FIXED: Use Plastik Çember
         tokaEntry,
-        // ✅ REMOVED: desiEntry - not in tavlı/balya specification
+        strecEntry, // ✅ ADDED
+        paletEntry, // ✅ ADDED
         ...otherEntries
       ].filter(Boolean);
       
@@ -10759,9 +10766,10 @@ const TavliBalyaTelNetsis = () => {
     const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
     const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
     const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-    const cemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080');
+    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-    // ✅ REMOVED: desiEntry - SM.DESİ.PAK not in tavlı/balya CSV specification
+    const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
+    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
 
     // Other entries that might exist but aren't in the fixed order
     const otherEntries = recipeEntries.filter(([key]) =>
@@ -10772,21 +10780,23 @@ const TavliBalyaTelNetsis = () => {
       key !== 'AMB.ÇEM.KARTON.GAL' &&
       !key.includes('AMB.SHRİNK.') &&
       key !== 'SM.7MMHALKA' &&
-      key !== 'AMB.APEX CEMBER 38X080' &&
-      key !== 'AMB.TOKA.SIGNODE.114P. DKP'
-      // ✅ REMOVED: SM.DESİ.PAK exclusion - not in tavlı/balya specification
+      key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+      key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
+      key !== 'AMB.STREÇ' && // ✅ ADDED
+      key !== 'AMB.PALET' // ✅ ADDED
     );
 
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
     const orderedEntries = [
       ymTtEntry,
       tavlamaEntry, // TAV01, TVPKT01, or BAL01
       kartonEntry,
       shrinkEntry,
       halkaEntry,
-      cemberEntry,
+      plastikCemberEntry, // ✅ FIXED: Use Plastik Çember
       tokaEntry,
-      // ✅ REMOVED: desiEntry - not in tavlı/balya specification
+      strecEntry, // ✅ ADDED
+      paletEntry, // ✅ ADDED
       ...otherEntries
     ].filter(Boolean);
     
@@ -13078,11 +13088,17 @@ const TavliBalyaTelNetsis = () => {
                     // SM.7MMHALKA: =(4*(1000/kg))/1000
                     const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
 
-                    // AMB.APEX CEMBER 38X080: =(1.2*(1000/kg))/1000
-                    const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
+                    // AMB.PLASTİK.ÇEMBER: =(1.2*(1000/kg))/1000 - Plastik Çember for MM TAVLI/BALYA
+                    const plastikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
                     // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/kg))/1000
                     const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // AMB.STREÇ: =(0.5*(1000/kg))/1000
+                    const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // AMB.PALET: =(1*(1000/kg))/1000
+                    const paletValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
 
                     // Packaging operation duration
                     const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
@@ -13114,8 +13130,10 @@ const TavliBalyaTelNetsis = () => {
                       updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
                       updateIfNotDb(shrinkCode, shrinkAmount);
                       updateIfNotDb('SM.7MMHALKA', halkaValue);
-                      updateIfNotDb('AMB.APEX CEMBER 38X080', cemberValue);
+                      updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue); // ✅ FIXED: Use Plastik Çember for MM products
                       updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaValue);
+                      updateIfNotDb('AMB.STREÇ', strecValue); // ✅ ADDED
+                      updateIfNotDb('AMB.PALET', paletValue); // ✅ ADDED
                     });
 
                     setAllRecipes(updatedRecipes);
