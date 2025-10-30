@@ -4133,6 +4133,18 @@ const TavliBalyaTelNetsis = () => {
         // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya specification
       };
 
+      console.log(`🔧 MM TT RECIPE GENERATED for index ${index}:`);
+      console.log(`   Source: ${sourceStokKodu} = 1`);
+      console.log(`   Operation: ${packagingOperation} = ${parseFloat(packagingDuration.toFixed(5))}`);
+      console.log(`   Karton: AMB.ÇEM.KARTON.GAL = ${parseFloat(kartonValue.toFixed(5))}`);
+      console.log(`   Shrink: ${shrinkCode} = ${parseFloat(shrinkAmount.toFixed(5))}`);
+      console.log(`   Halka: SM.7MMHALKA = ${parseFloat(halkaValue.toFixed(5))}`);
+      console.log(`   Plastik Çember: AMB.PLASTİK.ÇEMBER = ${parseFloat(cemberValue.toFixed(5))}`);
+      console.log(`   Toka: AMB.TOKA.SIGNODE.114P. DKP = ${parseFloat(tokaValue.toFixed(5))}`);
+      console.log(`   Streç: AMB.STREÇ = ${parseFloat(strecValue.toFixed(5))}`);
+      console.log(`   Palet: AMB.PALET = ${parseFloat(paletValue.toFixed(5))}`);
+      console.log(`   📊 Total recipe components: ${Object.keys(newMmGtRecipes[index]).length}`);
+
       // Reçete durumlarını 'auto' olarak işaretle
       newRecipeStatus.mmRecipes[index] = {};
       Object.keys(newMmGtRecipes[index]).forEach(key => {
@@ -6707,10 +6719,22 @@ const TavliBalyaTelNetsis = () => {
         paletEntry
       ].filter(Boolean);
 
+      console.log(`🔍 MM TT RECIPE SAVE DEBUG for ${mmTtStokKodu}:`);
+      console.log(`   sourceStokKodu: ${sourceStokKodu}`);
+      console.log(`   mmRecipe keys: ${Object.keys(mmRecipe).join(', ')}`);
+      console.log(`   sourceEntry found: ${sourceEntry ? 'YES' : 'NO'}`);
+      console.log(`   packagingEntry found: ${packagingEntry ? 'YES' : 'NO'}`);
+      console.log(`   plastikCemberEntry found: ${plastikCemberEntry ? 'YES' : 'NO'}`);
+      console.log(`   strecEntry found: ${strecEntry ? 'YES' : 'NO'}`);
+      console.log(`   paletEntry found: ${paletEntry ? 'YES' : 'NO'}`);
+      console.log(`   📊 Total entries to save: ${orderedEntries.length}`);
+
       for (const [key, value] of orderedEntries) {
         if (value > 0) {
           const operasyonBilesen = (key === 'TVPKT01' || key === 'BAL01') ? 'O' : 'B';
           let bilesenKodu = AUXILIARY_COMPONENTS[key] || key;
+
+          console.log(`   💾 Saving recipe component #${siraNo}: ${key} → ${bilesenKodu} (${value})`);
 
           await fetchWithAuth(API_URLS.tavliBalyaMmRecete, {
             method: 'POST',
