@@ -6067,7 +6067,7 @@ const TavliBalyaTelNetsis = () => {
       dia_mm: capForExcel, // Use formatted string value
       dia_tol_mm_plus: adjustedPlus,
       dia_tol_mm_minus: adjustedMinus,
-      kaplama: '0', // ✅ FIXED: Database column is 'kaplama' not 'zinc_coating'. Tavlı/Balya has 0 coating
+      // ✅ REMOVED: Database table doesn't have kaplama/zinc_coating column at all
       tensile_st_min: `${mmData.min_mukavemet} MPa`,
       tensile_st_max: `${mmData.max_mukavemet} MPa`,
       wax: mmData.product_type === 'BALYA' ? '+' : 'NONE', // '+' for BALYA, 'NONE' for TAVLI
@@ -11903,7 +11903,15 @@ const TavliBalyaTelNetsis = () => {
 
     console.log('📝 Yaglama suffix:', yaglamaSuffix);
 
-    let stokAdi = `${productName}${yaglamaSuffix} ${cap.toFixed(2)} mm ${toleranceText} ${mmData.min_mukavemet || '0'}-${mmData.max_mukavemet || '0'} MPa ID:${mmData.ic_cap || '45'} cm OD:${mmData.dis_cap || '75'} cm ${mmData.kg || '0'}${bagAmount} kg`;
+    // Parse values to remove trailing zeros - use parseFloat to strip .00
+    const capDisplay = parseFloat(cap.toFixed(2)); // Format then parse to remove trailing zeros
+    const minMukavemet = parseFloat(mmData.min_mukavemet) || 0;
+    const maxMukavemet = parseFloat(mmData.max_mukavemet) || 0;
+    const icCap = parseFloat(mmData.ic_cap) || 45;
+    const disCap = parseFloat(mmData.dis_cap) || 75;
+    const kg = parseFloat(mmData.kg) || 0;
+
+    let stokAdi = `${productName}${yaglamaSuffix} ${capDisplay} mm ${toleranceText} ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
 
     console.log('📝 Base stok_adi before packaging:', stokAdi);
 

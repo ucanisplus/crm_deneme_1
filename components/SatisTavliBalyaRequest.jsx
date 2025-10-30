@@ -1537,7 +1537,7 @@ const SatisTavliBalyaRequest = () => {
                             {request.stok_kodu || '-'}
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.cap} mm
+                            {parseFloat(request.cap)} mm
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.product_type === 'BALYA' ? 'Balya Teli' : 'Tavlı Tel'}
@@ -1546,10 +1546,10 @@ const SatisTavliBalyaRequest = () => {
                             )}
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.min_mukavemet} - {request.max_mukavemet} MPa
+                            {parseFloat(request.min_mukavemet)} - {parseFloat(request.max_mukavemet)} MPa
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {request.kg} kg
+                            {parseFloat(request.kg)} kg
                           </td>
                           <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                             {request.cast_kont || '-'}
