@@ -10406,14 +10406,16 @@ const GalvanizliTelNetsis = () => {
       console.log(`✅ BATCH: Created ${sheetName} with ${sortedMamulCodes.length} products (${coilerCount} coiler, ${matrixCount} matrix)`);
     });
 
-    // YM ST REÇETE Sheet - Main recipes only (priority 0)
+    // YM ST REÇETE Sheet - ALL YM ST recipes (priority indicates which YM GT uses them, not YM ST priority)
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
     // Group YM ST recipes by mamul_kodu for proper sequencing
     const ymStByProduct = {};
-    const mainYmStRecetes = allYMSTRecetes.filter(r => (r.priority || 0) === 0);
-    mainYmStRecetes.forEach(recipe => {
+    // NOTE: Include ALL YM ST recipes regardless of priority field
+    // The priority field indicates which YM GT recipe (main/alt1/alt2) uses this YM ST
+    // All YM ST products should appear in the main YM ST REÇETE sheet
+    allYMSTRecetes.forEach(recipe => {
       if (!ymStByProduct[recipe.mamul_kodu]) {
         ymStByProduct[recipe.mamul_kodu] = [];
       }
@@ -10442,7 +10444,7 @@ const GalvanizliTelNetsis = () => {
 
     // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
     console.log('🔄 TÜM ÜRÜNLER: Generating COILER alternatives for .ST products...');
-    const coilerAlternatives = generateCoilerAlternatives(mainYmStRecetes, allYMSTProducts);
+    const coilerAlternatives = generateCoilerAlternatives(allYMSTRecetes, allYMSTProducts);
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 TÜM ÜRÜNLER: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
@@ -11470,24 +11472,20 @@ const GalvanizliTelNetsis = () => {
       console.log(`✅ BATCH RECETE: Created YM GT REÇETE ALT ${priority} sheet with ${Object.keys(altProducts).length} products (${coilerCount} coiler, ${matrixCount} matrix)`);
     });
 
-    // YM ST REÇETE Sheet - Main products (priority 0)
+    // YM ST REÇETE Sheet - ALL YM ST recipes (priority indicates which YM GT uses them, not YM ST priority)
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
     // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
-    // IMPORTANT: Only pass priority 0 (main) recipes to generate alternatives!
-    console.log('🔄 BATCH RECETE: Filtering recipes for main products only (priority 0)...');
-    const mainYmStRecipes = ymStRecipes.filter(r => (r.ym_st_priority || 0) === 0);
-    console.log(`📊 BATCH RECETE: Filtered ${ymStRecipes.length} total recipes → ${mainYmStRecipes.length} main recipes`);
-
     console.log('🔄 BATCH RECETE: Generating COILER alternatives for .ST products...');
-    const coilerAlternatives = generateCoilerAlternatives(mainYmStRecipes, sortedYmStData);
+    const coilerAlternatives = generateCoilerAlternatives(ymStRecipes, sortedYmStData);
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 BATCH RECETE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // Group ONLY main recipes (priority 0) by product for the main sheet
+    // Group ALL YM ST recipes by product for the main sheet
+    // NOTE: priority field indicates which YM GT recipe uses this YM ST, not YM ST's own priority
     const ymStByProduct = {};
-    mainYmStRecipes.forEach(recipe => {
+    ymStRecipes.forEach(recipe => {
       const productCode = recipe.ym_st_stok_kodu || recipe.mamul_kodu;
       if (!ymStByProduct[productCode]) {
         ymStByProduct[productCode] = [];
