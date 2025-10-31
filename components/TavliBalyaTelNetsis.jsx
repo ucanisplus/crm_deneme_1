@@ -14014,7 +14014,10 @@ const TavliBalyaTelNetsis = () => {
 
                     // Packaging operation duration
                     const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
-                    const packagingDuration = mmData.product_type === 'TAVLI' ? OPERATION_DURATIONS.TVPKT01 : OPERATION_DURATIONS.BAL01;
+                    // ✅ CRITICAL FIX: OPERATION_DURATIONS values are functions - must call them!
+                    const packagingDuration = mmData.product_type === 'TAVLI'
+                      ? OPERATION_DURATIONS.TVPKT01(paketlemeSecenekleri.shrink)
+                      : OPERATION_DURATIONS.BAL01(kg);
 
                     // Update recipes for all YM STs
                     const updatedRecipes = { ...allRecipes };
@@ -14055,7 +14058,8 @@ const TavliBalyaTelNetsis = () => {
 
                       // ✅ CRITICAL FIX: Add YM TT source first
                       updateIfNotDb(ymTtSource, 1);
-                      updateIfNotDb(packagingOperation, parseFloat(packagingDuration.toFixed(5)));
+                      // ✅ FIXED: packagingDuration is already a number from OPERATION_DURATIONS function
+                      updateIfNotDb(packagingOperation, packagingDuration);
 
                       // ✅ FIXED: Only add components based on packaging options
                       // Karton - Only if packaging includes karton
