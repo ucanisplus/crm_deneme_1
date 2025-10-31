@@ -250,6 +250,42 @@ const COILER_ALTERNATIVE_MATRIX = {
     { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
     { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
     { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
+  ],
+
+  // ✅ ADDED: Category 4: 1.80mm-3.49mm - Standard filmaşin range
+  // Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006 (3 alternatives like in FILMAŞIN matrix)
+  '1.80-3.49': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
+    { priority: 1, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 2, cap: 2.26, filmasin: 5.5, quality: '1006' }
+  ],
+
+  // ✅ ADDED: Category 5: 3.50mm-3.99mm - Thicker filmaşin
+  // Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010 (3 alternatives)
+  '3.50-3.99': [
+    { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 1, cap: 2.26, filmasin: 7.0, quality: '1008' },
+    { priority: 2, cap: 2.26, filmasin: 7.0, quality: '1010' }
+  ],
+
+  // ✅ ADDED: Category 6: 4.00mm-6.99mm - Thick filmaşin
+  // Ana=7.0/1008, ALT_1=7.0/1010 (2 alternatives)
+  '4.00-6.99': [
+    { priority: 0, cap: 2.26, filmasin: 7.0, quality: '1008' },
+    { priority: 1, cap: 2.26, filmasin: 7.0, quality: '1010' }
+  ],
+
+  // ✅ ADDED: Category 7: 7.00mm-7.99mm - Very thick filmaşin
+  // Ana=9.0/1010, ALT_1=9.0/1008 (2 alternatives)
+  '7.00-7.99': [
+    { priority: 0, cap: 2.26, filmasin: 9.0, quality: '1010' },
+    { priority: 1, cap: 2.26, filmasin: 9.0, quality: '1008' }
+  ],
+
+  // ✅ ADDED: Category 8: 8.00mm and above - Maximum thickness
+  // Ana=10.0/1010 (1 alternative - main only)
+  '≥8.00': [
+    { priority: 0, cap: 2.26, filmasin: 10.0, quality: '1010' }
   ]
 };
 
@@ -4178,7 +4214,8 @@ const TavliBalyaTelNetsis = () => {
 
     // Reçete durumlarını güncelle
     const newRecipeStatus = {
-      mmRecipes: {}
+      mmRecipes: {},
+      ymStRecipes: {}  // ✅ FIXED: Initialize ymStRecipes to prevent "Cannot set properties of undefined" error
     };
 
     // Otomatik Doldur: Shrink tipi ve miktarını otomatik belirle (İç Çap'a göre)
@@ -6963,7 +7000,7 @@ const TavliBalyaTelNetsis = () => {
    * Generates multiple recipes for different priorities (0 = Main, 1 = ALT_1, 2 = ALT_2)
    * NOTE: YM STP is only created when cap > 1.8mm (pressing required)
    */
-  const saveYmStpRecipes = async (ymStpStokKodu, ymStStokKodu, sequence, kg) => {
+  const saveYmStpRecipes = async (ymStpStokKodu, ymStStokKodu, sequence, kg, allYmSts = []) => {
     try {
       console.log(`📝 Saving YM STP recipes WITH ALTERNATIVES for: ${ymStpStokKodu}`);
 
@@ -6978,8 +7015,63 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`YM STP diameter: ${ymStpDiameter}mm (pressing required for cap > 1.8mm)`);
 
-      // Get all YM ST alternatives - NO .P suffix for YM STP input (pressing happens TO the YM ST, not FROM pressed YM ST)
-      const ymStAlternatives = getYmStAlternativesForYmTt(ymStpDiameter, false);
+      let ymStAlternatives = [];
+
+      // ✅ FIXED: ALWAYS use COILER matrix for YM STP (up to 8 alternatives)
+      if (allYmSts.length > 0) {
+        console.log(`🔄 Generating YM STP alternatives using COILER matrix`);
+
+        // Find actual YM ST products used
+        const actualYmSts = allYmSts.filter(ym => ym && ym.stok_kodu && ym.stok_kodu.startsWith('YM.ST.'));
+
+        // Get the main YM ST
+        const mainYmSt = actualYmSts[0];
+        if (!mainYmSt) {
+          console.warn(`No YM ST products found for YM STP ${ymStpStokKodu}`);
+          return;
+        }
+
+        // Priority 0 (main)
+        ymStAlternatives = [
+          { stokKodu: mainYmSt.stok_kodu, priority: 0, ymStDiameter: parseFloat(mainYmSt.cap) }
+        ];
+
+        // Determine COILER category based on YM STP diameter
+        let category = null;
+        if (ymStpDiameter === 0.84) category = '0.84';
+        else if (ymStpDiameter === 1.16) category = '1.16';
+        else if (ymStpDiameter <= 1.49) category = '≤1.49';
+        else if (ymStpDiameter >= 1.50 && ymStpDiameter <= 1.79) category = '1.50-1.79';
+        else if (ymStpDiameter >= 1.80 && ymStpDiameter <= 3.49) category = '1.80-3.49';
+        else if (ymStpDiameter >= 3.50 && ymStpDiameter <= 3.99) category = '3.50-3.99';
+        else if (ymStpDiameter >= 4.00 && ymStpDiameter <= 6.99) category = '4.00-6.99';
+        else if (ymStpDiameter >= 7.00 && ymStpDiameter <= 7.99) category = '7.00-7.99';
+        else if (ymStpDiameter >= 8.00) category = '≥8.00';
+
+        if (category) {
+          const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+          console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
+
+          alternatives.forEach(altDef => {
+            if (altDef.priority > 0) {
+              const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+              const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+              const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+
+              ymStAlternatives.push({
+                stokKodu: stokKodu,
+                priority: altDef.priority,
+                ymStDiameter: altDef.cap
+              });
+            }
+          });
+        }
+
+        console.log(`✅ Generated ${ymStAlternatives.length} YM ST alternatives using COILER matrix (up to 8)`);
+      } else {
+        console.warn(`⚠️ No YM ST products provided for YM STP, cannot generate alternatives`);
+        return;
+      }
 
       if (ymStAlternatives.length === 0) {
         console.warn(`No YM ST alternatives found for diameter ${ymStpDiameter}mm`);
@@ -7087,7 +7179,7 @@ const TavliBalyaTelNetsis = () => {
    * Recipe: Source (YM.ST or YM.STP) + TAV01 (Operasyon) + Auxiliary Components
    * Generates multiple recipes for different priorities (0 = Main, 1 = ALT_1, 2 = ALT_2)
    */
-  const saveYmTtRecipes = async (ymTtStokKodu, sourceStokKodu, sequence, kg) => {
+  const saveYmTtRecipes = async (ymTtStokKodu, sourceStokKodu, sequence, kg, allYmSts = []) => {
     try {
       console.log(`📝 Saving YM TT recipes WITH ALTERNATIVES for: ${ymTtStokKodu}`);
 
@@ -7102,8 +7194,70 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`YM TT diameter: ${ymTtDiameter}mm, Needs pressing: ${needsPressing}`);
 
-      // Get all YM ST alternatives using priority matrix
-      const ymStAlternatives = getYmStAlternativesForYmTt(ymTtDiameter, needsPressing);
+      let ymStAlternatives = [];
+
+      // ✅ FIXED: ALWAYS use COILER matrix for YM TT (both < 1.5mm and >= 1.5mm)
+      // YM TT should have up to 8 alternatives just like YM ST, not 2-3 from FILMAŞIN matrix
+      if (allYmSts.length > 0) {
+        console.log(`🔄 Generating YM TT alternatives using COILER matrix`);
+
+        // Find actual YM ST products used
+        const actualYmSts = allYmSts.filter(ym => ym && ym.stok_kodu && ym.stok_kodu.startsWith('YM.ST.'));
+        console.log(`📦 Found ${actualYmSts.length} YM ST products:`, actualYmSts.map(y => y.stok_kodu));
+
+        // Get the main YM ST
+        const mainYmSt = actualYmSts[0];
+        if (!mainYmSt) {
+          console.warn(`No YM ST products found for YM TT ${ymTtStokKodu}`);
+          return;
+        }
+
+        // Priority 0 (main)
+        ymStAlternatives = [
+          { stokKodu: mainYmSt.stok_kodu, priority: 0, ymStDiameter: parseFloat(mainYmSt.cap) }
+        ];
+
+        // Determine COILER category based on YM TT diameter (NOT YM ST diameter)
+        let category = null;
+        if (ymTtDiameter === 0.84) category = '0.84';
+        else if (ymTtDiameter === 1.16) category = '1.16';
+        else if (ymTtDiameter <= 1.49) category = '≤1.49';
+        else if (ymTtDiameter >= 1.50 && ymTtDiameter <= 1.79) category = '1.50-1.79';
+        else if (ymTtDiameter >= 1.80 && ymTtDiameter <= 3.49) category = '1.80-3.49';
+        else if (ymTtDiameter >= 3.50 && ymTtDiameter <= 3.99) category = '3.50-3.99';
+        else if (ymTtDiameter >= 4.00 && ymTtDiameter <= 6.99) category = '4.00-6.99';
+        else if (ymTtDiameter >= 7.00 && ymTtDiameter <= 7.99) category = '7.00-7.99';
+        else if (ymTtDiameter >= 8.00) category = '≥8.00';
+
+        if (category) {
+          const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+          console.log(`📋 YM TT ${ymTtDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
+
+          // Generate alternatives (priorities 1-8)
+          alternatives.forEach(altDef => {
+            if (altDef.priority > 0) {  // Skip priority 0 (already added as main)
+              // Build YM.ST code: YM.ST.{cap}.{filmasin}.{quality}
+              const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+              const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+              const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+
+              ymStAlternatives.push({
+                stokKodu: stokKodu,
+                priority: altDef.priority,
+                ymStDiameter: altDef.cap
+              });
+            }
+          });
+        } else {
+          console.warn(`⚠️ YM TT ${ymTtDiameter}mm: Not in COILER matrix range (needs matrix expansion)`);
+          // Fall back to using just the main YM ST
+        }
+
+        console.log(`✅ Generated ${ymStAlternatives.length} YM ST alternatives using COILER matrix (up to 8)`);
+      } else {
+        console.warn(`⚠️ No YM ST products provided, cannot generate YM TT alternatives`);
+        return;
+      }
 
       if (ymStAlternatives.length === 0) {
         console.warn(`No YM ST alternatives found for diameter ${ymTtDiameter}mm`);
@@ -7426,14 +7580,14 @@ const TavliBalyaTelNetsis = () => {
         // STEP 1: YM STP Recipes (if pressing needed - cap > 1.8mm)
         if (ymStpStokKodu) {
           console.log('⚙️ Generating YM STP recipes (pressing flow)...');
-          await saveYmStpRecipes(ymStpStokKodu, mainYmSt.stok_kodu, sequence, mmData.kg);
+          await saveYmStpRecipes(ymStpStokKodu, mainYmSt.stok_kodu, sequence, mmData.kg, allYmSts); // ✅ FIXED: Pass allYmSts for COILER alternatives
         }
 
         // STEP 2: YM TT Recipes (always created - annealing)
         if (ymTtStokKodu) {
           console.log('⚙️ Generating YM TT recipes (annealing flow)...');
           const sourceForTt = ymStpStokKodu || mainYmSt.stok_kodu;
-          await saveYmTtRecipes(ymTtStokKodu, sourceForTt, sequence, mmData.kg);
+          await saveYmTtRecipes(ymTtStokKodu, sourceForTt, sequence, mmData.kg, allYmSts); // ✅ FIXED: Pass allYmSts for COILER alternatives
         }
 
         // STEP 3: MM TT Recipes (final product - packaging)
