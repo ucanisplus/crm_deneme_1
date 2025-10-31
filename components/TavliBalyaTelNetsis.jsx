@@ -397,27 +397,51 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 // Both product types share the same YM TT intermediate after annealing
 // ============================================================================
 
-// OPERATION DURATIONS (Unit: DK, Values: seconds/60)
+// OPERATION DURATIONS (Unit: DK) - UPDATED from gene3l.csv
+// TAV01: 5 ton için 15 saat → 900 dk / 5000 kg = 0.18 dk per kg
+// STPRS01: 650 kg için 4.5 dk → (4.5 / 650) * kg
+// TVPKT01: 1 Kangal İçin (per coil, NOT per kg!) → shrinkli 5 dk / shrinksiz 2.5 dk
+// BAL01: 8 saat 2 ton → 480 dk / 2000 kg = 0.24 dk per kg
 const OPERATION_DURATIONS = {
-  STPRS01: parseFloat((5 / 60).toFixed(6)),   // 0.083333 DK - Pressing (Siyah Tel Presleme)
-  TAV01: parseFloat((20 / 60).toFixed(6)),    // 0.333333 DK - Annealing (Tavlama)
-  TVPKT01: parseFloat((2 / 60).toFixed(6)),   // 0.033333 DK - Tavlı Tel Packaging
-  BAL01: parseFloat((2 / 60).toFixed(6))      // 0.033333 DK - Balyalama-Packaging
+  // TAV01 - PER BATCH (5 ton = 15 hours)
+  // Example: 500kg kangal → 0.18 * 500 = 90 dk (900/10)
+  TAV01: (kg) => parseFloat((0.18 * kg).toFixed(6)),
+
+  // STPRS01 - Per 650 kg (unchanged)
+  STPRS01: (kg) => parseFloat(((4.5 / 650) * kg).toFixed(6)),
+
+  // TVPKT01 - FIXED PER KANGAL (not dependent on kg!)
+  // Shrink: 5 dk, No shrink: 2.5 dk
+  TVPKT01: (hasShrink) => hasShrink ? 5 : 2.5,
+
+  // BAL01 - PER BATCH (8 hours = 480 dk per 2 ton)
+  // Example: 1000kg → 0.24 * 1000 = 240 dk
+  BAL01: (kg) => parseFloat((0.24 * kg).toFixed(6))
+};
+
+// Helper function to get operation duration
+const getOperationDuration = (operation, kg, hasShrink = false) => {
+  if (operation === 'TAV01') return OPERATION_DURATIONS.TAV01(kg);
+  if (operation === 'STPRS01') return OPERATION_DURATIONS.STPRS01(kg);
+  if (operation === 'TVPKT01') return OPERATION_DURATIONS.TVPKT01(hasShrink); // No kg parameter!
+  if (operation === 'BAL01') return OPERATION_DURATIONS.BAL01(kg);
+  return 0;
 };
 
 // AUXILIARY COMPONENT MAPPINGS (Display code → Database code)
+// ✅ UPDATED from gene2l.csv: Removed Streç (not listed in new constraints)
 const AUXILIARY_COMPONENTS = {
   // Reused from Galvanizli (UPDATED: Removed SM.DESİ.PAK - not in tavlı/balya CSV)
   'AMB.APEX CEMBER 38X080': 'SM-AMB-000017', // Çelik Çember (for YM TT and YM STP)
-  'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // Plastik Çember (for MM TAVLI/BALYA)
+  'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // Plastik Çember (for MM TAVLI/BALYA - OILED ONLY)
   'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018', // Çember Tokası
   'SM.7MMHALKA': 'SM-AMB-000023', // Kaldırma Kancası
-  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019', // Karton
-  'AMB.SHRİNK.200*140CM': 'SM-AMB-000027',
+  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019', // Karton (OILED ONLY per gene2l.csv)
+  'AMB.SHRİNK.200*140CM': 'SM-AMB-000027', // Shrink - from Galvanizli logic
   'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
   'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
-  'AMB.STREÇ': 'SM-AMB-000025', // Streç (for MM TAVLI/BALYA)
-  'AMB.PALET': 'SM-AMB-000026', // Palet (for MM products)
+  // ❌ REMOVED: 'AMB.STREÇ' - not in gene2l.csv constraints
+  'AMB.PALET': 'SM-AMB-000026', // Palet (SM-AMB-000164 per gene2l.csv)
   // YM STP and YM TT helper components (same codes as above, just for clarity)
   'AMB.ÇELIK.ÇEMBER': 'SM-AMB-000017', // Çelik Çember (same as APEX CEMBER)
   'AMB.ÇEMBER.TOKASI': 'SM-AMB-000018', // Çember Tokası (same as TOKA)
@@ -881,12 +905,12 @@ const TavliBalyaTelNetsis = () => {
     }
   }, [mmData.cap, mmData.ic_cap]);
 
-  // Check if pressing is needed based on cap value (cap > 2.0mm)
+  // Check if pressing is needed based on cap value (cap >= 1.8mm per gene2l.csv)
   useEffect(() => {
     if (mmData.cap) {
-      // TODO: Update this threshold based on production requirements
+      // ✅ UPDATED: Threshold changed from 2.0mm to 1.8mm per gene2l.csv
       const cap = parseFloat(mmData.cap) || 0;
-      const needsPress = cap > 2.0;
+      const needsPress = cap >= 1.8;
       setNeedsPressing(needsPress);
     }
   }, [mmData.cap]);
@@ -4137,56 +4161,118 @@ const TavliBalyaTelNetsis = () => {
       const sequence = index.toString().padStart(2, '0');
       sourceStokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
-      // MM TT Packaging Recipe Components
-      // Plastik Çember (for MM products): =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
-      const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
+      // ==========================================
+      // MM TT/MM BL Packaging Recipe Components
+      // Using Galvanizli codes where applicable
+      // ==========================================
 
-      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      // Shrink - from Galvanizli (exact copy)
+      const shrinkCode = getShrinkCode(mmData.ic_cap);
+      const shrinkAmount = calculateShrinkAmount(kg);
+
+      // AMB.TOKA.SIGNODE.114P. DKP (Çember Tokası): =(4*(1000/kg))/1000
       const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
 
-      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      // SM.7MMHALKA (Kaldırma Kancası): =(4*(1000/kg))/1000
       const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
 
-      // AMB.ÇEM.KARTON.GAL: =(8*(1000/'COIL WEIGHT (KG)'))/1000
-      const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
+      // AMB.APEX CEMBER 38X080 (Çelik Çember): =(1.2*(1000/kg))/1000 - from Galvanizli
+      const celikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
-      // Streç: =(0.5*(1000/'COIL WEIGHT (KG)'))/1000 (estimated formula)
-      const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
+      // ✅ UPDATED: Karton - CONDITIONAL (ONLY for oiled products per gene2l.csv)
+      // "Yağlıda 1.2 tonda 7 adet"
+      let kartonValue = 0;
+      if (mmData.yaglama_tipi && mmData.yaglama_tipi !== '') {
+        // Oiled product - REQUIRED
+        kartonValue = parseFloat(((7 / 1200) * kg).toFixed(5));
+      }
+      // Note: Annealed products (yaglama_tipi empty) do NOT get Karton
+
+      // ✅ UPDATED: Plastik Çember - CONDITIONAL (ONLY for oiled products per gene2l.csv)
+      // "Yağlı 1.2 tonda 10 m"
+      let plastikCemberValue = 0;
+      if (mmData.yaglama_tipi && mmData.yaglama_tipi !== '') {
+        plastikCemberValue = parseFloat(((10 / 1200) * kg).toFixed(5));
+      }
+      // Note: Annealed products do NOT get Plastik Çember
+
+      // ❌ REMOVED: Streç - NOT in gene2l.csv constraints
+      // Was: const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
 
       // Palet: =(1*(1000/'COIL WEIGHT (KG)'))/1000 (estimated formula)
       const paletValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
 
-      // Packaging operation: TVPKT01 for TAVLI, BAL01 for BALYA
+      // ✅ UPDATED: Packaging operation duration - USE NEW getOperationDuration()
+      // TVPKT01 for TAVLI (with shrink check), BAL01 for BALYA
       const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
-      const packagingDuration = mmData.product_type === 'TAVLI' ? OPERATION_DURATIONS.TVPKT01 : OPERATION_DURATIONS.BAL01;
+      const hasShrink = mmData.shrink === 'evet';
+      const packagingDuration = mmData.product_type === 'TAVLI'
+        ? getOperationDuration('TVPKT01', kg, hasShrink)
+        : getOperationDuration('BAL01', kg);
 
       // ✅ REMOVED: SM.DESİ.PAK (Silkajel) - NOT in tavlı/balya CSV specification
       // This is galvanizli-specific only per "Caner Beyle Toplanti 22.10 -TT v3.csv"
 
+      // ==========================================
+      // Build MM Recipe - DIFFERENTIATE MM TT (TAVLI) vs MM BL (BALYA)
+      // Per user table: MM TT has MORE components than MM BL
+      // ==========================================
+
+      // Base components (shared by both MM TT and MM BL)
       newMmGtRecipes[index] = {
         [sourceStokKodu]: 1, // Source: YM.TT (shared by both TAVLI and BALYA)
         [packagingOperation]: parseFloat(packagingDuration.toFixed(5)),
-        'AMB.ÇEM.KARTON.GAL': parseFloat(kartonValue.toFixed(5)),
         [shrinkCode]: parseFloat(shrinkAmount.toFixed(5)),
-        'SM.7MMHALKA': parseFloat(halkaValue.toFixed(5)),
-        'AMB.PLASTİK.ÇEMBER': parseFloat(cemberValue.toFixed(5)), // ✅ UPDATED: Plastik Çember for MM products
-        'AMB.TOKA.SIGNODE.114P. DKP': parseFloat(tokaValue.toFixed(5)),
-        'AMB.STREÇ': parseFloat(strecValue.toFixed(5)), // ✅ ADDED: Streç for MM TAVLI/BALYA
-        'AMB.PALET': parseFloat(paletValue.toFixed(5)) // ✅ ADDED: Palet for MM TAVLI/BALYA
-        // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya specification
+        'AMB.PALET': parseFloat(paletValue.toFixed(5))
       };
 
-      console.log(`🔧 MM TT RECIPE GENERATED for index ${index}:`);
+      // ✅ MM TT (TAVLI) ONLY components - per user table
+      if (mmData.product_type === 'TAVLI') {
+        newMmGtRecipes[index]['SM.7MMHALKA'] = parseFloat(halkaValue.toFixed(5)); // Kaldırma Kancası
+        newMmGtRecipes[index]['AMB.TOKA.SIGNODE.114P. DKP'] = parseFloat(tokaValue.toFixed(5)); // Çember Tokası
+        newMmGtRecipes[index]['AMB.APEX CEMBER 38X080'] = parseFloat(celikCemberValue.toFixed(5)); // Çelik Çember
+      }
+      // ❌ MM BL (BALYA) does NOT get: Çember Tokası, Kaldırma Kancası, Çelik Çember
+
+      // ✅ Conditionally add Karton (ONLY for oiled products)
+      if (kartonValue > 0) {
+        newMmGtRecipes[index]['AMB.ÇEM.KARTON.GAL'] = parseFloat(kartonValue.toFixed(5));
+      }
+
+      // ✅ Conditionally add Plastik Çember (ONLY for oiled products)
+      if (plastikCemberValue > 0) {
+        newMmGtRecipes[index]['AMB.PLASTİK.ÇEMBER'] = parseFloat(plastikCemberValue.toFixed(5));
+      }
+
+      // ❌ REMOVED DUPLICATES: 'AMB.ÇEMBER.TOKASI', 'AMB.KALDIRMA.KANCASI' (use Galvanizli codes)
+      // ❌ REMOVED: 'AMB.STREÇ' - not in gene2l.csv
+      // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya specification
+
+      const productLabel = mmData.product_type === 'TAVLI' ? 'MM TT (TAVLI)' : 'MM BL (BALYA)';
+      console.log(`🔧 ${productLabel} RECIPE GENERATED for index ${index}:`);
       console.log(`   Source: ${sourceStokKodu} = 1`);
-      console.log(`   Operation: ${packagingOperation} = ${parseFloat(packagingDuration.toFixed(5))}`);
-      console.log(`   Karton: AMB.ÇEM.KARTON.GAL = ${parseFloat(kartonValue.toFixed(5))}`);
+      console.log(`   Operation: ${packagingOperation} = ${parseFloat(packagingDuration.toFixed(5))} dk`);
       console.log(`   Shrink: ${shrinkCode} = ${parseFloat(shrinkAmount.toFixed(5))}`);
-      console.log(`   Halka: SM.7MMHALKA = ${parseFloat(halkaValue.toFixed(5))}`);
-      console.log(`   Plastik Çember: AMB.PLASTİK.ÇEMBER = ${parseFloat(cemberValue.toFixed(5))}`);
-      console.log(`   Toka: AMB.TOKA.SIGNODE.114P. DKP = ${parseFloat(tokaValue.toFixed(5))}`);
-      console.log(`   Streç: AMB.STREÇ = ${parseFloat(strecValue.toFixed(5))}`);
       console.log(`   Palet: AMB.PALET = ${parseFloat(paletValue.toFixed(5))}`);
-      console.log(`   📊 Total recipe components: ${Object.keys(newMmGtRecipes[index]).length}`);
+
+      if (mmData.product_type === 'TAVLI') {
+        console.log(`   ✅ Kaldırma Kancası: SM.7MMHALKA = ${parseFloat(halkaValue.toFixed(5))} (TAVLI ONLY)`);
+        console.log(`   ✅ Çember Tokası: AMB.TOKA.SIGNODE.114P. DKP = ${parseFloat(tokaValue.toFixed(5))} (TAVLI ONLY)`);
+        console.log(`   ✅ Çelik Çember: AMB.APEX CEMBER 38X080 = ${parseFloat(celikCemberValue.toFixed(5))} (TAVLI ONLY)`);
+      } else {
+        console.log(`   ❌ NO Kaldırma Kancası (BALYA excludes this)`);
+        console.log(`   ❌ NO Çember Tokası (BALYA excludes this)`);
+        console.log(`   ❌ NO Çelik Çember (BALYA excludes this)`);
+      }
+
+      if (kartonValue > 0) {
+        console.log(`   Karton: AMB.ÇEM.KARTON.GAL = ${parseFloat(kartonValue.toFixed(5))} (OILED ONLY)`);
+      }
+      if (plastikCemberValue > 0) {
+        console.log(`   Plastik Çember: AMB.PLASTİK.ÇEMBER = ${parseFloat(plastikCemberValue.toFixed(5))} m (OILED ONLY)`);
+      }
+
+      console.log(`   📊 Total ${productLabel} components: ${Object.keys(newMmGtRecipes[index]).length}`);
 
       // Reçete durumlarını 'auto' olarak işaretle
       newRecipeStatus.mmRecipes[index] = {};
@@ -4675,7 +4761,46 @@ const TavliBalyaTelNetsis = () => {
     } else if (kgValue < 250 || kgValue > 20000) {
       errors.push(`Ağırlık değeri 250 ile 20000 arasında olmalıdır. Girilen değer: ${mmData.kg}`);
     }
-    
+
+    // ✅ NEW: ID-OD validation by oil type (from constraints.csv)
+    // This is a WARNING only (informative), not blocking
+    if (mmData.ic_cap && mmData.dis_cap && mmData.yaglama_tipi) {
+      const ic = parseFloat(mmData.ic_cap);
+      const dis = parseFloat(mmData.dis_cap);
+
+      if (!isNaN(ic) && !isNaN(dis)) {
+        let validRanges = [];
+        let isValid = false;
+
+        if (mmData.yaglama_tipi === 'Püskürtme') {
+          // Püskürtme: 23-35 / 45-75 / 50-90
+          validRanges = ['23-35 cm', '45-75 cm', '50-90 cm'];
+          isValid = (ic >= 23 && dis <= 35) ||
+                   (ic >= 45 && dis <= 75) ||
+                   (ic >= 50 && dis <= 90);
+        } else if (mmData.yaglama_tipi === 'Daldırma') {
+          // ✅ UPDATED: Daldırma: 15-30 / 21-34 (was 14.5-30 per gene2l.csv)
+          validRanges = ['15-30 cm', '21-34 cm'];
+          isValid = (ic >= 15 && dis <= 30) ||
+                   (ic >= 21 && dis <= 34);
+        } else if (mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Yagsiz') {
+          // ✅ UPDATED: Yağsız Balya: 15-30 / 21-34 (was 14.5-30 per gene2l.csv)
+          validRanges = ['15-30 cm', '21-34 cm'];
+          isValid = (ic >= 15 && dis <= 30) ||
+                   (ic >= 21 && dis <= 34);
+        }
+
+        if (!isValid && validRanges.length > 0) {
+          // Show warning toast (not blocking error)
+          const rangeText = validRanges.join(' veya ');
+          console.warn(`⚠️ ID-OD Uyarı: ${mmData.yaglama_tipi} için önerilen aralıklar: ${rangeText}`);
+          toast.warning(`⚠️ Dikkat: ${mmData.yaglama_tipi} yağlama tipi için önerilen IC-OD aralıkları: ${rangeText}. Mevcut: IC ${ic} - OD ${dis} cm`, {
+            duration: 8000
+          });
+        }
+      }
+    }
+
     return errors;
   };
   
@@ -5585,16 +5710,16 @@ const TavliBalyaTelNetsis = () => {
       let ymStpStokKodu = null;
       let ymTtStokKodu = null;
 
-      // Determine if pressing is needed (cap > 2.0mm)
+      // Determine if pressing is needed (cap >= 1.8mm per gene2l.csv)
       const capValue = parseFloat(mmData.cap);
-      const needsPressing = capValue > 2.0;
+      const needsPressing = capValue >= 1.8;
 
       // Get MM stok_kodu for updating intermediate products
       const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
       const capFormatted2 = Math.round(capValue * 100).toString().padStart(4, '0');
       const mmStokKodu = `TT.${productPrefix}.${capFormatted2}.${sequence}`;
 
-      // STEP 1: Create YM STP if pressing is needed (cap > 2.0mm)
+      // STEP 1: Create YM STP if pressing is needed (cap >= 1.8mm per gene2l.csv)
       if (needsPressing) {
         const ymStpData = generateYmStpDatabaseData(mainYmSt, sequence);
 
@@ -6565,7 +6690,7 @@ const TavliBalyaTelNetsis = () => {
    * Generates multiple recipes for different priorities (0 = Main, 1 = ALT_1, 2 = ALT_2)
    * NOTE: YM STP is only created when cap > 2.0mm (pressing required)
    */
-  const saveYmStpRecipes = async (ymStpStokKodu, ymStStokKodu, sequence) => {
+  const saveYmStpRecipes = async (ymStpStokKodu, ymStStokKodu, sequence, kg) => {
     try {
       console.log(`📝 Saving YM STP recipes WITH ALTERNATIVES for: ${ymStpStokKodu}`);
 
@@ -6615,34 +6740,34 @@ const TavliBalyaTelNetsis = () => {
           {
             bilesen_kodu: 'STPRS01',
             operasyon_bilesen: 'O',
-            miktar: OPERATION_DURATIONS.STPRS01,
+            miktar: getOperationDuration('STPRS01', kg), // ✅ UPDATED: Formula-based (4.5dk/650kg)
             olcu_br: 'DK',
             aciklama: 'Siyah Tel Presleme Operasyonu',
             priority: alternative.priority
           },
-          // 3. Çelik Çember (Auxiliary component)
+          // 3. Çelik Çember (Auxiliary) - Use Galvanizli code, x2 formula for pressing
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇELIK.ÇEMBER'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.APEX CEMBER 38X080'],
             operasyon_bilesen: 'B',
-            miktar: 2, // 2 pieces per coil
+            miktar: parseFloat((((1.2 * (1000 / kg)) / 1000) * 2).toFixed(5)), // Galvanizli formula x2 (pressing)
             olcu_br: 'AD',
             aciklama: 'Çelik Çember',
             priority: alternative.priority
           },
-          // 4. Çember Tokası (Auxiliary component)
+          // 4. Çember Tokası (Auxiliary) - Use Galvanizli code: AMB.TOKA.SIGNODE.114P. DKP
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇEMBER.TOKASI'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.TOKA.SIGNODE.114P. DKP'],
             operasyon_bilesen: 'B',
-            miktar: 4, // 4 pieces per coil
+            miktar: parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5)), // 8 pieces: 4 pressing + 4 packaging
             olcu_br: 'AD',
             aciklama: 'Çember Tokası',
             priority: alternative.priority
           },
-          // 5. Kaldırma Kancası (Auxiliary component)
+          // 5. Kaldırma Kancası (Auxiliary) - Use Galvanizli code: SM.7MMHALKA
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.KALDIRMA.KANCASI'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['SM.7MMHALKA'],
             operasyon_bilesen: 'B',
-            miktar: 4, // 4 pieces per coil
+            miktar: parseFloat(((6.0 * (1000 / kg)) / 1000).toFixed(5)), // 6 pieces: 2 pressing + 4 packaging
             olcu_br: 'AD',
             aciklama: 'Kaldırma Kancası',
             priority: alternative.priority
@@ -6688,7 +6813,7 @@ const TavliBalyaTelNetsis = () => {
    * Recipe: Source (YM.ST or YM.STP) + TAV01 (Operasyon) + Auxiliary Components
    * Generates multiple recipes for different priorities (0 = Main, 1 = ALT_1, 2 = ALT_2)
    */
-  const saveYmTtRecipes = async (ymTtStokKodu, sourceStokKodu, sequence) => {
+  const saveYmTtRecipes = async (ymTtStokKodu, sourceStokKodu, sequence, kg) => {
     try {
       console.log(`📝 Saving YM TT recipes WITH ALTERNATIVES for: ${ymTtStokKodu}`);
 
@@ -6739,34 +6864,34 @@ const TavliBalyaTelNetsis = () => {
           {
             bilesen_kodu: 'TAV01',
             operasyon_bilesen: 'O',
-            miktar: OPERATION_DURATIONS.TAV01,
+            miktar: getOperationDuration('TAV01', kg), // ✅ UPDATED: 900 dk (15 hours)
             olcu_br: 'DK',
             aciklama: 'Tavlama Operasyonu',
             priority: alternative.priority
           },
-          // 3. Çelik Çember (Auxiliary component)
+          // 3. Çelik Çember (Auxiliary) - Use Galvanizli code
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇELIK.ÇEMBER'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.APEX CEMBER 38X080'],
             operasyon_bilesen: 'B',
-            miktar: 2, // 2 pieces per coil
+            miktar: parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
             olcu_br: 'AD',
             aciklama: 'Çelik Çember',
             priority: alternative.priority
           },
-          // 4. Çember Tokası (Auxiliary component)
+          // 4. Çember Tokası (Auxiliary) - Use Galvanizli code: AMB.TOKA.SIGNODE.114P. DKP
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.ÇEMBER.TOKASI'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.TOKA.SIGNODE.114P. DKP'],
             operasyon_bilesen: 'B',
-            miktar: 4, // 4 pieces per coil
+            miktar: parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
             olcu_br: 'AD',
             aciklama: 'Çember Tokası',
             priority: alternative.priority
           },
-          // 5. Kaldırma Kancası (Auxiliary component)
+          // 5. Kaldırma Kancası (Auxiliary) - Use Galvanizli code: SM.7MMHALKA
           {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.KALDIRMA.KANCASI'],
+            bilesen_kodu: AUXILIARY_COMPONENTS['SM.7MMHALKA'],
             operasyon_bilesen: 'B',
-            miktar: 4, // 4 pieces per coil
+            miktar: parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
             olcu_br: 'AD',
             aciklama: 'Kaldırma Kancası',
             priority: alternative.priority
@@ -6829,18 +6954,19 @@ const TavliBalyaTelNetsis = () => {
       // Get shrink size from mmData
       const shrinkCode = getShrinkCode(mmData.ic_cap);
 
-      // Recipe order: Source → Packaging Operation (TVPKT01/BAL01) → KARTON → SHRINK → HALKA → CEMBER → TOKA → STREÇ → PALET
+      // ✅ UPDATED: Recipe order (Streç removed per gene2l.csv)
+      // Order: Source → Packaging Operation (TVPKT01/BAL01) → KARTON (if oiled) → SHRINK → HALKA → PLASTIK ÇEMBER (if oiled) → TOKA → PALET
       const recipeEntries = Object.entries(mmRecipe);
 
       const sourceEntry = recipeEntries.find(([key]) => key === sourceStokKodu);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
-      const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
+      const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
       const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-      const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ UPDATED: Plastik Çember for MM
+      const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // Optional (oiled only)
       const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED: Streç for MM
-      const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED: Palet for MM
+      // ❌ REMOVED: strecEntry - not in gene2l.csv
+      const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET');
 
       const orderedEntries = [
         sourceEntry,
@@ -6850,7 +6976,7 @@ const TavliBalyaTelNetsis = () => {
         halkaEntry,
         plastikCemberEntry,
         tokaEntry,
-        strecEntry,
+        // ❌ REMOVED: strecEntry
         paletEntry
       ].filter(Boolean);
 
@@ -6859,8 +6985,9 @@ const TavliBalyaTelNetsis = () => {
       console.log(`   mmRecipe keys: ${Object.keys(mmRecipe).join(', ')}`);
       console.log(`   sourceEntry found: ${sourceEntry ? 'YES' : 'NO'}`);
       console.log(`   packagingEntry found: ${packagingEntry ? 'YES' : 'NO'}`);
-      console.log(`   plastikCemberEntry found: ${plastikCemberEntry ? 'YES' : 'NO'}`);
-      console.log(`   strecEntry found: ${strecEntry ? 'YES' : 'NO'}`);
+      console.log(`   kartonEntry found: ${kartonEntry ? 'YES' : 'NO'} (oiled only)`);
+      console.log(`   plastikCemberEntry found: ${plastikCemberEntry ? 'YES' : 'NO'} (oiled only)`);
+      // ❌ REMOVED: strecEntry log
       console.log(`   paletEntry found: ${paletEntry ? 'YES' : 'NO'}`);
       console.log(`   📊 Total entries to save: ${orderedEntries.length}`);
 
@@ -7010,14 +7137,14 @@ const TavliBalyaTelNetsis = () => {
         // STEP 1: YM STP Recipes (if pressing needed - cap > 2.0mm)
         if (ymStpStokKodu) {
           console.log('⚙️ Generating YM STP recipes (pressing flow)...');
-          await saveYmStpRecipes(ymStpStokKodu, mainYmSt.stok_kodu, sequence);
+          await saveYmStpRecipes(ymStpStokKodu, mainYmSt.stok_kodu, sequence, mmData.kg);
         }
 
         // STEP 2: YM TT Recipes (always created - annealing)
         if (ymTtStokKodu) {
           console.log('⚙️ Generating YM TT recipes (annealing flow)...');
           const sourceForTt = ymStpStokKodu || mainYmSt.stok_kodu;
-          await saveYmTtRecipes(ymTtStokKodu, sourceForTt, sequence);
+          await saveYmTtRecipes(ymTtStokKodu, sourceForTt, sequence, mmData.kg);
         }
 
         // STEP 3: MM TT Recipes (final product - packaging)
