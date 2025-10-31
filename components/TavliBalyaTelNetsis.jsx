@@ -4157,7 +4157,9 @@ const TavliBalyaTelNetsis = () => {
       let sourceStokKodu;
 
       // ✅ FIXED: YM.TT is SHARED by both TAVLI and BALYA - no BAG/BALYA suffix
-      const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
+      // ✅ CRITICAL FIX: Use YM ST cap (e.g., 1.86mm), NOT MM cap (e.g., 1.90mm)
+      const ymStCapValue = parseFloat(ymSt.cap) || 0;
+      const capFormatted = Math.round(ymStCapValue * 100).toString().padStart(4, '0');
       const sequence = index.toString().padStart(2, '0');
       sourceStokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
@@ -4999,7 +5001,7 @@ const TavliBalyaTelNetsis = () => {
     setCurrentStep('summary');
     generateYmGtData();
     findSuitableYmSts();
-    calculateAutoRecipeValues();
+    // ✅ REMOVED: calculateAutoRecipeValues() - findSuitableYmSts() already calls it after YM STs are in state
   };
 
   // YM ST seçimi
@@ -6609,8 +6611,9 @@ const TavliBalyaTelNetsis = () => {
   const generateYmTtDatabaseData = (ymSt, sequence, sourceYmStpStokKodu = null) => {
     const capValue = parseFloat(ymSt.cap);
     const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
-    const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
-    const stokKodu = `YM.TT.${productPrefix}.${capFormatted}.${sequence}`;
+    // ✅ FIXED: YM TT is SHARED by both TAVLI and BALYA - NO BAG/BALYA prefix
+    // Format: YM.TT.XXXX.XX (e.g., YM.TT.0186.00)
+    const stokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
     return {
       stok_kodu: stokKodu,
@@ -6916,8 +6919,9 @@ const TavliBalyaTelNetsis = () => {
     try {
       console.log(`📝 Saving YM STP recipes WITH ALTERNATIVES for: ${ymStpStokKodu}`);
 
-      // Extract diameter from YM STP stock code (e.g., YM.STP.0300.00 → 3.00mm)
-      const diameterMatch = ymStpStokKodu.match(/YM\.STP\.(\d{4})\./);
+      // ✅ FIXED: Extract diameter from YM STP stock code
+      // Format: YM.ST.XXXX.YYYY.ZZZZ.P (e.g., YM.ST.0186.0600.1006.P → 1.86mm)
+      const diameterMatch = ymStpStokKodu.match(/YM\.ST\.(\d{4})\./);
       if (!diameterMatch) {
         console.error(`Cannot extract diameter from YM STP code: ${ymStpStokKodu}`);
         return;
@@ -13722,6 +13726,12 @@ const TavliBalyaTelNetsis = () => {
                       if (!updatedRecipes.mmRecipes[index]) updatedRecipes.mmRecipes[index] = {};
                       if (!updatedRecipeStatus.mmRecipes[index]) updatedRecipeStatus.mmRecipes[index] = {};
 
+                      // ✅ CRITICAL FIX: Calculate YM TT source stok_kodu using YM ST cap
+                      const ymStCapValue = parseFloat(ymSt.cap) || 0;
+                      const capFormatted = Math.round(ymStCapValue * 100).toString().padStart(4, '0');
+                      const sequence = index.toString().padStart(2, '0');
+                      const ymTtSource = `YM.TT.${capFormatted}.${sequence}`;
+
                       // Only update if not from database
                       const updateIfNotDb = (key, value) => {
                         if (!recipeStatus.mmRecipes?.[index]?.[key] || recipeStatus.mmRecipes[index][key] !== 'database') {
@@ -13731,6 +13741,8 @@ const TavliBalyaTelNetsis = () => {
                         }
                       };
 
+                      // ✅ CRITICAL FIX: Add YM TT source first
+                      updateIfNotDb(ymTtSource, 1);
                       updateIfNotDb(packagingOperation, parseFloat(packagingDuration.toFixed(5)));
                       updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
                       updateIfNotDb(shrinkCode, shrinkAmount);
