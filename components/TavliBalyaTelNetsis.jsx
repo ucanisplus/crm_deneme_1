@@ -13991,14 +13991,15 @@ const TavliBalyaTelNetsis = () => {
                     const shrinkAmount = calculateShrinkAmount(kg);
 
                     // Calculate auxiliary components using formulas
-                    // AMB.ÇEM.KARTON.GAL: =(8*(1000/kg))/1000
-                    const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: AMB.ÇEM.KARTON.GAL: gene2l.csv says "1.2 tonda 7 adet"
+                    const kartonValue = parseFloat(((7.0 * (1000 / kg)) / 1000).toFixed(5));
 
-                    // SM.7MMHALKA: =(4*(1000/kg))/1000
+                    // ✅ FIXED: SM.7MMHALKA: gene2l.csv "4 adet paketleme + 2 adet presleme"
+                    // → 4 for paketleme (MM TT), 2 for presleme (YM STP) - separate stages!
                     const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
 
-                    // AMB.PLASTİK.ÇEMBER: =(1.2*(1000/kg))/1000 - Plastik Çember for MM TAVLI/BALYA
-                    const plastikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: AMB.PLASTİK.ÇEMBER: gene2l.csv says "1.2 tonda 10 m"
+                    const plastikCemberValue = parseFloat(((10.0 * (1000 / kg)) / 1000).toFixed(5));
 
                     // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/kg))/1000
                     const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
