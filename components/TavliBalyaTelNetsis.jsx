@@ -4189,10 +4189,9 @@ const TavliBalyaTelNetsis = () => {
       // Determine source stok_kodu based on product type and cap
       let sourceStokKodu;
 
-      // ✅ FIXED: YM.TT is SHARED by both TAVLI and BALYA - no BAG/BALYA suffix
-      // ✅ CRITICAL FIX: Use YM ST cap (e.g., 1.86mm), NOT MM cap (e.g., 1.90mm)
-      const ymStCapValue = parseFloat(ymSt.cap) || 0;
-      const capFormatted = Math.round(ymStCapValue * 100).toString().padStart(4, '0');
+      // ✅ FIXED: YM TT uses MM cap (NOT YM ST cap) and is SHARED (no BAG/BALYA prefix)
+      const mmCapValue = parseFloat(mmData.cap) || 0;
+      const capFormatted = Math.round(mmCapValue * 100).toString().padStart(4, '0');
       const sequence = index.toString().padStart(2, '0');
       sourceStokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
@@ -5877,9 +5876,11 @@ const TavliBalyaTelNetsis = () => {
       let ymStpStokKodu = null;
       let ymTtStokKodu = null;
 
-      // Determine if pressing is needed (cap >= 1.8mm per gene2l.csv)
+      // ✅ CRITICAL FIX: Determine if pressing is needed based on YM ST cap (NOT MM cap)
+      // This matches the logic: pressing affects YM ST → YM STP transformation
       const capValue = parseFloat(mmData.cap);
-      const needsPressing = capValue >= 1.8;
+      const ymStCapValue = parseFloat(mainYmSt.cap);
+      const needsPressing = ymStCapValue >= 1.8;
 
       // Get MM stok_kodu for updating intermediate products
       const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
@@ -6642,10 +6643,12 @@ const TavliBalyaTelNetsis = () => {
 
   // Generate YM TT (Tavli Tel Intermediate) - Always created
   const generateYmTtDatabaseData = (ymSt, sequence, sourceYmStpStokKodu = null) => {
-    const capValue = parseFloat(ymSt.cap);
+    // ✅ CRITICAL FIX: YM TT uses MM cap (like YM GT uses MM GT cap in GalvanizliTelNetsis)
+    // NOT YM ST cap! This matches the GalvanizliTelNetsis logic.
+    const capValue = parseFloat(mmData.cap);
     const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
     // ✅ FIXED: YM TT is SHARED by both TAVLI and BALYA - NO BAG/BALYA prefix
-    // Format: YM.TT.XXXX.XX (e.g., YM.TT.0186.00)
+    // Format: YM.TT.XXXX.XX (e.g., YM.TT.0190.00)
     const stokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
     return {
@@ -10152,7 +10155,7 @@ const TavliBalyaTelNetsis = () => {
     const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex_] } || {};
     
     
-    // ✅ FIXED: Create correct YM.TT code - YM.TT is SHARED (no BAG/BALYA suffix)
+    // ✅ FIXED: Create correct YM.TT code - SHARED by both TAVLI and BALYA
     const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
     const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
 
@@ -10389,7 +10392,7 @@ const TavliBalyaTelNetsis = () => {
       const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
 
       if (mainYmSt) {
-        // ✅ FIXED: YM.TT is SHARED (no BAG/BALYA suffix)
+        // ✅ FIXED: YM.TT is SHARED by both TAVLI and BALYA
         const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
         const ymTtStokKodu = `YM.TT.${capFormatted}.${excelData.sequence}`;
         const ymTtItem = {
@@ -10646,7 +10649,7 @@ const TavliBalyaTelNetsis = () => {
         const mainYmStIndex = excelData.mainYmStIndex || 0;
         const sequence = excelData.sequence;
         
-        // ✅ FIXED: Use YM.TT logic - YM.TT is SHARED (no BAG/BALYA suffix)
+        // ✅ FIXED: Use YM.TT logic - SHARED by both TAVLI and BALYA
         const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex] } || {};
         const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
         const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
@@ -10873,6 +10876,10 @@ const TavliBalyaTelNetsis = () => {
       }
 
       const coilerAlternatives = generateCoilerAlternatives(ymStRecipesForAlternatives, ymStProductsForAlternatives);
+
+      // Note: All YM ST alternatives (including filmaşin products) use COILER_ALTERNATIVE_MATRIX
+      // YM_ST_FILMASIN_PRIORITY_MAP is ONLY for YM GT alternatives in GalvanizliTel
+
       const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
       console.log(`📋 POST-SAVE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
@@ -10922,7 +10929,7 @@ const TavliBalyaTelNetsis = () => {
       const mainYmStIndex_ = excelData.mainYmStIndex;
       const sequence = excelData.sequence;
       
-      // ✅ FIXED: Add MM TT recipes - YM.TT is SHARED (no BAG/BALYA suffix)
+      // ✅ FIXED: Add MM TT recipes - YM.TT is SHARED by both TAVLI and BALYA
       const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex_] } || {};
       const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
       const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
@@ -11572,7 +11579,7 @@ const TavliBalyaTelNetsis = () => {
     // Sadece ana YMST için MM TT reçete satırları ekle
     const mmRecipe = { ...allRecipes.mmRecipes[mainYmStIndex_] } || {}; // Clone to avoid modifying the original
     
-    // ✅ FIXED: Tavlı/Balya uses YM.TT intermediates - YM.TT is SHARED (no BAG/BALYA suffix)
+    // ✅ FIXED: Tavlı/Balya uses YM.TT intermediates - SHARED by both
     // Create correct YM.TT stok kodu - should match MM TT sequence
     const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
     const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
@@ -13957,10 +13964,11 @@ const TavliBalyaTelNetsis = () => {
 
                     console.log('✅ Starting recipe auto-fill...');
 
-                    // ✅ CRITICAL FIX: Calculate needsPressing from mmData.cap
-                    const capValue = parseFloat(mmData.cap) || 0;
-                    const needsPressing = capValue >= 1.8;
-                    console.log(`🔨 Pressing needed: ${needsPressing} (cap: ${capValue}mm)`);
+                    // ✅ CRITICAL FIX: Calculate needsPressing from YM ST cap (NOT MM cap)
+                    // Use the main YM ST (first one) cap for pressing check
+                    const ymStCapValue = parseFloat(allYmSts[0].cap) || 0;
+                    const needsPressing = ymStCapValue >= 1.8;
+                    console.log(`🔨 Pressing needed: ${needsPressing} (YM ST cap: ${ymStCapValue}mm, MM cap: ${parseFloat(mmData.cap)}mm)`);
 
                     // Calculate shrink based on inner diameter
                     const shrinkCode = getShrinkCode(mmData.ic_cap);
@@ -14009,10 +14017,10 @@ const TavliBalyaTelNetsis = () => {
                       if (!updatedRecipes.mmRecipes[index]) updatedRecipes.mmRecipes[index] = {};
                       if (!updatedRecipeStatus.mmRecipes[index]) updatedRecipeStatus.mmRecipes[index] = {};
 
-                      // ✅ CRITICAL FIX: YM TT stok_kodu uses YM ST cap, NOT MM cap!
-                      // YM.TT is created based on the YM ST diameter, not MM diameter
-                      const ymStCapValue = parseFloat(ymSt.cap) || 0;
-                      const capFormatted = Math.round(ymStCapValue * 100).toString().padStart(4, '0');
+                      // ✅ CRITICAL FIX: YM TT stok_kodu uses MM cap (NOT YM ST cap)!
+                      // This matches GalvanizliTelNetsis logic: YM GT uses MM GT cap
+                      const mmCapValue = parseFloat(mmData.cap) || 0;
+                      const capFormatted = Math.round(mmCapValue * 100).toString().padStart(4, '0');
 
                       // ✅ CRITICAL FIX: Use processSequence if available, otherwise calculate next sequence
                       // For new products, use '00' as temporary placeholder - will be updated during save
@@ -14223,11 +14231,11 @@ const TavliBalyaTelNetsis = () => {
                           let currentValue = '';
 
                           if (type === 'readonly') {
-                            const cap = parseFloat(allYmSts[activeRecipeTab]?.cap || 0);
+                            // ✅ FIXED: YM TT uses MM cap, not YM ST cap
+                            const cap = parseFloat(mmData.cap || 0);
                             const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
                             const sequence = activeRecipeTab.toString().padStart(2, '0');
-                            const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
-                            currentValue = `YM.TT.${productPrefix}.${capFormatted}.${sequence}`;
+                            currentValue = `YM.TT.${capFormatted}.${sequence}`;
                           } else if (key === 'shrink') {
                             const shrinkKeys = ['AMB.SHRİNK.200*140CM', 'AMB.SHRİNK.200*160CM', 'AMB.SHRİNK.200*190CM'];
                             const currentShrinkKey = shrinkKeys.find(sk => allRecipes.mmRecipes?.[activeRecipeTab]?.[sk] > 0);
