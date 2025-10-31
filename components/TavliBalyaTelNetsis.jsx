@@ -297,16 +297,17 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
   console.log(`📋 TÜM ÜRÜNLER: Processing ${Object.keys(recipesByProduct).length} unique YM ST products`);
   console.log(`🔍 Product codes found:`, Object.keys(recipesByProduct).slice(0, 5));
 
-  let stProductCount = 0;
+  let processedProductCount = 0;
 
-  // For each .ST product, generate alternatives
+  // ✅ FIXED: Generate alternatives for ALL YM ST products (both filmaşin and coiler)
+  // Following GalvanizliTel logic: alternatives use COILER matrix regardless of product type
   Object.keys(recipesByProduct).forEach(stokKodu => {
-    // Check if it's a .ST product (COTLC01 method)
-    if (!stokKodu.endsWith('.ST')) {
-      return; // Skip non-.ST products silently
+    // Skip if not a YM.ST product
+    if (!stokKodu.startsWith('YM.ST.')) {
+      return;
     }
 
-    stProductCount++;
+    processedProductCount++;
     const productRecipes = recipesByProduct[stokKodu];
 
     // Determine which COILER category this product belongs to
@@ -379,7 +380,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     }
   });
 
-  console.log(`📋 TÜM ÜRÜNLER: Processed ${stProductCount} .ST products`);
+  console.log(`📋 TÜM ÜRÜNLER: Processed ${processedProductCount} YM ST products (filmaşin + coiler)`);
   Object.keys(alternativesByPriority).forEach(priority => {
     console.log(`  ALT ${priority}: ${alternativesByPriority[priority].length} recipes`);
   });
@@ -10360,30 +10361,33 @@ const TavliBalyaTelNetsis = () => {
           const productName = excelData.mmData.product_type === 'TAVLI' ? 'Tavlı Tel' :
                               excelData.mmData.product_type === 'BALYA' ? 'Balya Teli' :
                               'Tavlı Tel'; // Default to Tavlı Tel if not specified
-          const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${excelData.mmData.kaplama || '0'} gr/m² ${parseFloat(excelData.mmData.min_mukavemet) || '0'}-${parseFloat(excelData.mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(excelData.mmData.ic_cap) || '45'} cm OD:${parseFloat(excelData.mmData.dis_cap) || '75'} cm ${parseFloat(excelData.mmData.kg) || '0'}${bagAmount} kg`;
-          
+
+          // ✅ FIXED: Don't include kaplama (coating) for Tavli/Balya Tel (non-galvanized products)
+          // Coating is only for galvanized products
+          const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(excelData.mmData.min_mukavemet) || '0'}-${parseFloat(excelData.mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(excelData.mmData.ic_cap) || '45'} cm OD:${parseFloat(excelData.mmData.dis_cap) || '75'} cm ${parseFloat(excelData.mmData.kg) || '0'}${bagAmount} kg`;
+
           // Extract packaging suffixes from the saved task data
           const suffixes = [];
-          
+
           // Check if packaging info exists in the task data
           if (task.packaging) {
             // Use packaging info from task if available
             console.log(`📦 Using task packaging: ${JSON.stringify(task.packaging)}`);
             if (task.packaging.shrink) suffixes.push('Shrink');
             if (task.packaging.paletli) suffixes.push('Plt');
-            if (task.packaging.karton) suffixes.push('Spt');
+            if (task.packaging.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
           } else if (excelData.packaging) {
             // Check if packaging is stored in excelData
             console.log(`📦 Using excelData packaging: ${JSON.stringify(excelData.packaging)}`);
             if (excelData.packaging.shrink) suffixes.push('Shrink');
             if (excelData.packaging.paletli) suffixes.push('Plt');
-            if (excelData.packaging.karton) suffixes.push('Spt');
+            if (excelData.packaging.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
           } else {
             // Fallback: use current form state (this shouldn't happen with the fix above)
             console.log(`⚠️ No packaging info found in task data, using current form state as fallback`);
             if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
             if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-            if (paketlemeSecenekleri.karton) suffixes.push('Spt');
+            if (paketlemeSecenekleri.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
           }
           
           let finalStokAdi = generatedStokAdi;
@@ -10595,11 +10599,11 @@ const TavliBalyaTelNetsis = () => {
 
         if (!mainYmSt) continue;
 
-        // ✅ CRITICAL FIX: YM TT uses YM ST cap, NOT MM cap!
-        const ymStCapFormatted = Math.round(parseFloat(mainYmSt.cap) * 100).toString().padStart(4, '0');
-        const ymTtStokKodu = `YM.TT.${ymStCapFormatted}.${sequence}`;
+        // ✅ CRITICAL FIX: YM TT uses MM cap, NOT YM ST cap! (like YM GT uses MM GT cap in GalvanizliTel)
+        const mmCapFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
+        const ymTtStokKodu = `YM.TT.${mmCapFormatted}.${sequence}`;
 
-        console.log(`📋 Fetching YM TT: ${ymTtStokKodu} (YM ST cap: ${mainYmSt.cap}mm, NOT MM cap: ${excelData.mmData.cap}mm)`);
+        console.log(`📋 Fetching YM TT: ${ymTtStokKodu} (MM cap: ${excelData.mmData.cap}mm, NOT YM ST cap: ${mainYmSt.cap}mm)`);
 
         // Fetch YM TT recipes from database (all priorities)
         try {
