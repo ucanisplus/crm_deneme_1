@@ -7221,7 +7221,12 @@ const TavliBalyaTelNetsis = () => {
       console.log(`📦 ALL mmRecipe keys:`, Object.keys(mmRecipe));
       console.log(`📝 sourceStokKodu parameter: ${sourceStokKodu}`);
 
-      const sourceEntry = recipeEntries.find(([key]) => key === sourceStokKodu);
+      // ✅ FIXED: Match YM TT source by diameter pattern, ignoring sequence differences
+      // Otomatik Doldur uses YM.TT.xxxx.00, but actual product has YM.TT.xxxx.01/02/etc
+      const sourcePattern = sourceStokKodu.substring(0, sourceStokKodu.lastIndexOf('.')); // Get "YM.TT.0236" from "YM.TT.0236.01"
+      const sourceEntry = recipeEntries.find(([key]) =>
+        key === sourceStokKodu || key.startsWith(sourcePattern + '.')
+      );
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
@@ -10294,6 +10299,7 @@ const TavliBalyaTelNetsis = () => {
     // Prepare complete MM TT data from task data (which already has proper formatting)
     const mmData = [];
     const ymTtData = [];
+    const ymStpData = []; // ✅ ADDED: YM STP data array
     const ymStData = [];
     const mmRecipeData = [];
     const ymTtRecipeData = [];
@@ -10405,8 +10411,29 @@ const TavliBalyaTelNetsis = () => {
           ingilizce_isim: generateYmTtEnglishName(excelData.mmData, excelData.sequence)
         };
         ymTtData.push(ymTtItem); // Add YM TT item to array
-        
-        // Add YM ST data 
+
+        // ✅ FIXED: Add YM STP data if pressing needed (cap >= 1.8mm)
+        const cap = parseFloat(excelData.mmData.cap);
+        if (cap >= 1.8) {
+          const ymStpStokKodu = `${mainYmSt.stok_kodu}.P`;
+          const ymStpItem = {
+            stok_kodu: ymStpStokKodu,
+            cap: mainYmSt.cap,
+            product_type: excelData.mmData.product_type,
+            yaglama_tipi: excelData.mmData.yaglama_tipi,
+            min_mukavemet: excelData.mmData.min_mukavemet,
+            max_mukavemet: excelData.mmData.max_mukavemet,
+            ic_cap: excelData.mmData.ic_cap,
+            dis_cap: excelData.mmData.dis_cap,
+            kg: excelData.mmData.kg,
+            cast_kont: excelData.mmData.cast_kont,
+            stok_adi: `YM Preslenmiş Tel ${parseFloat(mainYmSt.cap).toString().replace('.', ',')} mm`,
+            ingilizce_isim: `YM Pressed Wire ${mainYmSt.cap} mm`
+          };
+          ymStpData.push(ymStpItem);
+        }
+
+        // Add YM ST data
         allYmSts.forEach(ymSt => {
           if (!ymStData.find(item => item.stok_kodu === ymSt.stok_kodu)) {
             ymStData.push(ymSt);
@@ -10435,7 +10462,7 @@ const TavliBalyaTelNetsis = () => {
       
       // Create Excel workbooks using the same perfected logic as batch generation
       await Promise.all([
-        generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStData),
+        generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStpData, ymStData),
         generateDirectReceteExcelFromData(mmRecipeData, ymTtRecipeData, ymStRecipeData, tasks)
       ]);
       
@@ -10474,62 +10501,11 @@ const TavliBalyaTelNetsis = () => {
       return `${productNameEn}${yaglamaText} ${parseFloat(cap.toFixed(2))} mm ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg Shrink`;
     }
 
-    async function generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStData) {
+    async function generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStpData, ymStData) {
       console.log('📋 Generating direct stok kartı Excel...');
 
-      // ✅ FIXED: Fetch YM TT and YM STP products from database for complete Excel generation
-      const ymTtProductsFromDb = [];
-      const ymStpProductsFromDb = [];
-
-      for (const mm of mmData) {
-        const capFormatted = Math.round(parseFloat(mm.cap) * 100).toString().padStart(4, '0');
-        const sequence = mm.stok_kodu.split('.').pop();
-
-        // Fetch YM TT products from database
-        const ymTtStokKodu = `YM.TT.${capFormatted}.${sequence}`;
-        try {
-          const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
-          if (ymTtResponse && ymTtResponse.ok) {
-            const allYmTt = await ymTtResponse.json();
-            const ymTt = allYmTt.find(p => p.stok_kodu === ymTtStokKodu);
-            if (ymTt) {
-              ymTtProductsFromDb.push(ymTt);
-              console.log(`📋 Fetched YM TT product: ${ymTtStokKodu}`);
-            }
-          }
-        } catch (error) {
-          console.error(`Error fetching YM TT product ${ymTtStokKodu}:`, error);
-        }
-
-        // Fetch YM STP products from database if pressing needed (cap > 1.8mm)
-        const cap = parseFloat(mm.cap);
-        if (cap > 1.8) {
-          // Try to find YM STP by looking at YM TT's source
-          try {
-            const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
-            if (ymTtResponse && ymTtResponse.ok) {
-              const allYmTt = await ymTtResponse.json();
-              const ymTt = allYmTt.find(p => p.stok_kodu === ymTtStokKodu);
-              if (ymTt && ymTt.source_ym_st_stok_kodu && ymTt.source_ym_st_stok_kodu.includes('.P')) {
-                const ymStpStokKodu = ymTt.source_ym_st_stok_kodu;
-                const ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?limit=1000`);
-                if (ymStpResponse && ymStpResponse.ok) {
-                  const allYmStp = await ymStpResponse.json();
-                  const ymStp = allYmStp.find(p => p.stok_kodu === ymStpStokKodu);
-                  if (ymStp) {
-                    ymStpProductsFromDb.push(ymStp);
-                    console.log(`📋 Fetched YM STP product: ${ymStpStokKodu}`);
-                  }
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Error fetching YM STP product for ${ymTtStokKodu}:`, error);
-          }
-        }
-      }
-
-      console.log(`📊 Total products fetched: YM TT: ${ymTtProductsFromDb.length}, YM STP: ${ymStpProductsFromDb.length}`);
+      // ✅ FIXED: Use passed data instead of fetching from database!
+      console.log(`📊 Using passed data: YM TT: ${ymTtData.length}, YM STP: ${ymStpData.length}`);
 
       // Create the exact same Excel structure as the batch function
       const workbook = new ExcelJS.Workbook();
@@ -10545,23 +10521,23 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // ✅ FIXED: YM TT Sheet (Annealed Intermediate - always exists)
-      if (ymTtProductsFromDb && ymTtProductsFromDb.length > 0) {
+      if (ymTtData && ymTtData.length > 0) {
         const ymTtSheet = workbook.addWorksheet('YM TT');
         ymTtSheet.addRow(mmHeaders); // Same headers as MM TT
-        for (const ymTt of ymTtProductsFromDb) {
+        for (const ymTt of ymTtData) {
           ymTtSheet.addRow(generateYmTtStokKartiData(ymTt));
         }
-        console.log(`✅ YM TT sheet created with ${ymTtProductsFromDb.length} products`);
+        console.log(`✅ YM TT sheet created with ${ymTtData.length} products`);
       }
 
-      // ✅ FIXED: YM STP Sheet (Pressed Intermediate - only if cap > 1.8mm)
-      if (ymStpProductsFromDb && ymStpProductsFromDb.length > 0) {
+      // ✅ FIXED: YM STP Sheet (Pressed Intermediate - only if cap >= 1.8mm)
+      if (ymStpData && ymStpData.length > 0) {
         const ymStpSheet = workbook.addWorksheet('YM STP');
         ymStpSheet.addRow(mmHeaders); // Same headers as MM TT
-        for (const ymStp of ymStpProductsFromDb) {
+        for (const ymStp of ymStpData) {
           ymStpSheet.addRow(generateYmStpStokKartiData(ymStp));
         }
-        console.log(`✅ YM STP sheet created with ${ymStpProductsFromDb.length} products`);
+        console.log(`✅ YM STP sheet created with ${ymStpData.length} products`);
       }
 
       // YM ST Sheet
@@ -14033,10 +14009,10 @@ const TavliBalyaTelNetsis = () => {
                       if (!updatedRecipes.mmRecipes[index]) updatedRecipes.mmRecipes[index] = {};
                       if (!updatedRecipeStatus.mmRecipes[index]) updatedRecipeStatus.mmRecipes[index] = {};
 
-                      // ✅ CRITICAL FIX: Calculate YM TT source stok_kodu using MM product cap (not YM ST cap!)
-                      // All YM STs for the same MM product use the SAME YM.TT product
-                      const mmCapValue = parseFloat(mmData.cap) || 0;
-                      const capFormatted = Math.round(mmCapValue * 100).toString().padStart(4, '0');
+                      // ✅ CRITICAL FIX: YM TT stok_kodu uses YM ST cap, NOT MM cap!
+                      // YM.TT is created based on the YM ST diameter, not MM diameter
+                      const ymStCapValue = parseFloat(ymSt.cap) || 0;
+                      const capFormatted = Math.round(ymStCapValue * 100).toString().padStart(4, '0');
 
                       // ✅ CRITICAL FIX: Use processSequence if available, otherwise calculate next sequence
                       // For new products, use '00' as temporary placeholder - will be updated during save
@@ -14092,6 +14068,81 @@ const TavliBalyaTelNetsis = () => {
                       // Palet - Only if packaging includes palet
                       if (paketlemeSecenekleri.paletli) {
                         updateIfNotDb('AMB.PALET', paletValue);
+                      }
+                    });
+
+                    // ✅ NEW: Auto-generate YM ST recipes
+                    console.log('🔧 Auto-generating YM ST recipes...');
+                    if (!updatedRecipes.ymStRecipes) updatedRecipes.ymStRecipes = [];
+                    if (!updatedRecipeStatus.ymStRecipes) updatedRecipeStatus.ymStRecipes = [];
+
+                    allYmSts.forEach((ymSt, index) => {
+                      if (!updatedRecipes.ymStRecipes[index]) updatedRecipes.ymStRecipes[index] = {};
+                      if (!updatedRecipeStatus.ymStRecipes[index]) updatedRecipeStatus.ymStRecipes[index] = {};
+
+                      const ymStDiameter = parseFloat(ymSt.cap) || 0;
+                      console.log(`📝 Auto-filling YM ST recipe ${index}: ${ymSt.stok_kodu} (cap: ${ymStDiameter}mm)`);
+
+                      // Helper to update if not from database
+                      const updateYmStIfNotDb = (key, value) => {
+                        if (!recipeStatus.ymStRecipes?.[index]?.[key] || recipeStatus.ymStRecipes[index][key] !== 'database') {
+                          updatedRecipes.ymStRecipes[index][key] = value;
+                          updatedRecipeStatus.ymStRecipes[index][key] = 'auto';
+                          updatedCount++;
+                          console.log(`  ✅ YM ST Updated ${key} = ${value}`);
+                        } else {
+                          console.log(`  ⏭️  YM ST Skipped ${key} (from database)`);
+                        }
+                      };
+
+                      if (ymStDiameter >= 1.5) {
+                        // Case 1: >= 1.5mm → FLM (filmaşin) + TLC01
+                        // Extract filmasin and quality from stok_kodu
+                        // Format: YM.ST.{cap}.{filmasin}.{quality} or YM.ST.{cap}.ST
+                        const stokParts = ymSt.stok_kodu.split('.');
+
+                        if (stokParts.length >= 5 && stokParts[4]) {
+                          // Has filmasin: YM.ST.{cap}.{filmasin}.{quality}
+                          const filmasinPart = stokParts[3]; // e.g., "0600"
+                          const qualityPart = stokParts[4];  // e.g., "1006"
+                          const flmCode = `FLM.${filmasinPart}.${qualityPart}`;
+
+                          console.log(`  📍 Filmaşin product: FLM=${flmCode}`);
+                          updateYmStIfNotDb(flmCode, 1);
+
+                          // TLC01 operation duration
+                          const tlc01Duration = OPERATION_DURATIONS.TLC01 ? OPERATION_DURATIONS.TLC01(ymStDiameter) : 0.002;
+                          updateYmStIfNotDb('TLC01', tlc01Duration);
+                        } else if (stokParts.length === 4 && stokParts[3] === 'ST') {
+                          // .ST product with cap >= 1.5mm → needs a coiler source
+                          // Find matching coiler source from database or use default
+                          console.warn(`  ⚠️  .ST product with cap >= 1.5mm - needs coiler source configuration`);
+                          // For now, skip auto-generation for .ST products >= 1.5mm
+                          // These would typically be alternatives and use a different source
+                        }
+                      } else {
+                        // Case 2: < 1.5mm → YM.ST source (coiler) + COTLC01
+                        // For products < 1.5mm, the source is typically another YM.ST product
+                        // We need to determine the correct coiler source based on the product
+
+                        // Extract the stok_kodu pattern to determine source
+                        // For .ST products, source should be from a .0550. or .0600. coiler
+                        const stokParts = ymSt.stok_kodu.split('.');
+
+                        if (stokParts.length >= 4 && stokParts[3] === 'ST') {
+                          // This is a .ST (coiler) product
+                          // Source should be a matching .0550. or .0600. coiler variant
+                          const capPart = stokParts[2]; // e.g., "0236"
+
+                          // Default to .0550.1005 coiler for .ST products
+                          const coilerSource = `YM.ST.${capPart}.0550.1005`;
+                          console.log(`  📍 Coiler product: Source=${coilerSource}`);
+                          updateYmStIfNotDb(coilerSource, 1);
+
+                          // COTLC01 operation duration
+                          const cotlc01Duration = OPERATION_DURATIONS.COTLC01 ? OPERATION_DURATIONS.COTLC01(ymStDiameter) : 0.002;
+                          updateYmStIfNotDb('COTLC01', cotlc01Duration);
+                        }
                       }
                     });
 
