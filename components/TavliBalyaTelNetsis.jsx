@@ -4218,6 +4218,11 @@ const TavliBalyaTelNetsis = () => {
       // Per user table: MM TT has MORE components than MM BL
       // ==========================================
 
+      console.log(`\n🔨 === BUILDING MM RECIPE for index ${index} ===`);
+      console.log(`📦 Product Type: ${mmData.product_type}`);
+      console.log(`🛢️ Yaglama Tipi: ${mmData.yaglama_tipi}`);
+      console.log(`📏 Weight (kg): ${kg}`);
+
       // Base components (shared by both MM TT and MM BL)
       newMmGtRecipes[index] = {
         [sourceStokKodu]: 1, // Source: YM.TT (shared by both TAVLI and BALYA)
@@ -4226,23 +4231,45 @@ const TavliBalyaTelNetsis = () => {
         'AMB.PALET': parseFloat(paletValue.toFixed(5))
       };
 
+      console.log(`✅ Base components added (all products):`);
+      console.log(`   - ${sourceStokKodu}: 1`);
+      console.log(`   - ${packagingOperation}: ${parseFloat(packagingDuration.toFixed(5))}`);
+      console.log(`   - ${shrinkCode}: ${parseFloat(shrinkAmount.toFixed(5))}`);
+      console.log(`   - AMB.PALET: ${parseFloat(paletValue.toFixed(5))}`);
+
       // ✅ MM TT (TAVLI) ONLY components - per user table
       if (mmData.product_type === 'TAVLI') {
+        console.log(`\n🎯 Adding TAVLI-ONLY components:`);
         newMmGtRecipes[index]['SM.7MMHALKA'] = parseFloat(halkaValue.toFixed(5)); // Kaldırma Kancası
+        console.log(`   ✅ SM.7MMHALKA (Kaldırma Kancası): ${parseFloat(halkaValue.toFixed(5))}`);
+
         newMmGtRecipes[index]['AMB.TOKA.SIGNODE.114P. DKP'] = parseFloat(tokaValue.toFixed(5)); // Çember Tokası
+        console.log(`   ✅ AMB.TOKA.SIGNODE.114P. DKP (Çember Tokası): ${parseFloat(tokaValue.toFixed(5))}`);
+
         newMmGtRecipes[index]['AMB.APEX CEMBER 38X080'] = parseFloat(celikCemberValue.toFixed(5)); // Çelik Çember
+        console.log(`   ✅ AMB.APEX CEMBER 38X080 (Çelik Çember): ${parseFloat(celikCemberValue.toFixed(5))}`);
+      } else {
+        console.log(`\n❌ BALYA product - EXCLUDING TAVLI-ONLY components (Halka, Toka, Çelik Çember)`);
       }
-      // ❌ MM BL (BALYA) does NOT get: Çember Tokası, Kaldırma Kancası, Çelik Çember
 
       // ✅ Conditionally add Karton (ONLY for oiled products)
       if (kartonValue > 0) {
         newMmGtRecipes[index]['AMB.ÇEM.KARTON.GAL'] = parseFloat(kartonValue.toFixed(5));
+        console.log(`\n✅ Karton (OILED ONLY): ${parseFloat(kartonValue.toFixed(5))}`);
+      } else {
+        console.log(`\n❌ No Karton (not oiled or yaglama_tipi empty)`);
       }
 
       // ✅ Conditionally add Plastik Çember (ONLY for oiled products)
       if (plastikCemberValue > 0) {
         newMmGtRecipes[index]['AMB.PLASTİK.ÇEMBER'] = parseFloat(plastikCemberValue.toFixed(5));
+        console.log(`✅ Plastik Çember (OILED ONLY): ${parseFloat(plastikCemberValue.toFixed(5))}`);
+      } else {
+        console.log(`❌ No Plastik Çember (not oiled or yaglama_tipi empty)`);
       }
+
+      console.log(`\n🔍 FINAL MM RECIPE KEYS for index ${index}:`, Object.keys(newMmGtRecipes[index]));
+      console.log(`📊 Total components: ${Object.keys(newMmGtRecipes[index]).length}`);
 
       // ❌ REMOVED DUPLICATES: 'AMB.ÇEMBER.TOKASI', 'AMB.KALDIRMA.KANCASI' (use Galvanizli codes)
       // ❌ REMOVED: 'AMB.STREÇ' - not in gene2l.csv
@@ -4281,9 +4308,83 @@ const TavliBalyaTelNetsis = () => {
       });
     });
 
-    // Update allRecipes state - only update MM recipes (packaging components)
+    // ==========================================
+    // YM ST RECIPE CALCULATION (Re-added for Tavli/Balya)
+    // ==========================================
+    console.log('\n🔨 === CALCULATING YM ST RECIPES ===');
+    const newYmStRecipes = {};
+
+    allYmSts.forEach((ymSt, index) => {
+      const ymStCap = parseFloat(ymSt.cap) || 0;
+      console.log(`\n📝 YM ST ${index}: ${ymSt.stok_kodu} (${ymStCap}mm)`);
+
+      // Determine if this is a Coiler product (< 1.5mm uses coiler, >= 1.5mm uses FLM)
+      if (ymStCap < 1.5) {
+        // Coiler product - uses thicker YM.ST as source with COTLC01 operation
+        // Find source: should be a thicker YM.ST from the list
+        // For now, skip Coiler calculation (handled separately)
+        console.log(`   ⚠️ Coiler product (< 1.5mm) - skipping FLM/TLC01 calculation`);
+        newYmStRecipes[index] = {};
+        newRecipeStatus.ymStRecipes[index] = {};
+      } else {
+        // Standard product - uses FLM (wire rod) with TLC01 operation
+        // Generate FLM code: FLM.XXXX.YYYY format
+        // The FLM code depends on the YM ST's HM code
+        let flmCode = '';
+
+        // Try to extract HM code from stok_kodu first (format: YM.ST.XXXX.YYYY.ZZZZ → FLM.YYYY.ZZZZ)
+        const stokKoduMatch = ymSt.stok_kodu?.match(/YM\.ST\.\d{4}\.(\d{4}\.\d{4})/);
+        if (stokKoduMatch) {
+          flmCode = `FLM.${stokKoduMatch[1]}`;
+          console.log(`   ✅ Extracted HM from stok_kodu: ${stokKoduMatch[1]}`);
+        }
+        // Fallback: Check if ymSt has hm_kodu field
+        else if (ymSt.hm_kodu) {
+          // HM format: e.g., "0600.1006" or "HM:0600.1006"
+          const hmMatch = ymSt.hm_kodu.match(/(\d{4})\.(\d{4})/);
+          if (hmMatch) {
+            flmCode = `FLM.${hmMatch[1]}.${hmMatch[2]}`;
+          } else {
+            console.warn(`   ⚠️ Invalid HM code format: ${ymSt.hm_kodu}`);
+            flmCode = 'FLM.0550.1005'; // Default fallback
+          }
+        } else {
+          console.warn(`   ⚠️ No HM code found for YM ST, using default FLM`);
+          flmCode = 'FLM.0550.1005'; // Default fallback
+        }
+
+        console.log(`   ✅ FLM Code: ${flmCode}`);
+
+        // Material: 1:1 ratio (1 kg FLM → 1 kg YM.ST)
+        const flmQuantity = 1.0;
+
+        // Operation: TLC01 (drawing operation)
+        // Duration formula: based on diameter and weight
+        // For now, use a simple formula: duration proportional to cap and weight
+        const tlc01Duration = parseFloat((ymStCap * kg / 10).toFixed(5)); // Simple formula
+
+        newYmStRecipes[index] = {
+          [flmCode]: flmQuantity,
+          'TLC01': tlc01Duration
+        };
+
+        console.log(`   ✅ Recipe: ${flmCode} = ${flmQuantity} KG`);
+        console.log(`   ✅ Operation: TLC01 = ${tlc01Duration} DK`);
+
+        // Mark as auto-calculated
+        newRecipeStatus.ymStRecipes[index] = {
+          [flmCode]: 'auto',
+          'TLC01': 'auto'
+        };
+      }
+    });
+
+    console.log(`\n✅ YM ST recipes calculated for ${Object.keys(newYmStRecipes).length} products`);
+
+    // Update allRecipes state - update BOTH MM and YM ST recipes
     setAllRecipes(prev => {
       const mergedMmGtRecipes = { ...prev.mmRecipes };
+      const mergedYmStRecipes = { ...prev.ymStRecipes };
 
       // Merge MM TT recipes - preserve database values
       Object.keys(newMmGtRecipes).forEach(index => {
@@ -4298,9 +4399,23 @@ const TavliBalyaTelNetsis = () => {
         });
       });
 
+      // Merge YM ST recipes - preserve database values
+      Object.keys(newYmStRecipes).forEach(index => {
+        if (!mergedYmStRecipes[index]) {
+          mergedYmStRecipes[index] = {};
+        }
+        Object.keys(newYmStRecipes[index]).forEach(key => {
+          // Only update if not from database
+          if (!recipeStatus.ymStRecipes[index]?.[key] || recipeStatus.ymStRecipes[index][key] !== 'database') {
+            mergedYmStRecipes[index][key] = newYmStRecipes[index][key];
+          }
+        });
+      });
+
       return {
         ...prev,
-        mmRecipes: mergedMmGtRecipes
+        mmRecipes: mergedMmGtRecipes,
+        ymStRecipes: mergedYmStRecipes
       };
     });
 
@@ -4321,12 +4436,27 @@ const TavliBalyaTelNetsis = () => {
         });
       });
 
+      // Update YM ST recipe status
+      Object.keys(newRecipeStatus.ymStRecipes || {}).forEach(index => {
+        if (!mergedStatus.ymStRecipes[index]) {
+          mergedStatus.ymStRecipes[index] = {};
+        }
+        Object.keys(newRecipeStatus.ymStRecipes[index]).forEach(key => {
+          // Only update if not from database
+          if (!prev.ymStRecipes[index]?.[key] || prev.ymStRecipes[index][key] !== 'database') {
+            mergedStatus.ymStRecipes[index][key] = newRecipeStatus.ymStRecipes[index][key];
+          }
+        });
+      });
+
       return mergedStatus;
     });
 
     // Başarılı hesaplama mesajı
-    if (Object.keys(newMmGtRecipes).length > 0) {
-      toast.success(`${Object.keys(newMmGtRecipes).length} MM reçete başarıyla hesaplandı!`);
+    const mmCount = Object.keys(newMmGtRecipes).length;
+    const ymStCount = Object.keys(newYmStRecipes).length;
+    if (mmCount > 0 || ymStCount > 0) {
+      toast.success(`${mmCount} MM reçete ve ${ymStCount} YM ST reçete başarıyla hesaplandı!`);
     } else {
       console.warn('Hiçbir reçete hesaplanamadı - giriş değerlerini kontrol edin');
       toast.warning('Reçete hesaplaması yapılamadı. Lütfen giriş değerlerini kontrol edin.');
@@ -4353,8 +4483,10 @@ const TavliBalyaTelNetsis = () => {
         const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
         const mmFields = ['AMB.PLASTİK.ÇEMBER', 'AMB.TOKA.SIGNODE.114P. DKP',
                            'SM.7MMHALKA', 'AMB.ÇEM.KARTON.GAL', packagingOperation,
-                           'AMB.STREÇ', 'AMB.PALET']; // ✅ FIXED: Plastik Çember for MM products, added Streç and Palet
-        // ✅ REMOVED: 'SM.DESİ.PAK', 'AMB.APEX CEMBER 38X080' - not in tavlı/balya MM products
+                           'AMB.APEX CEMBER 38X080', // ✅ ADDED: Çelik Çember (TAVLI only)
+                           'AMB.PALET']; // ✅ FIXED: Removed AMB.STREÇ per gene2l.csv
+        // ✅ REMOVED: 'SM.DESİ.PAK' - not in tavlı/balya MM products
+        // ❌ REMOVED: 'AMB.STREÇ' - not in gene2l.csv constraints
 
         const shrinkCode = getShrinkCode(mmData.ic_cap);
         if (shrinkCode) {
@@ -5734,6 +5866,28 @@ const TavliBalyaTelNetsis = () => {
             const ymStpResult = await ymStpResponse.json();
             ymStpStokKodu = ymStpResult.stok_kodu;
             console.log('✅ YM STP created:', ymStpResult.stok_kodu);
+          } else if (ymStpResponse && ymStpResponse.status === 409) {
+            // 409 Conflict - product already exists, fetch it
+            console.log('⚠️ YM STP already exists (409), fetching existing product...');
+            const existingStokKodu = ymStpData.stok_kodu;
+            console.log(`🔍 Searching for existing YM STP: ${existingStokKodu}`);
+
+            const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
+            if (existingResponse && existingResponse.ok) {
+              const existingProducts = await existingResponse.json();
+              if (existingProducts && existingProducts.length > 0) {
+                ymStpStokKodu = existingProducts[0].stok_kodu;
+                console.log(`✅ Found existing YM STP: ${ymStpStokKodu}`);
+              } else {
+                console.warn(`⚠️ YM STP search returned empty, using generated stok_kodu: ${existingStokKodu}`);
+                ymStpStokKodu = existingStokKodu;
+              }
+            } else {
+              console.warn(`⚠️ Failed to fetch existing YM STP, using generated stok_kodu: ${existingStokKodu}`);
+              ymStpStokKodu = existingStokKodu;
+            }
+          } else {
+            console.error(`❌ YM STP creation failed with status: ${ymStpResponse?.status}`);
           }
         } catch (error) {
           console.error('YM STP creation error:', error);
@@ -5756,6 +5910,28 @@ const TavliBalyaTelNetsis = () => {
           const ymTtResult = await ymTtResponse.json();
           ymTtStokKodu = ymTtResult.stok_kodu;
           console.log('✅ YM TT created:', ymTtResult.stok_kodu);
+        } else if (ymTtResponse && ymTtResponse.status === 409) {
+          // 409 Conflict - product already exists, fetch it
+          console.log('⚠️ YM TT already exists (409), fetching existing product...');
+          const existingStokKodu = ymTtData.stok_kodu;
+          console.log(`🔍 Searching for existing YM TT: ${existingStokKodu}`);
+
+          const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
+          if (existingResponse && existingResponse.ok) {
+            const existingProducts = await existingResponse.json();
+            if (existingProducts && existingProducts.length > 0) {
+              ymTtStokKodu = existingProducts[0].stok_kodu;
+              console.log(`✅ Found existing YM TT: ${ymTtStokKodu}`);
+            } else {
+              console.warn(`⚠️ YM TT search returned empty, using generated stok_kodu: ${existingStokKodu}`);
+              ymTtStokKodu = existingStokKodu;
+            }
+          } else {
+            console.warn(`⚠️ Failed to fetch existing YM TT, using generated stok_kodu: ${existingStokKodu}`);
+            ymTtStokKodu = existingStokKodu;
+          }
+        } else {
+          console.error(`❌ YM TT creation failed with status: ${ymTtResponse?.status}`);
         }
       } catch (error) {
         console.error('YM TT creation error:', error);
@@ -5978,6 +6154,29 @@ const TavliBalyaTelNetsis = () => {
             ymStpStokKodu = ymStpResult.stok_kodu;
             setYmStpData(ymStpResult);
             console.log('✅ YM STP created:', ymStpResult.stok_kodu);
+          } else if (ymStpResponse && ymStpResponse.status === 409) {
+            // 409 Conflict - product already exists, fetch it
+            console.log('⚠️ YM STP already exists (409), fetching existing product...');
+            const existingStokKodu = ymStpData.stok_kodu;
+            console.log(`🔍 Searching for existing YM STP: ${existingStokKodu}`);
+
+            const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
+            if (existingResponse && existingResponse.ok) {
+              const existingProducts = await existingResponse.json();
+              if (existingProducts && existingProducts.length > 0) {
+                ymStpStokKodu = existingProducts[0].stok_kodu;
+                setYmStpData(existingProducts[0]);
+                console.log(`✅ Found existing YM STP: ${ymStpStokKodu}`);
+              } else {
+                console.warn(`⚠️ YM STP search returned empty, using generated stok_kodu: ${existingStokKodu}`);
+                ymStpStokKodu = existingStokKodu;
+              }
+            } else {
+              console.warn(`⚠️ Failed to fetch existing YM STP, using generated stok_kodu: ${existingStokKodu}`);
+              ymStpStokKodu = existingStokKodu;
+            }
+          } else {
+            console.error(`❌ YM STP creation failed with status: ${ymStpResponse?.status}`);
           }
         } catch (error) {
           console.error('YM STP creation error:', error);
@@ -6001,6 +6200,29 @@ const TavliBalyaTelNetsis = () => {
           ymTtStokKodu = ymTtResult.stok_kodu;
           setYmTtData(ymTtResult);
           console.log('✅ YM TT created:', ymTtResult.stok_kodu);
+        } else if (ymTtResponse && ymTtResponse.status === 409) {
+          // 409 Conflict - product already exists, fetch it
+          console.log('⚠️ YM TT already exists (409), fetching existing product...');
+          const existingStokKodu = ymTtData.stok_kodu;
+          console.log(`🔍 Searching for existing YM TT: ${existingStokKodu}`);
+
+          const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
+          if (existingResponse && existingResponse.ok) {
+            const existingProducts = await existingResponse.json();
+            if (existingProducts && existingProducts.length > 0) {
+              ymTtStokKodu = existingProducts[0].stok_kodu;
+              setYmTtData(existingProducts[0]);
+              console.log(`✅ Found existing YM TT: ${ymTtStokKodu}`);
+            } else {
+              console.warn(`⚠️ YM TT search returned empty, using generated stok_kodu: ${existingStokKodu}`);
+              ymTtStokKodu = existingStokKodu;
+            }
+          } else {
+            console.warn(`⚠️ Failed to fetch existing YM TT, using generated stok_kodu: ${existingStokKodu}`);
+            ymTtStokKodu = existingStokKodu;
+          }
+        } else {
+          console.error(`❌ YM TT creation failed with status: ${ymTtResponse?.status}`);
         }
       } catch (error) {
         console.error('YM TT creation error:', error);
@@ -6954,19 +7176,35 @@ const TavliBalyaTelNetsis = () => {
       // Get shrink size from mmData
       const shrinkCode = getShrinkCode(mmData.ic_cap);
 
-      // ✅ UPDATED: Recipe order (Streç removed per gene2l.csv)
-      // Order: Source → Packaging Operation (TVPKT01/BAL01) → KARTON (if oiled) → SHRINK → HALKA → PLASTIK ÇEMBER (if oiled) → TOKA → PALET
+      // ✅ UPDATED: Recipe order (Streç removed, Çelik Çember added per user table)
+      // Order: Source → Packaging Operation → KARTON (oiled) → SHRINK → HALKA (TAVLI) → PLASTIK ÇEMBER (oiled) → TOKA (TAVLI) → ÇELİK ÇEMBER (TAVLI) → PALET
       const recipeEntries = Object.entries(mmRecipe);
+
+      console.log(`\n🔍 === SAVE MM TT RECIPE DEBUG for ${mmTtStokKodu} ===`);
+      console.log(`📦 ALL mmRecipe keys:`, Object.keys(mmRecipe));
+      console.log(`📝 sourceStokKodu parameter: ${sourceStokKodu}`);
 
       const sourceEntry = recipeEntries.find(([key]) => key === sourceStokKodu);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
-      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
+      const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA'); // TAVLI only
       const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // Optional (oiled only)
-      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      // ❌ REMOVED: strecEntry - not in gene2l.csv
+      const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP'); // TAVLI only
+      const celikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080'); // ✅ ADDED: Çelik Çember (TAVLI only)
       const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET');
+      // ❌ NO strecEntry - removed per gene2l.csv
+
+      console.log(`\n🔎 Entry lookup results:`);
+      console.log(`   sourceEntry (${sourceStokKodu}): ${sourceEntry ? `FOUND (${sourceEntry[1]})` : '❌ NOT FOUND'}`);
+      console.log(`   packagingEntry (TVPKT01/BAL01): ${packagingEntry ? `FOUND (${packagingEntry[0]} = ${packagingEntry[1]})` : '❌ NOT FOUND'}`);
+      console.log(`   kartonEntry: ${kartonEntry ? `FOUND (${kartonEntry[1]})` : '❌ NOT FOUND (oiled only)'}`);
+      console.log(`   shrinkEntry (${shrinkCode}): ${shrinkEntry ? `FOUND (${shrinkEntry[1]})` : '❌ NOT FOUND'}`);
+      console.log(`   halkaEntry (SM.7MMHALKA): ${halkaEntry ? `FOUND (${halkaEntry[1]})` : '❌ NOT FOUND (TAVLI only)'}`);
+      console.log(`   plastikCemberEntry: ${plastikCemberEntry ? `FOUND (${plastikCemberEntry[1]})` : '❌ NOT FOUND (oiled only)'}`);
+      console.log(`   tokaEntry: ${tokaEntry ? `FOUND (${tokaEntry[1]})` : '❌ NOT FOUND (TAVLI only)'}`);
+      console.log(`   celikCemberEntry: ${celikCemberEntry ? `✅ FOUND (${celikCemberEntry[1]})` : '❌ NOT FOUND (TAVLI only)'}`);
+      console.log(`   paletEntry: ${paletEntry ? `FOUND (${paletEntry[1]})` : '❌ NOT FOUND'}`);
 
       const orderedEntries = [
         sourceEntry,
@@ -6976,20 +7214,14 @@ const TavliBalyaTelNetsis = () => {
         halkaEntry,
         plastikCemberEntry,
         tokaEntry,
-        // ❌ REMOVED: strecEntry
+        celikCemberEntry, // ✅ ADDED: Çelik Çember (TAVLI only)
         paletEntry
       ].filter(Boolean);
 
-      console.log(`🔍 MM TT RECIPE SAVE DEBUG for ${mmTtStokKodu}:`);
-      console.log(`   sourceStokKodu: ${sourceStokKodu}`);
-      console.log(`   mmRecipe keys: ${Object.keys(mmRecipe).join(', ')}`);
-      console.log(`   sourceEntry found: ${sourceEntry ? 'YES' : 'NO'}`);
-      console.log(`   packagingEntry found: ${packagingEntry ? 'YES' : 'NO'}`);
-      console.log(`   kartonEntry found: ${kartonEntry ? 'YES' : 'NO'} (oiled only)`);
-      console.log(`   plastikCemberEntry found: ${plastikCemberEntry ? 'YES' : 'NO'} (oiled only)`);
-      // ❌ REMOVED: strecEntry log
-      console.log(`   paletEntry found: ${paletEntry ? 'YES' : 'NO'}`);
-      console.log(`   📊 Total entries to save: ${orderedEntries.length}`);
+      console.log(`\n📊 ORDERED ENTRIES TO SAVE: ${orderedEntries.length} components`);
+      orderedEntries.forEach(([key, value], idx) => {
+        console.log(`   ${idx + 1}. ${key} = ${value}`);
+      });
 
       for (const [key, value] of orderedEntries) {
         if (value > 0) {
@@ -9900,10 +10132,11 @@ const TavliBalyaTelNetsis = () => {
     const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
     const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
     const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
+    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER');
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-    const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
-    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
+    const celikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080'); // ✅ ADDED: Çelik Çember
+    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET');
+    // ❌ REMOVED: strecEntry - not in gene2l.csv
 
     // Other entries that might exist but aren't in the fixed order
     const otherEntries = recipeEntries.filter(([key]) =>
@@ -9914,10 +10147,11 @@ const TavliBalyaTelNetsis = () => {
       key !== 'AMB.ÇEM.KARTON.GAL' &&
       !key.includes('AMB.SHRİNK.') &&
       key !== 'SM.7MMHALKA' &&
-      key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+      key !== 'AMB.PLASTİK.ÇEMBER' &&
       key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
-      key !== 'AMB.STREÇ' && // ✅ ADDED
-      key !== 'AMB.PALET' // ✅ ADDED
+      key !== 'AMB.APEX CEMBER 38X080' && // ✅ ADDED: Exclude Çelik Çember
+      key !== 'AMB.PALET'
+      // ❌ REMOVED: AMB.STREÇ exclusion
     );
 
     // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
@@ -9927,10 +10161,10 @@ const TavliBalyaTelNetsis = () => {
       kartonEntry,
       shrinkEntry,
       halkaEntry,
-      plastikCemberEntry, // ✅ FIXED: Use Plastik Çember
+      plastikCemberEntry,
       tokaEntry,
-      strecEntry, // ✅ ADDED
-      paletEntry, // ✅ ADDED
+      celikCemberEntry, // ✅ ADDED: Çelik Çember
+      paletEntry,
       ...otherEntries
     ].filter(Boolean);
     
@@ -10259,13 +10493,14 @@ const TavliBalyaTelNetsis = () => {
         const kartonEntry = mmRecipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
         const shrinkEntry = mmRecipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
         const halkaEntry = mmRecipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-        const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
+        const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER');
         const tokaEntry = mmRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-        const strecEntry = mmRecipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
-        const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
+        const celikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080'); // ✅ ADDED: Çelik Çember
+        const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET');
+        // ❌ REMOVED: strecEntry - not in gene2l.csv
 
         // Add entries in the PERFECTED fixed order (YM.TT then operations and auxiliaries)
-        const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, plastikCemberEntry, tokaEntry, strecEntry, paletEntry].filter(Boolean);
+        const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, plastikCemberEntry, tokaEntry, celikCemberEntry, paletEntry].filter(Boolean);
         
         // Use the PERFECTED generateMmTtReceteRowForBatch function (which accepts parameters)
         let siraNo = 1;
@@ -10443,10 +10678,11 @@ const TavliBalyaTelNetsis = () => {
       const kartonEntry = mmRecipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
       const shrinkEntry = mmRecipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
       const halkaEntry = mmRecipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-      const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
+      const plastikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER');
       const tokaEntry = mmRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-      const strecEntry = mmRecipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
-      const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
+      const celikCemberEntry = mmRecipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080'); // ✅ ADDED: Çelik Çember
+      const paletEntry = mmRecipeEntries.find(([key]) => key === 'AMB.PALET');
+      // ❌ REMOVED: strecEntry - not in gene2l.csv
 
       // Other entries that might exist but aren't in the fixed order
       const otherEntries = mmRecipeEntries.filter(([key]) =>
@@ -10457,10 +10693,11 @@ const TavliBalyaTelNetsis = () => {
         key !== 'AMB.ÇEM.KARTON.GAL' &&
         !key.includes('AMB.SHRİNK.') &&
         key !== 'SM.7MMHALKA' &&
-        key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+        key !== 'AMB.PLASTİK.ÇEMBER' &&
         key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
-        key !== 'AMB.STREÇ' && // ✅ ADDED
-        key !== 'AMB.PALET' // ✅ ADDED
+        key !== 'AMB.APEX CEMBER 38X080' && // ✅ ADDED: Exclude Çelik Çember
+        key !== 'AMB.PALET'
+        // ❌ REMOVED: AMB.STREÇ exclusion
       );
 
       // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
@@ -11119,10 +11356,11 @@ const TavliBalyaTelNetsis = () => {
     const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL');
     const shrinkEntry = recipeEntries.find(([key]) => key.includes('AMB.SHRİNK.'));
     const halkaEntry = recipeEntries.find(([key]) => key === 'SM.7MMHALKA');
-    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER'); // ✅ FIXED: Use Plastik Çember for MM products
+    const plastikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.PLASTİK.ÇEMBER');
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
-    const strecEntry = recipeEntries.find(([key]) => key === 'AMB.STREÇ'); // ✅ ADDED
-    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET'); // ✅ ADDED
+    const celikCemberEntry = recipeEntries.find(([key]) => key === 'AMB.APEX CEMBER 38X080'); // ✅ ADDED: Çelik Çember
+    const paletEntry = recipeEntries.find(([key]) => key === 'AMB.PALET');
+    // ❌ REMOVED: strecEntry - not in gene2l.csv
 
     // Other entries that might exist but aren't in the fixed order
     const otherEntries = recipeEntries.filter(([key]) =>
@@ -11133,10 +11371,11 @@ const TavliBalyaTelNetsis = () => {
       key !== 'AMB.ÇEM.KARTON.GAL' &&
       !key.includes('AMB.SHRİNK.') &&
       key !== 'SM.7MMHALKA' &&
-      key !== 'AMB.PLASTİK.ÇEMBER' && // ✅ FIXED: Exclude Plastik Çember
+      key !== 'AMB.PLASTİK.ÇEMBER' &&
       key !== 'AMB.TOKA.SIGNODE.114P. DKP' &&
-      key !== 'AMB.STREÇ' && // ✅ ADDED
-      key !== 'AMB.PALET' // ✅ ADDED
+      key !== 'AMB.APEX CEMBER 38X080' && // ✅ ADDED: Exclude Çelik Çember
+      key !== 'AMB.PALET'
+      // ❌ REMOVED: AMB.STREÇ exclusion
     );
 
     // Sırayla ekle - exact order (YM.TT then operations and auxiliaries)
@@ -11146,10 +11385,10 @@ const TavliBalyaTelNetsis = () => {
       kartonEntry,
       shrinkEntry,
       halkaEntry,
-      plastikCemberEntry, // ✅ FIXED: Use Plastik Çember
+      plastikCemberEntry,
       tokaEntry,
-      strecEntry, // ✅ ADDED
-      paletEntry, // ✅ ADDED
+      celikCemberEntry, // ✅ ADDED: Çelik Çember
+      paletEntry,
       ...otherEntries
     ].filter(Boolean);
     
@@ -13457,11 +13696,14 @@ const TavliBalyaTelNetsis = () => {
                     // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/kg))/1000
                     const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
 
-                    // AMB.STREÇ: =(0.5*(1000/kg))/1000
-                    const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
+                    // ❌ REMOVED: AMB.STREÇ - not in gene2l.csv constraints
+                    // const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
 
                     // AMB.PALET: =(1*(1000/kg))/1000
                     const paletValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
+
+                    // AMB.APEX CEMBER 38X080 (Çelik Çember) - TAVLI ONLY
+                    const celikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
                     // Packaging operation duration
                     const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
@@ -13493,10 +13735,11 @@ const TavliBalyaTelNetsis = () => {
                       updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
                       updateIfNotDb(shrinkCode, shrinkAmount);
                       updateIfNotDb('SM.7MMHALKA', halkaValue);
-                      updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue); // ✅ FIXED: Use Plastik Çember for MM products
+                      updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue); // Plastik Çember for MM products
                       updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaValue);
-                      updateIfNotDb('AMB.STREÇ', strecValue); // ✅ ADDED
-                      updateIfNotDb('AMB.PALET', paletValue); // ✅ ADDED
+                      // ❌ REMOVED: updateIfNotDb('AMB.STREÇ', strecValue) - not in gene2l.csv
+                      updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberValue); // ✅ ADDED: Çelik Çember (TAVLI only)
+                      updateIfNotDb('AMB.PALET', paletValue);
                     });
 
                     setAllRecipes(updatedRecipes);
@@ -13558,10 +13801,11 @@ const TavliBalyaTelNetsis = () => {
                           { key: packagingOp, label: packagingLabel, type: 'input', unit: 'DK' },
                           { key: 'AMB.ÇEM.KARTON.GAL', label: 'Karton', type: 'input', unit: 'AD' },
                           { key: 'shrink', label: 'Shrink', type: 'dropdown', unit: 'KG' },
-                          { key: 'SM.7MMHALKA', label: '7mm Halka', type: 'input', unit: 'AD' },
+                          { key: 'SM.7MMHALKA', label: '7mm Halka (Kaldırma Kancası)', type: 'input', unit: 'AD' },
                           { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'AD' },
                           { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD' },
-                          { key: 'AMB.STREÇ', label: 'Streç', type: 'input', unit: 'KG' },
+                          { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD' },
+                          // ❌ REMOVED: { key: 'AMB.STREÇ', label: 'Streç', type: 'input', unit: 'KG' } - not in gene2l.csv
                           { key: 'AMB.PALET', label: 'Palet', type: 'input', unit: 'AD' }
                         ];
 
