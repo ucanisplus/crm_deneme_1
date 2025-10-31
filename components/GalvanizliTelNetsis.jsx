@@ -13849,6 +13849,23 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
+  // Helper function to categorize diameter into KOD-3 groups
+  const getDiameterGroup = (cap) => {
+    if (cap <= 1.8) {
+      return 'Grup 1';
+    } else if (cap <= 2.5) {
+      return 'Grup 2';
+    } else if (cap <= 3.2) {
+      return 'Grup 3';
+    } else if (cap <= 4.2) {
+      return 'Grup 4';
+    } else if (cap <= 6.0) {
+      return 'Grup 5';
+    } else {
+      return 'Grup 6';
+    }
+  };
+
   // Excel veri oluşturma fonksiyonları - doğru formatlar ve COMMA usage
   // Batch version that takes MM GT data as parameter
   const generateMmGtStokKartiDataForBatch = (mmGt) => {
@@ -13949,7 +13966,7 @@ const GalvanizliTelNetsis = () => {
       '', // Barkod 1
       '', // Barkod 2
       '', // Barkod 3
-      '', // Kod-3
+      getDiameterGroup(cap), // Kod-3 (Diameter group: Grup 1-6)
       '', // Kod-4
       '', // Kod-5
       'H', // Esnek Yapılandır
@@ -14053,7 +14070,7 @@ const GalvanizliTelNetsis = () => {
       '', // Barkod 1
       '', // Barkod 2
       '', // Barkod 3
-      '', // Kod-3
+      getDiameterGroup(cap), // Kod-3 (Diameter group: Grup 1-6)
       '', // Kod-4
       '', // Kod-5
       'H', // Esnek Yapılandır
@@ -14205,7 +14222,7 @@ const GalvanizliTelNetsis = () => {
       '', // Barkod 1
       '', // Barkod 2
       '', // Barkod 3
-      '', // Kod-3
+      getDiameterGroup(cap), // Kod-3 (Diameter group: Grup 1-6)
       '', // Kod-4
       '', // Kod-5
       'H', // Esnek Yapılandır
@@ -14321,7 +14338,7 @@ const GalvanizliTelNetsis = () => {
       '', // Barkod 1
       '', // Barkod 2
       '', // Barkod 3
-      '', // Kod-3
+      getDiameterGroup(cap), // Kod-3 (Diameter group: Grup 1-6)
       '', // Kod-4
       '', // Kod-5
       'H', // Esnek Yapılandır
@@ -14338,13 +14355,18 @@ const GalvanizliTelNetsis = () => {
   };
 
   const generateYmStStokKartiData = (ymSt) => {
+    // Extract diameter from YM ST stock code (e.g., YM.ST.0151.0600.1006 -> 1.51mm)
+    const stokParts = ymSt.stok_kodu.split('.');
+    const capCode = stokParts[2]; // e.g., "0151"
+    const cap = parseInt(capCode) / 100; // Convert to decimal (0151 -> 1.51)
+
     return [
       ymSt.stok_kodu, // Stok Kodu
       ymSt.stok_adi, // Stok Adı
       'YM', // Grup Kodu
       'ST', // Kod-1
       '', // Kod-2
-      '', // Kod-3
+      getDiameterGroup(cap), // Kod-3 (Diameter group: Grup 1-6)
       '20', // Satış KDV Oranı
       '28', // Muh.Detay
       '35', // Depo Kodu
