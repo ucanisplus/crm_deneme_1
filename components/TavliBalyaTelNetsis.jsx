@@ -13248,12 +13248,21 @@ const TavliBalyaTelNetsis = () => {
 
     // Base stok adı - PRODUCT-SPECIFIC NAMES (Excel format with comma)
     const productName = mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli';
-    // Add yaglama_tipi for BOTH TAVLI and BALYA products
-    const yaglamaSuffix = mmData.yaglama_tipi ? ` (${mmData.yaglama_tipi})` : '';
-    let stokAdi = `${productName}${yaglamaSuffix} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
+    let stokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
-    // Paketleme suffixes ekle
+    // ✅ FIXED: Add yaglama and packaging suffixes (NOT in base name!)
     const suffixes = [];
+
+    // Add yaglama code FIRST (per genel4.csv format)
+    if (!mmData.yaglama_tipi || mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Tavlısız') {
+      suffixes.push('Yagsiz');
+    } else if (mmData.yaglama_tipi === 'Püskürtme') {
+      suffixes.push('PSK');
+    } else if (mmData.yaglama_tipi === 'Daldırma') {
+      suffixes.push('DLD');
+    }
+
+    // Then add packaging suffixes
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
     if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
@@ -13286,8 +13295,19 @@ const TavliBalyaTelNetsis = () => {
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
     let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2))} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
-    // Paketleme suffixes ekle
+    // ✅ FIXED: Add yaglama and packaging suffixes
     const suffixes = [];
+
+    // Add yaglama code FIRST
+    if (!mmData.yaglama_tipi || mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Tavlısız') {
+      suffixes.push('Yagsiz');
+    } else if (mmData.yaglama_tipi === 'Püskürtme') {
+      suffixes.push('PSK');
+    } else if (mmData.yaglama_tipi === 'Daldırma') {
+      suffixes.push('DLD');
+    }
+
+    // Then add packaging suffixes
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
     if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
@@ -13319,8 +13339,19 @@ const TavliBalyaTelNetsis = () => {
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
     let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
-    // Paketleme suffixes ekle
+    // ✅ FIXED: Add yaglama and packaging suffixes
     const suffixes = [];
+
+    // Add yaglama code FIRST
+    if (!mmData.yaglama_tipi || mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Tavlısız') {
+      suffixes.push('Yagsiz');
+    } else if (mmData.yaglama_tipi === 'Püskürtme') {
+      suffixes.push('PSK');
+    } else if (mmData.yaglama_tipi === 'Daldırma') {
+      suffixes.push('DLD');
+    }
+
+    // Then add packaging suffixes
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
     if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
