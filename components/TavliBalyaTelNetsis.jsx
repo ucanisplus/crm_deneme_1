@@ -10604,37 +10604,47 @@ const TavliBalyaTelNetsis = () => {
           // Coating is only for galvanized products
           const generatedStokAdi = `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(excelData.mmData.min_mukavemet) || '0'}-${parseFloat(excelData.mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(excelData.mmData.ic_cap) || '45'} cm OD:${parseFloat(excelData.mmData.dis_cap) || '75'} cm ${parseFloat(excelData.mmData.kg) || '0'}${bagAmount} kg`;
 
-          // Extract packaging suffixes from the saved task data
+          // ✅ FIXED: Extract yaglama and packaging suffixes from the saved task data
           const suffixes = [];
 
+          // Add yaglama code FIRST (per genel4.csv format)
+          if (!excelData.mmData.yaglama_tipi || excelData.mmData.yaglama_tipi === '' || excelData.mmData.yaglama_tipi === 'Tavlısız') {
+            suffixes.push('Yagsiz');
+          } else if (excelData.mmData.yaglama_tipi === 'Püskürtme') {
+            suffixes.push('PSK');
+          } else if (excelData.mmData.yaglama_tipi === 'Daldırma') {
+            suffixes.push('DLD');
+          }
+
+          // Then add packaging suffixes
           // Check if packaging info exists in the task data
           if (task.packaging) {
             // Use packaging info from task if available
             console.log(`📦 Using task packaging: ${JSON.stringify(task.packaging)}`);
             if (task.packaging.shrink) suffixes.push('Shrink');
             if (task.packaging.paletli) suffixes.push('Plt');
-            if (task.packaging.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
+            if (task.packaging.karton) suffixes.push('Krtn');
           } else if (excelData.packaging) {
             // Check if packaging is stored in excelData
             console.log(`📦 Using excelData packaging: ${JSON.stringify(excelData.packaging)}`);
             if (excelData.packaging.shrink) suffixes.push('Shrink');
             if (excelData.packaging.paletli) suffixes.push('Plt');
-            if (excelData.packaging.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
+            if (excelData.packaging.karton) suffixes.push('Krtn');
           } else {
             // Fallback: use current form state (this shouldn't happen with the fix above)
             console.log(`⚠️ No packaging info found in task data, using current form state as fallback`);
             if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
             if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-            if (paketlemeSecenekleri.karton) suffixes.push('Krtn'); // ✅ FIXED: Changed from 'Spt' to 'Krtn'
+            if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
           }
-          
+
           let finalStokAdi = generatedStokAdi;
           if (suffixes.length > 0) {
             finalStokAdi += '-' + suffixes.join('-');
           }
-          
+
           excelData.mmData.stok_adi = finalStokAdi;
-          console.log(`✅ Generated stok_adi with packaging suffixes [${suffixes.join(', ')}]: "${finalStokAdi}"`);
+          console.log(`✅ Generated stok_adi with yaglama + packaging suffixes [${suffixes.join(', ')}]: "${finalStokAdi}"`);
         }
         
         mmData.push(excelData.mmData);
@@ -10739,10 +10749,21 @@ const TavliBalyaTelNetsis = () => {
         ? `/${mmData.cast_kont}`
         : '';
 
-      const productName = mmData.product_type === 'TAVLI' ? 'Yumak Tavlı Tel' : 'Yumak Balya Teli';
-      const yaglamaText = mmData.yaglama_tipi ? ` ${mmData.yaglama_tipi}` : '';
+      // ✅ FIXED: YM TT stock name per genel4.csv specification
+      // - Use "YM Tavlı Tel" not "Yumak Tavlı Tel"
+      // - NO yaglama (yaglama only on MM products)
+      // - Include tolerance values
+      // - NO packaging suffixes
+      const productName = mmData.product_type === 'TAVLI' ? 'YM Tavlı Tel' : 'YM Balya Tel';
 
-      return `${productName}${yaglamaText} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg Shrink`;
+      // Calculate tolerance values
+      const toleransPlus = parseFloat(mmData.tolerans_plus) || 0;
+      const toleransMinus = parseFloat(mmData.tolerans_minus) || 0;
+      const formattedMinus = (toleransMinus >= 0 ? '+' : '') + toleransMinus.toFixed(2).replace('.', ',');
+      const formattedPlus = (toleransPlus >= 0 ? '+' : '') + toleransPlus.toFixed(2).replace('.', ',');
+      const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
+      return `${productName} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
     }
 
     function generateYmTtEnglishName(mmData, sequence) {
@@ -10751,10 +10772,17 @@ const TavliBalyaTelNetsis = () => {
         ? `/${mmData.cast_kont}`
         : '';
 
+      // ✅ FIXED: YM TT English name - NO yaglama, WITH tolerance, NO packaging
       const productNameEn = mmData.product_type === 'TAVLI' ? 'Coil Annealed Wire' : 'Coil Bale Wire';
-      const yaglamaText = mmData.yaglama_tipi ? ` ${mmData.yaglama_tipi}` : '';
 
-      return `${productNameEn}${yaglamaText} ${parseFloat(cap.toFixed(2))} mm ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg Shrink`;
+      // Calculate tolerance values
+      const toleransPlus = parseFloat(mmData.tolerans_plus) || 0;
+      const toleransMinus = parseFloat(mmData.tolerans_minus) || 0;
+      const formattedMinus = (toleransMinus >= 0 ? '+' : '') + toleransMinus.toFixed(2);
+      const formattedPlus = (toleransPlus >= 0 ? '+' : '') + toleransPlus.toFixed(2);
+      const toleranceText = `${formattedMinus}/${formattedPlus}`;
+
+      return `${productNameEn} ${parseFloat(cap.toFixed(2))} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
     }
 
     async function generateDirectStokKartiExcelFromData(mmData, ymTtData, ymStpData, ymStData) {
