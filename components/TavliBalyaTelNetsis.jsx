@@ -10971,11 +10971,11 @@ const TavliBalyaTelNetsis = () => {
         // Add entries in the PERFECTED fixed order (YM.TT then operations and auxiliaries)
         const orderedEntries = [ymTtEntry, tavlamaEntry, kartonEntry, shrinkEntry, halkaEntry, plastikCemberEntry, tokaEntry, celikCemberEntry, paletEntry].filter(Boolean);
         
-        // Use the PERFECTED generateMmTtReceteRowForBatch function (which accepts parameters)
+        // ✅ FIX: Use correct Tavli/Balya function (not Galvanizli function!)
         let siraNo = 1;
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            mmReceteSheet.addRow(generateMmTtReceteRowForBatch(key, value, siraNo, sequence, excelData.mmData.stok_kodu));
+            mmReceteSheet.addRow(generateTavliBalyaMmReceteRowForBatch(key, value, siraNo, sequence, excelData.mmData.stok_kodu));
             siraNo++;
           }
         });
@@ -13017,7 +13017,7 @@ const TavliBalyaTelNetsis = () => {
     return [
       mmStokKodu, // Mamul Kodu - Use TT MM kodu directly (TT.BAG.0340.00 or TT.BALYA.0340.00)
       '1', // Reçete Top.
-      '0', // Fire Oranı (%) - NO FIRE for Tavlı/Balya
+      '0,00040', // Fire Oranı (%) - 5 decimals with comma for Tavlı/Balya (same as Galvaniz)
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental
