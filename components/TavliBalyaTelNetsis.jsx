@@ -11178,10 +11178,14 @@ const TavliBalyaTelNetsis = () => {
 
           // Convert to array format expected by generateCoilerAlternatives
           recipeEntries.forEach(([bilesen_kodu, miktar]) => {
+            // ✅ FIX: Add operasyon_bilesen field so generateCoilerAlternatives can distinguish B vs O
+            const isOperation = ['TLC01', 'COTLC01'].includes(bilesen_kodu);
+
             ymStRecipesForAlternatives.push({
               mamul_kodu: ymSt.stok_kodu,
               bilesen_kodu,
-              miktar
+              miktar,
+              operasyon_bilesen: isOperation ? 'O' : 'B'  // Required by generateCoilerAlternatives
             });
           });
 
@@ -12035,11 +12039,15 @@ const TavliBalyaTelNetsis = () => {
       // Convert recipe format to match what generateCoilerAlternatives expects
       recipeEntries.forEach(([bilesen_kodu, miktar]) => {
         if (bilesen_kodu !== 'NOTE' && miktar > 0) {
+          // ✅ FIX: Add operasyon_bilesen field so generateCoilerAlternatives can distinguish B vs O
+          const isOperation = ['TLC01', 'COTLC01'].includes(bilesen_kodu);
+
           mainYmStRecipes.push({
             mamul_kodu: ymSt.stok_kodu,
             bilesen_kodu: bilesen_kodu,
             miktar: miktar,
-            priority: 0
+            priority: 0,
+            operasyon_bilesen: isOperation ? 'O' : 'B'  // Required by generateCoilerAlternatives
           });
         }
       });
