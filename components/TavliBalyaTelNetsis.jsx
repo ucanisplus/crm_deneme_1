@@ -4366,20 +4366,20 @@ const TavliBalyaTelNetsis = () => {
         console.log(`\n❌ BALYA product - EXCLUDING TAVLI-ONLY components (Halka, Toka, Çelik Çember)`);
       }
 
-      // ✅ FIXED: Conditional Karton (oiled AND selected)
-      if (kartonValue > 0 && paketlemeSecenekleri.karton) {
+      // ✅ CRITICAL FIX: Karton AND Plastik Çember - BOTH for oiled products only (per 2.csv)
+      // "Yağlı ürünlerde ekle" - Both MUST be added together, NOT controlled by checkbox
+      if (kartonValue > 0) {
         newMmGtRecipes[index]['AMB.ÇEM.KARTON.GAL'] = parseFloat(kartonValue.toFixed(5));
-        console.log(`\n✅ Karton (OILED AND SELECTED): ${parseFloat(kartonValue.toFixed(5))}`);
+        console.log(`\n✅ Karton (OILED ONLY): ${parseFloat(kartonValue.toFixed(5))}`);
       } else {
-        console.log(`\n❌ No Karton (not oiled: ${kartonValue === 0}, not selected: ${!paketlemeSecenekleri.karton})`);
+        console.log(`\n❌ No Karton (yaglama_tipi not set or Yağsız)`);
       }
 
-      // ✅ FIXED: Conditional Plastik Çember (oiled AND selected - but Plastik Çember not in paketlemeSecenekleri, only for oiled)
       if (plastikCemberValue > 0) {
         newMmGtRecipes[index]['AMB.PLASTİK.ÇEMBER'] = parseFloat(plastikCemberValue.toFixed(5));
         console.log(`✅ Plastik Çember (OILED ONLY): ${parseFloat(plastikCemberValue.toFixed(5))}`);
       } else {
-        console.log(`❌ No Plastik Çember (not oiled or yaglama_tipi empty)`);
+        console.log(`❌ No Plastik Çember (yaglama_tipi not set or Yağsız)`);
       }
 
       console.log(`\n🔍 FINAL MM RECIPE KEYS for index ${index}:`, Object.keys(newMmGtRecipes[index]));
@@ -7382,6 +7382,290 @@ const TavliBalyaTelNetsis = () => {
         const yellowFlag = alt.isCoilerYellow ? ' (YELLOW ROW - COILER)' : '';
         console.log(`   Priority ${alt.priority}: ${alt.stokKodu}${yellowFlag}`);
       });
+
+      // ========== CRITICAL FIX: Create missing alternative YM ST and YM STP products ==========
+      // Before creating YM TT recipes that reference alternatives, ensure all products exist
+      console.log(`\n🔧 CRITICAL FIX: Ensuring all alternative products exist before creating recipes...`);
+
+      for (const alternative of ymStAlternatives) {
+        // Skip priority 0 (main) - it already exists
+        if (alternative.priority === 0) continue;
+
+        const altStokKodu = alternative.stokKodu;
+
+        // Extract base YM ST code (remove .P suffix if present)
+        const baseYmStKodu = altStokKodu.replace(/\.P$/, '');
+        const hasPSuffix = altStokKodu.endsWith('.P');
+
+        console.log(`\n   📌 Checking alternative (priority ${alternative.priority}): ${altStokKodu}`);
+
+        // Parse the YM ST code to get details (format: YM.ST.CCCC.FFFF.QQQQ)
+        const ymStMatch = baseYmStKodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})/);
+        if (!ymStMatch) {
+          console.warn(`   ⚠️ Cannot parse YM ST code: ${baseYmStKodu}, skipping...`);
+          continue;
+        }
+
+        const [_, capCode, filmasinCode, qualityCode] = ymStMatch;
+        const cap = parseInt(capCode) / 100;
+        const filmasin = parseInt(filmasinCode) / 100;
+        const quality = qualityCode;
+
+        // STEP 1: Check if base YM ST exists, if not create it + recipe
+        console.log(`   🔍 Checking if YM ST exists: ${baseYmStKodu}`);
+        const ymStCheckResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
+
+        if (ymStCheckResponse && ymStCheckResponse.ok) {
+          const existingYmSt = await ymStCheckResponse.json();
+
+          if (!existingYmSt || existingYmSt.length === 0) {
+            console.log(`   ❌ YM ST not found, creating: ${baseYmStKodu}`);
+
+            // Create YM ST product
+            const ymStData = {
+              stok_kodu: baseYmStKodu,
+              stok_adi: `YM Siyah Tel ${cap.toFixed(2)} mm HM:${filmasinCode}.${quality}`,
+              grup_kodu: 'YM',
+              kod_1: 'ST',
+              cap: cap,
+              filmasin: filmasin,
+              quality: quality,
+              kdv_orani: 20,
+              muh_detay: '28',
+              depo_kodu: '35',
+              stok_turu: 'D'
+            };
+
+            const ymStCreateResponse = await fetchWithAuth(API_URLS.galYmSt, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(ymStData)
+            });
+
+            if (ymStCreateResponse && ymStCreateResponse.ok) {
+              console.log(`   ✅ YM ST created: ${baseYmStKodu}`);
+
+              // Create YM ST recipe (FLM → YM ST)
+              const flmCode = `FLM.${filmasinCode}.${quality}`;
+              console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
+
+              // Delete existing recipes first
+              const existingRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
+              if (existingRecipeResponse && existingRecipeResponse.ok) {
+                const existingRecipes = await existingRecipeResponse.json();
+                for (const recipe of existingRecipes) {
+                  await fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' });
+                }
+              }
+
+              // Create FLM component
+              await fetchWithAuth(API_URLS.galYmStRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ym_st_stok_kodu: baseYmStKodu,
+                  mamul_kodu: baseYmStKodu,
+                  bilesen_kodu: flmCode,
+                  operasyon_bilesen: 'B',
+                  miktar: 1.0,
+                  olcu_br: 'KG',
+                  aciklama: 'Filmaşin Tüketimi',
+                  sira_no: 1,
+                  recete_toplama: '1',
+                  olcu_br_bilesen: '1'
+                })
+              });
+
+              // Create TLC01 operation
+              await fetchWithAuth(API_URLS.galYmStRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ym_st_stok_kodu: baseYmStKodu,
+                  mamul_kodu: baseYmStKodu,
+                  bilesen_kodu: 'TLC01',
+                  operasyon_bilesen: 'O',
+                  miktar: 0.002,
+                  olcu_br: 'DK',
+                  aciklama: 'Tel Çekme Operasyonu',
+                  sira_no: 2,
+                  recete_toplama: '1',
+                  olcu_br_bilesen: '1',
+                  uretim_suresi: 0.002,
+                  ua_dahil_edilsin: 'E',
+                  son_operasyon: 'E'
+                })
+              });
+
+              console.log(`   ✅ YM ST recipe created`);
+            } else {
+              console.error(`   ❌ Failed to create YM ST: ${baseYmStKodu}`);
+            }
+          } else {
+            console.log(`   ✅ YM ST already exists: ${baseYmStKodu}`);
+          }
+        }
+
+        // STEP 2: If .P suffix, check if YM STP exists, if not create it + recipe
+        if (hasPSuffix) {
+          const ymStpKodu = altStokKodu; // Full code with .P
+          console.log(`   🔍 Checking if YM STP exists: ${ymStpKodu}`);
+
+          const ymStpCheckResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpKodu)}`);
+
+          if (ymStpCheckResponse && ymStpCheckResponse.ok) {
+            const existingYmStp = await ymStpCheckResponse.json();
+
+            if (!existingYmStp || existingYmStp.length === 0) {
+              console.log(`   ❌ YM STP not found, creating: ${ymStpKodu}`);
+
+              // Create YM STP product
+              const ymStpData = {
+                stok_kodu: ymStpKodu,
+                stok_adi: `YM Preslenmiş Tel ${cap.toFixed(2)} mm`,
+                grup_kodu: 'YM',
+                kod_1: 'STP',
+                kod_2: filmasinCode,
+                kod_3: quality,
+                cap: cap,
+                kdv_orani: 20,
+                muh_detay: '28',
+                depo_kodu: '35',
+                stok_turu: 'D'
+              };
+
+              const ymStpCreateResponse = await fetchWithAuth(API_URLS.tavliNetsisYmStp, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ymStpData)
+              });
+
+              if (ymStpCreateResponse && ymStpCreateResponse.ok) {
+                console.log(`   ✅ YM STP created: ${ymStpKodu}`);
+
+                // Create YM STP recipe (YM ST → YM STP with pressing)
+                console.log(`   📝 Creating YM STP recipe: ${baseYmStKodu} → ${ymStpKodu}`);
+
+                // Delete existing recipes first
+                const existingRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStpKodu)}`);
+                if (existingRecipeResponse && existingRecipeResponse.ok) {
+                  const existingRecipes = await existingRecipeResponse.json();
+                  for (const recipe of existingRecipes) {
+                    await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recipe.id}`, { method: 'DELETE' });
+                  }
+                }
+
+                let siraNo = 1;
+
+                // Create YM ST source component
+                await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_stp_stok_kodu: ymStpKodu,
+                    mamul_kodu: ymStpKodu,
+                    bilesen_kodu: baseYmStKodu,
+                    operasyon_bilesen: 'B',
+                    miktar: 1.0,
+                    olcu_br: 'KG',
+                    aciklama: 'Siyah Tel (Presleme Öncesi)',
+                    priority: 0,
+                    sira_no: siraNo++,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
+                });
+
+                // Create STPRS01 operation
+                const pressingDuration = (4.5 / 650) * kg;
+                await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_stp_stok_kodu: ymStpKodu,
+                    mamul_kodu: ymStpKodu,
+                    bilesen_kodu: 'STPRS01',
+                    operasyon_bilesen: 'O',
+                    miktar: parseFloat(pressingDuration.toFixed(6)),
+                    olcu_br: 'DK',
+                    aciklama: 'Siyah Tel Presleme Operasyonu',
+                    priority: 0,
+                    sira_no: siraNo++,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1',
+                    uretim_suresi: parseFloat(pressingDuration.toFixed(6)),
+                    ua_dahil_edilsin: 'E',
+                    son_operasyon: 'E'
+                  })
+                });
+
+                // Create auxiliary components (Çelik Çember, Toka, Halka)
+                await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_stp_stok_kodu: ymStpKodu,
+                    mamul_kodu: ymStpKodu,
+                    bilesen_kodu: 'SM-AMB-000017', // Çelik Çember
+                    operasyon_bilesen: 'B',
+                    miktar: parseFloat((2.4 * (1000 / kg) / 1000).toFixed(5)),
+                    olcu_br: 'AD',
+                    aciklama: 'Çelik Çember',
+                    priority: 0,
+                    sira_no: siraNo++,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
+                });
+
+                await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_stp_stok_kodu: ymStpKodu,
+                    mamul_kodu: ymStpKodu,
+                    bilesen_kodu: 'SM-AMB-000018', // Çember Tokası
+                    operasyon_bilesen: 'B',
+                    miktar: parseFloat((8.0 * (1000 / kg) / 1000).toFixed(5)),
+                    olcu_br: 'AD',
+                    aciklama: 'Çember Tokası',
+                    priority: 0,
+                    sira_no: siraNo++,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
+                });
+
+                await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_stp_stok_kodu: ymStpKodu,
+                    mamul_kodu: ymStpKodu,
+                    bilesen_kodu: 'SM-AMB-000023', // Kaldırma Kancası
+                    operasyon_bilesen: 'B',
+                    miktar: parseFloat((6.0 * (1000 / kg) / 1000).toFixed(5)),
+                    olcu_br: 'AD',
+                    aciklama: 'Kaldırma Kancası',
+                    priority: 0,
+                    sira_no: siraNo++,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
+                });
+
+                console.log(`   ✅ YM STP recipe created with ${siraNo - 1} components`);
+              } else {
+                console.error(`   ❌ Failed to create YM STP: ${ymStpKodu}`);
+              }
+            } else {
+              console.log(`   ✅ YM STP already exists: ${ymStpKodu}`);
+            }
+          }
+        }
+      }
+
+      console.log(`\n✅ All alternative products ensured to exist. Proceeding with YM TT recipe creation...`);
 
       // Delete existing recipes first
       const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymTtStokKodu)}`);
@@ -14460,14 +14744,17 @@ const TavliBalyaTelNetsis = () => {
                       updateIfNotDb(packagingOperation, packagingDuration);
 
                       // ✅ FIXED: Only add components based on packaging options
-                      // Karton - Only if packaging includes karton
-                      if (paketlemeSecenekleri.karton) {
-                        updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
-                      }
-
                       // Shrink - Only if packaging includes shrink
                       if (paketlemeSecenekleri.shrink) {
                         updateIfNotDb(shrinkCode, shrinkAmount);
+                      }
+
+                      // ✅ CRITICAL FIX: Karton AND Plastik Çember - BOTH for oiled products only (per 2.csv)
+                      // "Yağlı ürünlerde ekle" - NOT controlled by checkbox, but by yaglama_tipi
+                      if (mmData.yaglama_tipi && mmData.yaglama_tipi !== 'Yağsız') {
+                        // Both MUST be added together for oiled products
+                        updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
+                        updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue);
                       }
 
                       // ✅ TAVLI-ONLY components (per 4.csv structure)
@@ -14485,11 +14772,6 @@ const TavliBalyaTelNetsis = () => {
                         // Çelik Çember - TAVLI only, x2 if pressing needed (Galvaniz formula)
                         const celikCemberTotalValue = needsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
                         updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberTotalValue);
-                      }
-
-                      // Plastik Çember - For oiled products only (both TAVLI and BALYA)
-                      if (mmData.yaglama_tipi && mmData.yaglama_tipi !== 'Yağsız') {
-                        updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue);
                       }
 
                       // Palet - Only if packaging includes palet (both TAVLI and BALYA)
