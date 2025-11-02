@@ -486,11 +486,11 @@ const SatisTavliBalyaRequest = () => {
   // Cap input change also updates dis_cap automatically
   const handleCapChange = (e) => {
     const value = normalizeInputValue(e.target.value);
-    
+
     setRequestData(prev => {
       const icCap = prev.ic_cap || 45;
       let disCap;
-      
+
       // Try to calculate dis_cap, but use safe default if cap is not a valid number
       let capValue;
       try {
@@ -499,17 +499,29 @@ const SatisTavliBalyaRequest = () => {
       } catch (e) {
         capValue = 0;
       }
-      
+
       if (icCap === 45) disCap = 75;
       else if (icCap === 50) disCap = 90;
       else if (icCap === 55) disCap = 105;
       else disCap = icCap + (capValue * 10); // General calculation
-      
-      return {
+
+      // ✅ CONSTRAINT: Auto-clear "Daldırma" if diameter moves outside valid range (1.80-3.80mm)
+      const newData = {
         ...prev,
         cap: value,
         dis_cap: disCap
       };
+
+      if (prev.yaglama_tipi === 'Daldırma' && capValue && (capValue < 1.80 || capValue > 3.80)) {
+        console.warn(`Diameter ${capValue}mm is outside Daldırma range (1.80-3.80mm), clearing yaglama_tipi`);
+        newData.yaglama_tipi = '';
+        // Show toast notification
+        setTimeout(() => {
+          alert('Daldırma yağlama sadece 1.80-3.80mm çap aralığında kullanılabilir. Yağlama tipi sıfırlandı.');
+        }, 100);
+      }
+
+      return newData;
     });
   };
   
@@ -1821,9 +1833,19 @@ const SatisTavliBalyaRequest = () => {
                 >
                   <option value="">Yağsız (No Oil)</option>
                   <option value="Püskürtme">Yağlı - Püskürtme (PSK - Slightly Oiled)</option>
-                  <option value="Daldırma">Yağlı - Daldırma (DLD - Dipped Oiled)</option>
+                  <option
+                    value="Daldırma"
+                    disabled={!requestData.cap || parseFloat(requestData.cap) < 1.80 || parseFloat(requestData.cap) > 3.80}
+                  >
+                    Yağlı - Daldırma (DLD - Dipped Oiled) {(!requestData.cap || parseFloat(requestData.cap) < 1.80 || parseFloat(requestData.cap) > 3.80) && '(Sadece 1.80-3.80mm)'}
+                  </option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Hem Tavlı Tel hem de Balya Teli yağlı veya yağsız olabilir</p>
+                <p className="text-xs text-gray-500 mt-1">Hem Tavlı Tel hem de Balya Teli yağlı veya yağsız olabilir. Daldırma sadece 1.80-3.80mm çap için geçerlidir.</p>
+                {requestData.yaglama_tipi === 'Daldırma' && requestData.cap && (parseFloat(requestData.cap) < 1.80 || parseFloat(requestData.cap) > 3.80) && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Daldırma yağlama sadece 1.80-3.80mm çap aralığında kullanılabilir
+                  </p>
+                )}
               </div>
 
               <div>

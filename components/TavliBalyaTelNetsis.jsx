@@ -230,13 +230,17 @@ const COILER_ALTERNATIVE_MATRIX = {
   ],
 
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
+  // ✅ FIX: Added priorities 6-8 with 1008 grade per COİL ALTERNATİF matrix
   '≤1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
     { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
-    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
+    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
+    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
   ],
 
   // Category 3: 1.50mm to 1.79mm
@@ -7099,7 +7103,8 @@ const TavliBalyaTelNetsis = () => {
           console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
 
           alternatives.forEach(altDef => {
-            if (altDef.priority > 0) {
+            // ✅ FIX: Include priority 0 (Alt 0) - changed from > 0 to >= 0
+            if (altDef.priority >= 0) {
               const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
               const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
               const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
