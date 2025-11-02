@@ -435,34 +435,37 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 // ✅ ALL operations now use PER-KG formulas (following Galvanizli Tel pattern)
 // ============================================================================
 
-// OPERATION DURATIONS (Unit: DK)
-// ✅ ALL OPERATIONS USE PER-KG FORMULAS (Following Galvanizli Tel GTPKT01 pattern)
+// OPERATION DURATIONS (Unit: DK/KG - Per-kg rates)
+// ✅ ALL OPERATIONS RETURN PER-KG RATES (Following Galvanizli Tel GTPKT01 pattern)
+// ✅ These rates are STORED in recipes, then multiplied by actual weight when needed
 // Reference: tavli_4/3.csv
-// TAV01: 5 ton 15 saat = 900 dk / 5000 kg = 0.18 dk/kg
-// STPRS01: 650 kg için 4.5 dk → (4.5 / 650) * kg = 0.006923 dk/kg
-// TVPKT01 Normal: 1 Kangal için 5 dk (shrink) or 2.5 dk (no shrink) → (1000 / kg * time) / 1000
-// TVPKT01 ≤1.2mm: 2.5 saat / 5 ton = 150 dk / 5000 kg = 0.03 dk/kg
-// BAL01: 8 saat 2 ton = 480 dk / 2000 kg = 0.24 dk/kg
+// TAV01: 5 ton 15 saat = 900 dk / 5000 kg = 0.18 dk/kg → Returns 0.18 (rate)
+// STPRS01: 650 kg için 4.5 dk = 4.5 / 650 = 0.006923 dk/kg → Returns 0.006923 (rate)
+// TVPKT01 Normal: 1 Kangal için 5 dk → (1000 / kg * 5) / 1000 → Returns rate (varies by weight)
+// TVPKT01 ≤1.2mm: 2.5 saat / 5 ton = 150 / 5000 = 0.03 dk/kg → Returns 0.03 (rate)
+// BAL01: 8 saat 2 ton = 480 dk / 2000 kg = 0.24 dk/kg → Returns 0.24 (rate)
 const OPERATION_DURATIONS = {
   // TAV01 - PER-KG OPERATION (Annealing)
   // Reference: 5 ton 15 saat = 5000 kg in 900 minutes
   // Formula: 900 / 5000 = 0.18 dk/kg
-  // Example: 500 kg → 90 DK (not 900 DK)
-  TAV01: (kg) => parseFloat((0.18 * kg).toFixed(6)),
+  // Returns: PER-KG RATE (0.18), not total duration
+  TAV01: (kg) => parseFloat((0.18).toFixed(6)),
 
   // STPRS01 - PER-KG OPERATION (Pressing)
   // Reference: 650 kg için 4.5 dk
   // Formula: 4.5 / 650 = 0.006923 dk/kg
-  STPRS01: (kg) => parseFloat(((4.5 / 650) * kg).toFixed(6)),
+  // Returns: PER-KG RATE (0.006923), not total duration
+  STPRS01: (kg) => parseFloat((4.5 / 650).toFixed(6)),
 
   // TVPKT01 - PER-KG OPERATION (Packaging with special case for small diameters)
   // Reference: "1 Kangal İçin: Shrinksiz 2.5 dk, shrinkli 5 dk"
   // Formula: (1000 / kg * timePerCoil) / 1000 = timePerCoil / kg (following GTPKT01 pattern)
   // Special ≤1.2mm: "2.5 saat 5 ton" = 150 dk / 5000 kg = 0.03 dk/kg
+  // Returns: PER-KG RATE, not total duration
   TVPKT01: (hasShrink, diameter, kg) => {
     // Special case: For diameters ≤ 1.2mm, use per-kg formula
     if (diameter && diameter <= 1.2) {
-      return parseFloat((0.03 * kg).toFixed(6));  // 150 dk / 5000 kg = 0.03 dk/kg
+      return parseFloat((0.03).toFixed(6));  // Returns 0.03 dk/kg (rate, not total)
     }
     // Normal case: Per-kg formula (following Galvanizli Tel GTPKT01 pattern)
     // Store as per-kg rate: (1000 / kg * timePerCoil) / 1000
@@ -473,8 +476,8 @@ const OPERATION_DURATIONS = {
   // BAL01 - PER-KG OPERATION (Baling)
   // Reference: 8 saat 2 ton = 2000 kg in 480 minutes
   // Formula: 480 / 2000 = 0.24 dk/kg
-  // Example: 500 kg → 120 DK (not 480 DK)
-  BAL01: (kg) => parseFloat((0.24 * kg).toFixed(6))
+  // Returns: PER-KG RATE (0.24), not total duration
+  BAL01: (kg) => parseFloat((0.24).toFixed(6))
 };
 
 // Helper function to get operation duration
