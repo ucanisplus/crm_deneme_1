@@ -7399,7 +7399,13 @@ const TavliBalyaTelNetsis = () => {
 
         console.log(`\n   📌 Checking alternative (priority ${alternative.priority}): ${altStokKodu}`);
 
-        // Parse the YM ST code to get details (format: YM.ST.CCCC.FFFF.QQQQ)
+        // Check if it's a COILER .ST product (format: YM.ST.CCCC.ST)
+        if (baseYmStKodu.endsWith('.ST')) {
+          console.log(`   ✓ COILER .ST product - these are auto-generated separately, skipping...`);
+          continue;
+        }
+
+        // Parse regular FİLMAŞİN YM ST code (format: YM.ST.CCCC.FFFF.QQQQ)
         const ymStMatch = baseYmStKodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})/);
         if (!ymStMatch) {
           console.warn(`   ⚠️ Cannot parse YM ST code: ${baseYmStKodu}, skipping...`);
@@ -7520,6 +7526,7 @@ const TavliBalyaTelNetsis = () => {
               console.log(`   ❌ YM STP not found, creating: ${ymStpKodu}`);
 
               // Create YM STP product
+              // ✅ FIXED: Removed kdv_orani - column doesn't exist in tavli_netsis_ym_stp table
               const ymStpData = {
                 stok_kodu: ymStpKodu,
                 stok_adi: `YM Preslenmiş Tel ${cap.toFixed(2)} mm`,
@@ -7527,11 +7534,7 @@ const TavliBalyaTelNetsis = () => {
                 kod_1: 'STP',
                 kod_2: filmasinCode,
                 kod_3: quality,
-                cap: cap,
-                kdv_orani: 20,
-                muh_detay: '28',
-                depo_kodu: '35',
-                stok_turu: 'D'
+                cap: cap
               };
 
               const ymStpCreateResponse = await fetchWithAuth(API_URLS.tavliNetsisYmStp, {
@@ -10169,6 +10172,61 @@ const TavliBalyaTelNetsis = () => {
       });
     });
 
+    // 🔧 CRITICAL FIX: Fetch COILER alternative products from recipes
+    // For .ST products, alternatives are generated dynamically from COILER matrix
+    // We need to fetch those products and add them to sortedYmStAltData
+    console.log('🔄 BATCH: Fetching COILER alternative YM ST products...');
+
+    // Generate COILER alternatives to find what products we need
+    const coilerAlternativesPreview = generateCoilerAlternatives(allYmStRecipes, sortedYmStData);
+    const altPrioritiesPreview = Object.keys(coilerAlternativesPreview).map(Number).sort((a, b) => a - b);
+    console.log(`📋 BATCH: Preview found ${altPrioritiesPreview.length} priority levels with COILER alternatives`);
+
+    for (const priority of altPrioritiesPreview) {
+      const altRecipes = coilerAlternativesPreview[priority];
+      if (!altRecipes || altRecipes.length === 0) continue;
+
+      // Extract unique bilesen_kodu values (alternative YM ST products)
+      const uniqueBilesenCodes = [...new Set(
+        altRecipes
+          .filter(r => r.operasyon_bilesen === 'B' && r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'))
+          .map(r => r.bilesen_kodu)
+      )];
+
+      console.log(`  Priority ${priority}: Found ${uniqueBilesenCodes.length} unique alternative YM ST products`);
+
+      // Fetch these products from database and add to sortedYmStAltData
+      if (!sortedYmStAltData[priority]) {
+        sortedYmStAltData[priority] = [];
+      }
+
+      for (const bilesenKodu of uniqueBilesenCodes) {
+        try {
+          const response = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
+          if (response && response.ok) {
+            const data = await response.json();
+            if (data && data.length > 0) {
+              // Check if not already in list (avoid duplicates)
+              const exists = sortedYmStAltData[priority].some(p => p.stok_kodu === bilesenKodu);
+              if (!exists) {
+                sortedYmStAltData[priority].push({ ...data[0], priority });
+                console.log(`    ✅ Added to YM ST ALT ${priority}: ${bilesenKodu}`);
+              }
+            } else {
+              console.warn(`    ⚠️ Not found in database: ${bilesenKodu}`);
+            }
+          }
+        } catch (error) {
+          console.error(`    ❌ Error fetching ${bilesenKodu}:`, error);
+        }
+      }
+    }
+
+    console.log(`✅ BATCH: COILER alternative products added to sortedYmStAltData`);
+    Object.keys(sortedYmStAltData).forEach(priority => {
+      console.log(`  YM ST ALT ${priority}: ${sortedYmStAltData[priority].length} products`);
+    });
+
     // Recipe order will be determined by sorted product data in generateBatchReceteExcel
     
     
@@ -11951,6 +12009,71 @@ const TavliBalyaTelNetsis = () => {
           ymStAltDataObj[priority].push(ymSt);
           console.log(`  Priority ${priority}: ${ymSt.stok_kodu}`);
         });
+
+        // 🔧 CRITICAL FIX: For COILER products, also fetch alternative products from COILER matrix
+        // because they're generated dynamically, not stored in DB with priority values
+        if (isCoilerProduct) {
+          console.log(`📋 SINGLE PRODUCT: COILER product detected, fetching matrix-based alternatives...`);
+
+          // First fetch the main YM ST recipe to generate alternatives from
+          const mainYmStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${mainYmSt.id}`);
+          if (mainYmStRecipeResponse && mainYmStRecipeResponse.ok) {
+            const mainYmStRecipes = await mainYmStRecipeResponse.json();
+            mainYmStRecipes.forEach(recipe => {
+              recipe.ym_st_stok_kodu = mainYmSt.stok_kodu;
+            });
+
+            // Generate COILER alternatives
+            const coilerAlternativesPreview = generateCoilerAlternatives(mainYmStRecipes, [mainYmSt]);
+            const coilerAltPriorities = Object.keys(coilerAlternativesPreview).map(Number).sort((a, b) => a - b);
+            console.log(`📋 SINGLE PRODUCT: Generated ${coilerAltPriorities.length} priority levels from COILER matrix`);
+
+            // Fetch the alternative products
+            for (const priority of coilerAltPriorities) {
+              const altRecipes = coilerAlternativesPreview[priority];
+              if (!altRecipes || altRecipes.length === 0) continue;
+
+              // Extract unique bilesen_kodu values (alternative YM ST products)
+              const uniqueBilesenCodes = [...new Set(
+                altRecipes
+                  .filter(r => r.operasyon_bilesen === 'B' && r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'))
+                  .map(r => r.bilesen_kodu)
+              )];
+
+              console.log(`  Priority ${priority}: Found ${uniqueBilesenCodes.length} unique alternative products`);
+
+              if (!ymStAltDataObj[priority]) {
+                ymStAltDataObj[priority] = [];
+              }
+
+              for (const bilesenKodu of uniqueBilesenCodes) {
+                try {
+                  const response = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
+                  if (response && response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                      // Check if not already in list
+                      const exists = ymStAltDataObj[priority].some(p => p.stok_kodu === bilesenKodu);
+                      if (!exists) {
+                        ymStAltDataObj[priority].push({ ...data[0], priority });
+                        console.log(`    ✅ Added to YM ST ALT ${priority}: ${bilesenKodu}`);
+                      }
+                    } else {
+                      console.warn(`    ⚠️ Not found in database: ${bilesenKodu}`);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`    ❌ Error fetching ${bilesenKodu}:`, error);
+                }
+              }
+            }
+
+            console.log(`✅ SINGLE PRODUCT: COILER alternative products added to ymStAltDataObj`);
+            Object.keys(ymStAltDataObj).forEach(priority => {
+              console.log(`  YM ST ALT ${priority}: ${ymStAltDataObj[priority].length} products`);
+            });
+          }
+        }
       }
 
       // 6. Fetch recipes from database for all products
