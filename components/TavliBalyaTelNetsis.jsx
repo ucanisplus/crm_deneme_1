@@ -427,52 +427,62 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 // Tavlı Tel / Balya Teli Recipe Structure - 4 Production Flows with Intermediates
 // ============================================================================
 // CORRECTED FLOWS (YM YB does not exist - both use YM TT):
-// FLOW 1 - TAVLI Simple (cap ≤ 1.8): YM.ST → TAV01 → YM.TT → TVPKT01 → TT.BAG
-// FLOW 2 - TAVLI Pressed (cap > 1.8): YM.ST → STPRS01 → YM.STP → TAV01 → YM.TT → TVPKT01 → TT.BAG
-// FLOW 3 - BALYA Simple (cap ≤ 1.8): YM.ST → TAV01 → YM.TT → BAL01 → TT.BALYA
-// FLOW 4 - BALYA Pressed (cap > 1.8): YM.ST → STPRS01 → YM.STP → TAV01 → YM.TT → BAL01 → TT.BALYA
+// FLOW 1 - TAVLI Simple (cap ≤ 1.8): YM.ST → TAV01 (0.18 dk/kg) → YM.TT → TVPKT01 (0.01 or 0.005 dk/kg) → TT.BAG
+// FLOW 2 - TAVLI Pressed (cap > 1.8): YM.ST → STPRS01 (0.0069 dk/kg) → YM.STP → TAV01 (0.18 dk/kg) → YM.TT → TVPKT01 → TT.BAG
+// FLOW 3 - BALYA Simple (cap ≤ 1.8): YM.ST → TAV01 (0.18 dk/kg) → YM.TT → BAL01 (0.24 dk/kg) → TT.BALYA
+// FLOW 4 - BALYA Pressed (cap > 1.8): YM.ST → STPRS01 (0.0069 dk/kg) → YM.STP → TAV01 (0.18 dk/kg) → YM.TT → BAL01 (0.24 dk/kg) → TT.BALYA
 // Both product types share the same YM TT intermediate after annealing
+// ✅ ALL operations now use PER-KG formulas (following Galvanizli Tel pattern)
 // ============================================================================
 
 // OPERATION DURATIONS (Unit: DK)
-// TAV01: Batch operation - Fixed duration per batch (annealing furnace cycle)
-// STPRS01: Per-kg operation - 650 kg için 4.5 dk → (4.5 / 650) * kg
-// TVPKT01: Per-coil operation - shrinkli 5 dk / shrinksiz 2.5 dk
-//   SPECIAL: For ≤1.2mm diameters → 2.5 saat / 5 ton = 150 dk / 5000 kg = 0.03 dk per kg
-// BAL01: Batch operation - Fixed duration per batch (baling line cycle)
+// ✅ ALL OPERATIONS USE PER-KG FORMULAS (Following Galvanizli Tel GTPKT01 pattern)
+// Reference: tavli_4/3.csv
+// TAV01: 5 ton 15 saat = 900 dk / 5000 kg = 0.18 dk/kg
+// STPRS01: 650 kg için 4.5 dk → (4.5 / 650) * kg = 0.006923 dk/kg
+// TVPKT01 Normal: 1 Kangal için 5 dk (shrink) or 2.5 dk (no shrink) → (1000 / kg * time) / 1000
+// TVPKT01 ≤1.2mm: 2.5 saat / 5 ton = 150 dk / 5000 kg = 0.03 dk/kg
+// BAL01: 8 saat 2 ton = 480 dk / 2000 kg = 0.24 dk/kg
 const OPERATION_DURATIONS = {
-  // TAV01 - BATCH OPERATION (Fixed duration per batch)
-  // Annealing furnace: One batch cycle regardless of coil weight
-  // Typical batch cycle: 900 dk (15 hours) per batch
-  TAV01: () => parseFloat((900).toFixed(6)),
+  // TAV01 - PER-KG OPERATION (Annealing)
+  // Reference: 5 ton 15 saat = 5000 kg in 900 minutes
+  // Formula: 900 / 5000 = 0.18 dk/kg
+  // Example: 500 kg → 90 DK (not 900 DK)
+  TAV01: (kg) => parseFloat((0.18 * kg).toFixed(6)),
 
-  // STPRS01 - PER-KG OPERATION (650 kg için 4.5 dk)
+  // STPRS01 - PER-KG OPERATION (Pressing)
+  // Reference: 650 kg için 4.5 dk
+  // Formula: 4.5 / 650 = 0.006923 dk/kg
   STPRS01: (kg) => parseFloat(((4.5 / 650) * kg).toFixed(6)),
 
-  // TVPKT01 - PER-COIL OPERATION (with special case for small diameters)
-  // Normal: Fixed time per coil (5 dk with shrink, 2.5 dk without)
-  // Special ≤1.2mm: Per-kg formula (0.03 dk/kg)
+  // TVPKT01 - PER-KG OPERATION (Packaging with special case for small diameters)
+  // Reference: "1 Kangal İçin: Shrinksiz 2.5 dk, shrinkli 5 dk"
+  // Formula: (1000 / kg * timePerCoil) / 1000 = timePerCoil / kg (following GTPKT01 pattern)
+  // Special ≤1.2mm: "2.5 saat 5 ton" = 150 dk / 5000 kg = 0.03 dk/kg
   TVPKT01: (hasShrink, diameter, kg) => {
     // Special case: For diameters ≤ 1.2mm, use per-kg formula
     if (diameter && diameter <= 1.2) {
       return parseFloat((0.03 * kg).toFixed(6));  // 150 dk / 5000 kg = 0.03 dk/kg
     }
-    // Normal case: Per coil formula
-    return hasShrink ? 5 : 2.5;
+    // Normal case: Per-kg formula (following Galvanizli Tel GTPKT01 pattern)
+    // Store as per-kg rate: (1000 / kg * timePerCoil) / 1000
+    const timePerCoil = hasShrink ? 5 : 2.5;
+    return parseFloat(((1000 / kg * timePerCoil) / 1000).toFixed(6));
   },
 
-  // BAL01 - BATCH OPERATION (Fixed duration per batch)
-  // Baling line: One batch cycle regardless of coil weight
-  // Typical batch cycle: 480 dk (8 hours) per batch
-  BAL01: () => parseFloat((480).toFixed(6))
+  // BAL01 - PER-KG OPERATION (Baling)
+  // Reference: 8 saat 2 ton = 2000 kg in 480 minutes
+  // Formula: 480 / 2000 = 0.24 dk/kg
+  // Example: 500 kg → 120 DK (not 480 DK)
+  BAL01: (kg) => parseFloat((0.24 * kg).toFixed(6))
 };
 
 // Helper function to get operation duration
 const getOperationDuration = (operation, kg, hasShrink = false, diameter = null) => {
-  if (operation === 'TAV01') return OPERATION_DURATIONS.TAV01();  // ✅ FIX: Batch operation (no kg param)
+  if (operation === 'TAV01') return OPERATION_DURATIONS.TAV01(kg);  // ✅ FIXED: Per-kg operation (pass kg)
   if (operation === 'STPRS01') return OPERATION_DURATIONS.STPRS01(kg);
   if (operation === 'TVPKT01') return OPERATION_DURATIONS.TVPKT01(hasShrink, diameter, kg);
-  if (operation === 'BAL01') return OPERATION_DURATIONS.BAL01();  // ✅ FIX: Batch operation (no kg param)
+  if (operation === 'BAL01') return OPERATION_DURATIONS.BAL01(kg);  // ✅ FIXED: Per-kg operation (pass kg)
   return 0;
 };
 
@@ -7699,7 +7709,7 @@ const TavliBalyaTelNetsis = () => {
           {
             bilesen_kodu: 'TAV01',
             operasyon_bilesen: 'O',
-            miktar: getOperationDuration('TAV01', kg), // ✅ UPDATED: 900 dk (15 hours)
+            miktar: getOperationDuration('TAV01', kg), // ✅ UPDATED: 0.18 dk/kg (per-kg formula)
             olcu_br: 'DK',
             aciklama: 'Tavlama Operasyonu',
             priority: alternative.priority
