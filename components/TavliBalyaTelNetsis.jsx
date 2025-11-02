@@ -3308,10 +3308,10 @@ const TavliBalyaTelNetsis = () => {
       setMainYmStIndex(0);
     }
 
-    // Calculate recipes for auto-generated YM STs
-    setTimeout(() => {
-      calculateAutoRecipeValues();
-    }, 100);
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // setTimeout(() => {
+    //   calculateAutoRecipeValues();
+    // }, 100);
   };
 
   // Simplified YM ST creation for Tavli/Balya - Always creates ONE siyah tel product
@@ -3455,9 +3455,10 @@ const TavliBalyaTelNetsis = () => {
           setMainYmStIndex(0);
         }
 
-        setTimeout(() => {
-          calculateAutoRecipeValues();
-        }, 100);
+        // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+        // setTimeout(() => {
+        //   calculateAutoRecipeValues();
+        // }, 100);
 
         toast.success(`${productsToAdd.length} mevcut YM ST eklendi`);
       } else {
@@ -3480,9 +3481,10 @@ const TavliBalyaTelNetsis = () => {
       setMainYmStIndex(0);
     }
 
-    setTimeout(() => {
-      calculateAutoRecipeValues();
-    }, 100);
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // setTimeout(() => {
+    //   calculateAutoRecipeValues();
+    // }, 100);
 
     toast.success(`${autoYmSts.length} YM ST ürün oluşturuldu`);
   };
@@ -4050,11 +4052,11 @@ const TavliBalyaTelNetsis = () => {
           setActiveRecipeTab(prevSelectedLength);
         }
         
-        // Trigger recipe calculation
-        setTimeout(() => {
-          calculateAutoRecipeValues();
-        }, 100);
-        
+        // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+        // setTimeout(() => {
+        //   calculateAutoRecipeValues();
+        // }, 100);
+
         toast.success(`${selectedExisting.length} mevcut YM ST seçildi ve tüm reçete verileri yüklendi`);
       }, 100);
       
@@ -4134,11 +4136,11 @@ const TavliBalyaTelNetsis = () => {
       setAllRecipes(updatedAllRecipes);
       setRecipeStatus(updatedRecipeStatus);
       
-      // Trigger recipe calculation to populate other fields
-      setTimeout(() => {
-        calculateAutoRecipeValues();
-      }, 100);
-      
+      // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+      // setTimeout(() => {
+      //   calculateAutoRecipeValues();
+      // }, 100);
+
     } catch (error) {
       console.error('Error loading existing recipe data:', error);
       toast.error('Reçete verileri yüklenirken hata oluştu');
@@ -4241,36 +4243,43 @@ const TavliBalyaTelNetsis = () => {
       const shrinkCode = getShrinkCode(mmData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
 
-      // AMB.TOKA.SIGNODE.114P. DKP (Çember Tokası): =(4*(1000/kg))/1000
-      const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+      // ✅ FIXED: Çember Tokası - "paketleme 4 + presleme 4" per 2.csv
+      // "1.2 tonda" specification → proportional to weight (Interpretation 2)
+      const tokaValue = parseFloat((4 / 1200).toFixed(5));
 
-      // SM.7MMHALKA (Kaldırma Kancası): =(4*(1000/kg))/1000
-      const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+      // ✅ FIXED: Kaldırma Kancası - "4 adet paketleme + 2 adet presleme" per 2.csv
+      // "1.2 tonda" specification → proportional to weight (Interpretation 2)
+      const halkaValue = parseFloat((4 / 1200).toFixed(5));
 
-      // AMB.APEX CEMBER 38X080 (Çelik Çember): =(1.2*(1000/kg))/1000 - from Galvanizli
+      // ✅ FIXED: Çelik Çember - "Galvaniz componentinden al + presleme varsa x2"
+      // Use Galvaniz formula as specified in 2.csv
       const celikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
-      // ✅ UPDATED: Karton - CONDITIONAL (ONLY for oiled products per gene2l.csv)
-      // "Yağlıda 1.2 tonda 7 adet"
+      // ✅ FIXED: Karton - CONDITIONAL (ONLY for oiled products per 2.csv)
+      // "Yağlı ürünlerde ekle 1.2 tonda 7 adet" → proportional to weight (Interpretation 2)
+      // Formula: 7 / 1200 = constant per-kg coefficient
       let kartonValue = 0;
       if (mmData.yaglama_tipi && mmData.yaglama_tipi !== '') {
         // Oiled product - REQUIRED
-        kartonValue = parseFloat(((7 / 1200) * kg).toFixed(5));
+        kartonValue = parseFloat((7 / 1200).toFixed(5));
       }
       // Note: Annealed products (yaglama_tipi empty) do NOT get Karton
 
-      // ✅ UPDATED: Plastik Çember - CONDITIONAL (ONLY for oiled products per gene2l.csv)
-      // "Yağlı 1.2 tonda 10 m"
+      // ✅ FIXED: Plastik Çember - CONDITIONAL (ONLY for oiled products per 2.csv)
+      // "Yağlı ürünlerde ekle 1.2 tonda 10 m" → proportional to weight (Interpretation 2)
+      // Formula: 10 / 1200 = constant per-kg coefficient
       let plastikCemberValue = 0;
       if (mmData.yaglama_tipi && mmData.yaglama_tipi !== '') {
-        plastikCemberValue = parseFloat(((10 / 1200) * kg).toFixed(5));
+        plastikCemberValue = parseFloat((10 / 1200).toFixed(5));
       }
       // Note: Annealed products do NOT get Plastik Çember
 
       // ❌ REMOVED: Streç - NOT in gene2l.csv constraints
       // Was: const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
 
-      // ✅ FIXED: Palet - 1 per 1.2 ton (per gene2l.csv: "1.2 tonda 1 palet")
+      // ✅ FIXED: Palet - "1.2 tonda 1 palet" per 2.csv
+      // "1.2 tonda" specification → proportional to weight (Interpretation 2)
+      // Formula: 1 / 1200 = constant per-kg coefficient
       const paletValue = parseFloat((1 / 1200).toFixed(5));
 
       // ✅ UPDATED: Packaging operation duration - USE NEW getOperationDuration()
@@ -4550,9 +4559,9 @@ const TavliBalyaTelNetsis = () => {
   // Fill empty fields with auto-fill indicators for all recipe types
   const fillEmptyFieldsWithAutoFill = () => {
     
-    // Instead of using hardcoded defaults, calculate proper values
-    calculateAutoRecipeValues(); // Calculate proper recipe values based on formulas
-    
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // calculateAutoRecipeValues(); // Calculate proper recipe values based on formulas
+
     // Mark all filled fields as 'auto' in recipe status
     setRecipeStatus(prev => {
       const updated = { ...prev };
@@ -5131,13 +5140,13 @@ const TavliBalyaTelNetsis = () => {
       }
     }
     
-    // Only recalculate auto values if not viewing existing product
-    if (!isViewingExistingProduct) {
-      // Seçim değiştiğinde reçeteleri yeniden hesapla
-      setTimeout(() => {
-        calculateAutoRecipeValues();
-      }, 200);
-    }
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // if (!isViewingExistingProduct) {
+    //   // Seçim değiştiğinde reçeteleri yeniden hesapla
+    //   setTimeout(() => {
+    //     calculateAutoRecipeValues();
+    //   }, 200);
+    // }
   };
 
   // Otomatik oluşturulan YM ST'yi sil
@@ -5166,9 +5175,10 @@ const TavliBalyaTelNetsis = () => {
     }
     
     setAutoGeneratedYmSts(prev => prev.filter((_, i) => i !== index));
-    setTimeout(() => {
-      calculateAutoRecipeValues();
-    }, 100);
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // setTimeout(() => {
+    //   calculateAutoRecipeValues();
+    // }, 100);
   };
 
   // Seçili YM ST'yi sil
@@ -5192,9 +5202,10 @@ const TavliBalyaTelNetsis = () => {
     }
     
     setSelectedYmSts(prev => prev.filter((_, i) => i !== index));
-    setTimeout(() => {
-      calculateAutoRecipeValues();
-    }, 100);
+    // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+    // setTimeout(() => {
+    //   calculateAutoRecipeValues();
+    // }, 100);
   };
 
   // Reçete güncelleme fonksiyonu - NOKTA kullan
@@ -5351,12 +5362,12 @@ const TavliBalyaTelNetsis = () => {
           }
         }
       }));
-      // FLM değişikliği durumunda diğer hesaplamaları tetikle
-      if (key.includes('FLM.')) {
-        setTimeout(() => {
-          calculateAutoRecipeValues();
-        }, 100);
-      }
+      // ❌ DISABLED: Auto-calculation removed - user must click "Otomatik Doldur" button
+      // if (key.includes('FLM.')) {
+      //   setTimeout(() => {
+      //     calculateAutoRecipeValues();
+      //   }, 100);
+      // }
     }
   };
 
@@ -14355,26 +14366,25 @@ const TavliBalyaTelNetsis = () => {
                     const shrinkAmount = calculateShrinkAmount(kg);
 
                     // Calculate auxiliary components using formulas
-                    // ✅ FIXED: AMB.ÇEM.KARTON.GAL: gene2l.csv says "1.2 tonda 7 adet"
-                    const kartonValue = parseFloat(((7.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: Karton - "1.2 tonda 7 adet" per 2.csv → proportional to weight
+                    const kartonValue = parseFloat((7 / 1200).toFixed(5));
 
-                    // ✅ FIXED: SM.7MMHALKA: gene2l.csv "4 adet paketleme + 2 adet presleme"
-                    // → 4 for paketleme (MM TT), 2 for presleme (YM STP) - separate stages!
-                    const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: Kaldırma Kancası - "4 adet paketleme + 2 adet presleme" per 2.csv → proportional to weight
+                    const halkaValue = parseFloat((4 / 1200).toFixed(5));
 
-                    // ✅ FIXED: AMB.PLASTİK.ÇEMBER: gene2l.csv says "1.2 tonda 10 m"
-                    const plastikCemberValue = parseFloat(((10.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: Plastik Çember - "1.2 tonda 10 m" per 2.csv → proportional to weight
+                    const plastikCemberValue = parseFloat((10 / 1200).toFixed(5));
 
-                    // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/kg))/1000
-                    const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: Çember Tokası - "paketleme 4 + presleme 4" per 2.csv → proportional to weight
+                    const tokaValue = parseFloat((4 / 1200).toFixed(5));
 
                     // ❌ REMOVED: AMB.STREÇ - not in gene2l.csv constraints
                     // const strecValue = parseFloat(((0.5 * (1000 / kg)) / 1000).toFixed(5));
 
-                    // AMB.PALET: =(1*(1000/kg))/1000
-                    const paletValue = parseFloat(((1.0 * (1000 / kg)) / 1000).toFixed(5));
+                    // ✅ FIXED: Palet - "1.2 tonda 1 palet" per 2.csv → proportional to weight
+                    const paletValue = parseFloat((1 / 1200).toFixed(5));
 
-                    // AMB.APEX CEMBER 38X080 (Çelik Çember) - TAVLI ONLY
+                    // ✅ FIXED: Çelik Çember - "Galvaniz componentinden al" per 2.csv → use Galvaniz formula
                     const celikCemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
 
                     // Packaging operation duration
@@ -14437,23 +14447,27 @@ const TavliBalyaTelNetsis = () => {
                         updateIfNotDb(shrinkCode, shrinkAmount);
                       }
 
-                      // Halka (Kaldırma Kancası) - Always include (4 for packaging + extras if needed)
-                      updateIfNotDb('SM.7MMHALKA', halkaValue);
+                      // ✅ TAVLI-ONLY components (per 4.csv structure)
+                      if (mmData.product_type === 'TAVLI') {
+                        // Halka (Kaldırma Kancası) - TAVLI only
+                        updateIfNotDb('SM.7MMHALKA', halkaValue);
 
-                      // Plastik Çember - For oiled products only
+                        // Çember Tokası - TAVLI only (4 for packaging + 4 for pressing if cap >= 1.8mm)
+                        // "paketleme 4 + presleme 4" → 8 total if pressing needed
+                        const tokaTotalValue = needsPressing ? parseFloat((8 / 1200).toFixed(5)) : tokaValue;
+                        updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaTotalValue);
+
+                        // Çelik Çember - TAVLI only, x2 if pressing needed (Galvaniz formula)
+                        const celikCemberTotalValue = needsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
+                        updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberTotalValue);
+                      }
+
+                      // Plastik Çember - For oiled products only (both TAVLI and BALYA)
                       if (mmData.yaglama_tipi && mmData.yaglama_tipi !== 'Yağsız') {
                         updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue);
                       }
 
-                      // Çember Tokası - Always include (4 for packaging + 4 for pressing if cap >= 1.8mm)
-                      const tokaTotalValue = needsPressing ? parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5)) : tokaValue;
-                      updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaTotalValue);
-
-                      // Çelik Çember - Always include, x2 if pressing needed
-                      const celikCemberTotalValue = needsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
-                      updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberTotalValue);
-
-                      // Palet - Only if packaging includes palet
+                      // Palet - Only if packaging includes palet (both TAVLI and BALYA)
                       if (paketlemeSecenekleri.paletli) {
                         updateIfNotDb('AMB.PALET', paletValue);
                       }
@@ -14606,18 +14620,23 @@ const TavliBalyaTelNetsis = () => {
                         const packagingOp = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
                         const packagingLabel = mmData.product_type === 'TAVLI' ? 'Paketleme (TVPKT01)' : 'Balyalama (BAL01)';
 
-                        const components = [
-                          { key: 'ymtt_source', label: 'YM.TT Kaynağı', type: 'readonly', unit: 'KG' },
-                          { key: packagingOp, label: packagingLabel, type: 'input', unit: 'DK' },
-                          { key: 'AMB.ÇEM.KARTON.GAL', label: 'Karton', type: 'input', unit: 'AD' },
-                          { key: 'shrink', label: 'Shrink', type: 'dropdown', unit: 'KG' },
-                          { key: 'SM.7MMHALKA', label: '7mm Halka (Kaldırma Kancası)', type: 'input', unit: 'AD' },
-                          { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'AD' },
-                          { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD' },
-                          { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD' },
-                          // ❌ REMOVED: { key: 'AMB.STREÇ', label: 'Streç', type: 'input', unit: 'KG' } - not in gene2l.csv
-                          { key: 'AMB.PALET', label: 'Palet', type: 'input', unit: 'AD' }
+                        // ✅ FIX: Define all possible components, then filter based on packaging selection AND product type
+                        const allComponents = [
+                          { key: 'ymtt_source', label: 'YM.TT Kaynağı', type: 'readonly', unit: 'KG', alwaysShow: true },
+                          { key: packagingOp, label: packagingLabel, type: 'input', unit: 'DK', alwaysShow: true },
+                          { key: 'AMB.ÇEM.KARTON.GAL', label: 'Karton', type: 'input', unit: 'AD', condition: paketlemeSecenekleri.karton },
+                          { key: 'shrink', label: 'Shrink', type: 'dropdown', unit: 'KG', condition: paketlemeSecenekleri.shrink },
+                          // ✅ TAVLI-ONLY components (per 4.csv structure)
+                          { key: 'SM.7MMHALKA', label: '7mm Halka (Kaldırma Kancası)', type: 'input', unit: 'AD', condition: mmData.product_type === 'TAVLI' },
+                          { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD', condition: mmData.product_type === 'TAVLI' },
+                          { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD', condition: mmData.product_type === 'TAVLI' },
+                          // ✅ BOTH TAVLI and BALYA components
+                          { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'M', alwaysShow: true },
+                          { key: 'AMB.PALET', label: 'Palet', type: 'input', unit: 'AD', condition: paketlemeSecenekleri.paletli }
                         ];
+
+                        // ✅ FIX: Only show components that are either always shown OR have their condition met
+                        const components = allComponents.filter(comp => comp.alwaysShow || comp.condition);
 
                         return components.map(({ key, label, type, unit }) => {
                           let currentValue = '';
