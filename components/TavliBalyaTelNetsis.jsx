@@ -436,7 +436,8 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 // OPERATION DURATIONS (Unit: DK) - UPDATED from gene3l.csv
 // TAV01: 5 ton için 15 saat → 900 dk / 5000 kg = 0.18 dk per kg
 // STPRS01: 650 kg için 4.5 dk → (4.5 / 650) * kg
-// TVPKT01: 1 Kangal İçin (per coil, NOT per kg!) → shrinkli 5 dk / shrinksiz 2.5 dk
+// TVPKT01: 1 Kangal İçin (per coil) → shrinkli 5 dk / shrinksiz 2.5 dk
+//   SPECIAL: "1.2 mm tavlı paketleme" → 2.5 saat / 5 ton = 150 dk / 5000 kg = 0.03 dk per kg
 // BAL01: 8 saat 2 ton → 480 dk / 2000 kg = 0.24 dk per kg
 const OPERATION_DURATIONS = {
   // TAV01 - PER BATCH (5 ton = 15 hours)
@@ -446,9 +447,16 @@ const OPERATION_DURATIONS = {
   // STPRS01 - Per 650 kg (unchanged)
   STPRS01: (kg) => parseFloat(((4.5 / 650) * kg).toFixed(6)),
 
-  // TVPKT01 - FIXED PER KANGAL (not dependent on kg!)
-  // Shrink: 5 dk, No shrink: 2.5 dk
-  TVPKT01: (hasShrink) => hasShrink ? 5 : 2.5,
+  // TVPKT01 - VARIABLE: Per coil for normal, per kg for ≤1.2mm
+  // ✅ FIX: Special case for 1.2mm products (per 3.csv line 5-6)
+  TVPKT01: (hasShrink, diameter, kg) => {
+    // Special case: For diameters ≤ 1.2mm, use per-kg formula
+    if (diameter && diameter <= 1.2) {
+      return parseFloat((0.03 * kg).toFixed(6));  // 150 dk / 5000 kg = 0.03 dk/kg
+    }
+    // Normal case: Per coil formula
+    return hasShrink ? 5 : 2.5;
+  },
 
   // BAL01 - PER BATCH (8 hours = 480 dk per 2 ton)
   // Example: 1000kg → 0.24 * 1000 = 240 dk
@@ -456,10 +464,10 @@ const OPERATION_DURATIONS = {
 };
 
 // Helper function to get operation duration
-const getOperationDuration = (operation, kg, hasShrink = false) => {
+const getOperationDuration = (operation, kg, hasShrink = false, diameter = null) => {
   if (operation === 'TAV01') return OPERATION_DURATIONS.TAV01(kg);
   if (operation === 'STPRS01') return OPERATION_DURATIONS.STPRS01(kg);
-  if (operation === 'TVPKT01') return OPERATION_DURATIONS.TVPKT01(hasShrink); // No kg parameter!
+  if (operation === 'TVPKT01') return OPERATION_DURATIONS.TVPKT01(hasShrink, diameter, kg);
   if (operation === 'BAL01') return OPERATION_DURATIONS.BAL01(kg);
   return 0;
 };
@@ -4287,7 +4295,7 @@ const TavliBalyaTelNetsis = () => {
       const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
       const hasShrink = mmData.shrink === 'evet';
       const packagingDuration = mmData.product_type === 'TAVLI'
-        ? getOperationDuration('TVPKT01', kg, hasShrink)
+        ? getOperationDuration('TVPKT01', kg, hasShrink, cap)  // ✅ FIX: Pass diameter for 1.2mm check
         : getOperationDuration('BAL01', kg);
 
       // ✅ REMOVED: SM.DESİ.PAK (Silkajel) - NOT in tavlı/balya CSV specification
@@ -4333,14 +4341,26 @@ const TavliBalyaTelNetsis = () => {
       // ✅ MM TT (TAVLI) ONLY components - per user table
       if (mmData.product_type === 'TAVLI') {
         console.log(`\n🎯 Adding TAVLI-ONLY components:`);
-        newMmGtRecipes[index]['SM.7MMHALKA'] = parseFloat(halkaValue.toFixed(5)); // Kaldırma Kancası
-        console.log(`   ✅ SM.7MMHALKA (Kaldırma Kancası): ${parseFloat(halkaValue.toFixed(5))}`);
 
-        newMmGtRecipes[index]['AMB.TOKA.SIGNODE.114P. DKP'] = parseFloat(tokaValue.toFixed(5)); // Çember Tokası
-        console.log(`   ✅ AMB.TOKA.SIGNODE.114P. DKP (Çember Tokası): ${parseFloat(tokaValue.toFixed(5))}`);
+        // ✅ FIX: Check if product needed pressing (based on YM ST cap >= 1.8mm)
+        const ymStCapValue = parseFloat(ymSt.cap) || 0;
+        const productNeedsPressing = ymStCapValue >= 1.8;
+        console.log(`   🔨 YM ST cap: ${ymStCapValue}mm, Pressing needed: ${productNeedsPressing}`);
 
-        newMmGtRecipes[index]['AMB.APEX CEMBER 38X080'] = parseFloat(celikCemberValue.toFixed(5)); // Çelik Çember
-        console.log(`   ✅ AMB.APEX CEMBER 38X080 (Çelik Çember): ${parseFloat(celikCemberValue.toFixed(5))}`);
+        // Halka (Kaldırma Kancası) - 4 base + 2 if pressing needed
+        const halkaTotalValue = productNeedsPressing ? parseFloat((6 / 1200).toFixed(5)) : halkaValue;
+        newMmGtRecipes[index]['SM.7MMHALKA'] = parseFloat(halkaTotalValue.toFixed(5));
+        console.log(`   ✅ SM.7MMHALKA (Kaldırma Kancası): ${parseFloat(halkaTotalValue.toFixed(5))} ${productNeedsPressing ? '(6 pieces - with pressing)' : '(4 pieces - no pressing)'}`);
+
+        // Çember Tokası - 4 base + 4 if pressing needed
+        const tokaTotalValue = productNeedsPressing ? parseFloat((8 / 1200).toFixed(5)) : tokaValue;
+        newMmGtRecipes[index]['AMB.TOKA.SIGNODE.114P. DKP'] = parseFloat(tokaTotalValue.toFixed(5));
+        console.log(`   ✅ AMB.TOKA.SIGNODE.114P. DKP (Çember Tokası): ${parseFloat(tokaTotalValue.toFixed(5))} ${productNeedsPressing ? '(8 pieces - with pressing)' : '(4 pieces - no pressing)'}`);
+
+        // Çelik Çember - from Galvaniz, x2 if pressing needed
+        const celikCemberTotalValue = productNeedsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
+        newMmGtRecipes[index]['AMB.APEX CEMBER 38X080'] = parseFloat(celikCemberTotalValue.toFixed(5));
+        console.log(`   ✅ AMB.APEX CEMBER 38X080 (Çelik Çember): ${parseFloat(celikCemberTotalValue.toFixed(5))} ${productNeedsPressing ? '(x2 - with pressing)' : '(x1 - no pressing)'}`);
       } else {
         console.log(`\n❌ BALYA product - EXCLUDING TAVLI-ONLY components (Halka, Toka, Çelik Çember)`);
       }
@@ -14390,8 +14410,9 @@ const TavliBalyaTelNetsis = () => {
                     // Packaging operation duration
                     const packagingOperation = mmData.product_type === 'TAVLI' ? 'TVPKT01' : 'BAL01';
                     // ✅ CRITICAL FIX: OPERATION_DURATIONS values are functions - must call them!
+                    const mmCapValue = parseFloat(mmData.cap) || 0;
                     const packagingDuration = mmData.product_type === 'TAVLI'
-                      ? OPERATION_DURATIONS.TVPKT01(paketlemeSecenekleri.shrink)
+                      ? OPERATION_DURATIONS.TVPKT01(paketlemeSecenekleri.shrink, mmCapValue, kg)  // ✅ FIX: Pass diameter for 1.2mm check
                       : OPERATION_DURATIONS.BAL01(kg);
 
                     // Update recipes for all YM STs
@@ -14449,8 +14470,10 @@ const TavliBalyaTelNetsis = () => {
 
                       // ✅ TAVLI-ONLY components (per 4.csv structure)
                       if (mmData.product_type === 'TAVLI') {
-                        // Halka (Kaldırma Kancası) - TAVLI only
-                        updateIfNotDb('SM.7MMHALKA', halkaValue);
+                        // Halka (Kaldırma Kancası) - TAVLI only (4 for packaging + 2 for pressing if cap >= 1.8mm)
+                        // ✅ FIX: "4 adet paketleme + 2 adet presleme" → 6 total if pressing needed
+                        const halkaTotalValue = needsPressing ? parseFloat((6 / 1200).toFixed(5)) : halkaValue;
+                        updateIfNotDb('SM.7MMHALKA', halkaTotalValue);
 
                         // Çember Tokası - TAVLI only (4 for packaging + 4 for pressing if cap >= 1.8mm)
                         // "paketleme 4 + presleme 4" → 8 total if pressing needed
