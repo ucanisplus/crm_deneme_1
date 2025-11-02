@@ -230,17 +230,14 @@ const COILER_ALTERNATIVE_MATRIX = {
   ],
 
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
-  // ✅ FIX: Added priorities 6-8 with 1008 grade per COİL ALTERNATİF matrix
+  // Per COİL ALTERNATİF matrix: Only 6 alternatives (0-5), all 1006 grade
   '≤1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
     { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
-    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
-    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
-    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
-    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
 
   // Category 3: 1.50mm to 1.79mm
